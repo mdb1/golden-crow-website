@@ -2327,6 +2327,104 @@ describe("support service pagination", () => {
     );
   });
 
+  it("finds transactions by partial frozen service and provider names", async () => {
+    seedDoc("service_transactions", "transaction-searchable-snapshots", {
+      schemaVersion: 1,
+      requestId: "pgr_searchable_1",
+      offerId: "offer-searchable",
+      serviceId: "pgs_special_report_12345",
+      serviceVersion: 1,
+      providerId: "feed-org-searchable",
+      providerKind: "organization",
+      status: "received",
+      requestedByUserEmail: "doctor@example.com",
+      requestRevision: 1,
+      idempotencyKey: "searchable-snapshots",
+      inputs: [],
+      outputObjects: [],
+      outputReports: [],
+      issues: [],
+      missingRequiredInputRoles: [],
+      normalizedName: "pgr searchable 1 pgs special report 12345",
+      offerSnapshot: {
+        ...baseOffer,
+        offerId: "offer-searchable",
+        serviceId: "pgs_special_report_12345",
+        name: "Advanced Genomic Report",
+        providerId: "feed-org-searchable",
+        providerName: "Laboratorio Cóndor Austral",
+      },
+      providerSnapshot: {
+        id: "feed-org-searchable",
+        kind: "organization",
+        name: "Laboratorio Cóndor Austral",
+      },
+      contractSource: "pocket_genes_services_wiki_v1",
+      updatedAt: "2026-09-16T12:00:00.000Z",
+    });
+    seedDoc("service_transactions", "transaction-unrelated", {
+      schemaVersion: 1,
+      requestId: "pgr_unrelated_1",
+      offerId: "offer-unrelated",
+      serviceId: "pgs_unrelated_54321",
+      serviceVersion: 1,
+      providerId: "feed-org-unrelated",
+      providerKind: "organization",
+      status: "received",
+      requestedByUserEmail: "other@example.com",
+      requestRevision: 1,
+      idempotencyKey: "unrelated",
+      inputs: [],
+      outputObjects: [],
+      outputReports: [],
+      issues: [],
+      missingRequiredInputRoles: [],
+      offerSnapshot: {
+        ...baseOffer,
+        offerId: "offer-unrelated",
+        serviceId: "pgs_unrelated_54321",
+        name: "Other Service",
+        providerId: "feed-org-unrelated",
+        providerName: "Other Provider",
+      },
+      providerSnapshot: {
+        id: "feed-org-unrelated",
+        kind: "organization",
+        name: "Other Provider",
+      },
+      contractSource: "pocket_genes_services_wiki_v1",
+      updatedAt: "2026-09-16T12:00:00.000Z",
+    });
+    const { listSupportServiceTransactions } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      listSupportServiceTransactions(context, { query: "genom rep" }),
+    ).resolves.toEqual({
+      transactions: [
+        expect.objectContaining({ requestId: "pgr_searchable_1" }),
+      ],
+      nextCursor: undefined,
+    });
+    await expect(
+      listSupportServiceTransactions(context, { serviceId: "advanced geno" }),
+    ).resolves.toEqual({
+      transactions: [
+        expect.objectContaining({ requestId: "pgr_searchable_1" }),
+      ],
+      nextCursor: undefined,
+    });
+    await expect(
+      listSupportServiceTransactions(context, { provider: "condor aust" }),
+    ).resolves.toEqual({
+      transactions: [
+        expect.objectContaining({ requestId: "pgr_searchable_1" }),
+      ],
+      nextCursor: undefined,
+    });
+  });
+
   it("paginates offers and transactions that lack updatedAt instead of excluding them", async () => {
     seedDoc("service_offers", "zz-offer-without-updated-at", {
       ...baseOffer,

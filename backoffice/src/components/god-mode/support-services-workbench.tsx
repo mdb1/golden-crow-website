@@ -58,6 +58,7 @@ import {
   Trash2,
   UploadCloud,
   Wand2,
+  X,
   XCircle,
   type LucideIcon,
 } from "lucide-react";
@@ -221,6 +222,7 @@ type ServiceFilters = {
   status: string;
   stage: string;
   serviceId: string;
+  provider: string;
 };
 
 type FormFieldDraft = SupportServiceFormField & {
@@ -827,6 +829,7 @@ function emptyFilters(): ServiceFilters {
     status: "all",
     stage: "all",
     serviceId: "",
+    provider: "",
   };
 }
 
@@ -3108,6 +3111,9 @@ function buildListPath(
   if (kind === "transactions" && filters.serviceId.trim()) {
     params.set("serviceId", filters.serviceId.trim());
   }
+  if (kind === "transactions" && filters.provider.trim()) {
+    params.set("provider", filters.provider.trim());
+  }
 
   return `/admin/support-services/${kind}?${params.toString()}`;
 }
@@ -3151,6 +3157,7 @@ export function SupportServicesBrowser({
     serviceId:
       kind === "transactions" ? initialServiceIdFilter.trim() : "",
   }));
+  const [filterDrafts, setFilterDrafts] = useState<ServiceFilters>(filters);
   const [toastCounter, setToastCounter] = useState(1);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const [listErrorLogOpen, setListErrorLogOpen] = useState(false);
@@ -3196,6 +3203,29 @@ export function SupportServicesBrowser({
     initialPageParam: "",
     getNextPageParam: (lastPage) => lastPage.nextCursor,
   });
+
+  function applyFilterDrafts(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const nextFilters = {
+      ...filterDrafts,
+      query: filterDrafts.query.trim(),
+      serviceId: filterDrafts.serviceId.trim(),
+      provider: filterDrafts.provider.trim(),
+    };
+    setSelectedTransactionIds(new Set());
+    if (JSON.stringify(nextFilters) === JSON.stringify(filters)) {
+      void listQuery.refetch();
+      return;
+    }
+    setFilters(nextFilters);
+  }
+
+  function clearFilters() {
+    const nextFilters = emptyFilters();
+    setFilterDrafts(nextFilters);
+    setFilters(nextFilters);
+    setSelectedTransactionIds(new Set());
+  }
 
   const offers = useMemo(
     () =>
@@ -3431,7 +3461,14 @@ export function SupportServicesBrowser({
       filters.status !== "all" ||
       (isOffers
         ? filters.stage !== "all"
-        : filters.serviceId.trim()),
+        : filters.serviceId.trim() || filters.provider.trim()),
+  );
+  const hasDraftFilters = Boolean(
+    filterDrafts.query.trim() ||
+      filterDrafts.status !== "all" ||
+      (isOffers
+        ? filterDrafts.stage !== "all"
+        : filterDrafts.serviceId.trim() || filterDrafts.provider.trim()),
   );
   const showPublisherEmptyState =
     publisherPresentation &&
@@ -3796,75 +3833,145 @@ export function SupportServicesBrowser({
               ) : null}
             </div>
           </div>
-          <div className="grid gap-3 lg:grid-cols-[minmax(14rem,1fr)_12rem_12rem]">
-            <label className="relative block">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={filters.query}
-                onChange={(event) =>
-                  setFilters((current) => ({
-                    ...current,
-                    query: event.target.value,
-                  }))
-                }
-                placeholder={t("Search by ID, provider, request, or name")}
-                className="pl-9"
-              />
+          <form
+            className={cn(
+              "grid items-end gap-3 md:grid-cols-2",
+              isOffers
+                ? "xl:grid-cols-[minmax(16rem,1fr)_12rem_12rem_auto]"
+                : "xl:grid-cols-[minmax(16rem,1fr)_11rem_minmax(12rem,0.7fr)_minmax(12rem,0.7fr)_auto]",
+            )}
+            onSubmit={applyFilterDrafts}
+          >
+            <label className="grid gap-1.5">
+              <span className="text-xs font-semibold text-muted-foreground">
+                {t("Search")}
+              </span>
+              <span className="relative block">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={filterDrafts.query}
+                  onChange={(event) =>
+                    setFilterDrafts((current) => ({
+                      ...current,
+                      query: event.target.value,
+                    }))
+                  }
+                  placeholder={t("Search by ID, provider, request, or name")}
+                  className="pl-9"
+                />
+              </span>
             </label>
-            <Select
-              value={filters.status}
-              onValueChange={(value) =>
-                setFilters((current) => ({ ...current, status: value }))
-              }
-            >
-              <SelectTrigger>
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t("All statuses")}</SelectItem>
-                {(isOffers
-                  ? SUPPORT_SERVICE_OFFER_STATUSES
-                  : SUPPORT_SERVICE_TRANSACTION_STATUSES
-                ).map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {t(option.label)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {isOffers ? (
+            <div className="grid gap-1.5">
+              <span className="text-xs font-semibold text-muted-foreground">
+                {t("Status")}
+              </span>
               <Select
-                value={filters.stage}
+                value={filterDrafts.status}
                 onValueChange={(value) =>
-                  setFilters((current) => ({ ...current, stage: value }))
+                  setFilterDrafts((current) => ({ ...current, status: value }))
                 }
               >
                 <SelectTrigger>
+                  <Filter className="h-4 w-4 text-muted-foreground" />
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">{t("All stages")}</SelectItem>
-                  {SUPPORT_SERVICE_STAGES.map((option) => (
+                  <SelectItem value="all">{t("All statuses")}</SelectItem>
+                  {(isOffers
+                    ? SUPPORT_SERVICE_OFFER_STATUSES
+                    : SUPPORT_SERVICE_TRANSACTION_STATUSES
+                  ).map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {t(option.label)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            {isOffers ? (
+              <div className="grid gap-1.5">
+                <span className="text-xs font-semibold text-muted-foreground">
+                  {t("Stage")}
+                </span>
+                <Select
+                  value={filterDrafts.stage}
+                  onValueChange={(value) =>
+                    setFilterDrafts((current) => ({
+                      ...current,
+                      stage: value,
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t("All stages")}</SelectItem>
+                    {SUPPORT_SERVICE_STAGES.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {t(option.label)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             ) : (
-              <Input
-                value={filters.serviceId}
-                onChange={(event) =>
-                  setFilters((current) => ({
-                    ...current,
-                    serviceId: event.target.value,
-                  }))
-                }
-                placeholder={t("Filter by service ID")}
-              />
+              <>
+                <label className="grid gap-1.5">
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    {t("Service")}
+                  </span>
+                  <Input
+                    value={filterDrafts.serviceId}
+                    onChange={(event) =>
+                      setFilterDrafts((current) => ({
+                        ...current,
+                        serviceId: event.target.value,
+                      }))
+                    }
+                    placeholder={t("Service name or ID")}
+                  />
+                </label>
+                <label className="grid gap-1.5">
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    {t("Provider")}
+                  </span>
+                  <Input
+                    value={filterDrafts.provider}
+                    onChange={(event) =>
+                      setFilterDrafts((current) => ({
+                        ...current,
+                        provider: event.target.value,
+                      }))
+                    }
+                    placeholder={t("Provider name or ID")}
+                  />
+                </label>
+              </>
             )}
-          </div>
+            <div className="flex flex-wrap gap-2 md:col-span-2 xl:col-span-1">
+              <Button
+                type="submit"
+                size="sm"
+                className={cn("flex-1", SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS)}
+              >
+                <Search className="h-4 w-4" />
+                <span>{t("Search")}</span>
+              </Button>
+              {hasDraftFilters || hasActiveFilters ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={clearFilters}
+                  className={SUPPORT_SERVICE_SOFT_BUTTON_CLASS}
+                >
+                  <X className="h-4 w-4" />
+                  <span>{t("Clear filters")}</span>
+                </Button>
+              ) : null}
+            </div>
+          </form>
         </div>
         <div className={SUPPORT_SERVICE_TABLE_SHELL_CLASS}>
           {showPublisherRows ? (

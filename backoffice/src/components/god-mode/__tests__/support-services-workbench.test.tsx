@@ -866,11 +866,45 @@ describe("support services workbenches", () => {
     expect(
       (
         screen.getByPlaceholderText(
-          "Filter by service ID",
+          "Service name or ID",
         ) as HTMLInputElement
       ).value,
     ).toBe(hiddenOffer.serviceId);
     expect(sdkFetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("submits partial transaction, service, and provider searches explicitly", async () => {
+    sdkFetchMock.mockResolvedValue({
+      transactions: [runningTransaction],
+      nextCursor: undefined,
+    });
+
+    renderWithQueryClient(<SupportServicesBrowser kind="transactions" />);
+
+    expect(await screen.findByText(runningTransaction.requestId)).toBeTruthy();
+    fireEvent.change(
+      screen.getByPlaceholderText("Search by ID, provider, request, or name"),
+      { target: { value: "report req" } },
+    );
+    fireEvent.change(screen.getByPlaceholderText("Service name or ID"), {
+      target: { value: "genom" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Provider name or ID"), {
+      target: { value: "pocket gen" },
+    });
+
+    expect(sdkFetchMock).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+
+    await waitFor(() => expect(sdkFetchMock).toHaveBeenCalledTimes(2));
+    const lastPath = sdkFetchMock.mock.calls.at(-1)?.[0];
+    const url = new URL(String(lastPath), "https://backoffice.example");
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      limit: "20",
+      query: "report req",
+      serviceId: "genom",
+      provider: "pocket gen",
+    });
   });
 
   it("shows a catalog-style empty state for publisher service requests", async () => {
@@ -995,6 +1029,8 @@ describe("support services workbenches", () => {
       screen.getByPlaceholderText("Search by ID, provider, request, or name"),
       { target: { value: "not present" } },
     );
+    expect(sdkFetchMock).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
     expect(
       await screen.findByText("No service offers match your filters"),

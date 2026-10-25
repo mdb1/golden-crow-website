@@ -5921,11 +5921,14 @@ const SPANISH_TEXT: Record<string, string> = {
   "Service limitations": "Limitaciones del servicio",
   "Search by ID, provider, request, or name":
     "Buscar por ID, proveedor, solicitud o nombre",
+  Search: "Buscar",
   "Search loaded providers": "Buscar proveedores cargados",
   "Select a Discover publisher record for this service offer.":
     "Seleccioná un registro de publicador de Discover para esta oferta de servicio.",
   Service: "Servicio",
   "Service ID": "ID de servicio",
+  "Service name or ID": "Nombre o ID del servicio",
+  "Provider name or ID": "Nombre o ID del prestador",
   "Choose a provider to generate a service ID.":
     "Elegí un proveedor para generar el ID de servicio.",
   "Generating and checking service ID...":

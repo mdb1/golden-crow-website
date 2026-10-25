@@ -574,6 +574,7 @@ type OfferListOptions = ListOptions & {
 
 type TransactionListOptions = ListOptions & {
   serviceId?: string;
+  provider?: string;
 };
 
 export interface SupportServiceOfferInput {
@@ -6377,12 +6378,40 @@ function toTransactionAdminRecord(
 }
 
 function matchesTextSearch(record: { normalizedName: string }, query?: string) {
-  const normalizedQuery = normalizeName(cleanString(query));
-  if (!normalizedQuery) {
+  return matchesPartialText(record.normalizedName, query);
+}
+
+function matchesPartialText(searchableText: string, query?: string) {
+  const queryTerms = normalizeName(cleanString(query))
+    .split(" ")
+    .filter(Boolean);
+  if (!queryTerms.length) {
     return true;
   }
 
-  return record.normalizedName.includes(normalizedQuery);
+  const normalizedSearchableText = normalizeName(searchableText);
+  return queryTerms.every((term) => normalizedSearchableText.includes(term));
+}
+
+function transactionSearchText(transaction: SupportServiceTransactionRecord) {
+  return [
+    transaction.normalizedName,
+    transaction.id,
+    transaction.name,
+    transaction.customTransactionName,
+    transaction.requestId,
+    transaction.offerId,
+    transaction.serviceId,
+    transaction.providerId,
+    transaction.requestedByUserId,
+    transaction.requestedByUserEmail,
+    cleanString(transaction.offerSnapshot.name),
+    cleanString(transaction.offerSnapshot.serviceId),
+    cleanString(transaction.offerSnapshot.providerId),
+    cleanString(transaction.offerSnapshot.providerName),
+    cleanString(transaction.providerSnapshot.id),
+    cleanString(transaction.providerSnapshot.name),
+  ].join(" ");
 }
 
 function offerListRecord(
@@ -6434,11 +6463,25 @@ function matchesTransactionFilters(
 ) {
   const status = normalizeKey(cleanString(options.status));
   const serviceId = cleanString(options.serviceId);
+  const provider = cleanString(options.provider);
+  const serviceSearchText = [
+    transaction.serviceId,
+    cleanString(transaction.offerSnapshot.serviceId),
+    cleanString(transaction.offerSnapshot.name),
+  ].join(" ");
+  const providerSearchText = [
+    transaction.providerId,
+    cleanString(transaction.offerSnapshot.providerId),
+    cleanString(transaction.offerSnapshot.providerName),
+    cleanString(transaction.providerSnapshot.id),
+    cleanString(transaction.providerSnapshot.name),
+  ].join(" ");
 
   return (
-    matchesTextSearch(transaction, options.query) &&
+    matchesPartialText(transactionSearchText(transaction), options.query) &&
     (!status || status === "all" || transaction.status === status) &&
-    (!serviceId || transaction.serviceId === serviceId)
+    matchesPartialText(serviceSearchText, serviceId) &&
+    matchesPartialText(providerSearchText, provider)
   );
 }
 
@@ -8322,7 +8365,8 @@ export async function listSupportServiceTransactions(
     providerId ||
       cleanString(options.query) ||
       (cleanString(options.status) && cleanString(options.status) !== "all") ||
-      cleanString(options.serviceId),
+      cleanString(options.serviceId) ||
+      cleanString(options.provider),
   );
   const result = await listWithFilters({
     collectionName: SERVICE_TRANSACTIONS_COLLECTION,

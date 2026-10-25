@@ -1614,7 +1614,7 @@ describe("support service admin routes", () => {
 
     const response = await fastify.inject({
       method: "GET",
-      url: "/admin/support-services/transactions?serviceId=pgs_final_report&status=received&limit=20",
+      url: "/admin/support-services/transactions?serviceId=final%20rep&provider=pocket%20gen&status=received&limit=20",
     });
 
     expect(response.statusCode).toBe(200);
@@ -1630,7 +1630,8 @@ describe("support service admin routes", () => {
     expect(mockListSupportServiceTransactions).toHaveBeenCalledWith(
       bootstrapContext,
       {
-        serviceId: "pgs_final_report",
+        serviceId: "final rep",
+        provider: "pocket gen",
         status: "received",
         limit: 20,
       },

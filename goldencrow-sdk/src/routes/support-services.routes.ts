@@ -492,6 +492,7 @@ const ListOffersQuerySchema = ListQuerySchema.extend({
 });
 const ListTransactionsQuerySchema = ListQuerySchema.extend({
   serviceId: z.string().trim().max(160).optional(),
+  provider: z.string().trim().max(180).optional(),
 });
 const ListDeferredTransactionsQuerySchema = ListQuerySchema.pick({
   cursor: true,
