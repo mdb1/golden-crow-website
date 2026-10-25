@@ -5697,8 +5697,10 @@ const SPANISH_TEXT: Record<string, string> = {
     "Guardá la transacción antes de marcarla como entregada.",
   "Save other transaction changes before marking it as delivered.":
     "Guardá los demás cambios de la transacción antes de marcarla como entregada.",
-  "The transaction must be running before it can be marked as delivered.":
-    "La transacción debe estar en progreso antes de poder marcarla como entregada.",
+  "Output contract incomplete": "Contrato de salida incompleto",
+  "Warning": "Advertencia",
+  "The output contract has not been fulfilled yet. Upload every required output file before marking this transaction as delivered.":
+    "El contrato de salida todavía no está completo. Cargá todos los archivos de salida requeridos antes de marcar esta transacción como entregada.",
   "Upload a valid object for every promised output before marking the transaction as delivered.":
     "Cargá un objeto válido para cada salida prometida antes de marcar la transacción como entregada.",
   "Delivered is available only through Mark as delivered after every output is ready.":

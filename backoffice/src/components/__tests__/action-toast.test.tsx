@@ -5,6 +5,28 @@ import userEvent from "@testing-library/user-event";
 import { ActionToast } from "@/components/action-toast";
 
 describe("ActionToast", () => {
+  it("renders warnings as assertive amber alerts", () => {
+    render(
+      <ActionToast
+        language="es"
+        onDismiss={jest.fn()}
+        toast={{
+          id: 3,
+          tone: "warning",
+          message: "El contrato todavía no está completo.",
+          durationMs: 999999,
+        }}
+      />,
+    );
+
+    const alert = screen.getByRole("alert");
+    expect(within(alert).getByText("Advertencia")).toBeTruthy();
+    expect(
+      within(alert).getByText("El contrato todavía no está completo."),
+    ).toBeTruthy();
+    expect(alert.className).toContain("border-amber-400/45");
+  });
+
   it("opens an internal error log modal when an error toast has details", async () => {
     const user = userEvent.setup();
     const onDismiss = jest.fn();

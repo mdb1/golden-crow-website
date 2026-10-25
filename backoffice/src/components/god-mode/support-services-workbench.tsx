@@ -12218,18 +12218,19 @@ export function SupportServiceTransactionWorkbench({
   const expectedOutputObjects = frozenOutputSlots.map((slot) =>
     outputObjectDraft(slot, frozenInputSlots),
   );
+  const readyOutputSlotCount = expectedOutputObjects.filter((expected) => {
+    const boundOutput = form.outputObjects.find(
+      (output) => output.role === expected.role,
+    );
+    return Boolean(
+      boundOutput &&
+        boundOutput.objectType === expected.objectType &&
+        /^\d{9}$/.test(boundOutput.objectCode),
+    );
+  }).length;
   const allOutputSlotsReady =
     form.outputObjects.length === expectedOutputObjects.length &&
-    expectedOutputObjects.every((expected) => {
-      const boundOutput = form.outputObjects.find(
-        (output) => output.role === expected.role,
-      );
-      return Boolean(
-        boundOutput &&
-          boundOutput.objectType === expected.objectType &&
-          /^\d{9}$/.test(boundOutput.objectCode),
-      );
-    });
+    readyOutputSlotCount === expectedOutputObjects.length;
   const linkedReports =
     linkedReportsQuery.data?.reports ??
     form.outputReports.map(({ reportCode }) => ({
@@ -12244,12 +12245,7 @@ export function SupportServiceTransactionWorkbench({
       .flatMap((page) => page.reports)
       .filter((report) => !linkedReportCodes.has(report.reportCode)) ?? [];
   const canMarkDelivered = Boolean(
-    isEditing &&
-      transactionRecord?.status === "running" &&
-      form.status === "running" &&
-      !hasUnsavedTransactionChanges &&
-      !terminalStatusLocked &&
-      allOutputSlotsReady,
+    isEditing && transactionRecord && !terminalStatusLocked,
   );
 
   const saveMutation = useMutation({
@@ -12802,19 +12798,21 @@ export function SupportServiceTransactionWorkbench({
       if (!isEditing || !transactionId || !transactionRecord) {
         throw new Error("Save the transaction before marking it as delivered.");
       }
-      if (transactionRecord.status !== "running") {
-        throw new Error(
-          "The transaction must be running before it can be marked as delivered.",
-        );
+      if (!allOutputSlotsReady) {
+        setToast({
+          id: nextToastId(),
+          tone: "warning",
+          title: t("Output contract incomplete"),
+          message: t(
+            "The output contract has not been fulfilled yet. Upload every required output file before marking this transaction as delivered.",
+          ),
+          durationMs: 12000,
+        });
+        return;
       }
       if (hasUnsavedTransactionChanges) {
         throw new Error(
           "Save other transaction changes before marking it as delivered.",
-        );
-      }
-      if (!allOutputSlotsReady) {
-        throw new Error(
-          "Upload a valid object for every promised output before marking the transaction as delivered.",
         );
       }
 
@@ -12994,11 +12992,9 @@ export function SupportServiceTransactionWorkbench({
                     </span>
                     <span className="font-semibold text-foreground">
                       {
-                        form.outputObjects.filter((output) =>
-                          /^\d{9}$/.test(output.objectCode),
-                        ).length
+                        readyOutputSlotCount
                       }
-                      /{form.outputObjects.length}
+                      /{expectedOutputObjects.length}
                     </span>
                   </div>
                   {hasUnsavedTransactionChanges ? (
@@ -13007,17 +13003,10 @@ export function SupportServiceTransactionWorkbench({
                         "Save other transaction changes before marking it as delivered.",
                       )}
                     </p>
-                  ) : transactionRecord?.status !== "running" &&
-                  transactionRecord?.status !== "delivered" ? (
-                    <p className="text-xs leading-5 text-muted-foreground">
-                      {t(
-                        "The transaction must be running before it can be marked as delivered.",
-                      )}
-                    </p>
                   ) : !allOutputSlotsReady && form.status !== "delivered" ? (
                     <p className="text-xs leading-5 text-muted-foreground">
                       {t(
-                        "Upload a valid object for every promised output before marking the transaction as delivered.",
+                        "The output contract has not been fulfilled yet. Upload every required output file before marking this transaction as delivered.",
                       )}
                     </p>
                   ) : null}

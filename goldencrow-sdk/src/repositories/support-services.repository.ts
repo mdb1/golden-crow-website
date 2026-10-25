@@ -1773,6 +1773,7 @@ function hasMeaningfulIssueContent(value: unknown): boolean {
 function assertTransactionStatusTransition(
   previousStatus: SupportServiceTransactionStatus,
   document: SupportServiceTransactionDocument,
+  options: { allowDirectDelivery?: boolean } = {},
 ) {
   if (
     ISSUE_REQUIRED_STATUSES.has(document.status) &&
@@ -1791,6 +1792,9 @@ function assertTransactionStatusTransition(
       `Terminal service transaction status ${previousStatus} cannot transition to ${document.status}.`,
       409,
     );
+  }
+  if (options.allowDirectDelivery && document.status === "delivered") {
+    return;
   }
   const allowed = ALLOWED_TRANSACTION_STATUS_TRANSITIONS[
     previousStatus as keyof typeof ALLOWED_TRANSACTION_STATUS_TRANSITIONS
@@ -12033,9 +12037,12 @@ async function persistSupportServiceTransactionUpdate(
       "Service transaction not found.",
     );
   }
-  if (options.allowDelivery && previous.status !== "running") {
+  if (
+    options.allowDelivery &&
+    TERMINAL_TRANSACTION_STATUSES.has(previous.status)
+  ) {
     throw new AdminRepositoryError(
-      "Only running service transactions can be marked delivered.",
+      "Terminal service transactions cannot be marked delivered.",
       409,
     );
   }
@@ -12122,7 +12129,9 @@ async function persistSupportServiceTransactionUpdate(
     ),
     "Service transaction",
   );
-  assertTransactionStatusTransition(previous.status, document);
+  assertTransactionStatusTransition(previous.status, document, {
+    allowDirectDelivery: options.allowDelivery,
+  });
   const downloadedObjects =
     document.status === "delivered"
       ? await downloadAttachedOutputObjects(document)
@@ -12180,13 +12189,18 @@ async function persistSupportServiceTransactionUpdate(
         409,
       );
     }
-    if (options.allowDelivery && latest.status !== "running") {
+    if (
+      options.allowDelivery &&
+      TERMINAL_TRANSACTION_STATUSES.has(latest.status)
+    ) {
       throw new AdminRepositoryError(
-        "Only running service transactions can be marked delivered.",
+        "Terminal service transactions cannot be marked delivered.",
         409,
       );
     }
-    assertTransactionStatusTransition(latest.status, document);
+    assertTransactionStatusTransition(latest.status, document, {
+      allowDirectDelivery: options.allowDelivery,
+    });
     if (userRef && !userSnapshot?.exists) {
       throw new AdminRepositoryError(
         "Requester summary document no longer exists.",

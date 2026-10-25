@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 
 export interface ActionToastState {
   id: number;
-  tone: "success" | "error";
+  tone: "success" | "warning" | "error";
   title?: string;
   message: string;
   notice?: string;
@@ -57,7 +57,12 @@ export function ActionToast({
 
     const timeout = window.setTimeout(
       onDismiss,
-      toast.durationMs ?? (toast.tone === "error" ? 15000 : 2800),
+      toast.durationMs ??
+        (toast.tone === "error"
+          ? 15000
+          : toast.tone === "warning"
+            ? 10000
+            : 2800),
     );
     return () => window.clearTimeout(timeout);
   }, [internalLogOpen, onDismiss, toast]);
@@ -79,14 +84,16 @@ export function ActionToast({
     <>
       <div className="pointer-events-none fixed right-4 top-[calc(var(--app-header-height)+1.5rem)] z-[80] w-[min(26rem,calc(100vw-2rem))]">
         <div
-          role={toast.tone === "error" ? "alert" : "status"}
-          aria-live={toast.tone === "error" ? "assertive" : "polite"}
+          role={toast.tone === "success" ? "status" : "alert"}
+          aria-live={toast.tone === "success" ? "polite" : "assertive"}
           aria-atomic="true"
           className={cn(
             "pointer-events-auto flex items-start gap-3 rounded-2xl border px-4 py-3 shadow-[0_18px_48px_rgba(15,23,42,0.18)] backdrop-blur-sm",
             toast.tone === "success"
               ? "border-emerald-400/35 bg-emerald-50/95 text-emerald-950 dark:bg-emerald-950/90 dark:text-emerald-50"
-              : "border-destructive/35 bg-white/96 text-destructive dark:bg-slate-950/92",
+              : toast.tone === "warning"
+                ? "border-amber-400/45 bg-amber-50/96 text-amber-950 dark:border-amber-400/30 dark:bg-amber-950/92 dark:text-amber-50"
+                : "border-destructive/35 bg-white/96 text-destructive dark:bg-slate-950/92",
           )}
         >
           <div
@@ -94,7 +101,9 @@ export function ActionToast({
               "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
               toast.tone === "success"
                 ? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-200"
-                : "bg-destructive/10 text-destructive",
+                : toast.tone === "warning"
+                  ? "bg-amber-500/16 text-amber-700 dark:text-amber-200"
+                  : "bg-destructive/10 text-destructive",
             )}
           >
             {toast.tone === "success" ? (
@@ -106,7 +115,11 @@ export function ActionToast({
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium">
               {toast.title ??
-                (toast.tone === "success" ? t("Saved") : t("Action failed"))}
+                (toast.tone === "success"
+                  ? t("Saved")
+                  : toast.tone === "warning"
+                    ? t("Warning")
+                    : t("Action failed"))}
             </p>
             <p className="mt-0.5 text-sm opacity-90">{toast.message}</p>
             {toast.notice ? (
@@ -137,7 +150,9 @@ export function ActionToast({
               "h-8 w-8 shrink-0 rounded-full",
               toast.tone === "success"
                 ? "text-emerald-800 hover:bg-emerald-100/80"
-                : "text-destructive hover:bg-destructive/8",
+                : toast.tone === "warning"
+                  ? "text-amber-800 hover:bg-amber-100/80 dark:text-amber-100 dark:hover:bg-amber-500/12"
+                  : "text-destructive hover:bg-destructive/8",
             )}
           >
             <X className="h-4 w-4" />

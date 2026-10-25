@@ -7069,7 +7069,24 @@ describe("support services workbenches", () => {
         screen.getByRole("button", { name: "Save" }),
       ),
     ).toBe(true);
-    expect(deliverButton.disabled).toBe(true);
+    expect(deliverButton.disabled).toBe(false);
+    fireEvent.click(deliverButton);
+    const contractWarningTitle = await screen.findByText(
+      "Output contract incomplete",
+    );
+    const contractWarning = contractWarningTitle.closest('[role="alert"]');
+    expect(contractWarning).toBeTruthy();
+    expect(
+      within(contractWarning as HTMLElement).getByText(
+        "The output contract has not been fulfilled yet. Upload every required output file before marking this transaction as delivered.",
+      ),
+    ).toBeTruthy();
+    expect(
+      sdkFetchMock.mock.calls.some(
+        ([path, init]) =>
+          String(path).endsWith("/deliver") && init?.method === "POST",
+      ),
+    ).toBe(false);
 
     fireEvent.click(uploadSlot);
     expect(
@@ -7794,6 +7811,7 @@ describe("support services workbenches", () => {
     };
     const emptyTransaction: SupportServiceTransactionRecord = {
       ...runningTransaction,
+      status: "received",
       inputs: [],
       outputObjects: [],
       missingRequiredInputRoles: [],

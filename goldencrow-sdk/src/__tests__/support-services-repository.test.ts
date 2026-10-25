@@ -4531,7 +4531,9 @@ describe("support service delivered transactions", () => {
     });
     await expect(
       deliverSupportServiceTransaction(context, "transaction-1"),
-    ).rejects.toThrow("Only running service transactions");
+    ).rejects.toThrow(
+      "Delivered transactions require exactly one output object for every promised output slot.",
+    );
     expect(fetch).not.toHaveBeenCalled();
   });
 
@@ -5040,7 +5042,7 @@ describe("support service delivered transactions", () => {
     ).toEqual(expect.objectContaining({ outputObjects: [] }));
   });
 
-  it("marks a transaction delivered only when every promised object is ready", async () => {
+  it("marks an active transaction delivered from any status only when every promised object is ready", async () => {
     const outputFileContent = JSON.stringify(
       serializedPgoContent({
         objectId: "obj_output_report",
@@ -5079,6 +5081,12 @@ describe("support service delivered transactions", () => {
       file_type: "pgo_pdf_report",
       owner_community_user_id: "feed-org-1",
       file_content: outputFileContent,
+    });
+    seedDoc("service_transactions", "transaction-1", {
+      ...transaction,
+      status: "received",
+      outputObjects: deliveredInput.outputObjects,
+      outputReports: deliveredInput.outputReports,
     });
     const { deliverSupportServiceTransaction } = await import(
       "../repositories/support-services.repository.js"
