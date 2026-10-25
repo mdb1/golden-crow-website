@@ -12429,6 +12429,36 @@ export function SupportServiceTransactionWorkbench({
     },
   });
 
+  const removeOutputMutation = useMutation({
+    mutationFn: async (role: string) =>
+      sdkFetch<{
+        transaction: SupportServiceTransactionRecord;
+        role: string;
+        objectCode: string;
+      }>(
+        `/admin/support-services/transactions/${encodeURIComponent(
+          transactionId ?? "",
+        )}/output-objects/${encodeURIComponent(role)}`,
+        { method: "DELETE" },
+      ),
+    onSuccess: async (result) => {
+      setForm(transactionFormFromRecord(result.transaction));
+      queryClient.setQueryData(
+        [TRANSACTIONS_QUERY_KEY, transactionId],
+        { transaction: result.transaction },
+      );
+      await queryClient.invalidateQueries({
+        queryKey: [TRANSACTIONS_QUERY_KEY],
+      });
+      setToast({
+        id: nextToastId(),
+        tone: "success",
+        message: t("Output object removed from the transaction."),
+      });
+    },
+    onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
+  });
+
   const attachReportMutation = useMutation({
     mutationFn: async (reportCode: string) =>
       sdkFetch<{
@@ -12575,6 +12605,7 @@ export function SupportServiceTransactionWorkbench({
     saveMutation.isPending ||
     customNameMutation.isPending ||
     uploadOutputMutation.isPending ||
+    removeOutputMutation.isPending ||
     attachReportMutation.isPending ||
     removeReportMutation.isPending ||
     deliverMutation.isPending ||
@@ -12901,7 +12932,22 @@ export function SupportServiceTransactionWorkbench({
               !terminalStatusLocked &&
               !hasUnsavedTransactionChanges
             }
+            canRemove={
+              isEditing &&
+              !terminalStatusLocked &&
+              !hasUnsavedTransactionChanges
+            }
+            removingRole={removeOutputMutation.variables ?? ""}
             onSelect={openOutputUpload}
+            onRemove={(output) => {
+              if (
+                window.confirm(
+                  t("Remove this output object from the transaction?"),
+                )
+              ) {
+                removeOutputMutation.mutate(output.role);
+              }
+            }}
           />
           {!isEditing ? (
             <p className="text-sm text-muted-foreground">
@@ -13467,11 +13513,17 @@ export function SupportServiceTransactionWorkbench({
 function OutputObjectGrid({
   outputs,
   canUpload,
+  canRemove,
+  removingRole,
   onSelect,
+  onRemove,
 }: {
   outputs: OutputObjectDraft[];
   canUpload: boolean;
+  canRemove: boolean;
+  removingRole: string;
   onSelect: (index: number) => void;
+  onRemove: (output: OutputObjectDraft) => void;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -13488,75 +13540,101 @@ function OutputObjectGrid({
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {outputs.map((output, index) => {
         const ready = /^\d{9}$/.test(output.objectCode);
+        const removing = removingRole === output.role;
         const actionLabel = ready
           ? `${t("Ready object linked")} · ${output.role}`
           : `${t("Upload output object")} · ${output.role}`;
 
         return (
-          <button
+          <div
             key={`${output.role}-${index}`}
-            type="button"
-            aria-label={actionLabel}
-            onClick={() => onSelect(index)}
-            disabled={!canUpload || ready}
-            className={cn(
-              "group grid min-h-48 gap-4 rounded-2xl border-2 border-dashed p-5 text-left transition",
-              ready
-                ? "border-emerald-300 bg-emerald-50/55 shadow-[0_18px_48px_-38px_rgba(5,150,105,0.55)] dark:border-emerald-400/34 dark:bg-emerald-500/10"
-                : "border-violet-200 bg-white/74 hover:border-violet-400 hover:bg-violet-50/70 hover:shadow-[0_18px_48px_-38px_rgba(109,40,217,0.6)] dark:border-violet-400/22 dark:bg-slate-950/38 dark:hover:border-violet-300/44 dark:hover:bg-violet-500/10",
-              (!canUpload || ready) && "cursor-default opacity-80",
-            )}
+            className="relative min-h-48"
           >
-            <span className="flex items-start justify-between gap-3">
-              <span className="min-w-0">
-                <span className="block truncate font-mono text-xs font-semibold text-muted-foreground">
-                  {output.role}
-                </span>
-                <span className="mt-1 block font-heading text-base font-semibold text-foreground">
-                  {bindingTypeLabel(output.objectType)}
-                </span>
-                <span className="mt-1 block truncate font-mono text-xs text-muted-foreground">
-                  {output.objectType}
-                </span>
-              </span>
+            <button
+              type="button"
+              aria-label={actionLabel}
+              onClick={() => onSelect(index)}
+              disabled={!canUpload || ready}
+              className={cn(
+                "group grid h-full min-h-48 w-full gap-4 rounded-2xl border-2 border-dashed p-5 text-left transition",
+                ready
+                  ? "border-emerald-300 bg-emerald-50/55 shadow-[0_18px_48px_-38px_rgba(5,150,105,0.55)] dark:border-emerald-400/34 dark:bg-emerald-500/10"
+                  : "border-violet-200 bg-white/74 hover:border-violet-400 hover:bg-violet-50/70 hover:shadow-[0_18px_48px_-38px_rgba(109,40,217,0.6)] dark:border-violet-400/22 dark:bg-slate-950/38 dark:hover:border-violet-300/44 dark:hover:bg-violet-500/10",
+                (!canUpload || ready) && "cursor-default opacity-80",
+              )}
+            >
               <span
                 className={cn(
-                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-full border shadow-sm transition",
-                  ready
-                    ? "border-emerald-200 bg-white text-emerald-700 dark:border-emerald-400/28 dark:bg-emerald-500/12 dark:text-emerald-100"
-                    : "border-violet-200 bg-white text-violet-700 group-hover:scale-105 dark:border-violet-400/24 dark:bg-violet-500/12 dark:text-violet-100",
+                  "flex items-start justify-between gap-3",
+                  ready && "pr-9",
                 )}
               >
+                <span className="min-w-0">
+                  <span className="block truncate font-mono text-xs font-semibold text-muted-foreground">
+                    {output.role}
+                  </span>
+                  <span className="mt-1 block font-heading text-base font-semibold text-foreground">
+                    {bindingTypeLabel(output.objectType)}
+                  </span>
+                  <span className="mt-1 block truncate font-mono text-xs text-muted-foreground">
+                    {output.objectType}
+                  </span>
+                </span>
+                <span
+                  className={cn(
+                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-full border shadow-sm transition",
+                    ready
+                      ? "border-emerald-200 bg-white text-emerald-700 dark:border-emerald-400/28 dark:bg-emerald-500/12 dark:text-emerald-100"
+                      : "border-violet-200 bg-white text-violet-700 group-hover:scale-105 dark:border-violet-400/24 dark:bg-violet-500/12 dark:text-violet-100",
+                  )}
+                >
+                  {ready ? (
+                    <Check className="h-5 w-5" />
+                  ) : (
+                    <Plus className="h-5 w-5" />
+                  )}
+                </span>
+              </span>
+
+              <span className="mt-auto block">
                 {ready ? (
-                  <Check className="h-5 w-5" />
+                  <>
+                    {output.fileName ? (
+                      <span className="block truncate text-sm font-medium text-foreground">
+                        {output.fileName}
+                      </span>
+                    ) : null}
+                    <span className="mt-1 block font-mono text-sm font-semibold text-emerald-700 dark:text-emerald-200">
+                      {output.objectCode}
+                    </span>
+                    <span className="mt-1 block text-xs text-muted-foreground">
+                      {t("Ready object linked")}
+                    </span>
+                  </>
                 ) : (
-                  <Plus className="h-5 w-5" />
+                  <span className="text-sm font-medium text-violet-700 dark:text-violet-100">
+                    {t("Add ready object")}
+                  </span>
                 )}
               </span>
-            </span>
-
-            <span className="mt-auto block">
-              {ready ? (
-                <>
-                  {output.fileName ? (
-                    <span className="block truncate text-sm font-medium text-foreground">
-                      {output.fileName}
-                    </span>
-                  ) : null}
-                  <span className="mt-1 block font-mono text-sm font-semibold text-emerald-700 dark:text-emerald-200">
-                    {output.objectCode}
-                  </span>
-                  <span className="mt-1 block text-xs text-muted-foreground">
-                    {t("Ready object linked")}
-                  </span>
-                </>
-              ) : (
-                <span className="text-sm font-medium text-violet-700 dark:text-violet-100">
-                  {t("Add ready object")}
-                </span>
-              )}
-            </span>
-          </button>
+            </button>
+            {ready ? (
+              <button
+                type="button"
+                aria-label={`${t("Remove output object")} · ${output.role}`}
+                title={t("Remove output object")}
+                onClick={() => onRemove(output)}
+                disabled={!canRemove || removing}
+                className="absolute right-2.5 top-2.5 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full border border-emerald-200 bg-white/95 text-emerald-700 shadow-sm transition hover:border-destructive/40 hover:bg-destructive/5 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-45 dark:border-emerald-400/28 dark:bg-slate-950/90 dark:text-emerald-100"
+              >
+                {removing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <XCircle className="h-3.5 w-3.5" />
+                )}
+              </button>
+            ) : null}
+          </div>
         );
       })}
     </div>

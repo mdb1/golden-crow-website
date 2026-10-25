@@ -11759,6 +11759,76 @@ export async function attachSupportServiceTransactionOutputObject(
   );
 }
 
+export async function removeSupportServiceTransactionOutputObject(
+  context: AdminContext,
+  transactionId: string,
+  roleValue: string,
+) {
+  const accessScope = requireSupportServicesAccess(context);
+  const role = cleanString(roleValue);
+  if (!/^[a-z][a-z0-9_]*$/.test(role)) {
+    throw new AdminRepositoryError(
+      "Output role must be a lowercase identifier key.",
+      400,
+    );
+  }
+  const snapshot = await getTransactionSnapshotByIdOrRequestId(transactionId);
+  if (!snapshot) {
+    throw new AdminRepositoryError("Service transaction not found.", 404);
+  }
+  let removedObjectCode = "";
+
+  await adminDb.runTransaction(async (firestoreTransaction) => {
+    const latestSnapshot = await firestoreTransaction.get(snapshot.ref);
+    if (!latestSnapshot.exists) {
+      throw new AdminRepositoryError("Service transaction not found.", 404);
+    }
+    const latest = toTransactionAdminRecord(
+      latestSnapshot.id,
+      latestSnapshot.data() ?? {},
+    );
+    assertSupportServicesRecordAccess(
+      accessScope,
+      latest,
+      "Service transaction not found.",
+    );
+    if (TERMINAL_TRANSACTION_STATUSES.has(latest.status)) {
+      throw new AdminRepositoryError(
+        "Terminal service transactions cannot remove output objects.",
+        409,
+      );
+    }
+    const removedOutput = latest.outputObjects.find(
+      (output) => output.role === role,
+    );
+    if (!removedOutput) {
+      throw new AdminRepositoryError(
+        `Output role ${role} does not have an attached object.`,
+        404,
+      );
+    }
+    removedObjectCode = removedOutput.objectCode;
+    firestoreTransaction.set(
+      latestSnapshot.ref,
+      {
+        outputObjects: latest.outputObjects.filter(
+          (output) => output.role !== role,
+        ),
+        requestRevision: latest.requestRevision + 1,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedByEmail: context.email,
+      },
+      { merge: true },
+    );
+  });
+
+  return {
+    transaction: await getSupportServiceTransactionRecord(snapshot.id),
+    role,
+    objectCode: removedObjectCode,
+  };
+}
+
 async function persistSupportServiceTransactionUpdate(
   context: AdminContext,
   transactionId: string,

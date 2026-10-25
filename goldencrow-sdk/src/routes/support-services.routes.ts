@@ -29,6 +29,7 @@ import {
   listDeferredServiceTransactions,
   listSupportServiceOffers,
   listSupportServiceTransactions,
+  removeSupportServiceTransactionOutputObject,
   removeSupportServiceTransactionOutputReport,
   resendDeferredServiceTransactionNotification,
   supportServiceCategoryStageContractIssue,
@@ -639,6 +640,9 @@ const ReportCodeSchema = z.string().trim().regex(/^[A-Z0-9]{6}$/);
 const TransactionReportParamsSchema = TransactionParamsSchema.extend({
   reportCode: ReportCodeSchema,
 });
+const TransactionOutputObjectParamsSchema = TransactionParamsSchema.extend({
+  role: RoleSchema,
+});
 const OutputReportBodySchema = z
   .object({ reportCode: ReportCodeSchema })
   .strict();
@@ -916,6 +920,23 @@ export async function supportServicesRoutes(
           request.body,
         );
         return reply.status(201).send(result);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.delete(
+    "/admin/support-services/transactions/:transactionId/output-objects/:role",
+    { schema: { params: TransactionOutputObjectParamsSchema } },
+    async (request, reply) => {
+      try {
+        const result = await removeSupportServiceTransactionOutputObject(
+          request.adminContext!,
+          request.params.transactionId,
+          request.params.role,
+        );
+        return reply.send(result);
       } catch (error) {
         return sendRepositoryError(reply, error);
       }

@@ -5597,6 +5597,11 @@ const SPANISH_TEXT: Record<string, string> = {
   "Upload output object": "Cargar objeto de salida",
   "Add ready object": "Agregar objeto listo",
   "Ready object linked": "Objeto listo vinculado",
+  "Remove output object": "Quitar archivo de salida",
+  "Remove this output object from the transaction?":
+    "¿Quitar este archivo de salida de la transacción?",
+  "Output object removed from the transaction.":
+    "Archivo de salida quitado de la transacción.",
   "File name": "Nombre del archivo",
   "Download URL": "URL de descarga",
   "File ID": "ID del archivo",

@@ -7137,6 +7137,93 @@ describe("support services workbenches", () => {
     expect(screen.queryByRole("heading", { name: "Issues" })).toBeNull();
   });
 
+  it("removes a linked output object from its top-right close control", async () => {
+    const linkedTransaction: SupportServiceTransactionRecord = {
+      ...runningTransaction,
+      requestRevision: 3,
+      outputObjects: [
+        {
+          role: "result",
+          objectType: "pgo_pdf_report",
+          objectCode: "246813579",
+        },
+      ],
+    };
+    const removedTransaction: SupportServiceTransactionRecord = {
+      ...runningTransaction,
+      requestRevision: 4,
+      outputObjects: [],
+    };
+    let storedTransaction = linkedTransaction;
+    const confirmSpy = jest.spyOn(window, "confirm").mockReturnValue(true);
+
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      const value = String(path);
+      if (
+        value.endsWith(`/transactions/${runningTransaction.requestId}`) &&
+        !init?.method
+      ) {
+        return { transaction: storedTransaction };
+      }
+      if (value.endsWith(`/offers/${runningTransaction.offerId}`)) {
+        return { offer: currentLiveOffer };
+      }
+      if (
+        value.endsWith("/output-objects/result") &&
+        init?.method === "DELETE"
+      ) {
+        storedTransaction = removedTransaction;
+        return {
+          transaction: removedTransaction,
+          role: "result",
+          objectCode: "246813579",
+        };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId={runningTransaction.requestId}
+      />,
+    );
+
+    const removeButton = await screen.findByRole("button", {
+      name: "Remove output object · result",
+    });
+    expect(removeButton.className).toContain("absolute");
+    expect(removeButton.className).toContain("right-2.5");
+    expect((removeButton as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(removeButton);
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      "Remove this output object from the transaction?",
+    );
+    await waitFor(() => {
+      expect(
+        sdkFetchMock.mock.calls.some(
+          ([path, init]) =>
+            String(path).endsWith("/output-objects/result") &&
+            init?.method === "DELETE",
+        ),
+      ).toBe(true);
+    });
+    expect(
+      await screen.findByText("Output object removed from the transaction."),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Upload output object · result" }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", {
+        name: "Remove output object · result",
+      }),
+    ).toBeNull();
+
+    confirmSpy.mockRestore();
+  });
+
   it("creates and links an output object from only a File Storage file ID", async () => {
     const uploadedTransaction: SupportServiceTransactionRecord = {
       ...runningTransaction,

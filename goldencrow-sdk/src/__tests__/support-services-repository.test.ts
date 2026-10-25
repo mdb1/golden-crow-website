@@ -3087,9 +3087,10 @@ describe("organization publisher support service scope", () => {
       title: "Publisher final report",
       download_url: "https://objects.example/publisher-report.pdf",
     });
-    const { attachSupportServiceTransactionOutputObject } = await import(
-      "../repositories/support-services.repository.js"
-    );
+    const {
+      attachSupportServiceTransactionOutputObject,
+      removeSupportServiceTransactionOutputObject,
+    } = await import("../repositories/support-services.repository.js");
 
     const attached = await attachSupportServiceTransactionOutputObject(
       organizationPublisherContext,
@@ -3111,11 +3112,37 @@ describe("organization publisher support service scope", () => {
       provider_id: "publisher-org-1",
       service_transaction_id: "pgr_own_transaction",
     });
+    const removed = await removeSupportServiceTransactionOutputObject(
+      organizationPublisherContext,
+      "pgr_own_transaction",
+      "report",
+    );
+    expect(removed).toMatchObject({
+      role: "report",
+      objectCode: attached.object.objectCode,
+      transaction: {
+        requestRevision: 3,
+        outputObjects: [],
+      },
+    });
+    expect(collectionStore("uploaded_objects").has(attached.object.id)).toBe(
+      true,
+    );
+    expect(
+      collectionStore("object_codes").has(attached.object.objectCode),
+    ).toBe(true);
     await expect(
       attachSupportServiceTransactionOutputObject(
         organizationPublisherContext,
         "pgr_other_transaction",
         { role: "report", fileContent },
+      ),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    await expect(
+      removeSupportServiceTransactionOutputObject(
+        organizationPublisherContext,
+        "pgr_other_transaction",
+        "report",
       ),
     ).rejects.toMatchObject({ statusCode: 404 });
   });
@@ -4083,6 +4110,28 @@ describe("support service delivered transactions", () => {
     expect(
       collectionStore("service_transactions").get("transaction-1"),
     ).toEqual(expect.objectContaining({ outputObjects: [] }));
+  });
+
+  it("does not remove output objects from terminal transactions", async () => {
+    seedDoc("service_transactions", "transaction-1", deliveredInput);
+    const { removeSupportServiceTransactionOutputObject } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      removeSupportServiceTransactionOutputObject(
+        context,
+        "transaction-1",
+        "report",
+      ),
+    ).rejects.toMatchObject({ statusCode: 409 });
+    expect(
+      collectionStore("service_transactions").get("transaction-1"),
+    ).toEqual(
+      expect.objectContaining({
+        outputObjects: deliveredInput.outputObjects,
+      }),
+    );
   });
 
   it("rejects delivery when linked File Storage content changes without changing its size", async () => {

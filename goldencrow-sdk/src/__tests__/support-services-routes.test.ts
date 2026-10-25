@@ -22,6 +22,7 @@ const mockCreateSupportServiceTransaction = jest.fn();
 const mockUpdateSupportServiceTransaction = jest.fn();
 const mockDeleteSupportServiceTransaction = jest.fn();
 const mockAttachSupportServiceTransactionOutputObject = jest.fn();
+const mockRemoveSupportServiceTransactionOutputObject = jest.fn();
 const mockAttachSupportServiceTransactionOutputReport = jest.fn();
 const mockRemoveSupportServiceTransactionOutputReport = jest.fn();
 const mockGetSupportServiceTransactionLinkedReports = jest.fn();
@@ -163,6 +164,8 @@ jest.mock("../repositories/support-services.repository.js", () => ({
   ],
   attachSupportServiceTransactionOutputObject:
     mockAttachSupportServiceTransactionOutputObject,
+  removeSupportServiceTransactionOutputObject:
+    mockRemoveSupportServiceTransactionOutputObject,
   attachSupportServiceTransactionOutputReport:
     mockAttachSupportServiceTransactionOutputReport,
   createSupportServiceOffer: mockCreateSupportServiceOffer,
@@ -511,6 +514,15 @@ describe("support service admin routes", () => {
         downloadUrl: "https://objects.example/report.pgo.json",
         status: "ready",
       },
+    });
+    mockRemoveSupportServiceTransactionOutputObject.mockResolvedValue({
+      transaction: {
+        id: "txn-1",
+        requestId: "pgr_demo_final_report",
+        outputObjects: [],
+      },
+      role: "report",
+      objectCode: "123456789",
     });
     mockGetSupportServiceTransactionLinkedReports.mockResolvedValue([
       {
@@ -1929,6 +1941,41 @@ describe("support service admin routes", () => {
         fileContent,
       },
     );
+  });
+
+  it("removes an attached output object by its frozen role", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "DELETE",
+      url: "/admin/support-services/transactions/pgr_demo_final_report/output-objects/report",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual(
+      expect.objectContaining({
+        role: "report",
+        objectCode: "123456789",
+        transaction: expect.objectContaining({ outputObjects: [] }),
+      }),
+    );
+    expect(mockRemoveSupportServiceTransactionOutputObject).toHaveBeenCalledWith(
+      bootstrapContext,
+      "pgr_demo_final_report",
+      "report",
+    );
+  });
+
+  it("rejects malformed output roles before invoking removal", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "DELETE",
+      url: "/admin/support-services/transactions/pgr_demo_final_report/output-objects/Report-1",
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(mockRemoveSupportServiceTransactionOutputObject).not.toHaveBeenCalled();
   });
 
   it("rejects client-supplied output metadata, ambiguous sources, and insecure URLs", async () => {
