@@ -7122,7 +7122,11 @@ describe("support services workbenches", () => {
       resolveUpload?.();
     });
 
-    expect(await screen.findByText("246813579")).toBeTruthy();
+    expect(
+      await screen.findByRole("button", {
+        name: "Explore output object · result",
+      }),
+    ).toBeTruthy();
     expect(screen.getByText("Request revision").parentElement?.textContent).toContain(
       "3",
     );
@@ -7238,6 +7242,13 @@ describe("support services workbenches", () => {
     const readyCard = screen.getByRole("button", {
       name: "Explore output object · result",
     });
+    expect(within(readyCard).getByText("PDF report")).toBeTruthy();
+    expect(within(readyCard).getByText("result")).toBeTruthy();
+    expect(within(readyCard).getByText("Open detail")).toBeTruthy();
+    expect(within(readyCard).queryByText("pgo_pdf_report")).toBeNull();
+    expect(within(readyCard).queryByText("246813579")).toBeNull();
+    expect(within(readyCard).queryByText("Final result")).toBeNull();
+    expect(within(readyCard).queryByText("Ready object linked")).toBeNull();
     expect(readyCard.className).not.toContain("border-dashed");
     expect(readyCard.className).not.toContain("border-2");
     const readyCheck = readyCard.querySelector(
@@ -7293,7 +7304,11 @@ describe("support services workbenches", () => {
       within(uploadDialog).getByRole("button", { name: "Upload file" }),
     );
 
-    expect(await screen.findByText("975318642")).toBeTruthy();
+    expect(
+      await screen.findByRole("button", {
+        name: "Explore output object · result",
+      }),
+    ).toBeTruthy();
     const restoredRemoveButton = screen.getByRole("button", {
       name: "Remove output object · result",
     });
@@ -7379,7 +7394,11 @@ describe("support services workbenches", () => {
       screen.getByRole("button", { name: "Create and link object" }),
     );
 
-    expect(await screen.findByText("135792468")).toBeTruthy();
+    expect(
+      await screen.findByRole("button", {
+        name: "Explore output object · result",
+      }),
+    ).toBeTruthy();
   });
 
   it("opens the File JSON wizard by default and creates the output directly after validation", async () => {
@@ -7482,7 +7501,11 @@ describe("support services workbenches", () => {
       }),
     );
 
-    expect(await screen.findByText("314159265")).toBeTruthy();
+    expect(
+      await screen.findByRole("button", {
+        name: "Explore output object · result",
+      }),
+    ).toBeTruthy();
     expect(operationOrder).toEqual(["create-file-and-link-object"]);
     expect(
       sdkFetchMock.mock.calls.some(([path]) =>
@@ -7688,7 +7711,11 @@ describe("support services workbenches", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Create and link object" }),
     );
-    expect(await screen.findByText("112233445")).toBeTruthy();
+    expect(
+      await screen.findByRole("button", {
+        name: "Explore output object · result",
+      }),
+    ).toBeTruthy();
     expect(operationOrder).toEqual([
       "create-file-and-link-object",
       "create-file-and-link-object",

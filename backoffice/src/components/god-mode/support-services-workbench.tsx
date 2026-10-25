@@ -13608,15 +13608,28 @@ function OutputObjectGrid({
                 )}
               >
                 <span className="min-w-0">
-                  <span className="block truncate font-mono text-xs font-semibold text-muted-foreground">
-                    {output.role}
-                  </span>
-                  <span className="mt-1 block font-heading text-base font-semibold text-foreground">
-                    {bindingTypeLabel(output.objectType)}
-                  </span>
-                  <span className="mt-1 block truncate font-mono text-xs text-muted-foreground">
-                    {output.objectType}
-                  </span>
+                  {ready ? (
+                    <>
+                      <span className="block font-heading text-lg font-semibold text-foreground">
+                        {bindingTypeLabel(output.objectType)}
+                      </span>
+                      <span className="mt-1 block truncate font-mono text-xs text-muted-foreground">
+                        {output.role}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="block truncate font-mono text-xs font-semibold text-muted-foreground">
+                        {output.role}
+                      </span>
+                      <span className="mt-1 block font-heading text-base font-semibold text-foreground">
+                        {bindingTypeLabel(output.objectType)}
+                      </span>
+                      <span className="mt-1 block truncate font-mono text-xs text-muted-foreground">
+                        {output.objectType}
+                      </span>
+                    </>
+                  )}
                 </span>
                 {!ready ? (
                   <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-violet-200 bg-white text-violet-700 shadow-sm transition group-hover:scale-105 dark:border-violet-400/24 dark:bg-violet-500/12 dark:text-violet-100">
@@ -13627,19 +13640,9 @@ function OutputObjectGrid({
 
               <span className={cn("mt-auto block", ready && "pr-10")}>
                 {ready ? (
-                  <>
-                    {output.fileName ? (
-                      <span className="block truncate text-sm font-medium text-foreground">
-                        {output.fileName}
-                      </span>
-                    ) : null}
-                    <span className="mt-1 block font-mono text-sm font-semibold text-emerald-700 dark:text-emerald-200">
-                      {output.objectCode}
-                    </span>
-                    <span className="mt-1 block text-xs text-muted-foreground">
-                      {t("Ready object linked")}
-                    </span>
-                  </>
+                  <span className="inline-flex items-center rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition group-hover:bg-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:group-hover:bg-emerald-400">
+                    {t("Open detail")}
+                  </span>
                 ) : (
                   <span className="text-sm font-medium text-violet-700 dark:text-violet-100">
                     {t("Add ready object")}

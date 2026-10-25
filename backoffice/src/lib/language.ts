@@ -5636,6 +5636,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Creating object...": "Creando objeto...",
   "Output object created and linked.": "Objeto de salida creado y vinculado.",
   "Explore output object": "Explorar objeto de salida",
+  "Open detail": "Abrir detalle",
   "Output files": "Archivos de salida",
   "Output file explorer": "Explorador de archivo de salida",
   "Explore the finalized output content without changing it.":
