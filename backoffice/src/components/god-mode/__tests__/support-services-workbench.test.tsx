@@ -6467,6 +6467,12 @@ describe("support services workbenches", () => {
     );
 
     expect(await screen.findByText("Service transaction raw JSON")).toBeTruthy();
+    expect(screen.getByRole("dialog").getAttribute("class")).toContain(
+      "w-[calc(100vw-1.5rem)]",
+    );
+    expect(screen.getByRole("dialog").getAttribute("class")).toContain(
+      "sm:max-w-[calc(100vw-3rem)]",
+    );
     expect(
       screen.getByText("service-transaction-pgr_frozen_1.json"),
     ).toBeTruthy();

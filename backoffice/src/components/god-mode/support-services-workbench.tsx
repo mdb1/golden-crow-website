@@ -13498,6 +13498,7 @@ export function SupportServiceTransactionWorkbench({
       <RawJsonExportDialog
         open={rawExportOpen}
         onOpenChange={setRawExportOpen}
+        viewportWide
         title="Service transaction raw JSON"
         description="Read-only Firebase record preview."
         fileName={rawJsonFileName(
@@ -15104,6 +15105,7 @@ function ObjectRefTable({
 function RawJsonExportDialog({
   open,
   onOpenChange,
+  viewportWide = false,
   title,
   description,
   fileName,
@@ -15111,6 +15113,7 @@ function RawJsonExportDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  viewportWide?: boolean;
   title: string;
   description: string;
   fileName: string;
@@ -15145,7 +15148,14 @@ function RawJsonExportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl overflow-hidden p-0">
+      <DialogContent
+        className={cn(
+          "overflow-hidden p-0",
+          viewportWide
+            ? "w-[calc(100vw-1.5rem)] max-w-none rounded-[2rem] sm:max-w-[calc(100vw-3rem)]"
+            : "sm:max-w-4xl",
+        )}
+      >
         <DialogHeader className="border-b border-violet-100 bg-[linear-gradient(135deg,rgba(250,245,255,0.96),rgba(255,255,255,0.92))] px-6 py-5 dark:border-violet-400/14 dark:bg-[linear-gradient(135deg,rgba(46,30,88,0.36),rgba(15,23,42,0.92))]">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
