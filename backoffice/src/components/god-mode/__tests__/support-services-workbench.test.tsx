@@ -911,6 +911,56 @@ describe("support services workbenches", () => {
     });
   });
 
+  it("keeps paging filtered transactions until an older request ID prefix match is found", async () => {
+    const matchingTransaction: SupportServiceTransactionRecord = {
+      ...runningTransaction,
+      id: "pgr_2pq_case_00023",
+      requestId: "pgr_2pq_case_00023",
+      normalizedName: "pgr 2pq case 00023",
+    };
+
+    sdkFetchMock.mockImplementation(async (path) => {
+      const url = new URL(String(path), "https://backoffice.example");
+      const query = url.searchParams.get("query");
+      const cursor = url.searchParams.get("cursor");
+
+      if (!query) {
+        return {
+          transactions: [runningTransaction],
+          nextCursor: undefined,
+        };
+      }
+      if (cursor === "older-search-page") {
+        return {
+          transactions: [matchingTransaction],
+          nextCursor: undefined,
+        };
+      }
+      return {
+        transactions: [],
+        nextCursor: "older-search-page",
+      };
+    });
+
+    renderWithQueryClient(<SupportServicesBrowser kind="transactions" />);
+
+    expect(await screen.findByText(runningTransaction.requestId)).toBeTruthy();
+    fireEvent.change(
+      screen.getByPlaceholderText("Search by ID, provider, request, or name"),
+      { target: { value: "pgr_2pq" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+
+    expect(await screen.findByText("pgr_2pq_case_00023")).toBeTruthy();
+    const filteredRequests = sdkFetchMock.mock.calls
+      .map(([path]) => new URL(String(path), "https://backoffice.example"))
+      .filter((url) => url.searchParams.get("query") === "pgr_2pq");
+    expect(filteredRequests).toHaveLength(2);
+    expect(filteredRequests[1]?.searchParams.get("cursor")).toBe(
+      "older-search-page",
+    );
+  });
+
   it("loads service transactions with an exact offer filter from the URL", async () => {
     sdkFetchMock.mockImplementation(async (path) => {
       const url = new URL(String(path), "https://backoffice.example");

@@ -2409,10 +2409,10 @@ describe("support service pagination", () => {
     );
   });
 
-  it("finds transactions by partial frozen service and provider names", async () => {
+  it("finds transactions by request prefix and partial frozen names", async () => {
     seedDoc("service_transactions", "transaction-searchable-snapshots", {
       schemaVersion: 1,
-      requestId: "pgr_searchable_1",
+      requestId: "pgr_2pq_case_00023",
       offerId: "offer-searchable",
       serviceId: "pgs_special_report_12345",
       serviceVersion: 1,
@@ -2427,7 +2427,7 @@ describe("support service pagination", () => {
       outputReports: [],
       issues: [],
       missingRequiredInputRoles: [],
-      normalizedName: "pgr searchable 1 pgs special report 12345",
+      normalizedName: "pgr 2pq case 00023 pgs special report 12345",
       offerSnapshot: {
         ...baseOffer,
         offerId: "offer-searchable",
@@ -2482,10 +2482,18 @@ describe("support service pagination", () => {
     );
 
     await expect(
+      listSupportServiceTransactions(context, { query: "pgr_2pq" }),
+    ).resolves.toEqual({
+      transactions: [
+        expect.objectContaining({ requestId: "pgr_2pq_case_00023" }),
+      ],
+      nextCursor: undefined,
+    });
+    await expect(
       listSupportServiceTransactions(context, { query: "genom rep" }),
     ).resolves.toEqual({
       transactions: [
-        expect.objectContaining({ requestId: "pgr_searchable_1" }),
+        expect.objectContaining({ requestId: "pgr_2pq_case_00023" }),
       ],
       nextCursor: undefined,
     });
@@ -2493,7 +2501,7 @@ describe("support service pagination", () => {
       listSupportServiceTransactions(context, { serviceId: "advanced geno" }),
     ).resolves.toEqual({
       transactions: [
-        expect.objectContaining({ requestId: "pgr_searchable_1" }),
+        expect.objectContaining({ requestId: "pgr_2pq_case_00023" }),
       ],
       nextCursor: undefined,
     });
@@ -2501,7 +2509,7 @@ describe("support service pagination", () => {
       listSupportServiceTransactions(context, { provider: "condor aust" }),
     ).resolves.toEqual({
       transactions: [
-        expect.objectContaining({ requestId: "pgr_searchable_1" }),
+        expect.objectContaining({ requestId: "pgr_2pq_case_00023" }),
       ],
       nextCursor: undefined,
     });
@@ -2511,7 +2519,7 @@ describe("support service pagination", () => {
       }),
     ).resolves.toEqual({
       transactions: [
-        expect.objectContaining({ requestId: "pgr_searchable_1" }),
+        expect.objectContaining({ requestId: "pgr_2pq_case_00023" }),
       ],
       nextCursor: undefined,
     });

@@ -3464,7 +3464,6 @@ export function SupportServicesBrowser({
   const createLabel = isOffers
     ? "Alta de service offer"
     : "Alta de transaccion";
-  const isInitialLoading = listQuery.isLoading && rows.length === 0;
   const hasActiveFilters = Boolean(
     filters.query.trim() ||
       filters.status !== "all" ||
@@ -3474,6 +3473,27 @@ export function SupportServicesBrowser({
           filters.provider.trim() ||
           filters.offerId.trim()),
   );
+  const isContinuingFilteredSearch = Boolean(
+    hasActiveFilters &&
+      listQuery.isSuccess &&
+      rows.length === 0 &&
+      listQuery.hasNextPage,
+  );
+  const isInitialLoading =
+    rows.length === 0 &&
+    (listQuery.isLoading || isContinuingFilteredSearch);
+
+  useEffect(() => {
+    if (!isContinuingFilteredSearch || listQuery.isFetchingNextPage) {
+      return;
+    }
+    void listQuery.fetchNextPage();
+  }, [
+    isContinuingFilteredSearch,
+    listQuery.fetchNextPage,
+    listQuery.isFetchingNextPage,
+  ]);
+
   const hasDraftFilters = Boolean(
     filterDrafts.query.trim() ||
       filterDrafts.status !== "all" ||
