@@ -124,6 +124,29 @@ describe("FileJsonWizard", () => {
     expect(screen.getByText("No items yet.")).toBeTruthy();
   });
 
+  it("presents schema fields as a guided form instead of exposing JSON keys", () => {
+    render(
+      <FileJsonWizard
+        open
+        fileType="pgo_pdf_report"
+        initialJson=""
+        onOpenChange={jest.fn()}
+        onSave={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Complete the details")).toBeTruthy();
+    expect(screen.getAllByText("Required")).toHaveLength(2);
+    expect(screen.getByText("Optional")).toBeTruthy();
+    expect(screen.queryByText("download_url · string")).toBeNull();
+    expect(
+      (screen.getByLabelText(/Download Url \*/) as HTMLInputElement).type,
+    ).toBe("url");
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Notes" }));
+    expect(screen.getByLabelText("Notes").tagName).toBe("INPUT");
+  });
+
   it("keeps same-container choices distinct so an answer array can contain numbers", async () => {
     render(
       <FileJsonWizard
@@ -136,8 +159,8 @@ describe("FileJsonWizard", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /0 item\(s\)/i }));
-    fireEvent.click(screen.getByRole("button", { name: "Add item" }));
-    fireEvent.click(screen.getByRole("button", { name: "Edit item" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add field" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open field form" }));
 
     fireEvent.click(screen.getByRole("combobox", { name: "Value value type" }));
     fireEvent.click(await screen.findByRole("option", { name: "String list" }));
@@ -164,8 +187,8 @@ describe("FileJsonWizard", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Section complete" }));
     fireEvent.click(screen.getByRole("button", { name: /0 item\(s\)/i }));
-    fireEvent.click(screen.getByRole("button", { name: "Add item" }));
-    fireEvent.click(screen.getByRole("button", { name: "Edit item" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add field" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open field form" }));
 
     expect(screen.queryByText("Options *")).toBeNull();
     fireEvent.click(screen.getByLabelText(/Type \*/));

@@ -6,14 +6,19 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  CalendarDays,
   Check,
   CheckCircle2,
-  Circle,
   CircleAlert,
+  Hash,
+  Layers3,
+  Link2,
   ListPlus,
   Loader2,
   Plus,
+  ToggleLeft,
   Trash2,
+  Type,
   WandSparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -400,6 +405,21 @@ function scalarSummary(value: JsonValue | undefined) {
   return String(value);
 }
 
+function FieldTypeIcon({ type, format }: { type: string; format?: string }) {
+  if (format === "date" || format === "date-time") {
+    return <CalendarDays className="h-4 w-4" />;
+  }
+  if (format === "uri") return <Link2 className="h-4 w-4" />;
+  if (type === "number" || type === "integer") {
+    return <Hash className="h-4 w-4" />;
+  }
+  if (type === "boolean") return <ToggleLeft className="h-4 w-4" />;
+  if (type === "array" || type === "object") {
+    return <Layers3 className="h-4 w-4" />;
+  }
+  return <Type className="h-4 w-4" />;
+}
+
 function ScalarEditor({
   id,
   schema,
@@ -427,7 +447,7 @@ function ScalarEditor({
     inferredChoiceIndex(alternatives, rootSchema, value);
 
   return (
-    <div className="grid gap-2">
+    <div className="grid gap-3">
       {showChoice && alternatives.length > 1 ? (
         <Select
           value={String(selectedAlternativeIndex)}
@@ -440,7 +460,10 @@ function ScalarEditor({
             }
           }}
         >
-          <SelectTrigger aria-label="Value type" className="w-full">
+          <SelectTrigger
+            aria-label="Value type"
+            className="h-11 w-full rounded-xl bg-background px-3.5"
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -454,13 +477,18 @@ function ScalarEditor({
       ) : null}
 
       {resolved.const !== undefined ? (
-        <Input id={id} value={String(resolved.const)} disabled readOnly />
+        <output
+          id={id}
+          className="flex min-h-11 items-center rounded-xl border border-border/80 bg-muted/45 px-3.5 text-sm font-medium text-foreground"
+        >
+          {String(resolved.const)}
+        </output>
       ) : resolved.enum?.length ? (
         <Select
           value={JSON.stringify(value)}
           onValueChange={(nextValue) => onChange(JSON.parse(nextValue) as JsonValue)}
         >
-          <SelectTrigger id={id} className="w-full">
+          <SelectTrigger id={id} className="h-11 w-full rounded-xl bg-background px-3.5">
             <SelectValue placeholder="Choose a value" />
           </SelectTrigger>
           <SelectContent>
@@ -472,16 +500,28 @@ function ScalarEditor({
           </SelectContent>
         </Select>
       ) : type === "boolean" ? (
-        <label className="flex items-center gap-3 rounded-xl border border-border px-3 py-2 text-sm">
+        <label className="flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border border-border/80 bg-background px-4 py-3 text-sm shadow-sm transition-colors hover:border-violet-300 hover:bg-violet-50/40 dark:hover:border-violet-400/40 dark:hover:bg-violet-500/10">
           <Checkbox
             id={id}
             checked={value === true}
             onCheckedChange={(checked) => onChange(checked === true)}
           />
-          {value === true ? "True" : "False"}
+          <span className="grid gap-0.5">
+            <span className="font-medium text-foreground">
+              {value === true ? "Yes" : "No"}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              Click to {value === true ? "turn this option off" : "turn this option on"}.
+            </span>
+          </span>
         </label>
       ) : type === "null" ? (
-        <Input id={id} value="null" disabled />
+        <output
+          id={id}
+          className="flex min-h-11 items-center rounded-xl border border-border/80 bg-muted/45 px-3.5 text-sm text-muted-foreground"
+        >
+          No value is needed for this field.
+        </output>
       ) : type === "number" || type === "integer" ? (
         <Input
           id={id}
@@ -490,6 +530,7 @@ function ScalarEditor({
           min={resolved.minimum}
           max={resolved.maximum}
           value={typeof value === "number" ? value : ""}
+          className="h-11 rounded-xl bg-background px-3.5"
           onChange={(event) => {
             const parsed = Number(event.target.value);
             if (Number.isFinite(parsed)) onChange(parsed);
@@ -500,15 +541,29 @@ function ScalarEditor({
           id={id}
           value={typeof value === "string" ? value : ""}
           onChange={(event) => onChange(event.target.value)}
-          className="min-h-28"
+          className="min-h-32 resize-y rounded-xl bg-background px-3.5 py-3 leading-6"
+          placeholder="Add the information here"
         />
       ) : (
         <Input
           id={id}
-          type={resolved.format === "date" ? "date" : "text"}
+          type={
+            resolved.format === "date"
+              ? "date"
+              : resolved.format === "uri"
+                ? "url"
+                : "text"
+          }
           value={typeof value === "string" ? value : ""}
           onChange={(event) => onChange(event.target.value)}
-          placeholder={resolved.format === "date-time" ? "2026-09-22T12:30:00Z" : undefined}
+          className="h-11 rounded-xl bg-background px-3.5"
+          placeholder={
+            resolved.format === "date-time"
+              ? "Example: 2026-09-22T12:30:00Z"
+              : resolved.format === "uri"
+                ? "https://example.com/file"
+                : "Enter a value"
+          }
         />
       )}
     </div>
@@ -607,6 +662,9 @@ export function FileJsonWizard({
           ),
         ).length
       : 0;
+  const requiredCompletionPercent = requiredKeys.length
+    ? Math.round((completedRequiredCount / requiredKeys.length) * 100)
+    : 100;
   const frameObject =
     frameValue && !Array.isArray(frameValue) && typeof frameValue === "object"
       ? frameValue
@@ -714,15 +772,19 @@ export function FileJsonWizard({
             </div>
           ) : (
             <div className="grid gap-5">
-              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <nav
+                aria-label="Form sections"
+                className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground"
+              >
                 {frames.map((entry, index) => (
-                  <div key={`${entry.label}-${index}`} className="flex items-center gap-2">
+                  <div key={`${entry.label}-${index}`} className="flex items-center gap-1.5">
                     {index > 0 ? <ArrowRight className="h-3.5 w-3.5" /> : null}
                     <button
                       type="button"
                       className={cn(
-                        "hover:text-foreground",
-                        index === frames.length - 1 && "font-medium text-foreground",
+                        "rounded-full px-3 py-1.5 transition-colors hover:bg-muted hover:text-foreground",
+                        index === frames.length - 1 &&
+                          "bg-violet-100 font-medium text-violet-900 dark:bg-violet-500/20 dark:text-violet-100",
                       )}
                       onClick={() => setFrames((current) => current.slice(0, index + 1))}
                     >
@@ -730,49 +792,79 @@ export function FileJsonWizard({
                     </button>
                   </div>
                 ))}
-              </div>
+              </nav>
 
-              <div className="rounded-2xl border border-violet-100 bg-violet-50/50 p-4 dark:border-violet-400/20 dark:bg-violet-500/10">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h3 className="font-semibold text-foreground">{frame.label}</h3>
-                    {resolvedFrameSchema.description ? (
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {resolvedFrameSchema.description}
+              <div className="overflow-hidden rounded-3xl border border-violet-100 bg-[linear-gradient(135deg,rgba(245,243,255,0.82),rgba(255,255,255,0.96),rgba(236,254,255,0.5))] shadow-sm dark:border-violet-400/20 dark:bg-[linear-gradient(135deg,rgba(46,16,101,0.2),rgba(9,9,11,0.94),rgba(8,47,73,0.2))]">
+                <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-violet-200 bg-white text-violet-700 shadow-sm dark:border-violet-400/25 dark:bg-violet-950/45 dark:text-violet-200">
+                      <FieldTypeIcon
+                        type={frameType ?? "object"}
+                        format={resolvedFrameSchema.format}
+                      />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-700 dark:text-violet-200">
+                        Current form section
                       </p>
-                    ) : null}
+                      <h3 className="mt-1 font-heading text-xl font-semibold text-foreground">
+                        {frame.label}
+                      </h3>
+                      {resolvedFrameSchema.description ? (
+                        <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+                          {resolvedFrameSchema.description}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
-                  <div className="flex flex-wrap items-center justify-end gap-2">
-                    {frameType === "object" ? (
+                  {frameType === "object" ? (
+                    <div className="w-full shrink-0 sm:w-52">
                       <span
                         aria-label={`${completedRequiredCount} of ${requiredKeys.length} required fields complete`}
-                        className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs text-emerald-800 dark:border-emerald-400/25 dark:bg-emerald-950/35 dark:text-emerald-100"
+                        className="flex items-center justify-between gap-2 text-xs font-medium text-emerald-800 dark:text-emerald-100"
                       >
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        {completedRequiredCount}/{requiredKeys.length} required
+                        <span className="flex items-center gap-1.5">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          Required fields
+                        </span>
+                        {completedRequiredCount}/{requiredKeys.length}
                       </span>
-                    ) : null}
-                    <span className="rounded-full border border-violet-200 bg-white px-3 py-1 font-mono text-xs text-violet-800 dark:border-violet-400/25 dark:bg-violet-950/40 dark:text-violet-100">
-                      {frameType}
-                    </span>
-                  </div>
+                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-white ring-1 ring-violet-100 dark:bg-black/35 dark:ring-violet-400/20">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-violet-600 to-emerald-500 transition-[width] duration-300"
+                          style={{ width: `${requiredCompletionPercent}%` }}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
               {frameType === "object" ? (
-                <div className="grid gap-3">
-                  {Object.entries(resolvedFrameSchema.properties ?? {})
-                    .filter(
-                      ([key]) => key !== "options" || showConditionalFormOptions,
-                    )
-                    .map(
-                    ([key, childSchema]) => {
+                <div className="overflow-hidden rounded-3xl border border-border/75 bg-card shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
+                  <div className="border-b border-border/70 bg-muted/25 px-5 py-4 lg:px-7">
+                    <h4 className="font-semibold text-foreground">Complete the details</h4>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Fill in the fields below. Required fields are clearly
+                      marked, and optional details can be added when needed.
+                    </p>
+                  </div>
+                  <div className="grid gap-x-8 gap-y-7 p-5 lg:grid-cols-2 lg:p-7">
+                    {Object.entries(resolvedFrameSchema.properties ?? {})
+                      .filter(
+                        ([key]) =>
+                          key !== "options" || showConditionalFormOptions,
+                      )
+                      .map(([key, childSchema]) => {
                       const childPath = [...frame.path, key];
                       const value = readAt(draft, childPath);
                       const required = requiredKeys.includes(key);
                       const childChoiceKey = pathKey(childPath);
                       const childChoiceIndex = choiceSelections[childChoiceKey];
-                      const childAlternatives = schemaAlternatives(childSchema, schema);
+                      const childAlternatives = schemaAlternatives(
+                        childSchema,
+                        schema,
+                      );
                       const childResolved = selectedSchema(
                         childSchema,
                         schema,
@@ -781,29 +873,67 @@ export function FileJsonWizard({
                       );
                       const type = schemaType(childResolved, schema, value);
                       const nested = type === "object" || type === "array";
-                      const complete = isWizardValueComplete(value, childSchema, schema);
+                      const complete = isWizardValueComplete(
+                        value,
+                        childSchema,
+                        schema,
+                      );
+                      const fullRow =
+                        nested ||
+                        (type === "string" &&
+                          ((childResolved.maxLength ?? 0) > 120 ||
+                            /(?:notes?|description|summary|content|body|text)$/i.test(key)));
                       return (
                         <div
                           key={key}
-                          className="grid gap-3 rounded-2xl border border-border/80 bg-card/70 p-4"
+                          className={cn(
+                            "grid content-start gap-3",
+                            fullRow && "lg:col-span-2",
+                          )}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex min-w-0 items-start gap-3">
-                              {complete ? (
-                                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
-                              ) : (
-                                <Circle className={cn("mt-0.5 h-5 w-5 shrink-0", required ? "text-amber-500" : "text-muted-foreground")} />
-                              )}
+                              <span
+                                className={cn(
+                                  "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border",
+                                  complete
+                                    ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/25 dark:bg-emerald-500/10 dark:text-emerald-200"
+                                    : required
+                                      ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/25 dark:bg-amber-500/10 dark:text-amber-200"
+                                      : "border-border bg-muted/40 text-muted-foreground",
+                                )}
+                              >
+                                {complete ? (
+                                  <Check className="h-4 w-4" />
+                                ) : (
+                                  <FieldTypeIcon
+                                    type={type}
+                                    format={childResolved.format}
+                                  />
+                                )}
+                              </span>
                               <div className="min-w-0">
-                                <Label htmlFor={`wizard-${childPath.join("-")}`} className="font-medium">
-                                  {childSchema.title || humanize(key)}
-                                  {required ? " *" : ""}
-                                </Label>
-                                <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-                                  {key} · {type}
-                                </p>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Label
+                                    htmlFor={`wizard-${childPath.join("-")}`}
+                                    className="text-sm font-semibold text-foreground"
+                                  >
+                                    {childSchema.title || humanize(key)}
+                                    {required ? " *" : ""}
+                                  </Label>
+                                  <span
+                                    className={cn(
+                                      "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                                      required
+                                        ? "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-100"
+                                        : "bg-muted text-muted-foreground",
+                                    )}
+                                  >
+                                    {required ? "Required" : "Optional"}
+                                  </span>
+                                </div>
                                 {childSchema.description ? (
-                                  <p className="mt-1 text-xs text-muted-foreground">
+                                  <p className="mt-1.5 max-w-3xl text-xs leading-5 text-muted-foreground">
                                     {childSchema.description}
                                   </p>
                                 ) : null}
@@ -814,8 +944,13 @@ export function FileJsonWizard({
                                 type="button"
                                 variant="ghost"
                                 size="icon-sm"
+                                className="shrink-0 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                                 aria-label={`Remove ${humanize(key)}`}
-                                onClick={() => setDraft((current) => removeAt(current, childPath))}
+                                onClick={() =>
+                                  setDraft((current) =>
+                                    removeAt(current, childPath),
+                                  )
+                                }
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -823,46 +958,62 @@ export function FileJsonWizard({
                           </div>
 
                           {childAlternatives.length > 1 ? (
-                            <Select
-                              value={String(
-                                childChoiceIndex ??
-                                  inferredChoiceIndex(
-                                    childAlternatives,
-                                    schema,
-                                    value,
-                                  ),
-                              )}
-                              onValueChange={(nextIndex) => {
-                                const parsedIndex = Number(nextIndex);
-                                const nextSchema = childAlternatives[parsedIndex];
-                                if (!nextSchema) return;
-                                setChoiceSelections((current) => ({
-                                  ...current,
-                                  [childChoiceKey]: parsedIndex,
-                                }));
-                                update(childPath, initialValue(nextSchema, schema));
-                              }}
-                            >
-                              <SelectTrigger aria-label={`${humanize(key)} value type`} className="w-full">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {childAlternatives.map((alternative, index) => (
-                                  <SelectItem key={index} value={String(index)}>
-                                    {choiceLabel(alternative, schema, index)}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <div className="grid gap-1.5">
+                              <span className="text-xs font-medium text-muted-foreground">
+                                Answer format
+                              </span>
+                              <Select
+                                value={String(
+                                  childChoiceIndex ??
+                                    inferredChoiceIndex(
+                                      childAlternatives,
+                                      schema,
+                                      value,
+                                    ),
+                                )}
+                                onValueChange={(nextIndex) => {
+                                  const parsedIndex = Number(nextIndex);
+                                  const nextSchema =
+                                    childAlternatives[parsedIndex];
+                                  if (!nextSchema) return;
+                                  setChoiceSelections((current) => ({
+                                    ...current,
+                                    [childChoiceKey]: parsedIndex,
+                                  }));
+                                  update(
+                                    childPath,
+                                    initialValue(nextSchema, schema),
+                                  );
+                                }}
+                              >
+                                <SelectTrigger
+                                  aria-label={`${humanize(key)} value type`}
+                                  className="h-11 w-full rounded-xl bg-background px-3.5"
+                                >
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {childAlternatives.map((alternative, index) => (
+                                    <SelectItem key={index} value={String(index)}>
+                                      {choiceLabel(alternative, schema, index)}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
                           ) : null}
 
                           {value === undefined && !required ? (
                             <Button
                               type="button"
                               variant="outline"
-                              size="sm"
-                              className="justify-self-start"
-                              onClick={() => update(childPath, initialValue(childSchema, schema))}
+                              className="min-h-11 justify-self-start rounded-xl border-dashed px-4 text-muted-foreground hover:border-violet-300 hover:bg-violet-50 hover:text-violet-800 dark:hover:border-violet-400/40 dark:hover:bg-violet-500/10 dark:hover:text-violet-100"
+                              onClick={() =>
+                                update(
+                                  childPath,
+                                  initialValue(childSchema, schema),
+                                )
+                              }
                             >
                               <Plus className="h-4 w-4" />
                               Add {humanize(key)}
@@ -871,15 +1022,38 @@ export function FileJsonWizard({
                             <Button
                               type="button"
                               variant="outline"
-                              className="justify-between"
-                              onClick={() => navigate(childSchema.title || humanize(key), childPath, childSchema)}
-                            >
-                              <span className="truncate">
-                                {type === "array"
+                              className="min-h-16 justify-between rounded-2xl border-violet-100 bg-violet-50/45 px-4 text-left shadow-none hover:border-violet-300 hover:bg-violet-50 dark:border-violet-400/20 dark:bg-violet-500/10 dark:hover:bg-violet-500/15"
+                              aria-label={
+                                type === "array"
                                   ? `${Array.isArray(value) ? value.length : 0} item(s)`
                                   : complete
                                     ? "Section complete"
-                                    : "Open section"}
+                                    : "Complete this section"
+                              }
+                              onClick={() =>
+                                navigate(
+                                  childSchema.title || humanize(key),
+                                  childPath,
+                                  childSchema,
+                                )
+                              }
+                            >
+                              <span className="flex min-w-0 items-center gap-3">
+                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-violet-700 shadow-sm dark:bg-violet-950/45 dark:text-violet-200">
+                                  <Layers3 className="h-4 w-4" />
+                                </span>
+                                <span className="grid min-w-0 gap-0.5">
+                                  <span className="truncate font-medium text-foreground">
+                                    {type === "array"
+                                      ? `${Array.isArray(value) ? value.length : 0} item(s)`
+                                      : complete
+                                        ? "Section complete"
+                                        : "Complete this section"}
+                                  </span>
+                                  <span className="truncate text-xs font-normal text-muted-foreground">
+                                    Open a guided form for these details
+                                  </span>
+                                </span>
                               </span>
                               <ArrowRight className="h-4 w-4" />
                             </Button>
@@ -918,11 +1092,12 @@ export function FileJsonWizard({
                           )}
                         </div>
                       );
-                    },
-                  )}
+                      })}
+                  </div>
                 </div>
               ) : frameType === "array" ? (
                 <ArrayEditor
+                  sectionLabel={frame.label}
                   path={frame.path}
                   schema={resolvedFrameSchema}
                   rootSchema={schema}
@@ -1020,6 +1195,7 @@ export function FileJsonWizard({
 }
 
 function ArrayEditor({
+  sectionLabel,
   path,
   schema,
   rootSchema,
@@ -1030,6 +1206,7 @@ function ArrayEditor({
   onUpdate,
   onNavigate,
 }: {
+  sectionLabel: string;
   path: PathPart[];
   schema: JsonSchema;
   rootSchema: JsonSchema;
@@ -1042,6 +1219,12 @@ function ArrayEditor({
 }) {
   const itemSchema = schema.items ?? {};
   const maxItems = schema.maxItems ?? Number.POSITIVE_INFINITY;
+  const itemNoun = /field/i.test(sectionLabel)
+    ? "field"
+    : /option/i.test(sectionLabel)
+      ? "option"
+      : "item";
+  const itemNounTitle = humanize(itemNoun);
 
   function replace(next: JsonValue[], resetChoices = false) {
     if (resetChoices) onChoicesReset(path);
@@ -1049,13 +1232,33 @@ function ArrayEditor({
   }
 
   return (
-    <div className="grid gap-3">
-      {value.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
-          No items yet.
+    <div className="overflow-hidden rounded-3xl border border-border/75 bg-card shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
+      <div className="flex flex-col gap-1 border-b border-border/70 bg-muted/25 px-5 py-4 sm:flex-row sm:items-center sm:justify-between lg:px-7">
+        <div>
+          <h4 className="font-semibold text-foreground">{sectionLabel}</h4>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Add each {itemNoun}, then open its guided form to complete the details.
+          </p>
         </div>
-      ) : null}
-      {value.map((item, index) => {
+        <span className="mt-2 self-start rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-800 sm:mt-0 dark:bg-violet-500/15 dark:text-violet-100">
+          {value.length} {value.length === 1 ? itemNoun : `${itemNoun}s`}
+        </span>
+      </div>
+      <div className="grid gap-4 p-5 lg:p-7">
+        {value.length === 0 ? (
+          <div className="grid justify-items-center gap-2 rounded-2xl border border-dashed border-violet-200 bg-violet-50/30 px-4 py-10 text-center dark:border-violet-400/25 dark:bg-violet-500/5">
+            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-violet-700 shadow-sm dark:bg-violet-950/45 dark:text-violet-200">
+              <ListPlus className="h-5 w-5" />
+            </span>
+            <p className="font-medium text-foreground">
+              No {itemNoun}s yet.
+            </p>
+            <p className="max-w-md text-sm text-muted-foreground">
+              Add the first {itemNoun} to start completing this part of the form.
+            </p>
+          </div>
+        ) : null}
+        {value.map((item, index) => {
         const itemPath = [...path, index];
         const itemChoiceIndex = choiceSelections[pathKey(itemPath)];
         const type = schemaType(
@@ -1066,17 +1269,33 @@ function ArrayEditor({
         const nested = type === "object" || type === "array";
         const complete = isWizardValueComplete(item, itemSchema, rootSchema);
         return (
-          <div key={index} className="grid gap-3 rounded-2xl border border-border/80 bg-card/70 p-4">
+          <div
+            key={index}
+            className="grid gap-4 rounded-2xl border border-border/80 bg-background p-4 shadow-sm transition-colors hover:border-violet-200 lg:p-5 dark:hover:border-violet-400/30"
+          >
             <div className="flex items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-2">
-                {complete ? (
-                  <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
-                ) : (
-                  <Circle className="h-5 w-5 shrink-0 text-amber-500" />
-                )}
-                <span className="font-medium">Item {index + 1}</span>
-                <span className="truncate text-xs text-muted-foreground">
-                  {nested ? humanize(type) : scalarSummary(item)}
+              <div className="flex min-w-0 items-center gap-3">
+                <span
+                  className={cn(
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-semibold",
+                    complete
+                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-100"
+                      : "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-100",
+                  )}
+                >
+                  {complete ? <Check className="h-4 w-4" /> : index + 1}
+                </span>
+                <span className="grid min-w-0 gap-0.5">
+                  <span className="font-medium text-foreground">
+                    {itemNounTitle} {index + 1}
+                  </span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {complete
+                      ? "Ready"
+                      : nested
+                        ? "Details still need attention"
+                        : scalarSummary(item)}
+                  </span>
                 </span>
               </div>
               <div className="flex items-center gap-1">
@@ -1084,7 +1303,7 @@ function ArrayEditor({
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  aria-label={`Move item ${index + 1} up`}
+                  aria-label={`Move ${itemNoun} ${index + 1} up`}
                   disabled={index === 0}
                   onClick={() => {
                     const next = [...value];
@@ -1098,7 +1317,7 @@ function ArrayEditor({
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  aria-label={`Move item ${index + 1} down`}
+                  aria-label={`Move ${itemNoun} ${index + 1} down`}
                   disabled={index === value.length - 1}
                   onClick={() => {
                     const next = [...value];
@@ -1112,7 +1331,7 @@ function ArrayEditor({
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  aria-label={`Remove item ${index + 1}`}
+                  aria-label={`Remove ${itemNoun} ${index + 1}`}
                   onClick={() =>
                     replace(
                       value.filter((_, itemIndex) => itemIndex !== index),
@@ -1128,10 +1347,19 @@ function ArrayEditor({
               <Button
                 type="button"
                 variant="outline"
-                className="justify-between"
-                onClick={() => onNavigate(`Item ${index + 1}`, itemPath, itemSchema)}
+                className="min-h-12 justify-between rounded-xl border-violet-100 bg-violet-50/45 px-4 hover:border-violet-300 hover:bg-violet-50 dark:border-violet-400/20 dark:bg-violet-500/10 dark:hover:bg-violet-500/15"
+                onClick={() =>
+                  onNavigate(
+                    `${itemNounTitle} ${index + 1}`,
+                    itemPath,
+                    itemSchema,
+                  )
+                }
               >
-                Edit item
+                <span className="flex items-center gap-2">
+                  <Layers3 className="h-4 w-4 text-violet-700 dark:text-violet-200" />
+                  Open {itemNoun} form
+                </span>
                 <ArrowRight className="h-4 w-4" />
               </Button>
             ) : (
@@ -1153,19 +1381,20 @@ function ArrayEditor({
             )}
           </div>
         );
-      })}
-      <Button
-        type="button"
-        variant="outline"
-        className="justify-self-start"
-        disabled={value.length >= maxItems}
-        onClick={() =>
-          replace([...value, initialValue(itemSchema, rootSchema)], true)
-        }
-      >
-        <ListPlus className="h-4 w-4" />
-        Add item
-      </Button>
+        })}
+        <Button
+          type="button"
+          variant="outline"
+          className="min-h-12 justify-center rounded-2xl border-dashed border-violet-200 bg-violet-50/25 text-violet-800 shadow-none hover:border-violet-400 hover:bg-violet-50 dark:border-violet-400/25 dark:bg-violet-500/5 dark:text-violet-100 dark:hover:bg-violet-500/10"
+          disabled={value.length >= maxItems}
+          onClick={() =>
+            replace([...value, initialValue(itemSchema, rootSchema)], true)
+          }
+        >
+          <ListPlus className="h-4 w-4" />
+          Add {itemNoun}
+        </Button>
+      </div>
     </div>
   );
 }
