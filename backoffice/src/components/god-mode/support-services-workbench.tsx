@@ -24,6 +24,7 @@ import {
   ArrowLeft,
   ArrowRight,
   BadgeDollarSign,
+  Ban,
   Binary,
   BriefcaseBusiness,
   Building2,
@@ -12005,6 +12006,7 @@ export function SupportServiceTransactionWorkbench({
   const [recentlyAddedReportCode, setRecentlyAddedReportCode] = useState("");
   const [rawExportOpen, setRawExportOpen] = useState(false);
   const [customNameDialogOpen, setCustomNameDialogOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [customNameDraft, setCustomNameDraft] = useState("");
   const [customNameError, setCustomNameError] = useState("");
   const isEditing = mode === "edit";
@@ -12587,6 +12589,51 @@ export function SupportServiceTransactionWorkbench({
     onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
   });
 
+  const cancelMutation = useMutation({
+    mutationFn: async () => {
+      if (!isEditing || !transactionId || !transactionRecord) {
+        throw new Error("Save the transaction before marking it as cancelled.");
+      }
+      const issues = parseJsonArray(form.issuesText, "Issues");
+      const payload = transactionPayloadFromForm(
+        {
+          ...form,
+          status: "cancelled",
+          issuesText: JSON.stringify([
+            ...issues,
+            "Transaction cancelled by the service provider.",
+          ]),
+        },
+        { includeInputs: false },
+      );
+      return sdkFetch<{ transaction: SupportServiceTransactionRecord }>(
+        `/admin/support-services/transactions/${encodeURIComponent(transactionId)}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        },
+      );
+    },
+    onSuccess: async (result) => {
+      setForm(transactionFormFromRecord(result.transaction));
+      queryClient.setQueryData(
+        [TRANSACTIONS_QUERY_KEY, transactionId],
+        { transaction: result.transaction },
+      );
+      await queryClient.invalidateQueries({
+        queryKey: [TRANSACTIONS_QUERY_KEY],
+      });
+      setCancelDialogOpen(false);
+      setToast({
+        id: nextToastId(),
+        tone: "success",
+        message: t("Service transaction marked as cancelled."),
+      });
+      router.refresh();
+    },
+    onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
+  });
+
   const deleteMutation = useMutation({
     mutationFn: () =>
       sdkFetch<{ deleted: boolean; cleanupWarnings?: string[] }>(
@@ -12617,6 +12664,7 @@ export function SupportServiceTransactionWorkbench({
     attachReportMutation.isPending ||
     removeReportMutation.isPending ||
     deliverMutation.isPending ||
+    cancelMutation.isPending ||
     deleteMutation.isPending;
 
   function handleServiceChange(offerId: string) {
@@ -13393,7 +13441,7 @@ export function SupportServiceTransactionWorkbench({
         <div
           aria-hidden="true"
           data-testid="service-transaction-action-footer-spacer"
-          className="h-52 lg:h-28"
+          className="h-64 lg:h-28"
         />
         <ServiceTransactionActionFooter
           isEditing={isEditing}
@@ -13402,10 +13450,72 @@ export function SupportServiceTransactionWorkbench({
           transactionCommandPending={transactionCommandPending}
           savePending={saveMutation.isPending}
           deliverPending={deliverMutation.isPending}
+          cancelPending={cancelMutation.isPending}
           canMarkDelivered={canMarkDelivered}
+          canMarkCancelled={Boolean(
+            isEditing && transactionRecord && !terminalStatusLocked,
+          )}
           onMarkDelivered={handleMarkDelivered}
+          onMarkCancelled={() => setCancelDialogOpen(true)}
         />
       </form>
+      <AlertDialog
+        open={cancelDialogOpen}
+        onOpenChange={(open) => {
+          if (!cancelMutation.isPending) {
+            setCancelDialogOpen(open);
+          }
+        }}
+      >
+        <AlertDialogContent className="max-w-xl overflow-hidden rounded-2xl border border-red-200 bg-white p-0 shadow-[0_34px_120px_rgba(127,29,29,0.24)] dark:border-red-400/24 dark:bg-slate-950">
+          <AlertDialogHeader className="border-b border-red-100 px-6 py-5 text-left dark:border-red-400/16">
+            <AlertDialogTitle className="flex items-center gap-3 font-heading text-xl font-semibold text-red-700 dark:text-red-200">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-500/14">
+                <Ban className="h-5 w-5" />
+              </span>
+              {t("Cancel this transaction?")}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="pt-2 leading-6">
+              {t(
+                "This changes the status to Cancelled and saves the transaction. It is a final state: the transaction cannot be reopened, edited, or marked as delivered afterward.",
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="px-6 py-5">
+            <div
+              role="alert"
+              className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-900 dark:border-red-400/24 dark:bg-red-500/10 dark:text-red-100"
+            >
+              <CircleAlert className="mt-0.5 h-5 w-5 shrink-0" />
+              <p>
+                {t(
+                  "Files and objects already linked to this transaction will not be deleted. They remain attached for audit history.",
+                )}
+              </p>
+            </div>
+          </div>
+          <AlertDialogFooter className="mx-0 mb-0 gap-3 border-red-100 bg-red-50/55 px-6 py-5 dark:border-red-400/14 dark:bg-red-950/16">
+            <AlertDialogCancel disabled={cancelMutation.isPending}>
+              {t("Keep transaction active")}
+            </AlertDialogCancel>
+            <Button
+              type="button"
+              onClick={() => cancelMutation.mutate()}
+              disabled={cancelMutation.isPending}
+              className="h-10 rounded-xl bg-red-600 px-4 font-semibold text-white shadow-[0_14px_34px_rgba(220,38,38,0.24)] hover:bg-red-700"
+            >
+              {cancelMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Ban className="h-4 w-4" />
+              )}
+              {cancelMutation.isPending
+                ? t("Marking as cancelled...")
+                : t("Mark as cancelled")}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <OutputObjectUploadDialog
         draft={outputUploadDraft}
         error={outputUploadError}
@@ -15261,8 +15371,11 @@ function ServiceTransactionActionFooter({
   transactionCommandPending,
   savePending,
   deliverPending,
+  cancelPending,
   canMarkDelivered,
+  canMarkCancelled,
   onMarkDelivered,
+  onMarkCancelled,
 }: {
   isEditing: boolean;
   changed: boolean;
@@ -15270,8 +15383,11 @@ function ServiceTransactionActionFooter({
   transactionCommandPending: boolean;
   savePending: boolean;
   deliverPending: boolean;
+  cancelPending: boolean;
   canMarkDelivered: boolean;
+  canMarkCancelled: boolean;
   onMarkDelivered: () => void;
+  onMarkCancelled: () => void;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -15310,6 +15426,25 @@ function ServiceTransactionActionFooter({
               )}
               {savePending ? t("Saving...") : t("Save")}
             </Button>
+            {isEditing ? (
+              <Button
+                type="button"
+                size="lg"
+                variant="outline"
+                onClick={onMarkCancelled}
+                disabled={!canMarkCancelled || transactionCommandPending}
+                className="h-14 min-w-[min(100%,17rem)] justify-center rounded-xl border-red-300 bg-white/82 text-base font-semibold text-red-700 shadow-sm hover:border-red-400 hover:bg-red-50 hover:text-red-800 dark:border-red-400/32 dark:bg-red-500/8 dark:text-red-200 dark:hover:bg-red-500/14"
+              >
+                {cancelPending ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Ban className="h-5 w-5" />
+                )}
+                {cancelPending
+                  ? t("Marking as cancelled...")
+                  : t("Mark as cancelled")}
+              </Button>
+            ) : null}
             {isEditing ? (
               <Button
                 type="button"

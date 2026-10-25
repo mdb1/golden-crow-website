@@ -5710,6 +5710,18 @@ const SPANISH_TEXT: Record<string, string> = {
   "New transactions start with Received status.":
     "Las transacciones nuevas comienzan con estado Recibido.",
   "Marking as delivered...": "Marcando como entregada...",
+  "Mark as cancelled": "Marcar como cancelado",
+  "Marking as cancelled...": "Marcando como cancelado...",
+  "Save the transaction before marking it as cancelled.":
+    "Guardá la transacción antes de marcarla como cancelada.",
+  "Cancel this transaction?": "¿Marcar esta transacción como cancelada?",
+  "This changes the status to Cancelled and saves the transaction. It is a final state: the transaction cannot be reopened, edited, or marked as delivered afterward.":
+    "Esto cambia el estado a Cancelado y guarda la transacción. Es un estado final: después no se podrá reabrir, editar ni marcar como entregada.",
+  "Files and objects already linked to this transaction will not be deleted. They remain attached for audit history.":
+    "Los archivos y objetos ya vinculados no se eliminarán. Permanecerán asociados como historial de auditoría.",
+  "Keep transaction active": "Mantener transacción activa",
+  "Service transaction marked as cancelled.":
+    "La transacción de servicio se marcó como cancelada.",
   "Service transaction marked as delivered.":
     "Transacción de servicio marcada como entregada.",
   "Terminal service transactions cannot be edited.":

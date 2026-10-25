@@ -7063,7 +7063,7 @@ describe("support services workbenches", () => {
     expect(transactionFooter?.classList.contains("z-40")).toBe(true);
     expect(
       screen.getByTestId("service-transaction-action-footer-spacer").className,
-    ).toContain("h-52");
+    ).toContain("h-64");
     expect(
       transactionFooter?.contains(
         screen.getByRole("button", { name: "Save" }),
@@ -7178,6 +7178,93 @@ describe("support services workbenches", () => {
     ).toBeTruthy();
 
     expect(screen.queryByRole("heading", { name: "Issues" })).toBeNull();
+  });
+
+  it("warns before cancelling and saves the transaction as a terminal cancellation", async () => {
+    const cancellationReason =
+      "Transaction cancelled by the service provider.";
+    const cancelledTransaction: SupportServiceTransactionRecord = {
+      ...runningTransaction,
+      status: "cancelled",
+      requestRevision: runningTransaction.requestRevision + 1,
+      issues: [cancellationReason],
+    };
+    let storedTransaction = runningTransaction;
+
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      const value = String(path);
+      if (
+        value.endsWith(`/transactions/${runningTransaction.requestId}`) &&
+        !init?.method
+      ) {
+        return { transaction: storedTransaction };
+      }
+      if (value.endsWith(`/offers/${runningTransaction.offerId}`)) {
+        return { offer: currentLiveOffer };
+      }
+      if (
+        value.endsWith(`/transactions/${runningTransaction.requestId}`) &&
+        init?.method === "PUT"
+      ) {
+        const payload = JSON.parse(String(init.body));
+        expect(payload.status).toBe("cancelled");
+        expect(payload.issues).toEqual([cancellationReason]);
+        storedTransaction = cancelledTransaction;
+        return { transaction: cancelledTransaction };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId={runningTransaction.requestId}
+      />,
+    );
+
+    const cancelButton = await screen.findByRole("button", {
+      name: "Mark as cancelled",
+    });
+    expect(cancelButton.className).toContain("border-red-300");
+    expect((cancelButton as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(cancelButton);
+
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Cancel this transaction?",
+    });
+    expect(
+      within(dialog).getByText(
+        "This changes the status to Cancelled and saves the transaction. It is a final state: the transaction cannot be reopened, edited, or marked as delivered afterward.",
+      ),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(
+        "Files and objects already linked to this transaction will not be deleted. They remain attached for audit history.",
+      ),
+    ).toBeTruthy();
+    expect(
+      sdkFetchMock.mock.calls.some(([, request]) => request?.method === "PUT"),
+    ).toBe(false);
+
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Mark as cancelled" }),
+    );
+
+    expect(
+      await screen.findByText("Service transaction marked as cancelled."),
+    ).toBeTruthy();
+    await waitFor(() => {
+      expect(
+        sdkFetchMock.mock.calls.some(([, request]) => request?.method === "PUT"),
+      ).toBe(true);
+    });
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Mark as cancelled",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
   });
 
   it("restores the close control after removing and re-uploading the same output", async () => {
