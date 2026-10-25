@@ -87,7 +87,7 @@ const MINIMUM_CONTENT_BY_TYPE: Record<string, Record<string, unknown>> = {
   },
   pgo_pdf_report: {
     title: "Genetic test report",
-    download_url: "https://example.com/report?signature=kept",
+    download_url: "https://example.com/report.pdf?signature=kept",
   },
   pgo_image_bundle: {
     title: "Images",
@@ -197,10 +197,10 @@ describe("embedded PGO content schemas", () => {
     }
   });
 
-  it("keeps pgo_pdf_report exact and accepts direct HTTPS URLs without filename suffixes", () => {
+  it("keeps pgo_pdf_report exact and requires an HTTPS URL with a PDF filename suffix", () => {
     const exactPdf = {
       title: "Genetic test report",
-      download_url: "https://example.com/download?signature=kept",
+      download_url: "https://example.com/download.pdf?signature=kept",
     };
     expect(
       serializedPgoObjectSchemaError("pgo_pdf_report", exactPdf),
@@ -208,7 +208,7 @@ describe("embedded PGO content schemas", () => {
     expect(
       serializedPgoObjectSchemaError("pgo_pdf_report", {
         ...exactPdf,
-        download_url: "HTTPS://example.com/download?signature=kept",
+        download_url: "HTTPS://example.com/download.PDF?signature=kept",
       }),
     ).toBeNull();
     const readsWithUppercaseScheme = clone(
@@ -241,10 +241,17 @@ describe("embedded PGO content schemas", () => {
         files: [{ path: "legacy.pdf" }],
       }),
     ).toContain("contains unsupported field files");
+    expect(
+      serializedPgoObjectSchemaError("pgo_pdf_report", {
+        ...exactPdf,
+        download_url: "https://example.com/download?signature=kept",
+      }),
+    ).toBe("download_url must be a valid HTTPS URL ending in .pdf");
     for (const downloadUrl of [
       "https:example.com/report",
       "https:///report",
       "https://example.com\\report",
+      "https://example.com/report.txt",
     ]) {
       expect(
         serializedPgoObjectSchemaError("pgo_pdf_report", {

@@ -4104,6 +4104,17 @@ describe("support service delivered transactions", () => {
         fileContent: "{}",
       }),
     ).rejects.toMatchObject({ statusCode: 400 });
+    await expect(
+      attachSupportServiceTransactionOutputObject(context, "transaction-1", {
+        role: "report",
+        fileContent: JSON.stringify({
+          title: "Final report",
+          download_url: "https://objects.example/final-report.txt",
+        }),
+      }),
+    ).rejects.toThrow(
+      "Download URL must be a valid HTTPS URL ending in .pdf.",
+    );
     expect(collectionStore("file_storage").has("file_storage-generated")).toBe(
       false,
     );

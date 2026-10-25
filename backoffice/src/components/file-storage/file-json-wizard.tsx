@@ -318,6 +318,33 @@ function stringIsValid(value: string, schema: JsonSchema) {
   return true;
 }
 
+const PDF_DOWNLOAD_URL_ERROR =
+  "Download URL must be a valid HTTPS URL ending in .pdf.";
+
+function wizardSpecificValidationError(fileType: string, value: JsonValue) {
+  if (fileType !== "pgo_pdf_report") return null;
+  if (!value || Array.isArray(value) || typeof value !== "object") {
+    return PDF_DOWNLOAD_URL_ERROR;
+  }
+  const downloadUrl = value.download_url;
+  if (
+    typeof downloadUrl !== "string" ||
+    downloadUrl.trim() !== downloadUrl
+  ) {
+    return PDF_DOWNLOAD_URL_ERROR;
+  }
+  try {
+    const parsed = new URL(downloadUrl);
+    return parsed.protocol === "https:" &&
+      Boolean(parsed.hostname) &&
+      parsed.pathname.toLowerCase().endsWith(".pdf")
+      ? null
+      : PDF_DOWNLOAD_URL_ERROR;
+  } catch {
+    return PDF_DOWNLOAD_URL_ERROR;
+  }
+}
+
 export function isWizardValueComplete(
   value: JsonValue | undefined,
   schema: JsonSchema,
@@ -442,6 +469,8 @@ function ScalarEditor({
   const alternatives = schemaAlternatives(schema, rootSchema);
   const resolved = selectedSchema(schema, rootSchema, value, choiceIndex);
   const type = schemaType(resolved, rootSchema, value);
+  const expectsPdfUrl =
+    resolved.format === "uri" && resolved.pattern?.includes("[Pp][Dd][Ff]");
   const selectedAlternativeIndex =
     choiceIndex ??
     inferredChoiceIndex(alternatives, rootSchema, value);
@@ -561,7 +590,9 @@ function ScalarEditor({
             resolved.format === "date-time"
               ? "Example: 2026-09-22T12:30:00Z"
               : resolved.format === "uri"
-                ? "https://example.com/file"
+                ? expectsPdfUrl
+                  ? "https://example.com/report.pdf"
+                  : "https://example.com/file"
                 : "Enter a value"
           }
         />
@@ -680,6 +711,11 @@ export function FileJsonWizard({
 
   async function saveWizard() {
     if (!schema || savingRef.current) return;
+    const wizardError = wizardSpecificValidationError(fileType, draft);
+    if (wizardError) {
+      setSaveError(wizardError);
+      return;
+    }
     savingRef.current = true;
     setSaving(true);
     onBusyChange?.(true);
@@ -1149,13 +1185,17 @@ export function FileJsonWizard({
         <DialogFooter
           className={cn(
             "border-t border-border bg-muted/35 px-6 py-4 lg:px-8",
-            embedded && "mx-0 mb-0 rounded-none",
+            embedded &&
+              "mx-0 mb-0 min-h-24 items-center gap-3 rounded-none bg-background/95 px-6 py-5 shadow-[0_-18px_50px_-32px_rgba(76,29,149,0.5)] lg:px-8",
           )}
         >
           {frames.length > 1 ? (
             <Button
               type="button"
               variant="ghost"
+              className={cn(
+                embedded && "h-12 rounded-full px-6 sm:mr-auto",
+              )}
               onClick={() => setFrames((current) => current.slice(0, -1))}
               disabled={saving}
             >
@@ -1163,10 +1203,27 @@ export function FileJsonWizard({
               {backLabel}
             </Button>
           ) : null}
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+          <Button
+            type="button"
+            variant="outline"
+            className={cn(
+              embedded &&
+                "h-12 rounded-full border-violet-200 px-6 shadow-sm hover:border-violet-300 hover:bg-violet-50 dark:border-violet-400/25 dark:hover:bg-violet-500/10",
+            )}
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+          >
             {cancelLabel}
           </Button>
-          <Button type="button" onClick={() => void saveWizard()} disabled={saving || !schema}>
+          <Button
+            type="button"
+            className={cn(
+              embedded &&
+                "h-12 rounded-full bg-gradient-to-r from-violet-600 to-cyan-600 px-7 text-white shadow-[0_14px_34px_-18px_rgba(109,40,217,0.9)] hover:from-violet-500 hover:to-cyan-500",
+            )}
+            onClick={() => void saveWizard()}
+            disabled={saving || !schema}
+          >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
             {saving ? submittingLabel : submitLabel}
           </Button>

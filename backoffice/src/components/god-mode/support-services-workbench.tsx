@@ -13557,10 +13557,10 @@ function OutputObjectGrid({
               onClick={() => onSelect(index)}
               disabled={!canUpload || ready}
               className={cn(
-                "group grid h-full min-h-48 w-full gap-4 rounded-2xl border-2 border-dashed p-5 text-left transition",
+                "group relative grid h-full min-h-48 w-full gap-4 overflow-hidden rounded-2xl p-5 text-left transition",
                 ready
-                  ? "border-emerald-300 bg-emerald-50/55 shadow-[0_18px_48px_-38px_rgba(5,150,105,0.55)] dark:border-emerald-400/34 dark:bg-emerald-500/10"
-                  : "border-violet-200 bg-white/74 hover:border-violet-400 hover:bg-violet-50/70 hover:shadow-[0_18px_48px_-38px_rgba(109,40,217,0.6)] dark:border-violet-400/22 dark:bg-slate-950/38 dark:hover:border-violet-300/44 dark:hover:bg-violet-500/10",
+                  ? "bg-emerald-50/55 shadow-[0_18px_48px_-38px_rgba(5,150,105,0.55)] dark:bg-emerald-500/10"
+                  : "border-2 border-dashed border-violet-200 bg-white/74 hover:border-violet-400 hover:bg-violet-50/70 hover:shadow-[0_18px_48px_-38px_rgba(109,40,217,0.6)] dark:border-violet-400/22 dark:bg-slate-950/38 dark:hover:border-violet-300/44 dark:hover:bg-violet-500/10",
                 (!canUpload || ready) && "cursor-default opacity-80",
               )}
             >
@@ -13581,23 +13581,14 @@ function OutputObjectGrid({
                     {output.objectType}
                   </span>
                 </span>
-                <span
-                  className={cn(
-                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-full border shadow-sm transition",
-                    ready
-                      ? "border-emerald-200 bg-white text-emerald-700 dark:border-emerald-400/28 dark:bg-emerald-500/12 dark:text-emerald-100"
-                      : "border-violet-200 bg-white text-violet-700 group-hover:scale-105 dark:border-violet-400/24 dark:bg-violet-500/12 dark:text-violet-100",
-                  )}
-                >
-                  {ready ? (
-                    <Check className="h-5 w-5" />
-                  ) : (
+                {!ready ? (
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-violet-200 bg-white text-violet-700 shadow-sm transition group-hover:scale-105 dark:border-violet-400/24 dark:bg-violet-500/12 dark:text-violet-100">
                     <Plus className="h-5 w-5" />
-                  )}
-                </span>
+                  </span>
+                ) : null}
               </span>
 
-              <span className="mt-auto block">
+              <span className={cn("mt-auto block", ready && "pr-10")}>
                 {ready ? (
                   <>
                     {output.fileName ? (
@@ -13618,6 +13609,14 @@ function OutputObjectGrid({
                   </span>
                 )}
               </span>
+              {ready ? (
+                <span
+                  data-slot="output-ready-check"
+                  className="absolute bottom-5 right-5 flex h-7 w-7 items-center justify-center text-emerald-700 dark:text-emerald-200"
+                >
+                  <Check className="h-6 w-6" />
+                </span>
+              ) : null}
             </button>
             {ready ? (
               <button
@@ -14300,7 +14299,7 @@ function OutputObjectUploadDialog({
                   title={t("File JSON wizard")}
                   backLabel={t("Back")}
                   cancelLabel={t("Cancel")}
-                  submitLabel={t("Validate and use JSON")}
+                  submitLabel={t("Upload file")}
                   submittingLabel={t("Validating, creating, and linking...")}
                   onOpenChange={(open) => {
                     if (!open && !busy) onClose();

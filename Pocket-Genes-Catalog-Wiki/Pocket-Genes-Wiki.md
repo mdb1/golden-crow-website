@@ -1777,7 +1777,7 @@ Every unlisted property is invalid. Optional `notes` may be absent or an empty s
 | Field | Type | Required | Meaning |
 | --- | --- | --- | --- |
 | `title` | `string` | Yes | Human-facing title. |
-| `download_url` | `string` | Yes | HTTPS URL used to download the native file. |
+| `download_url` | `string` | Yes | Valid HTTPS URL ending in `.pdf`; query parameters or a fragment may follow the extension. |
 | `notes` | `string` | No | Optional additional information the person wants to communicate. It may be empty. |
 
 ### Native file boundary
@@ -1802,7 +1802,7 @@ The PGO registers a readable `title` and one direct `download_url`. The download
 - Required strings must contain at least one non-whitespace character.
 - notes is optional, may be empty, and must not be populated with discarded technical metadata.
 - Required strings are nonempty after trimming whitespace.
-- Any download URL is absolute HTTPS; query parameters are preserved and a filename suffix is not required.
+- `download_url` is absolute HTTPS and its path ends in `.pdf`; query parameters and fragments are preserved after the extension.
 - No compatibility alias, legacy envelope, or unknown property is accepted.
 
 ## Platform integration

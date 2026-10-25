@@ -320,6 +320,11 @@ const httpsURL = (description) => ({
   description
 });
 
+const httpsPdfURL = (description) => ({
+  ...httpsURL(description),
+  pattern: "^[Hh][Tt][Tt][Pp][Ss]://[^/?#\\\\\\s]+/[^?#\\\\\\s]*\\.[Pp][Dd][Ff](?:[?#][^\\\\\\s]*)?$"
+});
+
 const enumField = (values, description, labels) => ({
   type: "string",
   enum: values,
@@ -727,7 +732,12 @@ const contracts = {
   },
   pgo_pdf_report: {
     description: "A titled reference to a downloadable PDF report.",
-    properties: singleFileProperties(), required: ["title", "download_url"],
+    properties: withNotes({
+      title: nonemptyString("Human-facing title."),
+      download_url: httpsPdfURL("Valid HTTPS URL ending in .pdf, optionally followed by a query string or fragment.")
+    }),
+    required: ["title", "download_url"],
+    validationRules: ["download_url is a valid absolute HTTPS URL whose path ends in .pdf; query parameters and fragments may follow the extension."],
     example: { title: "Genetic test report", download_url: "https://example.com/reports/report.pdf" }
   },
   pgo_image_bundle: {

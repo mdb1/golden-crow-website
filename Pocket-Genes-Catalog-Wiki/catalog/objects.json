@@ -2228,7 +2228,7 @@
           "name": "download_url",
           "type": "string",
           "required": true,
-          "description": "HTTPS URL used to download the native file."
+          "description": "Valid HTTPS URL ending in .pdf, optionally followed by a query string or fragment."
         },
         {
           "name": "notes",
@@ -2251,8 +2251,8 @@
             "type": "string",
             "minLength": 1,
             "format": "uri",
-            "pattern": "^https://",
-            "description": "HTTPS URL used to download the native file."
+            "pattern": "^[Hh][Tt][Tt][Pp][Ss]://[^/?#\\\\\\s]+/[^?#\\\\\\s]*\\.[Pp][Dd][Ff](?:[?#][^\\\\\\s]*)?$",
+            "description": "Valid HTTPS URL ending in .pdf, optionally followed by a query string or fragment."
           },
           "notes": {
             "type": "string",
@@ -2273,7 +2273,8 @@
         "The content is standalone and does not require a Pocket Genes service or another registered object.",
         "Only the declared properties are allowed; platform identity, ownership, revision, provenance and storage metadata stay outside the content.",
         "Required strings must contain at least one non-whitespace character.",
-        "notes is optional, may be empty, and must not be populated with discarded technical metadata."
+        "notes is optional, may be empty, and must not be populated with discarded technical metadata.",
+        "download_url is a valid absolute HTTPS URL whose path ends in .pdf; query parameters and fragments may follow the extension."
       ],
       "use_cases": [
         "Form to administrative or assessment PDF.",

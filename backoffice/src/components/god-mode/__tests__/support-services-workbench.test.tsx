@@ -502,6 +502,7 @@ describe("support services workbenches", () => {
     expect(appText("es", "Validate and use JSON")).toBe(
       "Validar y usar JSON",
     );
+    expect(appText("es", "Upload file")).toBe("Cargar archivo");
   });
 
   it("shows every more-information field in the wizard contract preview", () => {
@@ -7198,6 +7199,18 @@ describe("support services workbenches", () => {
     const removeButton = await screen.findByRole("button", {
       name: "Remove output object · result",
     });
+    const readyCard = screen.getByRole("button", {
+      name: "Ready object linked · result",
+    });
+    expect(readyCard.className).not.toContain("border-dashed");
+    expect(readyCard.className).not.toContain("border-2");
+    const readyCheck = readyCard.querySelector(
+      '[data-slot="output-ready-check"]',
+    ) as HTMLElement | null;
+    expect(readyCheck).toBeTruthy();
+    expect(readyCheck?.className).toContain("bottom-5");
+    expect(readyCheck?.className).toContain("right-5");
+    expect(readyCheck?.className).not.toContain("border");
     expect(removeButton.className).toContain("absolute");
     expect(removeButton.className).toContain("right-2.5");
     expect((removeButton as HTMLButtonElement).disabled).toBe(false);
@@ -7383,11 +7396,14 @@ describe("support services workbenches", () => {
         name: "File JSON wizard",
       }),
     ).toBeTruthy();
+    const uploadFileButton = within(uploadDialog).getByRole("button", {
+      name: "Upload file",
+    });
+    expect(uploadFileButton.className).toContain("h-12");
+    expect(uploadFileButton.className).toContain("rounded-full");
     expect(
-      within(uploadDialog).getByRole("button", {
-        name: "Validate and use JSON",
-      }),
-    ).toBeTruthy();
+      uploadFileButton.closest('[data-slot="dialog-footer"]')?.className,
+    ).toContain("min-h-24");
     expect(
       within(uploadDialog).queryByRole("button", {
         name: "Create and link object",
@@ -7402,7 +7418,7 @@ describe("support services workbenches", () => {
     });
     fireEvent.click(
       within(uploadDialog).getByRole("button", {
-        name: "Validate and use JSON",
+        name: "Upload file",
       }),
     );
 

@@ -46,8 +46,15 @@ function record(value: unknown) {
   return value as JsonRecord;
 }
 
-function validationErrorMessage(error: ErrorObject) {
+function validationErrorMessage(error: ErrorObject, objectType: string) {
   const location = error.instancePath || "/";
+  if (
+    objectType === "pgo_pdf_report" &&
+    location === "/download_url" &&
+    (error.keyword === "format" || error.keyword === "pattern")
+  ) {
+    return "download_url must be a valid HTTPS URL ending in .pdf";
+  }
   if (error.keyword === "required") {
     const missingProperty = String(error.params.missingProperty ?? "field");
     return `${location} is missing required field ${missingProperty}`;
@@ -326,7 +333,7 @@ export function serializedPgoObjectSchemaError(
   if (!validator(value)) {
     const firstError = validator.errors?.[0];
     return firstError
-      ? validationErrorMessage(firstError)
+      ? validationErrorMessage(firstError, objectType)
       : `content failed the ${objectType} schema`;
   }
   return semanticPgoObjectSchemaError(objectType, value);

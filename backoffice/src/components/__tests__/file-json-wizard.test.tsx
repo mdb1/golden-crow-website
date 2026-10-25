@@ -147,6 +147,35 @@ describe("FileJsonWizard", () => {
     expect(screen.getByLabelText("Notes").tagName).toBe("INPUT");
   });
 
+  it("explains that PDF report downloads require an HTTPS URL ending in .pdf", () => {
+    const onSave = jest.fn();
+    render(
+      <FileJsonWizard
+        open
+        fileType="pgo_pdf_report"
+        initialJson=""
+        onOpenChange={jest.fn()}
+        onSave={onSave}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/Title \*/), {
+      target: { value: "Final report" },
+    });
+    fireEvent.change(screen.getByLabelText(/Download Url \*/), {
+      target: { value: "https://example.org/final.txt" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Validate and use JSON" }),
+    );
+
+    expect(screen.getByRole("alert").textContent).toBe(
+      "Download URL must be a valid HTTPS URL ending in .pdf.",
+    );
+    expect(sdkFetchMock).not.toHaveBeenCalled();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
   it("keeps same-container choices distinct so an answer array can contain numbers", async () => {
     render(
       <FileJsonWizard
@@ -284,6 +313,12 @@ describe("FileJsonWizard", () => {
       />,
     );
 
+    fireEvent.change(screen.getByLabelText(/Title \*/), {
+      target: { value: "Final report" },
+    });
+    fireEvent.change(screen.getByLabelText(/Download Url \*/), {
+      target: { value: "https://example.org/final.pdf" },
+    });
     fireEvent.click(
       screen.getByRole("button", { name: "Validate and use JSON" }),
     );

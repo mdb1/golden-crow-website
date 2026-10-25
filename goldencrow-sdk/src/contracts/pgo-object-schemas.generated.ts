@@ -1081,8 +1081,8 @@ export const PGO_OBJECT_SCHEMAS: Readonly<
         "type": "string",
         "minLength": 1,
         "format": "uri",
-        "pattern": "^[Hh][Tt][Tt][Pp][Ss]://[^/?#\\\\\\s]+(?:[/?#]|$)",
-        "description": "HTTPS URL used to download the native file."
+        "pattern": "^[Hh][Tt][Tt][Pp][Ss]://[^/?#\\\\\\s]+/[^?#\\\\\\s]*\\.[Pp][Dd][Ff](?:[?#][^\\\\\\s]*)?$",
+        "description": "Valid HTTPS URL ending in .pdf, optionally followed by a query string or fragment."
       },
       "notes": {
         "type": "string",

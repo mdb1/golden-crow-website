@@ -583,6 +583,8 @@ def minimal_instance(schema: dict, root: dict | None = None, property_name: str 
         if schema.get("format") == "date-time":
             return "2026-09-22T12:00:00Z"
         if property_name.endswith("download_url"):
+            if "[Pp][Dd][Ff]" in schema.get("pattern", ""):
+                return "https://example.com/download.pdf?token=kept"
             return "https://example.com/download?token=kept"
         return "x"
     if kind == "integer":
@@ -645,6 +647,8 @@ def validate_pdf_contract():
     validate_content("pgo_pdf_report", minimum)
     validate_content("pgo_pdf_report", {**minimum, "notes": ""})
     reject(lambda: validate_content("pgo_pdf_report", {**minimum, "page_count": 8}))
+    reject(lambda: validate_content("pgo_pdf_report", {**minimum, "download_url": "https://example.com/reports/report.txt"}))
+    reject(lambda: validate_content("pgo_pdf_report", {**minimum, "download_url": "not-a-url.pdf"}))
     require(set(SCHEMAS["pgo_pdf_report"]["properties"]) == {"title", "download_url", "notes"}, "PDF is not the exact two-field-plus-notes contract")
 
 

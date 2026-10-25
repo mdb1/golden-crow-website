@@ -5042,6 +5042,16 @@ function validateInlinePgoFileContent(
   }
   const schemaError = serializedPgoObjectSchemaError(objectType, content);
   if (schemaError) {
+    if (
+      objectType === "pgo_pdf_report" &&
+      schemaError ===
+        "download_url must be a valid HTTPS URL ending in .pdf"
+    ) {
+      throw new AdminRepositoryError(
+        "Download URL must be a valid HTTPS URL ending in .pdf.",
+        400,
+      );
+    }
     throw new AdminRepositoryError(
       `Inline output file does not match the ${objectType} schema: ${schemaError}.`,
       400,
@@ -5168,6 +5178,16 @@ async function downloadAndValidatePgoObject(
     }
     const schemaError = serializedPgoObjectSchemaError(objectType, serialized);
     if (schemaError) {
+      if (
+        objectType === "pgo_pdf_report" &&
+        schemaError ===
+          "download_url must be a valid HTTPS URL ending in .pdf"
+      ) {
+        throw new AdminRepositoryError(
+          "Downloaded PDF report content must contain a valid HTTPS download URL ending in .pdf.",
+          400,
+        );
+      }
       throw new AdminRepositoryError(
         `downloadUrl content does not match the ${objectType} schema: ${schemaError}.`,
         400,
