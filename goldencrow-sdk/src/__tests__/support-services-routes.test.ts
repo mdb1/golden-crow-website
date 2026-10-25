@@ -22,6 +22,7 @@ const mockCreateSupportServiceTransaction = jest.fn();
 const mockUpdateSupportServiceTransaction = jest.fn();
 const mockDeleteSupportServiceTransaction = jest.fn();
 const mockAttachSupportServiceTransactionOutputObject = jest.fn();
+const mockGetSupportServiceTransactionOutputObject = jest.fn();
 const mockRemoveSupportServiceTransactionOutputObject = jest.fn();
 const mockAttachSupportServiceTransactionOutputReport = jest.fn();
 const mockRemoveSupportServiceTransactionOutputReport = jest.fn();
@@ -164,6 +165,8 @@ jest.mock("../repositories/support-services.repository.js", () => ({
   ],
   attachSupportServiceTransactionOutputObject:
     mockAttachSupportServiceTransactionOutputObject,
+  getSupportServiceTransactionOutputObject:
+    mockGetSupportServiceTransactionOutputObject,
   removeSupportServiceTransactionOutputObject:
     mockRemoveSupportServiceTransactionOutputObject,
   attachSupportServiceTransactionOutputReport:
@@ -514,6 +517,23 @@ describe("support service admin routes", () => {
         downloadUrl: "https://objects.example/report.pgo.json",
         status: "ready",
       },
+    });
+    mockGetSupportServiceTransactionOutputObject.mockResolvedValue({
+      id: "pgo_output_123456789",
+      role: "report",
+      objectCode: "123456789",
+      objectType: "pgo_pdf_report",
+      objectId: "obj_output_123456789",
+      objectRevision: 1,
+      fileName: "Final report",
+      source: "file_storage",
+      fileStorageId: "stored-output-1",
+      content: {
+        title: "Final report",
+        download_url: "https://objects.example/report.pdf",
+      },
+      contentSizeBytes: 96,
+      uploadVersionCount: 1,
     });
     mockRemoveSupportServiceTransactionOutputObject.mockResolvedValue({
       transaction: {
@@ -1960,6 +1980,33 @@ describe("support service admin routes", () => {
       }),
     );
     expect(mockRemoveSupportServiceTransactionOutputObject).toHaveBeenCalledWith(
+      bootstrapContext,
+      "pgr_demo_final_report",
+      "report",
+    );
+  });
+
+  it("loads a linked output object through the transaction-scoped route", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "GET",
+      url: "/admin/support-services/transactions/pgr_demo_final_report/output-objects/report",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      object: expect.objectContaining({
+        role: "report",
+        objectCode: "123456789",
+        objectType: "pgo_pdf_report",
+        content: {
+          title: "Final report",
+          download_url: "https://objects.example/report.pdf",
+        },
+      }),
+    });
+    expect(mockGetSupportServiceTransactionOutputObject).toHaveBeenCalledWith(
       bootstrapContext,
       "pgr_demo_final_report",
       "report",

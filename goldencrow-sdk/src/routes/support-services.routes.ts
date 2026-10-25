@@ -22,6 +22,7 @@ import {
   getSupportServiceOffer,
   getSupportServiceOfferTransactionStats,
   getSupportServiceTransaction,
+  getSupportServiceTransactionOutputObject,
   getSupportServiceTransactionLinkedReports,
   isCanonicalSupportServiceCategoryValue,
   listDeferredServiceTransactionLinks,
@@ -920,6 +921,23 @@ export async function supportServicesRoutes(
           request.body,
         );
         return reply.status(201).send(result);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/admin/support-services/transactions/:transactionId/output-objects/:role",
+    { schema: { params: TransactionOutputObjectParamsSchema } },
+    async (request, reply) => {
+      try {
+        const object = await getSupportServiceTransactionOutputObject(
+          request.adminContext!,
+          request.params.transactionId,
+          request.params.role,
+        );
+        return reply.send({ object });
       } catch (error) {
         return sendRepositoryError(reply, error);
       }

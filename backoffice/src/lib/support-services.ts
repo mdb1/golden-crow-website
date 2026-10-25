@@ -357,6 +357,25 @@ export interface SupportServiceTransactionOutputObject {
   objectCode: string;
 }
 
+export interface SupportServiceTransactionOutputObjectDetail {
+  id: string;
+  role: string;
+  objectCode: string;
+  objectType: string;
+  objectId: string;
+  objectRevision: number;
+  fileName: string;
+  source: "file_storage" | "download_url";
+  fileStorageId?: string;
+  sourceDownloadUrl?: string;
+  content: Record<string, unknown>;
+  contentSizeBytes: number;
+  uploadVersionCount: number;
+  ownerName?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface SupportServiceTransactionOutputReport {
   reportCode: string;
 }

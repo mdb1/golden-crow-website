@@ -13076,6 +13076,12 @@ export function SupportServiceTransactionWorkbench({
                 : ""
             }
             onSelect={openOutputUpload}
+            onOpen={(output) => {
+              if (!transactionId) return;
+              router.push(
+                `${routeBase}/${encodeURIComponent(transactionId)}/outputs/${encodeURIComponent(output.role)}`,
+              );
+            }}
             onRemove={(output) => {
               if (
                 window.confirm(
@@ -13546,6 +13552,7 @@ function OutputObjectGrid({
   canRemove,
   removingRole,
   onSelect,
+  onOpen,
   onRemove,
 }: {
   outputs: OutputObjectDraft[];
@@ -13553,6 +13560,7 @@ function OutputObjectGrid({
   canRemove: boolean;
   removingRole: string;
   onSelect: (index: number) => void;
+  onOpen: (output: OutputObjectDraft) => void;
   onRemove: (output: OutputObjectDraft) => void;
 }) {
   const { language } = useAppLanguage();
@@ -13572,7 +13580,7 @@ function OutputObjectGrid({
         const ready = /^\d{9}$/.test(output.objectCode);
         const removing = removingRole === output.role;
         const actionLabel = ready
-          ? `${t("Ready object linked")} · ${output.role}`
+          ? `${t("Explore output object")} · ${output.role}`
           : `${t("Upload output object")} · ${output.role}`;
 
         return (
@@ -13583,14 +13591,14 @@ function OutputObjectGrid({
             <button
               type="button"
               aria-label={actionLabel}
-              onClick={() => onSelect(index)}
-              disabled={!canUpload || ready}
+              onClick={() => (ready ? onOpen(output) : onSelect(index))}
+              disabled={!ready && !canUpload}
               className={cn(
                 "group relative grid h-full min-h-48 w-full gap-4 overflow-hidden rounded-2xl p-5 text-left transition",
                 ready
-                  ? "bg-emerald-50/55 shadow-[0_18px_48px_-38px_rgba(5,150,105,0.55)] dark:bg-emerald-500/10"
+                  ? "bg-emerald-50/55 shadow-[0_18px_48px_-38px_rgba(5,150,105,0.55)] hover:-translate-y-0.5 hover:bg-emerald-50 hover:shadow-[0_24px_58px_-38px_rgba(5,150,105,0.68)] dark:bg-emerald-500/10 dark:hover:bg-emerald-500/14"
                   : "border-2 border-dashed border-violet-200 bg-white/74 hover:border-violet-400 hover:bg-violet-50/70 hover:shadow-[0_18px_48px_-38px_rgba(109,40,217,0.6)] dark:border-violet-400/22 dark:bg-slate-950/38 dark:hover:border-violet-300/44 dark:hover:bg-violet-500/10",
-                (!canUpload || ready) && "cursor-default opacity-80",
+                !ready && !canUpload && "cursor-default opacity-80",
               )}
             >
               <span

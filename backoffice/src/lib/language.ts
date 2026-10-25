@@ -5635,6 +5635,35 @@ const SPANISH_TEXT: Record<string, string> = {
   "Create and link object": "Crear y vincular objeto",
   "Creating object...": "Creando objeto...",
   "Output object created and linked.": "Objeto de salida creado y vinculado.",
+  "Explore output object": "Explorar objeto de salida",
+  "Output files": "Archivos de salida",
+  "Output file explorer": "Explorador de archivo de salida",
+  "Explore the finalized output content without changing it.":
+    "Explorá el contenido de salida finalizado sin modificarlo.",
+  "Output file could not be loaded":
+    "No se pudo cargar el archivo de salida",
+  "Back to transaction": "Volver a la transacción",
+  "Content explorer": "Explorador de contenido",
+  "File explorer": "Explorador de archivos",
+  "Read-only output file navigation.":
+    "Navegación de solo lectura del archivo de salida.",
+  "This explorer never changes the stored output file.":
+    "Este explorador nunca modifica el archivo de salida guardado.",
+  "Read-only finalized PGO content.":
+    "Contenido PGO finalizado de solo lectura.",
+  "Output field path": "Ruta de campos de salida",
+  "Back one level": "Volver un nivel",
+  "This section has no values.": "Esta sección no tiene valores.",
+  "Output role": "Rol de salida",
+  "Object identity": "Identidad del objeto",
+  "Upload version": "Versión de carga",
+  "File source": "Origen del archivo",
+  "File Storage ID": "ID de File Storage",
+  "Remote URL": "URL remota",
+  "Open URL": "Abrir URL",
+  "No value": "Sin valor",
+  Explore: "Explorar",
+  Item: "Elemento",
   "The created object does not match the selected output slot.":
     "El objeto creado no coincide con el slot de salida seleccionado.",
   "Choose an output object source.":

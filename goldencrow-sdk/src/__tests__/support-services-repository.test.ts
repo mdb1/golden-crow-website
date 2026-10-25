@@ -3089,6 +3089,7 @@ describe("organization publisher support service scope", () => {
     });
     const {
       attachSupportServiceTransactionOutputObject,
+      getSupportServiceTransactionOutputObject,
       removeSupportServiceTransactionOutputObject,
     } = await import("../repositories/support-services.repository.js");
 
@@ -3112,6 +3113,33 @@ describe("organization publisher support service scope", () => {
       provider_id: "publisher-org-1",
       service_transaction_id: "pgr_own_transaction",
     });
+    await expect(
+      getSupportServiceTransactionOutputObject(
+        organizationPublisherContext,
+        "pgr_own_transaction",
+        "report",
+      ),
+    ).resolves.toMatchObject({
+      id: attached.object.id,
+      role: "report",
+      objectCode: attached.object.objectCode,
+      objectType: "pgo_pdf_report",
+      fileName: "Publisher final report",
+      source: "file_storage",
+      fileStorageId: "file_storage-generated",
+      content: {
+        title: "Publisher final report",
+        download_url: "https://objects.example/publisher-report.pdf",
+      },
+      uploadVersionCount: 1,
+    });
+    await expect(
+      getSupportServiceTransactionOutputObject(
+        organizationPublisherContext,
+        "pgr_other_transaction",
+        "report",
+      ),
+    ).rejects.toMatchObject({ statusCode: 404 });
     const removed = await removeSupportServiceTransactionOutputObject(
       organizationPublisherContext,
       "pgr_own_transaction",

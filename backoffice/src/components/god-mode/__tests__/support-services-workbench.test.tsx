@@ -6746,10 +6746,16 @@ describe("support services workbenches", () => {
     expect(
       (
         screen.getByRole("button", {
-          name: "Ready object linked · result",
+          name: "Explore output object · result",
         }) as HTMLButtonElement
       ).disabled,
-    ).toBe(true);
+    ).toBe(false);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Explore output object · result" }),
+    );
+    expect(routerPush).toHaveBeenCalledWith(
+      `/god-mode/service-transactions/${deliveredTransaction.requestId}/outputs/result`,
+    );
 
     const inputBinding = screen.getByRole("article", {
       name: "Input object bindings · form",
@@ -7126,10 +7132,10 @@ describe("support services workbenches", () => {
     expect(
       (
         screen.getByRole("button", {
-          name: "Ready object linked · result",
+          name: "Explore output object · result",
         }) as HTMLButtonElement
       ).disabled,
-    ).toBe(true);
+    ).toBe(false);
 
     fireEvent.click(deliverButton);
 
@@ -7230,7 +7236,7 @@ describe("support services workbenches", () => {
       name: "Remove output object · result",
     });
     const readyCard = screen.getByRole("button", {
-      name: "Ready object linked · result",
+      name: "Explore output object · result",
     });
     expect(readyCard.className).not.toContain("border-dashed");
     expect(readyCard.className).not.toContain("border-2");

@@ -688,6 +688,25 @@ export interface SupportServiceTransactionOutputObjectSnapshot {
   objectCode: string;
 }
 
+export interface SupportServiceTransactionOutputObjectDetail {
+  id: string;
+  role: string;
+  objectCode: string;
+  objectType: SupportServiceObjectType;
+  objectId: string;
+  objectRevision: number;
+  fileName: string;
+  source: "file_storage" | "download_url";
+  fileStorageId?: string;
+  sourceDownloadUrl?: string;
+  content: Record<string, unknown>;
+  contentSizeBytes: number;
+  uploadVersionCount: number;
+  ownerName?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface SupportServiceTransactionOutputReportSnapshot {
   reportCode: string;
 }
@@ -8331,6 +8350,146 @@ export async function getSupportServiceTransaction(
     "Service transaction not found.",
   );
   return transaction;
+}
+
+export async function getSupportServiceTransactionOutputObject(
+  context: AdminContext,
+  transactionId: string,
+  role: string,
+): Promise<SupportServiceTransactionOutputObjectDetail> {
+  const transaction = await getSupportServiceTransaction(context, transactionId);
+  const normalizedRole = cleanString(role);
+  const output = transaction.outputObjects.find(
+    (candidate) => candidate.role === normalizedRole,
+  );
+  if (!output) {
+    throw new AdminRepositoryError("Output object not found.", 404);
+  }
+
+  const codeSnapshot = await adminDb
+    .collection(OBJECT_CODES_COLLECTION)
+    .doc(output.objectCode)
+    .get();
+  const codeData = codeSnapshot.data() ?? {};
+  const uploadedObjectId = cleanString(codeData.uploaded_object_id);
+  if (!codeSnapshot.exists || !uploadedObjectId) {
+    throw new AdminRepositoryError("Output object not found.", 404);
+  }
+
+  const uploadedSnapshot = await adminDb
+    .collection(UPLOADED_OBJECTS_COLLECTION)
+    .doc(uploadedObjectId)
+    .get();
+  if (!uploadedSnapshot.exists) {
+    throw new AdminRepositoryError("Output object not found.", 404);
+  }
+  const uploadedData = uploadedSnapshot.data() ?? {};
+  rejectForbiddenKeys(
+    uploadedData,
+    ["objectType", "objectCode", "linkedFileId", "downloadUrl"],
+    `Uploaded output object ${uploadedObjectId}`,
+    "camel-case",
+  );
+  if (
+    cleanString(uploadedData.object_code) !== output.objectCode ||
+    cleanString(uploadedData.object_type) !== output.objectType ||
+    cleanString(uploadedData.provider_id) !== transaction.providerId ||
+    cleanString(uploadedData.service_transaction_id) !== transaction.requestId ||
+    cleanString(uploadedData.output_role) !== output.role ||
+    cleanString(codeData.owner_id) !==
+      cleanString(uploadedData.object_owner_id)
+  ) {
+    throw new AdminRepositoryError(
+      "The linked output object no longer matches this transaction.",
+      409,
+    );
+  }
+  if (cleanString(uploadedData.tracking_progress_status) !== "document_ready") {
+    throw new AdminRepositoryError("The output object is not ready.", 409);
+  }
+
+  const fileStorageId = cleanString(uploadedData.linked_file_id);
+  const sourceDownloadUrl = cleanString(uploadedData.download_url);
+  let validatedObject: ValidatedPgoObject;
+  let source: SupportServiceTransactionOutputObjectDetail["source"];
+  if (fileStorageId) {
+    const fileSnapshot = await adminDb
+      .collection(FILE_STORAGE_COLLECTION)
+      .doc(fileStorageId)
+      .get();
+    if (!fileSnapshot.exists) {
+      throw new AdminRepositoryError("The linked output file was not found.", 404);
+    }
+    const fileData = fileSnapshot.data() ?? {};
+    const fileTransactionId = cleanString(fileData.service_transaction_id);
+    const fileOutputRole = cleanString(fileData.output_role);
+    if (
+      cleanString(fileData.linked_object_code) !== output.objectCode ||
+      cleanString(fileData.file_type) !== output.objectType ||
+      cleanString(fileData.provider_id) !== transaction.providerId ||
+      (fileTransactionId && fileTransactionId !== transaction.requestId) ||
+      (fileOutputRole && fileOutputRole !== output.role)
+    ) {
+      throw new AdminRepositoryError(
+        "The linked output file no longer matches this transaction.",
+        409,
+      );
+    }
+    validatedObject = validateStoredPgoObject(
+      fileStorageId,
+      fileData,
+      output.objectType,
+      `Output object ${output.objectCode} stored file`,
+    );
+    source = "file_storage";
+  } else if (sourceDownloadUrl) {
+    validatedObject = await downloadAndValidatePgoObject(
+      sourceDownloadUrl,
+      output.objectType,
+    );
+    source = "download_url";
+  } else {
+    throw new AdminRepositoryError(
+      "The output object has no finalized content source.",
+      409,
+    );
+  }
+
+  const objectRevision = Number(uploadedData.object_revision);
+  const uploadVersionCount = Number(uploadedData.upload_version_count);
+  const objectId = cleanString(uploadedData.object_id);
+  if (
+    !objectId ||
+    !Number.isInteger(objectRevision) ||
+    objectRevision < 1 ||
+    !Number.isInteger(uploadVersionCount) ||
+    uploadVersionCount < 1
+  ) {
+    throw new AdminRepositoryError(
+      "The output object has invalid revision metadata.",
+      409,
+    );
+  }
+
+  return withoutUndefined({
+    id: uploadedObjectId,
+    role: output.role,
+    objectCode: output.objectCode,
+    objectType: output.objectType,
+    objectId,
+    objectRevision,
+    fileName:
+      cleanString(uploadedData.file_name) || validatedObject.fileName,
+    source,
+    fileStorageId: fileStorageId || undefined,
+    sourceDownloadUrl: sourceDownloadUrl || undefined,
+    content: validatedObject.content,
+    contentSizeBytes: validatedObject.contentSizeBytes,
+    uploadVersionCount,
+    ownerName: cleanString(uploadedData.owner_name) || undefined,
+    createdAt: timestampToIso(uploadedData.date_created),
+    updatedAt: timestampToIso(uploadedData.date_modified),
+  });
 }
 
 export async function getSupportServiceTransactionLinkedReports(
