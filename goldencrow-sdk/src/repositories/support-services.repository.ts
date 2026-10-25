@@ -1490,6 +1490,9 @@ function dateFromUnknown(
 
 type ServiceListCursor = {
   id: string;
+  phase?: "dated" | "legacy";
+  updatedAt?: string;
+  updatedAtKind?: "string" | "timestamp";
 };
 
 type DeferredServiceTransactionLinksCursor = {
@@ -1511,7 +1514,29 @@ function parseListCursor(cursor?: string): ServiceListCursor | undefined {
     if (!id || id.includes("/")) {
       throw new Error("invalid cursor");
     }
-    return { id };
+    const phase = cleanString(value.phase);
+    const updatedAt = cleanString(value.updatedAt);
+    const updatedAtKind = cleanString(value.updatedAtKind);
+    if (phase && phase !== "dated" && phase !== "legacy") {
+      throw new Error("invalid cursor phase");
+    }
+    if (
+      updatedAtKind &&
+      updatedAtKind !== "string" &&
+      updatedAtKind !== "timestamp"
+    ) {
+      throw new Error("invalid cursor timestamp kind");
+    }
+    if (phase === "dated" && (!updatedAt || !updatedAtKind)) {
+      throw new Error("invalid dated cursor");
+    }
+    return {
+      id,
+      phase: phase as ServiceListCursor["phase"],
+      updatedAt: updatedAt || undefined,
+      updatedAtKind:
+        (updatedAtKind as ServiceListCursor["updatedAtKind"]) || undefined,
+    };
   } catch (error) {
     if (error instanceof AdminRepositoryError) {
       throw error;
@@ -1524,6 +1549,46 @@ function serviceListCursor(doc: QueryDocumentSnapshot) {
   return Buffer.from(JSON.stringify({ id: doc.id }), "utf8").toString(
     "base64url",
   );
+}
+
+function newestFirstServiceListCursor(
+  doc: QueryDocumentSnapshot,
+  phase: "dated" | "legacy",
+) {
+  if (phase === "legacy") {
+    return Buffer.from(
+      JSON.stringify({ id: doc.id, phase }),
+      "utf8",
+    ).toString("base64url");
+  }
+
+  const rawUpdatedAt = doc.data()?.updatedAt;
+  const updatedAt = timestampToIso(rawUpdatedAt);
+  if (!updatedAt) {
+    throw new AdminRepositoryError(
+      "Could not paginate a service record with an invalid updatedAt value.",
+      500,
+    );
+  }
+  return Buffer.from(
+    JSON.stringify({
+      id: doc.id,
+      phase,
+      updatedAt,
+      updatedAtKind:
+        typeof rawUpdatedAt === "string" ? "string" : "timestamp",
+    }),
+    "utf8",
+  ).toString("base64url");
+}
+
+function newestFirstCursorValue(cursor: ServiceListCursor) {
+  if (!cursor.updatedAt || !cursor.updatedAtKind) {
+    throw new AdminRepositoryError("Invalid service list cursor.", 400);
+  }
+  return cursor.updatedAtKind === "string"
+    ? cursor.updatedAt
+    : Timestamp.fromDate(new Date(cursor.updatedAt));
 }
 
 function deferredServiceTransactionIdsHash(transactionIds: string[]) {
@@ -6485,7 +6550,7 @@ function matchesTransactionFilters(
   );
 }
 
-async function listWithFilters<TRecord>({
+async function listNewestFirstWithFilters<TRecord>({
   collectionName,
   cursor,
   limit,
@@ -6502,6 +6567,149 @@ async function listWithFilters<TRecord>({
   toRecord: (id: string, data: Record<string, unknown>) => TRecord;
   matches: (record: TRecord) => boolean;
 }): Promise<{ records: TRecord[]; nextCursor?: string }> {
+  const parsedCursor = parseListCursor(cursor);
+  let phase: "dated" | "legacy" =
+    parsedCursor?.phase ?? (parsedCursor ? "legacy" : "dated");
+  let phaseCursor = parsedCursor;
+  const collectionQuery = whereEquals
+    ? adminDb
+        .collection(collectionName)
+        .where(whereEquals.field, "==", whereEquals.value)
+    : adminDb.collection(collectionName);
+  const matchesWithOptionalFilters = (record: TRecord) =>
+    !hasFilters || matches(record);
+  const found: Array<{
+    doc: QueryDocumentSnapshot;
+    phase: "dated" | "legacy";
+    record: TRecord;
+  }> = [];
+  let scannedDocs = 0;
+
+  while (found.length <= limit && scannedDocs < MAX_FILTERED_SCAN) {
+    const batchLimit = Math.min(
+      FILTERED_BATCH_LIMIT,
+      MAX_FILTERED_SCAN - scannedDocs,
+    );
+    const baseQuery =
+      phase === "dated"
+        ? collectionQuery
+            .orderBy("updatedAt", "desc")
+            .orderBy(FieldPath.documentId(), "desc")
+        : collectionQuery.orderBy(FieldPath.documentId(), "desc");
+    let query: Query = baseQuery;
+
+    if (phaseCursor) {
+      query =
+        phase === "dated"
+          ? query.startAfter(
+              newestFirstCursorValue(phaseCursor),
+              phaseCursor.id,
+            )
+          : query.startAfter(phaseCursor.id);
+    }
+
+    const snapshot = await query.limit(batchLimit).get();
+    if (snapshot.empty) {
+      if (phase === "dated") {
+        phase = "legacy";
+        phaseCursor = undefined;
+        continue;
+      }
+      break;
+    }
+
+    let lastConsumedDoc: QueryDocumentSnapshot | undefined;
+    for (const doc of snapshot.docs) {
+      lastConsumedDoc = doc;
+      scannedDocs += 1;
+      const hasValidUpdatedAt = Boolean(timestampToIso(doc.data()?.updatedAt));
+      const belongsToPhase =
+        phase === "dated" ? hasValidUpdatedAt : !hasValidUpdatedAt;
+      if (belongsToPhase) {
+        const record = toRecord(doc.id, doc.data() ?? {});
+        if (matchesWithOptionalFilters(record)) {
+          found.push({ doc, phase, record });
+          if (found.length > limit) {
+            break;
+          }
+        }
+      }
+      if (scannedDocs >= MAX_FILTERED_SCAN) {
+        break;
+      }
+    }
+
+    if (found.length > limit) {
+      const lastVisible = found[limit - 1]!;
+      return {
+        records: found.slice(0, limit).map((entry) => entry.record),
+        nextCursor: newestFirstServiceListCursor(
+          lastVisible.doc,
+          lastVisible.phase,
+        ),
+      };
+    }
+    if (!lastConsumedDoc) {
+      break;
+    }
+    if (scannedDocs >= MAX_FILTERED_SCAN) {
+      return {
+        records: found.map((entry) => entry.record),
+        nextCursor: newestFirstServiceListCursor(lastConsumedDoc, phase),
+      };
+    }
+
+    const lastSnapshotDoc = snapshot.docs[snapshot.docs.length - 1];
+    const consumedWholeBatch =
+      lastSnapshotDoc && lastConsumedDoc.id === lastSnapshotDoc.id;
+    if (!consumedWholeBatch || snapshot.docs.length < batchLimit) {
+      if (phase === "dated") {
+        phase = "legacy";
+        phaseCursor = undefined;
+        continue;
+      }
+      break;
+    }
+    phaseCursor = parseListCursor(
+      newestFirstServiceListCursor(lastConsumedDoc, phase),
+    );
+  }
+
+  return {
+    records: found.slice(0, limit).map((entry) => entry.record),
+  };
+}
+
+async function listWithFilters<TRecord>({
+  collectionName,
+  cursor,
+  limit,
+  hasFilters,
+  whereEquals,
+  toRecord,
+  matches,
+  newestFirst = false,
+}: {
+  collectionName: string;
+  cursor?: string;
+  limit: number;
+  hasFilters: boolean;
+  whereEquals?: { field: string; value: string };
+  toRecord: (id: string, data: Record<string, unknown>) => TRecord;
+  matches: (record: TRecord) => boolean;
+  newestFirst?: boolean;
+}): Promise<{ records: TRecord[]; nextCursor?: string }> {
+  if (newestFirst) {
+    return listNewestFirstWithFilters({
+      collectionName,
+      cursor,
+      limit,
+      hasFilters,
+      whereEquals,
+      toRecord,
+      matches,
+    });
+  }
   const parsedCursor = parseListCursor(cursor);
   const collectionQuery = whereEquals
     ? adminDb
@@ -8381,6 +8589,7 @@ export async function listSupportServiceTransactions(
     matches: (record) =>
       supportServicesRecordBelongsToScope(accessScope, record) &&
       matchesTransactionFilters(record, options),
+    newestFirst: !providerId,
   });
 
   return { transactions: result.records, nextCursor: result.nextCursor };

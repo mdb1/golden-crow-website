@@ -2219,14 +2219,96 @@ describe("support service pagination", () => {
         },
         {
           collectionName: "service_transactions",
+          field: "updatedAt",
+          direction: "desc",
+        },
+        {
+          collectionName: "service_transactions",
           field: "__name__",
-          direction: "asc",
+          direction: "desc",
         },
       ]),
     );
     expect(orderByCalls).not.toContainEqual(
-      expect.objectContaining({ field: "__name__", direction: "desc" }),
+      expect.objectContaining({
+        collectionName: "service_transactions",
+        field: "__name__",
+        direction: "asc",
+      }),
     );
+  });
+
+  it("lists the newest service transactions first", async () => {
+    const transaction = (requestId: string, updatedAt: string) => ({
+      schemaVersion: 1,
+      requestId,
+      offerId: "offer-1",
+      serviceId: baseOffer.serviceId,
+      serviceVersion: baseOffer.serviceVersion,
+      providerId: baseOffer.providerId,
+      providerKind: baseOffer.providerKind,
+      status: "received",
+      requestedByUserId: "user-1",
+      requestRevision: 1,
+      idempotencyKey: requestId,
+      inputs: [],
+      outputObjects: [],
+      outputReports: [],
+      issues: [],
+      missingRequiredInputRoles: [],
+      offerSnapshot: {},
+      providerSnapshot: {},
+      contractSource: "pocket_genes_services_wiki_v1",
+      updatedAt,
+    });
+    seedDoc(
+      "service_transactions",
+      "aaa-alphabetically-first-but-old",
+      transaction(
+        "aaa-alphabetically-first-but-old",
+        "2026-09-15T12:00:00.000Z",
+      ),
+    );
+    seedDoc(
+      "service_transactions",
+      "zzz-alphabetically-last-but-new",
+      transaction(
+        "zzz-alphabetically-last-but-new",
+        "2026-09-18T12:00:00.000Z",
+      ),
+    );
+    for (let index = 0; index < 21; index += 1) {
+      const requestId = `transaction-page-${String(index).padStart(2, "0")}`;
+      seedDoc(
+        "service_transactions",
+        requestId,
+        transaction(requestId, "2026-09-16T12:00:00.000Z"),
+      );
+    }
+    const { listSupportServiceTransactions } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const first = await listSupportServiceTransactions(context);
+    const second = await listSupportServiceTransactions(context, {
+      cursor: first.nextCursor,
+    });
+    const requestIds = [...first.transactions, ...second.transactions].map(
+      (entry) => entry.requestId,
+    );
+
+    expect(first.transactions).toHaveLength(20);
+    expect(first.nextCursor).toBeTruthy();
+    expect(requestIds[0]).toBe("zzz-alphabetically-last-but-new");
+    expect(requestIds.slice(1, 22)).toEqual(
+      Array.from(
+        { length: 21 },
+        (_, index) => `transaction-page-${String(20 - index).padStart(2, "0")}`,
+      ),
+    );
+    expect(requestIds.at(-1)).toBe("aaa-alphabetically-first-but-old");
+    expect(new Set(requestIds).size).toBe(23);
+    expect(second.nextCursor).toBeUndefined();
   });
 
   it("uses the document ID as a cursor tie-breaker for equal timestamps", async () => {
