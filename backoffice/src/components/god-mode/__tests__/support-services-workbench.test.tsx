@@ -6082,6 +6082,10 @@ describe("support services workbenches", () => {
       requestIdentitySection?.closest("form")?.querySelectorAll("section") ??
         [],
     );
+    const transactionStatusSection = screen
+      .getByRole("heading", { name: "Transaction status" })
+      .closest("section");
+    expect(transactionSections.at(0)).toBe(transactionStatusSection);
     expect(transactionSections.at(-1)).toBe(requestIdentitySection);
 
     const requestIdentityDisclosure = screen.getByRole("button", {

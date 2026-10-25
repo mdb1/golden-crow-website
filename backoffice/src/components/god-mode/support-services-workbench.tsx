@@ -12919,107 +12919,6 @@ export function SupportServiceTransactionWorkbench({
             </div>
           </div>
         ) : null}
-        <fieldset className="contents" disabled={transactionCommandPending}>
-        <Section title="Requester identity" icon={UserRound}>
-          <TransactionRequesterIdentity
-            isEditing={isEditing}
-            showLockedFields={showLockedFields}
-            requestedByUserId={form.requestedByUserId}
-            requestedByUserEmail={form.requestedByUserEmail}
-            onChange={({ userId, email }) =>
-              setForm((current) => ({
-                ...current,
-                requestedByUserId: userId,
-                requestedByUserEmail: email,
-              }))
-            }
-          />
-        </Section>
-        <Section title="Input object bindings">
-          <ObjectRefTable slots={form.inputs} presentFormAnswers={isEditing} />
-          {form.missingRequiredInputRoles.length ? (
-            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50/70 p-3 text-sm text-amber-800 shadow-sm dark:border-amber-400/25 dark:bg-amber-500/12 dark:text-amber-100">
-              <CircleAlert className="h-4 w-4" />
-              <span>{t("Pending required inputs")}</span>
-              {form.missingRequiredInputRoles.map((role) => (
-                <Badge key={role} variant="outline" className="font-mono">
-                  {role}
-                </Badge>
-              ))}
-            </div>
-          ) : null}
-        </Section>
-        <Section title="Delivered output objects">
-          <OutputObjectGrid
-            outputs={form.outputObjects}
-            canUpload={
-              isEditing &&
-              !terminalStatusLocked &&
-              !hasUnsavedTransactionChanges
-            }
-            canRemove={
-              isEditing &&
-              !terminalStatusLocked &&
-              !hasUnsavedTransactionChanges
-            }
-            removingRole={
-              removeOutputMutation.isPending
-                ? (removeOutputMutation.variables ?? "")
-                : ""
-            }
-            onSelect={openOutputUpload}
-            onRemove={(output) => {
-              if (
-                window.confirm(
-                  t("Remove this output object from the transaction?"),
-                )
-              ) {
-                removeOutputMutation.mutate(output.role);
-              }
-            }}
-          />
-          {!isEditing ? (
-            <p className="text-sm text-muted-foreground">
-              {t("Save the transaction before uploading output objects.")}
-            </p>
-          ) : hasUnsavedTransactionChanges ? (
-            <p className="text-sm text-amber-700 dark:text-amber-200">
-              {t("Save other transaction changes before uploading output objects.")}
-            </p>
-          ) : null}
-        </Section>
-        </fieldset>
-        {/* Hide linked reports for regular users while preserving the admin and 2PQ workflow. */}
-        {shouldShowLinkedOutputReports ? (
-          <LinkedOutputReportsSection
-            reports={linkedReports}
-            loading={linkedReportsQuery.isLoading}
-            loadError={linkedReportsQuery.error}
-            isEditing={isEditing}
-            canManage={
-              isEditing &&
-              !hasUnsavedTransactionChanges &&
-              !attachReportMutation.isPending &&
-              !removeReportMutation.isPending
-            }
-            recentlyAddedReportCode={recentlyAddedReportCode}
-            removingReportCode={removeReportMutation.variables ?? ""}
-            onRetry={() => linkedReportsQuery.refetch()}
-            onAdd={() => {
-              setSelectedReportCode("");
-              setReportSearch("");
-              setReportPickerOpen(true);
-            }}
-            onRemove={(reportCode) => {
-              if (
-                window.confirm(t("Remove this report from the transaction?"))
-              ) {
-                removeReportMutation.mutate(reportCode);
-              }
-            }}
-            hasUnsavedTransactionChanges={hasUnsavedTransactionChanges}
-          />
-        ) : null}
         <fieldset
           className="contents"
           disabled={terminalStatusLocked || transactionCommandPending}
@@ -13128,6 +13027,107 @@ export function SupportServiceTransactionWorkbench({
           </div>
         </Section>
         </fieldset>
+        <fieldset className="contents" disabled={transactionCommandPending}>
+        <Section title="Requester identity" icon={UserRound}>
+          <TransactionRequesterIdentity
+            isEditing={isEditing}
+            showLockedFields={showLockedFields}
+            requestedByUserId={form.requestedByUserId}
+            requestedByUserEmail={form.requestedByUserEmail}
+            onChange={({ userId, email }) =>
+              setForm((current) => ({
+                ...current,
+                requestedByUserId: userId,
+                requestedByUserEmail: email,
+              }))
+            }
+          />
+        </Section>
+        <Section title="Input object bindings">
+          <ObjectRefTable slots={form.inputs} presentFormAnswers={isEditing} />
+          {form.missingRequiredInputRoles.length ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50/70 p-3 text-sm text-amber-800 shadow-sm dark:border-amber-400/25 dark:bg-amber-500/12 dark:text-amber-100">
+              <CircleAlert className="h-4 w-4" />
+              <span>{t("Pending required inputs")}</span>
+              {form.missingRequiredInputRoles.map((role) => (
+                <Badge key={role} variant="outline" className="font-mono">
+                  {role}
+                </Badge>
+              ))}
+            </div>
+          ) : null}
+        </Section>
+        <Section title="Delivered output objects">
+          <OutputObjectGrid
+            outputs={form.outputObjects}
+            canUpload={
+              isEditing &&
+              !terminalStatusLocked &&
+              !hasUnsavedTransactionChanges
+            }
+            canRemove={
+              isEditing &&
+              !terminalStatusLocked &&
+              !hasUnsavedTransactionChanges
+            }
+            removingRole={
+              removeOutputMutation.isPending
+                ? (removeOutputMutation.variables ?? "")
+                : ""
+            }
+            onSelect={openOutputUpload}
+            onRemove={(output) => {
+              if (
+                window.confirm(
+                  t("Remove this output object from the transaction?"),
+                )
+              ) {
+                removeOutputMutation.mutate(output.role);
+              }
+            }}
+          />
+          {!isEditing ? (
+            <p className="text-sm text-muted-foreground">
+              {t("Save the transaction before uploading output objects.")}
+            </p>
+          ) : hasUnsavedTransactionChanges ? (
+            <p className="text-sm text-amber-700 dark:text-amber-200">
+              {t("Save other transaction changes before uploading output objects.")}
+            </p>
+          ) : null}
+        </Section>
+        </fieldset>
+        {/* Hide linked reports for regular users while preserving the admin and 2PQ workflow. */}
+        {shouldShowLinkedOutputReports ? (
+          <LinkedOutputReportsSection
+            reports={linkedReports}
+            loading={linkedReportsQuery.isLoading}
+            loadError={linkedReportsQuery.error}
+            isEditing={isEditing}
+            canManage={
+              isEditing &&
+              !hasUnsavedTransactionChanges &&
+              !attachReportMutation.isPending &&
+              !removeReportMutation.isPending
+            }
+            recentlyAddedReportCode={recentlyAddedReportCode}
+            removingReportCode={removeReportMutation.variables ?? ""}
+            onRetry={() => linkedReportsQuery.refetch()}
+            onAdd={() => {
+              setSelectedReportCode("");
+              setReportSearch("");
+              setReportPickerOpen(true);
+            }}
+            onRemove={(reportCode) => {
+              if (
+                window.confirm(t("Remove this report from the transaction?"))
+              ) {
+                removeReportMutation.mutate(reportCode);
+              }
+            }}
+            hasUnsavedTransactionChanges={hasUnsavedTransactionChanges}
+          />
+        ) : null}
         <fieldset className="contents" disabled={transactionCommandPending}>
         <CollapsibleSection title="Request identity" defaultOpen={!isEditing}>
           <div className="grid gap-4 lg:grid-cols-2">
