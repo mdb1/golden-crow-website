@@ -892,6 +892,9 @@ describe("support services workbenches", () => {
     fireEvent.change(screen.getByPlaceholderText("Provider name or ID"), {
       target: { value: "pocket gen" },
     });
+    fireEvent.change(screen.getByPlaceholderText("Exact offer ID"), {
+      target: { value: "offer-special" },
+    });
 
     expect(sdkFetchMock).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
@@ -904,7 +907,33 @@ describe("support services workbenches", () => {
       query: "report req",
       serviceId: "genom",
       provider: "pocket gen",
+      offerId: "offer-special",
     });
+  });
+
+  it("loads service transactions with an exact offer filter from the URL", async () => {
+    sdkFetchMock.mockImplementation(async (path) => {
+      const url = new URL(String(path), "https://backoffice.example");
+      expect(url.pathname).toBe("/admin/support-services/transactions");
+      expect(url.searchParams.get("offerId")).toBe(hiddenOffer.id);
+      return {
+        transactions: [runningTransaction],
+        nextCursor: undefined,
+      };
+    });
+
+    renderWithQueryClient(
+      <SupportServicesBrowser
+        kind="transactions"
+        initialOfferIdFilter={hiddenOffer.id}
+      />,
+    );
+
+    expect(await screen.findByText(runningTransaction.requestId)).toBeTruthy();
+    expect(
+      (screen.getByPlaceholderText("Exact offer ID") as HTMLInputElement).value,
+    ).toBe(hiddenOffer.id);
+    expect(sdkFetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("shows a catalog-style empty state for publisher service requests", async () => {
@@ -5768,6 +5797,18 @@ describe("support services workbenches", () => {
     const statsTrigger = await screen.findByRole("button", {
       name: "Número de solicitudes activas",
     });
+    const associatedTransactions = screen.getByTestId(
+      "service-offer-associated-transactions",
+    );
+    expect(
+      within(associatedTransactions)
+        .getByRole("link", {
+          name: "Ver transacciones asociadas a esta oferta de servicio",
+        })
+        .getAttribute("href"),
+    ).toBe(
+      `/god-mode/service-transactions?offerId=${encodeURIComponent(versionedOffer.id)}`,
+    );
     const statsSection = screen.getByTestId(
       "service-offer-transaction-stats",
     );

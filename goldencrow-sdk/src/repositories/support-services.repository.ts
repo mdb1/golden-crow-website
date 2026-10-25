@@ -575,6 +575,7 @@ type OfferListOptions = ListOptions & {
 type TransactionListOptions = ListOptions & {
   serviceId?: string;
   provider?: string;
+  offerId?: string;
 };
 
 export interface SupportServiceOfferInput {
@@ -6529,6 +6530,7 @@ function matchesTransactionFilters(
   const status = normalizeKey(cleanString(options.status));
   const serviceId = cleanString(options.serviceId);
   const provider = cleanString(options.provider);
+  const offerId = cleanString(options.offerId);
   const serviceSearchText = [
     transaction.serviceId,
     cleanString(transaction.offerSnapshot.serviceId),
@@ -6545,6 +6547,7 @@ function matchesTransactionFilters(
   return (
     matchesPartialText(transactionSearchText(transaction), options.query) &&
     (!status || status === "all" || transaction.status === status) &&
+    (!offerId || transaction.offerId === offerId) &&
     matchesPartialText(serviceSearchText, serviceId) &&
     matchesPartialText(providerSearchText, provider)
   );
@@ -8574,7 +8577,8 @@ export async function listSupportServiceTransactions(
       cleanString(options.query) ||
       (cleanString(options.status) && cleanString(options.status) !== "all") ||
       cleanString(options.serviceId) ||
-      cleanString(options.provider),
+      cleanString(options.provider) ||
+      cleanString(options.offerId),
   );
   const result = await listWithFilters({
     collectionName: SERVICE_TRANSACTIONS_COLLECTION,

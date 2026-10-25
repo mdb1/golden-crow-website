@@ -6,7 +6,11 @@ import { getAdminContextServer } from "@/lib/admin-context-server";
 import { appText } from "@/lib/language";
 import { getServerAppLanguage } from "@/lib/server-language";
 
-export default async function GodModeServiceTransactionsPage() {
+export default async function GodModeServiceTransactionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ offerId?: string | string[] }>;
+}) {
   const adminContext = await getAdminContextServer();
 
   if (!adminContext.isBootstrap) {
@@ -15,6 +19,10 @@ export default async function GodModeServiceTransactionsPage() {
 
   const language = await getServerAppLanguage();
   const t = (text: string) => appText(language, text);
+  const resolvedSearchParams = await searchParams;
+  const requestedOfferId = Array.isArray(resolvedSearchParams.offerId)
+    ? resolvedSearchParams.offerId[0]
+    : resolvedSearchParams.offerId;
 
   return (
     <div className="flex flex-col gap-6">
@@ -29,7 +37,10 @@ export default async function GodModeServiceTransactionsPage() {
           />
         }
       >
-        <SupportServicesBrowser kind="transactions" />
+        <SupportServicesBrowser
+          kind="transactions"
+          initialOfferIdFilter={requestedOfferId?.trim() ?? ""}
+        />
       </HeaderUnclutterScope>
     </div>
   );

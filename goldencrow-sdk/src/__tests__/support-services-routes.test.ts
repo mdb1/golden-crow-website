@@ -1614,7 +1614,7 @@ describe("support service admin routes", () => {
 
     const response = await fastify.inject({
       method: "GET",
-      url: "/admin/support-services/transactions?serviceId=final%20rep&provider=pocket%20gen&status=received&limit=20",
+      url: "/admin/support-services/transactions?serviceId=final%20rep&provider=pocket%20gen&offerId=offer-1&status=received&limit=20",
     });
 
     expect(response.statusCode).toBe(200);
@@ -1632,6 +1632,7 @@ describe("support service admin routes", () => {
       {
         serviceId: "final rep",
         provider: "pocket gen",
+        offerId: "offer-1",
         status: "received",
         limit: 20,
       },

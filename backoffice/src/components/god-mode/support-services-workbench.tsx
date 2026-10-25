@@ -223,6 +223,7 @@ type ServiceFilters = {
   stage: string;
   serviceId: string;
   provider: string;
+  offerId: string;
 };
 
 type FormFieldDraft = SupportServiceFormField & {
@@ -830,6 +831,7 @@ function emptyFilters(): ServiceFilters {
     stage: "all",
     serviceId: "",
     provider: "",
+    offerId: "",
   };
 }
 
@@ -3114,6 +3116,9 @@ function buildListPath(
   if (kind === "transactions" && filters.provider.trim()) {
     params.set("provider", filters.provider.trim());
   }
+  if (kind === "transactions" && filters.offerId.trim()) {
+    params.set("offerId", filters.offerId.trim());
+  }
 
   return `/admin/support-services/${kind}?${params.toString()}`;
 }
@@ -3138,6 +3143,7 @@ export function SupportServicesBrowser({
   displayTitle,
   recordColumnLabel,
   initialServiceIdFilter = "",
+  initialOfferIdFilter = "",
 }: {
   kind: WorkbenchKind;
   routeBase?: string;
@@ -3148,6 +3154,7 @@ export function SupportServicesBrowser({
   displayTitle?: string;
   recordColumnLabel?: string;
   initialServiceIdFilter?: string;
+  initialOfferIdFilter?: string;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -3156,6 +3163,7 @@ export function SupportServicesBrowser({
     ...emptyFilters(),
     serviceId:
       kind === "transactions" ? initialServiceIdFilter.trim() : "",
+    offerId: kind === "transactions" ? initialOfferIdFilter.trim() : "",
   }));
   const [filterDrafts, setFilterDrafts] = useState<ServiceFilters>(filters);
   const [toastCounter, setToastCounter] = useState(1);
@@ -3211,6 +3219,7 @@ export function SupportServicesBrowser({
       query: filterDrafts.query.trim(),
       serviceId: filterDrafts.serviceId.trim(),
       provider: filterDrafts.provider.trim(),
+      offerId: filterDrafts.offerId.trim(),
     };
     setSelectedTransactionIds(new Set());
     if (JSON.stringify(nextFilters) === JSON.stringify(filters)) {
@@ -3461,14 +3470,18 @@ export function SupportServicesBrowser({
       filters.status !== "all" ||
       (isOffers
         ? filters.stage !== "all"
-        : filters.serviceId.trim() || filters.provider.trim()),
+        : filters.serviceId.trim() ||
+          filters.provider.trim() ||
+          filters.offerId.trim()),
   );
   const hasDraftFilters = Boolean(
     filterDrafts.query.trim() ||
       filterDrafts.status !== "all" ||
       (isOffers
         ? filterDrafts.stage !== "all"
-        : filterDrafts.serviceId.trim() || filterDrafts.provider.trim()),
+        : filterDrafts.serviceId.trim() ||
+          filterDrafts.provider.trim() ||
+          filterDrafts.offerId.trim()),
   );
   const showPublisherEmptyState =
     publisherPresentation &&
@@ -3838,7 +3851,7 @@ export function SupportServicesBrowser({
               "grid items-end gap-3 md:grid-cols-2",
               isOffers
                 ? "xl:grid-cols-[minmax(16rem,1fr)_12rem_12rem_auto]"
-                : "xl:grid-cols-[minmax(16rem,1fr)_11rem_minmax(12rem,0.7fr)_minmax(12rem,0.7fr)_auto]",
+                : "xl:grid-cols-3 2xl:grid-cols-[minmax(15rem,1fr)_10rem_minmax(11rem,0.7fr)_minmax(11rem,0.7fr)_minmax(11rem,0.7fr)_auto]",
             )}
             onSubmit={applyFilterDrafts}
           >
@@ -3945,6 +3958,21 @@ export function SupportServicesBrowser({
                       }))
                     }
                     placeholder={t("Provider name or ID")}
+                  />
+                </label>
+                <label className="grid gap-1.5">
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    {t("Service offer")}
+                  </span>
+                  <Input
+                    value={filterDrafts.offerId}
+                    onChange={(event) =>
+                      setFilterDrafts((current) => ({
+                        ...current,
+                        offerId: event.target.value,
+                      }))
+                    }
+                    placeholder={t("Exact offer ID")}
                   />
                 </label>
               </>
@@ -7658,6 +7686,31 @@ export function SupportServiceOfferWorkbench({
             history={persistedOfferRecord?.changeLogHistoryByVersion}
             currentVersion={form.serviceVersion || 1}
           />
+        ) : null}
+        {hasPersistedOffer && effectiveOfferId && !isPublisherOfferEditor ? (
+          <Section
+            title="Associated transactions"
+            icon={ClipboardList}
+            testId="service-offer-associated-transactions"
+          >
+            <Button
+              asChild
+              className={cn(
+                "w-full justify-between sm:w-auto",
+                SUPPORT_SERVICE_PRIMARY_BUTTON_CLASS,
+              )}
+            >
+              <Link
+                href={`/god-mode/service-transactions?offerId=${encodeURIComponent(effectiveOfferId)}`}
+              >
+                <span className="flex items-center gap-2">
+                  <ClipboardList className="h-4 w-4" aria-hidden="true" />
+                  {t("View transactions associated with this service offer")}
+                </span>
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            </Button>
+          </Section>
         ) : null}
         {hasPersistedOffer && effectiveOfferId ? (
           <ServiceOfferTransactionStatsSection

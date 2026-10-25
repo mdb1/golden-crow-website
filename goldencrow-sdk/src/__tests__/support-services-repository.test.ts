@@ -2505,6 +2505,16 @@ describe("support service pagination", () => {
       ],
       nextCursor: undefined,
     });
+    await expect(
+      listSupportServiceTransactions(context, {
+        offerId: "offer-searchable",
+      }),
+    ).resolves.toEqual({
+      transactions: [
+        expect.objectContaining({ requestId: "pgr_searchable_1" }),
+      ],
+      nextCursor: undefined,
+    });
   });
 
   it("paginates offers and transactions that lack updatedAt instead of excluding them", async () => {
