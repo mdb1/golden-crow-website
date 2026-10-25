@@ -1081,6 +1081,20 @@
   [data-slot="sidebar-wrapper"]:has(
       [data-slot="sidebar"][data-state="expanded"]
     )
+    .support-service-transaction-action-dock {
+    left: var(--sidebar-width);
+  }
+
+  [data-slot="sidebar-wrapper"]:has(
+      [data-slot="sidebar"][data-state="collapsed"]
+    )
+    .support-service-transaction-action-dock {
+    left: calc(var(--sidebar-width-icon) + 1rem);
+  }
+
+  [data-slot="sidebar-wrapper"]:has(
+      [data-slot="sidebar"][data-state="expanded"]
+    )
     .consent-wizard-action-dock {
     left: var(--sidebar-width);
   }

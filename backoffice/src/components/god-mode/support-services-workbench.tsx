@@ -13401,6 +13401,11 @@ export function SupportServiceTransactionWorkbench({
           ) : null}
         </CollapsibleSection>
         </fieldset>
+        <div
+          aria-hidden="true"
+          data-testid="service-transaction-action-footer-spacer"
+          className="h-52 lg:h-28"
+        />
         <ServiceTransactionActionFooter
           isEditing={isEditing}
           changed={!isEditing || hasUnsavedTransactionChanges}
@@ -15283,53 +15288,58 @@ function ServiceTransactionActionFooter({
   const t = (text: string) => appText(language, text);
 
   return (
-    <div className="sticky bottom-0 z-20 border-t border-violet-100/80 bg-white/92 px-5 py-4 shadow-[0_-20px_60px_rgba(109,40,217,0.10)] backdrop-blur dark:border-violet-400/14 dark:bg-slate-950/88">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0 text-sm text-muted-foreground">
-          {terminalStatusLocked
-            ? t("Terminal service transactions cannot be edited.")
-            : changed
-              ? t("Unsaved changes")
-              : t("No unsaved changes")}
-        </div>
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
-          <Button
-            type="submit"
-            size="lg"
-            disabled={terminalStatusLocked || transactionCommandPending}
-            variant={isEditing ? "outline" : "default"}
-            className={cn(
-              "h-14 min-w-[min(100%,14rem)] justify-center rounded-xl text-base font-semibold",
-              isEditing
-                ? "border-violet-200/80 bg-white/82 text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50 hover:text-violet-950 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-50 dark:hover:bg-violet-500/18"
-                : "bg-violet-600 text-white shadow-[0_16px_42px_rgba(109,40,217,0.24)] hover:bg-violet-700",
-            )}
-          >
-            {savePending ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <Save className="h-5 w-5" />
-            )}
-            {savePending ? t("Saving...") : t("Save")}
-          </Button>
-          {isEditing ? (
+    <div
+      data-testid="service-transaction-action-footer"
+      className="support-service-transaction-action-dock pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 md:px-5 lg:px-6"
+    >
+      <div className="pointer-events-auto mx-auto w-full overflow-hidden rounded-2xl border border-violet-100/80 bg-white/92 px-5 py-4 shadow-[0_-20px_60px_rgba(109,40,217,0.16)] backdrop-blur-xl dark:border-violet-400/14 dark:bg-slate-950/88">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0 text-sm text-muted-foreground">
+            {terminalStatusLocked
+              ? t("Terminal service transactions cannot be edited.")
+              : changed
+                ? t("Unsaved changes")
+                : t("No unsaved changes")}
+          </div>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
             <Button
-              type="button"
+              type="submit"
               size="lg"
-              onClick={onMarkDelivered}
-              disabled={!canMarkDelivered || transactionCommandPending}
-              className="h-14 min-w-[min(100%,18rem)] justify-center rounded-xl bg-violet-600 text-base font-semibold text-white shadow-[0_16px_42px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+              disabled={terminalStatusLocked || transactionCommandPending}
+              variant={isEditing ? "outline" : "default"}
+              className={cn(
+                "h-14 min-w-[min(100%,14rem)] justify-center rounded-xl text-base font-semibold",
+                isEditing
+                  ? "border-violet-200/80 bg-white/82 text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50 hover:text-violet-950 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-50 dark:hover:bg-violet-500/18"
+                  : "bg-violet-600 text-white shadow-[0_16px_42px_rgba(109,40,217,0.24)] hover:bg-violet-700",
+              )}
             >
-              {deliverPending ? (
+              {savePending ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
-                <CheckCircle2 className="h-5 w-5" />
+                <Save className="h-5 w-5" />
               )}
-              {deliverPending
-                ? t("Marking as delivered...")
-                : t("Mark as delivered")}
+              {savePending ? t("Saving...") : t("Save")}
             </Button>
-          ) : null}
+            {isEditing ? (
+              <Button
+                type="button"
+                size="lg"
+                onClick={onMarkDelivered}
+                disabled={!canMarkDelivered || transactionCommandPending}
+                className="h-14 min-w-[min(100%,18rem)] justify-center rounded-xl bg-violet-600 text-base font-semibold text-white shadow-[0_16px_42px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+              >
+                {deliverPending ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-5 w-5" />
+                )}
+                {deliverPending
+                  ? t("Marking as delivered...")
+                  : t("Mark as delivered")}
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>

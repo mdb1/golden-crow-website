@@ -7057,8 +7057,13 @@ describe("support services workbenches", () => {
     const deliverButton = screen.getByRole("button", {
       name: "Mark as delivered",
     }) as HTMLButtonElement;
-    const transactionFooter = deliverButton.closest(".sticky");
+    const transactionFooter = deliverButton.closest(".fixed");
     expect(transactionFooter).toBeTruthy();
+    expect(transactionFooter?.classList.contains("bottom-0")).toBe(true);
+    expect(transactionFooter?.classList.contains("z-40")).toBe(true);
+    expect(
+      screen.getByTestId("service-transaction-action-footer-spacer").className,
+    ).toContain("h-52");
     expect(
       transactionFooter?.contains(
         screen.getByRole("button", { name: "Save" }),
