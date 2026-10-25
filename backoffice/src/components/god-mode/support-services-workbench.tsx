@@ -12864,7 +12864,197 @@ export function SupportServiceTransactionWorkbench({
           </div>
         ) : null}
         <fieldset className="contents" disabled={transactionCommandPending}>
-        <Section title="Request identity">
+        <Section title="Requester identity" icon={UserRound}>
+          <TransactionRequesterIdentity
+            isEditing={isEditing}
+            showLockedFields={showLockedFields}
+            requestedByUserId={form.requestedByUserId}
+            requestedByUserEmail={form.requestedByUserEmail}
+            onChange={({ userId, email }) =>
+              setForm((current) => ({
+                ...current,
+                requestedByUserId: userId,
+                requestedByUserEmail: email,
+              }))
+            }
+          />
+        </Section>
+        <Section title="Input object bindings">
+          <ObjectRefTable slots={form.inputs} presentFormAnswers={isEditing} />
+          {form.missingRequiredInputRoles.length ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50/70 p-3 text-sm text-amber-800 shadow-sm dark:border-amber-400/25 dark:bg-amber-500/12 dark:text-amber-100">
+              <CircleAlert className="h-4 w-4" />
+              <span>{t("Pending required inputs")}</span>
+              {form.missingRequiredInputRoles.map((role) => (
+                <Badge key={role} variant="outline" className="font-mono">
+                  {role}
+                </Badge>
+              ))}
+            </div>
+          ) : null}
+        </Section>
+        <Section title="Delivered output objects">
+          <OutputObjectGrid
+            outputs={form.outputObjects}
+            canUpload={
+              isEditing &&
+              !terminalStatusLocked &&
+              !hasUnsavedTransactionChanges
+            }
+            onSelect={openOutputUpload}
+          />
+          {!isEditing ? (
+            <p className="text-sm text-muted-foreground">
+              {t("Save the transaction before uploading output objects.")}
+            </p>
+          ) : hasUnsavedTransactionChanges ? (
+            <p className="text-sm text-amber-700 dark:text-amber-200">
+              {t("Save other transaction changes before uploading output objects.")}
+            </p>
+          ) : null}
+        </Section>
+        </fieldset>
+        {/* Hide linked reports for regular users while preserving the admin and 2PQ workflow. */}
+        {shouldShowLinkedOutputReports ? (
+          <LinkedOutputReportsSection
+            reports={linkedReports}
+            loading={linkedReportsQuery.isLoading}
+            loadError={linkedReportsQuery.error}
+            isEditing={isEditing}
+            canManage={
+              isEditing &&
+              !hasUnsavedTransactionChanges &&
+              !attachReportMutation.isPending &&
+              !removeReportMutation.isPending
+            }
+            recentlyAddedReportCode={recentlyAddedReportCode}
+            removingReportCode={removeReportMutation.variables ?? ""}
+            onRetry={() => linkedReportsQuery.refetch()}
+            onAdd={() => {
+              setSelectedReportCode("");
+              setReportSearch("");
+              setReportPickerOpen(true);
+            }}
+            onRemove={(reportCode) => {
+              if (
+                window.confirm(t("Remove this report from the transaction?"))
+              ) {
+                removeReportMutation.mutate(reportCode);
+              }
+            }}
+            hasUnsavedTransactionChanges={hasUnsavedTransactionChanges}
+          />
+        ) : null}
+        <fieldset
+          className="contents"
+          disabled={terminalStatusLocked || transactionCommandPending}
+        >
+        <Section title="Transaction status">
+          <div className="overflow-hidden rounded-2xl border border-violet-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.94),rgba(245,243,255,0.90)_58%,rgba(240,249,255,0.72))] p-4 shadow-[0_18px_56px_-48px_rgba(109,40,217,0.48)] dark:border-violet-400/18 dark:bg-[linear-gradient(145deg,rgba(18,23,40,0.94),rgba(30,24,57,0.82))]">
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)] lg:items-start">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold uppercase text-muted-foreground">
+                    {t("Current status")}
+                  </span>
+                  <Badge
+                    variant={form.status === "delivered" ? "default" : "secondary"}
+                    className="px-3 py-1 text-sm"
+                  >
+                    {t(transactionStatusLabel(form.status))}
+                  </Badge>
+                </div>
+                {terminalStatusLocked ? (
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    {t("Terminal transactions cannot be reopened.")}
+                  </p>
+                ) : isEditing ? (
+                  <div className="mt-4 max-w-md">
+                    <Field label="Change status">
+                      <Select
+                        value={form.status}
+                        onValueChange={(status) => {
+                          if (!status) {
+                            return;
+                          }
+                          setForm((current) => ({
+                            ...current,
+                            status: status as TransactionFormState["status"],
+                          }));
+                        }}
+                      >
+                        <SelectTrigger aria-label={t("Transaction status options")}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {selectableTransactionStatuses.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {t(option.label)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {expectedOutputObjects.length === 0
+                        ? t(
+                            "This service does not require output files. Mark it as delivered when the work is complete.",
+                          )
+                        : t(
+                            "Delivered is available only through Mark as delivered after every output is ready.",
+                          )}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    {t("New transactions start with Received status.")}
+                  </p>
+                )}
+              </div>
+
+              {isEditing ? (
+                <div className="grid gap-3 rounded-2xl border border-violet-100 bg-white/78 p-4 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-muted-foreground">
+                      {t("Output slots ready")}
+                    </span>
+                    <span className="font-semibold text-foreground">
+                      {
+                        form.outputObjects.filter((output) =>
+                          /^\d{9}$/.test(output.objectCode),
+                        ).length
+                      }
+                      /{form.outputObjects.length}
+                    </span>
+                  </div>
+                  {hasUnsavedTransactionChanges ? (
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      {t(
+                        "Save other transaction changes before marking it as delivered.",
+                      )}
+                    </p>
+                  ) : transactionRecord?.status !== "running" &&
+                  transactionRecord?.status !== "delivered" ? (
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      {t(
+                        "The transaction must be running before it can be marked as delivered.",
+                      )}
+                    </p>
+                  ) : !allOutputSlotsReady && form.status !== "delivered" ? (
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      {t(
+                        "Upload a valid object for every promised output before marking the transaction as delivered.",
+                      )}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </Section>
+        </fieldset>
+        <fieldset className="contents" disabled={transactionCommandPending}>
+        <CollapsibleSection title="Request identity" defaultOpen={!isEditing}>
           <div className="grid gap-4 lg:grid-cols-2">
             <Field label="Service">
               {isEditing ? (
@@ -13128,195 +13318,7 @@ export function SupportServiceTransactionWorkbench({
               <div>{selectedOffer.shortContract}</div>
             </div>
           ) : null}
-        </Section>
-        <Section title="Requester identity" icon={UserRound}>
-          <TransactionRequesterIdentity
-            isEditing={isEditing}
-            showLockedFields={showLockedFields}
-            requestedByUserId={form.requestedByUserId}
-            requestedByUserEmail={form.requestedByUserEmail}
-            onChange={({ userId, email }) =>
-              setForm((current) => ({
-                ...current,
-                requestedByUserId: userId,
-                requestedByUserEmail: email,
-              }))
-            }
-          />
-        </Section>
-        <Section title="Input object bindings">
-          <ObjectRefTable slots={form.inputs} presentFormAnswers={isEditing} />
-          {form.missingRequiredInputRoles.length ? (
-            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50/70 p-3 text-sm text-amber-800 shadow-sm dark:border-amber-400/25 dark:bg-amber-500/12 dark:text-amber-100">
-              <CircleAlert className="h-4 w-4" />
-              <span>{t("Pending required inputs")}</span>
-              {form.missingRequiredInputRoles.map((role) => (
-                <Badge key={role} variant="outline" className="font-mono">
-                  {role}
-                </Badge>
-              ))}
-            </div>
-          ) : null}
-        </Section>
-        <Section title="Delivered output objects">
-          <OutputObjectGrid
-            outputs={form.outputObjects}
-            canUpload={
-              isEditing &&
-              !terminalStatusLocked &&
-              !hasUnsavedTransactionChanges
-            }
-            onSelect={openOutputUpload}
-          />
-          {!isEditing ? (
-            <p className="text-sm text-muted-foreground">
-              {t("Save the transaction before uploading output objects.")}
-            </p>
-          ) : hasUnsavedTransactionChanges ? (
-            <p className="text-sm text-amber-700 dark:text-amber-200">
-              {t("Save other transaction changes before uploading output objects.")}
-            </p>
-          ) : null}
-        </Section>
-        </fieldset>
-        {/* Hide linked reports for regular users while preserving the admin and 2PQ workflow. */}
-        {shouldShowLinkedOutputReports ? (
-          <LinkedOutputReportsSection
-            reports={linkedReports}
-            loading={linkedReportsQuery.isLoading}
-            loadError={linkedReportsQuery.error}
-            isEditing={isEditing}
-            canManage={
-              isEditing &&
-              !hasUnsavedTransactionChanges &&
-              !attachReportMutation.isPending &&
-              !removeReportMutation.isPending
-            }
-            recentlyAddedReportCode={recentlyAddedReportCode}
-            removingReportCode={removeReportMutation.variables ?? ""}
-            onRetry={() => linkedReportsQuery.refetch()}
-            onAdd={() => {
-              setSelectedReportCode("");
-              setReportSearch("");
-              setReportPickerOpen(true);
-            }}
-            onRemove={(reportCode) => {
-              if (
-                window.confirm(t("Remove this report from the transaction?"))
-              ) {
-                removeReportMutation.mutate(reportCode);
-              }
-            }}
-            hasUnsavedTransactionChanges={hasUnsavedTransactionChanges}
-          />
-        ) : null}
-        <fieldset
-          className="contents"
-          disabled={terminalStatusLocked || transactionCommandPending}
-        >
-        <Section title="Transaction status">
-          <div className="overflow-hidden rounded-2xl border border-violet-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.94),rgba(245,243,255,0.90)_58%,rgba(240,249,255,0.72))] p-4 shadow-[0_18px_56px_-48px_rgba(109,40,217,0.48)] dark:border-violet-400/18 dark:bg-[linear-gradient(145deg,rgba(18,23,40,0.94),rgba(30,24,57,0.82))]">
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)] lg:items-start">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-semibold uppercase text-muted-foreground">
-                    {t("Current status")}
-                  </span>
-                  <Badge
-                    variant={form.status === "delivered" ? "default" : "secondary"}
-                    className="px-3 py-1 text-sm"
-                  >
-                    {t(transactionStatusLabel(form.status))}
-                  </Badge>
-                </div>
-                {terminalStatusLocked ? (
-                  <p className="mt-3 text-sm text-muted-foreground">
-                    {t("Terminal transactions cannot be reopened.")}
-                  </p>
-                ) : isEditing ? (
-                  <div className="mt-4 max-w-md">
-                    <Field label="Change status">
-                      <Select
-                        value={form.status}
-                        onValueChange={(status) => {
-                          if (!status) {
-                            return;
-                          }
-                          setForm((current) => ({
-                            ...current,
-                            status: status as TransactionFormState["status"],
-                          }));
-                        }}
-                      >
-                        <SelectTrigger aria-label={t("Transaction status options")}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {selectableTransactionStatuses.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {t(option.label)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {expectedOutputObjects.length === 0
-                        ? t(
-                            "This service does not require output files. Mark it as delivered when the work is complete.",
-                          )
-                        : t(
-                            "Delivered is available only through Mark as delivered after every output is ready.",
-                          )}
-                    </p>
-                  </div>
-                ) : (
-                  <p className="mt-3 text-sm text-muted-foreground">
-                    {t("New transactions start with Received status.")}
-                  </p>
-                )}
-              </div>
-
-              {isEditing ? (
-                <div className="grid gap-3 rounded-2xl border border-violet-100 bg-white/78 p-4 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-muted-foreground">
-                      {t("Output slots ready")}
-                    </span>
-                    <span className="font-semibold text-foreground">
-                      {
-                        form.outputObjects.filter((output) =>
-                          /^\d{9}$/.test(output.objectCode),
-                        ).length
-                      }
-                      /{form.outputObjects.length}
-                    </span>
-                  </div>
-                  {hasUnsavedTransactionChanges ? (
-                    <p className="text-xs leading-5 text-muted-foreground">
-                      {t(
-                        "Save other transaction changes before marking it as delivered.",
-                      )}
-                    </p>
-                  ) : transactionRecord?.status !== "running" &&
-                  transactionRecord?.status !== "delivered" ? (
-                    <p className="text-xs leading-5 text-muted-foreground">
-                      {t(
-                        "The transaction must be running before it can be marked as delivered.",
-                      )}
-                    </p>
-                  ) : !allOutputSlotsReady && form.status !== "delivered" ? (
-                    <p className="text-xs leading-5 text-muted-foreground">
-                      {t(
-                        "Upload a valid object for every promised output before marking the transaction as delivered.",
-                      )}
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </Section>
+        </CollapsibleSection>
         </fieldset>
         <ServiceTransactionActionFooter
           isEditing={isEditing}
@@ -15423,6 +15425,56 @@ function Section({
         </div>
       )}
       {children}
+    </section>
+  );
+}
+
+function CollapsibleSection({
+  title,
+  children,
+  defaultOpen = false,
+  icon: Icon = FileText,
+}: {
+  title: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+  icon?: LucideIcon;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const contentId = useId();
+
+  return (
+    <section className={SUPPORT_SERVICE_SECTION_CLASS}>
+      <button
+        type="button"
+        aria-expanded={isOpen}
+        aria-controls={contentId}
+        onClick={() => setIsOpen((current) => !current)}
+        className="flex w-full items-center gap-3 text-left text-foreground"
+      >
+        <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-violet-100 bg-violet-50 text-violet-700 shadow-inner dark:border-violet-400/18 dark:bg-violet-500/12 dark:text-violet-100">
+          <Icon className="h-4 w-4" aria-hidden="true" />
+        </span>
+        <h3 className="min-w-0 flex-1 font-heading text-xl font-semibold text-foreground">
+          {t(title)}
+        </h3>
+        <ChevronDown
+          className={cn(
+            "h-5 w-5 shrink-0 text-violet-600 transition-transform duration-200 dark:text-violet-200",
+            isOpen && "rotate-180",
+          )}
+          aria-hidden="true"
+        />
+      </button>
+      <div
+        id={contentId}
+        hidden={!isOpen}
+        className="grid gap-6 border-t border-violet-100/80 pt-6 dark:border-violet-400/14"
+      >
+        {children}
+      </div>
     </section>
   );
 }

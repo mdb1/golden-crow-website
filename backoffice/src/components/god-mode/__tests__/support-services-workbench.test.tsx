@@ -6077,6 +6077,27 @@ describe("support services workbenches", () => {
     expect(requestIdentitySection).toBeTruthy();
     expect(requesterIdentitySection).toBeTruthy();
     expect(requesterIdentitySection).not.toBe(requestIdentitySection);
+    const transactionSections = Array.from(
+      requestIdentitySection?.closest("form")?.querySelectorAll("section") ??
+        [],
+    );
+    expect(transactionSections.at(-1)).toBe(requestIdentitySection);
+
+    const requestIdentityDisclosure = screen.getByRole("button", {
+      name: "Request identity",
+    });
+    expect(requestIdentityDisclosure.getAttribute("aria-expanded")).toBe(
+      "false",
+    );
+    const requestIdentityContent = document.getElementById(
+      requestIdentityDisclosure.getAttribute("aria-controls") ?? "",
+    ) as HTMLDivElement | null;
+    expect(requestIdentityContent?.hidden).toBe(true);
+    fireEvent.click(requestIdentityDisclosure);
+    expect(requestIdentityDisclosure.getAttribute("aria-expanded")).toBe(
+      "true",
+    );
+    expect(requestIdentityContent?.hidden).toBe(false);
 
     fireEvent.click(screen.getByRole("button", { name: "Copy email" }));
     await waitFor(() => {
@@ -6501,6 +6522,9 @@ describe("support services workbenches", () => {
       />,
     );
 
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Request identity" }),
+    );
     const checkbox = await screen.findByRole("checkbox", {
       name: "Use a custom transaction name",
     });
