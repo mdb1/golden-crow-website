@@ -47,6 +47,10 @@ import {
   type JsonSchema,
 } from "@/lib/file-wizard-schema-catalog";
 import { normalizeStoredFileContent } from "@/lib/file-storage";
+import {
+  PGO_PDF_DOWNLOAD_URL_ERROR,
+  isValidPgoPdfDownloadUrl,
+} from "@/lib/pgo-pdf-report";
 import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
 import { cn } from "@/lib/utils";
 
@@ -318,31 +322,14 @@ function stringIsValid(value: string, schema: JsonSchema) {
   return true;
 }
 
-const PDF_DOWNLOAD_URL_ERROR =
-  "Download URL must be a valid HTTPS URL ending in .pdf.";
-
 function wizardSpecificValidationError(fileType: string, value: JsonValue) {
   if (fileType !== "pgo_pdf_report") return null;
   if (!value || Array.isArray(value) || typeof value !== "object") {
-    return PDF_DOWNLOAD_URL_ERROR;
+    return PGO_PDF_DOWNLOAD_URL_ERROR;
   }
-  const downloadUrl = value.download_url;
-  if (
-    typeof downloadUrl !== "string" ||
-    downloadUrl.trim() !== downloadUrl
-  ) {
-    return PDF_DOWNLOAD_URL_ERROR;
-  }
-  try {
-    const parsed = new URL(downloadUrl);
-    return parsed.protocol === "https:" &&
-      Boolean(parsed.hostname) &&
-      parsed.pathname.toLowerCase().endsWith(".pdf")
-      ? null
-      : PDF_DOWNLOAD_URL_ERROR;
-  } catch {
-    return PDF_DOWNLOAD_URL_ERROR;
-  }
+  return isValidPgoPdfDownloadUrl(value.download_url)
+    ? null
+    : PGO_PDF_DOWNLOAD_URL_ERROR;
 }
 
 export function isWizardValueComplete(

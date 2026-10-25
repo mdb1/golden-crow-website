@@ -7481,6 +7481,111 @@ describe("support services workbenches", () => {
     ).toBe(false);
   });
 
+  it("replaces a raw PDF download URL schema error with publisher-facing guidance", async () => {
+    const rawSchemaError =
+      'Inline output file does not match the pgo_pdf_report schema: /download_url must match pattern "^[Hh][Tt][Tt][Pp][Ss]://[^/?#\\\\s]+(?:[/?#]|$)".';
+
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      const value = String(path);
+      if (
+        value.endsWith(`/transactions/${runningTransaction.requestId}`) &&
+        !init?.method
+      ) {
+        return { transaction: runningTransaction };
+      }
+      if (value.endsWith(`/offers/${runningTransaction.offerId}`)) {
+        return { offer: currentLiveOffer };
+      }
+      if (value.endsWith("/output-objects") && init?.method === "POST") {
+        throw new Error(rawSchemaError);
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId={runningTransaction.requestId}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Upload output object · result",
+      }),
+    );
+    const uploadDialog = screen.getByTestId("output-object-upload-dialog");
+    fireEvent.change(within(uploadDialog).getByLabelText(/Title \*/), {
+      target: { value: "Final report" },
+    });
+    fireEvent.change(within(uploadDialog).getByLabelText(/Download Url \*/), {
+      target: { value: "https://example.org/final-report.pdf" },
+    });
+    fireEvent.click(
+      within(uploadDialog).getByRole("button", { name: "Upload file" }),
+    );
+
+    expect(
+      await within(uploadDialog).findByText(
+        "Download URL must be a valid HTTPS URL and have a .pdf extension.",
+      ),
+    ).toBeTruthy();
+    expect(within(uploadDialog).queryByText(rawSchemaError)).toBeNull();
+  });
+
+  it("validates the PDF extension in manual file JSON before uploading", async () => {
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      const value = String(path);
+      if (
+        value.endsWith(`/transactions/${runningTransaction.requestId}`) &&
+        !init?.method
+      ) {
+        return { transaction: runningTransaction };
+      }
+      if (value.endsWith(`/offers/${runningTransaction.offerId}`)) {
+        return { offer: currentLiveOffer };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId={runningTransaction.requestId}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Upload output object · result",
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Continue with new file" }),
+    );
+    fireEvent.change(screen.getByLabelText("File JSON"), {
+      target: {
+        value:
+          '{"title":"Final report","download_url":"https://example.org/final-report.txt"}',
+      },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create and link object" }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Download URL must be a valid HTTPS URL and have a .pdf extension.",
+      ),
+    ).toBeTruthy();
+    expect(
+      sdkFetchMock.mock.calls.some(
+        ([path, init]) =>
+          String(path).endsWith("/output-objects") && init?.method === "POST",
+      ),
+    ).toBe(false);
+  });
+
   it("retries the atomic inline output command without creating an orphan file", async () => {
     const uploadedTransaction: SupportServiceTransactionRecord = {
       ...runningTransaction,

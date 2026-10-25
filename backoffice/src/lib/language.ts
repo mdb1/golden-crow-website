@@ -5641,6 +5641,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Elegí un origen para el objeto de salida.",
   "File ID is required.": "El ID del archivo es obligatorio.",
   "Use a valid HTTPS download URL.": "Usá una URL de descarga HTTPS válida.",
+  "Download URL must be a valid HTTPS URL and have a .pdf extension.":
+    "La URL de descarga debe ser una URL HTTPS válida y tener la extensión .pdf.",
   "Choose where the finalized PGO content should be loaded from.":
     "Elegí desde dónde cargar el contenido PGO finalizado.",
   "Provide a public download URL. The SDK validates the downloaded content against the exact PGO type before creating a ready object.":

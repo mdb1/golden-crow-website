@@ -148,6 +148,11 @@ import type {
   DiscoverOrganizationsPage,
 } from "@/lib/discover";
 import { appText } from "@/lib/language";
+import {
+  PGO_PDF_DOWNLOAD_URL_ERROR,
+  isPgoPdfDownloadUrlSchemaError,
+  isValidPgoPdfDownloadUrl,
+} from "@/lib/pgo-pdf-report";
 import { publisherPortalServiceTransactionsByServiceIdRoute } from "@/lib/publisher-portal-routes";
 import {
   SUPPORT_SERVICE_FORM_CSV_HEADER,
@@ -12366,6 +12371,13 @@ export function SupportServiceTransactionWorkbench({
           },
         );
       } catch (error) {
+        if (
+          draft.objectType === "pgo_pdf_report" &&
+          error instanceof Error &&
+          isPgoPdfDownloadUrlSchemaError(error.message)
+        ) {
+          throw new Error(t(PGO_PDF_DOWNLOAD_URL_ERROR));
+        }
         if (draft.source === "newFile" && "fileStorageId" in source) {
           const reason =
             error instanceof Error ? error.message : "The object link failed.";
@@ -12719,6 +12731,19 @@ export function SupportServiceTransactionWorkbench({
         !validateStoredFileJson(draft.newFileContent)
       ) {
         rejectDraft("File JSON must be valid JSON.");
+      }
+      if (
+        !draft.createdFileStorageId.trim() &&
+        draft.objectType === "pgo_pdf_report"
+      ) {
+        const content = JSON.parse(draft.newFileContent) as unknown;
+        const downloadUrl =
+          content && !Array.isArray(content) && typeof content === "object"
+            ? (content as Record<string, unknown>).download_url
+            : undefined;
+        if (!isValidPgoPdfDownloadUrl(downloadUrl)) {
+          rejectDraft(PGO_PDF_DOWNLOAD_URL_ERROR);
+        }
       }
       if (
         !draft.createdFileStorageId.trim() &&

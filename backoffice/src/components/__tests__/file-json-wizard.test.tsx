@@ -170,7 +170,7 @@ describe("FileJsonWizard", () => {
     );
 
     expect(screen.getByRole("alert").textContent).toBe(
-      "Download URL must be a valid HTTPS URL ending in .pdf.",
+      "Download URL must be a valid HTTPS URL and have a .pdf extension.",
     );
     expect(sdkFetchMock).not.toHaveBeenCalled();
     expect(onSave).not.toHaveBeenCalled();
