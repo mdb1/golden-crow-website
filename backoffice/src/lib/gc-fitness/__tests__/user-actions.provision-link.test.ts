@@ -60,6 +60,7 @@ jest.mock("firebase-admin/firestore", () => ({
     serverTimestamp: jest.fn(() => SERVER_TIMESTAMP),
     delete: jest.fn(() => FIELD_DELETE),
   },
+  Timestamp: { fromDate: (d: Date) => d },
 }));
 
 const mockState: { db: MockDb | null; sessionUid: string } = {
@@ -138,6 +139,11 @@ class MockDocRef {
   async update(patch: DocData) {
     if (!this.store.has(this.id)) throw new Error(`no document to update: ${this.id}`);
     this._apply(patch, true);
+  }
+  // recordCoachActivityEvent writes with a plain set(); without it the call
+  // threw and the best-effort helper swallowed it, so the event id was untested.
+  async set(patch: DocData, opts?: { merge?: boolean }) {
+    this._apply(patch, opts?.merge === true);
   }
   _apply(patch: DocData, merge: boolean) {
     this.store.set(
@@ -565,5 +571,78 @@ describe("#970 — the client email", () => {
     const mirror = db().read(FirestoreCollections.userMirror, MIRROR_ID)!;
     expect(mirror.inviteEmailStatus).toBe("skipped");
     expect("inviteEmailSentAt" in mirror).toBe(false);
+  });
+});
+
+// ── The typed address survives; only the mirror KEY is canonical ─────────
+//
+// A coach added `manu.hola@gmail.com` and the roster showed — and the invite was
+// mailed to — `manuhola@gmail.com`: the schema normalized the address itself, so
+// the canonical form leaked into every human-facing place. Gmail delivers both,
+// but it reads as the backoffice eating the dot.
+describe("dotted Gmail address — typed vs canonical", () => {
+  const TYPED = "manu.hola@gmail.com";
+  const CANONICAL = "manuhola@gmail.com";
+
+  it("mirror branch: doc keyed by the canonical address, but `email` and the invite keep the dot", async () => {
+    const result = await provisionClient({ email: "  Manu.Hola@Gmail.com ", displayName: "Manu" });
+    expect(result).toEqual({ ok: true, mode: "precreated-mirror" });
+
+    // The KEY stays canonical — that is what the sign-in side looks up.
+    expect(db().read(FirestoreCollections.userMirror, TYPED)).toBeUndefined();
+    const mirror = db().read(FirestoreCollections.userMirror, CANONICAL)!;
+    // …while the address a person reads is the one the coach typed.
+    expect(mirror.email).toBe(TYPED);
+
+    expect(mockSendMail).toHaveBeenCalledTimes(1);
+    expect(mockSendMail.mock.calls[0][0].to).toBe(TYPED);
+    expect(mockSendMail.mock.calls[0][0].text).toContain(TYPED);
+
+    // The coach-activity event id stays canonical: unlink/remove mark it deleted
+    // by `client:{coach}:{normalized email}`.
+    const events = db().collections.get("coach_activity");
+    expect([...(events?.keys() ?? [])]).toEqual([`client:coach-B:${CANONICAL}`]);
+  });
+
+  it("re-adding the same person spelled without the dot is the SAME pending client", async () => {
+    await provisionClient({ email: TYPED });
+    mockSendMail.mockClear();
+
+    const again = await provisionClient({ email: CANONICAL });
+    expect(again).toEqual({ ok: true, mode: "already-linked" });
+    expect(mockSendMail).not.toHaveBeenCalled();
+  });
+
+  it("finds an existing account created WITH the dot (Auth matches emails exactly)", async () => {
+    authUsersByEmail.set(TYPED, {
+      uid: CLIENT_UID,
+      email: TYPED,
+      displayName: "Manu",
+      photoURL: null,
+      customClaims: {},
+    });
+    db().seed(FirestoreCollections.users, CLIENT_UID, { role: "client" });
+
+    const result = await provisionClient({ email: TYPED });
+    expect(result).toEqual({ ok: true, mode: "attached-existing-user" });
+    // No orphan mirror: before, the lookup used the canonical address, missed the
+    // account, and pre-created a mirror that no sign-up would ever consume.
+    expect(db().read(FirestoreCollections.userMirror, CANONICAL)).toBeUndefined();
+    expect(db().read(FirestoreCollections.users, CLIENT_UID)!.coachId).toBe("coach-B");
+  });
+
+  it("still finds an account stored canonically when the coach types the dot", async () => {
+    authUsersByEmail.set(CANONICAL, {
+      uid: CLIENT_UID,
+      email: CANONICAL,
+      displayName: "Manu",
+      photoURL: null,
+      customClaims: {},
+    });
+    db().seed(FirestoreCollections.users, CLIENT_UID, { role: "client" });
+
+    const result = await provisionClient({ email: TYPED });
+    expect(result).toEqual({ ok: true, mode: "attached-existing-user" });
+    expect(db().read(FirestoreCollections.userMirror, CANONICAL)).toBeUndefined();
   });
 });

@@ -672,6 +672,19 @@ describe("removePendingClientForCoach", () => {
     expectNoMutation();
   });
 
+  it("finds the doc from the TYPED address the list shows (dotted Gmail → canonical key)", async () => {
+    // Keyed canonically, `email` as the coach typed it (dot kept).
+    db.collectionMap("user_mirror").set("dotted@gmail.com", {
+      coachId: COACH_A,
+      email: "dot.ted@gmail.com",
+      pre_created: true,
+    });
+    await expect(
+      removePendingClientForCoach({ coachUid: COACH_A, email: "dot.ted@gmail.com" }),
+    ).resolves.toEqual({ ok: true });
+    expect(db.writes[0]).toEqual({ op: "delete", path: "user_mirror/dotted@gmail.com" });
+  });
+
   it("happy path: deletes the (normalized) mirror doc and logs against the coach", async () => {
     await expect(
       removePendingClientForCoach({ coachUid: COACH_A, email: " PENDING@x.com " }),

@@ -100,7 +100,11 @@ const MAX_TEMPLATE_CHARS = 240;
 const MAX_TEMPLATES = 20;
 
 const provisionClientSchema = z.object({
-  email: z.string().trim().toLowerCase().email().transform(normalizeMirrorEmail),
+  // The address AS TYPED (trimmed + lowercased), never the mirror key. It is
+  // what the roster shows and where the invite goes: normalizing it here turned
+  // `manu.hola@gmail.com` into `manuhola@gmail.com` on screen AND in the `to:`
+  // of the invitation. The normalized form is ONLY the `/user_mirror` doc id.
+  email: z.string().trim().toLowerCase().email(),
   displayName: z.string().trim().max(120).optional(),
 });
 
@@ -440,12 +444,24 @@ export async function provisionClient(input: unknown): Promise<
   const coachDisplayName = coach.displayName;
   const displayName = parsed.displayName || fallbackName(parsed.email);
 
+  // `/user_mirror` is keyed by the canonical address (Gmail ignores dots and
+  // `+tags`), so the client is linked however they spell it at sign-in — the
+  // functions side normalizes the token email the same way. Everything a
+  // person reads (roster, invite `to:`, activity log) keeps the typed address.
+  const mirrorKey = normalizeMirrorEmail(parsed.email);
+
+  // Firebase Auth matches emails EXACTLY, dots included, so try the typed
+  // address first and the canonical one second: an account created as
+  // `manu.hola@gmail.com` is invisible to a lookup by `manuhola@gmail.com`.
   let authUser: Awaited<ReturnType<typeof auth.getUserByEmail>> | null = null;
-  try {
-    authUser = await auth.getUserByEmail(parsed.email);
-  } catch (err) {
-    const code = (err as { code?: string }).code;
-    if (code !== "auth/user-not-found") throw err;
+  for (const candidate of new Set([parsed.email, mirrorKey])) {
+    try {
+      authUser = await auth.getUserByEmail(candidate);
+      break;
+    } catch (err) {
+      const code = (err as { code?: string }).code;
+      if (code !== "auth/user-not-found") throw err;
+    }
   }
 
   if (!authUser) {
@@ -454,7 +470,7 @@ export async function provisionClient(input: unknown): Promise<
     // write inside a transaction so a concurrent writer can't slip past.
     const mirrorRef = db
       .collection(FirestoreCollections.userMirror)
-      .doc(parsed.email);
+      .doc(mirrorKey);
     let mirrorOutcomeKind: LinkOutcome["kind"];
     try {
       mirrorOutcomeKind = await db.runTransaction<LinkOutcome["kind"]>(
@@ -551,7 +567,9 @@ export async function provisionClient(input: unknown): Promise<
       db,
       clientAddedEvent({
         trainerId: session.uid,
-        email: parsed.email,
+        // The event id is `client:{coach}:{email}` and the unlink/remove paths
+        // look it up canonically — keep the KEY here, not the typed address.
+        email: mirrorKey,
         displayName,
         clientId: null,
         mode: "precreated-mirror",
@@ -748,7 +766,9 @@ export async function provisionClient(input: unknown): Promise<
     db,
     clientAddedEvent({
       trainerId: session.uid,
-      email: parsed.email,
+      // The event id is `client:{coach}:{email}` and the unlink/remove paths
+      // look it up canonically — keep the KEY here, not the typed address.
+      email: mirrorKey,
       displayName,
       clientId: authUser.uid,
       mode: "attached-existing-user",
