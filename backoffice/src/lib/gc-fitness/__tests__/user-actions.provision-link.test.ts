@@ -21,8 +21,11 @@
 jest.mock("next/headers", () => ({
   cookies: jest.fn().mockResolvedValue({}),
 }));
+const mockUpdateTag = jest.fn();
+const mockRevalidateTag = jest.fn();
 jest.mock("next/cache", () => ({
-  revalidateTag: jest.fn(),
+  revalidateTag: (...args: unknown[]) => mockRevalidateTag(...args),
+  updateTag: (...args: unknown[]) => mockUpdateTag(...args),
 }));
 jest.mock("next-intl/server", () => ({
   getTranslations: jest.fn(async () => (key: string) => key),
@@ -644,5 +647,26 @@ describe("dotted Gmail address — typed vs canonical", () => {
     const result = await provisionClient({ email: TYPED });
     expect(result).toEqual({ ok: true, mode: "attached-existing-user" });
     expect(db().read(FirestoreCollections.userMirror, CANONICAL)).toBeUndefined();
+  });
+});
+
+// The coach adds a client and reloads the roster. `revalidateTag(tag, "max")` is
+// stale-while-revalidate in Next 16: that reload was served the OLD cached roster
+// (only a hard refresh, after the background refresh landed, showed the change).
+// A Server Action that must read its own write expires the tag with updateTag.
+describe("roster cache after an add — read-your-writes", () => {
+  beforeEach(() => {
+    mockUpdateTag.mockClear();
+    mockRevalidateTag.mockClear();
+  });
+
+  it("expires the roster tag immediately on both branches, never stale-while-revalidate", async () => {
+    await provisionClient({ email: "fresh@example.com" });
+    seedAuthClient();
+    db().seed(FirestoreCollections.users, CLIENT_UID, { role: "client" });
+    await provisionClient({ email: CLIENT_EMAIL });
+
+    expect(mockUpdateTag.mock.calls).toEqual([["gc-fitness-roster"], ["gc-fitness-roster"]]);
+    expect(mockRevalidateTag).not.toHaveBeenCalled();
   });
 });

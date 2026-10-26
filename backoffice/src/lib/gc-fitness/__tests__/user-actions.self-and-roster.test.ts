@@ -24,7 +24,7 @@ const mockAuth = {
 jest.mock("next/headers", () => ({
   cookies: jest.fn(async () => ({ get: () => undefined, set: mockCookieSet })),
 }));
-jest.mock("next/cache", () => ({ revalidateTag: jest.fn() }));
+jest.mock("next/cache", () => ({ revalidateTag: jest.fn(), updateTag: jest.fn() }));
 jest.mock("next-intl/server", () => ({
   getTranslations: jest.fn(async () => (key: string) => key),
   getLocale: jest.fn(async () => "es"),

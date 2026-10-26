@@ -50,7 +50,7 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { revalidateTag } from "next/cache";
+import { updateTag } from "next/cache";
 import { FieldValue } from "firebase-admin/firestore";
 import { z } from "zod";
 
@@ -382,7 +382,7 @@ export async function updateTrainerProfile(
     { merge: true },
   );
   await fanOutCoachProfile(db, session.uid, parsed.displayName, photoURL, bio);
-  revalidateTag("gc-fitness-roster", "max");
+  updateTag("gc-fitness-roster");
   return { ok: true };
 }
 
@@ -409,7 +409,7 @@ export async function updateClientNickname(
     },
     { merge: true },
   );
-  revalidateTag("gc-fitness-roster", "max");
+  updateTag("gc-fitness-roster");
   return { ok: true };
 }
 
@@ -575,7 +575,7 @@ export async function provisionClient(input: unknown): Promise<
         mode: "precreated-mirror",
       }),
     );
-    revalidateTag("gc-fitness-roster", "max");
+    updateTag("gc-fitness-roster");
     return { ok: true, mode: "precreated-mirror" };
   }
 
@@ -775,7 +775,7 @@ export async function provisionClient(input: unknown): Promise<
     }),
   );
 
-  revalidateTag("gc-fitness-roster", "max");
+  updateTag("gc-fitness-roster");
   return { ok: true, mode: "attached-existing-user" };
 }
 
@@ -894,7 +894,7 @@ export async function removePendingClient(input: unknown): Promise<{ ok: true }>
     .doc(parsed.email);
   const mirrorSnap = await mirrorRef.get();
   if (!mirrorSnap.exists) {
-    revalidateTag("gc-fitness-roster", "max");
+    updateTag("gc-fitness-roster");
     return { ok: true };
   }
   if (mirrorSnap.get("coachId") !== session.uid) {
@@ -923,7 +923,7 @@ export async function removePendingClient(input: unknown): Promise<{ ok: true }>
   // that same event deleted so My Activity reads "Quitó un cliente" instead of
   // still advertising an add that has been undone. Best-effort by contract.
   await markCoachActivityDeleted(db, `client:${session.uid}:${parsed.email}`);
-  revalidateTag("gc-fitness-roster", "max");
+  updateTag("gc-fitness-roster");
   return { ok: true };
 }
 
@@ -1009,6 +1009,6 @@ export async function unlinkClient(input: unknown): Promise<{ ok: true }> {
       `client:${session.uid}:${normalizeMirrorEmail(clientEmail)}`,
     );
   }
-  revalidateTag("gc-fitness-roster", "max");
+  updateTag("gc-fitness-roster");
   return { ok: true };
 }

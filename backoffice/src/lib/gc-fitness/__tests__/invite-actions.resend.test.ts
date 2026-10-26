@@ -6,7 +6,7 @@
 // from the DOCUMENT, never from the caller — otherwise a coach with a session
 // could relay arbitrary mail from our domain.
 
-jest.mock("next/cache", () => ({ revalidateTag: jest.fn() }));
+jest.mock("next/cache", () => ({ revalidateTag: jest.fn(), updateTag: jest.fn() }));
 jest.mock("next-intl/server", () => ({ getLocale: jest.fn(async () => "es") }));
 
 type SentMail = { to: string; subject: string; text: string; html: string };

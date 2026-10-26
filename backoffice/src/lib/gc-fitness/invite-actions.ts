@@ -23,7 +23,7 @@
 // two seconds an SMTP handshake takes gets clicked again, and the client should
 // not receive the same email three times because of it.
 
-import { revalidateTag } from "next/cache";
+import { updateTag } from "next/cache";
 import { z } from "zod";
 
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
@@ -116,6 +116,6 @@ export async function resendClientInvite(
     markerRef: target.ref,
   });
 
-  revalidateTag("gc-fitness-roster", "max");
+  updateTag("gc-fitness-roster");
   return { ok: true, status };
 }
