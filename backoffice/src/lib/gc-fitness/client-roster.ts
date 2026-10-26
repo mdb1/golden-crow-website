@@ -58,6 +58,7 @@ import {
   type HabitLogRow,
 } from "./habit-compliance";
 import type { HabitType } from "./habit-schema";
+import { normalizeMirrorEmail } from "./email-normalization";
 import {
   clientNeedsAttention,
   type AttentionReason,
@@ -244,7 +245,7 @@ async function _fetchClientsForTrainer(
     : activeRows;
 
   const activeEmails = new Set(
-    liveRows.map((row) => row.email.trim().toLowerCase()).filter(Boolean),
+    liveRows.map((row) => normalizeMirrorEmail(row.email)).filter(Boolean),
   );
   const pendingRows: ClientRosterEntry[] = mirrorSnap.docs
     .reduce<ClientRosterEntry[]>((rows, doc) => {
@@ -253,7 +254,9 @@ async function _fetchClientsForTrainer(
         displayName?: string;
       };
       const email = (data.email ?? doc.id).trim().toLowerCase();
-      if (!email || activeEmails.has(email)) {
+      // Compare CANONICAL forms: the mirror keeps the typed address
+      // (`manu.hola@gmail.com`) while the account may carry `manuhola@…`.
+      if (!email || activeEmails.has(normalizeMirrorEmail(email))) {
         return rows;
       }
       rows.push({
@@ -405,7 +408,7 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
     .get();
 
   const activeEmails = new Set(
-    base.map((client) => client.email.trim().toLowerCase()).filter(Boolean),
+    base.map((client) => normalizeMirrorEmail(client.email)).filter(Boolean),
   );
   const activeClients = base.slice(0, 50);
   const pendingClients: ClientRosterEntry[] = mirrorSnap.docs
@@ -417,7 +420,9 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         pre_created?: boolean;
       };
       const email = (data.email ?? doc.id).trim().toLowerCase();
-      if (!email || activeEmails.has(email)) {
+      // Compare CANONICAL forms: the mirror keeps the typed address
+      // (`manu.hola@gmail.com`) while the account may carry `manuhola@…`.
+      if (!email || activeEmails.has(normalizeMirrorEmail(email))) {
         return rows;
       }
       rows.push({

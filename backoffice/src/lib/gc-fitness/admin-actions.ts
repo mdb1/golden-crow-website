@@ -1,5 +1,6 @@
 "use server";
 
+import { normalizeMirrorEmail } from "./email-normalization";
 import { FieldValue } from "firebase-admin/firestore";
 import { z } from "zod";
 
@@ -1780,7 +1781,11 @@ export async function removePendingClientForCoach(input: unknown): Promise<{ ok:
   const admin = await getCurrentAdmin();
   const parsed = removePendingSchema.parse(input);
   const db = gcFitnessFirestore();
-  const ref = db.collection(FirestoreCollections.userMirror).doc(parsed.email);
+  // The list hands us the mirror's `email` field — the address AS TYPED
+  // (`manu.hola@gmail.com`) — but the doc is keyed by its canonical form.
+  const ref = db
+    .collection(FirestoreCollections.userMirror)
+    .doc(normalizeMirrorEmail(parsed.email));
   const snap = await ref.get();
   if (!snap.exists) return { ok: true };
   if (snap.get("coachId") !== parsed.coachUid) {
