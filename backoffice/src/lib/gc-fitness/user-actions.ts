@@ -567,7 +567,9 @@ export async function provisionClient(input: unknown): Promise<
       db,
       clientAddedEvent({
         trainerId: session.uid,
-        email: parsed.email,
+        // The event id is `client:{coach}:{email}` and the unlink/remove paths
+        // look it up canonically — keep the KEY here, not the typed address.
+        email: mirrorKey,
         displayName,
         clientId: null,
         mode: "precreated-mirror",
@@ -764,7 +766,9 @@ export async function provisionClient(input: unknown): Promise<
     db,
     clientAddedEvent({
       trainerId: session.uid,
-      email: parsed.email,
+      // The event id is `client:{coach}:{email}` and the unlink/remove paths
+      // look it up canonically — keep the KEY here, not the typed address.
+      email: mirrorKey,
       displayName,
       clientId: authUser.uid,
       mode: "attached-existing-user",

@@ -60,6 +60,7 @@ jest.mock("firebase-admin/firestore", () => ({
     serverTimestamp: jest.fn(() => SERVER_TIMESTAMP),
     delete: jest.fn(() => FIELD_DELETE),
   },
+  Timestamp: { fromDate: (d: Date) => d },
 }));
 
 const mockState: { db: MockDb | null; sessionUid: string } = {
@@ -138,6 +139,11 @@ class MockDocRef {
   async update(patch: DocData) {
     if (!this.store.has(this.id)) throw new Error(`no document to update: ${this.id}`);
     this._apply(patch, true);
+  }
+  // recordCoachActivityEvent writes with a plain set(); without it the call
+  // threw and the best-effort helper swallowed it, so the event id was untested.
+  async set(patch: DocData, opts?: { merge?: boolean }) {
+    this._apply(patch, opts?.merge === true);
   }
   _apply(patch: DocData, merge: boolean) {
     this.store.set(
@@ -591,6 +597,11 @@ describe("dotted Gmail address — typed vs canonical", () => {
     expect(mockSendMail).toHaveBeenCalledTimes(1);
     expect(mockSendMail.mock.calls[0][0].to).toBe(TYPED);
     expect(mockSendMail.mock.calls[0][0].text).toContain(TYPED);
+
+    // The coach-activity event id stays canonical: unlink/remove mark it deleted
+    // by `client:{coach}:{normalized email}`.
+    const events = db().collections.get("coach_activity");
+    expect([...(events?.keys() ?? [])]).toEqual([`client:coach-B:${CANONICAL}`]);
   });
 
   it("re-adding the same person spelled without the dot is the SAME pending client", async () => {
