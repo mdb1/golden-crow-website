@@ -30,6 +30,7 @@ const mockGetSupportServiceTransactionLinkedReports = jest.fn();
 const mockListSupportServiceLinkedReportCandidates = jest.fn();
 const mockDeliverSupportServiceTransaction = jest.fn();
 const mockNotifySupportServiceTransactionRequester = jest.fn();
+const mockResendSupportServiceTransactionProviderNotification = jest.fn();
 const mockGetSupportServiceIdAvailability = jest.fn();
 const mockGetSupportServiceOfferTransactionStats = jest.fn();
 
@@ -180,6 +181,8 @@ jest.mock("../repositories/support-services.repository.js", () => ({
   deliverSupportServiceTransaction: mockDeliverSupportServiceTransaction,
   notifySupportServiceTransactionRequester:
     mockNotifySupportServiceTransactionRequester,
+  resendSupportServiceTransactionProviderNotification:
+    mockResendSupportServiceTransactionProviderNotification,
   getSupportServiceIdAvailability: mockGetSupportServiceIdAvailability,
   getDeferredServiceTransaction: mockGetDeferredServiceTransaction,
   getDeferredServiceTransactionNotificationPreview:
@@ -598,6 +601,12 @@ describe("support service admin routes", () => {
       requestId: "pgr_demo_final_report",
       status: "validating",
       isRequesterNotified: true,
+    });
+    mockResendSupportServiceTransactionProviderNotification.mockResolvedValue({
+      transactionId: "pgr_demo_final_report",
+      resendRequestId: "123e4567-e89b-42d3-a456-426614174000",
+      recipientEmail: "provider@example.com",
+      status: "sent",
     });
     mockGetSupportServiceIdAvailability.mockResolvedValue({
       serviceId: "pgs_pocket_genes_report_studio_12345",
@@ -2156,6 +2165,72 @@ describe("support service admin routes", () => {
       error: "Only GOD MODE can notify service transaction requesters.",
     });
     expect(mockNotifySupportServiceTransactionRequester).not.toHaveBeenCalled();
+  });
+
+  it("resends one provider notification only through the GOD MODE command", async () => {
+    const fastify = await buildTestServer();
+    const resendRequestId = "123e4567-e89b-42d3-a456-426614174000";
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/transactions/pgr_demo_final_report/notify-provider",
+      payload: { resendRequestId },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      notification: {
+        transactionId: "pgr_demo_final_report",
+        resendRequestId,
+        recipientEmail: "provider@example.com",
+        status: "sent",
+      },
+    });
+    expect(
+      mockResendSupportServiceTransactionProviderNotification,
+    ).toHaveBeenCalledWith(
+      bootstrapContext,
+      "pgr_demo_final_report",
+      resendRequestId,
+    );
+  });
+
+  it("rejects publisher access to the provider notification command", async () => {
+    const fastify = await buildTestServer(organizationPublisherContext);
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/transactions/pgr_demo_final_report/notify-provider",
+      payload: {
+        resendRequestId: "123e4567-e89b-42d3-a456-426614174000",
+      },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toEqual({
+      error: "Only GOD MODE can notify service transaction providers.",
+    });
+    expect(
+      mockResendSupportServiceTransactionProviderNotification,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed provider notification resend requests", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/transactions/pgr_demo_final_report/notify-provider",
+      payload: {
+        resendRequestId: "not-a-uuid",
+        recipientEmail: "other@example.com",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(
+      mockResendSupportServiceTransactionProviderNotification,
+    ).not.toHaveBeenCalled();
   });
 
   it("returns a JSON success payload after deleting a service offer", async () => {

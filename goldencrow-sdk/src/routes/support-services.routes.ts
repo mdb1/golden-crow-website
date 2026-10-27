@@ -34,6 +34,7 @@ import {
   removeSupportServiceTransactionOutputObject,
   removeSupportServiceTransactionOutputReport,
   resendDeferredServiceTransactionNotification,
+  resendSupportServiceTransactionProviderNotification,
   supportServiceCategoryStageContractIssue,
   updateSupportServiceOffer,
   updateDeferredServiceTransaction,
@@ -612,6 +613,11 @@ const DeferredTransactionNotificationResendBodySchema = z
     previewFingerprint: z.string().trim().regex(/^[0-9a-f]{64}$/),
   })
   .strict();
+const ProviderNotificationResendBodySchema = z
+  .object({
+    resendRequestId: z.string().trim().uuid(),
+  })
+  .strict();
 const DeferredTransactionBodySchema = z
   .object({
     email: z.string().trim().email().max(320),
@@ -1005,6 +1011,36 @@ export async function supportServicesRoutes(
           request.params.transactionId,
         );
         return reply.send({ transaction });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.post(
+    "/admin/support-services/transactions/:transactionId/notify-provider",
+    {
+      schema: {
+        params: TransactionParamsSchema,
+        body: ProviderNotificationResendBodySchema,
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext?.isBootstrap) {
+        return reply.status(403).send({
+          error: "Only GOD MODE can notify service transaction providers.",
+        });
+      }
+      try {
+        const notification =
+          await resendSupportServiceTransactionProviderNotification(
+            request.adminContext,
+            request.params.transactionId,
+            request.body.resendRequestId,
+          );
+        return reply
+          .status(notification.status === "in_progress" ? 202 : 200)
+          .send({ notification });
       } catch (error) {
         return sendRepositoryError(reply, error);
       }

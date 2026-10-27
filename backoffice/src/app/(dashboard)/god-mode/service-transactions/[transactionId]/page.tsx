@@ -38,6 +38,7 @@ export default async function GodModeServiceTransactionDetailPage({
           transactionId={decodeURIComponent(transactionId)}
           canInspectRequesterDetails
           canNotifyRequester
+          canNotifyProvider
           canViewLinkedOutputReports={
             adminContext.isBootstrap || isGlobalAdminRole(adminContext.role)
           }

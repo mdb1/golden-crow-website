@@ -92,6 +92,23 @@ alter the native app's one-time notification receipt.
 Responses are `200` with `sent` or `already_sent`, or `202` with `in_progress`
 when another request currently owns the delivery lease. Delivery failures are
 retryable and return `502`; they never undo the committed service transaction.
+
+GOD MODE transaction details also expose an explicit direct-provider resend:
+
+```text
+POST /admin/support-services/transactions/:transactionId/notify-provider
+```
+
+The body contains only a client-generated `resendRequestId` UUID. The server
+reloads the selected transaction and its live active provider, derives the
+provider contact email, requester email, and service name, and sends the same
+Spanish provider notification used by the native `/notify-provider` route.
+The client cannot choose a recipient or message. Each explicit click has an
+independent durable receipt in `service_transaction_notification_resends`;
+replaying the same UUID is idempotent, while a new UUID deliberately sends the
+email again. This command does not update transaction status or requester
+notification state.
+
 A durable record in `service_transaction_notifications` deduplicates normal
 retries and concurrent calls for the same transaction. Gmail delivery and the
 Firestore receipt cannot be one atomic operation, so the command provides

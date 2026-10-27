@@ -10214,27 +10214,37 @@ function TransactionRequesterIdentity({
   isEditing,
   canInspectRequesterDetails,
   canNotifyRequester,
+  canNotifyProvider,
   showLockedFields,
   requestedByUserId,
   requestedByUserEmail,
   isRequesterNotified,
   isRequesterNotificationPending,
+  isProviderNotificationPending,
   requesterNotificationDisabled,
   requesterNotificationDisabledReason,
+  providerNotificationDisabled,
+  providerNotificationDisabledReason,
   onNotifyRequester,
+  onNotifyProvider,
   onChange,
 }: {
   isEditing: boolean;
   canInspectRequesterDetails?: boolean;
   canNotifyRequester?: boolean;
+  canNotifyProvider?: boolean;
   showLockedFields?: boolean;
   requestedByUserId: string;
   requestedByUserEmail: string;
   isRequesterNotified?: boolean;
   isRequesterNotificationPending?: boolean;
+  isProviderNotificationPending?: boolean;
   requesterNotificationDisabled?: boolean;
   requesterNotificationDisabledReason?: string;
+  providerNotificationDisabled?: boolean;
+  providerNotificationDisabledReason?: string;
   onNotifyRequester?: () => void;
+  onNotifyProvider?: () => void;
   onChange: (identity: { userId: string; email: string }) => void;
 }) {
   const { language } = useAppLanguage();
@@ -10391,6 +10401,29 @@ function TransactionRequesterIdentity({
                       : isRequesterNotificationPending
                         ? t("Sending receipt email...")
                         : t("Send receipt email")}
+                  </Button>
+                ) : null}
+                {canNotifyProvider ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={onNotifyProvider}
+                    title={providerNotificationDisabledReason}
+                    disabled={
+                      !requestedByUserEmail ||
+                      isProviderNotificationPending ||
+                      providerNotificationDisabled
+                    }
+                    className="h-11 shrink-0 rounded-xl border-violet-300 bg-white px-5 font-semibold text-violet-800 shadow-sm hover:bg-violet-50 disabled:text-slate-500 dark:border-violet-400/30 dark:bg-slate-950/60 dark:text-violet-100 dark:hover:bg-violet-950/40 dark:disabled:text-slate-400"
+                  >
+                    {isProviderNotificationPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Mail className="h-4 w-4" />
+                    )}
+                    {isProviderNotificationPending
+                      ? t("Notifying provider...")
+                      : t("Notify provider")}
                   </Button>
                 ) : null}
               </div>
@@ -12210,6 +12243,7 @@ export function SupportServiceTransactionWorkbench({
   canViewLinkedOutputReports = false,
   canInspectRequesterDetails = false,
   canNotifyRequester = false,
+  canNotifyProvider = false,
 }: {
   mode: "create" | "edit";
   transactionId?: string;
@@ -12219,6 +12253,7 @@ export function SupportServiceTransactionWorkbench({
   canViewLinkedOutputReports?: boolean;
   canInspectRequesterDetails?: boolean;
   canNotifyRequester?: boolean;
+  canNotifyProvider?: boolean;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -12549,6 +12584,45 @@ export function SupportServiceTransactionWorkbench({
         tone: "success",
         message: t("Requester receipt email sent."),
       });
+    },
+    onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
+  });
+
+  const notifyProviderMutation = useMutation({
+    mutationFn: async () => {
+      if (!transactionId || !transactionRecord) {
+        throw new Error("Save the transaction before notifying the provider.");
+      }
+      if (hasUnsavedTransactionChanges) {
+        throw new Error(
+          "Save other transaction changes before notifying the provider.",
+        );
+      }
+      return sdkFetch<{
+        notification: {
+          transactionId: string;
+          resendRequestId: string;
+          recipientEmail: string;
+          status: "sent" | "already_sent" | "in_progress";
+        };
+      }>(
+        `/admin/support-services/transactions/${encodeURIComponent(
+          transactionId,
+        )}/notify-provider`,
+        {
+          method: "POST",
+          body: JSON.stringify({ resendRequestId: crypto.randomUUID() }),
+        },
+      );
+    },
+    onSuccess: (result) => {
+      const message =
+        result.notification.status === "in_progress"
+          ? t("Provider notification email is already being sent.")
+          : result.notification.status === "already_sent"
+            ? t("Provider notification email was already sent.")
+            : t("Provider notification email sent.");
+      setToast({ id: nextToastId(), tone: "success", message });
     },
     onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
   });
@@ -12932,6 +13006,7 @@ export function SupportServiceTransactionWorkbench({
   const transactionCommandPending =
     saveMutation.isPending ||
     notifyRequesterMutation.isPending ||
+    notifyProviderMutation.isPending ||
     customNameMutation.isPending ||
     uploadOutputMutation.isPending ||
     removeOutputMutation.isPending ||
@@ -13344,6 +13419,7 @@ export function SupportServiceTransactionWorkbench({
             isEditing={isEditing}
             canInspectRequesterDetails={canInspectRequesterDetails}
             canNotifyRequester={canNotifyRequester}
+            canNotifyProvider={canNotifyProvider}
             showLockedFields={showLockedFields}
             requestedByUserId={form.requestedByUserId}
             requestedByUserEmail={form.requestedByUserEmail}
@@ -13353,6 +13429,7 @@ export function SupportServiceTransactionWorkbench({
             isRequesterNotificationPending={
               notifyRequesterMutation.isPending
             }
+            isProviderNotificationPending={notifyProviderMutation.isPending}
             requesterNotificationDisabled={
               !transactionRecord ||
               hasUnsavedTransactionChanges ||
@@ -13374,7 +13451,18 @@ export function SupportServiceTransactionWorkbench({
                     )
                   : undefined
             }
+            providerNotificationDisabled={
+              !transactionRecord || hasUnsavedTransactionChanges
+            }
+            providerNotificationDisabledReason={
+              hasUnsavedTransactionChanges
+                ? t(
+                    "Save other transaction changes before notifying the provider.",
+                  )
+                : undefined
+            }
             onNotifyRequester={() => notifyRequesterMutation.mutate()}
+            onNotifyProvider={() => notifyProviderMutation.mutate()}
             onChange={({ userId, email }) =>
               setForm((current) => ({
                 ...current,

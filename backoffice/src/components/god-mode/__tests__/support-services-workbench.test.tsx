@@ -6264,6 +6264,9 @@ describe("support services workbenches", () => {
     expect(
       screen.queryByRole("button", { name: "Send receipt email" }),
     ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Notify provider" }),
+    ).toBeNull();
   });
 
   it("notifies the requester once and immediately reflects Validando", async () => {
@@ -6434,6 +6437,113 @@ describe("support services workbenches", () => {
         "Requester confirmation email could not be sent.",
       ),
     ).toBeTruthy();
+  });
+
+  it("resends the provider notification for only the current transaction in GOD MODE", async () => {
+    const receivedTransaction: SupportServiceTransactionRecord = {
+      ...deliveredTransaction,
+      id: "pgr_provider_notification",
+      requestId: "pgr_provider_notification",
+      status: "received",
+      isRequesterNotified: false,
+      requestRevision: 1,
+      outputObjects: [],
+      outputReports: [],
+      issues: [],
+      normalizedName: "pgr provider notification",
+    };
+    let releaseNotification!: () => void;
+    const notificationGate = new Promise<void>((resolve) => {
+      releaseNotification = resolve;
+    });
+
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      const value = String(path);
+      if (
+        value.endsWith(
+          `/transactions/${receivedTransaction.requestId}/notify-provider`,
+        ) &&
+        init?.method === "POST"
+      ) {
+        const body = JSON.parse(String(init.body)) as {
+          resendRequestId: string;
+        };
+        expect(body).toEqual({
+          resendRequestId: expect.stringMatching(
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+          ),
+        });
+        await notificationGate;
+        return {
+          notification: {
+            transactionId: receivedTransaction.requestId,
+            resendRequestId: body.resendRequestId,
+            recipientEmail: "provider@example.com",
+            status: "sent",
+          },
+        };
+      }
+      if (value.endsWith(`/transactions/${receivedTransaction.requestId}`)) {
+        return { transaction: receivedTransaction };
+      }
+      if (value.endsWith(`/offers/${receivedTransaction.offerId}`)) {
+        return { offer: currentLiveOffer };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId={receivedTransaction.requestId}
+        canNotifyRequester
+        canNotifyProvider
+      />,
+      "es",
+    );
+
+    const copyButton = await screen.findByRole("button", {
+      name: "Copiar email",
+    });
+    const requesterButton = screen.getByRole("button", {
+      name: "Enviar mail de recepción",
+    });
+    const providerButton = screen.getByRole("button", {
+      name: "Notificar al proveedor",
+    });
+    expect(copyButton.parentElement).toBe(providerButton.parentElement);
+    expect(requesterButton.parentElement).toBe(providerButton.parentElement);
+    expect(providerButton).toBeEnabled();
+
+    fireEvent.click(providerButton);
+    expect(
+      await screen.findByRole("button", {
+        name: "Notificando al proveedor...",
+      }),
+    ).toBeDisabled();
+    await act(async () => {
+      releaseNotification();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Notificar al proveedor" }),
+      ).toBeEnabled();
+    });
+    expect(
+      await screen.findByText("Mail de notificación enviado al proveedor."),
+    ).toBeTruthy();
+    expect(
+      sdkFetchMock.mock.calls.filter(
+        ([path, init]) =>
+          String(path).endsWith("/notify-provider") &&
+          init?.method === "POST",
+      ),
+    ).toHaveLength(1);
+    expect(
+      sdkFetchMock.mock.calls.some(([, init]) => init?.method === "PUT"),
+    ).toBe(false);
   });
 
   it("disables requester notification after the persisted flag is true", async () => {

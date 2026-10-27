@@ -35,6 +35,13 @@ import {
   sendServiceTransactionRequesterConfirmationEmail,
 } from "../lib/service-transaction-requester-confirmation-email.js";
 import {
+  SERVICE_TRANSACTION_PROVIDER_NOTIFICATION_MAX_EMAIL_LENGTH,
+  SERVICE_TRANSACTION_PROVIDER_NOTIFICATION_MAX_NAME_LENGTH,
+} from "../lib/service-transaction-provider-notification-contract.js";
+import {
+  sendServiceTransactionProviderBestEffortEmail,
+} from "../lib/service-transaction-provider-best-effort-email.js";
+import {
   ServiceTransactionNotificationRoutingError,
 } from "../lib/service-transaction-notification-routing.js";
 import {
@@ -9544,6 +9551,13 @@ export type SupportServiceTransactionOwnerNotificationResult = {
   status: "sent" | "already_sent" | "in_progress";
 };
 
+export type SupportServiceTransactionProviderNotificationResult = {
+  transactionId: string;
+  resendRequestId: string;
+  recipientEmail: string;
+  status: "sent" | "already_sent" | "in_progress";
+};
+
 type SupportServiceTransactionOwnerNotificationClaim =
   | SupportServiceTransactionOwnerNotificationResult
   | {
@@ -9569,6 +9583,20 @@ type DeferredServiceTransactionNotificationResendClaim =
       >[0];
     };
 
+type SupportServiceTransactionProviderNotificationClaim =
+  | SupportServiceTransactionProviderNotificationResult
+  | {
+      status: "claimed";
+      transactionId: string;
+      resendRequestId: string;
+      receiptId: string;
+      attemptToken: string;
+      recipientEmail: string;
+      email: Parameters<
+        typeof sendServiceTransactionProviderBestEffortEmail
+      >[0];
+    };
+
 function notificationAttemptCount(value: unknown) {
   return typeof value === "number" && Number.isInteger(value) && value >= 0
     ? value
@@ -9590,6 +9618,80 @@ function deferredNotificationResendReceiptId(
   return createHash("sha256")
     .update(`${transactionId}\u0000${resendRequestId}`)
     .digest("hex");
+}
+
+function directProviderNotificationResendReceiptId(
+  transactionId: string,
+  resendRequestId: string,
+) {
+  return createHash("sha256")
+    .update(`provider-detail\u0000${transactionId}\u0000${resendRequestId}`)
+    .digest("hex");
+}
+
+function directProviderNotificationResendReplay(input: {
+  receiptExists: boolean;
+  receiptData: Record<string, unknown>;
+  transactionId: string;
+  resendRequestId: string;
+  now: Date;
+}): SupportServiceTransactionProviderNotificationResult | null {
+  if (!input.receiptExists) {
+    return null;
+  }
+  if (
+    cleanString(input.receiptData.notificationKind) !==
+      "provider_best_effort" ||
+    cleanString(input.receiptData.serviceTransactionId) !==
+      input.transactionId ||
+    cleanString(input.receiptData.resendRequestId) !== input.resendRequestId
+  ) {
+    throw new AdminRepositoryError(
+      "Provider notification resend receipt is inconsistent.",
+      409,
+    );
+  }
+
+  const status = cleanString(input.receiptData.status);
+  if (status !== "sent" && status !== "sending") {
+    if (status !== "failed") {
+      throw new AdminRepositoryError(
+        "Provider notification resend receipt is inconsistent.",
+        409,
+      );
+    }
+    return null;
+  }
+  const recipientEmail = cleanString(
+    input.receiptData.recipientEmail,
+  ).toLowerCase();
+  if (!REQUESTER_EMAIL_PATTERN.test(recipientEmail)) {
+    throw new AdminRepositoryError(
+      "Provider notification resend receipt is inconsistent.",
+      409,
+    );
+  }
+  if (status === "sent") {
+    return {
+      transactionId: input.transactionId,
+      resendRequestId: input.resendRequestId,
+      recipientEmail,
+      status: "already_sent",
+    };
+  }
+
+  const leaseExpiresAt = dateFromUnknown(
+    input.receiptData.leaseExpiresAt,
+    "Provider notification resend lease expiration",
+  );
+  return leaseExpiresAt && leaseExpiresAt.getTime() > input.now.getTime()
+    ? {
+        transactionId: input.transactionId,
+        resendRequestId: input.resendRequestId,
+        recipientEmail,
+        status: "in_progress",
+      }
+    : null;
 }
 
 function deferredNotificationResendReplay(input: {
@@ -9946,6 +10048,279 @@ export async function resendDeferredServiceTransactionNotification(
   } catch {
     throw new AdminRepositoryError(
       "The notification email was accepted, but its resend receipt could not be finalized. Retry later.",
+      503,
+    );
+  }
+
+  return {
+    transactionId: claim.transactionId,
+    resendRequestId: claim.resendRequestId,
+    recipientEmail: claim.recipientEmail,
+    status: finalized ? "sent" : "in_progress",
+  };
+}
+
+export async function resendSupportServiceTransactionProviderNotification(
+  context: AdminContext,
+  transactionIdValue: string,
+  resendRequestIdValue: string,
+): Promise<SupportServiceTransactionProviderNotificationResult> {
+  requireGodMode(context);
+  const resendRequestId = cleanString(resendRequestIdValue).toLowerCase();
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+      resendRequestId,
+    )
+  ) {
+    throw new AdminRepositoryError(
+      "A valid provider notification resend request ID is required.",
+      400,
+    );
+  }
+
+  const snapshot = await getTransactionSnapshotByIdOrRequestId(
+    transactionIdValue,
+  );
+  if (!snapshot) {
+    throw new AdminRepositoryError("Service transaction not found.", 404);
+  }
+  const initialTransaction = toTransactionRecord(
+    snapshot.id,
+    snapshot.data() ?? {},
+  );
+  const transactionId = initialTransaction.requestId;
+  if (!transactionId) {
+    throw new AdminRepositoryError(
+      "Service transaction identity is inconsistent.",
+      409,
+    );
+  }
+
+  const receiptId = directProviderNotificationResendReceiptId(
+    transactionId,
+    resendRequestId,
+  );
+  const receiptRef = adminDb
+    .collection(SERVICE_TRANSACTION_NOTIFICATION_RESENDS_COLLECTION)
+    .doc(receiptId);
+  const attemptToken = randomUUID();
+  const claimedAt = new Date();
+  const leaseExpiresAt = new Date(
+    claimedAt.getTime() + SERVICE_TRANSACTION_NOTIFICATION_LEASE_MS,
+  );
+  const existingReceiptSnapshot = await receiptRef.get();
+  const existingReplay = directProviderNotificationResendReplay({
+    receiptExists: existingReceiptSnapshot.exists,
+    receiptData: existingReceiptSnapshot.data() ?? {},
+    transactionId,
+    resendRequestId,
+    now: claimedAt,
+  });
+  if (existingReplay) {
+    return existingReplay;
+  }
+
+  const claim =
+    await adminDb.runTransaction<SupportServiceTransactionProviderNotificationClaim>(
+      async (firestoreTransaction) => {
+        const [transactionSnapshot, receiptSnapshot] = await Promise.all([
+          firestoreTransaction.get(snapshot.ref),
+          firestoreTransaction.get(receiptRef),
+        ]);
+        if (!transactionSnapshot.exists) {
+          throw new AdminRepositoryError(
+            "Service transaction not found.",
+            404,
+          );
+        }
+        const transaction = toTransactionRecord(
+          transactionSnapshot.id,
+          transactionSnapshot.data() ?? {},
+        );
+        if (
+          transaction.id !== snapshot.id ||
+          transaction.requestId !== transactionId
+        ) {
+          throw new AdminRepositoryError(
+            "Service transaction identity is inconsistent.",
+            409,
+          );
+        }
+
+        const requestedByUserEmail = cleanString(
+          transaction.requestedByUserEmail,
+        ).toLowerCase();
+        if (
+          !REQUESTER_EMAIL_PATTERN.test(requestedByUserEmail) ||
+          requestedByUserEmail.length >
+            SERVICE_TRANSACTION_PROVIDER_NOTIFICATION_MAX_EMAIL_LENGTH
+        ) {
+          throw new AdminRepositoryError(
+            "Service transaction has no valid requester email.",
+            409,
+          );
+        }
+        const serviceName = cleanString(transaction.name);
+        if (
+          !serviceName ||
+          serviceName.length >
+            SERVICE_TRANSACTION_PROVIDER_NOTIFICATION_MAX_NAME_LENGTH
+        ) {
+          throw new AdminRepositoryError(
+            "Service transaction has no valid service name.",
+            409,
+          );
+        }
+
+        const providerRef = adminDb
+          .collection(
+            deferredServiceTransactionProviderCollection(
+              transaction.providerKind,
+            ),
+          )
+          .doc(transaction.providerId);
+        const providerSnapshot = await firestoreTransaction.get(providerRef);
+        if (!providerSnapshot.exists) {
+          throw new AdminRepositoryError(
+            "Service provider not found.",
+            409,
+          );
+        }
+        const providerData = providerSnapshot.data() ?? {};
+        assertActiveProviderData(providerData);
+        const providerContactEmail = cleanString(
+          providerData.contactEmail,
+        ).toLowerCase();
+        if (
+          !REQUESTER_EMAIL_PATTERN.test(providerContactEmail) ||
+          providerContactEmail.length >
+            SERVICE_TRANSACTION_PROVIDER_NOTIFICATION_MAX_EMAIL_LENGTH
+        ) {
+          throw new AdminRepositoryError(
+            "The active service provider has no valid contact email.",
+            409,
+          );
+        }
+
+        const email = {
+          providerContactEmail,
+          requestedByUserEmail,
+          serviceName,
+        };
+        const previewFingerprint = createHash("sha256")
+          .update(
+            stableString({
+              notificationKind: "provider_best_effort",
+              transactionId,
+              providerId: transaction.providerId,
+              providerKind: transaction.providerKind,
+              ...email,
+            }),
+          )
+          .digest("hex");
+        const receiptData = receiptSnapshot.data() ?? {};
+        const replay = directProviderNotificationResendReplay({
+          receiptExists: receiptSnapshot.exists,
+          receiptData,
+          transactionId,
+          resendRequestId,
+          now: claimedAt,
+        });
+        if (replay) {
+          return replay;
+        }
+        if (
+          receiptSnapshot.exists &&
+          cleanString(receiptData.previewFingerprint) !== previewFingerprint
+        ) {
+          throw new AdminRepositoryError(
+            "Provider notification details changed. Start a new resend request.",
+            409,
+          );
+        }
+
+        firestoreTransaction.set(
+          receiptRef,
+          {
+            notificationKind: "provider_best_effort",
+            serviceTransactionId: transactionId,
+            serviceTransactionDocumentId: transaction.id,
+            resendRequestId,
+            previewFingerprint,
+            requestedByUserEmail,
+            recipientEmail: providerContactEmail,
+            serviceName,
+            providerId: transaction.providerId,
+            providerKind: transaction.providerKind,
+            status: "sending",
+            attemptToken,
+            attemptCount:
+              notificationAttemptCount(receiptData.attemptCount) + 1,
+            claimedAt: FieldValue.serverTimestamp(),
+            leaseExpiresAt,
+            sentAt: receiptData.sentAt ?? null,
+            failedAt: null,
+            lastError: null,
+            createdAt:
+              receiptData.createdAt ?? FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+            createdByEmail:
+              cleanString(receiptData.createdByEmail) || context.email,
+            updatedByEmail: context.email,
+          },
+          { merge: false },
+        );
+
+        return {
+          status: "claimed",
+          transactionId,
+          resendRequestId,
+          receiptId,
+          attemptToken,
+          recipientEmail: providerContactEmail,
+          email,
+        };
+      },
+    );
+
+  if (claim.status !== "claimed") {
+    return claim;
+  }
+
+  try {
+    await sendServiceTransactionProviderBestEffortEmail(claim.email);
+  } catch (error) {
+    if (error instanceof GmailDeliveryOutcomeUnknownError) {
+      throw new AdminRepositoryError(
+        "Provider notification email delivery outcome is unknown. Start a new resend only after reviewing the durable receipt.",
+        503,
+      );
+    }
+    try {
+      await finishDeferredServiceTransactionNotificationResend(
+        claim.receiptId,
+        claim.attemptToken,
+        { status: "failed", error },
+      );
+    } catch {
+      // Keep the active claim when its failure result cannot be persisted.
+    }
+    throw new AdminRepositoryError(
+      "Provider notification email could not be sent.",
+      502,
+    );
+  }
+
+  let finalized: boolean;
+  try {
+    finalized = await finishDeferredServiceTransactionNotificationResend(
+      claim.receiptId,
+      claim.attemptToken,
+      { status: "sent" },
+    );
+  } catch {
+    throw new AdminRepositoryError(
+      "Provider notification email was accepted, but its durable receipt could not be finalized. Review the receipt before sending again.",
       503,
     );
   }

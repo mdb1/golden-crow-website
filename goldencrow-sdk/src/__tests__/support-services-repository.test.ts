@@ -7,6 +7,7 @@ const mockLookup = jest.fn();
 const mockRandomInt = jest.fn();
 const mockSendServiceTransactionOwnerNotificationEmail = jest.fn();
 const mockSendServiceTransactionRequesterConfirmationEmail = jest.fn();
+const mockSendServiceTransactionProviderBestEffortEmail = jest.fn();
 const mockNotificationRouting = jest.requireActual<
   typeof import("../lib/service-transaction-notification-routing.js")
 >("../lib/service-transaction-notification-routing.js");
@@ -47,6 +48,14 @@ jest.mock(
   () => ({
     sendServiceTransactionRequesterConfirmationEmail: (...args: unknown[]) =>
       mockSendServiceTransactionRequesterConfirmationEmail(...args),
+  }),
+);
+
+jest.mock(
+  "../lib/service-transaction-provider-best-effort-email.js",
+  () => ({
+    sendServiceTransactionProviderBestEffortEmail: (...args: unknown[]) =>
+      mockSendServiceTransactionProviderBestEffortEmail(...args),
   }),
 );
 
@@ -6227,6 +6236,10 @@ describe("support service canonical transaction creation", () => {
     mockSendServiceTransactionRequesterConfirmationEmail.mockResolvedValue(
       undefined,
     );
+    mockSendServiceTransactionProviderBestEffortEmail.mockReset();
+    mockSendServiceTransactionProviderBestEffortEmail.mockResolvedValue(
+      undefined,
+    );
     let nextObjectCode = 300_000_000;
     mockRandomInt.mockImplementation(() => nextObjectCode++);
     seedDoc("feed_organizations", "feed-org-1", {
@@ -6471,6 +6484,131 @@ describe("support service canonical transaction creation", () => {
         }),
       ]),
     );
+  });
+
+  it("directly resends the exact provider email for one transaction with per-click idempotency", async () => {
+    const {
+      createSupportServiceTransaction,
+      resendSupportServiceTransactionProviderNotification,
+    } = await import("../repositories/support-services.repository.js");
+    await createSupportServiceTransaction(
+      context,
+      emailOnlyNotificationCreationInput(),
+    );
+    const firstResendRequestId =
+      "123e4567-e89b-42d3-a456-426614174010";
+    const secondResendRequestId =
+      "123e4567-e89b-42d3-a456-426614174011";
+
+    await expect(
+      resendSupportServiceTransactionProviderNotification(
+        context,
+        nativeNotificationTransactionId,
+        firstResendRequestId,
+      ),
+    ).resolves.toEqual({
+      transactionId: nativeNotificationTransactionId,
+      resendRequestId: firstResendRequestId,
+      recipientEmail: "publisher@pocketgenes.example",
+      status: "sent",
+    });
+    await expect(
+      resendSupportServiceTransactionProviderNotification(
+        context,
+        nativeNotificationTransactionId,
+        firstResendRequestId,
+      ),
+    ).resolves.toEqual({
+      transactionId: nativeNotificationTransactionId,
+      resendRequestId: firstResendRequestId,
+      recipientEmail: "publisher@pocketgenes.example",
+      status: "already_sent",
+    });
+    await expect(
+      resendSupportServiceTransactionProviderNotification(
+        context,
+        nativeNotificationTransactionId,
+        secondResendRequestId,
+      ),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        resendRequestId: secondResendRequestId,
+        status: "sent",
+      }),
+    );
+
+    expect(
+      mockSendServiceTransactionProviderBestEffortEmail,
+    ).toHaveBeenCalledTimes(2);
+    expect(
+      mockSendServiceTransactionProviderBestEffortEmail,
+    ).toHaveBeenCalledWith({
+      providerContactEmail: "publisher@pocketgenes.example",
+      requestedByUserEmail: "new-user@example.com",
+      serviceName: "Report service",
+    });
+    expect(
+      [...collectionStore("service_transaction_notification_resends").values()],
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          notificationKind: "provider_best_effort",
+          serviceTransactionId: nativeNotificationTransactionId,
+          recipientEmail: "publisher@pocketgenes.example",
+          requestedByUserEmail: "new-user@example.com",
+          providerId: "feed-org-1",
+          providerKind: "organization",
+          status: "sent",
+        }),
+      ]),
+    );
+    expect(
+      collectionStore("service_transactions").get(
+        nativeNotificationTransactionId,
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        status: "received",
+        isRequesterNotified: false,
+        requestRevision: 1,
+      }),
+    );
+  });
+
+  it("requires GOD MODE and a live provider contact for direct provider resends", async () => {
+    const {
+      createSupportServiceTransaction,
+      resendSupportServiceTransactionProviderNotification,
+    } = await import("../repositories/support-services.repository.js");
+    await createSupportServiceTransaction(
+      context,
+      emailOnlyNotificationCreationInput(),
+    );
+    const resendRequestId = "123e4567-e89b-42d3-a456-426614174012";
+
+    await expect(
+      resendSupportServiceTransactionProviderNotification(
+        organizationPublisherContext,
+        nativeNotificationTransactionId,
+        resendRequestId,
+      ),
+    ).rejects.toMatchObject({ statusCode: 403 });
+
+    collectionStore("feed_organizations").get("feed-org-1")!.contactEmail =
+      "";
+    await expect(
+      resendSupportServiceTransactionProviderNotification(
+        context,
+        nativeNotificationTransactionId,
+        resendRequestId,
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: "The active service provider has no valid contact email.",
+    });
+    expect(
+      mockSendServiceTransactionProviderBestEffortEmail,
+    ).not.toHaveBeenCalled();
   });
 
   it("handles an individual publisher without contactEmail according to the configured route", async () => {

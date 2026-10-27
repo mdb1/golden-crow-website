@@ -5828,6 +5828,18 @@ const SPANISH_TEXT: Record<string, string> = {
   "The user has already been notified": "El usuario ya fue notificado",
   "Requester receipt email sent.":
     "Mail de recepción enviado al solicitante.",
+  "Notify provider": "Notificar al proveedor",
+  "Notifying provider...": "Notificando al proveedor...",
+  "Provider notification email sent.":
+    "Mail de notificación enviado al proveedor.",
+  "Provider notification email was already sent.":
+    "El mail de notificación al proveedor ya fue enviado.",
+  "Provider notification email is already being sent.":
+    "El mail de notificación al proveedor ya se está enviando.",
+  "Save the transaction before notifying the provider.":
+    "Guardá la transacción antes de notificar al proveedor.",
+  "Save other transaction changes before notifying the provider.":
+    "Guardá los demás cambios de la transacción antes de notificar al proveedor.",
   "Save other transaction changes before notifying the requester.":
     "Guardá los demás cambios de la transacción antes de notificar al solicitante.",
   "This transaction cannot return to Validating from its current status.":
