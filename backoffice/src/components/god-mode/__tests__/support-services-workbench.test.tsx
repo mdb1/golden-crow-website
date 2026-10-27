@@ -6175,6 +6175,19 @@ describe("support services workbenches", () => {
       if (String(path).endsWith(`/offers/${deliveredTransaction.offerId}`)) {
         return { offer: currentLiveOffer };
       }
+      if (String(path) === "/moderation/community_users/user-requester") {
+        return {
+          document: {
+            id: "user-requester",
+            path: "community_users/user-requester",
+            collection: "community_users",
+            data: {
+              username: "requester-user",
+              email: "requester@example.org",
+            },
+          },
+        };
+      }
       throw new Error(`Unexpected SDK path: ${String(path)}`);
     });
 
@@ -6182,6 +6195,7 @@ describe("support services workbenches", () => {
       <SupportServiceTransactionWorkbench
         mode="edit"
         transactionId={deliveredTransaction.requestId}
+        canInspectRequesterDetails
       />,
     );
 
@@ -6196,6 +6210,9 @@ describe("support services workbenches", () => {
     expect(email.value).toBe("requester@example.org");
     expect(email.readOnly).toBe(true);
     expect(screen.getByText("user-requester")).toBeTruthy();
+    expect(
+      await screen.findByRole("button", { name: "Open" }),
+    ).toBeInTheDocument();
     const requestIdentitySection = screen
       .getByRole("heading", { name: "Request identity" })
       .closest("section");

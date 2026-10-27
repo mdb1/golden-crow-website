@@ -36,6 +36,7 @@ export default async function GodModeServiceTransactionDetailPage({
         <SupportServiceTransactionWorkbench
           mode="edit"
           transactionId={decodeURIComponent(transactionId)}
+          canInspectRequesterDetails
           canViewLinkedOutputReports={
             adminContext.isBootstrap || isGlobalAdminRole(adminContext.role)
           }

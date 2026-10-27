@@ -5797,6 +5797,25 @@ const SPANISH_TEXT: Record<string, string> = {
   "Requester user ID": "ID de usuario solicitante",
   "Requester identity": "Identidad del solicitante",
   "Linked community user": "Usuario de comunidad vinculado",
+  "Community user details": "Detalles del usuario de comunidad",
+  "Read-only information from the community user and public profile records.":
+    "Información de solo lectura de los registros de usuario de comunidad y perfil público.",
+  "User ID": "ID de usuario",
+  "Public activity": "Actividad pública",
+  "Owned reports": "Reportes asociados",
+  "Community statistics": "Estadísticas de comunidad",
+  "Total likes": "Me gusta totales",
+  "Posts created": "Publicaciones creadas",
+  "Total replies": "Respuestas totales",
+  "Amino acids collected": "Aminoácidos recolectados",
+  "Lessons learned": "Lecciones aprendidas",
+  Gender: "Género",
+  Condition: "Condición",
+  "Loading public profile...": "Cargando perfil público...",
+  "The public profile could not be loaded.":
+    "No se pudo cargar el perfil público.",
+  "No public profile is available for this community user.":
+    "Este usuario de comunidad no tiene un perfil público disponible.",
   "Email-only deferred requester": "Solicitante diferido por email",
   "This request was submitted by {email}.":
     "Esta solicitud fue realizada por {email}.",

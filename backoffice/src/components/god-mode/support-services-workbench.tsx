@@ -69,6 +69,7 @@ import { FileJsonWizard } from "@/components/file-storage/file-json-wizard";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { PublisherPortalEmptyState } from "@/components/publisher-portal-empty-state";
 import { SdkSessionRecoveryDialog } from "@/components/sdk-session-recovery-dialog";
+import { RequesterCommunityUserDialog } from "@/components/god-mode/requester-community-user-dialog";
 import { ServiceOfferMoreInformationEditor } from "@/components/god-mode/service-offer-more-information-editor";
 import {
   AlertDialog,
@@ -10210,12 +10211,14 @@ function ProviderPicker({
 
 function TransactionRequesterIdentity({
   isEditing,
+  canInspectRequesterDetails,
   showLockedFields,
   requestedByUserId,
   requestedByUserEmail,
   onChange,
 }: {
   isEditing: boolean;
+  canInspectRequesterDetails?: boolean;
   showLockedFields?: boolean;
   requestedByUserId: string;
   requestedByUserEmail: string;
@@ -10374,8 +10377,13 @@ function TransactionRequesterIdentity({
             <dt className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
               {t("Requester user ID")}
             </dt>
-            <dd className="break-all font-mono text-sm text-foreground sm:text-right">
-              {requestedByUserId || t("No linked community user")}
+            <dd className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+              <span className="break-all font-mono text-sm text-foreground sm:text-right">
+                {requestedByUserId || t("No linked community user")}
+              </span>
+              {canInspectRequesterDetails && requestedByUserId ? (
+                <RequesterCommunityUserDialog userId={requestedByUserId} />
+              ) : null}
             </dd>
           </dl>
         </div>
@@ -12157,6 +12165,7 @@ export function SupportServiceTransactionWorkbench({
   canDelete = true,
   showLockedFields = false,
   canViewLinkedOutputReports = false,
+  canInspectRequesterDetails = false,
 }: {
   mode: "create" | "edit";
   transactionId?: string;
@@ -12164,6 +12173,7 @@ export function SupportServiceTransactionWorkbench({
   canDelete?: boolean;
   showLockedFields?: boolean;
   canViewLinkedOutputReports?: boolean;
+  canInspectRequesterDetails?: boolean;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -13248,6 +13258,7 @@ export function SupportServiceTransactionWorkbench({
         <Section title="Requester identity" icon={UserRound}>
           <TransactionRequesterIdentity
             isEditing={isEditing}
+            canInspectRequesterDetails={canInspectRequesterDetails}
             showLockedFields={showLockedFields}
             requestedByUserId={form.requestedByUserId}
             requestedByUserEmail={form.requestedByUserEmail}
