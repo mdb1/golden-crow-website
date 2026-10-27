@@ -48,6 +48,7 @@
         "requestedByUserId",
         "requestedByUserEmail",
         "isRequesterNotified",
+        "isProviderNotified",
         "outputObjects",
         "outputReports",
         "objectType",

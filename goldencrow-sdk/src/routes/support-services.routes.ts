@@ -615,7 +615,7 @@ const DeferredTransactionNotificationResendBodySchema = z
   .strict();
 const ProviderNotificationResendBodySchema = z
   .object({
-    resendRequestId: z.string().trim().uuid(),
+    resendRequestId: z.string().trim().uuid().optional(),
   })
   .strict();
 const DeferredTransactionBodySchema = z
@@ -1032,15 +1032,15 @@ export async function supportServicesRoutes(
         });
       }
       try {
-        const notification =
+        const result =
           await resendSupportServiceTransactionProviderNotification(
             request.adminContext,
             request.params.transactionId,
             request.body.resendRequestId,
           );
         return reply
-          .status(notification.status === "in_progress" ? 202 : 200)
-          .send({ notification });
+          .status(result.notification.status === "in_progress" ? 202 : 200)
+          .send(result);
       } catch (error) {
         return sendRepositoryError(reply, error);
       }

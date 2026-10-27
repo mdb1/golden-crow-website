@@ -10219,6 +10219,7 @@ function TransactionRequesterIdentity({
   requestedByUserId,
   requestedByUserEmail,
   isRequesterNotified,
+  isProviderNotified,
   isRequesterNotificationPending,
   isProviderNotificationPending,
   requesterNotificationDisabled,
@@ -10237,6 +10238,7 @@ function TransactionRequesterIdentity({
   requestedByUserId: string;
   requestedByUserEmail: string;
   isRequesterNotified?: boolean;
+  isProviderNotified?: boolean;
   isRequesterNotificationPending?: boolean;
   isProviderNotificationPending?: boolean;
   requesterNotificationDisabled?: boolean;
@@ -10411,6 +10413,7 @@ function TransactionRequesterIdentity({
                     title={providerNotificationDisabledReason}
                     disabled={
                       !requestedByUserEmail ||
+                      isProviderNotified ||
                       isProviderNotificationPending ||
                       providerNotificationDisabled
                     }
@@ -10418,12 +10421,16 @@ function TransactionRequesterIdentity({
                   >
                     {isProviderNotificationPending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : isProviderNotified ? (
+                      <CheckCircle2 className="h-4 w-4" />
                     ) : (
                       <Mail className="h-4 w-4" />
                     )}
-                    {isProviderNotificationPending
-                      ? t("Notifying provider...")
-                      : t("Notify provider")}
+                    {isProviderNotified
+                      ? t("The provider has already been notified")
+                      : isProviderNotificationPending
+                        ? t("Sending provider email...")
+                        : t("Send provider email")}
                   </Button>
                 ) : null}
               </div>
@@ -12582,10 +12589,21 @@ export function SupportServiceTransactionWorkbench({
       setToast({
         id: nextToastId(),
         tone: "success",
+        title: t("Requester email sent"),
         message: t("Requester receipt email sent."),
       });
     },
-    onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : "Action failed.";
+      setToast({
+        id: nextToastId(),
+        tone: "error",
+        title: t("Requester email failed"),
+        message: t(message),
+        details: requestErrorLog(error),
+        durationMs: 30000,
+      });
+    },
   });
 
   const notifyProviderMutation = useMutation({
@@ -12605,6 +12623,7 @@ export function SupportServiceTransactionWorkbench({
           recipientEmail: string;
           status: "sent" | "already_sent" | "in_progress";
         };
+        transaction: SupportServiceTransactionRecord;
       }>(
         `/admin/support-services/transactions/${encodeURIComponent(
           transactionId,
@@ -12615,16 +12634,42 @@ export function SupportServiceTransactionWorkbench({
         },
       );
     },
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
+      setForm(transactionFormFromRecord(result.transaction));
+      queryClient.setQueryData(
+        [TRANSACTIONS_QUERY_KEY, transactionId],
+        { transaction: result.transaction },
+      );
+      await queryClient.invalidateQueries({
+        queryKey: [TRANSACTIONS_QUERY_KEY],
+      });
       const message =
         result.notification.status === "in_progress"
           ? t("Provider notification email is already being sent.")
           : result.notification.status === "already_sent"
             ? t("Provider notification email was already sent.")
             : t("Provider notification email sent.");
-      setToast({ id: nextToastId(), tone: "success", message });
+      setToast({
+        id: nextToastId(),
+        tone: result.notification.status === "in_progress" ? "warning" : "success",
+        title:
+          result.notification.status === "in_progress"
+            ? t("Provider email in progress")
+            : t("Provider email sent"),
+        message,
+      });
     },
-    onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : "Action failed.";
+      setToast({
+        id: nextToastId(),
+        tone: "error",
+        title: t("Provider email failed"),
+        message: t(message),
+        details: requestErrorLog(error),
+        durationMs: 30000,
+      });
+    },
   });
 
   const customNameMutation = useMutation({
@@ -13271,6 +13316,7 @@ export function SupportServiceTransactionWorkbench({
       <ActionToast
         toast={toast}
         onDismiss={() => setToast(null)}
+        viewLogLabel={t("Show log")}
         language={language}
       />
       <form className={SUPPORT_SERVICE_FORM_CLASS} onSubmit={handleSubmit}>
@@ -13425,6 +13471,9 @@ export function SupportServiceTransactionWorkbench({
             requestedByUserEmail={form.requestedByUserEmail}
             isRequesterNotified={
               transactionRecord?.isRequesterNotified ?? false
+            }
+            isProviderNotified={
+              transactionRecord?.isProviderNotified ?? false
             }
             isRequesterNotificationPending={
               notifyRequesterMutation.isPending

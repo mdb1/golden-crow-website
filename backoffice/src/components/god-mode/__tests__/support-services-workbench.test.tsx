@@ -251,6 +251,7 @@ const deliveredTransaction: SupportServiceTransactionRecord = {
   requestedAtClient: "2026-09-20T11:59:59.000Z",
   status: "delivered",
   isRequesterNotified: false,
+  isProviderNotified: false,
   requestRevision: 3,
   idempotencyKey: "ios-pgr_frozen_1",
   inputs: [
@@ -6265,7 +6266,7 @@ describe("support services workbenches", () => {
       screen.queryByRole("button", { name: "Send receipt email" }),
     ).toBeNull();
     expect(
-      screen.queryByRole("button", { name: "Notify provider" }),
+      screen.queryByRole("button", { name: "Send provider email" }),
     ).toBeNull();
   });
 
@@ -6437,9 +6438,18 @@ describe("support services workbenches", () => {
         "Requester confirmation email could not be sent.",
       ),
     ).toBeTruthy();
+    expect(
+      screen
+        .getByText("Requester confirmation email could not be sent.")
+        .closest('[role="alert"]'),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Show log" }));
+    expect(await screen.findByRole("dialog")).toHaveTextContent(
+      "Requester confirmation email could not be sent.",
+    );
   });
 
-  it("resends the provider notification for only the current transaction in GOD MODE", async () => {
+  it("sends and persists the provider notification for only the current transaction in GOD MODE", async () => {
     const receivedTransaction: SupportServiceTransactionRecord = {
       ...deliveredTransaction,
       id: "pgr_provider_notification",
@@ -6452,6 +6462,12 @@ describe("support services workbenches", () => {
       issues: [],
       normalizedName: "pgr provider notification",
     };
+    const notifiedTransaction: SupportServiceTransactionRecord = {
+      ...receivedTransaction,
+      isProviderNotified: true,
+      requestRevision: 2,
+    };
+    let storedTransaction = receivedTransaction;
     let releaseNotification!: () => void;
     const notificationGate = new Promise<void>((resolve) => {
       releaseNotification = resolve;
@@ -6474,17 +6490,19 @@ describe("support services workbenches", () => {
           ),
         });
         await notificationGate;
+        storedTransaction = notifiedTransaction;
         return {
           notification: {
             transactionId: receivedTransaction.requestId,
-            resendRequestId: body.resendRequestId,
+            resendRequestId: "123e4567-e89b-42d3-a456-426614174010",
             recipientEmail: "provider@example.com",
             status: "sent",
           },
+          transaction: notifiedTransaction,
         };
       }
       if (value.endsWith(`/transactions/${receivedTransaction.requestId}`)) {
-        return { transaction: receivedTransaction };
+        return { transaction: storedTransaction };
       }
       if (value.endsWith(`/offers/${receivedTransaction.offerId}`)) {
         return { offer: currentLiveOffer };
@@ -6509,7 +6527,7 @@ describe("support services workbenches", () => {
       name: "Enviar mail de recepción",
     });
     const providerButton = screen.getByRole("button", {
-      name: "Notificar al proveedor",
+      name: "Enviar mail al proveedor",
     });
     expect(copyButton.parentElement).toBe(providerButton.parentElement);
     expect(requesterButton.parentElement).toBe(providerButton.parentElement);
@@ -6518,7 +6536,7 @@ describe("support services workbenches", () => {
     fireEvent.click(providerButton);
     expect(
       await screen.findByRole("button", {
-        name: "Notificando al proveedor...",
+        name: "Enviando mail al proveedor...",
       }),
     ).toBeDisabled();
     await act(async () => {
@@ -6528,8 +6546,10 @@ describe("support services workbenches", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole("button", { name: "Notificar al proveedor" }),
-      ).toBeEnabled();
+        screen.getByRole("button", {
+          name: "El proveedor ya fue notificado",
+        }),
+      ).toBeDisabled();
     });
     expect(
       await screen.findByText("Mail de notificación enviado al proveedor."),
@@ -6544,6 +6564,67 @@ describe("support services workbenches", () => {
     expect(
       sdkFetchMock.mock.calls.some(([, init]) => init?.method === "PUT"),
     ).toBe(false);
+  });
+
+  it("keeps provider notification retryable and exposes the failure log", async () => {
+    const receivedTransaction: SupportServiceTransactionRecord = {
+      ...deliveredTransaction,
+      id: "pgr_provider_notification_failure",
+      requestId: "pgr_provider_notification_failure",
+      status: "received",
+      isProviderNotified: false,
+      requestRevision: 1,
+      outputObjects: [],
+      outputReports: [],
+      issues: [],
+      normalizedName: "pgr provider notification failure",
+    };
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      const value = String(path);
+      if (
+        value.endsWith(
+          `/transactions/${receivedTransaction.requestId}/notify-provider`,
+        ) &&
+        init?.method === "POST"
+      ) {
+        throw new Error("Provider notification email could not be sent.");
+      }
+      if (value.endsWith(`/transactions/${receivedTransaction.requestId}`)) {
+        return { transaction: receivedTransaction };
+      }
+      if (value.endsWith(`/offers/${receivedTransaction.offerId}`)) {
+        return { offer: currentLiveOffer };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId={receivedTransaction.requestId}
+        canNotifyProvider
+      />,
+      "es",
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Enviar mail al proveedor" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Enviar mail al proveedor" }),
+      ).toBeEnabled();
+    });
+    expect(
+      screen
+        .getByText("No se pudo enviar el mail de notificación al proveedor.")
+        .closest('[role="alert"]'),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Mostrar log" }));
+    expect(await screen.findByRole("dialog")).toHaveTextContent(
+      "Provider notification email could not be sent.",
+    );
   });
 
   it("disables requester notification after the persisted flag is true", async () => {

@@ -6486,7 +6486,7 @@ describe("support service canonical transaction creation", () => {
     );
   });
 
-  it("directly resends the exact provider email for one transaction with per-click idempotency", async () => {
+  it("sends the exact provider email once and persists provider notification state", async () => {
     const {
       createSupportServiceTransaction,
       resendSupportServiceTransactionProviderNotification,
@@ -6506,24 +6506,32 @@ describe("support service canonical transaction creation", () => {
         nativeNotificationTransactionId,
         firstResendRequestId,
       ),
-    ).resolves.toEqual({
-      transactionId: nativeNotificationTransactionId,
-      resendRequestId: firstResendRequestId,
-      recipientEmail: "publisher@pocketgenes.example",
-      status: "sent",
-    });
+    ).resolves.toEqual(
+      expect.objectContaining({
+        notification: {
+          transactionId: nativeNotificationTransactionId,
+          resendRequestId: firstResendRequestId,
+          recipientEmail: "publisher@pocketgenes.example",
+          status: "sent",
+        },
+        transaction: expect.objectContaining({
+          status: "received",
+          isProviderNotified: true,
+        }),
+      }),
+    );
     await expect(
       resendSupportServiceTransactionProviderNotification(
         context,
         nativeNotificationTransactionId,
         firstResendRequestId,
       ),
-    ).resolves.toEqual({
-      transactionId: nativeNotificationTransactionId,
-      resendRequestId: firstResendRequestId,
-      recipientEmail: "publisher@pocketgenes.example",
-      status: "already_sent",
-    });
+    ).resolves.toEqual(
+      expect.objectContaining({
+        notification: expect.objectContaining({ status: "already_sent" }),
+        transaction: expect.objectContaining({ isProviderNotified: true }),
+      }),
+    );
     await expect(
       resendSupportServiceTransactionProviderNotification(
         context,
@@ -6532,14 +6540,17 @@ describe("support service canonical transaction creation", () => {
       ),
     ).resolves.toEqual(
       expect.objectContaining({
-        resendRequestId: secondResendRequestId,
-        status: "sent",
+        notification: expect.objectContaining({
+          resendRequestId: secondResendRequestId,
+          status: "already_sent",
+        }),
+        transaction: expect.objectContaining({ isProviderNotified: true }),
       }),
     );
 
     expect(
       mockSendServiceTransactionProviderBestEffortEmail,
-    ).toHaveBeenCalledTimes(2);
+    ).toHaveBeenCalledTimes(1);
     expect(
       mockSendServiceTransactionProviderBestEffortEmail,
     ).toHaveBeenCalledWith({
@@ -6570,7 +6581,8 @@ describe("support service canonical transaction creation", () => {
       expect.objectContaining({
         status: "received",
         isRequesterNotified: false,
-        requestRevision: 1,
+        isProviderNotified: true,
+        requestRevision: 2,
       }),
     );
   });
@@ -6609,6 +6621,51 @@ describe("support service canonical transaction creation", () => {
     expect(
       mockSendServiceTransactionProviderBestEffortEmail,
     ).not.toHaveBeenCalled();
+  });
+
+  it("keeps provider notification state false and records the failure when mail sending fails", async () => {
+    const {
+      createSupportServiceTransaction,
+      resendSupportServiceTransactionProviderNotification,
+    } = await import("../repositories/support-services.repository.js");
+    await createSupportServiceTransaction(
+      context,
+      emailOnlyNotificationCreationInput(),
+    );
+    mockSendServiceTransactionProviderBestEffortEmail.mockRejectedValueOnce(
+      new Error("private mail-provider detail"),
+    );
+
+    await expect(
+      resendSupportServiceTransactionProviderNotification(
+        context,
+        nativeNotificationTransactionId,
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 502,
+      message: "Provider notification email could not be sent.",
+    });
+    expect(
+      collectionStore("service_transactions").get(
+        nativeNotificationTransactionId,
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        status: "received",
+        isProviderNotified: false,
+        requestRevision: 1,
+      }),
+    );
+    expect(
+      [...collectionStore("service_transaction_notification_resends").values()],
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          serviceTransactionId: nativeNotificationTransactionId,
+          status: "failed",
+        }),
+      ]),
+    );
   });
 
   it("handles an individual publisher without contactEmail according to the configured route", async () => {
@@ -8672,7 +8729,7 @@ describe("support service canonical transaction creation", () => {
     );
   });
 
-  it("defaults a legacy missing requester notification flag and preserves it through updates", async () => {
+  it("defaults legacy missing notification flags and preserves them through updates", async () => {
     const {
       createSupportServiceTransaction,
       getSupportServiceTransaction,
@@ -8684,11 +8741,15 @@ describe("support service canonical transaction creation", () => {
     );
     const stored = collectionStore("service_transactions").get(created.id)!;
     delete stored.isRequesterNotified;
+    delete stored.isProviderNotified;
 
     await expect(
       getSupportServiceTransaction(context, created.id),
     ).resolves.toEqual(
-      expect.objectContaining({ isRequesterNotified: false }),
+      expect.objectContaining({
+        isRequesterNotified: false,
+        isProviderNotified: false,
+      }),
     );
     const updated = await updateSupportServiceTransaction(
       context,
@@ -8696,9 +8757,15 @@ describe("support service canonical transaction creation", () => {
       { status: "validating" },
     );
     expect(updated.isRequesterNotified).toBe(false);
+    expect(updated.isProviderNotified).toBe(false);
     expect(
       collectionStore("service_transactions").get(created.id),
-    ).toEqual(expect.objectContaining({ isRequesterNotified: false }));
+    ).toEqual(
+      expect.objectContaining({
+        isRequesterNotified: false,
+        isProviderNotified: false,
+      }),
+    );
   });
 
   it("rejects unauthorized states and direct requester-notification field writes", async () => {
@@ -8724,6 +8791,20 @@ describe("support service canonical transaction creation", () => {
     ).rejects.toThrow(
       "New service transactions cannot start with requester notification already completed.",
     );
+    await expect(
+      createSupportServiceTransaction(context, {
+        ...creationInput(),
+        is_provider_notified: true,
+      } as never),
+    ).rejects.toThrow(
+      "Service transaction uses forbidden snake-case field: is_provider_notified.",
+    );
+    await expect(
+      createSupportServiceTransaction(context, {
+        ...creationInput(),
+        isProviderNotified: true,
+      }),
+    ).rejects.toThrow("dedicated notify-provider command");
     const created = await createSupportServiceTransaction(
       context,
       creationInput(),
@@ -8749,6 +8830,11 @@ describe("support service canonical transaction creation", () => {
         isRequesterNotified: true,
       }),
     ).rejects.toThrow("dedicated notify-requester command");
+    await expect(
+      updateSupportServiceTransaction(context, created.id, {
+        isProviderNotified: true,
+      }),
+    ).rejects.toThrow("dedicated notify-provider command");
     await expect(
       notifySupportServiceTransactionRequester(
         organizationPublisherContext,

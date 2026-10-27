@@ -2266,7 +2266,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Created / updated": "Creadas / actualizadas",
   "Last error": "Último error",
   "Import failed": "La importación falló",
-  "Show log": "Ver log",
+  "Show log": "Mostrar log",
   "Hide log": "Ocultar log",
   "Copy log": "Copiar log",
   "Import error log": "Log de error de importación",
@@ -5828,14 +5828,25 @@ const SPANISH_TEXT: Record<string, string> = {
   "The user has already been notified": "El usuario ya fue notificado",
   "Requester receipt email sent.":
     "Mail de recepción enviado al solicitante.",
-  "Notify provider": "Notificar al proveedor",
-  "Notifying provider...": "Notificando al proveedor...",
+  "Requester email sent": "Mail al solicitante enviado",
+  "Requester email failed": "Falló el mail al solicitante",
+  "Send provider email": "Enviar mail al proveedor",
+  "Sending provider email...": "Enviando mail al proveedor...",
+  "The provider has already been notified":
+    "El proveedor ya fue notificado",
+  "Provider email sent": "Mail al proveedor enviado",
+  "Provider email failed": "Falló el mail al proveedor",
+  "Provider email in progress": "Mail al proveedor en curso",
   "Provider notification email sent.":
     "Mail de notificación enviado al proveedor.",
   "Provider notification email was already sent.":
     "El mail de notificación al proveedor ya fue enviado.",
   "Provider notification email is already being sent.":
     "El mail de notificación al proveedor ya se está enviando.",
+  "Requester confirmation email could not be sent.":
+    "No se pudo enviar el mail de recepción al solicitante.",
+  "Provider notification email could not be sent.":
+    "No se pudo enviar el mail de notificación al proveedor.",
   "Save the transaction before notifying the provider.":
     "Guardá la transacción antes de notificar al proveedor.",
   "Save other transaction changes before notifying the provider.":

@@ -1668,6 +1668,7 @@ def validate_strict_service_boundary_casing():
         "requestedAtClient": "2026-09-30T00:00:00Z",
         "status": "received",
         "isRequesterNotified": False,
+        "isProviderNotified": False,
         "requestRevision": 1,
         "idempotencyKey": "contract-fixture",
         "inputs": [],
@@ -1738,6 +1739,30 @@ def validate_strict_service_boundary_casing():
     reject(
         lambda: transaction_validator.validate(wrong_requester_notification_alias),
         "service_transactions accepted is_requester_notified",
+    )
+
+    require(
+        transaction_schema["properties"].get("isProviderNotified", {}).get("type") == "boolean"
+        and "isProviderNotified" not in transaction_schema["required"],
+        "service_transactions.isProviderNotified must be an optional boolean for legacy records",
+    )
+    for invalid_provider_notification in (None, 0, 1, "false", "true", {}):
+        invalid_provider_notification_transaction = copy.deepcopy(transaction)
+        invalid_provider_notification_transaction["isProviderNotified"] = invalid_provider_notification
+        reject(
+            lambda invalid_provider_notification_transaction=invalid_provider_notification_transaction: transaction_validator.validate(
+                invalid_provider_notification_transaction
+            ),
+            f"service_transactions accepted invalid isProviderNotified {invalid_provider_notification!r}",
+        )
+    missing_provider_notification = copy.deepcopy(transaction)
+    del missing_provider_notification["isProviderNotified"]
+    transaction_validator.validate(missing_provider_notification)
+    wrong_provider_notification_alias = copy.deepcopy(transaction)
+    wrong_provider_notification_alias["is_provider_notified"] = wrong_provider_notification_alias.pop("isProviderNotified")
+    reject(
+        lambda: transaction_validator.validate(wrong_provider_notification_alias),
+        "service_transactions accepted is_provider_notified",
     )
 
     output_reports_null = copy.deepcopy(transaction)
@@ -2151,7 +2176,7 @@ def validate_field_key_matrix():
     for key in more_information_examples:
         require(key in offer_examples, f"service_offers naming examples omit {key}")
     transaction_examples = convention_by_collection["service_transactions"]["examples"]
-    for key in ("customTransactionName", "isRequesterNotified", "offerSnapshot", *more_information_examples):
+    for key in ("customTransactionName", "isRequesterNotified", "isProviderNotified", "offerSnapshot", *more_information_examples):
         require(key in transaction_examples, f"service_transactions naming examples omit {key}")
     requester_notification_examples = convention_by_collection[
         "service_transaction_requester_notifications"

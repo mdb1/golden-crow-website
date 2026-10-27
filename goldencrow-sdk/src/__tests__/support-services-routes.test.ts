@@ -603,10 +603,18 @@ describe("support service admin routes", () => {
       isRequesterNotified: true,
     });
     mockResendSupportServiceTransactionProviderNotification.mockResolvedValue({
-      transactionId: "pgr_demo_final_report",
-      resendRequestId: "123e4567-e89b-42d3-a456-426614174000",
-      recipientEmail: "provider@example.com",
-      status: "sent",
+      notification: {
+        transactionId: "pgr_demo_final_report",
+        resendRequestId: "123e4567-e89b-42d3-a456-426614174000",
+        recipientEmail: "provider@example.com",
+        status: "sent",
+      },
+      transaction: {
+        id: "txn-1",
+        requestId: "pgr_demo_final_report",
+        status: "received",
+        isProviderNotified: true,
+      },
     });
     mockGetSupportServiceIdAvailability.mockResolvedValue({
       serviceId: "pgs_pocket_genes_report_studio_12345",
@@ -2167,14 +2175,14 @@ describe("support service admin routes", () => {
     expect(mockNotifySupportServiceTransactionRequester).not.toHaveBeenCalled();
   });
 
-  it("resends one provider notification only through the GOD MODE command", async () => {
+  it("sends one provider notification only through the GOD MODE command", async () => {
     const fastify = await buildTestServer();
     const resendRequestId = "123e4567-e89b-42d3-a456-426614174000";
 
     const response = await fastify.inject({
       method: "POST",
       url: "/admin/support-services/transactions/pgr_demo_final_report/notify-provider",
-      payload: { resendRequestId },
+      payload: {},
     });
 
     expect(response.statusCode).toBe(200);
@@ -2185,13 +2193,19 @@ describe("support service admin routes", () => {
         recipientEmail: "provider@example.com",
         status: "sent",
       },
+      transaction: {
+        id: "txn-1",
+        requestId: "pgr_demo_final_report",
+        status: "received",
+        isProviderNotified: true,
+      },
     });
     expect(
       mockResendSupportServiceTransactionProviderNotification,
     ).toHaveBeenCalledWith(
       bootstrapContext,
       "pgr_demo_final_report",
-      resendRequestId,
+      undefined,
     );
   });
 
@@ -2215,14 +2229,13 @@ describe("support service admin routes", () => {
     ).not.toHaveBeenCalled();
   });
 
-  it("rejects malformed provider notification resend requests", async () => {
+  it("rejects extra recipient fields on provider notification requests", async () => {
     const fastify = await buildTestServer();
 
     const response = await fastify.inject({
       method: "POST",
       url: "/admin/support-services/transactions/pgr_demo_final_report/notify-provider",
       payload: {
-        resendRequestId: "not-a-uuid",
         recipientEmail: "other@example.com",
       },
     });

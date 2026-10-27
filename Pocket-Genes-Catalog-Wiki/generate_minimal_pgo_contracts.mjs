@@ -1560,6 +1560,10 @@ for (const fileName of fs.readdirSync(path.join(root, "schemas/protocol")).filte
       type: "boolean",
       description: "False on creation. The GOD-mode requester-confirmation command changes it to true only after the one-service receipt email has a durable sent receipt. Historical records that omit this field are read as false by administrative tooling."
     };
+    rewritten.properties.isProviderNotified = {
+      type: "boolean",
+      description: "False on creation. The GOD-mode provider-notification command changes it to true only after the one-service provider email has a durable sent receipt. Historical records that omit this field are read as false by administrative tooling."
+    };
     rewritten.properties.issues = {
       type: "array",
       items: { type: "string", minLength: 1 }
@@ -1670,6 +1674,7 @@ for (const fileName of fs.readdirSync(path.join(root, "schemas/protocol")).filte
       (key) => ![
         "customTransactionName",
         "isRequesterNotified",
+        "isProviderNotified",
         "requestedByUserId",
         "outputReports"
       ].includes(key)
@@ -1893,6 +1898,7 @@ serviceTransactionConvention.examples = [
   "requestedByUserId",
   "requestedByUserEmail",
   "isRequesterNotified",
+  "isProviderNotified",
   "outputObjects",
   "outputReports",
   "objectType",

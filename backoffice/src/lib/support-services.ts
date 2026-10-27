@@ -475,6 +475,7 @@ export interface SupportServiceTransactionRecord
   serviceVersion: number;
   status: SupportServiceTransactionStatus;
   isRequesterNotified: boolean;
+  isProviderNotified: boolean;
   requestRevision: number;
   inputs: SupportServiceTransactionSlot[];
   outputObjects: SupportServiceTransactionOutputObject[];

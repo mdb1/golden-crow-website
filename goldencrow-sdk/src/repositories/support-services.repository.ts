@@ -800,6 +800,7 @@ export interface SupportServiceTransactionInput {
   providerKind?: SupportServiceProviderKind;
   status?: SupportServiceTransactionStatus;
   isRequesterNotified?: boolean;
+  isProviderNotified?: boolean;
   requestedByUserId?: string;
   requestedByUserEmail?: string;
   requestedAt?: string;
@@ -830,6 +831,7 @@ export interface SupportServiceTransactionRecord {
   providerKind: SupportServiceProviderKind;
   status: SupportServiceTransactionStatus;
   isRequesterNotified: boolean;
+  isProviderNotified: boolean;
   requestedByUserId?: string;
   requestedByUserEmail?: string;
   requestedAt?: string;
@@ -1076,6 +1078,7 @@ const FORBIDDEN_TRANSACTION_ROOT_KEYS = [
   "provider_id",
   "provider_kind",
   "is_requester_notified",
+  "is_provider_notified",
   "requested_by_user_id",
   "requested_by_user_email",
   "requested_at",
@@ -2924,6 +2927,10 @@ function transactionDocument(input: SupportServiceTransactionInput) {
     isRequesterNotified: strictBoolean(
       input.isRequesterNotified,
       "isRequesterNotified",
+    ),
+    isProviderNotified: strictBoolean(
+      input.isProviderNotified,
+      "isProviderNotified",
     ),
     requestedByUserId: requestedByUserId || undefined,
     requestedByUserEmail: requestedByUserEmail || undefined,
@@ -6268,10 +6275,14 @@ function toTransactionRecord(id: string, data: Record<string, unknown>) {
     providerId: cleanString(data.providerId),
     providerKind: normalizeProviderKind(data.providerKind, true),
     status: normalizeTransactionStatus(data.status, true),
-    isRequesterNotified: strictBoolean(
-      data.isRequesterNotified,
-      "isRequesterNotified",
-    ),
+    isRequesterNotified:
+      typeof data.isRequesterNotified === "boolean"
+        ? data.isRequesterNotified
+        : false,
+    isProviderNotified:
+      typeof data.isProviderNotified === "boolean"
+        ? data.isProviderNotified
+        : false,
     requestedByUserId: requestedByUserId || undefined,
     requestedByUserEmail: requestedByUserEmail || undefined,
     requestedAt: timestampToIso(data.requestedAt),
@@ -6433,6 +6444,10 @@ function toTransactionAdminRecord(
     isRequesterNotified:
       typeof data.isRequesterNotified === "boolean"
         ? data.isRequesterNotified
+        : false,
+    isProviderNotified:
+      typeof data.isProviderNotified === "boolean"
+        ? data.isProviderNotified
         : false,
     requestedByUserId: requestedByUserId || undefined,
     requestedByUserEmail: requestedByUserEmail || undefined,
@@ -8001,6 +8016,17 @@ function isCustomTransactionNameOnlyUpdate(
   );
 }
 
+function isProviderNotificationOnlyUpdate(
+  input: SupportServiceTransactionInput,
+) {
+  const keys = Object.keys(input);
+  return (
+    keys.length === 1 &&
+    keys[0] === "isProviderNotified" &&
+    input.isProviderNotified === true
+  );
+}
+
 function rejectImmutableTransactionChanges(
   input: SupportServiceTransactionInput,
   previous: SupportServiceTransactionRecord,
@@ -9208,6 +9234,12 @@ async function createSupportServiceTransactionWithPolicy(
       400,
     );
   }
+  if (input.isProviderNotified === true) {
+    throw new AdminRepositoryError(
+      "Provider notification state can only be set through the dedicated notify-provider command.",
+      409,
+    );
+  }
   if (
     (input.outputObjects?.length ?? 0) > 0 ||
     (input.outputReports?.length ?? 0) > 0
@@ -9234,6 +9266,7 @@ async function createSupportServiceTransactionWithPolicy(
     providerKind: offer.providerKind,
     status: "received",
     isRequesterNotified: false,
+    isProviderNotified: false,
     requestedAt: undefined,
     requestRevision: 1,
     outputObjects: [],
@@ -9551,11 +9584,16 @@ export type SupportServiceTransactionOwnerNotificationResult = {
   status: "sent" | "already_sent" | "in_progress";
 };
 
-export type SupportServiceTransactionProviderNotificationResult = {
+export type SupportServiceTransactionProviderNotificationReceipt = {
   transactionId: string;
   resendRequestId: string;
   recipientEmail: string;
   status: "sent" | "already_sent" | "in_progress";
+};
+
+export type SupportServiceTransactionProviderNotificationResult = {
+  notification: SupportServiceTransactionProviderNotificationReceipt;
+  transaction: SupportServiceTransactionRecord;
 };
 
 type SupportServiceTransactionOwnerNotificationClaim =
@@ -9584,7 +9622,7 @@ type DeferredServiceTransactionNotificationResendClaim =
     };
 
 type SupportServiceTransactionProviderNotificationClaim =
-  | SupportServiceTransactionProviderNotificationResult
+  | SupportServiceTransactionProviderNotificationReceipt
   | {
       status: "claimed";
       transactionId: string;
@@ -9620,31 +9658,24 @@ function deferredNotificationResendReceiptId(
     .digest("hex");
 }
 
-function directProviderNotificationResendReceiptId(
-  transactionId: string,
-  resendRequestId: string,
-) {
+function directProviderNotificationReceiptId(transactionId: string) {
   return createHash("sha256")
-    .update(`provider-detail\u0000${transactionId}\u0000${resendRequestId}`)
+    .update(`provider-detail\u0000${transactionId}`)
     .digest("hex");
 }
 
-function directProviderNotificationResendReplay(input: {
+function directProviderNotificationReplay(input: {
   receiptExists: boolean;
   receiptData: Record<string, unknown>;
   transactionId: string;
-  resendRequestId: string;
-  now: Date;
-}): SupportServiceTransactionProviderNotificationResult | null {
+}): SupportServiceTransactionProviderNotificationReceipt | null {
   if (!input.receiptExists) {
     return null;
   }
   if (
     cleanString(input.receiptData.notificationKind) !==
       "provider_best_effort" ||
-    cleanString(input.receiptData.serviceTransactionId) !==
-      input.transactionId ||
-    cleanString(input.receiptData.resendRequestId) !== input.resendRequestId
+    cleanString(input.receiptData.serviceTransactionId) !== input.transactionId
   ) {
     throw new AdminRepositoryError(
       "Provider notification resend receipt is inconsistent.",
@@ -9665,6 +9696,7 @@ function directProviderNotificationResendReplay(input: {
   const recipientEmail = cleanString(
     input.receiptData.recipientEmail,
   ).toLowerCase();
+  const resendRequestId = cleanString(input.receiptData.resendRequestId);
   if (!REQUESTER_EMAIL_PATTERN.test(recipientEmail)) {
     throw new AdminRepositoryError(
       "Provider notification resend receipt is inconsistent.",
@@ -9674,24 +9706,18 @@ function directProviderNotificationResendReplay(input: {
   if (status === "sent") {
     return {
       transactionId: input.transactionId,
-      resendRequestId: input.resendRequestId,
+      resendRequestId,
       recipientEmail,
       status: "already_sent",
     };
   }
 
-  const leaseExpiresAt = dateFromUnknown(
-    input.receiptData.leaseExpiresAt,
-    "Provider notification resend lease expiration",
-  );
-  return leaseExpiresAt && leaseExpiresAt.getTime() > input.now.getTime()
-    ? {
-        transactionId: input.transactionId,
-        resendRequestId: input.resendRequestId,
-        recipientEmail,
-        status: "in_progress",
-      }
-    : null;
+  return {
+    transactionId: input.transactionId,
+    resendRequestId,
+    recipientEmail,
+    status: "in_progress",
+  };
 }
 
 function deferredNotificationResendReplay(input: {
@@ -10063,10 +10089,11 @@ export async function resendDeferredServiceTransactionNotification(
 export async function resendSupportServiceTransactionProviderNotification(
   context: AdminContext,
   transactionIdValue: string,
-  resendRequestIdValue: string,
+  resendRequestIdValue?: string,
 ): Promise<SupportServiceTransactionProviderNotificationResult> {
   requireGodMode(context);
-  const resendRequestId = cleanString(resendRequestIdValue).toLowerCase();
+  const resendRequestId =
+    cleanString(resendRequestIdValue).toLowerCase() || randomUUID();
   if (
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
       resendRequestId,
@@ -10096,10 +10123,42 @@ export async function resendSupportServiceTransactionProviderNotification(
     );
   }
 
-  const receiptId = directProviderNotificationResendReceiptId(
-    transactionId,
-    resendRequestId,
-  );
+  const completedResult = async (
+    notification: SupportServiceTransactionProviderNotificationReceipt,
+  ): Promise<SupportServiceTransactionProviderNotificationResult> => {
+    if (notification.status === "in_progress") {
+      return { notification, transaction: initialTransaction };
+    }
+    const transaction = initialTransaction.isProviderNotified
+      ? initialTransaction
+      : await persistSupportServiceTransactionUpdate(
+          context,
+          transactionId,
+          { isProviderNotified: true },
+          {
+            allowDelivery: false,
+            requireSupportServicesAccess: true,
+            allowProviderNotificationUpdate: true,
+          },
+        );
+    return { notification, transaction };
+  };
+
+  if (initialTransaction.isProviderNotified) {
+    return {
+      notification: {
+        transactionId,
+        resendRequestId,
+        recipientEmail: cleanString(
+          initialTransaction.providerSnapshot.contactEmail,
+        ).toLowerCase(),
+        status: "already_sent",
+      },
+      transaction: initialTransaction,
+    };
+  }
+
+  const receiptId = directProviderNotificationReceiptId(transactionId);
   const receiptRef = adminDb
     .collection(SERVICE_TRANSACTION_NOTIFICATION_RESENDS_COLLECTION)
     .doc(receiptId);
@@ -10109,15 +10168,13 @@ export async function resendSupportServiceTransactionProviderNotification(
     claimedAt.getTime() + SERVICE_TRANSACTION_NOTIFICATION_LEASE_MS,
   );
   const existingReceiptSnapshot = await receiptRef.get();
-  const existingReplay = directProviderNotificationResendReplay({
+  const existingReplay = directProviderNotificationReplay({
     receiptExists: existingReceiptSnapshot.exists,
     receiptData: existingReceiptSnapshot.data() ?? {},
     transactionId,
-    resendRequestId,
-    now: claimedAt,
   });
   if (existingReplay) {
-    return existingReplay;
+    return completedResult(existingReplay);
   }
 
   const claim =
@@ -10219,12 +10276,10 @@ export async function resendSupportServiceTransactionProviderNotification(
           )
           .digest("hex");
         const receiptData = receiptSnapshot.data() ?? {};
-        const replay = directProviderNotificationResendReplay({
+        const replay = directProviderNotificationReplay({
           receiptExists: receiptSnapshot.exists,
           receiptData,
           transactionId,
-          resendRequestId,
-          now: claimedAt,
         });
         if (replay) {
           return replay;
@@ -10234,7 +10289,7 @@ export async function resendSupportServiceTransactionProviderNotification(
           cleanString(receiptData.previewFingerprint) !== previewFingerprint
         ) {
           throw new AdminRepositoryError(
-            "Provider notification details changed. Start a new resend request.",
+            "Provider notification details changed after a previous attempt. Review the durable receipt before retrying.",
             409,
           );
         }
@@ -10284,7 +10339,7 @@ export async function resendSupportServiceTransactionProviderNotification(
     );
 
   if (claim.status !== "claimed") {
-    return claim;
+    return completedResult(claim);
   }
 
   try {
@@ -10325,12 +10380,19 @@ export async function resendSupportServiceTransactionProviderNotification(
     );
   }
 
-  return {
+  if (!finalized) {
+    throw new AdminRepositoryError(
+      "Provider notification email was accepted, but its durable receipt changed before finalization. Review the receipt before retrying.",
+      503,
+    );
+  }
+
+  return completedResult({
     transactionId: claim.transactionId,
     resendRequestId: claim.resendRequestId,
     recipientEmail: claim.recipientEmail,
-    status: finalized ? "sent" : "in_progress",
-  };
+    status: "sent",
+  });
 }
 
 async function finishServiceTransactionNotificationAttempt(
@@ -12684,6 +12746,7 @@ async function persistSupportServiceTransactionUpdate(
     allowDelivery: boolean;
     requireSupportServicesAccess: boolean;
     allowRequesterNotificationUpdate?: boolean;
+    allowProviderNotificationUpdate?: boolean;
   },
 ) {
   let accessScope: SupportServicesAccessScope | undefined;
@@ -12723,7 +12786,11 @@ async function persistSupportServiceTransactionUpdate(
   if (
     !options.allowDelivery &&
     TERMINAL_TRANSACTION_STATUSES.has(previous.status) &&
-    !isCustomTransactionNameOnlyUpdate(input, previous)
+    !isCustomTransactionNameOnlyUpdate(input, previous) &&
+    !(
+      options.allowProviderNotificationUpdate &&
+      isProviderNotificationOnlyUpdate(input)
+    )
   ) {
     throw new AdminRepositoryError(
       "Terminal service transactions cannot be edited.",
@@ -12769,6 +12836,22 @@ async function persistSupportServiceTransactionUpdate(
       409,
     );
   }
+  if (
+    input.isProviderNotified !== undefined &&
+    input.isProviderNotified !== previous.isProviderNotified &&
+    !options.allowProviderNotificationUpdate
+  ) {
+    throw new AdminRepositoryError(
+      "Provider notification state can only be changed through the dedicated notify-provider command.",
+      409,
+    );
+  }
+  if (previous.isProviderNotified && input.isProviderNotified === false) {
+    throw new AdminRepositoryError(
+      "Provider notification state cannot be cleared after delivery.",
+      409,
+    );
+  }
   rejectImmutableTransactionChanges(input, previous);
   const offer = offerFromFrozenTransaction(previous);
   const document = applyFrozenTransactionOfferContract(
@@ -12783,6 +12866,8 @@ async function persistSupportServiceTransactionUpdate(
       status: input.status ?? previous.status,
       isRequesterNotified:
         input.isRequesterNotified ?? previous.isRequesterNotified,
+      isProviderNotified:
+        input.isProviderNotified ?? previous.isProviderNotified,
       name: previous.name,
       customTransactionName: Object.prototype.hasOwnProperty.call(
         input,
@@ -12841,12 +12926,16 @@ async function persistSupportServiceTransactionUpdate(
   const requesterNotificationRef = adminDb
     .collection(SERVICE_TRANSACTION_REQUESTER_NOTIFICATIONS_COLLECTION)
     .doc(snapshot.id);
+  const providerNotificationRef = adminDb
+    .collection(SERVICE_TRANSACTION_NOTIFICATION_RESENDS_COLLECTION)
+    .doc(directProviderNotificationReceiptId(previous.requestId));
   await adminDb.runTransaction(async (firestoreTransaction) => {
     const [
       latestSnapshot,
       userSnapshot,
       providerDocumentSnapshot,
       requesterNotificationSnapshot,
+      providerNotificationSnapshot,
     ] = await Promise.all([
       firestoreTransaction.get(snapshot.ref),
       userRef
@@ -12856,6 +12945,9 @@ async function persistSupportServiceTransactionUpdate(
       options.allowRequesterNotificationUpdate
         ? Promise.resolve(undefined)
         : firestoreTransaction.get(requesterNotificationRef),
+      options.allowProviderNotificationUpdate
+        ? Promise.resolve(undefined)
+        : firestoreTransaction.get(providerNotificationRef),
     ]);
     if (!latestSnapshot.exists) {
       throw new AdminRepositoryError("Service transaction not found.", 404);
@@ -12899,6 +12991,20 @@ async function persistSupportServiceTransactionUpdate(
     ) {
       throw new AdminRepositoryError(
         "Requester notification is in progress. Transaction updates are temporarily blocked.",
+        409,
+      );
+    }
+    const providerNotificationStatus = cleanString(
+      providerNotificationSnapshot?.data()?.status,
+    );
+    if (
+      !options.allowProviderNotificationUpdate &&
+      !latest.isProviderNotified &&
+      (providerNotificationStatus === "sending" ||
+        providerNotificationStatus === "sent")
+    ) {
+      throw new AdminRepositoryError(
+        "Provider notification is in progress. Transaction updates are temporarily blocked.",
         409,
       );
     }
@@ -13850,13 +13956,23 @@ async function deleteSupportServiceTransactionRecord(
   const requesterNotificationRef = adminDb
     .collection(SERVICE_TRANSACTION_REQUESTER_NOTIFICATIONS_COLLECTION)
     .doc(snapshot.id);
-  const assertRequesterNotificationAllowsDeletion = async (
+  const transactionData = snapshot.data() ?? {};
+  const requestId = cleanString(transactionData.requestId) || snapshot.id;
+  const providerNotificationRef = adminDb
+    .collection(SERVICE_TRANSACTION_NOTIFICATION_RESENDS_COLLECTION)
+    .doc(directProviderNotificationReceiptId(requestId));
+  const assertNotificationsAllowDeletion = async (
     firestoreTransaction: Transaction,
   ) => {
-    const [latestTransactionSnapshot, requesterNotificationSnapshot] =
+    const [
+      latestTransactionSnapshot,
+      requesterNotificationSnapshot,
+      providerNotificationSnapshot,
+    ] =
       await Promise.all([
         firestoreTransaction.get(snapshot.ref),
         firestoreTransaction.get(requesterNotificationRef),
+        firestoreTransaction.get(providerNotificationRef),
       ]);
     if (!latestTransactionSnapshot.exists) {
       throw new AdminRepositoryError("Service transaction not found.", 404);
@@ -13875,10 +13991,21 @@ async function deleteSupportServiceTransactionRecord(
         409,
       );
     }
+    const providerNotificationStatus = cleanString(
+      providerNotificationSnapshot.data()?.status,
+    );
+    if (
+      providerNotificationStatus === "sending" ||
+      (providerNotificationStatus === "sent" &&
+        latestTransactionData.isProviderNotified !== true)
+    ) {
+      throw new AdminRepositoryError(
+        "Provider notification must finish before the service transaction can be deleted.",
+        409,
+      );
+    }
   };
 
-  const transactionData = snapshot.data() ?? {};
-  const requestId = cleanString(transactionData.requestId) || snapshot.id;
   const transactionIds = new Set(
     [snapshot.id, requestId, cleanString(transactionId)].filter(Boolean),
   );
@@ -14164,7 +14291,7 @@ async function deleteSupportServiceTransactionRecord(
     }
 
     await adminDb.runTransaction(async (firestoreTransaction) => {
-      await assertRequesterNotificationAllowsDeletion(firestoreTransaction);
+      await assertNotificationsAllowDeletion(firestoreTransaction);
       for (const reference of objectCodeRefs.values()) {
         firestoreTransaction.delete(reference);
       }
@@ -14200,14 +14327,16 @@ async function deleteSupportServiceTransactionRecord(
       }
       firestoreTransaction.delete(snapshot.ref);
       firestoreTransaction.delete(requesterNotificationRef);
+      firestoreTransaction.delete(providerNotificationRef);
     });
   } else {
     // An explicit god-mode delete is authoritative. Remove its durable email
     // receipt atomically so a later transaction cannot inherit stale delivery.
     await adminDb.runTransaction(async (firestoreTransaction) => {
-      await assertRequesterNotificationAllowsDeletion(firestoreTransaction);
+      await assertNotificationsAllowDeletion(firestoreTransaction);
       firestoreTransaction.delete(snapshot.ref);
       firestoreTransaction.delete(requesterNotificationRef);
+      firestoreTransaction.delete(providerNotificationRef);
     });
   }
 
