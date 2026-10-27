@@ -30,6 +30,7 @@ import {
   listDeferredServiceTransactions,
   listSupportServiceOffers,
   listSupportServiceTransactions,
+  notifySupportServiceTransactionRequester,
   removeSupportServiceTransactionOutputObject,
   removeSupportServiceTransactionOutputReport,
   resendDeferredServiceTransactionNotification,
@@ -975,6 +976,32 @@ export async function supportServicesRoutes(
       try {
         const transaction = await deliverSupportServiceTransaction(
           request.adminContext!,
+          request.params.transactionId,
+        );
+        return reply.send({ transaction });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.post(
+    "/admin/support-services/transactions/:transactionId/notify-requester",
+    {
+      schema: {
+        params: TransactionParamsSchema,
+        body: EmptyCommandBodySchema,
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext?.isBootstrap) {
+        return reply.status(403).send({
+          error: "Only GOD MODE can notify service transaction requesters.",
+        });
+      }
+      try {
+        const transaction = await notifySupportServiceTransactionRequester(
+          request.adminContext,
           request.params.transactionId,
         );
         return reply.send({ transaction });

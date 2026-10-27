@@ -1,5 +1,6 @@
 import {
   buildRawGmailMessage,
+  GmailDeliveryOutcomeUnknownError,
   sendGmailMessage,
 } from "../lib/gmail-mailer.js";
 
@@ -420,5 +421,148 @@ describe("Gmail mailer", () => {
     expect(decoded).toContain(
       "<table><tr><td>Federico Bustos Fierro</td></tr>",
     );
+  });
+
+  it("marks a rejected Gmail send request as an unknown delivery outcome", async () => {
+    const transportError = new TypeError("fetch failed");
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: "access-token" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockRejectedValueOnce(transportError);
+
+    await expect(
+      sendGmailMessage(
+        {
+          to: "recipient@example.com",
+          subject: "Pocket Genes request",
+          text: "Solicitud recibida.",
+        },
+        {
+          from: "Pocket Genes <no-reply@pocketgenes.com>",
+          user: "no-reply@pocketgenes.com",
+          clientId: "client-id",
+          clientSecret: "client-secret",
+          refreshToken: "refresh-token",
+        },
+      ),
+    ).rejects.toMatchObject({
+      name: "GmailDeliveryOutcomeUnknownError",
+      cause: transportError,
+    });
+  });
+
+  it("keeps OAuth transport failures as ordinary pre-dispatch errors", async () => {
+    const oauthError = new TypeError("OAuth fetch failed");
+    jest.mocked(fetch).mockRejectedValueOnce(oauthError);
+
+    try {
+      await sendGmailMessage(
+        {
+          to: "recipient@example.com",
+          subject: "Pocket Genes request",
+          text: "Solicitud recibida.",
+        },
+        {
+          from: "Pocket Genes <no-reply@pocketgenes.com>",
+          user: "no-reply@pocketgenes.com",
+          clientId: "client-id",
+          clientSecret: "client-secret",
+          refreshToken: "refresh-token",
+        },
+      );
+      throw new Error("Expected sendGmailMessage to reject");
+    } catch (error) {
+      expect(error).toBe(oauthError);
+      expect(error).not.toBeInstanceOf(GmailDeliveryOutcomeUnknownError);
+    }
+  });
+
+  it("keeps explicit Gmail API rejections as confirmed ordinary errors", async () => {
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: "access-token" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ error: { message: "Recipient was rejected" } }),
+          {
+            status: 400,
+            headers: { "content-type": "application/json" },
+          },
+        ),
+      );
+
+    try {
+      await sendGmailMessage(
+        {
+          to: "recipient@example.com",
+          subject: "Pocket Genes request",
+          text: "Solicitud recibida.",
+        },
+        {
+          from: "Pocket Genes <no-reply@pocketgenes.com>",
+          user: "no-reply@pocketgenes.com",
+          clientId: "client-id",
+          clientSecret: "client-secret",
+          refreshToken: "refresh-token",
+        },
+      );
+      throw new Error("Expected sendGmailMessage to reject");
+    } catch (error) {
+      expect(error).toEqual(new Error("Recipient was rejected"));
+      expect(error).not.toBeInstanceOf(GmailDeliveryOutcomeUnknownError);
+    }
+  });
+
+  it("marks Gmail API server errors as an unknown delivery outcome", async () => {
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: "access-token" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ error: { message: "Gmail temporarily unavailable" } }),
+          {
+            status: 503,
+            headers: { "content-type": "application/json" },
+          },
+        ),
+      );
+
+    try {
+      await sendGmailMessage(
+        {
+          to: "recipient@example.com",
+          subject: "Pocket Genes request",
+          text: "Solicitud recibida.",
+        },
+        {
+          from: "Pocket Genes <no-reply@pocketgenes.com>",
+          user: "no-reply@pocketgenes.com",
+          clientId: "client-id",
+          clientSecret: "client-secret",
+          refreshToken: "refresh-token",
+        },
+      );
+      throw new Error("Expected sendGmailMessage to reject");
+    } catch (error) {
+      expect(error).toBeInstanceOf(GmailDeliveryOutcomeUnknownError);
+      expect((error as Error).cause).toEqual(
+        new Error("Gmail temporarily unavailable"),
+      );
+    }
   });
 });

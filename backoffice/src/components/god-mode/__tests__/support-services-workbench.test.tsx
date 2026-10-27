@@ -250,6 +250,7 @@ const deliveredTransaction: SupportServiceTransactionRecord = {
   requestedAt: "2026-09-20T12:00:00.000Z",
   requestedAtClient: "2026-09-20T11:59:59.000Z",
   status: "delivered",
+  isRequesterNotified: false,
   requestRevision: 3,
   idempotencyKey: "ios-pgr_frozen_1",
   inputs: [
@@ -6260,6 +6261,222 @@ describe("support services workbenches", () => {
         "requester@example.org",
       ),
     ).toBe("Esta solicitud fue realizada por requester@example.org.");
+    expect(
+      screen.queryByRole("button", { name: "Send receipt email" }),
+    ).toBeNull();
+  });
+
+  it("notifies the requester once and immediately reflects Validando", async () => {
+    const receivedTransaction: SupportServiceTransactionRecord = {
+      ...deliveredTransaction,
+      id: "pgr_requester_notification",
+      requestId: "pgr_requester_notification",
+      status: "received",
+      isRequesterNotified: false,
+      requestRevision: 1,
+      outputObjects: [],
+      outputReports: [],
+      issues: [],
+      normalizedName: "pgr requester notification",
+    };
+    const notifiedTransaction: SupportServiceTransactionRecord = {
+      ...receivedTransaction,
+      status: "validating",
+      isRequesterNotified: true,
+      requestRevision: 2,
+    };
+    let storedTransaction = receivedTransaction;
+    let releaseNotification!: () => void;
+    const notificationGate = new Promise<void>((resolve) => {
+      releaseNotification = resolve;
+    });
+
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      const value = String(path);
+      if (
+        value.endsWith(
+          `/transactions/${receivedTransaction.requestId}/notify-requester`,
+        ) &&
+        init?.method === "POST"
+      ) {
+        expect(JSON.parse(String(init.body))).toEqual({});
+        await notificationGate;
+        storedTransaction = notifiedTransaction;
+        return {
+          notification: { status: "sent", itemCount: 1 },
+          transaction: notifiedTransaction,
+        };
+      }
+      if (value.endsWith(`/transactions/${receivedTransaction.requestId}`)) {
+        return { transaction: storedTransaction };
+      }
+      if (value.endsWith(`/offers/${receivedTransaction.offerId}`)) {
+        return { offer: currentLiveOffer };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId={receivedTransaction.requestId}
+        canNotifyRequester
+      />,
+      "es",
+    );
+
+    const copyButton = await screen.findByRole("button", {
+      name: "Copiar email",
+    });
+    const notifyButton = screen.getByRole("button", {
+      name: "Enviar mail de recepción",
+    });
+    expect(copyButton.parentElement).toBe(notifyButton.parentElement);
+    expect((notifyButton as HTMLButtonElement).disabled).toBe(false);
+
+    fireEvent.click(notifyButton);
+    expect(
+      await screen.findByRole("button", {
+        name: "Enviando mail de recepción...",
+      }),
+    ).toBeDisabled();
+    await act(async () => {
+      releaseNotification();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", {
+          name: "El usuario ya fue notificado",
+        }),
+      ).toBeDisabled();
+    });
+    expect(
+      screen.getByRole("combobox", {
+        name: "Opciones de estado de la transacción",
+      }).textContent,
+    ).toContain("Validando");
+    expect(
+      await screen.findByText("Mail de recepción enviado al solicitante."),
+    ).toBeTruthy();
+
+    const notifyCalls = sdkFetchMock.mock.calls.filter(
+      ([path, init]) =>
+        String(path).endsWith("/notify-requester") && init?.method === "POST",
+    );
+    expect(notifyCalls).toHaveLength(1);
+    expect(
+      sdkFetchMock.mock.calls.some(([, init]) => init?.method === "PUT"),
+    ).toBe(false);
+  });
+
+  it("keeps requester notification retryable when the mail command fails", async () => {
+    const receivedTransaction: SupportServiceTransactionRecord = {
+      ...deliveredTransaction,
+      id: "pgr_requester_notification_failure",
+      requestId: "pgr_requester_notification_failure",
+      status: "received",
+      isRequesterNotified: false,
+      requestRevision: 1,
+      outputObjects: [],
+      outputReports: [],
+      normalizedName: "pgr requester notification failure",
+    };
+    sdkFetchMock.mockImplementation(async (path, init) => {
+      const value = String(path);
+      if (
+        value.endsWith(
+          `/transactions/${receivedTransaction.requestId}/notify-requester`,
+        ) &&
+        init?.method === "POST"
+      ) {
+        throw new Error("Requester confirmation email could not be sent.");
+      }
+      if (value.endsWith(`/transactions/${receivedTransaction.requestId}`)) {
+        return { transaction: receivedTransaction };
+      }
+      if (value.endsWith(`/offers/${receivedTransaction.offerId}`)) {
+        return { offer: currentLiveOffer };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId={receivedTransaction.requestId}
+        canNotifyRequester
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Send receipt email" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Send receipt email" }),
+      ).toBeEnabled();
+    });
+    expect(
+      screen.queryByRole("button", {
+        name: "The user has already been notified",
+      }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("combobox", {
+        name: "Transaction status options",
+      }).textContent,
+    ).toContain("Received");
+    expect(
+      await screen.findByText(
+        "Requester confirmation email could not be sent.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("disables requester notification after the persisted flag is true", async () => {
+    const notifiedTransaction: SupportServiceTransactionRecord = {
+      ...deliveredTransaction,
+      id: "pgr_requester_already_notified",
+      requestId: "pgr_requester_already_notified",
+      status: "validating",
+      isRequesterNotified: true,
+      outputObjects: [],
+      outputReports: [],
+      normalizedName: "pgr requester already notified",
+    };
+    sdkFetchMock.mockImplementation(async (path) => {
+      const value = String(path);
+      if (value.endsWith(`/transactions/${notifiedTransaction.requestId}`)) {
+        return { transaction: notifiedTransaction };
+      }
+      if (value.endsWith(`/offers/${notifiedTransaction.offerId}`)) {
+        return { offer: currentLiveOffer };
+      }
+      throw new Error(`Unexpected SDK path: ${value}`);
+    });
+
+    renderWithQueryClient(
+      <SupportServiceTransactionWorkbench
+        mode="edit"
+        transactionId={notifiedTransaction.requestId}
+        canNotifyRequester
+      />,
+      "es",
+    );
+
+    const button = await screen.findByRole("button", {
+      name: "El usuario ya fue notificado",
+    });
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(
+      sdkFetchMock.mock.calls.some(([path]) =>
+        String(path).endsWith("/notify-requester"),
+      ),
+    ).toBe(false);
   });
 
   it("shows an explicit identity state when a historical request has no email", async () => {
@@ -6287,6 +6504,7 @@ describe("support services workbenches", () => {
       <SupportServiceTransactionWorkbench
         mode="edit"
         transactionId={transactionWithoutEmail.requestId}
+        canNotifyRequester
       />,
     );
 
@@ -6298,6 +6516,11 @@ describe("support services workbenches", () => {
     expect(
       (screen.getByRole("button", { name: "Copy email" }) as HTMLButtonElement)
         .disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("button", {
+        name: "Send receipt email",
+      }) as HTMLButtonElement).disabled,
     ).toBe(true);
     expect(
       (screen.getByRole("textbox", {

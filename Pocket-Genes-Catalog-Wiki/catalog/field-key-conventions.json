@@ -47,6 +47,7 @@
         "customTransactionName",
         "requestedByUserId",
         "requestedByUserEmail",
+        "isRequesterNotified",
         "outputObjects",
         "outputReports",
         "objectType",
@@ -74,6 +75,30 @@
         "biologicalSampleRequirements",
         "instructions",
         "websiteUrl"
+      ]
+    },
+    {
+      "collection": "service_transaction_requester_notifications",
+      "field_key_convention": "lower_camel_case",
+      "examples": [
+        "serviceTransactionId",
+        "requestId",
+        "idempotencyKey",
+        "transactionCreatedAt",
+        "requesterEmail",
+        "serviceName",
+        "providerName",
+        "status",
+        "attemptToken",
+        "attemptCount",
+        "claimedAt",
+        "sentAt",
+        "failedAt",
+        "lastError",
+        "createdAt",
+        "updatedAt",
+        "createdByEmail",
+        "updatedByEmail"
       ]
     },
     {

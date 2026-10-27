@@ -6,6 +6,7 @@ type MockData = Record<string, unknown>;
 const mockLookup = jest.fn();
 const mockRandomInt = jest.fn();
 const mockSendServiceTransactionOwnerNotificationEmail = jest.fn();
+const mockSendServiceTransactionRequesterConfirmationEmail = jest.fn();
 const mockNotificationRouting = jest.requireActual<
   typeof import("../lib/service-transaction-notification-routing.js")
 >("../lib/service-transaction-notification-routing.js");
@@ -40,6 +41,14 @@ jest.mock("../lib/service-transaction-owner-notification-email.js", () => ({
   sendServiceTransactionOwnerNotificationEmail: (...args: unknown[]) =>
     mockSendServiceTransactionOwnerNotificationEmail(...args),
 }));
+
+jest.mock(
+  "../lib/service-transaction-requester-confirmation-email.js",
+  () => ({
+    sendServiceTransactionRequesterConfirmationEmail: (...args: unknown[]) =>
+      mockSendServiceTransactionRequesterConfirmationEmail(...args),
+  }),
+);
 
 const collections = new Map<string, Map<string, MockData>>();
 const writes: Array<{
@@ -345,6 +354,7 @@ afterEach(() => {
   beforeNextTransaction = undefined;
   writes.length = 0;
   mockSendServiceTransactionOwnerNotificationEmail.mockReset();
+  mockSendServiceTransactionRequesterConfirmationEmail.mockReset();
   jest.restoreAllMocks();
 });
 
@@ -5798,6 +5808,7 @@ describe("support service delivered transactions", () => {
     seedDoc("service_transactions", "transaction-1", {
       ...transaction,
       requestedByUserId: "user-1",
+      isRequesterNotified: true,
     });
     const matchingSummary = {
       serviceTransactionId: transaction.requestId,
@@ -5815,6 +5826,11 @@ describe("support service delivered transactions", () => {
       status: "active",
       requestedServiceTransactions: [matchingSummary, retainedSummary],
     });
+    seedDoc(
+      "service_transaction_requester_notifications",
+      "transaction-1",
+      { status: "sent" },
+    );
     const { deleteSupportServiceTransaction } = await import(
       "../repositories/support-services.repository.js"
     );
@@ -5824,6 +5840,11 @@ describe("support service delivered transactions", () => {
     expect(collectionStore("service_transactions").has("transaction-1")).toBe(
       false,
     );
+    expect(
+      collectionStore("service_transaction_requester_notifications").has(
+        "transaction-1",
+      ),
+    ).toBe(false);
     expect(collectionStore("community_users").get("user-1")).toMatchObject({
       requestedServiceTransactions: [retainedSummary],
     });
@@ -5841,6 +5862,11 @@ describe("support service delivered transactions", () => {
   });
 
   it("deletes only the linked artifact categories selected by god mode", async () => {
+    seedDoc(
+      "service_transaction_requester_notifications",
+      "transaction-1",
+      { status: "failed" },
+    );
     seedDoc("object_codes", "123456789", {
       uploaded_object_id: "uploaded-object-1",
       owner_id: "feed-org-1",
@@ -5895,6 +5921,7 @@ describe("support service delivered transactions", () => {
     });
     for (const [collectionName, id] of [
       ["service_transactions", "transaction-1"],
+      ["service_transaction_requester_notifications", "transaction-1"],
       ["object_codes", "987654321"],
       ["uploaded_objects", "uploaded-form-1"],
       ["file_storage", "stored-form-1"],
@@ -6033,7 +6060,9 @@ describe("support service delivered transactions", () => {
       ],
     });
     beforeNextTransaction = () => {
-      throw new Error("secondary unavailable");
+      beforeNextTransaction = () => {
+        throw new Error("secondary unavailable");
+      };
     };
     const { deleteSupportServiceTransaction } = await import(
       "../repositories/support-services.repository.js"
@@ -6192,6 +6221,10 @@ describe("support service canonical transaction creation", () => {
     mockRandomInt.mockReset();
     mockSendServiceTransactionOwnerNotificationEmail.mockReset();
     mockSendServiceTransactionOwnerNotificationEmail.mockResolvedValue(
+      undefined,
+    );
+    mockSendServiceTransactionRequesterConfirmationEmail.mockReset();
+    mockSendServiceTransactionRequesterConfirmationEmail.mockResolvedValue(
       undefined,
     );
     let nextObjectCode = 300_000_000;
@@ -7906,7 +7939,10 @@ describe("support service canonical transaction creation", () => {
     const stored = collectionStore("service_transactions").get(
       "pgr_new_report_1",
     );
-    expect(stored).toMatchObject({ name: baseOffer.name });
+    expect(stored).toMatchObject({
+      name: baseOffer.name,
+      isRequesterNotified: false,
+    });
     expect(stored).not.toHaveProperty("output_objects");
     expect(stored).not.toHaveProperty("output_reports");
     expect(collectionStore("community_users").get("new-user")).toMatchObject({
@@ -7926,6 +7962,672 @@ describe("support service canonical transaction creation", () => {
         }),
       ],
     });
+  });
+
+  it("notifies the requester once, advances to validating, and reuses the persisted result", async () => {
+    const {
+      createSupportServiceTransaction,
+      notifySupportServiceTransactionRequester,
+    } = await import("../repositories/support-services.repository.js");
+    const created = await createSupportServiceTransaction(
+      context,
+      creationInput(),
+    );
+    collectionStore("service_transactions").get(created.id)!.name =
+      "Operator-only display name";
+
+    const notified = await notifySupportServiceTransactionRequester(
+      context,
+      created.id,
+    );
+    const replayed = await notifySupportServiceTransactionRequester(
+      context,
+      created.id,
+    );
+
+    expect(notified).toEqual(
+      expect.objectContaining({
+        status: "validating",
+        isRequesterNotified: true,
+        requestRevision: 2,
+      }),
+    );
+    expect(replayed).toEqual(
+      expect.objectContaining({
+        status: "validating",
+        isRequesterNotified: true,
+      }),
+    );
+    expect(
+      mockSendServiceTransactionRequesterConfirmationEmail,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      mockSendServiceTransactionRequesterConfirmationEmail,
+    ).toHaveBeenCalledWith({
+      requesterEmail: "new-user@example.com",
+      items: [
+        {
+          serviceName: "Report service",
+          providerName: "Pocket Genes",
+        },
+      ],
+    });
+    expect(
+      collectionStore("service_transactions").get(created.id),
+    ).toMatchObject({
+      status: "validating",
+      isRequesterNotified: true,
+      requestRevision: 2,
+    });
+    expect(
+      collectionStore("community_users").get("new-user")
+        ?.requestedServiceTransactions,
+    ).toEqual([
+      expect.objectContaining({
+        serviceTransactionId: created.requestId,
+        status: "validating",
+      }),
+    ]);
+    expect(
+      collectionStore("feed_organizations").get("feed-org-1")
+        ?.requestedServiceTransactions,
+    ).toEqual([
+      expect.objectContaining({
+        serviceTransactionId: created.requestId,
+        status: "validating",
+      }),
+    ]);
+    const requesterNotificationReceipt = collectionStore(
+      "service_transaction_requester_notifications",
+    ).get(created.id);
+    expect(requesterNotificationReceipt).toEqual(
+      expect.objectContaining({
+        serviceTransactionId: created.id,
+        requestId: created.requestId,
+        idempotencyKey: created.idempotencyKey,
+        transactionCreatedAt: created.createdAt,
+        status: "sent",
+        attemptCount: 1,
+        serviceName: "Report service",
+        providerName: "Pocket Genes",
+      }),
+    );
+    expect(Object.keys(requesterNotificationReceipt ?? {}).sort()).toEqual(
+      [
+        "serviceTransactionId",
+        "requestId",
+        "idempotencyKey",
+        "transactionCreatedAt",
+        "requesterEmail",
+        "serviceName",
+        "providerName",
+        "status",
+        "attemptToken",
+        "attemptCount",
+        "claimedAt",
+        "sentAt",
+        "failedAt",
+        "lastError",
+        "createdAt",
+        "updatedAt",
+        "createdByEmail",
+        "updatedByEmail",
+      ].sort(),
+    );
+  });
+
+  it("rejects requester notification before sending when the requester no longer exists", async () => {
+    const {
+      createSupportServiceTransaction,
+      notifySupportServiceTransactionRequester,
+    } = await import("../repositories/support-services.repository.js");
+    const created = await createSupportServiceTransaction(
+      context,
+      creationInput(),
+    );
+    collectionStore("community_users").delete("new-user");
+
+    await expect(
+      notifySupportServiceTransactionRequester(context, created.id),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "Requester summary document no longer exists.",
+    });
+
+    expect(
+      mockSendServiceTransactionRequesterConfirmationEmail,
+    ).not.toHaveBeenCalled();
+    expect(
+      collectionStore("service_transaction_requester_notifications").has(
+        created.id,
+      ),
+    ).toBe(false);
+    expect(
+      collectionStore("service_transactions").get(created.id),
+    ).toEqual(
+      expect.objectContaining({
+        status: "received",
+        isRequesterNotified: false,
+      }),
+    );
+  });
+
+  it("rejects requester notification before sending when the provider no longer exists", async () => {
+    const {
+      createSupportServiceTransaction,
+      notifySupportServiceTransactionRequester,
+    } = await import("../repositories/support-services.repository.js");
+    const created = await createSupportServiceTransaction(
+      context,
+      creationInput(),
+    );
+    collectionStore("feed_organizations").delete("feed-org-1");
+
+    await expect(
+      notifySupportServiceTransactionRequester(context, created.id),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "Service provider no longer exists.",
+    });
+
+    expect(
+      mockSendServiceTransactionRequesterConfirmationEmail,
+    ).not.toHaveBeenCalled();
+    expect(
+      collectionStore("service_transaction_requester_notifications").has(
+        created.id,
+      ),
+    ).toBe(false);
+    expect(
+      collectionStore("service_transactions").get(created.id),
+    ).toEqual(
+      expect.objectContaining({
+        status: "received",
+        isRequesterNotified: false,
+      }),
+    );
+  });
+
+  it("rejects requester notification before sending when requestedAt is missing", async () => {
+    const {
+      createSupportServiceTransaction,
+      notifySupportServiceTransactionRequester,
+    } = await import("../repositories/support-services.repository.js");
+    const created = await createSupportServiceTransaction(
+      context,
+      creationInput(),
+    );
+    delete collectionStore("service_transactions").get(created.id)!
+      .requestedAt;
+
+    await expect(
+      notifySupportServiceTransactionRequester(context, created.id),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "requestedAt must be a valid date-time.",
+    });
+    expect(
+      mockSendServiceTransactionRequesterConfirmationEmail,
+    ).not.toHaveBeenCalled();
+    expect(
+      collectionStore("service_transaction_requester_notifications").has(
+        created.id,
+      ),
+    ).toBe(false);
+  });
+
+  it("blocks concurrent transaction updates while requester notification is in progress", async () => {
+    const {
+      createSupportServiceTransaction,
+      notifySupportServiceTransactionRequester,
+      updateSupportServiceTransaction,
+    } = await import("../repositories/support-services.repository.js");
+    const created = await createSupportServiceTransaction(
+      context,
+      creationInput(),
+    );
+    let signalEmailStarted!: () => void;
+    let releaseEmail!: () => void;
+    const emailStarted = new Promise<void>((resolve) => {
+      signalEmailStarted = resolve;
+    });
+    const emailPending = new Promise<void>((resolve) => {
+      releaseEmail = resolve;
+    });
+    mockSendServiceTransactionRequesterConfirmationEmail.mockImplementationOnce(
+      async () => {
+        signalEmailStarted();
+        await emailPending;
+      },
+    );
+
+    const notification = notifySupportServiceTransactionRequester(
+      context,
+      created.id,
+    );
+    await emailStarted;
+
+    await expect(
+      updateSupportServiceTransaction(context, created.id, {
+        status: "accepted",
+      }),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message:
+        "Requester notification is in progress. Transaction updates are temporarily blocked.",
+    });
+    expect(
+      collectionStore("service_transactions").get(created.id),
+    ).toEqual(
+      expect.objectContaining({
+        status: "received",
+        isRequesterNotified: false,
+      }),
+    );
+
+    releaseEmail();
+    await expect(notification).resolves.toEqual(
+      expect.objectContaining({
+        status: "validating",
+        isRequesterNotified: true,
+      }),
+    );
+  });
+
+  it("blocks deletion while requester notification is in progress", async () => {
+    const {
+      createSupportServiceTransaction,
+      deleteSupportServiceTransaction,
+      notifySupportServiceTransactionRequester,
+    } = await import("../repositories/support-services.repository.js");
+    const created = await createSupportServiceTransaction(
+      context,
+      creationInput(),
+    );
+    let signalEmailStarted!: () => void;
+    let releaseEmail!: () => void;
+    const emailStarted = new Promise<void>((resolve) => {
+      signalEmailStarted = resolve;
+    });
+    const emailPending = new Promise<void>((resolve) => {
+      releaseEmail = resolve;
+    });
+    mockSendServiceTransactionRequesterConfirmationEmail.mockImplementationOnce(
+      async () => {
+        signalEmailStarted();
+        await emailPending;
+      },
+    );
+
+    const notification = notifySupportServiceTransactionRequester(
+      context,
+      created.id,
+    );
+    await emailStarted;
+
+    await expect(
+      deleteSupportServiceTransaction(context, created.id),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message:
+        "Requester notification must finish before the service transaction can be deleted.",
+    });
+    expect(collectionStore("service_transactions").has(created.id)).toBe(
+      true,
+    );
+    expect(
+      collectionStore("service_transaction_requester_notifications").get(
+        created.id,
+      ),
+    ).toEqual(expect.objectContaining({ status: "sending" }));
+
+    releaseEmail();
+    await expect(notification).resolves.toEqual(
+      expect.objectContaining({
+        status: "validating",
+        isRequesterNotified: true,
+      }),
+    );
+  });
+
+  it("rejects a requester receipt from a different transaction creation", async () => {
+    const {
+      createSupportServiceTransaction,
+      notifySupportServiceTransactionRequester,
+    } = await import("../repositories/support-services.repository.js");
+    const created = await createSupportServiceTransaction(
+      context,
+      creationInput(),
+    );
+    seedDoc("service_transaction_requester_notifications", created.id, {
+      serviceTransactionId: created.id,
+      requestId: created.requestId,
+      idempotencyKey: "stale-idempotency-key",
+      transactionCreatedAt: "2025-01-01T00:00:00.000Z",
+      requesterEmail: created.requestedByUserEmail,
+      serviceName: "Report service",
+      providerName: "Pocket Genes",
+      status: "failed",
+      attemptToken: null,
+      attemptCount: 1,
+      claimedAt: "2026-09-16T12:00:00.000Z",
+      sentAt: null,
+      failedAt: "2026-09-16T12:00:00.000Z",
+      lastError: "Confirmed provider rejection",
+      createdAt: "2026-09-16T12:00:00.000Z",
+      updatedAt: "2026-09-16T12:00:00.000Z",
+      createdByEmail: context.email,
+      updatedByEmail: context.email,
+    });
+
+    await expect(
+      notifySupportServiceTransactionRequester(context, created.id),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: "Requester notification receipt is inconsistent.",
+    });
+    expect(
+      mockSendServiceTransactionRequesterConfirmationEmail,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("rejects noncanonical requester-receipt aliases without preserving them", async () => {
+    const {
+      createSupportServiceTransaction,
+      notifySupportServiceTransactionRequester,
+    } = await import("../repositories/support-services.repository.js");
+    const created = await createSupportServiceTransaction(
+      context,
+      creationInput(),
+    );
+    seedDoc("service_transaction_requester_notifications", created.id, {
+      serviceTransactionId: created.id,
+      requestId: created.requestId,
+      idempotencyKey: created.idempotencyKey,
+      transactionCreatedAt: created.createdAt,
+      requesterEmail: created.requestedByUserEmail,
+      serviceName: "Report service",
+      providerName: "Pocket Genes",
+      status: "failed",
+      attemptToken: null,
+      attemptCount: 1,
+      claimedAt: "2026-09-16T12:00:00.000Z",
+      sentAt: null,
+      failedAt: "2026-09-16T12:00:00.000Z",
+      lastError: "Confirmed provider rejection",
+      createdAt: "2026-09-16T12:00:00.000Z",
+      updatedAt: "2026-09-16T12:00:00.000Z",
+      createdByEmail: context.email,
+      updatedByEmail: context.email,
+      requester_email: created.requestedByUserEmail,
+    });
+
+    await expect(
+      notifySupportServiceTransactionRequester(context, created.id),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: "Requester notification receipt is inconsistent.",
+    });
+    expect(
+      mockSendServiceTransactionRequesterConfirmationEmail,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("uses a sent requester receipt to finish state without sending a duplicate", async () => {
+    const {
+      createSupportServiceTransaction,
+      notifySupportServiceTransactionRequester,
+    } = await import("../repositories/support-services.repository.js");
+    const created = await createSupportServiceTransaction(
+      context,
+      creationInput(),
+    );
+    mockSendServiceTransactionRequesterConfirmationEmail.mockImplementationOnce(
+      async () => {
+        beforeNextTransaction = () => {
+          beforeNextTransaction = () => {
+            throw new Error("Firestore unavailable while saving root state");
+          };
+        };
+      },
+    );
+
+    await expect(
+      notifySupportServiceTransactionRequester(context, created.id),
+    ).rejects.toMatchObject({ statusCode: 503 });
+    expect(
+      collectionStore("service_transaction_requester_notifications").get(
+        created.id,
+      ),
+    ).toEqual(expect.objectContaining({ status: "sent" }));
+    expect(
+      collectionStore("service_transactions").get(created.id),
+    ).toEqual(
+      expect.objectContaining({
+        status: "received",
+        isRequesterNotified: false,
+      }),
+    );
+
+    await expect(
+      notifySupportServiceTransactionRequester(context, created.id),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        status: "validating",
+        isRequesterNotified: true,
+      }),
+    );
+    expect(
+      mockSendServiceTransactionRequesterConfirmationEmail,
+    ).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps an ambiguous requester send claimed instead of risking a duplicate", async () => {
+    const {
+      createSupportServiceTransaction,
+      notifySupportServiceTransactionRequester,
+    } = await import("../repositories/support-services.repository.js");
+    const created = await createSupportServiceTransaction(
+      context,
+      creationInput(),
+    );
+    mockSendServiceTransactionRequesterConfirmationEmail.mockImplementationOnce(
+      async () => {
+        beforeNextTransaction = () => {
+          throw new Error("Firestore unavailable after email acceptance");
+        };
+      },
+    );
+
+    await expect(
+      notifySupportServiceTransactionRequester(context, created.id),
+    ).rejects.toMatchObject({ statusCode: 503 });
+    await expect(
+      notifySupportServiceTransactionRequester(context, created.id),
+    ).rejects.toMatchObject({ statusCode: 409 });
+
+    expect(
+      mockSendServiceTransactionRequesterConfirmationEmail,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      collectionStore("service_transaction_requester_notifications").get(
+        created.id,
+      ),
+    ).toEqual(expect.objectContaining({ status: "sending" }));
+  });
+
+  it("leaves requester notification state unchanged when email delivery fails", async () => {
+    const {
+      createSupportServiceTransaction,
+      notifySupportServiceTransactionRequester,
+    } = await import("../repositories/support-services.repository.js");
+    const created = await createSupportServiceTransaction(
+      context,
+      creationInput(),
+    );
+    mockSendServiceTransactionRequesterConfirmationEmail.mockRejectedValueOnce(
+      new Error("private mail-provider detail"),
+    );
+
+    await expect(
+      notifySupportServiceTransactionRequester(context, created.id),
+    ).rejects.toMatchObject({
+      statusCode: 502,
+      message: "Requester confirmation email could not be sent.",
+    });
+    expect(
+      collectionStore("service_transactions").get(created.id),
+    ).toMatchObject({
+      status: "received",
+      isRequesterNotified: false,
+      requestRevision: 1,
+    });
+    expect(
+      collectionStore("service_transaction_requester_notifications").get(
+        created.id,
+      ),
+    ).toEqual(expect.objectContaining({ status: "failed" }));
+  });
+
+  it("keeps an unknown Gmail delivery outcome claimed without retrying", async () => {
+    const { GmailDeliveryOutcomeUnknownError } = await import(
+      "../lib/gmail-mailer.js"
+    );
+    const {
+      createSupportServiceTransaction,
+      notifySupportServiceTransactionRequester,
+    } = await import("../repositories/support-services.repository.js");
+    const created = await createSupportServiceTransaction(
+      context,
+      creationInput(),
+    );
+    mockSendServiceTransactionRequesterConfirmationEmail.mockRejectedValueOnce(
+      new GmailDeliveryOutcomeUnknownError(new TypeError("fetch failed")),
+    );
+
+    await expect(
+      notifySupportServiceTransactionRequester(context, created.id),
+    ).rejects.toMatchObject({
+      statusCode: 503,
+      message:
+        "Requester confirmation email delivery outcome is unknown. Review the durable receipt before retrying.",
+    });
+    await expect(
+      notifySupportServiceTransactionRequester(context, created.id),
+    ).rejects.toMatchObject({ statusCode: 409 });
+
+    expect(
+      mockSendServiceTransactionRequesterConfirmationEmail,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      collectionStore("service_transaction_requester_notifications").get(
+        created.id,
+      ),
+    ).toEqual(expect.objectContaining({ status: "sending" }));
+    expect(
+      collectionStore("service_transactions").get(created.id),
+    ).toEqual(
+      expect.objectContaining({
+        status: "received",
+        isRequesterNotified: false,
+      }),
+    );
+  });
+
+  it("defaults a legacy missing requester notification flag and preserves it through updates", async () => {
+    const {
+      createSupportServiceTransaction,
+      getSupportServiceTransaction,
+      updateSupportServiceTransaction,
+    } = await import("../repositories/support-services.repository.js");
+    const created = await createSupportServiceTransaction(
+      context,
+      creationInput(),
+    );
+    const stored = collectionStore("service_transactions").get(created.id)!;
+    delete stored.isRequesterNotified;
+
+    await expect(
+      getSupportServiceTransaction(context, created.id),
+    ).resolves.toEqual(
+      expect.objectContaining({ isRequesterNotified: false }),
+    );
+    const updated = await updateSupportServiceTransaction(
+      context,
+      created.id,
+      { status: "validating" },
+    );
+    expect(updated.isRequesterNotified).toBe(false);
+    expect(
+      collectionStore("service_transactions").get(created.id),
+    ).toEqual(expect.objectContaining({ isRequesterNotified: false }));
+  });
+
+  it("rejects unauthorized states and direct requester-notification field writes", async () => {
+    const {
+      createSupportServiceTransaction,
+      notifySupportServiceTransactionRequester,
+      updateSupportServiceTransaction,
+    } = await import("../repositories/support-services.repository.js");
+
+    await expect(
+      createSupportServiceTransaction(context, {
+        ...creationInput(),
+        is_requester_notified: true,
+      } as never),
+    ).rejects.toThrow(
+      "Service transaction uses forbidden snake-case field: is_requester_notified.",
+    );
+    await expect(
+      createSupportServiceTransaction(context, {
+        ...creationInput(),
+        isRequesterNotified: true,
+      }),
+    ).rejects.toThrow(
+      "New service transactions cannot start with requester notification already completed.",
+    );
+    const created = await createSupportServiceTransaction(
+      context,
+      creationInput(),
+    );
+    const stored = collectionStore("service_transactions").get(created.id)!;
+    stored.is_requester_notified = true;
+    await expect(
+      createSupportServiceTransaction(context, creationInput()),
+    ).rejects.toThrow(
+      "Stored service transaction uses forbidden snake-case field: is_requester_notified.",
+    );
+    await expect(
+      notifySupportServiceTransactionRequester(context, created.id),
+    ).rejects.toThrow(
+      "Stored service transaction uses forbidden snake-case field: is_requester_notified.",
+    );
+    expect(
+      mockSendServiceTransactionRequesterConfirmationEmail,
+    ).not.toHaveBeenCalled();
+    delete stored.is_requester_notified;
+    await expect(
+      updateSupportServiceTransaction(context, created.id, {
+        isRequesterNotified: true,
+      }),
+    ).rejects.toThrow("dedicated notify-requester command");
+    await expect(
+      notifySupportServiceTransactionRequester(
+        organizationPublisherContext,
+        created.id,
+      ),
+    ).rejects.toMatchObject({ statusCode: 403 });
+    await updateSupportServiceTransaction(context, created.id, {
+      status: "accepted",
+    });
+    await expect(
+      notifySupportServiceTransactionRequester(context, created.id),
+    ).rejects.toThrow(
+      "cannot transition to validating after requester notification",
+    );
+    expect(
+      mockSendServiceTransactionRequesterConfirmationEmail,
+    ).not.toHaveBeenCalled();
   });
 
   it("creates, updates, and deletes an email-only transaction through its deferred index", async () => {

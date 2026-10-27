@@ -37,6 +37,16 @@ type SendAsResponse = {
   error?: { message?: string };
 };
 
+export class GmailDeliveryOutcomeUnknownError extends Error {
+  constructor(cause: unknown) {
+    super(
+      "Gmail delivery outcome is unknown because the send request did not return a response",
+      { cause },
+    );
+    this.name = "GmailDeliveryOutcomeUnknownError";
+  }
+}
+
 function requiredEnv(name: string) {
   const value = process.env[name]?.trim();
   if (!value) {
@@ -405,21 +415,32 @@ export async function sendGmailMessage(
   const user = encodeURIComponent(
     requiredConfigured(options.user ?? process.env.GMAIL_USER, "GMAIL_USER"),
   );
-  const response = await fetch(
-    `https://gmail.googleapis.com/gmail/v1/users/${user}/messages/send`,
-    {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${accessToken}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ raw: buildRawGmailMessage(message, options) }),
+  const sendUrl =
+    `https://gmail.googleapis.com/gmail/v1/users/${user}/messages/send`;
+  const sendOptions = {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      "content-type": "application/json",
     },
-  );
+    body: JSON.stringify({ raw: buildRawGmailMessage(message, options) }),
+  };
+  let response: Response;
+  try {
+    response = await fetch(sendUrl, sendOptions);
+  } catch (cause) {
+    throw new GmailDeliveryOutcomeUnknownError(cause);
+  }
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as {
       error?: { message?: string };
     } | null;
-    throw new Error(payload?.error?.message ?? "Gmail API rejected the message");
+    const rejectionError = new Error(
+      payload?.error?.message ?? "Gmail API rejected the message",
+    );
+    if (response.status >= 500) {
+      throw new GmailDeliveryOutcomeUnknownError(rejectionError);
+    }
+    throw rejectionError;
   }
 }

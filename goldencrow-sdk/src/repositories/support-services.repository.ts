@@ -17,6 +17,11 @@ import {
 } from "../lib/favicon.js";
 import { identifyPgiNativeModel } from "../lib/pgi-native-schema.js";
 import { serializedPgoObjectSchemaError } from "../lib/pgo-object-schema.js";
+import { GmailDeliveryOutcomeUnknownError } from "../lib/gmail-mailer.js";
+import {
+  SERVICE_TRANSACTION_REQUESTER_CONFIRMATION_MAX_EMAIL_LENGTH,
+  SERVICE_TRANSACTION_REQUESTER_CONFIRMATION_MAX_NAME_LENGTH,
+} from "../lib/service-transaction-requester-confirmation-contract.js";
 import {
   TWO_PQ_REPORT_OWNER_EMAIL,
   TWO_PQ_REPORT_OWNER_ID,
@@ -26,6 +31,9 @@ import {
   buildServiceTransactionOwnerNotificationEmail,
   sendServiceTransactionOwnerNotificationEmail,
 } from "../lib/service-transaction-owner-notification-email.js";
+import {
+  sendServiceTransactionRequesterConfirmationEmail,
+} from "../lib/service-transaction-requester-confirmation-email.js";
 import {
   ServiceTransactionNotificationRoutingError,
 } from "../lib/service-transaction-notification-routing.js";
@@ -53,6 +61,8 @@ const SERVICE_TRANSACTION_IDEMPOTENCY_COLLECTION =
   "service_transaction_idempotency";
 const SERVICE_TRANSACTION_NOTIFICATIONS_COLLECTION =
   "service_transaction_notifications";
+const SERVICE_TRANSACTION_REQUESTER_NOTIFICATIONS_COLLECTION =
+  "service_transaction_requester_notifications";
 const SERVICE_TRANSACTION_NOTIFICATION_RESENDS_COLLECTION =
   "service_transaction_notification_resends";
 const OBJECT_CODES_COLLECTION = "object_codes";
@@ -782,6 +792,7 @@ export interface SupportServiceTransactionInput {
   providerId?: string;
   providerKind?: SupportServiceProviderKind;
   status?: SupportServiceTransactionStatus;
+  isRequesterNotified?: boolean;
   requestedByUserId?: string;
   requestedByUserEmail?: string;
   requestedAt?: string;
@@ -811,6 +822,7 @@ export interface SupportServiceTransactionRecord {
   providerId: string;
   providerKind: SupportServiceProviderKind;
   status: SupportServiceTransactionStatus;
+  isRequesterNotified: boolean;
   requestedByUserId?: string;
   requestedByUserEmail?: string;
   requestedAt?: string;
@@ -1056,6 +1068,7 @@ const FORBIDDEN_TRANSACTION_ROOT_KEYS = [
   "service_version",
   "provider_id",
   "provider_kind",
+  "is_requester_notified",
   "requested_by_user_id",
   "requested_by_user_email",
   "requested_at",
@@ -2901,6 +2914,10 @@ function transactionDocument(input: SupportServiceTransactionInput) {
     providerId,
     providerKind: normalizeProviderKind(input.providerKind, true),
     status: normalizeTransactionStatus(input.status, true),
+    isRequesterNotified: strictBoolean(
+      input.isRequesterNotified,
+      "isRequesterNotified",
+    ),
     requestedByUserId: requestedByUserId || undefined,
     requestedByUserEmail: requestedByUserEmail || undefined,
     requestedAt,
@@ -6244,6 +6261,10 @@ function toTransactionRecord(id: string, data: Record<string, unknown>) {
     providerId: cleanString(data.providerId),
     providerKind: normalizeProviderKind(data.providerKind, true),
     status: normalizeTransactionStatus(data.status, true),
+    isRequesterNotified: strictBoolean(
+      data.isRequesterNotified,
+      "isRequesterNotified",
+    ),
     requestedByUserId: requestedByUserId || undefined,
     requestedByUserEmail: requestedByUserEmail || undefined,
     requestedAt: timestampToIso(data.requestedAt),
@@ -6402,6 +6423,10 @@ function toTransactionAdminRecord(
     providerId: cleanString(data.providerId),
     providerKind: normalizeProviderKind(data.providerKind),
     status: normalizeTransactionStatus(data.status),
+    isRequesterNotified:
+      typeof data.isRequesterNotified === "boolean"
+        ? data.isRequesterNotified
+        : false,
     requestedByUserId: requestedByUserId || undefined,
     requestedByUserEmail: requestedByUserEmail || undefined,
     requestedAt: timestampToIso(data.requestedAt),
@@ -9170,6 +9195,12 @@ async function createSupportServiceTransactionWithPolicy(
       400,
     );
   }
+  if (input.isRequesterNotified === true) {
+    throw new AdminRepositoryError(
+      "New service transactions cannot start with requester notification already completed.",
+      400,
+    );
+  }
   if (
     (input.outputObjects?.length ?? 0) > 0 ||
     (input.outputReports?.length ?? 0) > 0
@@ -9195,6 +9226,7 @@ async function createSupportServiceTransactionWithPolicy(
     providerId: offer.providerId,
     providerKind: offer.providerKind,
     status: "received",
+    isRequesterNotified: false,
     requestedAt: undefined,
     requestRevision: 1,
     outputObjects: [],
@@ -12273,7 +12305,11 @@ async function persistSupportServiceTransactionUpdate(
   context: AdminContext,
   transactionId: string,
   input: SupportServiceTransactionInput,
-  options: { allowDelivery: boolean; requireSupportServicesAccess: boolean },
+  options: {
+    allowDelivery: boolean;
+    requireSupportServicesAccess: boolean;
+    allowRequesterNotificationUpdate?: boolean;
+  },
 ) {
   let accessScope: SupportServicesAccessScope | undefined;
   if (options.requireSupportServicesAccess) {
@@ -12339,6 +12375,25 @@ async function persistSupportServiceTransactionUpdate(
       409,
     );
   }
+  if (
+    input.isRequesterNotified !== undefined &&
+    input.isRequesterNotified !== previous.isRequesterNotified &&
+    !options.allowRequesterNotificationUpdate
+  ) {
+    throw new AdminRepositoryError(
+      "Requester notification state can only be changed through the dedicated notify-requester command.",
+      409,
+    );
+  }
+  if (
+    previous.isRequesterNotified &&
+    input.isRequesterNotified === false
+  ) {
+    throw new AdminRepositoryError(
+      "Requester notification state cannot be cleared after delivery.",
+      409,
+    );
+  }
   rejectImmutableTransactionChanges(input, previous);
   const offer = offerFromFrozenTransaction(previous);
   const document = applyFrozenTransactionOfferContract(
@@ -12351,6 +12406,8 @@ async function persistSupportServiceTransactionUpdate(
       providerId: previous.providerId,
       providerKind: previous.providerKind,
       status: input.status ?? previous.status,
+      isRequesterNotified:
+        input.isRequesterNotified ?? previous.isRequesterNotified,
       name: previous.name,
       customTransactionName: Object.prototype.hasOwnProperty.call(
         input,
@@ -12406,15 +12463,25 @@ async function persistSupportServiceTransactionUpdate(
         : FEED_ORGANIZATIONS_COLLECTION,
     )
     .doc(previous.providerId);
+  const requesterNotificationRef = adminDb
+    .collection(SERVICE_TRANSACTION_REQUESTER_NOTIFICATIONS_COLLECTION)
+    .doc(snapshot.id);
   await adminDb.runTransaction(async (firestoreTransaction) => {
-    const [latestSnapshot, userSnapshot, providerDocumentSnapshot] =
-      await Promise.all([
-        firestoreTransaction.get(snapshot.ref),
-        userRef
-          ? firestoreTransaction.get(userRef)
-          : Promise.resolve(undefined),
-        firestoreTransaction.get(providerRef),
-      ]);
+    const [
+      latestSnapshot,
+      userSnapshot,
+      providerDocumentSnapshot,
+      requesterNotificationSnapshot,
+    ] = await Promise.all([
+      firestoreTransaction.get(snapshot.ref),
+      userRef
+        ? firestoreTransaction.get(userRef)
+        : Promise.resolve(undefined),
+      firestoreTransaction.get(providerRef),
+      options.allowRequesterNotificationUpdate
+        ? Promise.resolve(undefined)
+        : firestoreTransaction.get(requesterNotificationRef),
+    ]);
     if (!latestSnapshot.exists) {
       throw new AdminRepositoryError("Service transaction not found.", 404);
     }
@@ -12443,6 +12510,20 @@ async function persistSupportServiceTransactionUpdate(
     ) {
       throw new AdminRepositoryError(
         "Requester identity changed while the service transaction was being updated.",
+        409,
+      );
+    }
+    const requesterNotificationStatus = cleanString(
+      requesterNotificationSnapshot?.data()?.status,
+    );
+    if (
+      !options.allowRequesterNotificationUpdate &&
+      !latest.isRequesterNotified &&
+      (requesterNotificationStatus === "sending" ||
+        requesterNotificationStatus === "sent")
+    ) {
+      throw new AdminRepositoryError(
+        "Requester notification is in progress. Transaction updates are temporarily blocked.",
         409,
       );
     }
@@ -12573,6 +12654,569 @@ export async function updateSupportServiceTransaction(
     allowDelivery: false,
     requireSupportServicesAccess: true,
   });
+}
+
+type SupportServiceTransactionRequesterNotificationClaim =
+  | {
+      status: "complete";
+      transaction: SupportServiceTransactionRecord;
+    }
+  | {
+      status: "sent" | "in_progress";
+      transactionId: string;
+    }
+  | {
+      status: "claimed";
+      transactionId: string;
+      attemptToken: string;
+      email: Parameters<
+        typeof sendServiceTransactionRequesterConfirmationEmail
+      >[0];
+    };
+
+function requesterConfirmationEmailInput(
+  transaction: SupportServiceTransactionRecord,
+) {
+  const requesterEmail = cleanString(
+    transaction.requestedByUserEmail,
+  ).toLowerCase();
+  if (
+    !REQUESTER_EMAIL_PATTERN.test(requesterEmail) ||
+    requesterEmail.length >
+      SERVICE_TRANSACTION_REQUESTER_CONFIRMATION_MAX_EMAIL_LENGTH
+  ) {
+    throw new AdminRepositoryError(
+      "Service transaction requires a valid requester email before notification.",
+      409,
+    );
+  }
+  if (
+    transaction.status !== "received" &&
+    transaction.status !== "validating" &&
+    transaction.status !== "awaiting_input"
+  ) {
+    throw new AdminRepositoryError(
+      `Service transaction status ${transaction.status} cannot transition to validating after requester notification.`,
+      409,
+    );
+  }
+
+  const serviceName =
+    cleanString(transaction.offerSnapshot.name) ||
+    cleanString(transaction.name);
+  const providerName =
+    cleanString(transaction.providerSnapshot.name) ||
+    cleanString(transaction.offerSnapshot.providerName);
+  if (
+    !serviceName ||
+    serviceName.length >
+      SERVICE_TRANSACTION_REQUESTER_CONFIRMATION_MAX_NAME_LENGTH ||
+    !providerName ||
+    providerName.length >
+      SERVICE_TRANSACTION_REQUESTER_CONFIRMATION_MAX_NAME_LENGTH
+  ) {
+    throw new AdminRepositoryError(
+      "Service transaction requires bounded service and provider names before requester notification.",
+      409,
+    );
+  }
+
+  return {
+    requesterEmail,
+    items: [{ serviceName, providerName }],
+  };
+}
+
+function requesterNotificationReceiptIdentity(
+  transaction: SupportServiceTransactionRecord,
+) {
+  const idempotencyKey = cleanString(transaction.idempotencyKey);
+  const transactionCreatedAt = cleanString(transaction.createdAt);
+  if (!idempotencyKey || !transactionCreatedAt) {
+    throw new AdminRepositoryError(
+      "Service transaction requires stable creation identity before requester notification.",
+      409,
+    );
+  }
+  return { idempotencyKey, transactionCreatedAt };
+}
+
+const REQUESTER_NOTIFICATION_RECEIPT_KEYS = new Set([
+  "serviceTransactionId",
+  "requestId",
+  "idempotencyKey",
+  "transactionCreatedAt",
+  "requesterEmail",
+  "serviceName",
+  "providerName",
+  "status",
+  "attemptToken",
+  "attemptCount",
+  "claimedAt",
+  "sentAt",
+  "failedAt",
+  "lastError",
+  "createdAt",
+  "updatedAt",
+  "createdByEmail",
+  "updatedByEmail",
+]);
+
+type RequesterNotificationReceipt = {
+  serviceTransactionId: string;
+  requestId: string;
+  idempotencyKey: string;
+  transactionCreatedAt: string;
+  requesterEmail: string;
+  serviceName: string;
+  providerName: string;
+  status: "sending" | "sent" | "failed";
+  attemptToken: string | null;
+  attemptCount: number;
+  claimedAt: unknown;
+  sentAt: unknown | null;
+  failedAt: unknown | null;
+  lastError: string | null;
+  createdAt: unknown;
+  updatedAt: unknown;
+  createdByEmail: string;
+  updatedByEmail: string;
+};
+
+function inconsistentRequesterNotificationReceipt(): never {
+  throw new AdminRepositoryError(
+    "Requester notification receipt is inconsistent.",
+    409,
+  );
+}
+
+function requesterNotificationReceiptFromData(
+  data: Record<string, unknown>,
+): RequesterNotificationReceipt {
+  if (
+    Object.keys(data).some(
+      (key) => !REQUESTER_NOTIFICATION_RECEIPT_KEYS.has(key),
+    )
+  ) {
+    inconsistentRequesterNotificationReceipt();
+  }
+
+  const status = cleanString(data.status);
+  const attemptToken =
+    data.attemptToken === null ? null : cleanString(data.attemptToken);
+  const sentAt = data.sentAt === null ? null : data.sentAt;
+  const failedAt = data.failedAt === null ? null : data.failedAt;
+  const lastError =
+    data.lastError === null ? null : cleanString(data.lastError);
+  const receipt: RequesterNotificationReceipt = {
+    serviceTransactionId: cleanString(data.serviceTransactionId),
+    requestId: cleanString(data.requestId),
+    idempotencyKey: cleanString(data.idempotencyKey),
+    transactionCreatedAt: cleanString(data.transactionCreatedAt),
+    requesterEmail: cleanString(data.requesterEmail).toLowerCase(),
+    serviceName: cleanString(data.serviceName),
+    providerName: cleanString(data.providerName),
+    status:
+      status === "sending" || status === "sent" || status === "failed"
+        ? status
+        : inconsistentRequesterNotificationReceipt(),
+    attemptToken,
+    attemptCount:
+      typeof data.attemptCount === "number" &&
+      Number.isInteger(data.attemptCount) &&
+      data.attemptCount >= 1
+        ? data.attemptCount
+        : inconsistentRequesterNotificationReceipt(),
+    claimedAt: data.claimedAt,
+    sentAt,
+    failedAt,
+    lastError,
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+    createdByEmail: cleanString(data.createdByEmail),
+    updatedByEmail: cleanString(data.updatedByEmail),
+  };
+
+  if (
+    !receipt.serviceTransactionId ||
+    !receipt.requestId ||
+    !receipt.idempotencyKey ||
+    !timestampToIso(receipt.transactionCreatedAt) ||
+    !REQUESTER_EMAIL_PATTERN.test(receipt.requesterEmail) ||
+    receipt.requesterEmail.length >
+      SERVICE_TRANSACTION_REQUESTER_CONFIRMATION_MAX_EMAIL_LENGTH ||
+    !receipt.serviceName ||
+    receipt.serviceName.length >
+      SERVICE_TRANSACTION_REQUESTER_CONFIRMATION_MAX_NAME_LENGTH ||
+    !receipt.providerName ||
+    receipt.providerName.length >
+      SERVICE_TRANSACTION_REQUESTER_CONFIRMATION_MAX_NAME_LENGTH ||
+    !timestampToIso(receipt.claimedAt) ||
+    !timestampToIso(receipt.createdAt) ||
+    !timestampToIso(receipt.updatedAt) ||
+    !receipt.createdByEmail ||
+    !receipt.updatedByEmail
+  ) {
+    inconsistentRequesterNotificationReceipt();
+  }
+
+  const hasSentAt = Boolean(timestampToIso(receipt.sentAt));
+  const hasFailedAt = Boolean(timestampToIso(receipt.failedAt));
+  if (
+    (receipt.sentAt !== null && !hasSentAt) ||
+    (receipt.failedAt !== null && !hasFailedAt) ||
+    (receipt.status === "sending" &&
+      (!receipt.attemptToken ||
+        receipt.sentAt !== null ||
+        receipt.failedAt !== null ||
+        receipt.lastError !== null)) ||
+    (receipt.status === "sent" &&
+      (receipt.attemptToken !== null ||
+        !hasSentAt ||
+        receipt.failedAt !== null ||
+        receipt.lastError !== null)) ||
+    (receipt.status === "failed" &&
+      (receipt.attemptToken !== null ||
+        receipt.sentAt !== null ||
+        !hasFailedAt ||
+        !receipt.lastError ||
+        receipt.lastError.length > 500))
+  ) {
+    inconsistentRequesterNotificationReceipt();
+  }
+
+  return receipt;
+}
+
+function assertRequesterNotificationTargetValid(
+  transaction: SupportServiceTransactionRecord,
+  context: AdminContext,
+  stored: Record<string, unknown>,
+) {
+  dateFromUnknown(transaction.requestedAt, "requestedAt", true);
+  const offer = offerFromFrozenTransaction(transaction);
+  const document = applyFrozenTransactionOfferContract(
+    transactionDocument({
+      ...transaction,
+      status: "validating",
+      isRequesterNotified: true,
+      requestRevision: transaction.requestRevision + 1,
+    }),
+    offer,
+  );
+  validateTransactionDocument(document, offer, {
+    preservedInputs: transaction.inputs,
+  });
+  assertSupportServiceFirestoreDocumentSize(
+    transactionPersistenceSizeCandidate(document, context, stored),
+    "Service transaction",
+  );
+  assertTransactionStatusTransition(transaction.status, document, {
+    allowDirectDelivery: false,
+  });
+}
+
+function assertRequesterNotificationReceipt(
+  receiptData: Record<string, unknown>,
+  transaction: SupportServiceTransactionRecord,
+  email: ReturnType<typeof requesterConfirmationEmailInput>,
+) {
+  const receipt = requesterNotificationReceiptFromData(receiptData);
+  const item = email.items[0]!;
+  const identity = requesterNotificationReceiptIdentity(transaction);
+  if (
+    receipt.serviceTransactionId !== transaction.id ||
+    receipt.requestId !== transaction.requestId ||
+    receipt.idempotencyKey !== identity.idempotencyKey ||
+    receipt.transactionCreatedAt !==
+      identity.transactionCreatedAt ||
+    receipt.requesterEmail !== email.requesterEmail ||
+    receipt.serviceName !== item.serviceName ||
+    receipt.providerName !== item.providerName
+  ) {
+    inconsistentRequesterNotificationReceipt();
+  }
+  return receipt;
+}
+
+async function finishRequesterNotificationAttempt(
+  transactionId: string,
+  attemptToken: string,
+  result:
+    | { status: "sent" }
+    | { status: "failed"; error: unknown },
+) {
+  const receiptRef = adminDb
+    .collection(SERVICE_TRANSACTION_REQUESTER_NOTIFICATIONS_COLLECTION)
+    .doc(transactionId);
+
+  return adminDb.runTransaction(async (firestoreTransaction) => {
+    const snapshot = await firestoreTransaction.get(receiptRef);
+    if (!snapshot.exists) {
+      return false;
+    }
+    const receipt = requesterNotificationReceiptFromData(
+      snapshot.data() ?? {},
+    );
+    if (
+      receipt.attemptToken !== attemptToken ||
+      receipt.status !== "sending"
+    ) {
+      return false;
+    }
+
+    firestoreTransaction.set(
+      receiptRef,
+      {
+        serviceTransactionId: receipt.serviceTransactionId,
+        requestId: receipt.requestId,
+        idempotencyKey: receipt.idempotencyKey,
+        transactionCreatedAt: receipt.transactionCreatedAt,
+        requesterEmail: receipt.requesterEmail,
+        serviceName: receipt.serviceName,
+        providerName: receipt.providerName,
+        status: result.status,
+        attemptToken: null,
+        attemptCount: receipt.attemptCount,
+        claimedAt: receipt.claimedAt,
+        updatedAt: FieldValue.serverTimestamp(),
+        sentAt:
+          result.status === "sent"
+            ? FieldValue.serverTimestamp()
+            : null,
+        failedAt:
+          result.status === "failed"
+            ? FieldValue.serverTimestamp()
+            : null,
+        lastError:
+          result.status === "failed"
+            ? notificationErrorMessage(result.error)
+            : null,
+        createdAt: receipt.createdAt,
+        createdByEmail: receipt.createdByEmail,
+        updatedByEmail: receipt.updatedByEmail,
+      },
+      { merge: false },
+    );
+    return true;
+  });
+}
+
+export async function notifySupportServiceTransactionRequester(
+  context: AdminContext,
+  transactionIdValue: string,
+) {
+  requireGodMode(context);
+  const snapshot = await getTransactionSnapshotByIdOrRequestId(
+    transactionIdValue,
+  );
+  if (!snapshot) {
+    throw new AdminRepositoryError("Service transaction not found.", 404);
+  }
+  const receiptRef = adminDb
+    .collection(SERVICE_TRANSACTION_REQUESTER_NOTIFICATIONS_COLLECTION)
+    .doc(snapshot.id);
+  const attemptToken = randomUUID();
+
+  const claim =
+    await adminDb.runTransaction<SupportServiceTransactionRequesterNotificationClaim>(
+      async (firestoreTransaction) => {
+        const [transactionSnapshot, receiptSnapshot] = await Promise.all([
+          firestoreTransaction.get(snapshot.ref),
+          firestoreTransaction.get(receiptRef),
+        ]);
+        if (!transactionSnapshot.exists) {
+          throw new AdminRepositoryError(
+            "Service transaction not found.",
+            404,
+          );
+        }
+        const transaction = toTransactionRecord(
+          transactionSnapshot.id,
+          transactionSnapshot.data() ?? {},
+        );
+        if (transaction.isRequesterNotified) {
+          return { status: "complete", transaction };
+        }
+
+        const email = requesterConfirmationEmailInput(transaction);
+        const receiptIdentity =
+          requesterNotificationReceiptIdentity(transaction);
+        assertRequesterNotificationTargetValid(
+          transaction,
+          context,
+          transactionSnapshot.data() ?? {},
+        );
+        const userRef = transaction.requestedByUserId
+          ? adminDb
+              .collection(COMMUNITY_USERS_COLLECTION)
+              .doc(transaction.requestedByUserId)
+          : undefined;
+        const providerRef = adminDb
+          .collection(
+            transaction.providerKind === "individual"
+              ? FEED_INDIVIDUALS_COLLECTION
+              : FEED_ORGANIZATIONS_COLLECTION,
+          )
+          .doc(transaction.providerId);
+        const [userSnapshot, providerSnapshot] = await Promise.all([
+          userRef
+            ? firestoreTransaction.get(userRef)
+            : Promise.resolve(undefined),
+          firestoreTransaction.get(providerRef),
+        ]);
+        if (userRef && !userSnapshot?.exists) {
+          throw new AdminRepositoryError(
+            "Requester summary document no longer exists.",
+            400,
+          );
+        }
+        if (!providerSnapshot.exists) {
+          throw new AdminRepositoryError(
+            "Service provider no longer exists.",
+            400,
+          );
+        }
+        const receiptData = receiptSnapshot.data() ?? {};
+        const existingReceipt = receiptSnapshot.exists
+          ? assertRequesterNotificationReceipt(
+              receiptData,
+              transaction,
+              email,
+            )
+          : undefined;
+        const receiptStatus = existingReceipt?.status;
+        if (receiptStatus === "sent") {
+          return { status: "sent", transactionId: transaction.id };
+        }
+        if (receiptStatus === "sending") {
+          return {
+            status: "in_progress",
+            transactionId: transaction.id,
+          };
+        }
+        if (receiptSnapshot.exists && receiptStatus !== "failed") {
+          throw new AdminRepositoryError(
+            "Requester notification receipt is inconsistent.",
+            409,
+          );
+        }
+
+        const item = email.items[0]!;
+        firestoreTransaction.set(
+          receiptRef,
+          {
+            serviceTransactionId: transaction.id,
+            requestId: transaction.requestId,
+            idempotencyKey: receiptIdentity.idempotencyKey,
+            transactionCreatedAt: receiptIdentity.transactionCreatedAt,
+            requesterEmail: email.requesterEmail,
+            serviceName: item.serviceName,
+            providerName: item.providerName,
+            status: "sending",
+            attemptToken,
+            attemptCount:
+              (existingReceipt?.attemptCount ?? 0) + 1,
+            claimedAt: FieldValue.serverTimestamp(),
+            sentAt: null,
+            failedAt: null,
+            lastError: null,
+            createdAt:
+              existingReceipt?.createdAt ?? FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+            createdByEmail:
+              existingReceipt?.createdByEmail ?? context.email,
+            updatedByEmail: context.email,
+          },
+          { merge: false },
+        );
+        return {
+          status: "claimed",
+          transactionId: transaction.id,
+          attemptToken,
+          email,
+        };
+      },
+    );
+
+  if (claim.status === "complete") {
+    return claim.transaction;
+  }
+  if (claim.status === "in_progress") {
+    throw new AdminRepositoryError(
+      "Requester notification is already in progress. Review its durable receipt before retrying.",
+      409,
+    );
+  }
+  if (claim.status === "claimed") {
+    try {
+      await sendServiceTransactionRequesterConfirmationEmail(claim.email);
+    } catch (error) {
+      if (error instanceof GmailDeliveryOutcomeUnknownError) {
+        // A rejected transport promise does not prove Gmail rejected the
+        // message. Keep the durable sending claim so a retry cannot deliver a
+        // duplicate after an ambiguous provider outcome.
+        throw new AdminRepositoryError(
+          "Requester confirmation email delivery outcome is unknown. Review the durable receipt before retrying.",
+          503,
+        );
+      }
+      try {
+        await finishRequesterNotificationAttempt(
+          claim.transactionId,
+          claim.attemptToken,
+          { status: "failed", error },
+        );
+      } catch {
+        // Keep the durable sending claim when its failure result cannot be
+        // recorded. A later retry must not risk delivering a duplicate.
+      }
+      throw new AdminRepositoryError(
+        "Requester confirmation email could not be sent.",
+        502,
+      );
+    }
+
+    try {
+      const finalized = await finishRequesterNotificationAttempt(
+        claim.transactionId,
+        claim.attemptToken,
+        { status: "sent" },
+      );
+      if (!finalized) {
+        throw new Error("Requester notification receipt changed.");
+      }
+    } catch {
+      // The pre-send claim deliberately has no automatic expiry: when email
+      // acceptance is known but receipt finalization is not, suppressing a
+      // possible duplicate is safer than guessing whether delivery happened.
+      throw new AdminRepositoryError(
+        "Requester confirmation email was accepted, but its durable receipt could not be finalized. Review the receipt before retrying.",
+        503,
+      );
+    }
+  }
+
+  try {
+    return await persistSupportServiceTransactionUpdate(
+      context,
+      claim.transactionId,
+      { status: "validating", isRequesterNotified: true },
+      {
+        allowDelivery: false,
+        requireSupportServicesAccess: true,
+        allowRequesterNotificationUpdate: true,
+      },
+    );
+  } catch (error) {
+    if (error instanceof AdminRepositoryError) {
+      throw error;
+    }
+    throw new AdminRepositoryError(
+      "Requester confirmation email was accepted, but transaction state could not be finalized. Retry the same command.",
+      503,
+    );
+  }
 }
 
 export async function deliverSupportServiceTransaction(
@@ -12828,6 +13472,35 @@ async function deleteSupportServiceTransactionRecord(
   if (!snapshot) {
     throw new AdminRepositoryError("Service transaction not found.", 404);
   }
+  const requesterNotificationRef = adminDb
+    .collection(SERVICE_TRANSACTION_REQUESTER_NOTIFICATIONS_COLLECTION)
+    .doc(snapshot.id);
+  const assertRequesterNotificationAllowsDeletion = async (
+    firestoreTransaction: Transaction,
+  ) => {
+    const [latestTransactionSnapshot, requesterNotificationSnapshot] =
+      await Promise.all([
+        firestoreTransaction.get(snapshot.ref),
+        firestoreTransaction.get(requesterNotificationRef),
+      ]);
+    if (!latestTransactionSnapshot.exists) {
+      throw new AdminRepositoryError("Service transaction not found.", 404);
+    }
+    const latestTransactionData = latestTransactionSnapshot.data() ?? {};
+    const requesterNotificationStatus = cleanString(
+      requesterNotificationSnapshot.data()?.status,
+    );
+    if (
+      requesterNotificationStatus === "sending" ||
+      (requesterNotificationStatus === "sent" &&
+        latestTransactionData.isRequesterNotified !== true)
+    ) {
+      throw new AdminRepositoryError(
+        "Requester notification must finish before the service transaction can be deleted.",
+        409,
+      );
+    }
+  };
 
   const transactionData = snapshot.data() ?? {};
   const requestId = cleanString(transactionData.requestId) || snapshot.id;
@@ -13115,38 +13788,52 @@ async function deleteSupportServiceTransactionRecord(
       if (ownerSnapshot.exists) existingOwnerIds.add(ownerId);
     }
 
-    const batch = adminDb.batch();
-    for (const reference of objectCodeRefs.values()) batch.delete(reference);
-    for (const reference of uploadedObjectRefs.values())
-      batch.delete(reference);
-    for (const reference of reportCodeRefs.values()) batch.delete(reference);
-    for (const reference of uploadedReportRefs.values())
-      batch.delete(reference);
-    for (const reference of storedFileRefs.values()) batch.delete(reference);
-    for (const ownerId of existingOwnerIds) {
-      const patch: Record<string, unknown> = {
-        updatedAt: FieldValue.serverTimestamp(),
-      };
-      const objectIds = [...(ownerObjectIds.get(ownerId) ?? [])];
-      const reportIds = [...(ownerReportIds.get(ownerId) ?? [])];
-      if (objectIds.length > 0) {
-        patch.owned_objects = FieldValue.arrayRemove(...objectIds);
+    await adminDb.runTransaction(async (firestoreTransaction) => {
+      await assertRequesterNotificationAllowsDeletion(firestoreTransaction);
+      for (const reference of objectCodeRefs.values()) {
+        firestoreTransaction.delete(reference);
       }
-      if (reportIds.length > 0) {
-        patch.owned_reports = FieldValue.arrayRemove(...reportIds);
+      for (const reference of uploadedObjectRefs.values()) {
+        firestoreTransaction.delete(reference);
       }
-      batch.set(
-        adminDb.collection(COMMUNITY_USERS_COLLECTION).doc(ownerId),
-        patch,
-        { merge: true },
-      );
-    }
-    batch.delete(snapshot.ref);
-    await batch.commit();
+      for (const reference of reportCodeRefs.values()) {
+        firestoreTransaction.delete(reference);
+      }
+      for (const reference of uploadedReportRefs.values()) {
+        firestoreTransaction.delete(reference);
+      }
+      for (const reference of storedFileRefs.values()) {
+        firestoreTransaction.delete(reference);
+      }
+      for (const ownerId of existingOwnerIds) {
+        const patch: Record<string, unknown> = {
+          updatedAt: FieldValue.serverTimestamp(),
+        };
+        const objectIds = [...(ownerObjectIds.get(ownerId) ?? [])];
+        const reportIds = [...(ownerReportIds.get(ownerId) ?? [])];
+        if (objectIds.length > 0) {
+          patch.owned_objects = FieldValue.arrayRemove(...objectIds);
+        }
+        if (reportIds.length > 0) {
+          patch.owned_reports = FieldValue.arrayRemove(...reportIds);
+        }
+        firestoreTransaction.set(
+          adminDb.collection(COMMUNITY_USERS_COLLECTION).doc(ownerId),
+          patch,
+          { merge: true },
+        );
+      }
+      firestoreTransaction.delete(snapshot.ref);
+      firestoreTransaction.delete(requesterNotificationRef);
+    });
   } else {
-    // An explicit god-mode delete is authoritative. The root is removed first;
-    // malformed data or a secondary-index failure cannot veto that intention.
-    await snapshot.ref.delete();
+    // An explicit god-mode delete is authoritative. Remove its durable email
+    // receipt atomically so a later transaction cannot inherit stale delivery.
+    await adminDb.runTransaction(async (firestoreTransaction) => {
+      await assertRequesterNotificationAllowsDeletion(firestoreTransaction);
+      firestoreTransaction.delete(snapshot.ref);
+      firestoreTransaction.delete(requesterNotificationRef);
+    });
   }
 
   const cleanupWarnings: string[] = [];

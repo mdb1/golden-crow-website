@@ -1667,6 +1667,7 @@ def validate_strict_service_boundary_casing():
         "requestedAt": "2026-09-30T00:00:00Z",
         "requestedAtClient": "2026-09-30T00:00:00Z",
         "status": "received",
+        "isRequesterNotified": False,
         "requestRevision": 1,
         "idempotencyKey": "contract-fixture",
         "inputs": [],
@@ -1713,6 +1714,30 @@ def validate_strict_service_boundary_casing():
     reject(
         lambda: transaction_validator.validate(wrong_custom_name_alias),
         "service_transactions accepted custom_transaction_name",
+    )
+
+    require(
+        transaction_schema["properties"].get("isRequesterNotified", {}).get("type") == "boolean"
+        and "isRequesterNotified" not in transaction_schema["required"],
+        "service_transactions.isRequesterNotified must be an optional boolean for legacy records",
+    )
+    for invalid_requester_notification in (None, 0, 1, "false", "true", {}):
+        invalid_requester_notification_transaction = copy.deepcopy(transaction)
+        invalid_requester_notification_transaction["isRequesterNotified"] = invalid_requester_notification
+        reject(
+            lambda invalid_requester_notification_transaction=invalid_requester_notification_transaction: transaction_validator.validate(
+                invalid_requester_notification_transaction
+            ),
+            f"service_transactions accepted invalid isRequesterNotified {invalid_requester_notification!r}",
+        )
+    missing_requester_notification = copy.deepcopy(transaction)
+    del missing_requester_notification["isRequesterNotified"]
+    transaction_validator.validate(missing_requester_notification)
+    wrong_requester_notification_alias = copy.deepcopy(transaction)
+    wrong_requester_notification_alias["is_requester_notified"] = wrong_requester_notification_alias.pop("isRequesterNotified")
+    reject(
+        lambda: transaction_validator.validate(wrong_requester_notification_alias),
+        "service_transactions accepted is_requester_notified",
     )
 
     output_reports_null = copy.deepcopy(transaction)
@@ -2085,6 +2110,7 @@ def validate_field_key_matrix():
     expected = {
         "service_offers": "lower_camel_case",
         "service_transactions": "lower_camel_case",
+        "service_transaction_requester_notifications": "lower_camel_case",
         "deferred_service_transactions": "snake_case",
         "uploaded_objects": "snake_case",
         "uploaded_reports": "snake_case",
@@ -2125,8 +2151,28 @@ def validate_field_key_matrix():
     for key in more_information_examples:
         require(key in offer_examples, f"service_offers naming examples omit {key}")
     transaction_examples = convention_by_collection["service_transactions"]["examples"]
-    for key in ("customTransactionName", "offerSnapshot", *more_information_examples):
+    for key in ("customTransactionName", "isRequesterNotified", "offerSnapshot", *more_information_examples):
         require(key in transaction_examples, f"service_transactions naming examples omit {key}")
+    requester_notification_examples = convention_by_collection[
+        "service_transaction_requester_notifications"
+    ]["examples"]
+    for key in (
+        "serviceTransactionId",
+        "requestId",
+        "idempotencyKey",
+        "transactionCreatedAt",
+        "requesterEmail",
+        "serviceName",
+        "providerName",
+        "status",
+        "attemptToken",
+        "attemptCount",
+        "sentAt",
+    ):
+        require(
+            key in requester_notification_examples,
+            f"service_transaction_requester_notifications naming examples omit {key}",
+        )
     require(FIELD_KEY_CONVENTIONS["applies_to_nested_maps"] is True, "Collection casing must cover nested maps and maps inside arrays")
     require(FIELD_KEY_CONVENTIONS["compatibility_aliases_allowed"] is False, "Compatibility aliases must remain forbidden")
     serialized = FIELD_KEY_CONVENTIONS["serialized_pgo_content"]
@@ -2134,6 +2180,210 @@ def validate_field_key_matrix():
 
 
 check("field_key_boundary_matrix", validate_field_key_matrix)
+
+
+def validate_service_transaction_requester_notification_contract():
+    schema = read(
+        "schemas/protocol/service-transaction-requester-notifications.schema.json"
+    )
+    validator = schema_validator(schema)
+    timestamp = "2026-10-27T12:34:56Z"
+    sending_receipt = {
+        "serviceTransactionId": "pgr_ios_receipt_fixture",
+        "requestId": "pgr_ios_receipt_fixture",
+        "idempotencyKey": "receipt-fixture-idempotency-key",
+        "transactionCreatedAt": "2026-10-27T12:00:00Z",
+        "requesterEmail": "requester@example.com",
+        "serviceName": "Genetic counseling",
+        "providerName": "Pocket Genes",
+        "status": "sending",
+        "attemptToken": "123e4567-e89b-42d3-a456-426614174000",
+        "attemptCount": 1,
+        "claimedAt": timestamp,
+        "sentAt": None,
+        "failedAt": None,
+        "lastError": None,
+        "createdAt": timestamp,
+        "updatedAt": timestamp,
+        "createdByEmail": "god@example.com",
+        "updatedByEmail": "god@example.com",
+    }
+    validator.validate(sending_receipt)
+
+    sent_receipt = copy.deepcopy(sending_receipt)
+    sent_receipt.update({
+        "status": "sent",
+        "attemptToken": None,
+        "sentAt": "2026-10-27T12:35:00Z",
+    })
+    validator.validate(sent_receipt)
+
+    failed_receipt = copy.deepcopy(sending_receipt)
+    failed_receipt.update({
+        "status": "failed",
+        "attemptToken": None,
+        "attemptCount": 2,
+        "failedAt": "2026-10-27T12:35:00Z",
+        "lastError": "The mail provider rejected the notification.",
+    })
+    validator.validate(failed_receipt)
+
+    expected_properties = set(
+        next(
+            entry["examples"]
+            for entry in FIELD_KEY_CONVENTIONS["collections"]
+            if entry["collection"]
+            == "service_transaction_requester_notifications"
+        )
+    )
+    require(
+        set(schema["properties"]) == expected_properties,
+        "Requester-notification receipt schema and field-key matrix differ",
+    )
+
+    for required_key in schema["required"]:
+        missing_required = copy.deepcopy(sending_receipt)
+        del missing_required[required_key]
+        reject(
+            lambda missing_required=missing_required: validator.validate(
+                missing_required
+            ),
+            f"Requester-notification receipt accepted missing {required_key}",
+        )
+
+    for invalid_status in (None, "", "delivered", "in_progress", "Sending"):
+        invalid_status_receipt = copy.deepcopy(sending_receipt)
+        invalid_status_receipt["status"] = invalid_status
+        reject(
+            lambda invalid_status_receipt=invalid_status_receipt: validator.validate(
+                invalid_status_receipt
+            ),
+            f"Requester-notification receipt accepted invalid status {invalid_status!r}",
+        )
+
+    invalid_state_receipts = (
+        ("sending without an attempt token", {"attemptToken": None}),
+        ("sending with sentAt", {"sentAt": timestamp}),
+        ("sending with failedAt", {"failedAt": timestamp}),
+        ("sending with lastError", {"lastError": "Unexpected state"}),
+        (
+            "sent with an attempt token",
+            {
+                "status": "sent",
+                "sentAt": timestamp,
+            },
+        ),
+        (
+            "sent without sentAt",
+            {
+                "status": "sent",
+                "attemptToken": None,
+            },
+        ),
+        (
+            "sent with failedAt",
+            {
+                "status": "sent",
+                "attemptToken": None,
+                "sentAt": timestamp,
+                "failedAt": timestamp,
+            },
+        ),
+        (
+            "sent with lastError",
+            {
+                "status": "sent",
+                "attemptToken": None,
+                "sentAt": timestamp,
+                "lastError": "Unexpected state",
+            },
+        ),
+        (
+            "failed with an attempt token",
+            {
+                "status": "failed",
+                "failedAt": timestamp,
+                "lastError": "Provider failure",
+            },
+        ),
+        (
+            "failed with sentAt",
+            {
+                "status": "failed",
+                "attemptToken": None,
+                "sentAt": timestamp,
+                "failedAt": timestamp,
+                "lastError": "Provider failure",
+            },
+        ),
+        (
+            "failed without failedAt",
+            {
+                "status": "failed",
+                "attemptToken": None,
+                "lastError": "Provider failure",
+            },
+        ),
+        (
+            "failed without lastError",
+            {
+                "status": "failed",
+                "attemptToken": None,
+                "failedAt": timestamp,
+            },
+        ),
+    )
+    for label, overrides in invalid_state_receipts:
+        invalid_state_receipt = copy.deepcopy(sending_receipt)
+        invalid_state_receipt.update(overrides)
+        reject(
+            lambda invalid_state_receipt=invalid_state_receipt: validator.validate(
+                invalid_state_receipt
+            ),
+            f"Requester-notification receipt accepted {label}",
+        )
+
+    snake_case_aliases = {
+        "serviceTransactionId": "service_transaction_id",
+        "requestId": "request_id",
+        "idempotencyKey": "idempotency_key",
+        "transactionCreatedAt": "transaction_created_at",
+        "requesterEmail": "requester_email",
+        "serviceName": "service_name",
+        "providerName": "provider_name",
+        "attemptToken": "attempt_token",
+        "attemptCount": "attempt_count",
+        "claimedAt": "claimed_at",
+        "sentAt": "sent_at",
+        "failedAt": "failed_at",
+        "lastError": "last_error",
+        "createdAt": "created_at",
+        "updatedAt": "updated_at",
+        "createdByEmail": "created_by_email",
+        "updatedByEmail": "updated_by_email",
+    }
+    for canonical_key, snake_case_alias in snake_case_aliases.items():
+        aliased_receipt = copy.deepcopy(sending_receipt)
+        aliased_receipt[snake_case_alias] = aliased_receipt[canonical_key]
+        reject(
+            lambda aliased_receipt=aliased_receipt: validator.validate(
+                aliased_receipt
+            ),
+            f"Requester-notification receipt accepted {snake_case_alias}",
+        )
+
+    unknown_receipt = copy.deepcopy(sending_receipt)
+    unknown_receipt["deliveryProvider"] = "gmail"
+    reject(
+        lambda: validator.validate(unknown_receipt),
+        "Requester-notification receipt accepted an unknown camel-case key",
+    )
+
+
+check(
+    "service_transaction_requester_notification_contract",
+    validate_service_transaction_requester_notification_contract,
+)
 
 
 def validate_deferred_service_transaction_contract():

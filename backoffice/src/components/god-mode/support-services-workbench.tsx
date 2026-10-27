@@ -46,6 +46,7 @@ import {
   Link2,
   Loader2,
   LockKeyhole,
+  Mail,
   Maximize2,
   Pencil,
   Plus,
@@ -10212,16 +10213,28 @@ function ProviderPicker({
 function TransactionRequesterIdentity({
   isEditing,
   canInspectRequesterDetails,
+  canNotifyRequester,
   showLockedFields,
   requestedByUserId,
   requestedByUserEmail,
+  isRequesterNotified,
+  isRequesterNotificationPending,
+  requesterNotificationDisabled,
+  requesterNotificationDisabledReason,
+  onNotifyRequester,
   onChange,
 }: {
   isEditing: boolean;
   canInspectRequesterDetails?: boolean;
+  canNotifyRequester?: boolean;
   showLockedFields?: boolean;
   requestedByUserId: string;
   requestedByUserEmail: string;
+  isRequesterNotified?: boolean;
+  isRequesterNotificationPending?: boolean;
+  requesterNotificationDisabled?: boolean;
+  requesterNotificationDisabledReason?: string;
+  onNotifyRequester?: () => void;
   onChange: (identity: { userId: string; email: string }) => void;
 }) {
   const { language } = useAppLanguage();
@@ -10338,19 +10351,49 @@ function TransactionRequesterIdentity({
                   className="select-all border-sky-200 bg-white font-mono text-sm shadow-sm dark:border-sky-400/24 dark:bg-slate-950/60"
                 />
               </label>
-              <Button
-                type="button"
-                onClick={() => void copyRequesterEmail()}
-                disabled={!requestedByUserEmail}
-                className="h-11 shrink-0 rounded-xl bg-sky-600 px-5 font-semibold text-white shadow-[0_14px_30px_-16px_rgba(2,132,199,0.8)] hover:bg-sky-700 disabled:bg-slate-300 disabled:text-slate-600 dark:disabled:bg-slate-700 dark:disabled:text-slate-300"
-              >
-                {copyState === "copied" ? (
-                  <Check className="h-4 w-4" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-                {copyState === "copied" ? t("Copied") : t("Copy email")}
-              </Button>
+              <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                <Button
+                  type="button"
+                  onClick={() => void copyRequesterEmail()}
+                  disabled={!requestedByUserEmail}
+                  className="h-11 shrink-0 rounded-xl bg-sky-600 px-5 font-semibold text-white shadow-[0_14px_30px_-16px_rgba(2,132,199,0.8)] hover:bg-sky-700 disabled:bg-slate-300 disabled:text-slate-600 dark:disabled:bg-slate-700 dark:disabled:text-slate-300"
+                >
+                  {copyState === "copied" ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                  {copyState === "copied" ? t("Copied") : t("Copy email")}
+                </Button>
+                {canNotifyRequester ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={onNotifyRequester}
+                    title={requesterNotificationDisabledReason}
+                    disabled={
+                      !requestedByUserEmail ||
+                      isRequesterNotified ||
+                      isRequesterNotificationPending ||
+                      requesterNotificationDisabled
+                    }
+                    className="h-11 shrink-0 rounded-xl border-sky-300 bg-white px-5 font-semibold text-sky-800 shadow-sm hover:bg-sky-50 disabled:text-slate-500 dark:border-sky-400/30 dark:bg-slate-950/60 dark:text-sky-100 dark:hover:bg-sky-950/40 dark:disabled:text-slate-400"
+                  >
+                    {isRequesterNotificationPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : isRequesterNotified ? (
+                      <CheckCircle2 className="h-4 w-4" />
+                    ) : (
+                      <Mail className="h-4 w-4" />
+                    )}
+                    {isRequesterNotified
+                      ? t("The user has already been notified")
+                      : isRequesterNotificationPending
+                        ? t("Sending receipt email...")
+                        : t("Send receipt email")}
+                  </Button>
+                ) : null}
+              </div>
             </div>
 
             <p
@@ -12166,6 +12209,7 @@ export function SupportServiceTransactionWorkbench({
   showLockedFields = false,
   canViewLinkedOutputReports = false,
   canInspectRequesterDetails = false,
+  canNotifyRequester = false,
 }: {
   mode: "create" | "edit";
   transactionId?: string;
@@ -12174,6 +12218,7 @@ export function SupportServiceTransactionWorkbench({
   showLockedFields?: boolean;
   canViewLinkedOutputReports?: boolean;
   canInspectRequesterDetails?: boolean;
+  canNotifyRequester?: boolean;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -12466,6 +12511,44 @@ export function SupportServiceTransactionWorkbench({
         `${routeBase}/${encodeURIComponent(result.transaction.requestId)}`,
       );
       router.refresh();
+    },
+    onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
+  });
+
+  const notifyRequesterMutation = useMutation({
+    mutationFn: async () => {
+      if (!transactionId || !transactionRecord) {
+        throw new Error("Save the transaction before notifying the requester.");
+      }
+      if (hasUnsavedTransactionChanges) {
+        throw new Error(
+          "Save other transaction changes before notifying the requester.",
+        );
+      }
+      return sdkFetch<{ transaction: SupportServiceTransactionRecord }>(
+        `/admin/support-services/transactions/${encodeURIComponent(
+          transactionId,
+        )}/notify-requester`,
+        {
+          method: "POST",
+          body: JSON.stringify({}),
+        },
+      );
+    },
+    onSuccess: async (result) => {
+      setForm(transactionFormFromRecord(result.transaction));
+      queryClient.setQueryData(
+        [TRANSACTIONS_QUERY_KEY, transactionId],
+        { transaction: result.transaction },
+      );
+      await queryClient.invalidateQueries({
+        queryKey: [TRANSACTIONS_QUERY_KEY],
+      });
+      setToast({
+        id: nextToastId(),
+        tone: "success",
+        message: t("Requester receipt email sent."),
+      });
     },
     onError: (error) => setToast(mutationErrorToast(error, nextToastId(), t)),
   });
@@ -12848,6 +12931,7 @@ export function SupportServiceTransactionWorkbench({
   });
   const transactionCommandPending =
     saveMutation.isPending ||
+    notifyRequesterMutation.isPending ||
     customNameMutation.isPending ||
     uploadOutputMutation.isPending ||
     removeOutputMutation.isPending ||
@@ -13259,9 +13343,38 @@ export function SupportServiceTransactionWorkbench({
           <TransactionRequesterIdentity
             isEditing={isEditing}
             canInspectRequesterDetails={canInspectRequesterDetails}
+            canNotifyRequester={canNotifyRequester}
             showLockedFields={showLockedFields}
             requestedByUserId={form.requestedByUserId}
             requestedByUserEmail={form.requestedByUserEmail}
+            isRequesterNotified={
+              transactionRecord?.isRequesterNotified ?? false
+            }
+            isRequesterNotificationPending={
+              notifyRequesterMutation.isPending
+            }
+            requesterNotificationDisabled={
+              !transactionRecord ||
+              hasUnsavedTransactionChanges ||
+              !["received", "validating", "awaiting_input"].includes(
+                transactionRecord.status,
+              )
+            }
+            requesterNotificationDisabledReason={
+              hasUnsavedTransactionChanges
+                ? t(
+                    "Save other transaction changes before notifying the requester.",
+                  )
+                : transactionRecord &&
+                    !["received", "validating", "awaiting_input"].includes(
+                      transactionRecord.status,
+                    )
+                  ? t(
+                      "This transaction cannot return to Validating from its current status.",
+                    )
+                  : undefined
+            }
+            onNotifyRequester={() => notifyRequesterMutation.mutate()}
             onChange={({ userId, email }) =>
               setForm((current) => ({
                 ...current,

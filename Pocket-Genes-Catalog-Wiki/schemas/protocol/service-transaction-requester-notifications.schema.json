@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pocketgenes.example/protocol/service-transaction-requester-notifications/1.2.0/schema.json",
+  "title": "Pocket Genes service-transaction requester-notification receipt v1.2.0",
+  "description": "Closed lower-camel-case service_transaction_requester_notifications receipt. It durably binds one requester email delivery attempt to one immutable service-transaction creation identity.",
+  "type": "object",
+  "properties": {
+    "serviceTransactionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "requestId": {
+      "type": "string",
+      "pattern": "^pgr_[a-z0-9_]+$"
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "minLength": 1
+    },
+    "transactionCreatedAt": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "requesterEmail": {
+      "type": "string",
+      "format": "email",
+      "minLength": 3,
+      "maxLength": 320
+    },
+    "serviceName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 180,
+      "pattern": "\\S"
+    },
+    "providerName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 180,
+      "pattern": "\\S"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "sending",
+        "sent",
+        "failed"
+      ]
+    },
+    "attemptToken": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "attemptCount": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "claimedAt": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "sentAt": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "failedAt": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "lastError": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "pattern": "\\S"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "createdAt": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "updatedAt": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "createdByEmail": {
+      "type": "string",
+      "format": "email",
+      "minLength": 3,
+      "maxLength": 320
+    },
+    "updatedByEmail": {
+      "type": "string",
+      "format": "email",
+      "minLength": 3,
+      "maxLength": 320
+    }
+  },
+  "required": [
+    "serviceTransactionId",
+    "requestId",
+    "idempotencyKey",
+    "transactionCreatedAt",
+    "requesterEmail",
+    "serviceName",
+    "providerName",
+    "status",
+    "attemptToken",
+    "attemptCount",
+    "claimedAt",
+    "sentAt",
+    "failedAt",
+    "lastError",
+    "createdAt",
+    "updatedAt",
+    "createdByEmail",
+    "updatedByEmail"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "sending"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "attemptToken": {
+            "type": "string"
+          },
+          "sentAt": {
+            "type": "null"
+          },
+          "failedAt": {
+            "type": "null"
+          },
+          "lastError": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "sent"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "attemptToken": {
+            "type": "null"
+          },
+          "sentAt": {
+            "$ref": "#/$defs/timestamp"
+          },
+          "failedAt": {
+            "type": "null"
+          },
+          "lastError": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "failed"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "attemptToken": {
+            "type": "null"
+          },
+          "sentAt": {
+            "type": "null"
+          },
+          "failedAt": {
+            "$ref": "#/$defs/timestamp"
+          },
+          "lastError": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "\\S"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 JSON representation of a Firestore timestamp scalar."
+    }
+  }
+}

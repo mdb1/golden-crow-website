@@ -29,6 +29,7 @@ const mockRemoveSupportServiceTransactionOutputReport = jest.fn();
 const mockGetSupportServiceTransactionLinkedReports = jest.fn();
 const mockListSupportServiceLinkedReportCandidates = jest.fn();
 const mockDeliverSupportServiceTransaction = jest.fn();
+const mockNotifySupportServiceTransactionRequester = jest.fn();
 const mockGetSupportServiceIdAvailability = jest.fn();
 const mockGetSupportServiceOfferTransactionStats = jest.fn();
 
@@ -177,6 +178,8 @@ jest.mock("../repositories/support-services.repository.js", () => ({
   deleteSupportServiceOffer: mockDeleteSupportServiceOffer,
   deleteSupportServiceTransaction: mockDeleteSupportServiceTransaction,
   deliverSupportServiceTransaction: mockDeliverSupportServiceTransaction,
+  notifySupportServiceTransactionRequester:
+    mockNotifySupportServiceTransactionRequester,
   getSupportServiceIdAvailability: mockGetSupportServiceIdAvailability,
   getDeferredServiceTransaction: mockGetDeferredServiceTransaction,
   getDeferredServiceTransactionNotificationPreview:
@@ -589,6 +592,12 @@ describe("support service admin routes", () => {
       id: "txn-1",
       requestId: "pgr_demo_final_report",
       status: "delivered",
+    });
+    mockNotifySupportServiceTransactionRequester.mockResolvedValue({
+      id: "txn-1",
+      requestId: "pgr_demo_final_report",
+      status: "validating",
+      isRequesterNotified: true,
     });
     mockGetSupportServiceIdAvailability.mockResolvedValue({
       serviceId: "pgs_pocket_genes_report_studio_12345",
@@ -2109,6 +2118,44 @@ describe("support service admin routes", () => {
       bootstrapContext,
       "pgr_demo_final_report",
     );
+  });
+
+  it("notifies one transaction requester only through the GOD MODE command", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/transactions/pgr_demo_final_report/notify-requester",
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      transaction: expect.objectContaining({
+        status: "validating",
+        isRequesterNotified: true,
+      }),
+    });
+    expect(mockNotifySupportServiceTransactionRequester).toHaveBeenCalledWith(
+      bootstrapContext,
+      "pgr_demo_final_report",
+    );
+  });
+
+  it("rejects publisher access to the requester notification command", async () => {
+    const fastify = await buildTestServer(organizationPublisherContext);
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/transactions/pgr_demo_final_report/notify-requester",
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toEqual({
+      error: "Only GOD MODE can notify service transaction requesters.",
+    });
+    expect(mockNotifySupportServiceTransactionRequester).not.toHaveBeenCalled();
   });
 
   it("returns a JSON success payload after deleting a service offer", async () => {

@@ -5823,6 +5823,15 @@ const SPANISH_TEXT: Record<string, string> = {
     "No se registró un email del solicitante para esta solicitud.",
   "No email recorded": "No hay email registrado",
   "Copy email": "Copiar email",
+  "Send receipt email": "Enviar mail de recepción",
+  "Sending receipt email...": "Enviando mail de recepción...",
+  "The user has already been notified": "El usuario ya fue notificado",
+  "Requester receipt email sent.":
+    "Mail de recepción enviado al solicitante.",
+  "Save other transaction changes before notifying the requester.":
+    "Guardá los demás cambios de la transacción antes de notificar al solicitante.",
+  "This transaction cannot return to Validating from its current status.":
+    "Esta transacción no puede volver a Validando desde su estado actual.",
   "Email copied to clipboard.": "Email copiado al portapapeles.",
   "Email could not be copied. Select the address and copy it manually.":
     "No se pudo copiar el email. Seleccioná la dirección y copiala manualmente.",

@@ -1556,6 +1556,10 @@ for (const fileName of fs.readdirSync(path.join(root, "schemas/protocol")).filte
       ),
       pattern: "^(?!\\s)(?![\\s\\S]*\\s$)[\\s\\S]+$"
     };
+    rewritten.properties.isRequesterNotified = {
+      type: "boolean",
+      description: "False on creation. The GOD-mode requester-confirmation command changes it to true only after the one-service receipt email has a durable sent receipt. Historical records that omit this field are read as false by administrative tooling."
+    };
     rewritten.properties.issues = {
       type: "array",
       items: { type: "string", minLength: 1 }
@@ -1663,7 +1667,12 @@ for (const fileName of fs.readdirSync(path.join(root, "schemas/protocol")).filte
       reportCode: { type: "string", minLength: 6, maxLength: 6, pattern: "^[A-Z0-9]{6}$" }
     }, ["reportCode"], "One supplemental output-only report link. The code resolves through report_codes and uploaded_reports; no report metadata is duplicated here.");
     rewritten.required = rewritten.required.filter(
-      (key) => !["customTransactionName", "requestedByUserId", "outputReports"].includes(key)
+      (key) => ![
+        "customTransactionName",
+        "isRequesterNotified",
+        "requestedByUserId",
+        "outputReports"
+      ].includes(key)
     );
     rewritten.properties.requestedByUserEmail = {
       type: "string",
@@ -1883,6 +1892,7 @@ serviceTransactionConvention.examples = [
   "customTransactionName",
   "requestedByUserId",
   "requestedByUserEmail",
+  "isRequesterNotified",
   "outputObjects",
   "outputReports",
   "objectType",
@@ -1911,6 +1921,42 @@ serviceTransactionConvention.examples = [
   "instructions",
   "websiteUrl"
 ];
+const requesterNotificationExamples = [
+  "serviceTransactionId",
+  "requestId",
+  "idempotencyKey",
+  "transactionCreatedAt",
+  "requesterEmail",
+  "serviceName",
+  "providerName",
+  "status",
+  "attemptToken",
+  "attemptCount",
+  "claimedAt",
+  "sentAt",
+  "failedAt",
+  "lastError",
+  "createdAt",
+  "updatedAt",
+  "createdByEmail",
+  "updatedByEmail"
+];
+const requesterNotificationConvention = fieldConventions.collections.find(
+  (entry) => entry.collection === "service_transaction_requester_notifications"
+);
+if (requesterNotificationConvention) {
+  requesterNotificationConvention.field_key_convention = "lower_camel_case";
+  requesterNotificationConvention.examples = requesterNotificationExamples;
+} else {
+  const transactionConventionIndex = fieldConventions.collections.indexOf(
+    serviceTransactionConvention
+  );
+  fieldConventions.collections.splice(transactionConventionIndex + 1, 0, {
+    collection: "service_transaction_requester_notifications",
+    field_key_convention: "lower_camel_case",
+    examples: requesterNotificationExamples
+  });
+}
 fieldConventions.serialized_pgo_content = {
   boundary: "standalone_file_content",
   field_key_convention: "snake_case",

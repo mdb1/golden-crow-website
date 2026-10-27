@@ -474,6 +474,7 @@ export interface SupportServiceTransactionRecord
   schemaVersion: number;
   serviceVersion: number;
   status: SupportServiceTransactionStatus;
+  isRequesterNotified: boolean;
   requestRevision: number;
   inputs: SupportServiceTransactionSlot[];
   outputObjects: SupportServiceTransactionOutputObject[];
