@@ -127,7 +127,7 @@ function compactBrandName(value: string) {
 }
 
 function headlineFontSize(value: string) {
-  return `${Math.max(2.45, Math.min(5.48, 88 / Math.max(value.length, 1))).toFixed(2)}cqw`;
+  return `${Math.max(2.45, Math.min(5.42, 86 / Math.max(value.length, 1))).toFixed(2)}cqw`;
 }
 
 function PhoneStatusBar() {
@@ -165,83 +165,61 @@ function PhoneBrand({ name }: { name: string }) {
 }
 
 function MainPhone({ organizationName }: { organizationName: string }) {
-  const cards = [
+  const rows = [
     { icon: Stethoscope, label: "Mis servicios" },
     { icon: ShoppingBag, label: "Productos" },
+    { icon: CalendarDays, label: "Turnos online" },
+    { icon: Sparkles, label: "Novedades" },
   ];
 
   return (
-    <div className="absolute bottom-[2.7cqw] left-1/2 z-20 h-[34cqw] w-[19cqw] -translate-x-1/2 rotate-[1deg] rounded-[3.25cqw] bg-[linear-gradient(145deg,#1f2937,#020617_58%,var(--publisher-app-accent-deep))] p-[0.46cqw] shadow-[0_2.1cqw_2.8cqw_-1.5cqw_rgba(2,6,23,0.72)]">
-      <span className="absolute -left-[0.42cqw] top-[7.5cqw] h-[3.8cqw] w-[0.28cqw] rounded-l-full bg-[var(--publisher-app-accent-deep)]" />
-      <span className="absolute -right-[0.42cqw] top-[10cqw] h-[4.6cqw] w-[0.28cqw] rounded-r-full bg-[var(--publisher-app-accent-deep)]" />
-      <div className="h-full rounded-[2.86cqw] bg-slate-950 p-[0.25cqw]">
-        <div className="relative h-full overflow-hidden rounded-[2.62cqw] bg-[linear-gradient(180deg,#ffffff_0%,#ffffff_62%,var(--publisher-app-pale)_100%)] px-[1.12cqw] pb-[1.05cqw] pt-[1.05cqw]">
-          <span className="absolute left-1/2 top-[0.55cqw] z-20 h-[1.15cqw] w-[4.25cqw] -translate-x-1/2 rounded-full bg-slate-950" />
+    <div className="absolute bottom-[0.55cqw] left-1/2 z-30 h-[40.2cqw] w-[23.4cqw] -translate-x-1/2 rotate-[5deg] rounded-[3.95cqw] bg-[linear-gradient(140deg,#effff0_0%,var(--publisher-app-pop)_3%,#26353d_9%,#020617_70%,var(--publisher-app-accent-deep)_94%)] p-[0.42cqw] shadow-[0_2.5cqw_3.1cqw_-1.55cqw_rgba(2,6,23,0.72),-0.35cqw_-0.15cqw_0.65cqw_-0.35cqw_rgba(237,255,238,0.92)]">
+      <span className="pointer-events-none absolute inset-[0.12cqw] rounded-[3.8cqw] border-[0.09cqw] border-white/45" />
+      <span className="absolute -left-[0.34cqw] top-[8.8cqw] h-[4.8cqw] w-[0.3cqw] rounded-l-full bg-[linear-gradient(180deg,var(--publisher-app-pop),var(--publisher-app-accent-deep))] shadow-[-0.08cqw_0_0.2cqw_rgba(255,255,255,0.5)]" />
+      <span className="absolute -right-[0.36cqw] top-[11.5cqw] h-[5.2cqw] w-[0.3cqw] rounded-r-full bg-[linear-gradient(180deg,var(--publisher-app-vivid),var(--publisher-app-accent-deep))]" />
+      <div className="h-full rounded-[3.55cqw] bg-slate-950 p-[0.27cqw] shadow-[inset_0_0_0_0.08cqw_rgba(255,255,255,0.1)]">
+        <div className="relative h-full overflow-hidden rounded-[3.28cqw] bg-[linear-gradient(180deg,#ffffff_0%,#fff_64%,var(--publisher-app-pale)_100%)] px-[1.28cqw] pb-[1.05cqw] pt-[1.08cqw]">
+          <span className="absolute left-1/2 top-[0.52cqw] z-20 h-[1.18cqw] w-[4.8cqw] -translate-x-1/2 rounded-full bg-slate-950 shadow-[inset_0_-0.08cqw_0.18cqw_rgba(255,255,255,0.18)]" />
           <PhoneStatusBar />
           <PhoneBrand name={organizationName} />
 
-          <div className="relative mt-[1cqw] overflow-hidden rounded-[1.45cqw] bg-[linear-gradient(130deg,var(--publisher-app-accent-deep),var(--publisher-app-accent)_48%,var(--publisher-app-vivid))] p-[1cqw] text-white shadow-[0_0.72cqw_1.15cqw_-0.9cqw_rgba(15,23,42,0.65)]">
-            <span className="absolute -right-[1.2cqw] -top-[1.5cqw] size-[5.4cqw] rounded-full border-[0.9cqw] border-white/10" />
-            <p className="relative text-[0.55cqw] font-extrabold uppercase tracking-[0.16em] text-white/80">
+          <div className="relative mt-[0.78cqw] overflow-hidden rounded-[1.45cqw] bg-[linear-gradient(125deg,var(--publisher-app-accent),var(--publisher-app-vivid)_60%,var(--publisher-app-pop))] p-[1cqw] text-white shadow-[inset_0_0.1cqw_0_rgba(255,255,255,0.38),0_0.7cqw_1.05cqw_-0.78cqw_rgba(15,23,42,0.58)]">
+            <span className="absolute -right-[1.1cqw] -top-[1.25cqw] size-[5.6cqw] rounded-full border-[0.92cqw] border-white/14" />
+            <p className="relative text-[0.58cqw] font-extrabold uppercase tracking-[0.16em] text-white/80">
               Para tu comunidad
             </p>
-            <p className="relative mt-[0.35cqw] text-[1.28cqw] font-black leading-[0.94]">
+            <p className="relative mt-[0.3cqw] text-[1.38cqw] font-black leading-[0.94]">
               Todo tu mundo,
               <br />
               en una app
             </p>
-            <Crown className="absolute bottom-[0.68cqw] right-[0.68cqw] size-[2cqw] text-white" />
+            <Crown className="absolute bottom-[0.7cqw] right-[0.75cqw] size-[2.15cqw] text-white" />
           </div>
 
-          <div className="mt-[0.72cqw] grid grid-cols-2 gap-[0.68cqw]">
-            {cards.map(({ icon: Icon, label }) => (
+          <div className="mt-[0.62cqw] space-y-[0.48cqw]">
+            {rows.map(({ icon: Icon, label }) => (
               <div
                 key={label}
-                className="rounded-[1.05cqw] border-[0.08cqw] border-slate-100 bg-white p-[0.68cqw] shadow-[0_0.42cqw_0.72cqw_-0.55cqw_rgba(15,23,42,0.4)]"
+                className="flex items-center gap-[0.68cqw] rounded-[1.08cqw] border-[0.07cqw] border-slate-100 bg-white px-[0.68cqw] py-[0.52cqw] shadow-[0_0.38cqw_0.68cqw_-0.48cqw_rgba(15,23,42,0.34)]"
               >
-                <span className="flex size-[2cqw] items-center justify-center rounded-[0.7cqw] bg-[var(--publisher-app-shine)] text-[var(--publisher-app-accent-deep)]">
+                <span className="flex size-[2.1cqw] shrink-0 items-center justify-center rounded-[0.7cqw] bg-[var(--publisher-app-shine)] text-[var(--publisher-app-accent-deep)]">
                   <Icon className="size-[1.18cqw]" />
                 </span>
-                <p className="mt-[0.46cqw] text-[0.58cqw] font-extrabold text-slate-900">
-                  {label}
-                </p>
-                <span className="mt-[0.35cqw] block h-[0.3cqw] w-[2.8cqw] rounded-full bg-[color-mix(in_srgb,var(--publisher-app-vivid)_24%,#e2e8f0)]" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[0.68cqw] font-extrabold text-slate-900">
+                    {label}
+                  </span>
+                  <span className="mt-[0.28cqw] block h-[0.28cqw] w-[5.1cqw] rounded-full bg-[color-mix(in_srgb,var(--publisher-app-vivid)_24%,#e2e8f0)]" />
+                </span>
+                <ChevronRight className="size-[0.95cqw] text-[var(--publisher-app-vivid)]" />
               </div>
             ))}
           </div>
 
-          <div className="mt-[0.72cqw] flex items-center gap-[0.6cqw] rounded-[1.05cqw] border-[0.08cqw] border-slate-100 bg-white p-[0.68cqw] shadow-[0_0.42cqw_0.72cqw_-0.55cqw_rgba(15,23,42,0.4)]">
-            <span className="flex size-[2.15cqw] items-center justify-center rounded-[0.7cqw] bg-[var(--publisher-app-shine)] text-[var(--publisher-app-accent-deep)]">
-              <CalendarDays className="size-[1.2cqw]" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[0.6cqw] font-extrabold text-slate-900">
-                Turnos online
-              </span>
-              <span className="mt-[0.32cqw] block h-[0.3cqw] w-[4.2cqw] rounded-full bg-[color-mix(in_srgb,var(--publisher-app-vivid)_24%,#e2e8f0)]" />
-            </span>
-            <ChevronRight className="size-[0.95cqw] text-[var(--publisher-app-vivid)]" />
-          </div>
-
-          <div className="mt-[0.65cqw] flex items-center gap-[0.6cqw] rounded-[1.05cqw] bg-white px-[0.7cqw] py-[0.56cqw] shadow-[0_0.36cqw_0.62cqw_-0.5cqw_rgba(15,23,42,0.34)]">
-            <span className="flex size-[1.85cqw] items-center justify-center rounded-[0.62cqw] bg-[var(--publisher-app-shine)] text-[var(--publisher-app-accent-deep)]">
-              <Sparkles className="size-[1.05cqw]" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[0.6cqw] font-extrabold text-slate-900">
-                Novedades
-              </span>
-              <span className="mt-[0.2cqw] block text-[0.46cqw] font-bold text-slate-400">
-                Notas y eventos
-              </span>
-            </span>
-            <ChevronRight className="size-[0.9cqw] text-[var(--publisher-app-vivid)]" />
-          </div>
-
-          <div className="absolute inset-x-[1.08cqw] bottom-[0.86cqw] flex items-center justify-around rounded-[1.05cqw] bg-white py-[0.65cqw] shadow-[0_0.4cqw_0.7cqw_-0.55cqw_rgba(15,23,42,0.38)]">
-            <HeartPulse className="size-[1.2cqw] text-[var(--publisher-app-vivid)]" />
-            <Package className="size-[1.2cqw] text-slate-400" />
-            <UsersRound className="size-[1.2cqw] text-slate-400" />
+          <div className="absolute inset-x-[1.18cqw] bottom-[0.82cqw] flex items-center justify-around rounded-[1.08cqw] border-[0.07cqw] border-white bg-white/95 py-[0.62cqw] shadow-[0_0.38cqw_0.68cqw_-0.5cqw_rgba(15,23,42,0.38)]">
+            <HeartPulse className="size-[1.18cqw] text-[var(--publisher-app-vivid)]" />
+            <Package className="size-[1.18cqw] text-slate-400" />
+            <UsersRound className="size-[1.18cqw] text-slate-400" />
           </div>
         </div>
       </div>
@@ -257,25 +235,26 @@ function ServicesPhone() {
   ];
 
   return (
-    <div className="absolute bottom-[3.2cqw] left-[1.1cqw] z-10 h-[28.5cqw] w-[15.2cqw] -rotate-[8deg] rounded-[2.65cqw] bg-[linear-gradient(145deg,#1f2937,#020617_65%,var(--publisher-app-accent-deep))] p-[0.42cqw] shadow-[0_1.8cqw_2.6cqw_-1.5cqw_rgba(2,6,23,0.68)]">
-      <div className="h-full rounded-[2.28cqw] bg-slate-950 p-[0.24cqw]">
-        <div className="relative h-full overflow-hidden rounded-[2.04cqw] bg-[linear-gradient(180deg,#ffffff,var(--publisher-app-pale))] px-[0.95cqw] pt-[1cqw]">
-          <span className="absolute left-1/2 top-[0.48cqw] h-[1cqw] w-[3.5cqw] -translate-x-1/2 rounded-full bg-slate-950" />
+    <div className="absolute bottom-[2.45cqw] left-[1.8cqw] z-10 h-[33.8cqw] w-[17.7cqw] -rotate-[10deg] rounded-[3.05cqw] bg-[linear-gradient(140deg,#effff0_0%,var(--publisher-app-pop)_4%,#26353d_11%,#020617_73%,var(--publisher-app-accent-deep)_96%)] p-[0.4cqw] shadow-[0_2.1cqw_2.8cqw_-1.55cqw_rgba(2,6,23,0.68),-0.25cqw_-0.1cqw_0.5cqw_-0.3cqw_rgba(237,255,238,0.72)]">
+      <span className="pointer-events-none absolute inset-[0.12cqw] rounded-[2.9cqw] border-[0.08cqw] border-white/35" />
+      <div className="h-full rounded-[2.68cqw] bg-slate-950 p-[0.23cqw]">
+        <div className="relative h-full overflow-hidden rounded-[2.44cqw] bg-[linear-gradient(180deg,#ffffff,var(--publisher-app-pale))] px-[1cqw] pt-[1cqw]">
+          <span className="absolute left-1/2 top-[0.48cqw] h-[1.05cqw] w-[3.8cqw] -translate-x-1/2 rounded-full bg-slate-950" />
           <PhoneStatusBar />
-          <p className="mt-[2.4cqw] text-[0.92cqw] font-black text-slate-950">
+          <p className="mt-[2.65cqw] text-[1cqw] font-black text-slate-950">
             Mis servicios
           </p>
-          <div className="mt-[1.1cqw] space-y-[0.72cqw]">
+          <div className="mt-[1.1cqw] space-y-[0.82cqw]">
             {services.map(({ icon: Icon, label }) => (
               <div
                 key={label}
-                className="flex items-center gap-[0.56cqw] rounded-[0.95cqw] bg-white p-[0.62cqw] shadow-[0_0.38cqw_0.65cqw_-0.48cqw_rgba(15,23,42,0.38)]"
+                className="flex items-center gap-[0.6cqw] rounded-[1cqw] border-[0.07cqw] border-slate-100 bg-white p-[0.68cqw] shadow-[0_0.38cqw_0.65cqw_-0.48cqw_rgba(15,23,42,0.34)]"
               >
-                <span className="flex size-[2.05cqw] shrink-0 items-center justify-center rounded-[0.68cqw] bg-[var(--publisher-app-shine)] text-[var(--publisher-app-accent-deep)]">
-                  <Icon className="size-[1.08cqw]" />
+                <span className="flex size-[2.2cqw] shrink-0 items-center justify-center rounded-[0.72cqw] bg-[var(--publisher-app-shine)] text-[var(--publisher-app-accent-deep)]">
+                  <Icon className="size-[1.16cqw]" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[0.55cqw] font-bold text-slate-900">
+                  <span className="block truncate text-[0.62cqw] font-bold text-slate-900">
                     {label}
                   </span>
                   <span className="mt-[0.3cqw] block h-[0.28cqw] w-[3.7cqw] rounded-full bg-[color-mix(in_srgb,var(--publisher-app-vivid)_22%,#e2e8f0)]" />
@@ -298,25 +277,26 @@ function ProductsPhone() {
   ];
 
   return (
-    <div className="absolute bottom-[3.2cqw] right-[1.1cqw] z-10 h-[28.5cqw] w-[15.2cqw] rotate-[9deg] rounded-[2.65cqw] bg-[linear-gradient(145deg,#1f2937,#020617_65%,var(--publisher-app-accent-deep))] p-[0.42cqw] shadow-[0_1.8cqw_2.6cqw_-1.5cqw_rgba(2,6,23,0.68)]">
-      <div className="h-full rounded-[2.28cqw] bg-slate-950 p-[0.24cqw]">
-        <div className="relative h-full overflow-hidden rounded-[2.04cqw] bg-[linear-gradient(180deg,#ffffff,var(--publisher-app-pale))] px-[0.95cqw] pt-[1cqw]">
-          <span className="absolute left-1/2 top-[0.48cqw] h-[1cqw] w-[3.5cqw] -translate-x-1/2 rounded-full bg-slate-950" />
+    <div className="absolute bottom-[2.35cqw] right-[0.4cqw] z-10 h-[33.8cqw] w-[17.7cqw] rotate-[11deg] rounded-[3.05cqw] bg-[linear-gradient(140deg,#effff0_0%,var(--publisher-app-pop)_4%,#26353d_11%,#020617_73%,var(--publisher-app-accent-deep)_96%)] p-[0.4cqw] shadow-[0_2.1cqw_2.8cqw_-1.55cqw_rgba(2,6,23,0.68),-0.25cqw_-0.1cqw_0.5cqw_-0.3cqw_rgba(237,255,238,0.72)]">
+      <span className="pointer-events-none absolute inset-[0.12cqw] rounded-[2.9cqw] border-[0.08cqw] border-white/35" />
+      <div className="h-full rounded-[2.68cqw] bg-slate-950 p-[0.23cqw]">
+        <div className="relative h-full overflow-hidden rounded-[2.44cqw] bg-[linear-gradient(180deg,#ffffff,var(--publisher-app-pale))] px-[1cqw] pt-[1cqw]">
+          <span className="absolute left-1/2 top-[0.48cqw] h-[1.05cqw] w-[3.8cqw] -translate-x-1/2 rounded-full bg-slate-950" />
           <PhoneStatusBar />
-          <p className="mt-[2.4cqw] text-[0.92cqw] font-black text-slate-950">
+          <p className="mt-[2.65cqw] text-[1cqw] font-black text-slate-950">
             Productos
           </p>
-          <div className="mt-[1.1cqw] space-y-[0.72cqw]">
+          <div className="mt-[1.1cqw] space-y-[0.82cqw]">
             {products.map(({ icon: Icon, label }) => (
               <div
                 key={label}
-                className="flex items-center gap-[0.56cqw] rounded-[0.95cqw] bg-white p-[0.62cqw] shadow-[0_0.38cqw_0.65cqw_-0.48cqw_rgba(15,23,42,0.38)]"
+                className="flex items-center gap-[0.6cqw] rounded-[1cqw] border-[0.07cqw] border-slate-100 bg-white p-[0.68cqw] shadow-[0_0.38cqw_0.65cqw_-0.48cqw_rgba(15,23,42,0.34)]"
               >
-                <span className="flex size-[2.05cqw] shrink-0 items-center justify-center rounded-[0.68cqw] bg-[var(--publisher-app-shine)] text-[var(--publisher-app-accent-deep)]">
-                  <Icon className="size-[1.08cqw]" />
+                <span className="flex size-[2.2cqw] shrink-0 items-center justify-center rounded-[0.72cqw] bg-[var(--publisher-app-shine)] text-[var(--publisher-app-accent-deep)]">
+                  <Icon className="size-[1.16cqw]" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[0.55cqw] font-bold text-slate-900">
+                  <span className="block truncate text-[0.62cqw] font-bold text-slate-900">
                     {label}
                   </span>
                   <span className="mt-[0.3cqw] block h-[0.28cqw] w-[3.7cqw] rounded-full bg-[color-mix(in_srgb,var(--publisher-app-vivid)_22%,#e2e8f0)]" />
@@ -348,10 +328,13 @@ export function PublisherAppPromoBanner({
     "--publisher-app-pale": palette.pale,
     containerType: "inline-size",
     backgroundImage: [
-      `radial-gradient(circle at 78% 38%, color-mix(in srgb, ${palette.vivid} 72%, white 10%) 0%, transparent 34%)`,
-      `linear-gradient(112deg, color-mix(in srgb, ${palette.deep} 38%, ${palette.base}) 0%, ${palette.base} 48%, ${palette.vivid} 100%)`,
+      `radial-gradient(circle at 51% 8%, color-mix(in srgb, ${palette.pop} 62%, white 14%) 0%, transparent 31%)`,
+      `radial-gradient(circle at 79% 56%, color-mix(in srgb, ${palette.vivid} 76%, white 12%) 0%, transparent 34%)`,
+      `radial-gradient(ellipse at 72% 94%, color-mix(in srgb, ${palette.pop} 70%, white 18%) 0%, transparent 28%)`,
+      `linear-gradient(116deg, color-mix(in srgb, ${palette.deep} 72%, ${palette.base}) 0%, ${palette.base} 42%, ${palette.vivid} 100%)`,
     ].join(", "),
-    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.22)",
+    boxShadow:
+      "inset 0 1px 0 rgba(255,255,255,0.3), inset 0 -28px 54px rgba(0,35,19,0.13)",
   } as CSSProperties;
 
   return (
@@ -360,39 +343,50 @@ export function PublisherAppPromoBanner({
       data-accent={palette.source}
       data-palette-hue={palette.hue}
       style={bannerStyle}
-      className="relative isolate aspect-[256/125] w-full overflow-hidden rounded-[2.7cqw] font-sans text-white"
+      className="relative isolate aspect-[256/125] w-full overflow-hidden rounded-[1.05cqw] font-sans text-white"
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.055),transparent_30%,rgba(2,6,23,0.055))]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_6%_3%,rgba(0,45,25,0.2),transparent_24%),radial-gradient(circle_at_98%_3%,rgba(255,255,255,0.16),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.045),transparent_30%,rgba(0,30,17,0.08))]"
+      />
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute -bottom-[4cqw] -left-[5cqw] size-[17cqw] rounded-full border-[3.2cqw] border-white/8"
+      />
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-[6cqw] -top-[6cqw] size-[21cqw] rounded-full bg-white/10 blur-[0.12cqw]"
       />
 
-      <div className="absolute left-[4.7cqw] top-[6.4cqw] z-20 inline-flex h-[3.5cqw] items-center gap-[0.75cqw] rounded-full bg-[var(--publisher-app-pale)] px-[1.15cqw] text-[1.16cqw] font-black uppercase tracking-[0.18em] text-[var(--publisher-app-accent-deep)]">
-        <span className="flex size-[2.4cqw] items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--publisher-app-vivid)_20%,white)]">
-          <Crown className="size-[1.35cqw] fill-current" />
+      <div className="absolute left-[4.7cqw] top-[5.65cqw] z-30 inline-flex h-[3.55cqw] items-center gap-[0.78cqw] rounded-full border-[0.08cqw] border-white/55 bg-[linear-gradient(180deg,#fff,var(--publisher-app-pale))] px-[1.12cqw] text-[1.08cqw] font-black uppercase tracking-[0.14em] text-[var(--publisher-app-accent-deep)] shadow-[0_0.6cqw_1.15cqw_-0.82cqw_rgba(0,45,25,0.52)]">
+        <span className="flex size-[2.35cqw] items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--publisher-app-pop)_24%,white)] shadow-[inset_0_0.08cqw_0_rgba(255,255,255,0.7)]">
+          <Crown className="size-[1.32cqw] fill-current" />
         </span>
         Servicio destacado
       </div>
 
       <h3
-        className="absolute left-[4.7cqw] top-[12.6cqw] z-20 w-[48cqw] font-black leading-[0.98] tracking-[-0.045em]"
-        style={{ fontFamily: "var(--font-public-sans)" }}
+        data-testid="publisher-app-banner-headline"
+        className="absolute left-[4.7cqw] top-[11.35cqw] z-30 w-[43cqw] font-black leading-[0.91] tracking-[-0.045em]"
+        style={{ fontFamily: "var(--font-nunito)" }}
       >
-        <span className="block text-[5.48cqw] text-white">La app de</span>
+        <span className="block text-[6.95cqw] text-[#fffdf5] [text-shadow:0_0.18cqw_0.35cqw_rgba(0,45,25,0.12)]">
+          La app de
+        </span>
         <span
-          className="block max-w-[48cqw] whitespace-nowrap text-[var(--publisher-app-accent-deep)]"
+          className="mt-[0.5cqw] block max-w-[42cqw] whitespace-nowrap text-[var(--publisher-app-accent-deep)] [text-shadow:0_0.12cqw_0.25cqw_rgba(255,255,255,0.08)]"
           style={{ fontSize: headlineFontSize(brandName) }}
         >
           {brandName}
         </span>
       </h3>
 
-      <p className="absolute left-[4.7cqw] top-[27.1cqw] z-20 w-[46cqw] text-[1.82cqw] font-bold leading-[2.55cqw] text-white/95">
+      <p className="absolute left-[4.7cqw] top-[25.45cqw] z-30 w-[42cqw] text-[1.72cqw] font-medium leading-[2.38cqw] text-[#fffdf5]/95">
         Subimos tu propia app al store, exclusiva para tus servicios y
         productos.
       </p>
 
-      <div className="absolute left-[4.7cqw] top-[32.9cqw] z-20 flex items-center gap-[0.9cqw]">
+      <div className="absolute left-[4.7cqw] top-[31.05cqw] z-30 flex items-center gap-[0.78cqw]">
         {[
           { icon: Smartphone, label: "App propia" },
           { icon: Stethoscope, label: "Tus servicios" },
@@ -400,34 +394,37 @@ export function PublisherAppPromoBanner({
         ].map(({ icon: Icon, label }) => (
           <span
             key={label}
-            className="inline-flex h-[3.5cqw] items-center gap-[0.6cqw] rounded-full bg-[var(--publisher-app-pale)] px-[1.05cqw] text-[1.2cqw] font-extrabold text-[var(--publisher-app-accent-deep)]"
+            className="inline-flex h-[3.45cqw] items-center gap-[0.62cqw] rounded-full border-[0.08cqw] border-white/60 bg-[linear-gradient(180deg,#fff,var(--publisher-app-pale))] px-[1.22cqw] text-[1.08cqw] font-bold text-[var(--publisher-app-accent-deep)] shadow-[0_0.48cqw_0.9cqw_-0.72cqw_rgba(0,45,25,0.45)]"
           >
-            <Icon className="size-[1.45cqw]" strokeWidth={2.2} />
+            <Icon className="size-[1.38cqw]" strokeWidth={2.1} />
             {label}
           </span>
         ))}
       </div>
 
-      <div className="absolute left-[4.7cqw] top-[38.8cqw] z-20 flex h-[8.8cqw] items-center gap-[2.3cqw]">
-        <div className="flex w-[10.4cqw] flex-col items-center justify-center text-[var(--publisher-app-accent-deep)]">
-          <span className="relative text-[2.8cqw] font-black leading-none tracking-[-0.04em]">
+      <div className="absolute left-[4.7cqw] top-[36.25cqw] z-30 flex h-[8.55cqw] items-center gap-[1.35cqw]">
+        <div className="flex w-[10.45cqw] flex-col items-center justify-center text-[color-mix(in_srgb,var(--publisher-app-shine)_80%,white)]">
+          <span className="relative text-[2.92cqw] font-black leading-none tracking-[-0.04em] [text-shadow:0_0.12cqw_0.28cqw_rgba(0,45,25,0.3)]">
             99.99
-            <span className="absolute left-[-3%] top-[48%] h-[0.16cqw] w-[106%] -rotate-6 bg-[var(--publisher-app-accent-deep)]" />
+            <span className="absolute left-[-3%] top-[48%] h-[0.18cqw] w-[106%] -rotate-6 rounded-full bg-[var(--publisher-app-pop)]" />
           </span>
-          <span className="mt-[0.65cqw] text-[0.95cqw] font-black uppercase tracking-[0.08em]">
+          <span className="mt-[0.62cqw] text-[0.92cqw] font-black uppercase tracking-[0.08em] text-white/90">
             USD / MES
           </span>
         </div>
 
-        <div className="flex h-[8.8cqw] w-[24.4cqw] items-center gap-[1.35cqw] rounded-[2.15cqw] bg-[var(--publisher-app-pale)] px-[1.7cqw] text-[var(--publisher-app-accent-deep)] shadow-[0_0.75cqw_1.2cqw_-0.85cqw_rgba(2,6,23,0.32)]">
-          <span className="rounded-full bg-[var(--publisher-app-accent)] px-[1cqw] py-[0.45cqw] text-[0.92cqw] font-black uppercase tracking-[0.06em] text-white">
+        <div
+          data-testid="publisher-app-current-price"
+          className="flex h-[8.55cqw] w-[26.9cqw] items-center gap-[1.45cqw] rounded-[2.2cqw] border-[0.1cqw] border-white/68 bg-[linear-gradient(145deg,#fff_0%,var(--publisher-app-pale)_66%,var(--publisher-app-shine)_100%)] px-[1.8cqw] text-[var(--publisher-app-accent-deep)] shadow-[0_0_1.15cqw_color-mix(in_srgb,var(--publisher-app-pop)_24%,transparent),0_0.7cqw_1.2cqw_-0.82cqw_rgba(0,45,25,0.42)]"
+        >
+          <span className="rounded-full bg-[linear-gradient(135deg,var(--publisher-app-accent),var(--publisher-app-vivid))] px-[1.12cqw] py-[0.48cqw] text-[0.9cqw] font-black uppercase tracking-[0.06em] text-white shadow-[inset_0_0.08cqw_0_rgba(255,255,255,0.38)]">
             Ahora
           </span>
           <span>
-            <span className="block text-[4.5cqw] font-black leading-[0.82] tracking-[-0.055em]">
+            <span className="block text-[4.35cqw] font-black leading-[0.82] tracking-[-0.055em] [font-family:var(--font-nunito)]">
               59.99
             </span>
-            <span className="mt-[0.75cqw] block text-[1.02cqw] font-black uppercase tracking-[0.08em]">
+            <span className="mt-[0.72cqw] block text-[0.98cqw] font-black uppercase tracking-[0.08em]">
               USD / MES
             </span>
           </span>
@@ -436,20 +433,34 @@ export function PublisherAppPromoBanner({
 
       <div
         aria-hidden="true"
-        className="absolute left-[55.3cqw] top-[6.2cqw] h-[38.2cqw] w-[40.4cqw]"
+        data-testid="publisher-app-phone-scene"
+        className="absolute left-[46.2cqw] top-[3.65cqw] h-[42.7cqw] w-[52cqw]"
       >
-        <span className="absolute bottom-[2.2cqw] left-1/2 h-[2.5cqw] w-[31cqw] -translate-x-1/2 rounded-full bg-slate-950/45 blur-[1.2cqw]" />
+        <span className="absolute left-[10cqw] top-[4.2cqw] z-0 h-[31cqw] w-[34cqw] rounded-full bg-[color-mix(in_srgb,var(--publisher-app-pop)_36%,transparent)] blur-[3.2cqw]" />
+        <span className="absolute bottom-[0.3cqw] left-[1.2cqw] z-0 h-[5.7cqw] w-[48.5cqw] -rotate-2 [clip-path:polygon(7%_10%,92%_0,100%_72%,4%_100%)] bg-[linear-gradient(105deg,rgba(255,255,255,0.08),color-mix(in_srgb,var(--publisher-app-pop)_42%,transparent),rgba(255,255,255,0.18))] shadow-[inset_0_0.08cqw_0_rgba(255,255,255,0.34),0_1.2cqw_2cqw_-1.45cqw_rgba(0,45,25,0.56)]" />
+        <span className="absolute bottom-[1.65cqw] left-1/2 z-[1] h-[2.25cqw] w-[38cqw] -translate-x-1/2 rounded-full bg-[var(--publisher-app-accent-deep)]/45 blur-[1.2cqw]" />
+        <span className="absolute right-[-1.8cqw] top-[18cqw] z-[2] h-[13cqw] w-[10cqw] rotate-[18deg] rounded-full border-[1.05cqw] border-white/24 border-l-transparent shadow-[0_0_1.2cqw_color-mix(in_srgb,var(--publisher-app-pop)_38%,transparent)]" />
         <ServicesPhone />
         <MainPhone organizationName={brandName} />
         <ProductsPhone />
 
-        <span className="absolute left-[2.5cqw] top-[5.6cqw] z-30 flex size-[4.5cqw] -rotate-12 items-center justify-center rounded-[1.35cqw] bg-[var(--publisher-app-vivid)] text-white shadow-[0_0.9cqw_1.5cqw_-0.9cqw_rgba(2,6,23,0.62)]">
-          <HeartPulse className="size-[2.45cqw]" strokeWidth={2.6} />
+        <span className="absolute left-[5.2cqw] top-[1.9cqw] z-40 flex size-[6.1cqw] -rotate-12 items-center justify-center rounded-[1.65cqw] border-[0.12cqw] border-white/42 bg-[linear-gradient(145deg,var(--publisher-app-pop),var(--publisher-app-vivid)_62%,var(--publisher-app-accent))] text-white shadow-[inset_0_0.18cqw_0.28cqw_rgba(255,255,255,0.38),0_1.1cqw_1.7cqw_-0.88cqw_rgba(0,45,25,0.68)]">
+          <span className="absolute -bottom-[0.38cqw] inset-x-[0.5cqw] h-[0.5cqw] rounded-b-[0.8cqw] bg-[var(--publisher-app-accent-deep)]/55" />
+          <HeartPulse className="size-[3.25cqw]" strokeWidth={2.55} />
         </span>
-        <span className="absolute right-[2.3cqw] top-[4.5cqw] size-[3.7cqw] rounded-full border-[0.08cqw] border-white/30 bg-[radial-gradient(circle_at_32%_25%,white_0_8%,var(--publisher-app-shine)_20%,var(--publisher-app-vivid)_72%,var(--publisher-app-accent-deep))] shadow-[inset_-0.35cqw_-0.45cqw_0.75cqw_rgba(2,6,23,0.22)]" />
+        <span className="absolute right-[3.1cqw] top-[4.2cqw] z-40 flex size-[5.7cqw] rotate-12 items-center justify-center rounded-[1.6cqw] border-[0.1cqw] border-white/68 bg-[linear-gradient(145deg,#fff,var(--publisher-app-pale))] text-[var(--publisher-app-accent-deep)] shadow-[inset_0_0.15cqw_0.28cqw_rgba(255,255,255,0.72),0_1cqw_1.55cqw_-0.9cqw_rgba(0,45,25,0.56)]">
+          <Sparkles className="size-[2.65cqw] fill-current" strokeWidth={2.5} />
+        </span>
+        <span className="absolute left-[1.2cqw] top-[8.8cqw] z-[5] size-[2.55cqw] rounded-full border-[0.08cqw] border-white/30 bg-[radial-gradient(circle_at_30%_24%,white_0_8%,var(--publisher-app-shine)_20%,var(--publisher-app-pop)_65%,var(--publisher-app-accent-deep))] shadow-[inset_-0.3cqw_-0.38cqw_0.65cqw_rgba(0,45,25,0.28)]" />
+        <span className="absolute left-[1.3cqw] top-[31cqw] z-40 size-[3.2cqw] rounded-full border-[0.08cqw] border-white/30 bg-[radial-gradient(circle_at_30%_24%,white_0_8%,var(--publisher-app-shine)_20%,var(--publisher-app-vivid)_67%,var(--publisher-app-accent-deep))] shadow-[inset_-0.35cqw_-0.45cqw_0.75cqw_rgba(0,45,25,0.3),0_0.55cqw_0.8cqw_-0.5cqw_rgba(0,45,25,0.5)]" />
+        <Sparkles className="absolute left-[13.2cqw] top-[5.1cqw] z-40 size-[1.35cqw] fill-white text-white drop-shadow-[0_0_0.35cqw_rgba(255,255,255,0.85)]" />
+        <Sparkles className="absolute right-[0.8cqw] top-[18cqw] z-40 size-[1.65cqw] fill-white text-white drop-shadow-[0_0_0.4cqw_rgba(255,255,255,0.88)]" />
       </div>
 
-      <span className="absolute bottom-[2.1cqw] right-[3cqw] z-40 inline-flex h-[4.6cqw] items-center gap-[0.75cqw] rounded-[1.45cqw] bg-[var(--publisher-app-pale)] px-[1.65cqw] text-[1.22cqw] font-black text-[var(--publisher-app-accent-deep)] shadow-[0_0.55cqw_0_var(--publisher-app-accent-deep),0_1.1cqw_1.6cqw_-1cqw_rgba(2,6,23,0.68)] transition duration-200 group-hover:-translate-y-[0.35cqw] group-hover:shadow-[0_0.75cqw_0_var(--publisher-app-accent-deep),0_1.4cqw_1.9cqw_-1cqw_rgba(2,6,23,0.72)] group-active:translate-y-[0.2cqw] group-active:shadow-[0_0.25cqw_0_var(--publisher-app-accent-deep)]">
+      <span
+        data-testid="publisher-app-banner-cta"
+        className="absolute bottom-[3.9cqw] right-[2.9cqw] z-50 inline-flex h-[4.85cqw] items-center gap-[0.78cqw] rounded-[1.55cqw] border-[0.1cqw] border-white/68 bg-[linear-gradient(180deg,#fff,var(--publisher-app-pale))] px-[1.7cqw] text-[1.2cqw] font-black text-[var(--publisher-app-accent-deep)] shadow-[0_0.78cqw_1.3cqw_-0.76cqw_rgba(0,45,25,0.58)] transition duration-200 group-hover:-translate-y-[0.32cqw] group-hover:shadow-[0_1.1cqw_1.65cqw_-0.82cqw_rgba(0,45,25,0.64)] group-active:translate-y-[0.08cqw]"
+      >
         <Sparkles className="size-[1.45cqw] fill-current" />
         {ctaLabel}
         <ChevronRight className="size-[1.45cqw] transition-transform group-hover:translate-x-[0.22cqw]" />

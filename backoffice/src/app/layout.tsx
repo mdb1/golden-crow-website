@@ -1,5 +1,10 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Public_Sans, Space_Grotesk } from "next/font/google";
+import {
+  IBM_Plex_Mono,
+  Nunito,
+  Public_Sans,
+  Space_Grotesk,
+} from "next/font/google";
 import { ThemeBootstrap } from "@/components/theme-bootstrap";
 import "./globals.css";
 
@@ -11,6 +16,12 @@ const publicSans = Public_Sans({
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
   variable: "--font-space-grotesk",
+});
+
+const nunito = Nunito({
+  subsets: ["latin"],
+  weight: ["700", "800", "900"],
+  variable: "--font-nunito",
 });
 
 const ibmPlexMono = IBM_Plex_Mono({
@@ -46,7 +57,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${publicSans.variable} ${spaceGrotesk.variable} ${ibmPlexMono.variable}`}
+      className={`${publicSans.variable} ${spaceGrotesk.variable} ${ibmPlexMono.variable} ${nunito.variable}`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />

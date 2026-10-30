@@ -52,6 +52,21 @@ describe("PublisherAppPromoBanner color system", () => {
     expect(banner.style.getPropertyValue("--publisher-app-accent-deep")).toBe(
       palette.deep,
     );
+    expect(banner).toHaveClass("aspect-[256/125]", "rounded-[1.05cqw]");
+    expect(screen.getByTestId("publisher-app-banner-headline")).toHaveStyle({
+      fontFamily: "var(--font-nunito)",
+    });
+    expect(screen.getByTestId("publisher-app-phone-scene")).toHaveClass(
+      "left-[46.2cqw]",
+      "top-[3.65cqw]",
+      "w-[52cqw]",
+    );
+    expect(screen.getByTestId("publisher-app-current-price")).toHaveClass(
+      "w-[26.9cqw]",
+    );
+    expect(screen.getByTestId("publisher-app-banner-cta")).toHaveClass(
+      "bottom-[3.9cqw]",
+    );
     expect(screen.getByText("Editar mi app")).toBeTruthy();
   });
 });

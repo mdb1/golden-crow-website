@@ -323,7 +323,7 @@ export function PublisherPortalHome({
               : "Configurar Mi app"
           }
           data-testid="publisher-app-banner-link"
-          className="group block rounded-[30px] transition duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-4"
+          className="group block rounded-[14px] transition duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-4"
         >
           <PublisherAppPromoBanner
             organizationName={publisherName}
