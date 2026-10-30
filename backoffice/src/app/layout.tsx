@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import {
+  Fredoka,
   IBM_Plex_Mono,
-  Nunito,
   Public_Sans,
   Space_Grotesk,
 } from "next/font/google";
@@ -18,10 +18,10 @@ const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
 });
 
-const nunito = Nunito({
+const fredoka = Fredoka({
   subsets: ["latin"],
-  weight: ["700", "800", "900"],
-  variable: "--font-nunito",
+  weight: ["600", "700"],
+  variable: "--font-fredoka",
 });
 
 const ibmPlexMono = IBM_Plex_Mono({
@@ -57,7 +57,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${publicSans.variable} ${spaceGrotesk.variable} ${ibmPlexMono.variable} ${nunito.variable}`}
+      className={`${publicSans.variable} ${spaceGrotesk.variable} ${ibmPlexMono.variable} ${fredoka.variable}`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
