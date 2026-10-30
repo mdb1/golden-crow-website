@@ -938,7 +938,7 @@ export function PublisherAppConfigWorkbench({
                     key={option.value}
                     htmlFor={`publisher-app-platform-${option.value}`}
                     className={cn(
-                      "relative flex min-h-60 cursor-pointer flex-col overflow-hidden rounded-[24px] border p-5 transition hover:-translate-y-0.5",
+                      "relative flex min-h-60 cursor-pointer flex-col overflow-hidden rounded-[24px] border p-5 transition hover:-translate-y-0.5 focus-within:ring-2 focus-within:ring-violet-500 focus-within:ring-offset-2",
                       state.platformOption === option.value
                         ? "border-violet-400 bg-[linear-gradient(145deg,#6d28d9,#7c3aed_62%,#8b5cf6)] text-white shadow-[0_24px_50px_-30px_rgba(109,40,217,0.95)]"
                         : "border-border/80 bg-background/60 hover:border-violet-300 hover:bg-violet-50/45",
@@ -956,15 +956,12 @@ export function PublisherAppConfigWorkbench({
                       >
                         <Smartphone className="size-7" />
                       </span>
-                      <RadioGroupItem
-                        id={`publisher-app-platform-${option.value}`}
-                        value={option.value}
-                        className={
-                          state.platformOption === option.value
-                            ? "border-white text-white"
-                            : ""
-                        }
-                      />
+                      <span className="sr-only">
+                        <RadioGroupItem
+                          id={`publisher-app-platform-${option.value}`}
+                          value={option.value}
+                        />
+                      </span>
                     </div>
                     <span className="relative mt-6 block text-xl font-semibold">
                       {option.title}
