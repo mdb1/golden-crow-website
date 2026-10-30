@@ -127,7 +127,7 @@ describe("PublisherAppConfigWorkbench", () => {
       screen.getByRole("checkbox", { name: "Sección Comunidad" }),
     );
     advanceToColors();
-    fireEvent.change(screen.getByLabelText("Color principal"), {
+    fireEvent.change(screen.getByLabelText("Elegir color principal"), {
       target: { value: "#112233" },
     });
     advanceToIcon();
@@ -173,13 +173,15 @@ describe("PublisherAppConfigWorkbench", () => {
       screen.getByRole("radio", { name: /iOS \+ Android/i }),
     ).toHaveAttribute("data-state", "checked");
     advanceToColors();
-    expect(screen.getByLabelText("Color principal")).toHaveValue("#123ABC");
+    expect(screen.getByLabelText("Elegir color principal")).toHaveValue(
+      "#123abc",
+    );
     advanceToIcon();
     expect(
       screen.getByRole("button", { name: "Guardar cambios" }),
     ).toBeDisabled();
     advanceToColors();
-    fireEvent.change(screen.getByLabelText("Color terciario"), {
+    fireEvent.change(screen.getByLabelText("Elegir color terciario"), {
       target: { value: "#AABBCC" },
     });
     advanceToIcon();
@@ -202,20 +204,36 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(screen.getAllByText("Pending revision").length).toBeGreaterThan(0);
   });
 
-  it("blocks saving when a palette color is not a complete hex value", () => {
+  it("uses branded palette suggestions and full visual pickers without editable hex fields", () => {
     renderWorkbench();
     advanceToColors();
 
-    fireEvent.change(screen.getByLabelText("Color secundario"), {
-      target: { value: "#12" },
-    });
-
+    expect(screen.getByText("Creadas desde tu identidad")).toBeTruthy();
     expect(
-      screen.getByText("Ingresá un color hexadecimal de 6 dígitos."),
+      screen.getByText("Paletas pensadas para la app de Pocket Genes Lab"),
     ).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Paso 4 Icono/i })).toBeEnabled();
-    advanceToIcon();
-    expect(screen.getByRole("button", { name: "Crear mi app" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /Tu marca, más viva/i }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("button", { name: /Comunidad vibrante/i }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: /Lectura y contenido/i }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: /Profundidad premium/i }),
+    ).toBeTruthy();
+
+    const primaryPicker = screen.getByLabelText(
+      "Elegir color principal",
+    ) as HTMLInputElement;
+    expect(primaryPicker.type).toBe("color");
+    expect(screen.queryByRole("textbox", { name: /color principal/i })).toBeNull();
+    expect(screen.queryByText(/^#[0-9A-F]{6}$/)).toBeNull();
+
+    fireEvent.change(primaryPicker, { target: { value: "#445566" } });
+    expect(primaryPicker).toHaveValue("#445566");
   });
 
   it("downloads the complete persisted config and deletes a pending app after confirmation", async () => {

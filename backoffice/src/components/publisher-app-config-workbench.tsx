@@ -54,6 +54,7 @@ import {
   DEFAULT_PUBLISHER_APP_COLOR,
   normalizePublisherAppColor,
   publisherAppDefaultColors,
+  publisherAppPaletteSuggestions,
   publisherAppStatusLabel,
   type PublisherAppColors,
   type PublisherAppConfig,
@@ -141,24 +142,32 @@ const COLOR_FIELDS: Array<{
   },
 ];
 
-const PALETTE_PRESETS: Array<{ name: string; colors: PublisherAppColors }> = [
+const PALETTE_SUGGESTION_COPY = [
   {
-    name: "Violeta eléctrico",
-    colors: { primary: "#6D28D9", secondary: "#A78BFA", tertiary: "#F59E0B" },
+    name: "Tu marca, más viva",
+    description: "La recomendada: intensifica tu identidad sin perderla.",
   },
   {
-    name: "Océano brillante",
-    colors: { primary: "#0369A1", secondary: "#22D3EE", tertiary: "#14B8A6" },
+    name: "Comunidad vibrante",
+    description: "Contraste enérgico para interacción y novedades.",
   },
   {
-    name: "Verde vital",
-    colors: { primary: "#15803D", secondary: "#4ADE80", tertiary: "#A3E635" },
+    name: "Lectura y contenido",
+    description: "Equilibrio luminoso para clases, notas y navegación.",
   },
   {
-    name: "Coral cálido",
-    colors: { primary: "#EA580C", secondary: "#FB7185", tertiary: "#FACC15" },
+    name: "Profundidad premium",
+    description: "Una base profunda con acentos claros y expresivos.",
   },
-];
+] as const;
+
+function samePalette(left: PublisherAppColors, right: PublisherAppColors) {
+  return (Object.keys(left) as ColorKey[]).every(
+    (key) =>
+      normalizePublisherAppColor(left[key]) ===
+      normalizePublisherAppColor(right[key]),
+  );
+}
 
 function initialState(
   config: PublisherAppConfig | undefined,
@@ -558,19 +567,19 @@ export function PublisherAppConfigWorkbench({
   const changed =
     JSON.stringify(payload) !==
     JSON.stringify(normalizedPayload(persistedState));
-  const colorErrors = useMemo(
-    () =>
-      COLOR_FIELDS.reduce<Partial<Record<ColorKey, string>>>(
-        (errors, field) => {
-          if (!normalizePublisherAppColor(state.colors[field.key]))
-            errors[field.key] = "Ingresá un color hexadecimal de 6 dígitos.";
-          return errors;
-        },
-        {},
-      ),
-    [state.colors],
+  const suggestedPalettes = useMemo(
+    () => {
+      const generated = publisherAppPaletteSuggestions(publisherTint);
+      return PALETTE_SUGGESTION_COPY.map((copy, index) => ({
+        ...copy,
+        colors:
+          generated[index] ??
+          generated[0] ??
+          publisherAppDefaultColors(publisherTint),
+      }));
+    },
+    [publisherTint],
   );
-  const hasColorErrors = Object.keys(colorErrors).length > 0;
   const customIconMissing =
     state.iconSource === "custom" &&
     !state.iconImageUrl?.trim() &&
@@ -710,7 +719,6 @@ export function PublisherAppConfigWorkbench({
 
   async function save() {
     if (
-      hasColorErrors ||
       customIconMissing ||
       customIconUrlInvalid ||
       pending ||
@@ -1030,53 +1038,92 @@ export function PublisherAppConfigWorkbench({
 
             {activeStep.id === "colors" ? (
               <div className="space-y-6">
-                <div>
-                  <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-violet-700">
-                    Paletas para empezar
+                <div className="rounded-[24px] border border-violet-200/80 bg-[linear-gradient(135deg,rgba(109,40,217,0.08),rgba(139,92,246,0.025))] p-4 sm:p-5">
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-violet-700 dark:text-violet-300">
+                    Creadas desde tu identidad
+                  </p>
+                  <h4 className="mt-1 text-lg font-semibold text-foreground">
+                    Paletas pensadas para la app de {publisherName}
+                  </h4>
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                    Intensificamos tu color actual y construimos combinaciones
+                    para comunidad, contenido y navegación.
                   </p>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    {PALETTE_PRESETS.map((preset) => (
-                      <button
-                        key={preset.name}
-                        type="button"
-                        onClick={() =>
-                          updateState({ colors: { ...preset.colors } })
-                        }
-                        className="group flex items-center gap-3 rounded-2xl border border-border bg-background p-3 text-left transition hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-sm"
-                      >
-                        <span className="flex -space-x-2">
-                          {Object.values(preset.colors).map((color) => (
+                    {suggestedPalettes.map((preset, index) => {
+                      const selected = samePalette(state.colors, preset.colors);
+                      return (
+                        <button
+                          key={preset.name}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() =>
+                            updateState({ colors: { ...preset.colors } })
+                          }
+                          className={cn(
+                            "group relative mt-3 flex min-h-28 items-center gap-3 overflow-hidden rounded-[20px] border bg-card p-3 text-left transition duration-200 hover:-translate-y-0.5 hover:border-violet-400 hover:shadow-[0_16px_34px_-28px_rgba(109,40,217,0.8)]",
+                            selected
+                              ? "border-violet-500 ring-2 ring-violet-500/15"
+                              : "border-border/80",
+                          )}
+                        >
+                          <span
+                            className="relative h-[72px] w-[88px] shrink-0 overflow-hidden rounded-[18px] shadow-[0_12px_24px_-18px_rgba(15,23,42,0.78)]"
+                            style={{ backgroundColor: preset.colors.primary }}
+                            aria-hidden="true"
+                          >
                             <span
-                              key={color}
-                              className="size-9 rounded-full border-2 border-white shadow"
-                              style={{ backgroundColor: color }}
+                              className="absolute -right-4 -top-4 size-14 rounded-full"
+                              style={{ backgroundColor: preset.colors.secondary }}
                             />
-                          ))}
-                        </span>
-                        <span className="text-sm font-semibold text-foreground">
-                          {preset.name}
-                        </span>
-                      </button>
-                    ))}
+                            <span className="absolute bottom-2 left-2 h-8 w-12 rounded-[10px] bg-white/92 shadow-sm" />
+                            <span
+                              className="absolute bottom-2 right-2 size-5 rounded-full border-2 border-white/70"
+                              style={{ backgroundColor: preset.colors.tertiary }}
+                            />
+                          </span>
+                          <span className="min-w-0 flex-1 pr-4">
+                            {index === 0 ? (
+                              <span className="mb-1 block text-[9px] font-extrabold uppercase tracking-[0.1em] text-violet-700 dark:text-violet-200">
+                                Recomendada
+                              </span>
+                            ) : null}
+                            <span className="block font-semibold leading-5 text-foreground">
+                              {preset.name}
+                            </span>
+                            <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                              {preset.description}
+                            </span>
+                          </span>
+                          {selected ? (
+                            <span className="absolute right-2 top-2 flex size-6 items-center justify-center rounded-full bg-violet-600 text-white shadow-sm">
+                              <Check className="size-3.5" strokeWidth={3} />
+                            </span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
-                <div className="grid gap-4">
-                  {COLOR_FIELDS.map((field) => {
-                    const normalized = normalizePublisherAppColor(
-                      state.colors[field.key],
-                    );
-                    return (
-                      <div
-                        key={field.key}
-                        className="grid gap-4 overflow-hidden rounded-[22px] border border-border/80 bg-background/60 p-4 sm:grid-cols-[82px_minmax(0,1fr)_190px] sm:items-center"
-                      >
+                <div className="rounded-[24px] border border-border/80 bg-background/60 p-4 sm:p-5">
+                  <div className="mb-4">
+                    <p className="text-base font-semibold text-foreground">
+                      Ajustá cada color
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Tocá una muestra para abrir el selector completo. La vista
+                      previa cambia al instante.
+                    </p>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    {COLOR_FIELDS.map((field) => {
+                      const normalized = normalizePublisherAppColor(
+                        state.colors[field.key],
+                      );
+                      return (
                         <label
-                          className="relative flex size-[72px] cursor-pointer overflow-hidden rounded-[22px] border-4 border-white shadow-[0_12px_25px_-15px_rgba(15,23,42,0.8)]"
-                          title={`Abrir selector de ${field.label.toLowerCase()}`}
-                          style={{
-                            backgroundColor:
-                              normalized ?? DEFAULT_PUBLISHER_APP_COLOR,
-                          }}
+                          key={field.key}
+                          className="group relative flex min-h-56 cursor-pointer flex-col items-center overflow-hidden rounded-[22px] border border-border/80 bg-card p-4 text-center transition duration-200 hover:-translate-y-0.5 hover:border-violet-400 hover:shadow-[0_18px_38px_-30px_rgba(109,40,217,0.72)]"
                         >
                           <input
                             type="color"
@@ -1088,49 +1135,37 @@ export function PublisherAppConfigWorkbench({
                                 event.target.value.toUpperCase(),
                               )
                             }
-                            className="absolute -inset-3 size-24 cursor-pointer opacity-0"
+                            className="absolute inset-0 z-20 size-full cursor-pointer opacity-0"
                           />
-                          <Palette className="pointer-events-none m-auto size-6 text-white drop-shadow" />
-                        </label>
-                        <div>
-                          <Label
-                            htmlFor={`publisher-app-color-${field.key}`}
-                            className="text-sm font-semibold text-foreground"
-                          >
+                          <span className="relative flex size-24 items-center justify-center">
+                            <span
+                              className="absolute inset-1 rounded-full border border-dashed border-violet-300 transition-transform duration-500 group-hover:rotate-45 group-hover:scale-105"
+                              aria-hidden="true"
+                            />
+                            <span
+                              className="relative flex size-[68px] items-center justify-center overflow-hidden rounded-[23px] border-4 border-white text-white shadow-[0_18px_32px_-18px_rgba(15,23,42,0.8)]"
+                              style={{
+                                backgroundColor:
+                                  normalized ?? DEFAULT_PUBLISHER_APP_COLOR,
+                              }}
+                            >
+                              <span className="absolute inset-x-2 top-1.5 h-1/3 rounded-full bg-white/25 blur-sm" />
+                              <Palette className="relative size-6 drop-shadow" />
+                            </span>
+                          </span>
+                          <span className="mt-2 text-sm font-semibold text-foreground">
                             {field.label}
-                          </Label>
-                          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          </span>
+                          <span className="mt-1 text-xs leading-5 text-muted-foreground">
                             {field.description}
-                          </p>
-                          <p className="mt-1 text-[11px] font-medium text-violet-700">
-                            Tocá la muestra para abrir el selector completo.
-                          </p>
-                        </div>
-                        <div>
-                          <Input
-                            id={`publisher-app-color-${field.key}`}
-                            value={state.colors[field.key]}
-                            onChange={(event) =>
-                              updateColor(field.key, event.target.value)
-                            }
-                            onBlur={() => {
-                              if (normalized)
-                                updateColor(field.key, normalized);
-                            }}
-                            maxLength={7}
-                            spellCheck={false}
-                            aria-invalid={Boolean(colorErrors[field.key])}
-                            className="h-11 font-mono uppercase"
-                          />
-                          {colorErrors[field.key] ? (
-                            <p className="mt-1 text-xs text-destructive">
-                              {colorErrors[field.key]}
-                            </p>
-                          ) : null}
-                        </div>
-                      </div>
-                    );
-                  })}
+                          </span>
+                          <span className="mt-auto rounded-full bg-violet-100 px-3 py-1 text-[10px] font-bold text-violet-800 transition group-hover:bg-violet-600 group-hover:text-white dark:bg-violet-400/15 dark:text-violet-100">
+                            Cambiar color
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             ) : null}
@@ -1307,7 +1342,6 @@ export function PublisherAppConfigWorkbench({
                   disabled={
                     pending ||
                     iconUploadPending ||
-                    hasColorErrors ||
                     customIconMissing ||
                     customIconUrlInvalid ||
                     (mode === "edit" && !changed)
