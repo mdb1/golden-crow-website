@@ -7,15 +7,16 @@ import {
 } from "@/components/publisher-app-promo-banner";
 
 describe("PublisherAppPromoBanner color system", () => {
-  it("turns a muted brand color into a saturated palette without changing hue", () => {
+  it("turns a muted brand color into a controlled palette without changing hue", () => {
     const palette = publisherAppIntensePalette("#657960");
 
     expect(palette.source).toBe("#657960");
     expect(palette.hue).toBe(108);
-    expect(palette.base).toBe("hsl(108 88% 43%)");
-    expect(palette.deep).toBe("hsl(108 82% 23%)");
-    expect(palette.vivid).toBe("hsl(108 94% 52%)");
-    expect(palette.pop).toBe("hsl(108 96% 59%)");
+    expect(palette.base).toBe("hsl(108 68% 32%)");
+    expect(palette.deep).toBe("hsl(108 56% 10%)");
+    expect(palette.vivid).toBe("hsl(108 70% 48%)");
+    expect(palette.pop).toBe("hsl(108 72% 55%)");
+    expect(palette.pale).toBe("hsl(108 24% 96%)");
 
     for (const color of [
       palette.base,
@@ -24,13 +25,14 @@ describe("PublisherAppPromoBanner color system", () => {
       palette.pop,
       palette.glow,
       palette.shine,
+      palette.pale,
       palette.shadow,
     ]) {
       expect(color).toMatch(/^hsl\(108 /);
     }
   });
 
-  it("applies the intense palette while retaining the source tint metadata", () => {
+  it("applies the brand palette while retaining the source tint metadata", () => {
     const palette = publisherAppIntensePalette("#657960");
 
     render(

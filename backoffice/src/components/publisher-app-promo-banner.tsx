@@ -94,34 +94,26 @@ function hslAlphaColor(
   return `hsl(${Math.round((hue + 360) % 360)} ${Math.round(saturation)}% ${Math.round(lightness)}% / ${alpha})`;
 }
 
+/**
+ * Builds one controlled palette around the publisher hue. The saturation floor
+ * keeps muted organization colors recognizable without producing the neon
+ * highlights and yellow hot spots that the previous banner accumulated.
+ */
 export function publisherAppIntensePalette(value?: string) {
   const accent = normalizedHexColor(value);
-  const { hue, saturation, lightness } = rgbToHsl(hexToRgb(accent));
-  const baseSaturation = Math.max(saturation, 88);
-  const baseLightness = Math.min(Math.max(lightness, 43), 52);
+  const { hue, saturation } = rgbToHsl(hexToRgb(accent));
 
   return {
     source: accent,
     hue: Math.round(hue),
-    base: hslColor(hue, baseSaturation, baseLightness),
-    deep: hslColor(
-      hue,
-      Math.max(saturation, 82),
-      Math.min(Math.max(lightness - 20, 18), 26),
-    ),
-    vivid: hslColor(
-      hue,
-      Math.max(saturation, 94),
-      Math.min(Math.max(lightness + 8, 52), 58),
-    ),
-    pop: hslColor(
-      hue,
-      Math.max(saturation, 96),
-      Math.min(Math.max(lightness + 16, 58), 64),
-    ),
-    glow: hslColor(hue, Math.max(saturation, 92), 62),
-    shine: hslColor(hue, Math.max(saturation, 88), 86),
-    shadow: hslAlphaColor(hue, Math.max(saturation, 86), 20, 0.88),
+    base: hslColor(hue, Math.min(Math.max(saturation, 68), 78), 32),
+    deep: hslColor(hue, Math.min(Math.max(saturation, 56), 68), 10),
+    vivid: hslColor(hue, Math.min(Math.max(saturation, 70), 80), 48),
+    pop: hslColor(hue, Math.min(Math.max(saturation, 72), 82), 55),
+    glow: hslColor(hue, Math.min(Math.max(saturation, 62), 72), 58),
+    shine: hslColor(hue, Math.min(Math.max(saturation, 30), 42), 91),
+    pale: hslColor(hue, Math.min(Math.max(saturation, 24), 36), 96),
+    shadow: hslAlphaColor(hue, Math.min(Math.max(saturation, 54), 64), 8, 0.52),
   };
 }
 
@@ -134,26 +126,20 @@ function compactBrandName(value: string) {
   return `${trimmed.slice(0, 21).trimEnd()}…`;
 }
 
-function GlossOrb({ className }: { className: string }) {
-  return (
-    <span
-      className={`pointer-events-none absolute rounded-full border border-white/45 bg-[radial-gradient(circle_at_30%_24%,white_0_5%,var(--publisher-app-shine)_12%,var(--publisher-app-vivid)_48%,var(--publisher-app-accent-deep)_100%)] shadow-[inset_-8px_-10px_18px_rgba(15,23,42,0.28),inset_7px_7px_14px_rgba(255,255,255,0.42),0_16px_30px_-15px_rgba(15,23,42,0.72)] ${className}`}
-    >
-      <span className="absolute left-[20%] top-[15%] size-[24%] rounded-full bg-white/75 blur-[1px]" />
-    </span>
-  );
+function headlineFontSize(value: string) {
+  return `${Math.max(2.45, Math.min(5.48, 88 / Math.max(value.length, 1))).toFixed(2)}cqw`;
 }
 
 function PhoneStatusBar() {
   return (
-    <div className="flex items-center justify-between text-[7px] font-bold text-slate-900">
+    <div className="flex items-center justify-between text-[0.62cqw] font-extrabold text-slate-950">
       <span>9:41</span>
-      <div className="flex items-end gap-0.5" aria-hidden="true">
-        <span className="h-1 w-0.5 rounded-full bg-slate-800" />
-        <span className="h-1.5 w-0.5 rounded-full bg-slate-800" />
-        <span className="h-2 w-0.5 rounded-full bg-slate-800" />
-        <span className="ml-0.5 h-1.5 w-2.5 rounded-[2px] border border-slate-800">
-          <span className="block h-full w-1.5 bg-slate-800" />
+      <div className="flex items-end gap-[0.18cqw]" aria-hidden="true">
+        <span className="h-[0.45cqw] w-[0.13cqw] rounded-full bg-slate-800" />
+        <span className="h-[0.62cqw] w-[0.13cqw] rounded-full bg-slate-800" />
+        <span className="h-[0.78cqw] w-[0.13cqw] rounded-full bg-slate-800" />
+        <span className="ml-[0.12cqw] h-[0.62cqw] w-[1.05cqw] rounded-[0.18cqw] border-[0.08cqw] border-slate-800">
+          <span className="block h-full w-[0.64cqw] bg-slate-800" />
         </span>
       </div>
     </div>
@@ -162,17 +148,17 @@ function PhoneStatusBar() {
 
 function PhoneBrand({ name }: { name: string }) {
   return (
-    <div className="mt-3 flex items-center justify-between gap-2">
-      <div className="flex min-w-0 items-center gap-1.5">
-        <span className="flex size-5 shrink-0 items-center justify-center rounded-[7px] border border-white/70 bg-[linear-gradient(145deg,var(--publisher-app-shine),var(--publisher-app-vivid)_42%,var(--publisher-app-accent-deep))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_4px_9px_-4px_rgba(15,23,42,0.7)]">
-          <HeartPulse className="size-3" strokeWidth={2.6} />
+    <div className="mt-[1.15cqw] flex items-center justify-between gap-[0.7cqw]">
+      <div className="flex min-w-0 items-center gap-[0.55cqw]">
+        <span className="flex size-[1.85cqw] shrink-0 items-center justify-center rounded-[0.58cqw] bg-[var(--publisher-app-vivid)] text-white shadow-[inset_0_0.08cqw_0_rgba(255,255,255,0.55),0_0.28cqw_0.5cqw_-0.35cqw_rgba(2,6,23,0.5)]">
+          <HeartPulse className="size-[1.08cqw]" strokeWidth={2.7} />
         </span>
-        <span className="truncate text-[10px] font-black tracking-tight text-slate-950">
+        <span className="truncate text-[0.92cqw] font-black tracking-[-0.03em] text-slate-950">
           {compactBrandName(name)}
         </span>
       </div>
-      <span className="flex size-5 items-center justify-center rounded-full border border-slate-200 bg-white/85 shadow-sm">
-        <Bell className="size-2.5 text-[var(--publisher-app-accent)]" />
+      <span className="flex size-[1.8cqw] items-center justify-center rounded-full border-[0.08cqw] border-slate-200 bg-white">
+        <Bell className="size-[0.88cqw] text-[var(--publisher-app-accent-deep)]" />
       </span>
     </div>
   );
@@ -185,66 +171,78 @@ function MainPhone({ organizationName }: { organizationName: string }) {
   ];
 
   return (
-    <div className="relative z-20 w-[184px] rotate-[2deg] rounded-[36px] bg-[linear-gradient(145deg,var(--publisher-app-shine)_0%,var(--publisher-app-vivid)_8%,#111827_22%,#020617_58%,var(--publisher-app-vivid)_93%,var(--publisher-app-shine)_100%)] p-[5px] shadow-[0_36px_60px_-20px_rgba(2,6,23,0.9),0_0_38px_-18px_var(--publisher-app-shine)] sm:w-[206px] lg:w-[220px]">
-      <span className="absolute -left-[7px] top-24 h-12 w-[4px] rounded-l-full bg-[linear-gradient(180deg,var(--publisher-app-shine),var(--publisher-app-accent-deep))]" />
-      <span className="absolute -right-[7px] top-32 h-16 w-[4px] rounded-r-full bg-[linear-gradient(180deg,var(--publisher-app-shine),var(--publisher-app-accent-deep))]" />
-      <div className="rounded-[31px] bg-slate-950 p-[3px] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.28)]">
-        <div className="relative aspect-[9/18.5] overflow-hidden rounded-[27px] bg-[radial-gradient(circle_at_78%_3%,color-mix(in_srgb,var(--publisher-app-shine)_58%,white),transparent_28%),linear-gradient(180deg,#fff_0%,#fff8fb_56%,color-mix(in_srgb,var(--publisher-app-shine)_22%,#f7f1ff)_100%)] px-3 pb-3 pt-3">
-          <span className="absolute left-1/2 top-1.5 z-20 h-3.5 w-12 -translate-x-1/2 rounded-full bg-slate-950 shadow-[inset_0_-1px_0_rgba(255,255,255,0.2)]" />
+    <div className="absolute bottom-[2.7cqw] left-1/2 z-20 h-[34cqw] w-[19cqw] -translate-x-1/2 rotate-[1deg] rounded-[3.25cqw] bg-[linear-gradient(145deg,#1f2937,#020617_58%,var(--publisher-app-accent-deep))] p-[0.46cqw] shadow-[0_2.1cqw_2.8cqw_-1.5cqw_rgba(2,6,23,0.72)]">
+      <span className="absolute -left-[0.42cqw] top-[7.5cqw] h-[3.8cqw] w-[0.28cqw] rounded-l-full bg-[var(--publisher-app-accent-deep)]" />
+      <span className="absolute -right-[0.42cqw] top-[10cqw] h-[4.6cqw] w-[0.28cqw] rounded-r-full bg-[var(--publisher-app-accent-deep)]" />
+      <div className="h-full rounded-[2.86cqw] bg-slate-950 p-[0.25cqw]">
+        <div className="relative h-full overflow-hidden rounded-[2.62cqw] bg-[linear-gradient(180deg,#ffffff_0%,#ffffff_62%,var(--publisher-app-pale)_100%)] px-[1.12cqw] pb-[1.05cqw] pt-[1.05cqw]">
+          <span className="absolute left-1/2 top-[0.55cqw] z-20 h-[1.15cqw] w-[4.25cqw] -translate-x-1/2 rounded-full bg-slate-950" />
           <PhoneStatusBar />
           <PhoneBrand name={organizationName} />
 
-          <div className="relative mt-3 overflow-hidden rounded-2xl border border-white/25 bg-[linear-gradient(135deg,var(--publisher-app-accent-deep),var(--publisher-app-vivid)_56%,var(--publisher-app-pop))] p-3 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.32),0_12px_24px_-13px_rgba(15,23,42,0.76)]">
-            <span className="absolute -right-3 -top-5 size-16 rounded-full border-[12px] border-white/12" />
-            <span className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent" />
-            <p className="relative text-[7px] font-bold uppercase tracking-[0.16em] text-white/80">
+          <div className="relative mt-[1cqw] overflow-hidden rounded-[1.45cqw] bg-[linear-gradient(130deg,var(--publisher-app-accent-deep),var(--publisher-app-accent)_48%,var(--publisher-app-vivid))] p-[1cqw] text-white shadow-[0_0.72cqw_1.15cqw_-0.9cqw_rgba(15,23,42,0.65)]">
+            <span className="absolute -right-[1.2cqw] -top-[1.5cqw] size-[5.4cqw] rounded-full border-[0.9cqw] border-white/10" />
+            <p className="relative text-[0.55cqw] font-extrabold uppercase tracking-[0.16em] text-white/80">
               Para tu comunidad
             </p>
-            <p className="relative mt-1 text-[14px] font-black leading-[0.95] [text-shadow:0_2px_5px_rgba(15,23,42,0.35)]">
+            <p className="relative mt-[0.35cqw] text-[1.28cqw] font-black leading-[0.94]">
               Todo tu mundo,
               <br />
               en una app
             </p>
-            <Crown className="absolute bottom-2 right-2 size-6 fill-white/10 text-white drop-shadow" />
+            <Crown className="absolute bottom-[0.68cqw] right-[0.68cqw] size-[2cqw] text-white" />
           </div>
 
-          <div className="mt-2 grid grid-cols-2 gap-2">
+          <div className="mt-[0.72cqw] grid grid-cols-2 gap-[0.68cqw]">
             {cards.map(({ icon: Icon, label }) => (
               <div
                 key={label}
-                className="rounded-xl border border-white bg-white/88 p-2 shadow-[inset_0_1px_0_white,0_9px_18px_-11px_rgba(15,23,42,0.65)] backdrop-blur-sm"
+                className="rounded-[1.05cqw] border-[0.08cqw] border-slate-100 bg-white p-[0.68cqw] shadow-[0_0.42cqw_0.72cqw_-0.55cqw_rgba(15,23,42,0.4)]"
               >
-                <span className="flex size-6 items-center justify-center rounded-lg bg-[linear-gradient(145deg,var(--publisher-app-shine),color-mix(in_srgb,var(--publisher-app-vivid)_18%,white))] text-[var(--publisher-app-accent-deep)] shadow-[inset_0_1px_0_white]">
-                  <Icon className="size-3.5" />
+                <span className="flex size-[2cqw] items-center justify-center rounded-[0.7cqw] bg-[var(--publisher-app-shine)] text-[var(--publisher-app-accent-deep)]">
+                  <Icon className="size-[1.18cqw]" />
                 </span>
-                <p className="mt-1.5 text-[7px] font-extrabold text-slate-900">
+                <p className="mt-[0.46cqw] text-[0.58cqw] font-extrabold text-slate-900">
                   {label}
                 </p>
-                <span className="mt-1 block h-1 w-8 rounded-full bg-[color-mix(in_srgb,var(--publisher-app-vivid)_18%,#e2e8f0)]" />
+                <span className="mt-[0.35cqw] block h-[0.3cqw] w-[2.8cqw] rounded-full bg-[color-mix(in_srgb,var(--publisher-app-vivid)_24%,#e2e8f0)]" />
               </div>
             ))}
           </div>
 
-          <div className="mt-2 flex items-center gap-2 rounded-xl border border-white bg-white/88 p-2 shadow-[inset_0_1px_0_white,0_9px_18px_-11px_rgba(15,23,42,0.65)] backdrop-blur-sm">
-            <span className="flex size-7 items-center justify-center rounded-lg bg-[linear-gradient(145deg,var(--publisher-app-shine),color-mix(in_srgb,var(--publisher-app-vivid)_18%,white))] text-[var(--publisher-app-accent-deep)] shadow-[inset_0_1px_0_white]">
-              <CalendarDays className="size-4" />
+          <div className="mt-[0.72cqw] flex items-center gap-[0.6cqw] rounded-[1.05cqw] border-[0.08cqw] border-slate-100 bg-white p-[0.68cqw] shadow-[0_0.42cqw_0.72cqw_-0.55cqw_rgba(15,23,42,0.4)]">
+            <span className="flex size-[2.15cqw] items-center justify-center rounded-[0.7cqw] bg-[var(--publisher-app-shine)] text-[var(--publisher-app-accent-deep)]">
+              <CalendarDays className="size-[1.2cqw]" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[7px] font-extrabold text-slate-900">
+              <span className="block text-[0.6cqw] font-extrabold text-slate-900">
                 Turnos online
               </span>
-              <span className="mt-1 block h-1 w-12 rounded-full bg-[color-mix(in_srgb,var(--publisher-app-vivid)_18%,#e2e8f0)]" />
+              <span className="mt-[0.32cqw] block h-[0.3cqw] w-[4.2cqw] rounded-full bg-[color-mix(in_srgb,var(--publisher-app-vivid)_24%,#e2e8f0)]" />
             </span>
-            <ChevronRight className="size-3 text-[var(--publisher-app-vivid)]" />
+            <ChevronRight className="size-[0.95cqw] text-[var(--publisher-app-vivid)]" />
           </div>
 
-          <div className="absolute inset-x-3 bottom-3 flex items-center justify-around rounded-xl border border-white bg-white/88 py-2 shadow-[inset_0_1px_0_white,0_10px_22px_-14px_rgba(15,23,42,0.7)] backdrop-blur-md">
-            <HeartPulse className="size-3.5 text-[var(--publisher-app-vivid)]" />
-            <Package className="size-3.5 text-slate-400" />
-            <UsersRound className="size-3.5 text-slate-400" />
+          <div className="mt-[0.65cqw] flex items-center gap-[0.6cqw] rounded-[1.05cqw] bg-white px-[0.7cqw] py-[0.56cqw] shadow-[0_0.36cqw_0.62cqw_-0.5cqw_rgba(15,23,42,0.34)]">
+            <span className="flex size-[1.85cqw] items-center justify-center rounded-[0.62cqw] bg-[var(--publisher-app-shine)] text-[var(--publisher-app-accent-deep)]">
+              <Sparkles className="size-[1.05cqw]" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[0.6cqw] font-extrabold text-slate-900">
+                Novedades
+              </span>
+              <span className="mt-[0.2cqw] block text-[0.46cqw] font-bold text-slate-400">
+                Notas y eventos
+              </span>
+            </span>
+            <ChevronRight className="size-[0.9cqw] text-[var(--publisher-app-vivid)]" />
           </div>
 
-          <span className="pointer-events-none absolute -right-20 -top-12 h-[125%] w-24 rotate-[16deg] bg-gradient-to-r from-transparent via-white/20 to-transparent blur-[1px]" />
+          <div className="absolute inset-x-[1.08cqw] bottom-[0.86cqw] flex items-center justify-around rounded-[1.05cqw] bg-white py-[0.65cqw] shadow-[0_0.4cqw_0.7cqw_-0.55cqw_rgba(15,23,42,0.38)]">
+            <HeartPulse className="size-[1.2cqw] text-[var(--publisher-app-vivid)]" />
+            <Package className="size-[1.2cqw] text-slate-400" />
+            <UsersRound className="size-[1.2cqw] text-slate-400" />
+          </div>
         </div>
       </div>
     </div>
@@ -259,34 +257,33 @@ function ServicesPhone() {
   ];
 
   return (
-    <div className="absolute bottom-1 left-0 z-10 hidden w-[168px] -rotate-[8deg] rounded-[32px] bg-[linear-gradient(145deg,var(--publisher-app-shine),var(--publisher-app-vivid)_12%,#0f172a_28%,#020617_70%,var(--publisher-app-vivid))] p-[5px] shadow-[0_28px_50px_-20px_rgba(2,6,23,0.9),0_0_28px_-18px_var(--publisher-app-shine)] sm:block lg:left-1 lg:w-[180px]">
-      <div className="rounded-[27px] bg-slate-950 p-[3px]">
-        <div className="relative aspect-[9/18.5] overflow-hidden rounded-[23px] bg-[radial-gradient(circle_at_20%_4%,color-mix(in_srgb,var(--publisher-app-shine)_48%,white),transparent_27%),linear-gradient(180deg,#fff_0%,color-mix(in_srgb,var(--publisher-app-shine)_18%,#fff8fb)_100%)] px-3 pt-3">
-          <span className="absolute left-1/2 top-1.5 z-20 h-3 w-10 -translate-x-1/2 rounded-full bg-slate-950" />
+    <div className="absolute bottom-[3.2cqw] left-[1.1cqw] z-10 h-[28.5cqw] w-[15.2cqw] -rotate-[8deg] rounded-[2.65cqw] bg-[linear-gradient(145deg,#1f2937,#020617_65%,var(--publisher-app-accent-deep))] p-[0.42cqw] shadow-[0_1.8cqw_2.6cqw_-1.5cqw_rgba(2,6,23,0.68)]">
+      <div className="h-full rounded-[2.28cqw] bg-slate-950 p-[0.24cqw]">
+        <div className="relative h-full overflow-hidden rounded-[2.04cqw] bg-[linear-gradient(180deg,#ffffff,var(--publisher-app-pale))] px-[0.95cqw] pt-[1cqw]">
+          <span className="absolute left-1/2 top-[0.48cqw] h-[1cqw] w-[3.5cqw] -translate-x-1/2 rounded-full bg-slate-950" />
           <PhoneStatusBar />
-          <p className="mt-7 text-[11px] font-black text-slate-950">
+          <p className="mt-[2.4cqw] text-[0.92cqw] font-black text-slate-950">
             Mis servicios
           </p>
-          <div className="mt-3 space-y-2">
+          <div className="mt-[1.1cqw] space-y-[0.72cqw]">
             {services.map(({ icon: Icon, label }) => (
               <div
                 key={label}
-                className="flex items-center gap-2 rounded-xl border border-white bg-white/88 p-2 shadow-[inset_0_1px_0_white,0_8px_16px_-10px_rgba(15,23,42,0.64)] backdrop-blur-sm"
+                className="flex items-center gap-[0.56cqw] rounded-[0.95cqw] bg-white p-[0.62cqw] shadow-[0_0.38cqw_0.65cqw_-0.48cqw_rgba(15,23,42,0.38)]"
               >
-                <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[linear-gradient(145deg,var(--publisher-app-shine),color-mix(in_srgb,var(--publisher-app-vivid)_20%,white))] text-[var(--publisher-app-accent-deep)] shadow-[inset_0_1px_0_white]">
-                  <Icon className="size-3.5" />
+                <span className="flex size-[2.05cqw] shrink-0 items-center justify-center rounded-[0.68cqw] bg-[var(--publisher-app-shine)] text-[var(--publisher-app-accent-deep)]">
+                  <Icon className="size-[1.08cqw]" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[7px] font-bold text-slate-900">
+                  <span className="block truncate text-[0.55cqw] font-bold text-slate-900">
                     {label}
                   </span>
-                  <span className="mt-1 block h-1 w-11 rounded-full bg-[color-mix(in_srgb,var(--publisher-app-vivid)_18%,#e2e8f0)]" />
+                  <span className="mt-[0.3cqw] block h-[0.28cqw] w-[3.7cqw] rounded-full bg-[color-mix(in_srgb,var(--publisher-app-vivid)_22%,#e2e8f0)]" />
                 </span>
-                <ChevronRight className="size-3 text-[var(--publisher-app-vivid)]" />
+                <ChevronRight className="size-[0.8cqw] text-[var(--publisher-app-vivid)]" />
               </div>
             ))}
           </div>
-          <span className="pointer-events-none absolute -right-20 -top-10 h-[125%] w-24 rotate-[15deg] bg-gradient-to-r from-transparent via-white/18 to-transparent" />
         </div>
       </div>
     </div>
@@ -301,34 +298,33 @@ function ProductsPhone() {
   ];
 
   return (
-    <div className="absolute bottom-2 right-0 z-10 hidden w-[168px] rotate-[9deg] rounded-[32px] bg-[linear-gradient(145deg,var(--publisher-app-shine),var(--publisher-app-vivid)_12%,#0f172a_28%,#020617_70%,var(--publisher-app-vivid))] p-[5px] shadow-[0_28px_50px_-20px_rgba(2,6,23,0.9),0_0_28px_-18px_var(--publisher-app-shine)] sm:block lg:right-1 lg:w-[180px]">
-      <div className="rounded-[27px] bg-slate-950 p-[3px]">
-        <div className="relative aspect-[9/18.5] overflow-hidden rounded-[23px] bg-[radial-gradient(circle_at_82%_4%,color-mix(in_srgb,var(--publisher-app-shine)_48%,white),transparent_27%),linear-gradient(180deg,#fff_0%,color-mix(in_srgb,var(--publisher-app-shine)_18%,#fff8fb)_100%)] px-3 pt-3">
-          <span className="absolute left-1/2 top-1.5 z-20 h-3 w-10 -translate-x-1/2 rounded-full bg-slate-950" />
+    <div className="absolute bottom-[3.2cqw] right-[1.1cqw] z-10 h-[28.5cqw] w-[15.2cqw] rotate-[9deg] rounded-[2.65cqw] bg-[linear-gradient(145deg,#1f2937,#020617_65%,var(--publisher-app-accent-deep))] p-[0.42cqw] shadow-[0_1.8cqw_2.6cqw_-1.5cqw_rgba(2,6,23,0.68)]">
+      <div className="h-full rounded-[2.28cqw] bg-slate-950 p-[0.24cqw]">
+        <div className="relative h-full overflow-hidden rounded-[2.04cqw] bg-[linear-gradient(180deg,#ffffff,var(--publisher-app-pale))] px-[0.95cqw] pt-[1cqw]">
+          <span className="absolute left-1/2 top-[0.48cqw] h-[1cqw] w-[3.5cqw] -translate-x-1/2 rounded-full bg-slate-950" />
           <PhoneStatusBar />
-          <p className="mt-7 text-[11px] font-black text-slate-950">
+          <p className="mt-[2.4cqw] text-[0.92cqw] font-black text-slate-950">
             Productos
           </p>
-          <div className="mt-3 space-y-2">
+          <div className="mt-[1.1cqw] space-y-[0.72cqw]">
             {products.map(({ icon: Icon, label }) => (
               <div
                 key={label}
-                className="flex items-center gap-2 rounded-xl border border-white bg-white/88 p-2 shadow-[inset_0_1px_0_white,0_8px_16px_-10px_rgba(15,23,42,0.64)] backdrop-blur-sm"
+                className="flex items-center gap-[0.56cqw] rounded-[0.95cqw] bg-white p-[0.62cqw] shadow-[0_0.38cqw_0.65cqw_-0.48cqw_rgba(15,23,42,0.38)]"
               >
-                <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[linear-gradient(145deg,var(--publisher-app-shine),color-mix(in_srgb,var(--publisher-app-vivid)_20%,white))] text-[var(--publisher-app-accent-deep)] shadow-[inset_0_1px_0_white]">
-                  <Icon className="size-3.5" />
+                <span className="flex size-[2.05cqw] shrink-0 items-center justify-center rounded-[0.68cqw] bg-[var(--publisher-app-shine)] text-[var(--publisher-app-accent-deep)]">
+                  <Icon className="size-[1.08cqw]" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[7px] font-bold text-slate-900">
+                  <span className="block truncate text-[0.55cqw] font-bold text-slate-900">
                     {label}
                   </span>
-                  <span className="mt-1 block h-1 w-10 rounded-full bg-[color-mix(in_srgb,var(--publisher-app-vivid)_18%,#e2e8f0)]" />
+                  <span className="mt-[0.3cqw] block h-[0.28cqw] w-[3.7cqw] rounded-full bg-[color-mix(in_srgb,var(--publisher-app-vivid)_22%,#e2e8f0)]" />
                 </span>
-                <ChevronRight className="size-3 text-[var(--publisher-app-vivid)]" />
+                <ChevronRight className="size-[0.8cqw] text-[var(--publisher-app-vivid)]" />
               </div>
             ))}
           </div>
-          <span className="pointer-events-none absolute -right-20 -top-10 h-[125%] w-24 rotate-[15deg] bg-gradient-to-r from-transparent via-white/18 to-transparent" />
         </div>
       </div>
     </div>
@@ -349,15 +345,13 @@ export function PublisherAppPromoBanner({
     "--publisher-app-pop": palette.pop,
     "--publisher-app-glow": palette.glow,
     "--publisher-app-shine": palette.shine,
+    "--publisher-app-pale": palette.pale,
+    containerType: "inline-size",
     backgroundImage: [
-      "radial-gradient(circle at 80% 12%, rgba(255,255,255,0.18) 0 6%, transparent 18%)",
-      `radial-gradient(circle at 74% 58%, color-mix(in srgb, ${palette.vivid} 88%, transparent) 0%, transparent 37%)`,
-      `radial-gradient(circle at 103% 78%, color-mix(in srgb, ${palette.pop} 92%, transparent) 0%, transparent 34%)`,
-      `radial-gradient(circle at 8% -10%, ${palette.base} 0%, transparent 36%)`,
-      `radial-gradient(circle at 24% 110%, ${palette.deep} 0%, transparent 44%)`,
-      `linear-gradient(122deg, ${palette.deep} 0%, ${palette.base} 38%, ${palette.vivid} 76%, ${palette.pop} 128%)`,
+      `radial-gradient(circle at 78% 38%, color-mix(in srgb, ${palette.vivid} 72%, white 10%) 0%, transparent 34%)`,
+      `linear-gradient(112deg, color-mix(in srgb, ${palette.deep} 38%, ${palette.base}) 0%, ${palette.base} 48%, ${palette.vivid} 100%)`,
     ].join(", "),
-    boxShadow: `inset 0 1px 0 rgba(255,255,255,0.42), inset 0 -38px 65px rgba(3,7,18,0.13), 0 32px 84px -38px ${palette.shadow}`,
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.22)",
   } as CSSProperties;
 
   return (
@@ -366,127 +360,99 @@ export function PublisherAppPromoBanner({
       data-accent={palette.source}
       data-palette-hue={palette.hue}
       style={bannerStyle}
-      className="relative isolate overflow-hidden rounded-[30px] border-2 border-white/30 text-white"
+      className="relative isolate aspect-[256/125] w-full overflow-hidden rounded-[2.7cqw] font-sans text-white"
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 z-30 h-[42%] bg-[linear-gradient(180deg,rgba(255,255,255,0.08),transparent_74%)] mix-blend-screen"
+        className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.055),transparent_30%,rgba(2,6,23,0.055))]"
       />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -left-[12%] top-[-48%] h-[125%] w-[42%] rotate-[16deg] bg-gradient-to-r from-transparent via-white/[0.06] to-transparent blur-2xl"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-32 -left-20 size-80 rounded-full border-[46px] border-white/[0.09] shadow-[0_0_50px_color-mix(in_srgb,var(--publisher-app-vivid)_18%,transparent)]"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 hidden sm:block"
+
+      <div className="absolute left-[4.7cqw] top-[6.4cqw] z-20 inline-flex h-[3.5cqw] items-center gap-[0.75cqw] rounded-full bg-[var(--publisher-app-pale)] px-[1.15cqw] text-[1.16cqw] font-black uppercase tracking-[0.18em] text-[var(--publisher-app-accent-deep)]">
+        <span className="flex size-[2.4cqw] items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--publisher-app-vivid)_20%,white)]">
+          <Crown className="size-[1.35cqw] fill-current" />
+        </span>
+        Servicio destacado
+      </div>
+
+      <h3
+        className="absolute left-[4.7cqw] top-[12.6cqw] z-20 w-[48cqw] font-black leading-[0.98] tracking-[-0.045em]"
+        style={{ fontFamily: "var(--font-public-sans)" }}
       >
-        <GlossOrb className="right-[4%] top-[11%] size-12 opacity-90" />
-        <GlossOrb className="right-[39%] top-[16%] size-5 opacity-80" />
-        <GlossOrb className="bottom-[12%] right-[7%] size-7 opacity-75" />
-        <Sparkles className="absolute right-[2.5%] top-[38%] size-7 fill-[#FFE787] text-[#FFF2A8] drop-shadow-[0_0_9px_rgba(255,235,120,0.9)]" />
-        <Sparkles className="absolute left-[47%] top-[11%] size-4 fill-white text-white drop-shadow-[0_0_8px_white]" />
-        <span className="absolute left-[49%] top-[33%] size-2 rotate-12 rounded-[2px] bg-white/75 shadow-[72px_128px_0_-1px_rgba(255,255,255,0.66),-36px_184px_0_-1px_rgba(255,255,255,0.5)]" />
-      </div>
-
-      <div className="relative grid min-h-[510px] items-center gap-8 px-5 py-7 sm:px-8 sm:py-9 lg:min-h-[478px] lg:grid-cols-[minmax(0,0.93fr)_minmax(440px,1.07fr)] lg:gap-5 lg:px-10 lg:py-10">
-        <div className="relative z-20 min-w-0">
-          <div className="inline-flex items-center gap-2.5 rounded-full border border-white/55 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(255,255,255,0.82))] px-3.5 py-2 text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--publisher-app-accent-deep)] shadow-[inset_0_1px_0_white,0_10px_26px_-16px_rgba(3,7,18,0.76)] backdrop-blur-md">
-            <span className="flex size-6 items-center justify-center rounded-full bg-[linear-gradient(145deg,var(--publisher-app-shine),var(--publisher-app-vivid))] text-[var(--publisher-app-accent-deep)] shadow-[inset_0_1px_0_white,0_3px_8px_-4px_rgba(15,23,42,0.7)]">
-              <Crown className="size-3.5 fill-current" />
-            </span>
-            Servicio destacado
-          </div>
-
-          <h3 className="mt-5 max-w-xl font-heading text-[clamp(2.65rem,7vw,4.9rem)] font-black leading-[0.84] tracking-[-0.06em] [text-shadow:0_5px_20px_rgba(2,6,23,0.3)]">
-            La app de
-            <span className="mt-2 block break-words bg-[linear-gradient(180deg,#fff_0%,var(--publisher-app-shine)_54%,#fff_100%)] bg-clip-text text-transparent [filter:drop-shadow(0_7px_14px_rgba(2,6,23,0.28))]">
-              {brandName}
-            </span>
-          </h3>
-
-          <p className="mt-5 max-w-lg text-base font-medium leading-6 text-white/92 [text-shadow:0_2px_10px_rgba(2,6,23,0.24)] sm:text-lg sm:leading-7">
-            Subimos tu propia app al store, exclusiva para tus servicios y
-            productos.
-          </p>
-
-          <div className="mt-5 flex flex-wrap gap-2">
-            {[
-              { icon: Smartphone, label: "App propia" },
-              { icon: Stethoscope, label: "Tus servicios" },
-              { icon: Package, label: "Tus productos" },
-            ].map(({ icon: Icon, label }) => (
-              <span
-                key={label}
-                className="inline-flex items-center gap-1.5 rounded-full border border-white/55 bg-[linear-gradient(180deg,rgba(255,255,255,0.97),rgba(255,255,255,0.8))] py-1.5 pl-1.5 pr-3 text-xs font-bold text-[var(--publisher-app-accent-deep)] shadow-[inset_0_1px_0_white,0_9px_22px_-15px_rgba(3,7,18,0.78)] backdrop-blur-md"
-              >
-                <span className="flex size-6 items-center justify-center rounded-full bg-[linear-gradient(145deg,var(--publisher-app-shine),color-mix(in_srgb,var(--publisher-app-vivid)_32%,white))] text-[var(--publisher-app-accent-deep)] shadow-[inset_0_1px_0_white]">
-                  <Icon className="size-3.5" />
-                </span>
-                {label}
-              </span>
-            ))}
-          </div>
-
-          <div className="mt-6 flex flex-wrap items-center gap-3">
-            <div className="flex min-w-28 flex-col justify-center rounded-[22px] border border-white/55 bg-[linear-gradient(180deg,rgba(255,255,255,0.9),rgba(255,255,255,0.72))] px-4 py-3 text-center text-slate-600 shadow-[inset_0_1px_0_white,0_14px_30px_-20px_rgba(3,7,18,0.78)] backdrop-blur-md">
-              <span className="relative mx-auto text-2xl font-black tracking-[-0.04em]">
-                99.99
-                <span className="absolute left-[-5%] top-1/2 h-0.5 w-[110%] -rotate-6 bg-[var(--publisher-app-pop)] shadow-[0_0_6px_var(--publisher-app-pop)]" />
-              </span>
-              <span className="text-[10px] font-bold uppercase tracking-wide">
-                USD / mes
-              </span>
-            </div>
-            <div className="relative flex min-w-56 items-center gap-3 overflow-hidden rounded-[24px] border border-white/65 bg-[linear-gradient(135deg,var(--publisher-app-vivid),var(--publisher-app-accent)_48%,var(--publisher-app-pop))] px-4 py-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.68),0_0_34px_color-mix(in_srgb,var(--publisher-app-glow)_48%,transparent),0_20px_42px_-18px_rgba(3,7,18,0.7)]">
-              <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/30 to-transparent" />
-              <Sparkles className="absolute -right-1 -top-1 size-7 fill-[#FFF3A1] text-[#FFF3A1] opacity-90 drop-shadow-[0_0_8px_rgba(255,240,145,0.85)]" />
-              <span className="relative rounded-full border border-white/40 bg-white/20 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.38)] backdrop-blur-sm">
-                Ahora
-              </span>
-              <span className="relative">
-                <span className="block text-4xl font-black leading-none tracking-[-0.05em] [text-shadow:0_3px_8px_rgba(2,6,23,0.35)]">
-                  59.99
-                </span>
-                <span className="text-[10px] font-bold uppercase tracking-wide">
-                  USD / mes
-                </span>
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div
-          aria-hidden="true"
-          className="relative mx-auto flex h-[365px] w-full max-w-[460px] items-end justify-center sm:h-[410px] lg:h-[420px]"
+        <span className="block text-[5.48cqw] text-white">La app de</span>
+        <span
+          className="block max-w-[48cqw] whitespace-nowrap text-[var(--publisher-app-accent-deep)]"
+          style={{ fontSize: headlineFontSize(brandName) }}
         >
-          <span className="absolute bottom-[12%] left-1/2 h-[68%] w-[68%] -translate-x-1/2 rounded-full bg-[var(--publisher-app-glow)] opacity-45 blur-[62px]" />
-          <span className="absolute -bottom-3 left-1/2 z-[4] h-24 w-[88%] -translate-x-1/2 rounded-[50%] border-t-2 border-white/65 bg-[linear-gradient(180deg,rgba(255,255,255,0.36),color-mix(in_srgb,var(--publisher-app-vivid)_30%,rgba(255,255,255,0.08))_46%,rgba(2,6,23,0.18)_100%)] shadow-[inset_0_10px_24px_rgba(255,255,255,0.18),0_22px_38px_-20px_rgba(2,6,23,0.82)] backdrop-blur-sm" />
-          <span className="absolute -bottom-2 left-1/2 z-[3] h-16 w-[76%] -translate-x-1/2 rounded-[50%] bg-[var(--publisher-app-vivid)] opacity-45 blur-2xl" />
-          <span className="absolute -bottom-1 left-1/2 h-14 w-[82%] -translate-x-1/2 rounded-[50%] bg-slate-950/40 blur-xl" />
-          <ServicesPhone />
-          <MainPhone organizationName={brandName} />
-          <ProductsPhone />
-          <span className="absolute left-[7%] top-[18%] z-30 hidden size-14 -rotate-12 items-center justify-center rounded-[20px] border border-white/55 bg-[linear-gradient(145deg,var(--publisher-app-shine),var(--publisher-app-vivid)_48%,var(--publisher-app-accent-deep))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_18px_34px_-16px_rgba(2,6,23,0.8),0_0_22px_color-mix(in_srgb,var(--publisher-app-glow)_46%,transparent)] sm:flex">
-            <span className="absolute inset-x-2 top-1.5 h-1/3 rounded-full bg-white/35 blur-sm" />
-            <HeartPulse
-              className="relative size-7 drop-shadow"
-              strokeWidth={2.5}
-            />
+          {brandName}
+        </span>
+      </h3>
+
+      <p className="absolute left-[4.7cqw] top-[27.1cqw] z-20 w-[46cqw] text-[1.82cqw] font-bold leading-[2.55cqw] text-white/95">
+        Subimos tu propia app al store, exclusiva para tus servicios y
+        productos.
+      </p>
+
+      <div className="absolute left-[4.7cqw] top-[32.9cqw] z-20 flex items-center gap-[0.9cqw]">
+        {[
+          { icon: Smartphone, label: "App propia" },
+          { icon: Stethoscope, label: "Tus servicios" },
+          { icon: Package, label: "Tus productos" },
+        ].map(({ icon: Icon, label }) => (
+          <span
+            key={label}
+            className="inline-flex h-[3.5cqw] items-center gap-[0.6cqw] rounded-full bg-[var(--publisher-app-pale)] px-[1.05cqw] text-[1.2cqw] font-extrabold text-[var(--publisher-app-accent-deep)]"
+          >
+            <Icon className="size-[1.45cqw]" strokeWidth={2.2} />
+            {label}
           </span>
-          <span className="absolute right-[8%] top-[9%] z-30 flex size-12 rotate-12 items-center justify-center rounded-[20px] border border-white/55 bg-[linear-gradient(145deg,#fff,var(--publisher-app-shine)_48%,var(--publisher-app-glow))] text-[var(--publisher-app-accent-deep)] shadow-[inset_0_1px_0_white,0_18px_34px_-16px_rgba(2,6,23,0.8),0_0_22px_color-mix(in_srgb,var(--publisher-app-glow)_42%,transparent)] sm:size-14">
-            <span className="absolute inset-x-2 top-1.5 h-1/3 rounded-full bg-white/55 blur-sm" />
-            <Sparkles className="relative size-6 fill-current drop-shadow" />
+        ))}
+      </div>
+
+      <div className="absolute left-[4.7cqw] top-[38.8cqw] z-20 flex h-[8.8cqw] items-center gap-[2.3cqw]">
+        <div className="flex w-[10.4cqw] flex-col items-center justify-center text-[var(--publisher-app-accent-deep)]">
+          <span className="relative text-[2.8cqw] font-black leading-none tracking-[-0.04em]">
+            99.99
+            <span className="absolute left-[-3%] top-[48%] h-[0.16cqw] w-[106%] -rotate-6 bg-[var(--publisher-app-accent-deep)]" />
+          </span>
+          <span className="mt-[0.65cqw] text-[0.95cqw] font-black uppercase tracking-[0.08em]">
+            USD / MES
+          </span>
+        </div>
+
+        <div className="flex h-[8.8cqw] w-[24.4cqw] items-center gap-[1.35cqw] rounded-[2.15cqw] bg-[var(--publisher-app-pale)] px-[1.7cqw] text-[var(--publisher-app-accent-deep)] shadow-[0_0.75cqw_1.2cqw_-0.85cqw_rgba(2,6,23,0.32)]">
+          <span className="rounded-full bg-[var(--publisher-app-accent)] px-[1cqw] py-[0.45cqw] text-[0.92cqw] font-black uppercase tracking-[0.06em] text-white">
+            Ahora
+          </span>
+          <span>
+            <span className="block text-[4.5cqw] font-black leading-[0.82] tracking-[-0.055em]">
+              59.99
+            </span>
+            <span className="mt-[0.75cqw] block text-[1.02cqw] font-black uppercase tracking-[0.08em]">
+              USD / MES
+            </span>
           </span>
         </div>
       </div>
-      <span className="absolute bottom-4 right-4 z-40 inline-flex min-h-12 items-center gap-2 rounded-2xl border border-white/75 bg-[linear-gradient(180deg,rgba(255,255,255,1),rgba(255,255,255,.84))] px-5 py-3 text-sm font-black text-[var(--publisher-app-accent-deep)] shadow-[inset_0_1px_0_white,0_7px_0_color-mix(in_srgb,var(--publisher-app-accent-deep)_70%,#020617),0_18px_36px_-14px_rgba(2,6,23,.86)] backdrop-blur transition duration-200 group-hover:-translate-y-1 group-hover:shadow-[inset_0_1px_0_white,0_10px_0_color-mix(in_srgb,var(--publisher-app-accent-deep)_70%,#020617),0_24px_42px_-14px_rgba(2,6,23,.9)] group-active:translate-y-1 group-active:shadow-[inset_0_1px_0_white,0_3px_0_color-mix(in_srgb,var(--publisher-app-accent-deep)_70%,#020617),0_12px_24px_-14px_rgba(2,6,23,.8)] sm:bottom-6 sm:right-7">
-        <Sparkles className="size-4 fill-current" />
+
+      <div
+        aria-hidden="true"
+        className="absolute left-[55.3cqw] top-[6.2cqw] h-[38.2cqw] w-[40.4cqw]"
+      >
+        <span className="absolute bottom-[2.2cqw] left-1/2 h-[2.5cqw] w-[31cqw] -translate-x-1/2 rounded-full bg-slate-950/45 blur-[1.2cqw]" />
+        <ServicesPhone />
+        <MainPhone organizationName={brandName} />
+        <ProductsPhone />
+
+        <span className="absolute left-[2.5cqw] top-[5.6cqw] z-30 flex size-[4.5cqw] -rotate-12 items-center justify-center rounded-[1.35cqw] bg-[var(--publisher-app-vivid)] text-white shadow-[0_0.9cqw_1.5cqw_-0.9cqw_rgba(2,6,23,0.62)]">
+          <HeartPulse className="size-[2.45cqw]" strokeWidth={2.6} />
+        </span>
+        <span className="absolute right-[2.3cqw] top-[4.5cqw] size-[3.7cqw] rounded-full border-[0.08cqw] border-white/30 bg-[radial-gradient(circle_at_32%_25%,white_0_8%,var(--publisher-app-shine)_20%,var(--publisher-app-vivid)_72%,var(--publisher-app-accent-deep))] shadow-[inset_-0.35cqw_-0.45cqw_0.75cqw_rgba(2,6,23,0.22)]" />
+      </div>
+
+      <span className="absolute bottom-[2.1cqw] right-[3cqw] z-40 inline-flex h-[4.6cqw] items-center gap-[0.75cqw] rounded-[1.45cqw] bg-[var(--publisher-app-pale)] px-[1.65cqw] text-[1.22cqw] font-black text-[var(--publisher-app-accent-deep)] shadow-[0_0.55cqw_0_var(--publisher-app-accent-deep),0_1.1cqw_1.6cqw_-1cqw_rgba(2,6,23,0.68)] transition duration-200 group-hover:-translate-y-[0.35cqw] group-hover:shadow-[0_0.75cqw_0_var(--publisher-app-accent-deep),0_1.4cqw_1.9cqw_-1cqw_rgba(2,6,23,0.72)] group-active:translate-y-[0.2cqw] group-active:shadow-[0_0.25cqw_0_var(--publisher-app-accent-deep)]">
+        <Sparkles className="size-[1.45cqw] fill-current" />
         {ctaLabel}
-        <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+        <ChevronRight className="size-[1.45cqw] transition-transform group-hover:translate-x-[0.22cqw]" />
       </span>
     </article>
   );
