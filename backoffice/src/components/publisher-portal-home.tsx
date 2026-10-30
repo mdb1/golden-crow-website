@@ -19,6 +19,7 @@ import {
   PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
   PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE,
   PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE,
+  publisherPortalAppRoute,
   publisherPortalFeedEntriesByStatusRoute,
   publisherPortalFeedEntryCreateRoute,
   publisherPortalServiceOfferCreateRoute,
@@ -36,6 +37,7 @@ type PublisherPortalHomeProps = {
   publisherProfileHref?: string;
   publisherName: string;
   publisherTint?: string;
+  hasPublisherAppConfig: boolean;
 };
 
 type QuickAccessCardProps = {
@@ -148,6 +150,7 @@ export function PublisherPortalHome({
   publisherProfileHref,
   publisherName,
   publisherTint,
+  hasPublisherAppConfig,
 }: PublisherPortalHomeProps) {
   const newFeedEntryHref = publisherPortalFeedEntryCreateRoute();
   const draftFeedEntriesHref = publisherPortalFeedEntriesByStatusRoute("draft");
@@ -312,10 +315,21 @@ export function PublisherPortalHome({
         >
           Mi app
         </h2>
-        <PublisherAppPromoBanner
-          organizationName={publisherName}
-          organizationTint={publisherTint}
-        />
+        <Link
+          href={publisherPortalAppRoute(hasPublisherAppConfig)}
+          aria-label={
+            hasPublisherAppConfig
+              ? "Editar la configuración de Mi app"
+              : "Configurar Mi app"
+          }
+          data-testid="publisher-app-banner-link"
+          className="group block rounded-[30px] transition duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-4"
+        >
+          <PublisherAppPromoBanner
+            organizationName={publisherName}
+            organizationTint={publisherTint}
+          />
+        </Link>
       </section>
 
       <section

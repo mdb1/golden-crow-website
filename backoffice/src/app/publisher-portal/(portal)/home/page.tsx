@@ -6,6 +6,7 @@ import type {
   DiscoverOrganizationRecord,
 } from "@/lib/discover";
 import { appText } from "@/lib/language";
+import type { PublisherAppConfigResponse } from "@/lib/publisher-app-config";
 import {
   publisherPortalIndividualDetailRoute,
   publisherPortalOrganizationDetailRoute,
@@ -93,18 +94,22 @@ export default async function PublisherPortalHomePage() {
   const publisherBrandRequest = accountRequest.then(({ account }) =>
     loadPublisherBrand(account),
   );
+  const publisherAppConfigRequest =
+    sdkFetchServer<PublisherAppConfigResponse>("/publisher-app/config");
   const [
     { account },
     hasPublishedFeedEntry,
     hasDraftFeedEntry,
     [hasServiceOffer, hasActiveServiceOffer],
     publisherBrand,
+    { config: publisherAppConfig },
   ] = await Promise.all([
     accountRequest,
     loadFeedEntryPresence("published"),
     loadFeedEntryPresence("draft"),
     serviceOfferPresenceRequest,
     publisherBrandRequest,
+    publisherAppConfigRequest,
   ]);
   const displayName =
     account.role?.displayName ||
@@ -137,6 +142,7 @@ export default async function PublisherPortalHomePage() {
       publisherProfileHref={publisherProfileHref}
       publisherName={publisherBrand.name}
       publisherTint={publisherBrand.tint}
+      hasPublisherAppConfig={Boolean(publisherAppConfig)}
     />
   );
 }

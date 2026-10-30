@@ -263,6 +263,7 @@ describe.each([
       "/discover/organizations/org-1",
       "/discover/individuals/ind-1",
       "/discover/feed-items/f-1/duplicate",
+      "/publisher-app/config",
       "/admin/support-services/offers",
       "/admin/support-services/offers/o-1",
       "/admin/support-services/transactions/t-1",

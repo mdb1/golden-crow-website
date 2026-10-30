@@ -2517,6 +2517,7 @@ const SPANISH_TEXT: Record<string, string> = {
   Patients: "Pacientes",
   "Roles & Permissions": "Roles y permisos",
   "My account": "Mi cuenta",
+  "My app": "Mi app",
   "Current operator role and Firebase Auth details":
     "Rol actual del operador y detalles de Firebase Auth",
   "Current operator role assignment, permissions, and Firebase Auth details.":

@@ -37,6 +37,7 @@ describe("auth middleware", () => {
       true,
     );
     expect(isPublisherPortalSdkPath("/discover/feed-items/feed-1")).toBe(true);
+    expect(isPublisherPortalSdkPath("/publisher-app/config")).toBe(true);
     expect(
       isPublisherPortalSdkPath("/admin/support-services/offers"),
     ).toBe(true);
@@ -52,6 +53,9 @@ describe("auth middleware", () => {
       ),
     ).toBe(true);
     expect(isPublisherPortalSdkPath("/roles")).toBe(false);
+    expect(isPublisherPortalSdkPath("/publisher-app/config/other")).toBe(
+      false,
+    );
     expect(isPublisherPortalSdkPath("/admin/support-services")).toBe(false);
     expect(isPublisherPortalSdkPath("/admin/support-services/catalog")).toBe(
       false,

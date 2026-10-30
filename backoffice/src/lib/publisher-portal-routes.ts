@@ -2,6 +2,11 @@ export const PUBLISHER_PORTAL_ENTRY_ROUTE = "/publisher-portal/home";
 export const PUBLISHER_PORTAL_HOME_ROUTE = "/publisher-portal/home";
 export const PUBLISHER_PORTAL_LOGIN_ROUTE = "/publisher-portal/login";
 export const PUBLISHER_PORTAL_ACCOUNT_ROUTE = "/publisher-portal/my-account";
+export const PUBLISHER_PORTAL_APP_ROUTE = "/publisher-portal/app";
+export const PUBLISHER_PORTAL_APP_NEW_ROUTE =
+  `${PUBLISHER_PORTAL_APP_ROUTE}/new`;
+export const PUBLISHER_PORTAL_APP_EDIT_ROUTE =
+  `${PUBLISHER_PORTAL_APP_ROUTE}/edit`;
 export const PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE =
   "/publisher-portal/service-offers";
 export const PUBLISHER_PORTAL_SERVICE_OFFER_WIZARD_ROUTE =
@@ -19,6 +24,12 @@ export function publisherPortalFeedEntriesByStatusRoute(status: string) {
   return `${PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE}?status=${encodeURIComponent(
     status,
   )}`;
+}
+
+export function publisherPortalAppRoute(hasConfig: boolean) {
+  return hasConfig
+    ? PUBLISHER_PORTAL_APP_EDIT_ROUTE
+    : PUBLISHER_PORTAL_APP_NEW_ROUTE;
 }
 
 export function publisherPortalOrganizationDetailRoute(organizationId: string) {

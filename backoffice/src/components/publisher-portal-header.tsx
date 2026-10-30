@@ -11,6 +11,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { appText } from "@/lib/language";
 import {
   PUBLISHER_PORTAL_ACCOUNT_ROUTE,
+  PUBLISHER_PORTAL_APP_ROUTE,
   PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
   PUBLISHER_PORTAL_DISCOVER_INDIVIDUALS_ROUTE,
   PUBLISHER_PORTAL_DISCOVER_ORGANIZATIONS_ROUTE,
@@ -20,6 +21,13 @@ import {
 } from "@/lib/publisher-portal-routes";
 
 function titleForPath(pathname: string, language: "en" | "es") {
+  if (
+    pathname === PUBLISHER_PORTAL_APP_ROUTE ||
+    pathname.startsWith(`${PUBLISHER_PORTAL_APP_ROUTE}/`)
+  ) {
+    return appText(language, "My app");
+  }
+
   if (pathname === PUBLISHER_PORTAL_ACCOUNT_ROUTE) {
     return appText(language, "My account");
   }

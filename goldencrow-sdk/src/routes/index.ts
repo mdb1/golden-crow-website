@@ -29,6 +29,7 @@ import {
   serviceTransactionProviderNotificationRoutes,
 } from "./service-transaction-provider-notifications.routes.js";
 import { serviceNotificationAccessTokenRoutes } from "./service-notification-access-token.routes.js";
+import { publisherAppConfigRoutes } from "./publisher-app-config.routes.js";
 
 export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(healthRoutes);
@@ -56,5 +57,6 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(serviceTransactionProviderNotificationRoutes);
   await fastify.register(supportServicesRoutes);
   await fastify.register(pgflexLogisticsRoutes);
+  await fastify.register(publisherAppConfigRoutes);
   await fastify.register(gymRoutes, { prefix: "/gym" });
 }

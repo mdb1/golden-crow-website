@@ -5,6 +5,8 @@ import PublisherPortalHomePage from "@/app/publisher-portal/(portal)/home/page";
 import type { MyAccountRecord } from "@/lib/admin-areas";
 import {
   PUBLISHER_PORTAL_ACCOUNT_ROUTE,
+  PUBLISHER_PORTAL_APP_EDIT_ROUTE,
+  PUBLISHER_PORTAL_APP_NEW_ROUTE,
   PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
   PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE,
   PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE,
@@ -58,6 +60,7 @@ function mockPublisherHomeData(
   accountOverride: MyAccountRecord = account,
   hasActiveServiceOffer = false,
   hasServiceOffer = hasActiveServiceOffer,
+  hasPublisherAppConfig = false,
 ) {
   jest.mocked(sdkFetchServer).mockImplementation(async (path) => {
     if (path === "/auth/my-account") {
@@ -95,6 +98,35 @@ function mockPublisherHomeData(
           name: "Pocket Genes Lab",
           colorHex: "#123ABC",
         },
+      };
+    }
+
+    if (path === "/publisher-app/config") {
+      return {
+        config: hasPublisherAppConfig
+          ? {
+              id: "organization_org-1",
+              publisherKind: "organization",
+              publisherId: "org-1",
+              publisherName: "Pocket Genes Lab",
+              publisherEmail: "publisher@example.org",
+              publisherUsername: "pocketgenes",
+              platformOption: "ios_android",
+              connectEnabled: true,
+              profileEnabled: true,
+              learnCustomizationEnabled: true,
+              colors: {
+                primary: "#123ABC",
+                secondary: "#456DEF",
+                tertiary: "#FEDCBA",
+              },
+              schemaVersion: 1,
+              createdAt: "2026-10-30T12:00:00.000Z",
+              updatedAt: "2026-10-30T12:00:00.000Z",
+              createdByUserId: "publisher-1",
+              updatedByUserId: "publisher-1",
+            }
+          : null,
       };
     }
 
@@ -165,6 +197,11 @@ describe("PublisherPortalHomePage", () => {
     expect(screen.getByTestId("publisher-app-banner").dataset.accent).toBe(
       "#123ABC",
     );
+    expect(
+      screen
+        .getByRole("link", { name: "Configurar Mi app" })
+        .getAttribute("href"),
+    ).toBe(PUBLISHER_PORTAL_APP_NEW_ROUTE);
     expect(sdkFetchServer).toHaveBeenCalledWith(
       "/discover/organizations/org-1",
     );
@@ -229,6 +266,21 @@ describe("PublisherPortalHomePage", () => {
         .getAttribute("href"),
     ).toBe(PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE);
     expect(screen.queryByText("Ver mis borradores")).toBeNull();
+  });
+
+  it("opens the app editor when the publisher already has a configuration", async () => {
+    mockPublisherHomeData(false, false, account, false, false, true);
+
+    render(await PublisherPortalHomePage());
+
+    expect(
+      screen
+        .getByRole("link", { name: "Editar la configuración de Mi app" })
+        .getAttribute("href"),
+    ).toBe(PUBLISHER_PORTAL_APP_EDIT_ROUTE);
+    expect(screen.getByTestId("publisher-app-banner-link")).toContainElement(
+      screen.getByTestId("publisher-app-banner"),
+    );
   });
 
   it("shows view and create actions once the publisher has an active service offer", async () => {

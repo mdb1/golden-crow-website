@@ -10,9 +10,10 @@ import { getFirebaseAuth } from "@/lib/firebase";
 
 const mockRouterReplace = jest.fn();
 const mockRouterRefresh = jest.fn();
+let mockPathname = "/publisher-portal/service-offers";
 
 jest.mock("next/navigation", () => ({
-  usePathname: () => "/publisher-portal/service-offers",
+  usePathname: () => mockPathname,
   useRouter: () => ({
     replace: mockRouterReplace,
     refresh: mockRouterRefresh,
@@ -41,12 +42,27 @@ describe("PublisherPortalHeader", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPathname = "/publisher-portal/service-offers";
     global.fetch = fetchMock;
     jest
       .mocked(getFirebaseAuth)
       .mockReturnValue(
         firebaseAuth as unknown as ReturnType<typeof getFirebaseAuth>,
       );
+  });
+
+  it("labels app configuration routes as Mi app", () => {
+    mockPathname = "/publisher-portal/app/new";
+
+    render(
+      <AppLanguageProvider initialLanguage="es" forcedLanguage="es">
+        <SidebarProvider>
+          <PublisherPortalHeader />
+        </SidebarProvider>
+      </AppLanguageProvider>,
+    );
+
+    expect(screen.getByRole("heading", { name: "Mi app" })).toBeTruthy();
   });
 
   it("clears Firebase and NextAuth even when SDK logout is unavailable", async () => {

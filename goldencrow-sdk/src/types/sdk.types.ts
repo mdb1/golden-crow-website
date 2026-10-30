@@ -918,6 +918,37 @@ export interface DiscoverIndividualRecord {
   updatedByUserId?: string;
 }
 
+export type PublisherAppPlatformOption = "ios" | "ios_android";
+export type PublisherAppPublisherKind = "organization" | "individual";
+
+export interface PublisherAppConfigColors {
+  primary: string;
+  secondary: string;
+  tertiary: string;
+}
+
+export interface PublisherAppConfigInput {
+  platformOption: PublisherAppPlatformOption;
+  connectEnabled: boolean;
+  profileEnabled: boolean;
+  learnCustomizationEnabled: boolean;
+  colors: PublisherAppConfigColors;
+}
+
+export interface PublisherAppConfigRecord extends PublisherAppConfigInput {
+  id: string;
+  schemaVersion: 1;
+  publisherKind: PublisherAppPublisherKind;
+  publisherId: string;
+  publisherName: string;
+  publisherEmail: string;
+  publisherUsername: string;
+  createdAt: string;
+  updatedAt: string;
+  createdByUserId: string;
+  updatedByUserId: string;
+}
+
 export type DiscoverFeedType =
   | "news"
   | "research_update"
