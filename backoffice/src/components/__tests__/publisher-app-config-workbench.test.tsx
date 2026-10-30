@@ -4,7 +4,10 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { PublisherAppConfigWorkbench } from "@/components/publisher-app-config-workbench";
 import type { PublisherAppConfig } from "@/lib/publisher-app-config";
-import { PUBLISHER_PORTAL_APP_EDIT_ROUTE } from "@/lib/publisher-portal-routes";
+import {
+  PUBLISHER_PORTAL_APP_EDIT_ROUTE,
+  PUBLISHER_PORTAL_HOME_ROUTE,
+} from "@/lib/publisher-portal-routes";
 import { sdkFetch } from "@/lib/sdk-client";
 
 const mockRouterReplace = jest.fn();
@@ -192,5 +195,68 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(screen.getByRole("button", { name: /Paso 4 Icono/i })).toBeEnabled();
     advanceToIcon();
     expect(screen.getByRole("button", { name: "Crear mi app" })).toBeDisabled();
+  });
+
+  it("downloads the complete persisted config and deletes a pending app after confirmation", async () => {
+    jest.mocked(sdkFetch).mockResolvedValue({
+      deleted: true,
+      configId: savedConfig.id,
+    });
+    const createObjectURL = jest.fn(
+      (_blob: Blob) => "blob:publisher-app-config",
+    );
+    const revokeObjectURL = jest.fn();
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: createObjectURL,
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: revokeObjectURL,
+    });
+    const clickSpy = jest
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => undefined);
+
+    renderWorkbench({ mode: "edit", initialConfig: savedConfig });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Descargar configuración" }),
+    );
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    const exportedBlob = createObjectURL.mock.calls[0][0] as Blob;
+    expect(exportedBlob.type).toBe("application/json;charset=utf-8");
+    expect(exportedBlob.size).toBeGreaterThan(100);
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:publisher-app-config");
+
+    fireEvent.click(screen.getByRole("button", { name: "Eliminar mi app" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Eliminar definitivamente" }),
+    );
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/publisher-app/config", {
+        method: "DELETE",
+      });
+    });
+    expect(mockRouterReplace).toHaveBeenCalledWith(PUBLISHER_PORTAL_HOME_ROUTE);
+    expect(mockRouterRefresh).toHaveBeenCalled();
+    clickSpy.mockRestore();
+  });
+
+  it("keeps download available but blocks deletion after pending revision", () => {
+    renderWorkbench({
+      mode: "edit",
+      initialConfig: { ...savedConfig, status: "approved" },
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Descargar configuración" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Eliminar mi app" }),
+    ).toBeDisabled();
+    expect(screen.getByText(/ya no está pendiente de revisión/i)).toBeTruthy();
   });
 });

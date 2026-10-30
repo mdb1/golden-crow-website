@@ -14,6 +14,7 @@ import {
   ArrowRight,
   Check,
   CheckCircle2,
+  Download,
   GraduationCap,
   ImageIcon,
   LoaderCircle,
@@ -25,12 +26,25 @@ import {
   Save,
   Smartphone,
   Sparkles,
+  Trash2,
   UploadCloud,
   UserRound,
   UsersRound,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -518,14 +532,17 @@ export function PublisherAppConfigWorkbench({
   const [persistedState, setPersistedState] = useState(() =>
     initialState(initialConfig, publisherTint, publisherImageUrl),
   );
+  const [persistedConfig, setPersistedConfig] = useState(initialConfig);
   const [pending, setPending] = useState(false);
+  const [deletePending, setDeletePending] = useState(false);
   const [iconUploadPending, setIconUploadPending] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const activeStep = WIZARD_STEPS[stepIndex] ?? WIZARD_STEPS[0];
   const statusLabel = publisherAppStatusLabel(
-    initialConfig?.status ?? "pending_revision",
+    persistedConfig?.status ?? "pending_revision",
   );
+  const canDelete = persistedConfig?.status === "pending_revision";
   const payload = useMemo(() => normalizedPayload(state), [state]);
   const changed =
     JSON.stringify(payload) !==
@@ -619,6 +636,67 @@ export function PublisherAppConfigWorkbench({
       setIconUploadPending(false);
     }
   }
+
+  function downloadConfig() {
+    if (!persistedConfig) return;
+    try {
+      const blob = new Blob([JSON.stringify(persistedConfig, null, 2)], {
+        type: "application/json;charset=utf-8",
+      });
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      const baseName =
+        publisherName
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "") || "publisher";
+      anchor.href = objectUrl;
+      anchor.download = `${baseName}-app-config.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        title: "No pudimos descargar la configuración",
+        message: "Volvé a intentarlo desde este navegador.",
+      });
+    }
+  }
+
+  async function deleteApp() {
+    if (!canDelete || deletePending) return;
+    setDeletePending(true);
+    setToast(null);
+    try {
+      const response = await sdkFetch<{ deleted: boolean; configId: string }>(
+        "/publisher-app/config",
+        { method: "DELETE" },
+      );
+      if (!response.deleted) {
+        throw new Error("El servidor no confirmó la eliminación.");
+      }
+      router.replace(PUBLISHER_PORTAL_HOME_ROUTE);
+      router.refresh();
+    } catch (error) {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        title: "No pudimos eliminar la app",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Revisá el estado de la app y volvé a intentarlo.",
+        details: error instanceof SdkRequestError ? error.details : undefined,
+      });
+    } finally {
+      setDeletePending(false);
+    }
+  }
+
   async function save() {
     if (
       hasColorErrors ||
@@ -647,6 +725,7 @@ export function PublisherAppConfigWorkbench({
       const nextState = initialState(saved, publisherTint, publisherImageUrl);
       setState(nextState);
       setPersistedState(nextState);
+      setPersistedConfig(saved);
       if (mode === "create") {
         setCompleted(true);
         return;
@@ -1275,6 +1354,125 @@ export function PublisherAppConfigWorkbench({
           ) : null}
         </div>
       </div>
+
+      {mode === "edit" ? (
+        <div className="mt-8 grid gap-5">
+          <section className="rounded-[24px] border border-violet-200/80 bg-[linear-gradient(135deg,rgba(245,243,255,.92),rgba(255,255,255,.96))] p-5 shadow-sm sm:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
+                  <Download className="size-5" />
+                </span>
+                <div>
+                  <h3 className="font-heading text-lg font-semibold text-foreground">
+                    Descargar configuración
+                  </h3>
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                    Exportá toda la información persistida de esta app en un
+                    archivo JSON, incluyendo identidad, funciones, colores,
+                    icono, estado y datos de auditoría.
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={downloadConfig}
+                disabled={!persistedConfig}
+                className="h-11 shrink-0 rounded-xl border-violet-300 bg-white text-violet-800 hover:bg-violet-50"
+              >
+                <Download className="size-4" />
+                Descargar configuración
+              </Button>
+            </div>
+          </section>
+
+          <section className="rounded-[24px] border border-destructive/30 bg-destructive/[0.04] p-5 shadow-sm sm:p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-destructive/10 text-destructive">
+                  <Trash2 className="size-5" />
+                </span>
+                <div>
+                  <h3 className="font-heading text-lg font-semibold text-destructive">
+                    Zona de peligro
+                  </h3>
+                  <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+                    Eliminar la app borra permanentemente su configuración. Esta
+                    acción sólo está disponible mientras el estado sea
+                    <strong className="text-foreground">
+                      {" "}
+                      Pending revision
+                    </strong>
+                    .
+                  </p>
+                  {!canDelete ? (
+                    <p className="mt-2 text-sm font-semibold text-destructive">
+                      La app ya no está pendiente de revisión y no puede ser
+                      eliminada por el publicador.
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    disabled={!canDelete || pending || deletePending}
+                    className="h-11 shrink-0 rounded-xl"
+                  >
+                    {deletePending ? (
+                      <LoaderCircle className="size-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="size-4" />
+                    )}
+                    {deletePending ? "Eliminando…" : "Eliminar mi app"}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogMedia className="bg-destructive/10 text-destructive">
+                      <Trash2 className="size-5" />
+                    </AlertDialogMedia>
+                    <AlertDialogTitle>
+                      ¿Eliminar definitivamente tu app?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Se borrará la configuración completa de {publisherName}.
+                      Esta acción no se puede deshacer. Podrás iniciar una nueva
+                      solicitud desde el banner de Mi app.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={deletePending}>
+                      Cancelar
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      variant="destructive"
+                      disabled={deletePending}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        void deleteApp();
+                      }}
+                    >
+                      {deletePending ? (
+                        <LoaderCircle className="size-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="size-4" />
+                      )}
+                      {deletePending
+                        ? "Eliminando…"
+                        : "Eliminar definitivamente"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </section>
   );
 }

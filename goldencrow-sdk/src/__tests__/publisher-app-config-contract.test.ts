@@ -16,6 +16,7 @@ type MockDocumentReference = {
   get: jest.Mock<Promise<MockSnapshot>, []>;
   create: jest.Mock<Promise<void>, [StoredDocument]>;
   update: jest.Mock<Promise<void>, [StoredDocument]>;
+  delete: jest.Mock<Promise<void>, []>;
 };
 
 const collections = new Map<string, Map<string, StoredDocument>>();
@@ -74,6 +75,9 @@ function documentReferenceFor(
     }
     store.set(id, { ...existing, ...update });
   });
+  ref.delete = jest.fn(async () => {
+    collectionStore(collectionName).delete(id);
+  });
 
   return ref;
 }
@@ -81,6 +85,20 @@ function documentReferenceFor(
 const mockCollection = jest.fn((name: string) => ({
   doc: jest.fn((id: string) => documentReferenceFor(name, id)),
 }));
+const mockRunTransaction = jest.fn(
+  async (
+    operation: (transaction: {
+      get: (ref: MockDocumentReference) => Promise<MockSnapshot>;
+      delete: (ref: MockDocumentReference) => void;
+    }) => Promise<unknown>,
+  ) =>
+    operation({
+      get: (ref) => ref.get(),
+      delete: (ref) => {
+        void ref.delete();
+      },
+    }),
+);
 
 jest.mock("firebase-admin/firestore", () => ({
   FieldValue: class FieldValueStub {
@@ -102,6 +120,7 @@ jest.mock("firebase-admin/firestore", () => ({
 jest.mock("../config/firebase.js", () => ({
   adminDbFor: jest.fn(() => ({
     collection: mockCollection,
+    runTransaction: mockRunTransaction,
   })),
 }));
 
@@ -201,6 +220,7 @@ describe("publisher app config contract", () => {
     ["GET", undefined],
     ["POST", validBody],
     ["PUT", validBody],
+    ["DELETE", undefined],
   ] as const)(
     "%s requires an authenticated admin context before touching Firestore",
     async (method, payload) => {
@@ -432,6 +452,64 @@ describe("publisher app config contract", () => {
     });
     expect(collectionStore("app_configs").size).toBe(0);
     expect(mockGetProfileSetupState).not.toHaveBeenCalled();
+  });
+
+  it("deletes a pending-revision app config for its scoped publisher", async () => {
+    const createResponse = await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config",
+      payload: validBody,
+    });
+    expect(createResponse.statusCode).toBe(201);
+
+    const response = await fastify.inject({
+      method: "DELETE",
+      url: "/publisher-app/config",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      deleted: true,
+      configId: "organization_shared-publisher-id",
+    });
+    expect(collectionStore("app_configs").size).toBe(0);
+  });
+
+  it("refuses to delete an app config after review has advanced", async () => {
+    const createResponse = await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config",
+      payload: validBody,
+    });
+    expect(createResponse.statusCode).toBe(201);
+    const id = "organization_shared-publisher-id";
+    collectionStore("app_configs").set(id, {
+      ...collectionStore("app_configs").get(id),
+      status: "approved",
+    });
+
+    const response = await fastify.inject({
+      method: "DELETE",
+      url: "/publisher-app/config",
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({
+      error: "Only app configs pending revision can be deleted.",
+    });
+    expect(collectionStore("app_configs").has(id)).toBe(true);
+  });
+
+  it("returns 404 when deleting a publisher without an app config", async () => {
+    const response = await fastify.inject({
+      method: "DELETE",
+      url: "/publisher-app/config",
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({
+      error: "Publisher app config not found.",
+    });
   });
 
   it("refreshes server-owned identity on PUT while preserving creation audit fields", async () => {

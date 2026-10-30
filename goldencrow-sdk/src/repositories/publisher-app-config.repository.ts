@@ -514,3 +514,30 @@ export async function updatePublisherAppConfig(
 
   return toPublisherAppConfigRecord(await ref.get());
 }
+
+export async function deletePublisherAppConfig(
+  context: AdminContext,
+): Promise<{ id: string }> {
+  const scope = publisherScope(context);
+  const ref = adminDb
+    .collection(APP_CONFIGS_COLLECTION)
+    .doc(`${scope.kind}_${scope.id}`);
+
+  return adminDb.runTransaction(async (transaction) => {
+    const existing = await transaction.get(ref);
+    if (!existing.exists) {
+      throw new AdminRepositoryError("Publisher app config not found.", 404);
+    }
+
+    const config = toPublisherAppConfigRecord(existing);
+    if (config.status !== "pending_revision") {
+      throw new AdminRepositoryError(
+        "Only app configs pending revision can be deleted.",
+        409,
+      );
+    }
+
+    transaction.delete(ref);
+    return { id: config.id };
+  });
+}

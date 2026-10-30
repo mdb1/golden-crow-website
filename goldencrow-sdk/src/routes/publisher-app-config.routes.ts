@@ -4,6 +4,7 @@ import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
   createPublisherAppConfig,
+  deletePublisherAppConfig,
   getPublisherAppConfig,
   updatePublisherAppConfig,
 } from "../repositories/publisher-app-config.repository.js";
@@ -134,4 +135,19 @@ export async function publisherAppConfigRoutes(
       }
     },
   );
+
+  f.delete("/publisher-app/config", async (request, reply) => {
+    if (!request.adminContext) {
+      return reply
+        .status(401)
+        .send({ error: "No authenticated admin context" });
+    }
+
+    try {
+      const deleted = await deletePublisherAppConfig(request.adminContext);
+      return reply.send({ deleted: true, configId: deleted.id });
+    } catch (error) {
+      return sendRepositoryError(reply, error);
+    }
+  });
 }
