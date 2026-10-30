@@ -78,6 +78,26 @@ function mockPublisherHomeData(
       };
     }
 
+    if (path === "/discover/organizations/org-1") {
+      return {
+        organization: {
+          id: "org-1",
+          name: "Pocket Genes Lab",
+          colorHex: "#123ABC",
+        },
+      };
+    }
+
+    if (path === "/discover/individuals/ind-1") {
+      return {
+        individual: {
+          id: "ind-1",
+          name: "Pocket Genes Lab",
+          colorHex: "#123ABC",
+        },
+      };
+    }
+
     if (path === "/admin/support-services/offers?limit=1&status=active") {
       return {
         offers: hasActiveServiceOffer ? [{ id: "offer-1" }] : [],
@@ -119,12 +139,35 @@ describe("PublisherPortalHomePage", () => {
       "/discover/feed-items?limit=1&status=draft",
     );
     const dashboard = screen.getByTestId("publisher-home-dashboard");
+    const appSection = screen.getByTestId("publisher-home-app");
     const userSection = screen.getByTestId("publisher-home-user");
     expect(dashboard.parentElement?.firstElementChild).toBe(dashboard);
+    expect(
+      dashboard.compareDocumentPosition(appSection) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    expect(
+      appSection.compareDocumentPosition(userSection) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
     expect(
       dashboard.compareDocumentPosition(userSection) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).not.toBe(0);
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Mi app" }),
+    ).toBeTruthy();
+    expect(screen.getByTestId("publisher-app-banner").textContent).toContain(
+      "Pocket Genes Lab",
+    );
+    expect(screen.getByText("99.99")).toBeTruthy();
+    expect(screen.getByText("59.99")).toBeTruthy();
+    expect(screen.getByTestId("publisher-app-banner").dataset.accent).toBe(
+      "#123ABC",
+    );
+    expect(sdkFetchServer).toHaveBeenCalledWith(
+      "/discover/organizations/org-1",
+    );
     expect(
       screen.getByRole("heading", { level: 2, name: "Mi cuenta" }),
     ).toBeTruthy();

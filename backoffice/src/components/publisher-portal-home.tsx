@@ -13,6 +13,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PublisherAppPromoBanner } from "@/components/publisher-app-promo-banner";
 import {
   PUBLISHER_PORTAL_ACCOUNT_ROUTE,
   PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
@@ -33,6 +34,8 @@ type PublisherPortalHomeProps = {
   hasServiceOffer: boolean;
   hasActiveServiceOffer: boolean;
   publisherProfileHref?: string;
+  publisherName: string;
+  publisherTint?: string;
 };
 
 type QuickAccessCardProps = {
@@ -143,6 +146,8 @@ export function PublisherPortalHome({
   hasServiceOffer,
   hasActiveServiceOffer,
   publisherProfileHref,
+  publisherName,
+  publisherTint,
 }: PublisherPortalHomeProps) {
   const newFeedEntryHref = publisherPortalFeedEntryCreateRoute();
   const draftFeedEntriesHref = publisherPortalFeedEntriesByStatusRoute("draft");
@@ -294,6 +299,23 @@ export function PublisherPortalHome({
           {receivedRequestsCard}
           {publishedFeedEntriesCard}
         </div>
+      </section>
+
+      <section
+        aria-labelledby="publisher-home-app-heading"
+        data-testid="publisher-home-app"
+        className="mt-8"
+      >
+        <h2
+          id="publisher-home-app-heading"
+          className="mb-4 font-heading text-2xl font-semibold text-foreground"
+        >
+          Mi app
+        </h2>
+        <PublisherAppPromoBanner
+          organizationName={publisherName}
+          organizationTint={publisherTint}
+        />
       </section>
 
       <section

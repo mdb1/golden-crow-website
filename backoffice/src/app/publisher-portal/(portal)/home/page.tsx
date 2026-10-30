@@ -1,6 +1,10 @@
 import { ADMIN_ROLE_LABELS, type MyAccountRecord } from "@/lib/admin-areas";
 import { PublisherPortalHome } from "@/components/publisher-portal-home";
-import type { DiscoverFeedItemsPage } from "@/lib/discover";
+import type {
+  DiscoverFeedItemsPage,
+  DiscoverIndividualRecord,
+  DiscoverOrganizationRecord,
+} from "@/lib/discover";
 import { appText } from "@/lib/language";
 import {
   publisherPortalIndividualDetailRoute,
@@ -22,6 +26,46 @@ async function loadServiceOfferPresence(status?: "active") {
     `/admin/support-services/offers?limit=1${statusQuery}`,
   );
   return page.offers.length > 0;
+}
+
+async function loadPublisherBrand(account: MyAccountRecord) {
+  const organizationId = account.context.organizationId?.trim();
+  const individualId = account.context.individualId?.trim();
+
+  try {
+    if (
+      account.context.role === "organization_publisher" &&
+      organizationId
+    ) {
+      const { organization } = await sdkFetchServer<{
+        organization: DiscoverOrganizationRecord;
+      }>(`/discover/organizations/${encodeURIComponent(organizationId)}`);
+      return {
+        name: organization.name,
+        tint: organization.colorHex,
+      };
+    }
+
+    if (account.context.role === "individual_publisher" && individualId) {
+      const { individual } = await sdkFetchServer<{
+        individual: DiscoverIndividualRecord;
+      }>(`/discover/individuals/${encodeURIComponent(individualId)}`);
+      return {
+        name: individual.name,
+        tint: individual.colorHex,
+      };
+    }
+  } catch {
+    // The promotional banner can still render from the authenticated account.
+  }
+
+  return {
+    name:
+      account.role?.displayName ||
+      account.auth.displayName ||
+      account.context.email,
+    tint: undefined,
+  };
 }
 
 export default async function PublisherPortalHomePage() {
@@ -46,16 +90,21 @@ export default async function PublisherPortalHomePage() {
       ]);
     },
   );
+  const publisherBrandRequest = accountRequest.then(({ account }) =>
+    loadPublisherBrand(account),
+  );
   const [
     { account },
     hasPublishedFeedEntry,
     hasDraftFeedEntry,
     [hasServiceOffer, hasActiveServiceOffer],
+    publisherBrand,
   ] = await Promise.all([
     accountRequest,
     loadFeedEntryPresence("published"),
     loadFeedEntryPresence("draft"),
     serviceOfferPresenceRequest,
+    publisherBrandRequest,
   ]);
   const displayName =
     account.role?.displayName ||
@@ -86,6 +135,8 @@ export default async function PublisherPortalHomePage() {
       hasServiceOffer={hasServiceOffer}
       hasActiveServiceOffer={hasActiveServiceOffer}
       publisherProfileHref={publisherProfileHref}
+      publisherName={publisherBrand.name}
+      publisherTint={publisherBrand.tint}
     />
   );
 }
