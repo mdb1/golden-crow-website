@@ -114,6 +114,7 @@ describe("POST /auth/login — token verification", () => {
     expect(mockResolveAdminContext).toHaveBeenCalledWith({
       email: "user@example.com",
       uid: "user-uid",
+      surface: "backoffice",
     });
   });
 
@@ -151,8 +152,17 @@ describe("POST /auth/login — surface × account matrix", () => {
         expiresIn: FIVE_DAYS_MS,
       });
       const cookies = setCookieHeaders(res);
-      expect(cookies).toHaveLength(1);
-      expect(cookies[0]!.startsWith("session=minted-session-cookie;")).toBe(true);
+      expect(cookies).toHaveLength(2);
+      expect(
+        cookies.some((cookie) =>
+          cookie.startsWith("session=minted-session-cookie;"),
+        ),
+      ).toBe(true);
+      expect(
+        cookies.some((cookie) =>
+          cookie.startsWith(`auth_surface=${requested};`),
+        ),
+      ).toBe(true);
     },
   );
 
@@ -207,6 +217,18 @@ describe("POST /auth/login — surface × account matrix", () => {
     expect(res.json()).toMatchObject({ requiredSurface: "backoffice" });
   });
 
+  it.each(["backoffice", "publisher-portal"] as const)(
+    "allows a dual backoffice + publisher account through its %s login",
+    async (surface) => {
+      mockResolveAdminContext.mockResolvedValue(
+        contextFor(["backoffice", "publisher"]),
+      );
+      const res = await login({ idToken: "tok", surface });
+      expect(res.statusCode).toBe(200);
+      expect(mockCreateSessionCookie).toHaveBeenCalled();
+    },
+  );
+
   it.each([
     ["no context", null],
     ["context with no surface", contextFor([])],
@@ -257,9 +279,14 @@ describe("POST /auth/logout", () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ status: "ok" });
     const cookies = setCookieHeaders(res);
-    expect(cookies).toHaveLength(1);
-    expect(cookies[0]!.startsWith("session=;")).toBe(true);
-    const attrs = attributes(cookies[0]!);
+    expect(cookies).toHaveLength(2);
+    const sessionCookie = cookies.find((cookie) => cookie.startsWith("session=;"));
+    const surfaceCookie = cookies.find((cookie) =>
+      cookie.startsWith("auth_surface=;"),
+    );
+    expect(sessionCookie).toBeDefined();
+    expect(surfaceCookie).toBeDefined();
+    const attrs = attributes(sessionCookie!);
     expect(attrs.get("path")).toBe("/");
     const expires = attrs.get("expires");
     expect(typeof expires).toBe("string");

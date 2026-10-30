@@ -18,7 +18,13 @@ describe("sdkFetchServer error handling", () => {
       GOLDENCROW_SDK_URL: "https://sdk.example.com",
     };
     mockCookies.mockResolvedValue({
-      get: jest.fn(() => ({ value: "session-token" })),
+      get: jest.fn((name: string) =>
+        name === "session"
+          ? { value: "session-token" }
+          : name === "auth_surface"
+            ? { value: "publisher-portal" }
+            : undefined,
+      ),
     });
     mockHeaders.mockResolvedValue(new Headers({ host: "backoffice.example.com" }));
   });
@@ -55,6 +61,20 @@ describe("sdkFetchServer error handling", () => {
     expect((error as Error).message).toContain('"error": "Bad Request"');
     expect((error as Error).message).toContain(
       '"message": "A customer with this email already exists."',
+    );
+  });
+
+  it("forwards the selected auth surface with the SDK session", async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      Response.json({ context: {} }),
+    ) as unknown as typeof fetch;
+
+    await sdkFetchServer("/auth/context");
+
+    const init = jest.mocked(global.fetch).mock.calls[0]?.[1];
+    const requestHeaders = new Headers(init?.headers);
+    expect(requestHeaders.get("cookie")).toBe(
+      "session=session-token; auth_surface=publisher-portal",
     );
   });
 

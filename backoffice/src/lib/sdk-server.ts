@@ -100,8 +100,19 @@ export async function sdkFetchServer<T = unknown>(
   const cookieStore = await cookies();
   const headerStore = await headers();
   const sessionCookie = cookieStore.get("session");
+  const authSurfaceCookie = cookieStore.get("auth_surface");
   if (sessionCookie) {
-    requestHeaders.set("Cookie", `session=${sessionCookie.value}`);
+    requestHeaders.set(
+      "Cookie",
+      [
+        `session=${sessionCookie.value}`,
+        authSurfaceCookie
+          ? `auth_surface=${authSurfaceCookie.value}`
+          : undefined,
+      ]
+        .filter(Boolean)
+        .join("; "),
+    );
   }
 
   // Server components can call the SDK directly and forward the session cookie.

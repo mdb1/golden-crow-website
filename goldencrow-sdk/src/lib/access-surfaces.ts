@@ -3,6 +3,8 @@ import type { AdminRole, UserRoleRecord } from "../types/sdk.types.js";
 export type AuthSurface =
   "backoffice" | "patient-portal" | "pgflex" | "publisher-portal";
 
+export const AUTH_SURFACE_COOKIE_NAME = "auth_surface";
+
 const BACKOFFICE_ROLES = new Set<AdminRole>([
   "full_admin",
   "2pq_admin",
@@ -20,7 +22,11 @@ const PUBLISHER_PORTAL_ROLES = new Set<AdminRole>([
 
 type AccessRoleRecord = Pick<
   UserRoleRecord,
-  "role" | "isActive" | "canAccessPatientPortal"
+  | "role"
+  | "isActive"
+  | "canAccessPatientPortal"
+  | "organizationId"
+  | "individualId"
 >;
 
 export function canRoleAccessBackoffice(record: AccessRoleRecord | null) {
@@ -59,12 +65,22 @@ export function canAccessPGFlex(
 
 export function canAccessPublisherPortal(
   record: AccessRoleRecord | null,
-  viaAllowlist = false,
+  _viaAllowlist = false,
 ) {
   return Boolean(
     record?.isActive &&
     PUBLISHER_PORTAL_ROLES.has(record.role) &&
-    !canAccessBackoffice(record, viaAllowlist),
+    ((record.role === "organization_publisher" && record.organizationId) ||
+      (record.role === "individual_publisher" && record.individualId)),
+  );
+}
+
+export function isAuthSurface(value: unknown): value is AuthSurface {
+  return (
+    value === "backoffice" ||
+    value === "patient-portal" ||
+    value === "pgflex" ||
+    value === "publisher-portal"
   );
 }
 

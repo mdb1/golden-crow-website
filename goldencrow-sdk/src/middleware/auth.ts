@@ -10,6 +10,10 @@ import { adminAuthFor } from "../config/firebase.js";
 // flow, that flow gets its OWN middleware bound to adminAuthFor("pocket-gyms").
 const adminAuth = adminAuthFor("mydnamap");
 import { resolveAdminContext } from "../repositories/roles.repository.js";
+import {
+  AUTH_SURFACE_COOKIE_NAME,
+  isAuthSurface,
+} from "../lib/access-surfaces.js";
 
 const PATIENT_PORTAL_SDK_PATHS = new Set([
   "/auth/context",
@@ -114,9 +118,11 @@ export async function authMiddleware(
       });
     }
 
+    const selectedSurface = request.cookies[AUTH_SURFACE_COOKIE_NAME];
     const adminContext = await resolveAdminContext({
       email: decodedClaims.email,
       uid: decodedClaims.uid,
+      ...(isAuthSurface(selectedSurface) ? { surface: selectedSurface } : {}),
     });
 
     if (

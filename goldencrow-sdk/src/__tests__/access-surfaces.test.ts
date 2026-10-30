@@ -93,6 +93,7 @@ describe("access surfaces", () => {
       role: "organization_publisher" as const,
       isActive: true,
       canAccessPatientPortal: false,
+      organizationId: "org-1",
     };
 
     expect(canAccessBackoffice(publisherRole)).toBe(false);
@@ -101,5 +102,30 @@ describe("access surfaces", () => {
     expect(canAccessPublisherPortal(publisherRole)).toBe(true);
     expect(canAccessSurface("publisher-portal", publisherRole)).toBe(true);
     expect(canAccessSurface("backoffice", publisherRole)).toBe(false);
+  });
+
+  it("keeps valid publisher access when the same email is allowlisted for backoffice", () => {
+    const publisherRole = {
+      role: "individual_publisher" as const,
+      isActive: true,
+      canAccessPatientPortal: false,
+      individualId: "individual-1",
+    };
+
+    expect(canAccessBackoffice(publisherRole, true)).toBe(true);
+    expect(canAccessPublisherPortal(publisherRole, true)).toBe(true);
+    expect(canAccessSurface("publisher-portal", publisherRole, true)).toBe(
+      true,
+    );
+  });
+
+  it("rejects publisher roles that are not linked to their publisher entity", () => {
+    const unscopedPublisherRole = {
+      role: "organization_publisher" as const,
+      isActive: true,
+      canAccessPatientPortal: false,
+    };
+
+    expect(canAccessPublisherPortal(unscopedPublisherRole)).toBe(false);
   });
 });

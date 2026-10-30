@@ -18,8 +18,10 @@ import {
   canAccessPublisherPortal,
   canRoleAccessBackoffice,
   resolveRequiredAuthSurface,
+  type AuthSurface,
 } from "../lib/access-surfaces.js";
 import { isGlobalAdminRole } from "../lib/admin-roles.js";
+import { resolveAdminContextForAccess } from "../lib/admin-context-resolution.js";
 import type {
   AdminContext,
   AdminRole,
@@ -1673,6 +1675,7 @@ async function hydrateRoleManagementRecord(
 export async function resolveAdminContext(input: {
   email?: string | null;
   uid?: string | null;
+  surface?: AuthSurface;
 }): Promise<AdminContext | null> {
   const normalizedEmail = normalizeRoleEmail(input.email ?? "");
   const uid = input.uid?.trim() ?? "";
@@ -1682,61 +1685,12 @@ export async function resolveAdminContext(input: {
   }
 
   const access = await getBackofficeEmailAccess(normalizedEmail);
-  const roleRecord = access.roleRecord;
-
-  if (roleRecord && access.viaRoleAssignment && access.canAccessBackoffice) {
-    return {
-      email: normalizedEmail,
-      uid,
-      role: roleRecord.role,
-      organizationId: roleRecord.organizationId,
-      individualId: roleRecord.individualId,
-      institutionId: roleRecord.institutionId,
-      doctorId: roleRecord.doctorId,
-      patientId: roleRecord.patientId,
-      isBootstrap: access.viaAllowlist,
-      canAccessBackoffice: true,
-      canAccessPatientPortal: false,
-      canAccessPGFlex: false,
-      canAccessPublisherPortal: false,
-      projectAccess: access.projectAccess,
-    };
-  }
-
-  if (access.viaAllowlist) {
-    return {
-      email: normalizedEmail,
-      uid,
-      role: "full_admin",
-      isBootstrap: true,
-      canAccessBackoffice: true,
-      canAccessPatientPortal: false,
-      canAccessPGFlex: false,
-      canAccessPublisherPortal: false,
-      projectAccess: access.projectAccess,
-    };
-  }
-
-  if (roleRecord) {
-    return {
-      email: normalizedEmail,
-      uid,
-      role: roleRecord.role,
-      organizationId: roleRecord.organizationId,
-      individualId: roleRecord.individualId,
-      institutionId: roleRecord.institutionId,
-      doctorId: roleRecord.doctorId,
-      patientId: roleRecord.patientId,
-      isBootstrap: false,
-      canAccessBackoffice: false,
-      canAccessPatientPortal: access.canAccessPatientPortal,
-      canAccessPGFlex: access.canAccessPGFlex,
-      canAccessPublisherPortal: access.canAccessPublisherPortal,
-      projectAccess: access.projectAccess,
-    };
-  }
-
-  return null;
+  return resolveAdminContextForAccess({
+    email: normalizedEmail,
+    uid,
+    surface: input.surface,
+    access,
+  });
 }
 
 export function resolveRequiredAuthSurfaceForEmailAccess(

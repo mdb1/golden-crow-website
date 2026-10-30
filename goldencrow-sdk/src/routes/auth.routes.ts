@@ -13,6 +13,7 @@ import {
   getAdminCapabilities,
   resolveAdminContext,
 } from "../repositories/roles.repository.js";
+import { AUTH_SURFACE_COOKIE_NAME } from "../lib/access-surfaces.js";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
   changeMyAccountEmailForContext,
@@ -135,6 +136,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         const adminContext = await resolveAdminContext({
           email: decodedToken.email,
           uid: decodedToken.uid,
+          surface,
         });
 
         const canAccessRequestedSurface =
@@ -185,6 +187,13 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
           maxAge: expiresIn / 1000, // @fastify/cookie uses seconds
           path: "/",
         });
+        reply.setCookie(AUTH_SURFACE_COOKIE_NAME, surface, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "strict",
+          maxAge: expiresIn / 1000,
+          path: "/",
+        });
 
         // Return the VERIFIED identity so the backoffice's next-auth
         // authorize() keys the session on the token's uid/email instead of
@@ -202,6 +211,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
   f.post("/auth/logout", async (_request, reply) => {
     reply.clearCookie("session", { path: "/" });
+    reply.clearCookie(AUTH_SURFACE_COOKIE_NAME, { path: "/" });
     return { status: "ok" };
   });
 

@@ -127,6 +127,23 @@ describe("authMiddleware — session verification", () => {
     });
   });
 
+  it("resolves a publisher session with the surface selected at login", async () => {
+    asSession(contextFor(["publisher"]));
+    await app.inject({
+      method: "GET",
+      url: "/auth/context",
+      cookies: {
+        session: "valid-session",
+        auth_surface: "publisher-portal",
+      },
+    });
+    expect(mockResolveAdminContext).toHaveBeenCalledWith({
+      email: "user@example.com",
+      uid: "user-uid",
+      surface: "publisher-portal",
+    });
+  });
+
   it("accepts a request bound to the authenticated session uid", async () => {
     asSession(contextFor(["backoffice"]));
     const res = await get("/roles", "valid-session", {
