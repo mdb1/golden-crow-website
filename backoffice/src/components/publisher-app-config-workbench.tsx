@@ -310,11 +310,13 @@ function AppIcon({
   source,
   publisherName,
   colors,
+  whiteBackground = false,
   className,
 }: {
   source?: string | null;
   publisherName: string;
   colors: PublisherAppColors;
+  whiteBackground?: boolean;
   className?: string;
 }) {
   const initials = publisherName
@@ -326,16 +328,27 @@ function AppIcon({
   return (
     <span
       className={cn(
-        "relative flex shrink-0 items-center justify-center overflow-hidden rounded-[24%] border border-white/55 text-xl font-black text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_14px_30px_-16px_rgba(15,23,42,0.9)]",
+        "relative flex shrink-0 items-center justify-center overflow-hidden rounded-[24%] border border-white/55 text-xl font-black shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_14px_30px_-16px_rgba(15,23,42,0.9)]",
+        whiteBackground ? "bg-white" : "text-white",
         className,
       )}
       style={{
-        background: `linear-gradient(145deg, ${colors.secondary}, ${colors.primary} 56%, ${colors.tertiary})`,
+        background: whiteBackground
+          ? "#FFFFFF"
+          : `linear-gradient(145deg, ${colors.secondary}, ${colors.primary} 56%, ${colors.tertiary})`,
+        color: whiteBackground ? colors.primary : undefined,
       }}
     >
       {source ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={source} alt="" className="size-full object-cover" />
+        <img
+          src={source}
+          alt=""
+          className={cn(
+            "size-full",
+            whiteBackground ? "object-contain p-1" : "object-cover",
+          )}
+        />
       ) : (
         <span>{initials || <Sparkles className="size-5" />}</span>
       )}
@@ -404,6 +417,7 @@ function PublisherAppLivePreview({
               source={iconSource}
               publisherName={publisherName}
               colors={colors}
+              whiteBackground={state.iconSource === "publisher"}
               className="size-9 text-xs"
             />
             <span className="min-w-0 flex-1 truncate text-xs font-black">
@@ -1187,6 +1201,7 @@ export function PublisherAppConfigWorkbench({
                       source={publisherImageUrl}
                       publisherName={publisherName}
                       colors={previewColors}
+                      whiteBackground
                       className="size-20"
                     />
                     <span className="mt-4 font-semibold text-foreground">

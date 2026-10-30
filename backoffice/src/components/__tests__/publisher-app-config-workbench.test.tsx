@@ -236,6 +236,25 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(primaryPicker).toHaveValue("#445566");
   });
 
+  it("always renders the publisher identity icon on a white background", () => {
+    renderWorkbench({
+      publisherImageUrl: "https://example.org/publisher-identity.png",
+    });
+    advanceToIcon();
+
+    const identityOption = screen.getByRole("button", {
+      name: /Usar mi identidad actual/i,
+    });
+    const identityIcon = identityOption.querySelector("img")?.parentElement;
+
+    expect(identityIcon).toHaveStyle({ background: "#FFFFFF" });
+    expect(identityOption.querySelector("img")).toHaveClass("object-contain");
+
+    const livePreview = screen.getByLabelText("Vista previa de la app");
+    const previewIcon = livePreview.querySelector("img")?.parentElement;
+    expect(previewIcon).toHaveStyle({ background: "#FFFFFF" });
+  });
+
   it("downloads the complete persisted config and deletes a pending app after confirmation", async () => {
     jest.mocked(sdkFetch).mockResolvedValue({
       deleted: true,
