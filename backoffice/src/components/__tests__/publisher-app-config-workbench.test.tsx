@@ -108,21 +108,21 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(
       screen.getByTestId("publisher-app-feature-list").querySelectorAll("label"),
     ).toHaveLength(5);
-    expect(
-      screen.getByText(
-        "Customiza tus propias clases de acuerdo a tus usuarios",
-      ),
-    ).toBeTruthy();
-    expect(
-      screen.getByText(
-        "Permite a los usuarios interactuar entre sí, publicar preguntas públicamente y encontrar a otros miembros de la comunidad",
-      ),
-    ).toBeTruthy();
-    expect(
-      screen.getByText(
-        "Permitimos a los usuarios solicitar y reservar turnos mediante la app",
-      ),
-    ).toBeTruthy();
+    const featureDescriptions = [
+      "Tus productos y servicios, siempre organizados, disponibles y listos para descubrir.",
+      "Notas, eventos y publicaciones para mantener informada y activa tu comunidad.",
+      "Customiza tus clases y contenidos según las necesidades de tus usuarios.",
+      "Permite conversar, publicar preguntas y encontrar otros miembros de la comunidad.",
+      "Tus usuarios pueden solicitar y reservar turnos directamente desde la aplicación.",
+    ];
+    featureDescriptions.forEach((description) => {
+      const descriptionElement = screen.getByText(description);
+      expect(descriptionElement).toBeTruthy();
+      expect(descriptionElement.textContent?.trim().split(/\s+/)).toHaveLength(
+        11,
+      );
+      expect(descriptionElement).toHaveClass("sm:min-h-12");
+    });
     fireEvent.click(
       screen.getByRole("checkbox", { name: "Sección Comunidad" }),
     );

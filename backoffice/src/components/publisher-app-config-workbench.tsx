@@ -268,7 +268,7 @@ function FeatureCard({
         <span className="block text-base font-semibold text-foreground sm:text-lg">
           {title}
         </span>
-        <span className="mt-1 block max-w-3xl text-sm font-normal leading-5 text-muted-foreground sm:leading-6">
+        <span className="mt-1 block max-w-3xl text-sm font-normal leading-5 text-muted-foreground sm:min-h-12 sm:leading-6">
           {description}
         </span>
       </span>
@@ -1007,7 +1007,7 @@ export function PublisherAppConfigWorkbench({
                   locked
                   icon={<Package className="size-5" />}
                   title="Catálogo de productos y servicios"
-                  description="Tus ofertas siempre disponibles, ordenadas y listas para descubrir."
+                  description="Tus productos y servicios, siempre organizados, disponibles y listos para descubrir."
                 />
                 <FeatureCard
                   id="publisher-app-feed"
@@ -1015,7 +1015,7 @@ export function PublisherAppConfigWorkbench({
                   locked
                   icon={<Newspaper className="size-5" />}
                   title="Feed de novedades"
-                  description="Notas, eventos y publicaciones para mantener activa tu comunidad."
+                  description="Notas, eventos y publicaciones para mantener informada y activa tu comunidad."
                 />
                 <FeatureCard
                   id="publisher-app-learn"
@@ -1025,7 +1025,7 @@ export function PublisherAppConfigWorkbench({
                   }
                   icon={<GraduationCap className="size-5" />}
                   title="Contenidos educativos propios"
-                  description="Customiza tus propias clases de acuerdo a tus usuarios"
+                  description="Customiza tus clases y contenidos según las necesidades de tus usuarios."
                 />
                 <FeatureCard
                   id="publisher-app-connect"
@@ -1035,7 +1035,7 @@ export function PublisherAppConfigWorkbench({
                   }
                   icon={<UsersRound className="size-5" />}
                   title="Sección Comunidad"
-                  description="Permite a los usuarios interactuar entre sí, publicar preguntas públicamente y encontrar a otros miembros de la comunidad"
+                  description="Permite conversar, publicar preguntas y encontrar otros miembros de la comunidad."
                 />
                 <FeatureCard
                   id="publisher-app-profile"
@@ -1045,7 +1045,7 @@ export function PublisherAppConfigWorkbench({
                   }
                   icon={<CalendarDays className="size-5" />}
                   title="Gestión de turnos"
-                  description="Permitimos a los usuarios solicitar y reservar turnos mediante la app"
+                  description="Tus usuarios pueden solicitar y reservar turnos directamente desde la aplicación."
                 />
               </div>
             ) : null}
