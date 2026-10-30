@@ -6,6 +6,7 @@ import {
   Space_Grotesk,
 } from "next/font/google";
 import { ThemeBootstrap } from "@/components/theme-bootstrap";
+import "@/components/pocketgenes-atomic-banner.css";
 import "./globals.css";
 
 const publicSans = Public_Sans({

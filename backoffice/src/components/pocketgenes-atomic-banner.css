@@ -1,0 +1,104 @@
+.atomic-host {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 256 / 125;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #17191a;
+  isolation: isolate;
+}
+
+.atomic-artboard {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1024px;
+  height: 500px;
+  overflow: hidden;
+  color: var(--ink);
+  font-family: var(--font-public-sans), Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transform-origin: 0 0;
+}
+
+.atomic-artboard * {
+  box-sizing: border-box;
+}
+
+.atomic-part {
+  position: absolute;
+  display: block;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.atomic-part svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.atomic-text {
+  position: absolute;
+  display: block;
+  margin: 0;
+  line-height: 1.14;
+  white-space: pre-wrap;
+  pointer-events: none;
+}
+
+.atomic-title {
+  font-family:
+    var(--font-fredoka), "Arial Rounded MT Bold", "Trebuchet MS", Arial,
+    sans-serif;
+  font-weight: 700;
+  letter-spacing: -1.9px;
+  line-height: 1.04;
+}
+
+.atomic-device {
+  position: absolute;
+  width: 240px;
+  height: 450px;
+  transform-origin: 0 0;
+}
+
+.atomic-device .atomic-text {
+  font-family: var(--font-public-sans), Arial, Helvetica, sans-serif;
+  letter-spacing: -0.06px;
+}
+
+.atomic-action {
+  position: absolute;
+  z-index: 70;
+  display: block;
+  padding: 0;
+  color: inherit;
+  border: 0;
+  border-radius: 23px;
+  background: none;
+  font: inherit;
+  pointer-events: none;
+  transition:
+    filter 180ms ease,
+    transform 180ms ease;
+}
+
+.group:hover .atomic-action {
+  filter: brightness(1.04);
+  transform: translateY(-2px);
+}
+
+.atomic-action .atomic-part,
+.atomic-action .atomic-text {
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .atomic-artboard *,
+  .atomic-action {
+    animation: none !important;
+    transition: none !important;
+  }
+}
