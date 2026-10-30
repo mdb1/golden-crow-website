@@ -12,6 +12,7 @@ import {
 import {
   ArrowLeft,
   ArrowRight,
+  CalendarDays,
   Check,
   CheckCircle2,
   Download,
@@ -28,7 +29,6 @@ import {
   Sparkles,
   Trash2,
   UploadCloud,
-  UserRound,
   UsersRound,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
@@ -229,57 +229,68 @@ function FeatureCard({
     <Label
       htmlFor={id}
       className={cn(
-        "group flex items-start gap-4 rounded-[22px] border p-4 shadow-sm transition sm:p-5",
+        "group relative flex min-h-[108px] items-center gap-4 overflow-hidden rounded-[24px] border px-4 py-4 transition duration-200 sm:gap-5 sm:px-5",
+        checked
+          ? "border-violet-300 bg-[linear-gradient(135deg,rgba(139,92,246,0.11),rgba(109,40,217,0.045))] shadow-[0_18px_38px_-34px_rgba(109,40,217,0.72)] dark:border-violet-400/35 dark:bg-[linear-gradient(135deg,rgba(139,92,246,0.16),rgba(109,40,217,0.06))]"
+          : "border-border/80 bg-card/70",
         locked
-          ? "cursor-default border-violet-300 bg-[linear-gradient(135deg,#6d28d9,#7c3aed_58%,#8b5cf6)] text-white shadow-[0_18px_42px_-26px_rgba(109,40,217,0.95)]"
-          : checked
-            ? "cursor-pointer border-violet-300 bg-violet-50/90 shadow-[0_18px_40px_-32px_rgba(109,40,217,0.7)] dark:border-violet-400/35 dark:bg-violet-500/10"
-            : "cursor-pointer border-border/80 bg-card/70 hover:-translate-y-0.5 hover:border-violet-300 hover:bg-card",
+          ? "cursor-default"
+          : "cursor-pointer hover:-translate-y-0.5 hover:border-violet-400 hover:shadow-[0_18px_38px_-32px_rgba(109,40,217,0.58)]",
       )}
     >
       <span
+        aria-hidden="true"
         className={cn(
-          "flex size-12 shrink-0 items-center justify-center rounded-2xl border transition",
-          locked
-            ? "border-white/30 bg-white/18 text-white"
-            : checked
-              ? "border-violet-200 bg-violet-100 text-violet-700 dark:border-violet-400/30 dark:bg-violet-400/15 dark:text-violet-200"
-              : "border-border bg-background text-muted-foreground",
+          "absolute inset-y-5 left-0 w-1 rounded-r-full transition-colors",
+          checked ? "bg-violet-600" : "bg-transparent",
+        )}
+      />
+      <span
+        className={cn(
+          "flex size-12 shrink-0 items-center justify-center rounded-2xl border transition sm:size-14",
+          checked
+            ? "border-violet-200 bg-violet-100 text-violet-700 dark:border-violet-400/30 dark:bg-violet-400/15 dark:text-violet-200"
+            : "border-border bg-background text-muted-foreground",
         )}
       >
         {icon}
       </span>
       <span className="min-w-0 flex-1">
-        <span
-          className={cn(
-            "block text-base font-semibold",
-            locked ? "text-white" : "text-foreground",
-          )}
-        >
+        <span className="block text-base font-semibold text-foreground sm:text-lg">
           {title}
         </span>
-        <span
-          className={cn(
-            "mt-1 block text-sm font-normal leading-5",
-            locked ? "text-white/78" : "text-muted-foreground",
-          )}
-        >
+        <span className="mt-1 block max-w-3xl text-sm font-normal leading-5 text-muted-foreground sm:leading-6">
           {description}
         </span>
       </span>
-      <span className="mt-1 flex items-center gap-2">
-        {locked ? <LockKeyhole className="size-4 text-white/75" /> : null}
+      <span
+        aria-hidden="true"
+        className="flex shrink-0 flex-col items-end gap-2"
+      >
+        {locked ? (
+          <span className="hidden items-center gap-1.5 rounded-full bg-violet-100 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.08em] text-violet-800 sm:inline-flex dark:bg-violet-400/15 dark:text-violet-100">
+            <LockKeyhole className="size-3" />
+            Incluida
+          </span>
+        ) : null}
+        <span
+          className={cn(
+            "flex size-10 items-center justify-center rounded-[14px] border-2 transition duration-200",
+            checked
+              ? "border-violet-600 bg-violet-600 text-white shadow-[0_8px_18px_-12px_rgba(109,40,217,0.9)]"
+              : "border-slate-300 bg-background text-transparent group-hover:border-violet-400 dark:border-slate-600",
+          )}
+        >
+          <Check className="size-5" strokeWidth={3} />
+        </span>
+      </span>
+      <span className="sr-only">
         <Checkbox
           id={id}
           checked={checked}
           disabled={locked}
           onCheckedChange={(next) => onCheckedChange?.(Boolean(next))}
           aria-label={title}
-          className={
-            locked
-              ? "border-white bg-white text-violet-700 disabled:opacity-100"
-              : ""
-          }
         />
       </span>
     </Label>
@@ -344,13 +355,13 @@ function PublisherAppLivePreview({
     { icon: Package, label: "Catálogo", color: colors.primary },
     { icon: Newspaper, label: "Novedades", color: colors.tertiary },
     state.connectEnabled
-      ? { icon: UsersRound, label: "Connect", color: colors.primary }
+      ? { icon: UsersRound, label: "Comunidad", color: colors.primary }
       : null,
     state.profileEnabled
-      ? { icon: UserRound, label: "Mi perfil", color: colors.secondary }
+      ? { icon: CalendarDays, label: "Turnos", color: colors.secondary }
       : null,
     state.learnCustomizationEnabled
-      ? { icon: GraduationCap, label: "Learn", color: colors.tertiary }
+      ? { icon: GraduationCap, label: "Clases", color: colors.tertiary }
       : null,
   ].filter(Boolean) as Array<{
     icon: typeof UsersRound;
@@ -967,67 +978,53 @@ export function PublisherAppConfigWorkbench({
             ) : null}
 
             {activeStep.id === "features" ? (
-              <div className="space-y-5">
-                <div>
-                  <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-violet-700">
-                    Incluidas en todas las apps
-                  </p>
-                  <div className="grid gap-3 lg:grid-cols-2">
-                    <FeatureCard
-                      id="publisher-app-catalog"
-                      checked
-                      locked
-                      icon={<Package className="size-5" />}
-                      title="Catálogo de productos y servicios"
-                      description="Tus ofertas siempre disponibles, ordenadas y listas para descubrir."
-                    />
-                    <FeatureCard
-                      id="publisher-app-feed"
-                      checked
-                      locked
-                      icon={<Newspaper className="size-5" />}
-                      title="Feed de novedades"
-                      description="Notas, eventos y publicaciones para mantener activa tu comunidad."
-                    />
-                  </div>
-                </div>
-                <div>
-                  <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
-                    Personalizá tu experiencia
-                  </p>
-                  <div className="grid gap-3">
-                    <FeatureCard
-                      id="publisher-app-connect"
-                      checked={state.connectEnabled}
-                      onCheckedChange={(connectEnabled) =>
-                        updateState({ connectEnabled })
-                      }
-                      icon={<UsersRound className="size-5" />}
-                      title="Connect"
-                      description="Comunidad, vínculos y espacios de conexión dentro de la app."
-                    />
-                    <FeatureCard
-                      id="publisher-app-profile"
-                      checked={state.profileEnabled}
-                      onCheckedChange={(profileEnabled) =>
-                        updateState({ profileEnabled })
-                      }
-                      icon={<UserRound className="size-5" />}
-                      title="Perfil"
-                      description="Cada persona puede gestionar sus datos y preferencias."
-                    />
-                    <FeatureCard
-                      id="publisher-app-learn"
-                      checked={state.learnCustomizationEnabled}
-                      onCheckedChange={(learnCustomizationEnabled) =>
-                        updateState({ learnCustomizationEnabled })
-                      }
-                      icon={<GraduationCap className="size-5" />}
-                      title="Personalizar Learn"
-                      description="Adaptá la sección educativa a tu marca, contenidos y comunidad."
-                    />
-                  </div>
-                </div>
+              <div className="grid gap-3" data-testid="publisher-app-feature-list">
+                <FeatureCard
+                  id="publisher-app-catalog"
+                  checked
+                  locked
+                  icon={<Package className="size-5" />}
+                  title="Catálogo de productos y servicios"
+                  description="Tus ofertas siempre disponibles, ordenadas y listas para descubrir."
+                />
+                <FeatureCard
+                  id="publisher-app-feed"
+                  checked
+                  locked
+                  icon={<Newspaper className="size-5" />}
+                  title="Feed de novedades"
+                  description="Notas, eventos y publicaciones para mantener activa tu comunidad."
+                />
+                <FeatureCard
+                  id="publisher-app-learn"
+                  checked={state.learnCustomizationEnabled}
+                  onCheckedChange={(learnCustomizationEnabled) =>
+                    updateState({ learnCustomizationEnabled })
+                  }
+                  icon={<GraduationCap className="size-5" />}
+                  title="Contenidos educativos propios"
+                  description="Customiza tus propias clases de acuerdo a tus usuarios"
+                />
+                <FeatureCard
+                  id="publisher-app-connect"
+                  checked={state.connectEnabled}
+                  onCheckedChange={(connectEnabled) =>
+                    updateState({ connectEnabled })
+                  }
+                  icon={<UsersRound className="size-5" />}
+                  title="Sección Comunidad"
+                  description="Permite a los usuarios interactuar entre sí, publicar preguntas públicamente y encontrar a otros miembros de la comunidad"
+                />
+                <FeatureCard
+                  id="publisher-app-profile"
+                  checked={state.profileEnabled}
+                  onCheckedChange={(profileEnabled) =>
+                    updateState({ profileEnabled })
+                  }
+                  icon={<CalendarDays className="size-5" />}
+                  title="Gestión de turnos"
+                  description="Permitimos a los usuarios solicitar y reservar turnos mediante la app"
+                />
               </div>
             ) : null}
 

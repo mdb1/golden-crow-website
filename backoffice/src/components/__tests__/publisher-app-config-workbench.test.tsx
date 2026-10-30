@@ -96,15 +96,36 @@ describe("PublisherAppConfigWorkbench", () => {
     ).toBeTruthy();
     fireEvent.click(screen.getByRole("radio", { name: /Solo iOS/i }));
     fireEvent.click(screen.getByRole("button", { name: /Paso 2 Funciones/i }));
-    expect(
-      screen.getByRole("checkbox", {
-        name: "Catálogo de productos y servicios",
-      }),
-    ).toBeDisabled();
+    const catalogCheckbox = screen.getByRole("checkbox", {
+      name: "Catálogo de productos y servicios",
+    });
+    expect(catalogCheckbox).toBeDisabled();
     expect(
       screen.getByRole("checkbox", { name: "Feed de novedades" }),
     ).toBeDisabled();
-    fireEvent.click(screen.getByRole("checkbox", { name: /Connect/i }));
+    expect(catalogCheckbox.parentElement).toHaveClass("sr-only");
+    expect(screen.getAllByText("Incluida")).toHaveLength(2);
+    expect(
+      screen.getByTestId("publisher-app-feature-list").querySelectorAll("label"),
+    ).toHaveLength(5);
+    expect(
+      screen.getByText(
+        "Customiza tus propias clases de acuerdo a tus usuarios",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Permite a los usuarios interactuar entre sí, publicar preguntas públicamente y encontrar a otros miembros de la comunidad",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Permitimos a los usuarios solicitar y reservar turnos mediante la app",
+      ),
+    ).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "Sección Comunidad" }),
+    );
     advanceToColors();
     fireEvent.change(screen.getByLabelText("Color principal"), {
       target: { value: "#112233" },
