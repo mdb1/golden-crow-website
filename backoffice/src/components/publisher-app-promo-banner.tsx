@@ -50,20 +50,6 @@ function hexToRgb(value: string): RGB {
   };
 }
 
-function mixColors(source: string, target: string, targetWeight: number) {
-  const sourceRgb = hexToRgb(source);
-  const targetRgb = hexToRgb(target);
-  const channel = (sourceValue: number, targetValue: number) =>
-    Math.round(sourceValue * (1 - targetWeight) + targetValue * targetWeight);
-
-  return `rgb(${channel(sourceRgb.red, targetRgb.red)} ${channel(sourceRgb.green, targetRgb.green)} ${channel(sourceRgb.blue, targetRgb.blue)})`;
-}
-
-function rgba(value: string, alpha: number) {
-  const { red, green, blue } = hexToRgb(value);
-  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
-}
-
 function rgbToHsl({ red, green, blue }: RGB): HSL {
   const normalizedRed = red / 255;
   const normalizedGreen = green / 255;
@@ -98,19 +84,43 @@ function hslColor(hue: number, saturation: number, lightness: number) {
   return `hsl(${Math.round((hue + 360) % 360)} ${Math.round(saturation)}% ${Math.round(lightness)}%)`;
 }
 
-function vibrantPalette(accent: string) {
+function hslAlphaColor(
+  hue: number,
+  saturation: number,
+  lightness: number,
+  alpha: number,
+) {
+  return `hsl(${Math.round((hue + 360) % 360)} ${Math.round(saturation)}% ${Math.round(lightness)}% / ${alpha})`;
+}
+
+export function publisherAppIntensePalette(value?: string) {
+  const accent = normalizedHexColor(value);
   const { hue, saturation, lightness } = rgbToHsl(hexToRgb(accent));
-  const vividSaturation = Math.max(saturation, 76);
+  const baseSaturation = Math.max(saturation, 88);
+  const baseLightness = Math.min(Math.max(lightness, 43), 52);
 
   return {
+    source: accent,
+    hue: Math.round(hue),
+    base: hslColor(hue, baseSaturation, baseLightness),
+    deep: hslColor(
+      hue,
+      Math.max(saturation, 82),
+      Math.min(Math.max(lightness - 20, 18), 26),
+    ),
     vivid: hslColor(
       hue,
-      vividSaturation,
-      Math.min(Math.max(lightness + 24, 48), 58),
+      Math.max(saturation, 94),
+      Math.min(Math.max(lightness + 8, 52), 58),
     ),
-    pop: hslColor(hue - 34, Math.max(saturation, 82), 62),
-    glow: hslColor(hue + 22, Math.max(saturation, 72), 68),
-    shine: hslColor(hue, Math.max(saturation * 0.72, 48), 88),
+    pop: hslColor(
+      hue,
+      Math.max(saturation, 96),
+      Math.min(Math.max(lightness + 16, 58), 64),
+    ),
+    glow: hslColor(hue, Math.max(saturation, 92), 62),
+    shine: hslColor(hue, Math.max(saturation, 88), 86),
+    shadow: hslAlphaColor(hue, Math.max(saturation, 86), 20, 0.88),
   };
 }
 
@@ -327,42 +337,40 @@ export function PublisherAppPromoBanner({
   organizationTint,
 }: PublisherAppPromoBannerProps) {
   const brandName = organizationName.trim() || "tu organización";
-  const accent = normalizedHexColor(organizationTint);
-  const accentDeep = mixColors(accent, "#050914", 0.5);
-  const accentLight = mixColors(accent, "#FFFFFF", 0.38);
-  const palette = vibrantPalette(accent);
+  const palette = publisherAppIntensePalette(organizationTint);
   const bannerStyle = {
-    "--publisher-app-accent": accent,
-    "--publisher-app-accent-deep": accentDeep,
-    "--publisher-app-accent-light": accentLight,
+    "--publisher-app-accent": palette.base,
+    "--publisher-app-accent-deep": palette.deep,
     "--publisher-app-vivid": palette.vivid,
     "--publisher-app-pop": palette.pop,
     "--publisher-app-glow": palette.glow,
     "--publisher-app-shine": palette.shine,
     backgroundImage: [
-      "radial-gradient(circle at 80% 12%, rgba(255,255,255,0.34) 0 7%, transparent 19%)",
-      `radial-gradient(circle at 74% 58%, color-mix(in srgb, ${palette.vivid} 68%, transparent) 0%, transparent 37%)`,
-      `radial-gradient(circle at 103% 78%, color-mix(in srgb, ${palette.pop} 78%, transparent) 0%, transparent 33%)`,
-      `radial-gradient(circle at 8% -10%, ${rgba(accent, 0.82)} 0%, transparent 34%)`,
-      `linear-gradient(122deg, ${accentDeep} 0%, ${accent} 38%, ${palette.vivid} 76%, ${palette.pop} 128%)`,
+      "radial-gradient(circle at 80% 12%, rgba(255,255,255,0.18) 0 6%, transparent 18%)",
+      `radial-gradient(circle at 74% 58%, color-mix(in srgb, ${palette.vivid} 88%, transparent) 0%, transparent 37%)`,
+      `radial-gradient(circle at 103% 78%, color-mix(in srgb, ${palette.pop} 92%, transparent) 0%, transparent 34%)`,
+      `radial-gradient(circle at 8% -10%, ${palette.base} 0%, transparent 36%)`,
+      `radial-gradient(circle at 24% 110%, ${palette.deep} 0%, transparent 44%)`,
+      `linear-gradient(122deg, ${palette.deep} 0%, ${palette.base} 38%, ${palette.vivid} 76%, ${palette.pop} 128%)`,
     ].join(", "),
-    boxShadow: `inset 0 1px 0 rgba(255,255,255,0.48), inset 0 -38px 65px rgba(3,7,18,0.16), 0 32px 84px -38px ${rgba(accent, 0.88)}`,
+    boxShadow: `inset 0 1px 0 rgba(255,255,255,0.42), inset 0 -38px 65px rgba(3,7,18,0.13), 0 32px 84px -38px ${palette.shadow}`,
   } as CSSProperties;
 
   return (
     <article
       data-testid="publisher-app-banner"
-      data-accent={accent}
+      data-accent={palette.source}
+      data-palette-hue={palette.hue}
       style={bannerStyle}
       className="relative isolate overflow-hidden rounded-[30px] border-2 border-white/30 text-white"
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 z-30 h-[42%] bg-[linear-gradient(180deg,rgba(255,255,255,0.16),transparent_74%)] mix-blend-screen"
+        className="pointer-events-none absolute inset-x-0 top-0 z-30 h-[42%] bg-[linear-gradient(180deg,rgba(255,255,255,0.08),transparent_74%)] mix-blend-screen"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -left-[12%] top-[-48%] h-[125%] w-[42%] rotate-[16deg] bg-gradient-to-r from-transparent via-white/10 to-transparent blur-2xl"
+        className="pointer-events-none absolute -left-[12%] top-[-48%] h-[125%] w-[42%] rotate-[16deg] bg-gradient-to-r from-transparent via-white/[0.06] to-transparent blur-2xl"
       />
       <div
         aria-hidden="true"
