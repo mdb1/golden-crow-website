@@ -17,6 +17,7 @@ export type PublisherAppPageData = {
   publisherTint?: string;
   publisherEmail: string;
   publisherUsername: string;
+  publisherImageUrl?: string;
 };
 
 export async function loadPublisherAppPageData(): Promise<PublisherAppPageData> {
@@ -24,16 +25,6 @@ export async function loadPublisherAppPageData(): Promise<PublisherAppPageData> 
     sdkFetchServer<PublisherAppConfigResponse>("/publisher-app/config"),
     sdkFetchServer<{ account: MyAccountRecord }>("/auth/my-account"),
   ]);
-
-  if (config) {
-    return {
-      config,
-      publisherName: config.publisherName,
-      publisherTint: config.colors.primary,
-      publisherEmail: config.publisherEmail,
-      publisherUsername: config.publisherUsername,
-    };
-  }
 
   const publisherEmail = account.context.email;
   const publisherUsername = account.profile?.username ?? "";
@@ -46,20 +37,19 @@ export async function loadPublisherAppPageData(): Promise<PublisherAppPageData> 
   const individualId = account.context.individualId?.trim();
 
   try {
-    if (
-      account.context.role === "organization_publisher" &&
-      organizationId
-    ) {
+    if (account.context.role === "organization_publisher" && organizationId) {
       const { organization } = await sdkFetchServer<{
         organization: DiscoverOrganizationRecord;
       }>(`/discover/organizations/${encodeURIComponent(organizationId)}`);
 
       return {
-        config: null,
-        publisherName: organization.name,
-        publisherTint: organization.colorHex,
-        publisherEmail,
-        publisherUsername,
+        config,
+        publisherName: config?.publisherName ?? organization.name,
+        publisherTint: config?.colors.primary ?? organization.colorHex,
+        publisherEmail: config?.publisherEmail ?? publisherEmail,
+        publisherUsername: config?.publisherUsername ?? publisherUsername,
+        publisherImageUrl:
+          organization.imageUrl ?? organization.imageUploadDataUrl ?? undefined,
       };
     }
 
@@ -69,15 +59,31 @@ export async function loadPublisherAppPageData(): Promise<PublisherAppPageData> 
       }>(`/discover/individuals/${encodeURIComponent(individualId)}`);
 
       return {
-        config: null,
-        publisherName: individual.name,
-        publisherTint: individual.colorHex,
-        publisherEmail,
-        publisherUsername,
+        config,
+        publisherName: config?.publisherName ?? individual.name,
+        publisherTint: config?.colors.primary ?? individual.colorHex,
+        publisherEmail: config?.publisherEmail ?? publisherEmail,
+        publisherUsername: config?.publisherUsername ?? publisherUsername,
+        publisherImageUrl:
+          individual.imageUrl ?? individual.imageUploadDataUrl ?? undefined,
       };
     }
   } catch {
     // The configurator remains usable with the authenticated account identity.
+  }
+
+  if (config) {
+    return {
+      config,
+      publisherName: config.publisherName,
+      publisherTint: config.colors.primary,
+      publisherEmail: config.publisherEmail,
+      publisherUsername: config.publisherUsername,
+      publisherImageUrl:
+        config.iconSource === "publisher"
+          ? (config.iconImageUrl ?? config.iconImageUploadDataUrl ?? undefined)
+          : undefined,
+    };
   }
 
   return {

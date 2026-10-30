@@ -194,6 +194,7 @@ describe("PublisherPortalHomePage", () => {
     );
     expect(screen.getByText("99.99")).toBeTruthy();
     expect(screen.getByText("59.99")).toBeTruthy();
+    expect(screen.getByText("Crear mi app")).toBeTruthy();
     expect(screen.getByTestId("publisher-app-banner").dataset.accent).toBe(
       "#123ABC",
     );
@@ -209,7 +210,9 @@ describe("PublisherPortalHomePage", () => {
       screen.getByRole("heading", { level: 2, name: "Mi cuenta" }),
     ).toBeTruthy();
     expect(
-      screen.getByRole("link", { name: "Abrir Mi cuenta" }).getAttribute("href"),
+      screen
+        .getByRole("link", { name: "Abrir Mi cuenta" })
+        .getAttribute("href"),
     ).toBe(PUBLISHER_PORTAL_ACCOUNT_ROUTE);
     expect(screen.getByText("Empezá a construir tu presencia")).toBeTruthy();
     expect(
@@ -225,9 +228,7 @@ describe("PublisherPortalHomePage", () => {
       ).disabled,
     ).toBe(true);
     expect(
-      screen
-        .getByRole("link", { name: /Abrir perfil/i })
-        .getAttribute("href"),
+      screen.getByRole("link", { name: /Abrir perfil/i }).getAttribute("href"),
     ).toBe(publisherPortalOrganizationDetailRoute("org-1"));
     expect(sdkFetchServer).toHaveBeenCalledWith(
       "/admin/support-services/offers?limit=1",
@@ -250,8 +251,7 @@ describe("PublisherPortalHomePage", () => {
         .getByRole("heading", {
           name: "Crear tu primera oferta de servicio",
         })
-        .closest("article")
-        ?.className,
+        .closest("article")?.className,
     ).toContain("border-violet-200/80");
     expect(
       (
@@ -281,6 +281,7 @@ describe("PublisherPortalHomePage", () => {
     expect(screen.getByTestId("publisher-app-banner-link")).toContainElement(
       screen.getByTestId("publisher-app-banner"),
     );
+    expect(screen.getByText("Editar mi app")).toBeTruthy();
   });
 
   it("shows view and create actions once the publisher has an active service offer", async () => {
@@ -307,16 +308,13 @@ describe("PublisherPortalHomePage", () => {
     expect(
       screen
         .getByRole("heading", { name: "Personalizar mi perfil" })
-        .closest("article")
-        ?.className,
+        .closest("article")?.className,
     ).toContain("border-violet-200/80");
     expect(
       screen.getByRole("link", { name: /Abrir perfil/i }).className,
     ).toContain("bg-violet-600");
     expect(
-      screen
-        .getByRole("link", { name: /Abrir ofertas/i })
-        .getAttribute("href"),
+      screen.getByRole("link", { name: /Abrir ofertas/i }).getAttribute("href"),
     ).toBe(PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE);
     expect(
       screen.getByRole("heading", { name: "Ver ofertas de servicio" }),
@@ -324,8 +322,7 @@ describe("PublisherPortalHomePage", () => {
     expect(
       screen
         .getByRole("heading", { name: "Ver ofertas de servicio" })
-        .closest("article")
-        ?.className,
+        .closest("article")?.className,
     ).toContain("border-violet-200/80");
     expect(
       screen
@@ -425,14 +422,10 @@ describe("PublisherPortalHomePage", () => {
     render(await PublisherPortalHomePage());
 
     expect(
-      screen
-        .getByRole("link", { name: /Abrir perfil/i })
-        .getAttribute("href"),
+      screen.getByRole("link", { name: /Abrir perfil/i }).getAttribute("href"),
     ).toBe(publisherPortalIndividualDetailRoute("ind-1"));
     expect(
-      screen
-        .getByRole("link", { name: /Abrir ofertas/i })
-        .getAttribute("href"),
+      screen.getByRole("link", { name: /Abrir ofertas/i }).getAttribute("href"),
     ).toBe(PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE);
     expect(
       screen

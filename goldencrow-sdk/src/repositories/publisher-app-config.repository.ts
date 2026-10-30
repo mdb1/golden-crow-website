@@ -9,6 +9,7 @@ import type {
   PublisherAppConfigColors,
   PublisherAppConfigInput,
   PublisherAppConfigRecord,
+  PublisherAppStatus,
   PublisherAppPublisherKind,
 } from "../types/sdk.types.js";
 import { AdminRepositoryError } from "./admin-errors.js";
@@ -33,7 +34,12 @@ type PublisherIdentity = PublisherScope & {
   name: string;
   email: string;
   username: string;
+  imageUrl: string | null;
+  imageUploadDataUrl: string | null;
 };
+
+const APP_ICON_DATA_URL_PATTERN =
+  /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
 
 function requiredString(value: unknown, label: string) {
   if (typeof value !== "string" || !value.trim()) {
@@ -105,8 +111,12 @@ function normalizeColors(colors: PublisherAppConfigColors) {
 
 function normalizeInput(
   input: PublisherAppConfigInput,
+  identity: PublisherIdentity,
 ): PublisherAppConfigInput {
-  if (input.platformOption !== "ios" && input.platformOption !== "ios_android") {
+  if (
+    input.platformOption !== "ios" &&
+    input.platformOption !== "ios_android"
+  ) {
     throw new AdminRepositoryError(
       "Choose a supported app platform option.",
       400,
@@ -127,12 +137,59 @@ function normalizeInput(
     throw new AdminRepositoryError("App colors are required.", 400);
   }
 
+  if (input.iconSource !== "publisher" && input.iconSource !== "custom") {
+    throw new AdminRepositoryError("Choose a supported app icon source.", 400);
+  }
+
+  let iconImageUrl: string | null = null;
+  let iconImageUploadDataUrl: string | null = null;
+  if (input.iconSource === "publisher") {
+    iconImageUrl = identity.imageUrl;
+    iconImageUploadDataUrl = identity.imageUploadDataUrl;
+  } else {
+    const requestedUrl = input.iconImageUrl?.trim() || "";
+    const requestedUpload = input.iconImageUploadDataUrl?.trim() || "";
+    if (!requestedUrl && !requestedUpload) {
+      throw new AdminRepositoryError(
+        "Choose a custom app icon or use the publisher icon.",
+        400,
+      );
+    }
+    if (requestedUrl) {
+      let parsed: URL;
+      try {
+        parsed = new URL(requestedUrl);
+      } catch {
+        throw new AdminRepositoryError("App icon URL is invalid.", 400);
+      }
+      if (parsed.protocol !== "https:") {
+        throw new AdminRepositoryError("App icon URL must use HTTPS.", 400);
+      }
+      iconImageUrl = parsed.toString();
+    }
+    if (requestedUpload) {
+      if (
+        requestedUpload.length > 900_000 ||
+        !APP_ICON_DATA_URL_PATTERN.test(requestedUpload)
+      ) {
+        throw new AdminRepositoryError(
+          "App icon upload must be a supported PNG, JPG, or WebP image.",
+          400,
+        );
+      }
+      iconImageUploadDataUrl = requestedUpload;
+    }
+  }
+
   return {
     platformOption: input.platformOption,
     connectEnabled: input.connectEnabled,
     profileEnabled: input.profileEnabled,
     learnCustomizationEnabled: input.learnCustomizationEnabled,
     colors: normalizeColors(input.colors),
+    iconSource: input.iconSource,
+    iconImageUrl,
+    iconImageUploadDataUrl,
   };
 }
 
@@ -223,7 +280,48 @@ async function publisherIdentity(
     name,
     email,
     username,
+    imageUrl:
+      typeof publisherData.imageUrl === "string" &&
+      publisherData.imageUrl.trim()
+        ? publisherData.imageUrl.trim()
+        : null,
+    imageUploadDataUrl:
+      typeof publisherData.imageUploadDataUrl === "string" &&
+      publisherData.imageUploadDataUrl.trim()
+        ? publisherData.imageUploadDataUrl.trim()
+        : null,
   };
+}
+
+function storedNullableString(value: unknown, label: string) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value !== "string") {
+    throw new AdminRepositoryError(
+      `Stored publisher app config has an invalid ${label}.`,
+      500,
+    );
+  }
+  return value.trim() || null;
+}
+
+function storedAppStatus(value: unknown): PublisherAppStatus {
+  if (value === undefined || value === null) {
+    return "pending_revision";
+  }
+  if (
+    value === "pending_revision" ||
+    value === "approved" ||
+    value === "changes_requested" ||
+    value === "rejected"
+  ) {
+    return value;
+  }
+  throw new AdminRepositoryError(
+    "Stored publisher app config has an invalid status.",
+    500,
+  );
 }
 
 function storedColors(value: unknown): PublisherAppConfigColors {
@@ -284,6 +382,9 @@ function toPublisherAppConfigRecord(
       data.publisherUsername,
       "publisher username",
     ),
+    catalogEnabled: true,
+    feedEnabled: true,
+    status: storedAppStatus(data.status),
     platformOption,
     connectEnabled: requiredBoolean(data.connectEnabled, "Connect setting"),
     profileEnabled: requiredBoolean(data.profileEnabled, "Profile setting"),
@@ -292,6 +393,15 @@ function toPublisherAppConfigRecord(
       "Learn customization setting",
     ),
     colors: storedColors(data.colors),
+    iconSource:
+      data.iconSource === "custom" || data.iconSource === "publisher"
+        ? data.iconSource
+        : "publisher",
+    iconImageUrl: storedNullableString(data.iconImageUrl, "icon image URL"),
+    iconImageUploadDataUrl: storedNullableString(
+      data.iconImageUploadDataUrl,
+      "icon image upload",
+    ),
     createdAt: timestampToIso(data.createdAt, "createdAt timestamp"),
     updatedAt: timestampToIso(data.updatedAt, "updatedAt timestamp"),
     createdByUserId: requiredString(data.createdByUserId, "creator user id"),
@@ -336,8 +446,8 @@ export async function createPublisherAppConfig(
     );
   }
 
-  const normalizedInput = normalizeInput(input);
   const identity = await publisherIdentity(context, scope);
+  const normalizedInput = normalizeInput(input, identity);
   const timestamp = FieldValue.serverTimestamp();
   const document = {
     schemaVersion: APP_CONFIG_SCHEMA_VERSION,
@@ -346,6 +456,9 @@ export async function createPublisherAppConfig(
     publisherName: identity.name,
     publisherEmail: identity.email,
     publisherUsername: identity.username,
+    catalogEnabled: true,
+    feedEnabled: true,
+    status: "pending_revision",
     ...normalizedInput,
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -381,8 +494,9 @@ export async function updatePublisherAppConfig(
     throw new AdminRepositoryError("Publisher app config not found.", 404);
   }
 
-  const normalizedInput = normalizeInput(input);
   const identity = await publisherIdentity(context, scope);
+  const normalizedInput = normalizeInput(input, identity);
+  const existingData = (existing.data() ?? {}) as Record<string, unknown>;
   await ref.update({
     schemaVersion: APP_CONFIG_SCHEMA_VERSION,
     publisherKind: identity.kind,
@@ -390,6 +504,9 @@ export async function updatePublisherAppConfig(
     publisherName: identity.name,
     publisherEmail: identity.email,
     publisherUsername: identity.username,
+    catalogEnabled: true,
+    feedEnabled: true,
+    status: storedAppStatus(existingData.status),
     ...normalizedInput,
     updatedAt: FieldValue.serverTimestamp(),
     updatedByUserId: context.uid,

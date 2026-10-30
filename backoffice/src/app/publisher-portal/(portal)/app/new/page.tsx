@@ -26,6 +26,7 @@ export default async function NewPublisherAppPage() {
           mode="create"
           publisherName={data.publisherName}
           publisherTint={data.publisherTint}
+          publisherImageUrl={data.publisherImageUrl}
           publisherEmail={data.publisherEmail}
           publisherUsername={data.publisherUsername}
         />

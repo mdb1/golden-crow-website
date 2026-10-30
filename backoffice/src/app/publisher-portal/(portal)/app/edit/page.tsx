@@ -27,6 +27,7 @@ export default async function EditPublisherAppPage() {
           initialConfig={data.config}
           publisherName={data.publisherName}
           publisherTint={data.publisherTint}
+          publisherImageUrl={data.publisherImageUrl}
           publisherEmail={data.publisherEmail}
           publisherUsername={data.publisherUsername}
         />

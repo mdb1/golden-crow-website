@@ -37,6 +37,7 @@ describe("PublisherAppPromoBanner color system", () => {
       <PublisherAppPromoBanner
         organizationName="DNA Institute"
         organizationTint="#657960"
+        ctaLabel="Editar mi app"
       />,
     );
 
@@ -49,5 +50,6 @@ describe("PublisherAppPromoBanner color system", () => {
     expect(banner.style.getPropertyValue("--publisher-app-accent-deep")).toBe(
       palette.deep,
     );
+    expect(screen.getByText("Editar mi app")).toBeTruthy();
   });
 });

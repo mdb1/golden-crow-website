@@ -1,4 +1,20 @@
 export type PublisherAppPlatformOption = "ios" | "ios_android";
+export type PublisherAppIconSource = "publisher" | "custom";
+export type PublisherAppStatus =
+  "pending_revision" | "approved" | "changes_requested" | "rejected";
+
+export function publisherAppStatusLabel(status: PublisherAppStatus) {
+  switch (status) {
+    case "approved":
+      return "Approved";
+    case "changes_requested":
+      return "Changes requested";
+    case "rejected":
+      return "Rejected";
+    default:
+      return "Pending revision";
+  }
+}
 
 export type PublisherAppColors = {
   primary: string;
@@ -12,6 +28,9 @@ export type PublisherAppConfigInput = {
   profileEnabled: boolean;
   learnCustomizationEnabled: boolean;
   colors: PublisherAppColors;
+  iconSource: PublisherAppIconSource;
+  iconImageUrl: string | null;
+  iconImageUploadDataUrl: string | null;
 };
 
 export type PublisherAppConfig = PublisherAppConfigInput & {
@@ -21,6 +40,9 @@ export type PublisherAppConfig = PublisherAppConfigInput & {
   publisherName: string;
   publisherEmail: string;
   publisherUsername: string;
+  catalogEnabled: true;
+  feedEnabled: true;
+  status: PublisherAppStatus;
   schemaVersion: 1;
   createdAt: string;
   updatedAt: string;

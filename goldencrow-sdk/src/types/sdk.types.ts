@@ -920,6 +920,9 @@ export interface DiscoverIndividualRecord {
 
 export type PublisherAppPlatformOption = "ios" | "ios_android";
 export type PublisherAppPublisherKind = "organization" | "individual";
+export type PublisherAppStatus =
+  "pending_revision" | "approved" | "changes_requested" | "rejected";
+export type PublisherAppIconSource = "publisher" | "custom";
 
 export interface PublisherAppConfigColors {
   primary: string;
@@ -933,6 +936,9 @@ export interface PublisherAppConfigInput {
   profileEnabled: boolean;
   learnCustomizationEnabled: boolean;
   colors: PublisherAppConfigColors;
+  iconSource: PublisherAppIconSource;
+  iconImageUrl: string | null;
+  iconImageUploadDataUrl: string | null;
 }
 
 export interface PublisherAppConfigRecord extends PublisherAppConfigInput {
@@ -943,6 +949,9 @@ export interface PublisherAppConfigRecord extends PublisherAppConfigInput {
   publisherName: string;
   publisherEmail: string;
   publisherUsername: string;
+  catalogEnabled: true;
+  feedEnabled: true;
+  status: PublisherAppStatus;
   createdAt: string;
   updatedAt: string;
   createdByUserId: string;

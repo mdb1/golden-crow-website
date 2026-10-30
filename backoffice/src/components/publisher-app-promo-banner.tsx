@@ -20,6 +20,7 @@ const DEFAULT_APP_TINT = "#6D28D9";
 type PublisherAppPromoBannerProps = {
   organizationName: string;
   organizationTint?: string;
+  ctaLabel?: string;
 };
 
 type RGB = {
@@ -305,7 +306,9 @@ function ProductsPhone() {
         <div className="relative aspect-[9/18.5] overflow-hidden rounded-[23px] bg-[radial-gradient(circle_at_82%_4%,color-mix(in_srgb,var(--publisher-app-shine)_48%,white),transparent_27%),linear-gradient(180deg,#fff_0%,color-mix(in_srgb,var(--publisher-app-shine)_18%,#fff8fb)_100%)] px-3 pt-3">
           <span className="absolute left-1/2 top-1.5 z-20 h-3 w-10 -translate-x-1/2 rounded-full bg-slate-950" />
           <PhoneStatusBar />
-          <p className="mt-7 text-[11px] font-black text-slate-950">Productos</p>
+          <p className="mt-7 text-[11px] font-black text-slate-950">
+            Productos
+          </p>
           <div className="mt-3 space-y-2">
             {products.map(({ icon: Icon, label }) => (
               <div
@@ -335,6 +338,7 @@ function ProductsPhone() {
 export function PublisherAppPromoBanner({
   organizationName,
   organizationTint,
+  ctaLabel = "Crear mi app",
 }: PublisherAppPromoBannerProps) {
   const brandName = organizationName.trim() || "tu organización";
   const palette = publisherAppIntensePalette(organizationTint);
@@ -468,7 +472,10 @@ export function PublisherAppPromoBanner({
           <ProductsPhone />
           <span className="absolute left-[7%] top-[18%] z-30 hidden size-14 -rotate-12 items-center justify-center rounded-[20px] border border-white/55 bg-[linear-gradient(145deg,var(--publisher-app-shine),var(--publisher-app-vivid)_48%,var(--publisher-app-accent-deep))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_18px_34px_-16px_rgba(2,6,23,0.8),0_0_22px_color-mix(in_srgb,var(--publisher-app-glow)_46%,transparent)] sm:flex">
             <span className="absolute inset-x-2 top-1.5 h-1/3 rounded-full bg-white/35 blur-sm" />
-            <HeartPulse className="relative size-7 drop-shadow" strokeWidth={2.5} />
+            <HeartPulse
+              className="relative size-7 drop-shadow"
+              strokeWidth={2.5}
+            />
           </span>
           <span className="absolute right-[8%] top-[9%] z-30 flex size-12 rotate-12 items-center justify-center rounded-[20px] border border-white/55 bg-[linear-gradient(145deg,#fff,var(--publisher-app-shine)_48%,var(--publisher-app-glow))] text-[var(--publisher-app-accent-deep)] shadow-[inset_0_1px_0_white,0_18px_34px_-16px_rgba(2,6,23,0.8),0_0_22px_color-mix(in_srgb,var(--publisher-app-glow)_42%,transparent)] sm:size-14">
             <span className="absolute inset-x-2 top-1.5 h-1/3 rounded-full bg-white/55 blur-sm" />
@@ -476,6 +483,11 @@ export function PublisherAppPromoBanner({
           </span>
         </div>
       </div>
+      <span className="absolute bottom-4 right-4 z-40 inline-flex min-h-12 items-center gap-2 rounded-2xl border border-white/75 bg-[linear-gradient(180deg,rgba(255,255,255,1),rgba(255,255,255,.84))] px-5 py-3 text-sm font-black text-[var(--publisher-app-accent-deep)] shadow-[inset_0_1px_0_white,0_7px_0_color-mix(in_srgb,var(--publisher-app-accent-deep)_70%,#020617),0_18px_36px_-14px_rgba(2,6,23,.86)] backdrop-blur transition duration-200 group-hover:-translate-y-1 group-hover:shadow-[inset_0_1px_0_white,0_10px_0_color-mix(in_srgb,var(--publisher-app-accent-deep)_70%,#020617),0_24px_42px_-14px_rgba(2,6,23,.9)] group-active:translate-y-1 group-active:shadow-[inset_0_1px_0_white,0_3px_0_color-mix(in_srgb,var(--publisher-app-accent-deep)_70%,#020617),0_12px_24px_-14px_rgba(2,6,23,.8)] sm:bottom-6 sm:right-7">
+        <Sparkles className="size-4 fill-current" />
+        {ctaLabel}
+        <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+      </span>
     </article>
   );
 }

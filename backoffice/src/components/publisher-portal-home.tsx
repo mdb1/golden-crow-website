@@ -328,6 +328,7 @@ export function PublisherPortalHome({
           <PublisherAppPromoBanner
             organizationName={publisherName}
             organizationTint={publisherTint}
+            ctaLabel={hasPublisherAppConfig ? "Editar mi app" : "Crear mi app"}
           />
         </Link>
       </section>

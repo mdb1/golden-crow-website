@@ -1,9 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type { AdminContext } from "../types/sdk.types.js";
-import {
-  buildRouteServer,
-  makeAdminContext,
-} from "./support/route-harness.js";
+import { buildRouteServer, makeAdminContext } from "./support/route-harness.js";
 
 const FIXED_TIME = Date.parse("2026-10-30T15:00:00.000Z");
 
@@ -23,6 +20,7 @@ type MockDocumentReference = {
 
 const collections = new Map<string, Map<string, StoredDocument>>();
 const mockGetProfileSetupState = jest.fn();
+const mockSendPublisherAppCreationNotificationEmails = jest.fn();
 let timestampCallCount = 0;
 
 function collectionStore(name: string) {
@@ -112,6 +110,11 @@ jest.mock("../repositories/profile-setup.repository.js", () => ({
   isProfileSetupError: jest.fn(() => false),
 }));
 
+jest.mock("../lib/publisher-app-creation-notification-email.js", () => ({
+  sendPublisherAppCreationNotificationEmails: (...args: unknown[]) =>
+    mockSendPublisherAppCreationNotificationEmails(...args),
+}));
+
 const validBody = {
   platformOption: "ios_android" as const,
   connectEnabled: true,
@@ -122,6 +125,9 @@ const validBody = {
     secondary: "#123456",
     tertiary: "#fedcba",
   },
+  iconSource: "publisher" as const,
+  iconImageUrl: null,
+  iconImageUploadDataUrl: null,
 };
 
 function organizationContext(
@@ -167,9 +173,8 @@ describe("publisher app config contract", () => {
   let fastify: FastifyInstance;
 
   beforeAll(async () => {
-    const { publisherAppConfigRoutes } = await import(
-      "../routes/publisher-app-config.routes.js"
-    );
+    const { publisherAppConfigRoutes } =
+      await import("../routes/publisher-app-config.routes.js");
     fastify = await buildRouteServer(publisherAppConfigRoutes, () => context);
   });
 
@@ -185,6 +190,7 @@ describe("publisher app config contract", () => {
     seedPublisher("organization", "shared-publisher-id", {
       name: "Canonical Organization",
       contactEmail: "public-contact@example.net",
+      imageUrl: "https://example.org/canonical-icon.png",
     });
     mockGetProfileSetupState.mockResolvedValue({
       defaults: { username: "current-profile-user" },
@@ -269,6 +275,9 @@ describe("publisher app config contract", () => {
       publisherName: "Canonical Organization",
       publisherEmail: "publisher.operator@example.org",
       publisherUsername: "current-profile-user",
+      catalogEnabled: true,
+      feedEnabled: true,
+      status: "pending_revision",
       platformOption: "ios_android",
       connectEnabled: true,
       profileEnabled: false,
@@ -278,6 +287,9 @@ describe("publisher app config contract", () => {
         secondary: "#123456",
         tertiary: "#FEDCBA",
       },
+      iconSource: "publisher",
+      iconImageUrl: "https://example.org/canonical-icon.png",
+      iconImageUploadDataUrl: null,
       createdAt: new Date("2026-10-30T15:00:00.000Z"),
       updatedAt: new Date("2026-10-30T15:00:00.000Z"),
       createdByUserId: "org-user-1",
@@ -291,11 +303,17 @@ describe("publisher app config contract", () => {
         "publisherName",
         "publisherEmail",
         "publisherUsername",
+        "catalogEnabled",
+        "feedEnabled",
+        "status",
         "platformOption",
         "connectEnabled",
         "profileEnabled",
         "learnCustomizationEnabled",
         "colors",
+        "iconSource",
+        "iconImageUrl",
+        "iconImageUploadDataUrl",
         "createdAt",
         "updatedAt",
         "createdByUserId",
@@ -319,8 +337,16 @@ describe("publisher app config contract", () => {
           secondary: "#123456",
           tertiary: "#FEDCBA",
         },
+        status: "pending_revision",
+        catalogEnabled: true,
+        feedEnabled: true,
+        iconSource: "publisher",
+        iconImageUrl: "https://example.org/canonical-icon.png",
       },
     });
+    expect(
+      mockSendPublisherAppCreationNotificationEmails,
+    ).toHaveBeenCalledTimes(1);
   });
 
   it("keeps organization and individual configs separate when their publisher ids match", async () => {
@@ -462,7 +488,55 @@ describe("publisher app config contract", () => {
       updatedByUserId: "org-user-2",
       createdAt: new Date("2026-10-30T15:00:00.000Z"),
       updatedAt: new Date("2026-10-30T15:00:01.000Z"),
+      status: "pending_revision",
+      catalogEnabled: true,
+      feedEnabled: true,
     });
+  });
+
+  it("preserves an admin-managed status when the publisher edits the config", async () => {
+    const createResponse = await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config",
+      payload: validBody,
+    });
+    expect(createResponse.statusCode).toBe(201);
+
+    const stored = collectionStore("app_configs").get(
+      "organization_shared-publisher-id",
+    );
+    collectionStore("app_configs").set("organization_shared-publisher-id", {
+      ...stored,
+      status: "approved",
+    });
+
+    const updateResponse = await fastify.inject({
+      method: "PUT",
+      url: "/publisher-app/config",
+      payload: { ...validBody, profileEnabled: true },
+    });
+
+    expect(updateResponse.statusCode).toBe(200);
+    expect(updateResponse.json().config.status).toBe("approved");
+    expect(
+      collectionStore("app_configs").get("organization_shared-publisher-id"),
+    ).toMatchObject({ status: "approved", profileEnabled: true });
+  });
+
+  it("rejects publisher attempts to set the review status or disable required features", async () => {
+    for (const serverOwned of [
+      { status: "approved" },
+      { catalogEnabled: false },
+      { feedEnabled: false },
+    ]) {
+      const response = await fastify.inject({
+        method: "POST",
+        url: "/publisher-app/config",
+        payload: { ...validBody, ...serverOwned },
+      });
+      expect(response.statusCode).toBe(400);
+    }
+    expect(collectionStore("app_configs").size).toBe(0);
   });
 
   it("returns null from GET when the scoped publisher has no config", async () => {

@@ -7,6 +7,10 @@ import {
   getPublisherAppConfig,
   updatePublisherAppConfig,
 } from "../repositories/publisher-app-config.repository.js";
+import { sendPublisherAppCreationNotificationEmails } from "../lib/publisher-app-creation-notification-email.js";
+
+const APP_ICON_DATA_URL_PATTERN =
+  /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
 
 const HexColorSchema = z
   .string()
@@ -27,8 +31,29 @@ const PublisherAppConfigBodySchema = z
         tertiary: HexColorSchema,
       })
       .strict(),
+    iconSource: z.enum(["publisher", "custom"]).default("publisher"),
+    iconImageUrl: z.string().trim().url().max(2_048).nullable().default(null),
+    iconImageUploadDataUrl: z
+      .string()
+      .max(900_000)
+      .regex(APP_ICON_DATA_URL_PATTERN)
+      .nullable()
+      .default(null),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      value.iconSource === "custom" &&
+      !value.iconImageUrl &&
+      !value.iconImageUploadDataUrl
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["iconSource"],
+        message: "Choose a custom app icon or use the publisher icon.",
+      });
+    }
+  });
 
 function sendRepositoryError(reply: FastifyReply, error: unknown) {
   if (isAdminRepositoryError(error)) {
@@ -73,6 +98,14 @@ export async function publisherAppConfigRoutes(
           request.adminContext,
           request.body,
         );
+        try {
+          await sendPublisherAppCreationNotificationEmails(config);
+        } catch (error) {
+          request.log.error(
+            { err: error, appConfigId: config.id },
+            "Failed to send publisher app creation notification emails.",
+          );
+        }
         return reply.status(201).send({ config });
       } catch (error) {
         return sendRepositoryError(reply, error);

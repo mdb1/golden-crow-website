@@ -32,6 +32,9 @@ const savedConfig: PublisherAppConfig = {
   publisherName: "Pocket Genes Lab",
   publisherEmail: "publisher@example.org",
   publisherUsername: "pocketgenes",
+  catalogEnabled: true,
+  feedEnabled: true,
+  status: "pending_revision",
   platformOption: "ios_android",
   connectEnabled: true,
   profileEnabled: true,
@@ -41,6 +44,9 @@ const savedConfig: PublisherAppConfig = {
     secondary: "#456DEF",
     tertiary: "#FEDCBA",
   },
+  iconSource: "publisher",
+  iconImageUrl: "https://example.org/icon.png",
+  iconImageUploadDataUrl: null,
   schemaVersion: 1,
   createdAt: "2026-10-30T12:00:00.000Z",
   updatedAt: "2026-10-30T12:00:00.000Z",
@@ -66,8 +72,11 @@ function renderWorkbench(
 }
 
 function advanceToColors() {
-  fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
-  fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+  fireEvent.click(screen.getByRole("button", { name: /Paso 3 Colores/i }));
+}
+
+function advanceToIcon() {
+  fireEvent.click(screen.getByRole("button", { name: /Paso 4 Icono/i }));
 }
 
 describe("PublisherAppConfigWorkbench", () => {
@@ -75,7 +84,7 @@ describe("PublisherAppConfigWorkbench", () => {
     jest.clearAllMocks();
   });
 
-  it("creates a configuration from the three-step flow without sending identity fields", async () => {
+  it("creates a configuration from the four-step flow without sending identity or status fields", async () => {
     jest.mocked(sdkFetch).mockResolvedValue({ config: savedConfig });
     renderWorkbench();
 
@@ -83,15 +92,22 @@ describe("PublisherAppConfigWorkbench", () => {
       screen.getByRole("heading", { name: "Configurá tu app" }),
     ).toBeTruthy();
     fireEvent.click(screen.getByRole("radio", { name: /Solo iOS/i }));
-    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+    fireEvent.click(screen.getByRole("button", { name: /Paso 2 Funciones/i }));
+    expect(
+      screen.getByRole("checkbox", {
+        name: "Catálogo de productos y servicios",
+      }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("checkbox", { name: "Feed de novedades" }),
+    ).toBeDisabled();
     fireEvent.click(screen.getByRole("checkbox", { name: /Connect/i }));
-    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+    advanceToColors();
     fireEvent.change(screen.getByLabelText("Color principal"), {
       target: { value: "#112233" },
     });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Guardar configuración" }),
-    );
+    advanceToIcon();
+    fireEvent.click(screen.getByRole("button", { name: "Crear mi app" }));
 
     await waitFor(() => {
       expect(sdkFetch).toHaveBeenCalledTimes(1);
@@ -106,15 +122,19 @@ describe("PublisherAppConfigWorkbench", () => {
       profileEnabled: true,
       learnCustomizationEnabled: true,
       colors: { primary: "#112233" },
+      iconSource: "publisher",
     });
     expect(payload).not.toHaveProperty("publisherId");
     expect(payload).not.toHaveProperty("publisherKind");
     expect(payload).not.toHaveProperty("publisherEmail");
     expect(payload).not.toHaveProperty("publisherUsername");
-    expect(mockRouterReplace).toHaveBeenCalledWith(
-      PUBLISHER_PORTAL_APP_EDIT_ROUTE,
-    );
-    expect(mockRouterRefresh).toHaveBeenCalled();
+    expect(payload).not.toHaveProperty("status");
+    expect(payload).not.toHaveProperty("catalogEnabled");
+    expect(payload).not.toHaveProperty("feedEnabled");
+    expect(await screen.findByText(/próximas 24 a 48 horas/i)).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: /Ver y editar mi app/i }),
+    ).toHaveAttribute("href", PUBLISHER_PORTAL_APP_EDIT_ROUTE);
   });
 
   it("loads an existing configuration and saves only after it changes", async () => {
@@ -125,18 +145,21 @@ describe("PublisherAppConfigWorkbench", () => {
     jest.mocked(sdkFetch).mockResolvedValue({ config: updatedConfig });
     renderWorkbench({ mode: "edit", initialConfig: savedConfig });
 
-    expect(screen.getByRole("radio", { name: /iOS \+ Android/i })).toHaveAttribute(
-      "data-state",
-      "checked",
-    );
+    expect(
+      screen.getByRole("radio", { name: /iOS \+ Android/i }),
+    ).toHaveAttribute("data-state", "checked");
     advanceToColors();
-
-    const saveButton = screen.getByRole("button", { name: "Guardar cambios" });
-    expect(saveButton).toBeDisabled();
     expect(screen.getByLabelText("Color principal")).toHaveValue("#123ABC");
+    advanceToIcon();
+    expect(
+      screen.getByRole("button", { name: "Guardar cambios" }),
+    ).toBeDisabled();
+    advanceToColors();
     fireEvent.change(screen.getByLabelText("Color terciario"), {
       target: { value: "#AABBCC" },
     });
+    advanceToIcon();
+    const saveButton = screen.getByRole("button", { name: "Guardar cambios" });
     expect(saveButton).toBeEnabled();
     fireEvent.click(saveButton);
 
@@ -152,6 +175,7 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(payload.colors.tertiary).toBe("#AABBCC");
     expect(mockRouterReplace).not.toHaveBeenCalled();
     expect(mockRouterRefresh).toHaveBeenCalled();
+    expect(screen.getAllByText("Pending revision").length).toBeGreaterThan(0);
   });
 
   it("blocks saving when a palette color is not a complete hex value", () => {
@@ -165,8 +189,8 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(
       screen.getByText("Ingresá un color hexadecimal de 6 dígitos."),
     ).toBeTruthy();
-    expect(
-      screen.getByRole("button", { name: "Guardar configuración" }),
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Paso 4 Icono/i })).toBeEnabled();
+    advanceToIcon();
+    expect(screen.getByRole("button", { name: "Crear mi app" })).toBeDisabled();
   });
 });
