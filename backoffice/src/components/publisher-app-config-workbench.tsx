@@ -202,8 +202,8 @@ function initialState(
   return {
     platformOption: "ios",
     connectEnabled: true,
-    profileEnabled: true,
-    learnCustomizationEnabled: true,
+    profileEnabled: false,
+    learnCustomizationEnabled: false,
     colors: publisherAppDefaultColors(publisherTint),
     iconSource: "publisher",
     iconImageUrl: publisherImageUrl?.trim() || null,
@@ -392,11 +392,11 @@ function PublisherAppLivePreview({
     state.connectEnabled
       ? { icon: UsersRound, label: "Comunidad", color: colors.primary }
       : null,
-    state.profileEnabled
-      ? { icon: CalendarDays, label: "Turnos", color: colors.secondary }
-      : null,
     state.learnCustomizationEnabled
       ? { icon: GraduationCap, label: "Clases", color: colors.tertiary }
+      : null,
+    state.profileEnabled
+      ? { icon: CalendarDays, label: "Turnos", color: colors.secondary }
       : null,
   ].filter(Boolean) as Array<{
     icon: typeof UsersRound;
@@ -566,14 +566,14 @@ function PublisherAppReviewDocument({
       detail: "Notas, eventos y publicaciones",
     },
     {
-      label: "Contenidos educativos propios",
-      enabled: state.learnCustomizationEnabled,
-      detail: "Clases y contenidos personalizados",
-    },
-    {
       label: "Sección Comunidad",
       enabled: state.connectEnabled,
       detail: "Interacción y publicaciones entre usuarios",
+    },
+    {
+      label: "Contenidos educativos propios",
+      enabled: state.learnCustomizationEnabled,
+      detail: "Clases y contenidos personalizados",
     },
     {
       label: "Gestión de turnos",
@@ -1338,16 +1338,6 @@ export function PublisherAppConfigWorkbench({
                   description="Notas, eventos y publicaciones para mantener informada y activa tu comunidad."
                 />
                 <FeatureCard
-                  id="publisher-app-learn"
-                  checked={state.learnCustomizationEnabled}
-                  onCheckedChange={(learnCustomizationEnabled) =>
-                    updateState({ learnCustomizationEnabled })
-                  }
-                  icon={<GraduationCap className="size-5" />}
-                  title="Contenidos educativos propios"
-                  description="Customiza tus clases y contenidos según las necesidades de tus usuarios."
-                />
-                <FeatureCard
                   id="publisher-app-connect"
                   checked={state.connectEnabled}
                   onCheckedChange={(connectEnabled) =>
@@ -1356,6 +1346,16 @@ export function PublisherAppConfigWorkbench({
                   icon={<UsersRound className="size-5" />}
                   title="Sección Comunidad"
                   description="Permite conversar, publicar preguntas y encontrar otros miembros de la comunidad."
+                />
+                <FeatureCard
+                  id="publisher-app-learn"
+                  checked={state.learnCustomizationEnabled}
+                  onCheckedChange={(learnCustomizationEnabled) =>
+                    updateState({ learnCustomizationEnabled })
+                  }
+                  icon={<GraduationCap className="size-5" />}
+                  title="Contenidos educativos propios"
+                  description="Customiza tus clases y contenidos según las necesidades de tus usuarios."
                 />
                 <FeatureCard
                   id="publisher-app-profile"

@@ -117,11 +117,33 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(
       screen.getByTestId("publisher-app-feature-list").querySelectorAll("label"),
     ).toHaveLength(5);
+    const featureCheckboxes = screen.getAllByRole("checkbox");
+    expect(
+      featureCheckboxes.map((checkbox) => checkbox.getAttribute("aria-label")),
+    ).toEqual([
+      "Catálogo de productos y servicios",
+      "Feed de novedades",
+      "Sección Comunidad",
+      "Contenidos educativos propios",
+      "Gestión de turnos",
+    ]);
+    const communityCheckbox = screen.getByRole("checkbox", {
+      name: "Sección Comunidad",
+    });
+    const learnCheckbox = screen.getByRole("checkbox", {
+      name: "Contenidos educativos propios",
+    });
+    const appointmentsCheckbox = screen.getByRole("checkbox", {
+      name: "Gestión de turnos",
+    });
+    expect(communityCheckbox).toBeChecked();
+    expect(learnCheckbox).not.toBeChecked();
+    expect(appointmentsCheckbox).not.toBeChecked();
     const featureDescriptions = [
       "Tus productos y servicios, siempre organizados, disponibles y listos para descubrir.",
       "Notas, eventos y publicaciones para mantener informada y activa tu comunidad.",
-      "Customiza tus clases y contenidos según las necesidades de tus usuarios.",
       "Permite conversar, publicar preguntas y encontrar otros miembros de la comunidad.",
+      "Customiza tus clases y contenidos según las necesidades de tus usuarios.",
       "Tus usuarios pueden solicitar y reservar turnos directamente desde la aplicación.",
     ];
     featureDescriptions.forEach((description) => {
@@ -132,9 +154,7 @@ describe("PublisherAppConfigWorkbench", () => {
       );
       expect(descriptionElement).toHaveClass("sm:min-h-12");
     });
-    fireEvent.click(
-      screen.getByRole("checkbox", { name: "Sección Comunidad" }),
-    );
+    fireEvent.click(communityCheckbox);
     advanceToColors();
     fireEvent.change(screen.getByLabelText("Elegir color principal"), {
       target: { value: "#112233" },
@@ -209,8 +229,8 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(payload).toMatchObject({
       platformOption: "ios",
       connectEnabled: false,
-      profileEnabled: true,
-      learnCustomizationEnabled: true,
+      profileEnabled: false,
+      learnCustomizationEnabled: false,
       colors: { primary: "#112233" },
       iconSource: "publisher",
       termsAccepted: true,
@@ -239,6 +259,16 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(
       screen.getByRole("radio", { name: /iOS \+ Android/i }),
     ).toHaveAttribute("data-state", "checked");
+    fireEvent.click(screen.getByRole("button", { name: /Paso 2 Funciones/i }));
+    expect(
+      screen.getByRole("checkbox", { name: "Sección Comunidad" }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: "Contenidos educativos propios" }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: "Gestión de turnos" }),
+    ).toBeChecked();
     advanceToColors();
     expect(screen.getByLabelText("Elegir color principal")).toHaveValue(
       "#123abc",
