@@ -187,7 +187,7 @@ function initialState(
     };
   }
   return {
-    platformOption: "ios_android",
+    platformOption: "ios",
     connectEnabled: true,
     profileEnabled: true,
     learnCustomizationEnabled: true,

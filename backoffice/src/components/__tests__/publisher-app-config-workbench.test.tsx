@@ -95,11 +95,13 @@ describe("PublisherAppConfigWorkbench", () => {
       screen.getByRole("heading", { name: "Configurá tu app" }),
     ).toBeTruthy();
     const iosRadio = screen.getByRole("radio", { name: /Solo iOS/i });
+    expect(iosRadio).toHaveAttribute("data-state", "checked");
     expect(iosRadio.parentElement).toHaveClass("sr-only");
-    expect(
-      screen.getByRole("radio", { name: /iOS \+ Android/i }).parentElement,
-    ).toHaveClass("sr-only");
-    fireEvent.click(iosRadio);
+    const iosAndroidRadio = screen.getByRole("radio", {
+      name: /iOS \+ Android/i,
+    });
+    expect(iosAndroidRadio).toHaveAttribute("data-state", "unchecked");
+    expect(iosAndroidRadio.parentElement).toHaveClass("sr-only");
     fireEvent.click(screen.getByRole("button", { name: /Paso 2 Funciones/i }));
     const catalogCheckbox = screen.getByRole("checkbox", {
       name: "Catálogo de productos y servicios",
