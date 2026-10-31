@@ -101,10 +101,16 @@ type AuthNotice = {
   title: string;
   message: string;
   details?: string[];
-  action?: {
-    href: string;
-    label: string;
-  };
+  action?:
+    | {
+        kind: "link";
+        href: string;
+        label: string;
+      }
+    | {
+        kind: "google";
+        label: string;
+      };
   log?: AuthLog;
 };
 
@@ -597,6 +603,7 @@ function wrongSurfaceNotice(
     title: `Use the ${surfaceLoginName(requiredSurface)}`,
     message: `This account has ${surfaceAccessName(requiredSurface)} access and cannot sign in through the ${surfaceLoginName(currentSurface)}.`,
     action: {
+      kind: "link",
       href: surfaceLoginHref(requiredSurface),
       label: `Open ${surfaceLoginName(requiredSurface)}`,
     },
@@ -1015,6 +1022,10 @@ async function googleOnlyPasswordNotice(
         tone: "error",
         title: "This account uses Google sign-in",
         message,
+        action: {
+          kind: "google",
+          label: "Continue with Google",
+        },
         details: [
           "Use Continue with Google to sign in with that user.",
           "Password login will keep failing until a password provider is added to the Firebase account.",
@@ -1049,6 +1060,10 @@ async function googleOnlyPasswordNotice(
       tone: "error",
       title: "This account uses Google sign-in",
       message,
+      action: {
+        kind: "google",
+        label: "Continue with Google",
+      },
       details: [
         "Use Continue with Google to sign in with that user.",
         "Password login will keep failing until a password provider is added to the Firebase account.",
@@ -1425,11 +1440,15 @@ function PasswordResetDialog({
 function Notice({
   notice,
   onDismiss,
+  onGoogleSignIn,
+  googleSignInDisabled,
   t,
   compact = false,
 }: {
   notice: AuthNotice;
   onDismiss: () => void;
+  onGoogleSignIn: () => void;
+  googleSignInDisabled: boolean;
   t: LoginTranslator;
   compact?: boolean;
 }) {
@@ -1499,15 +1518,29 @@ function Notice({
             </ul>
           ) : null}
           {notice.action ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-3 border-slate-900/10 bg-white/70 text-slate-900 hover:bg-white"
-              asChild
-            >
-              <Link href={notice.action.href}>{t(notice.action.label)}</Link>
-            </Button>
+            notice.action.kind === "google" ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={googleSignInDisabled}
+                onClick={onGoogleSignIn}
+                className="mt-3 border-slate-900/10 bg-white/80 text-slate-950 hover:bg-white"
+              >
+                <LogIn className="size-4" />
+                {t(notice.action.label)}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-3 border-slate-900/10 bg-white/70 text-slate-900 hover:bg-white"
+                asChild
+              >
+                <Link href={notice.action.href}>{t(notice.action.label)}</Link>
+              </Button>
+            )
           ) : null}
         </div>
       </div>
@@ -2133,6 +2166,14 @@ export function LoginExperience({
           ? "This account uses Google sign-in"
           : "Password sign-in is not enabled",
         message,
+        ...(hasGoogle
+          ? {
+              action: {
+                kind: "google" as const,
+                label: "Continue with Google",
+              },
+            }
+          : {}),
         details: hasGoogle
           ? [
               "Use Continue with Google to sign in with that user.",
@@ -2769,6 +2810,8 @@ export function LoginExperience({
               <Notice
                 notice={notice}
                 onDismiss={() => setNotice(null)}
+                onGoogleSignIn={handleGoogleSignIn}
+                googleSignInDisabled={loading !== null}
                 t={t}
                 compact={isExclusivePortal}
               />

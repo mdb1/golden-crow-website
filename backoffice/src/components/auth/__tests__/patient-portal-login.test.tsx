@@ -2,6 +2,11 @@
 
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import {
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signOut,
+} from "firebase/auth";
 import { LoginExperience } from "@/components/auth/login-experience";
 import { LANGUAGE_STORAGE_KEY } from "@/lib/language";
 
@@ -10,6 +15,7 @@ const fetchMock = jest.fn();
 jest.mock("firebase/auth", () => ({
   fetchSignInMethodsForEmail: jest.fn(),
   GoogleAuthProvider: class GoogleAuthProvider {
+    addScope() {}
     setCustomParameters() {}
   },
   sendPasswordResetEmail: jest.fn(),
@@ -245,6 +251,7 @@ describe("PGFlex login", () => {
 describe("publisher portal login", () => {
   beforeEach(() => {
     jest.restoreAllMocks();
+    jest.clearAllMocks();
     fetchMock.mockReset();
     Object.defineProperty(globalThis, "fetch", {
       configurable: true,
@@ -285,6 +292,59 @@ describe("publisher portal login", () => {
     expect(
       screen.getByRole("button", { name: "Acceder al portal" }),
     ).toBeTruthy();
+  });
+
+  it("offers Google sign-in when the publisher account has no password provider", async () => {
+    const user = userEvent.setup();
+    const body = {
+      email: "publisher@example.com",
+      eligible: true,
+      accountExists: true,
+      accountHasGoogle: true,
+      accountHasPassword: false,
+      signInProviders: ["google.com"],
+    };
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: { forEach: jest.fn() },
+      clone() {
+        return this;
+      },
+      json: async () => body,
+      text: async () => JSON.stringify(body),
+    } as unknown as Response);
+    jest.mocked(signInWithEmailAndPassword).mockRejectedValueOnce({
+      code: "auth/invalid-credential",
+    });
+    jest.mocked(signOut).mockResolvedValueOnce();
+    jest.mocked(signInWithPopup).mockRejectedValueOnce({
+      code: "auth/popup-closed-by-user",
+    });
+
+    render(
+      <LoginExperience
+        surface="publisher-portal"
+        initialEmail="publisher@example.com"
+      />,
+    );
+
+    await user.type(screen.getByLabelText("Clave de acceso"), "invalid-key");
+    await user.click(screen.getByRole("button", { name: "Acceder al portal" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Esta cuenta usa inicio con Google");
+    expect(alert.textContent).toContain(
+      "Se encontro un usuario con ese email, pero no tiene password registrado.",
+    );
+
+    const googleAction = screen.getByRole("button", {
+      name: "Continuar con Google",
+    });
+    await user.click(googleAction);
+
+    await waitFor(() => expect(signInWithPopup).toHaveBeenCalledTimes(1));
   });
 });
 
