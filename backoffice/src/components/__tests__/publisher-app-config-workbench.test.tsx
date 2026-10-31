@@ -1,5 +1,7 @@
 /** @jest-environment jsdom */
 
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { PublisherAppConfigWorkbench } from "@/components/publisher-app-config-workbench";
@@ -150,9 +152,36 @@ describe("PublisherAppConfigWorkbench", () => {
     ).toBeTruthy();
     expect(screen.getByText("Solo iOS")).toBeTruthy();
     expect(screen.getByText("#112233")).toBeTruthy();
-    expect(screen.getByText(/El pedido de/i).textContent).toContain(
-      "Pocket Genes Lab",
+    const termsDocument = screen.getByTestId("publisher-app-terms-document");
+    const termsFrame = screen.getByTitle(
+      "Términos y condiciones de PocketGenesSDK",
     );
+    expect(termsDocument).toContainElement(termsFrame);
+    expect(termsFrame).toHaveAttribute(
+      "src",
+      "/PocketGenesSDK_Terminos_y_Condiciones.pdf#page=1&view=FitH&toolbar=0&navpanes=0",
+    );
+    expect(termsFrame).toHaveAttribute("scrolling", "yes");
+    expect(termsFrame.parentElement).toHaveClass(
+      "h-[360px]",
+      "overflow-hidden",
+      "sm:h-[440px]",
+    );
+    expect(screen.getByRole("link", { name: /Abrir PDF/i })).toHaveAttribute(
+      "href",
+      "/PocketGenesSDK_Terminos_y_Condiciones.pdf",
+    );
+    expect(screen.queryByText(/El pedido de/i)).toBeNull();
+    expect(screen.queryByText(/Anexo A · Rango razonable de uso/i)).toBeNull();
+    expect(
+      existsSync(
+        join(
+          process.cwd(),
+          "public",
+          "PocketGenesSDK_Terminos_y_Condiciones.pdf",
+        ),
+      ),
+    ).toBe(true);
     expect(screen.getByText(/USD 59 por mes · precio bonificado/i)).toBeTruthy();
     expect(screen.getByText(/USD 139,99 · pago único/i)).toBeTruthy();
 

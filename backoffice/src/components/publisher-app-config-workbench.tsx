@@ -16,6 +16,7 @@ import {
   Check,
   CheckCircle2,
   Download,
+  ExternalLink,
   FileCheck2,
   GraduationCap,
   ImageIcon,
@@ -83,6 +84,9 @@ type PublisherAppConfigWorkbenchProps = {
 
 type WizardStep = "platform" | "features" | "colors" | "icon" | "review";
 type ColorKey = keyof PublisherAppColors;
+
+const PUBLISHER_APP_TERMS_PDF_PATH =
+  "/PocketGenesSDK_Terminos_y_Condiciones.pdf";
 
 const WIZARD_STEPS: Array<{
   id: WizardStep;
@@ -711,95 +715,47 @@ function PublisherAppReviewDocument({
           </ReviewSection>
 
           <ReviewSection title="Términos y condiciones">
-            <div className="space-y-5 text-sm leading-7 text-black/80">
-              <p>
-                El pedido de <strong>{publisherName}</strong> (de ahora en más,
-                <strong> EL CLIENTE</strong>) de crear una aplicación será
-                evaluado por el equipo de desarrollo para proveer una propuesta
-                final adaptada a las necesidades planteadas por EL CLIENTE.
-              </p>
-              <p>
-                El precio bonificado de <strong>USD 59 por mes</strong>
-                corresponde al uso mensual de la PocketGenesSDK, ofrecida
-                <em> as-is</em>, para cubrir servicios destacados, productos,
-                notas y eventos con un funcionamiento análogo al observado en
-                la app principal de Pocket Genes. Si EL CLIENTE no continúa con
-                la contratación, la SDK dejará de poder utilizarse dentro de
-                una app propia, aunque continuará disponible el uso habitual de
-                la plataforma dentro de la app principal de Pocket Genes.
-              </p>
-              <p>
-                El abono mensual no incluye la creación ni el asesoramiento
-                para dar de alta las apps en App Store y Play Store. Ese
-                <em> setup</em> inicial tendrá un costo adicional único de
-                <strong> USD 139,99</strong>. Las apps serán dadas de alta a
-                nombre de la empresa correspondiente y permanecerán a
-                disposición de EL CLIENTE; Pocket Genes no se arroga el derecho
-                de darlas de baja unilateralmente.
-              </p>
-              <p>
-                La PocketGenesSDK se ofrece con las funcionalidades detalladas
-                en este documento dentro de un rango razonable de uso indicado
-                en el Anexo A. No se permite utilizar la infraestructura para
-                fines distintos de los establecidos, incluyendo almacenamiento
-                personal de la empresa o gestión interna ajena a los servicios
-                ofrecidos al público.
-              </p>
-              <p>
-                Las funcionalidades más complejas para gestión interna de
-                pacientes, médicos o profesionales de laboratorio deberán
-                discutirse bajo un modelo separado, con cuotas de uso y
-                software específicamente diseñado para ese propósito.
-              </p>
-              <p>
-                El servicio incluye soporte continuo para resolver errores en
-                las experiencias contempladas por la SDK y actualizaciones con
-                las mejoras que se incorporen. Sobre la app base se permiten
-                personalizaciones razonables de interfaz, paleta de colores e
-                ilustraciones para aproximarla a la identidad de EL CLIENTE.
-              </p>
-              <p>
-                Cuando se habiliten funcionalidades comunitarias, las cuentas
-                creadas mediante la PocketGenesSDK serán también cuentas de la
-                plataforma PocketGenes. Existirá interoperabilidad con la app
-                principal: cada usuario podrá acceder a su contenido, perfil,
-                progreso, consultas y servicios desde la app específica de EL
-                CLIENTE y desde Pocket Genes, incluso si EL CLIENTE decide dar
-                de baja su app propia.
-              </p>
-              <p>
-                La baja del servicio por parte de EL CLIENTE no deberá
-                perjudicar al usuario final ni impedirle acceder desde Pocket
-                Genes a servicios ya solicitados o pagados.
-              </p>
-              <p>
-                Pocket Genes se limita a facilitar el contacto y brindar de
-                buena fe información sobre las operaciones realizadas mediante
-                la plataforma. No responde por la calidad, tiempos de entrega,
-                formato, errores de resultados, cancelaciones ni otros
-                inconvenientes entre usuarios y EL CLIENTE.
-              </p>
-              <p>
-                EL CLIENTE es el único responsable de proveer servicios y
-                productos de calidad, validar que cada usuario cumpla las
-                condiciones necesarias para realizar estudios, obtener los
-                consentimientos informados correspondientes y responder en
-                tiempo y forma a nivel institucional y legal. Al aceptar estas
-                condiciones, EL CLIENTE reconoce expresamente que Pocket Genes
-                queda desligado de esas responsabilidades.
+            <div
+              data-testid="publisher-app-terms-document"
+              className="overflow-hidden rounded-2xl border border-black/15 bg-[#e8ebef] shadow-[0_18px_45px_-32px_rgba(15,23,42,0.5)]"
+            >
+              <div className="flex flex-col gap-3 border-b border-black/10 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
+                    <FileCheck2 className="size-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-black">
+                      PocketGenesSDK_Terminos_y_Condiciones.pdf
+                    </p>
+                    <p className="mt-0.5 text-xs text-black/55">
+                      Documento contractual · PDF · 25 páginas
+                    </p>
+                  </div>
+                </div>
+                <a
+                  href={PUBLISHER_APP_TERMS_PDF_PATH}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg border border-black/15 bg-white px-3 text-xs font-semibold text-black transition hover:border-violet-300 hover:text-violet-700"
+                >
+                  Abrir PDF <ExternalLink className="size-3.5" />
+                </a>
+              </div>
+              <div className="h-[360px] overflow-hidden bg-[#d7dbe1] sm:h-[440px]">
+                <iframe
+                  title="Términos y condiciones de PocketGenesSDK"
+                  src={`${PUBLISHER_APP_TERMS_PDF_PATH}#page=1&view=FitH&toolbar=0&navpanes=0`}
+                  loading="lazy"
+                  scrolling="yes"
+                  className="h-full w-full bg-white"
+                />
+              </div>
+              <p className="border-t border-black/10 bg-white px-4 py-2.5 text-xs leading-5 text-black/55">
+                Desplazate dentro del documento para revisar todas las páginas
+                sin abandonar este paso.
               </p>
             </div>
-          </ReviewSection>
-
-          <ReviewSection title="Anexo A · Rango razonable de uso">
-            <p className="text-sm leading-7 text-black/80">
-              La propuesta final definirá los límites mensuales aplicables a
-              servicios contratados, productos publicados, notas, eventos,
-              publicaciones y transferencia o almacenamiento directamente
-              asociados a esas experiencias. Cualquier necesidad que exceda
-              ese alcance será evaluada y cotizada de manera independiente
-              antes de su implementación.
-            </p>
           </ReviewSection>
         </div>
 
