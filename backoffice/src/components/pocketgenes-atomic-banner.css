@@ -55,12 +55,24 @@
 }
 
 .atomic-title {
+  font-weight: 800;
+  letter-spacing: -0.6px;
+  line-height: 0.97;
+}
+
+.atomic-title-prefix {
   font-family:
-    var(--font-space-grotesk), var(--font-public-sans), "Arial Rounded MT Bold",
+    var(--font-fredoka), var(--font-space-grotesk), "Arial Rounded MT Bold",
     Arial, sans-serif;
-  font-weight: 900;
-  letter-spacing: -2.35px;
-  line-height: 0.99;
+  font-weight: 700;
+  letter-spacing: -0.55px;
+  line-height: 0.95;
+}
+
+.atomic-company-title {
+  font-family:
+    var(--font-space-grotesk), var(--font-public-sans), Arial, sans-serif;
+  letter-spacing: -0.25px;
 }
 
 .atomic-device {

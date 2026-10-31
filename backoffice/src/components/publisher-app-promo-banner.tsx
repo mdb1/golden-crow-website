@@ -36,6 +36,8 @@ type AtomicBannerInstance = {
 
 type AtomicBannerConfig = {
   accent: string;
+  accentDeep: string;
+  accentLight: string;
   companyName: string;
   actionLabel: string;
   brandLogoUrl: string;
@@ -46,7 +48,11 @@ type AtomicBannerConfig = {
   backgroundMid: string;
   materialLight: string;
   surface: string;
+  surfaceTop: string;
+  surfaceBottom: string;
+  halo: string;
   highlight: string;
+  ink: string;
   shadow: string;
 };
 
@@ -156,10 +162,19 @@ export function publisherAppIntensePalette(value?: string) {
         VIVID_MATERIAL_SATURATION,
         VIVID_MATERIAL_LIGHTNESS,
       );
-  const backgroundDeep = hslToHex(sceneHue, 92, 18);
-  const backgroundMid = hslToHex(sceneHue, 94, 36);
+  const accentDeep = hslToHex(sceneHue, 96, 27);
+  const backgroundDeep = isWarmScene
+    ? hslToHex(sceneHue, 100, 40)
+    : hslToHex(sceneHue, 92, 22);
+  const backgroundMid = isWarmScene
+    ? hslToHex(sceneHue, 100, 50)
+    : hslToHex(sceneHue, 94, 36);
   const materialLight = hslToHex(sceneHue, 100, 74);
   const surface = hslToHex(sceneHue, 24, 96);
+  const surfaceTop = hslToHex(sceneHue, 44, 98);
+  const surfaceBottom = hslToHex(sceneHue, 52, 91);
+  const halo = hslToHex(sceneHue, 100, 70);
+  const ink = hslToHex(sceneHue, 82, 10);
   const shadow = hslToHex(sceneHue, 78, 8);
 
   return {
@@ -169,6 +184,8 @@ export function publisherAppIntensePalette(value?: string) {
     isEmeraldScene,
     isWarmScene,
     accent,
+    accentDeep,
+    accentLight: materialLight,
     backgroundDepthOpacity: isWarmScene ? WARM_SCENE_DEPTH_OPACITY : 1,
     cornerShadeOpacity: isWarmScene
       ? WARM_SCENE_CORNER_SHADE_OPACITY
@@ -178,7 +195,11 @@ export function publisherAppIntensePalette(value?: string) {
     backgroundMid,
     materialLight,
     surface,
+    surfaceTop,
+    surfaceBottom,
+    halo,
     highlight: "#FFFFFF",
+    ink,
     shadow,
   };
 }
@@ -282,6 +303,8 @@ export function PublisherAppPromoBanner({
 
         instance = window.mountAtomicBanner(host, {
           accent: palette.accent,
+          accentDeep: palette.accentDeep,
+          accentLight: palette.accentLight,
           companyName: brandName,
           actionLabel: ctaLabel,
           brandLogoUrl,
@@ -292,7 +315,11 @@ export function PublisherAppPromoBanner({
           backgroundMid: palette.backgroundMid,
           materialLight: palette.materialLight,
           surface: palette.surface,
+          surfaceTop: palette.surfaceTop,
+          surfaceBottom: palette.surfaceBottom,
+          halo: palette.halo,
           highlight: palette.highlight,
+          ink: palette.ink,
           shadow: palette.shadow,
         });
         host.dataset.runtimeState = "ready";
@@ -314,6 +341,8 @@ export function PublisherAppPromoBanner({
     brandLogoUrl,
     ctaLabel,
     palette.accent,
+    palette.accentDeep,
+    palette.accentLight,
     palette.backgroundDepthOpacity,
     palette.cornerShadeOpacity,
     palette.backgroundBloomOpacity,
@@ -321,7 +350,11 @@ export function PublisherAppPromoBanner({
     palette.backgroundMid,
     palette.materialLight,
     palette.surface,
+    palette.surfaceTop,
+    palette.surfaceBottom,
+    palette.halo,
     palette.highlight,
+    palette.ink,
     palette.shadow,
   ]);
 
