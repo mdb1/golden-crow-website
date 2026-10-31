@@ -20,11 +20,29 @@ describe("PublisherAppPromoBanner atomic renderer", () => {
       hue: 108,
       sceneHue: 136,
       isEmeraldScene: true,
+      isWarmScene: false,
       accent: "#00E83C",
+      backgroundDepthOpacity: 1,
+      cornerShadeOpacity: 0.65,
     });
     expect(publisherAppIntensePalette("#123ABC").accent).toMatch(
       /^#[0-9A-F]{6}$/,
     );
+  });
+
+  it("keeps a dark orange identity hue while producing a brilliant warm scene", () => {
+    const palette = publisherAppIntensePalette("#9A3D16");
+
+    expect(palette).toEqual({
+      source: "#9A3D16",
+      hue: 18,
+      sceneHue: 18,
+      isEmeraldScene: false,
+      isWarmScene: true,
+      accent: "#FF8C5C",
+      backgroundDepthOpacity: 0.18,
+      cornerShadeOpacity: 0.36,
+    });
   });
 
   it("mounts the PocketGenes kit with live branding and the recolored accent", async () => {
@@ -56,6 +74,8 @@ describe("PublisherAppPromoBanner atomic renderer", () => {
         accent: "#00E83C",
         companyName: "DNA Institute",
         actionLabel: "Editar mi app",
+        backgroundDepthOpacity: 1,
+        cornerShadeOpacity: 0.65,
       }),
     );
     expect(banner.dataset.runtimeState).toBe("ready");

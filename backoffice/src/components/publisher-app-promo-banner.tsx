@@ -4,6 +4,13 @@ import { useEffect, useRef } from "react";
 
 const DEFAULT_APP_TINT = "#6D28D9";
 const EMERALD_ACCENT = "#00E83C";
+const VIVID_MATERIAL_SATURATION = 100;
+// The renderer adds black depth and white bloom after this source color. A
+// 68% material lightness lands the rendered warm background near the 62%
+// lightness of the supplied orange reference instead of turning burnt brown.
+const VIVID_MATERIAL_LIGHTNESS = 68;
+const WARM_SCENE_DEPTH_OPACITY = 0.18;
+const WARM_SCENE_CORNER_SHADE_OPACITY = 0.36;
 const ATOMIC_ASSET_SCRIPT =
   "/open-api/pocketgenes-atomic-banner/asset-library.js";
 const ATOMIC_BANNER_SCRIPT = "/open-api/pocketgenes-atomic-banner/banner.js";
@@ -29,6 +36,8 @@ type AtomicBannerConfig = {
   accent: string;
   companyName: string;
   actionLabel: string;
+  backgroundDepthOpacity: number;
+  cornerShadeOpacity: number;
 };
 
 declare global {
@@ -126,19 +135,29 @@ function hslToHex(hue: number, saturation: number, lightness: number) {
  */
 export function publisherAppIntensePalette(value?: string) {
   const source = normalizedHexColor(value);
-  const { hue, saturation } = rgbToHsl(hexToRgb(source));
+  const { hue } = rgbToHsl(hexToRgb(source));
   const isEmeraldScene = hue >= 72 && hue <= 155;
   const sceneHue = isEmeraldScene ? 136 : hue;
+  const isWarmScene = sceneHue >= 8 && sceneHue <= 52;
   const accent = isEmeraldScene
     ? EMERALD_ACCENT
-    : hslToHex(sceneHue, Math.min(Math.max(saturation, 82), 92), 48);
+    : hslToHex(
+        sceneHue,
+        VIVID_MATERIAL_SATURATION,
+        VIVID_MATERIAL_LIGHTNESS,
+      );
 
   return {
     source,
     hue: Math.round(hue),
     sceneHue: Math.round(sceneHue),
     isEmeraldScene,
+    isWarmScene,
     accent,
+    backgroundDepthOpacity: isWarmScene ? WARM_SCENE_DEPTH_OPACITY : 1,
+    cornerShadeOpacity: isWarmScene
+      ? WARM_SCENE_CORNER_SHADE_OPACITY
+      : 0.65,
   };
 }
 
@@ -241,6 +260,8 @@ export function PublisherAppPromoBanner({
           accent: palette.accent,
           companyName: brandName,
           actionLabel: ctaLabel,
+          backgroundDepthOpacity: palette.backgroundDepthOpacity,
+          cornerShadeOpacity: palette.cornerShadeOpacity,
         });
         host.dataset.runtimeState = "ready";
       })
@@ -256,7 +277,13 @@ export function PublisherAppPromoBanner({
       disposed = true;
       instance?.destroy();
     };
-  }, [brandName, ctaLabel, palette.accent]);
+  }, [
+    brandName,
+    ctaLabel,
+    palette.accent,
+    palette.backgroundDepthOpacity,
+    palette.cornerShadeOpacity,
+  ]);
 
   return (
     <div
@@ -266,6 +293,7 @@ export function PublisherAppPromoBanner({
       data-accent={palette.source}
       data-atomic-accent={palette.accent}
       data-palette-hue={palette.hue}
+      data-scene-tone={palette.isWarmScene ? "warm-vivid" : "standard"}
       data-renderer="pocketgenes-atomic-banner-kit"
       data-runtime-state="loading"
       className="atomic-host shadow-[0_18px_40px_-28px_rgba(15,23,42,0.65)]"
