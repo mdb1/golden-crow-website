@@ -133,6 +133,13 @@ describe("PocketGenes atomic banner material contract", () => {
     expect(byId("floor-contact-core-front")).toHaveLength(1);
     expect(byId("floor-reflection-patch-center")).toHaveLength(1);
 
+    const titlePrefix = host.querySelector<HTMLElement>(".atomic-title-prefix");
+    const companyTitle = host.querySelector<HTMLElement>(".atomic-company-title");
+    expect(titlePrefix?.style.color).toBe("rgb(255, 255, 255)");
+    expect(companyTitle?.style.color).toBe("rgb(255, 255, 255)");
+    expect(titlePrefix?.style.fontWeight).toBe("600");
+    expect(companyTitle?.style.fontWeight).toBe("600");
+
     const devices = layout.filter((entry) =>
       ["rear-left", "rear-right", "front"].includes(entry.id ?? ""),
     );

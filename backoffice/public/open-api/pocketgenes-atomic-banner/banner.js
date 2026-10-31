@@ -295,8 +295,8 @@ function mountAtomicBanner(host,initial={}){
   inlineSvgPart('surface-icon-disc',iconDiscSvg(26),59,64,26,26,50,stage,config.accentLight,1);
   icon('crown-solid',65,70,14,51);
   text(config.featured,98,72,167,15,10.8,800,ink,52,stage,{letterSpacing:'1.25px',whiteSpace:'nowrap'});
-  const title=text(config.titlePrefix,48,111,420,76,72,700,'#ffffff',50);title.classList.add('atomic-title','atomic-title-prefix');fitted(title,72,44,false);
-  const company=text(renderedName,48,184,448,70,68,800,ink,50);company.classList.add('atomic-title','atomic-company-title');fitted(company,68,22,true);
+  const title=text(config.titlePrefix,48,111,420,76,72,600,'#ffffff',50);title.classList.add('atomic-title','atomic-title-prefix');fitted(title,72,44,false);
+  const company=text(renderedName,48,184,448,70,68,600,'#ffffff',50);company.classList.add('atomic-title','atomic-company-title');fitted(company,68,22,true);
   const desc=text(config.description,48,254,430,50,18,500,'#ffffff',50,stage,{lineHeight:'1.34'});fitted(desc,18,14,true);
   const widths=[116,129,141],xs=[48,173,311],ids=['phone','stethoscope','box'];
   config.features.forEach((label,i)=>{inlineSvgPart('surface-pill',satinSurfaceSvg(widths[i],36,18),xs[i],315,widths[i],36,49,stage,config.surface,1);icon(ids[i],xs[i]+11,324.5,17,51);const el=text(label,xs[i]+36,326.5,widths[i]-42,16,11.7,650,ink,52);fitted(el,11.7,8.5,false);});
