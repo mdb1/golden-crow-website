@@ -24,6 +24,7 @@ describe("PublisherAppPromoBanner atomic renderer", () => {
       accent: "#00E83C",
       backgroundDepthOpacity: 1,
       cornerShadeOpacity: 0.65,
+      backgroundBloomOpacity: 0.65,
     });
     expect(publisherAppIntensePalette("#123ABC").accent).toMatch(
       /^#[0-9A-F]{6}$/,
@@ -39,9 +40,10 @@ describe("PublisherAppPromoBanner atomic renderer", () => {
       sceneHue: 18,
       isEmeraldScene: false,
       isWarmScene: true,
-      accent: "#FF8C5C",
+      accent: "#FF7E47",
       backgroundDepthOpacity: 0.18,
       cornerShadeOpacity: 0.36,
+      backgroundBloomOpacity: 0.42,
     });
   });
 
@@ -76,6 +78,7 @@ describe("PublisherAppPromoBanner atomic renderer", () => {
         actionLabel: "Editar mi app",
         backgroundDepthOpacity: 1,
         cornerShadeOpacity: 0.65,
+        backgroundBloomOpacity: 0.65,
       }),
     );
     expect(banner.dataset.runtimeState).toBe("ready");

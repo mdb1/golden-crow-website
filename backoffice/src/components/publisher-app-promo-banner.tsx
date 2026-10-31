@@ -6,11 +6,12 @@ const DEFAULT_APP_TINT = "#6D28D9";
 const EMERALD_ACCENT = "#00E83C";
 const VIVID_MATERIAL_SATURATION = 100;
 // The renderer adds black depth and white bloom after this source color. A
-// 68% material lightness lands the rendered warm background near the 62%
-// lightness of the supplied orange reference instead of turning burnt brown.
-const VIVID_MATERIAL_LIGHTNESS = 68;
+// 64% material lightness keeps the supplied orange hue bright without washing
+// the fully saturated material into a pastel.
+const VIVID_MATERIAL_LIGHTNESS = 64;
 const WARM_SCENE_DEPTH_OPACITY = 0.18;
 const WARM_SCENE_CORNER_SHADE_OPACITY = 0.36;
+const WARM_SCENE_BLOOM_OPACITY = 0.42;
 const ATOMIC_ASSET_SCRIPT =
   "/open-api/pocketgenes-atomic-banner/asset-library.js";
 const ATOMIC_BANNER_SCRIPT = "/open-api/pocketgenes-atomic-banner/banner.js";
@@ -38,6 +39,7 @@ type AtomicBannerConfig = {
   actionLabel: string;
   backgroundDepthOpacity: number;
   cornerShadeOpacity: number;
+  backgroundBloomOpacity: number;
 };
 
 declare global {
@@ -158,6 +160,7 @@ export function publisherAppIntensePalette(value?: string) {
     cornerShadeOpacity: isWarmScene
       ? WARM_SCENE_CORNER_SHADE_OPACITY
       : 0.65,
+    backgroundBloomOpacity: isWarmScene ? WARM_SCENE_BLOOM_OPACITY : 0.65,
   };
 }
 
@@ -262,6 +265,7 @@ export function PublisherAppPromoBanner({
           actionLabel: ctaLabel,
           backgroundDepthOpacity: palette.backgroundDepthOpacity,
           cornerShadeOpacity: palette.cornerShadeOpacity,
+          backgroundBloomOpacity: palette.backgroundBloomOpacity,
         });
         host.dataset.runtimeState = "ready";
       })
@@ -283,6 +287,7 @@ export function PublisherAppPromoBanner({
     palette.accent,
     palette.backgroundDepthOpacity,
     palette.cornerShadeOpacity,
+    palette.backgroundBloomOpacity,
   ]);
 
   return (
