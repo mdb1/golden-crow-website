@@ -37,6 +37,7 @@ type PublisherPortalHomeProps = {
   publisherProfileHref?: string;
   publisherName: string;
   publisherTint?: string;
+  publisherImageUrl?: string;
   hasPublisherAppConfig: boolean;
 };
 
@@ -150,6 +151,7 @@ export function PublisherPortalHome({
   publisherProfileHref,
   publisherName,
   publisherTint,
+  publisherImageUrl,
   hasPublisherAppConfig,
 }: PublisherPortalHomeProps) {
   const newFeedEntryHref = publisherPortalFeedEntryCreateRoute();
@@ -328,6 +330,7 @@ export function PublisherPortalHome({
           <PublisherAppPromoBanner
             organizationName={publisherName}
             organizationTint={publisherTint}
+            organizationImageUrl={publisherImageUrl}
             ctaLabel={hasPublisherAppConfig ? "Editar mi app" : "Crear mi app"}
           />
         </Link>

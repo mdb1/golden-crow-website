@@ -44,6 +44,8 @@ async function loadPublisherBrand(account: MyAccountRecord) {
       return {
         name: organization.name,
         tint: organization.colorHex,
+        imageUrl:
+          organization.imageUrl ?? organization.imageUploadDataUrl ?? undefined,
       };
     }
 
@@ -54,6 +56,8 @@ async function loadPublisherBrand(account: MyAccountRecord) {
       return {
         name: individual.name,
         tint: individual.colorHex,
+        imageUrl:
+          individual.imageUrl ?? individual.imageUploadDataUrl ?? undefined,
       };
     }
   } catch {
@@ -66,6 +70,7 @@ async function loadPublisherBrand(account: MyAccountRecord) {
       account.auth.displayName ||
       account.context.email,
     tint: undefined,
+    imageUrl: undefined,
   };
 }
 
@@ -142,6 +147,7 @@ export default async function PublisherPortalHomePage() {
       publisherProfileHref={publisherProfileHref}
       publisherName={publisherBrand.name}
       publisherTint={publisherBrand.tint}
+      publisherImageUrl={publisherBrand.imageUrl}
       hasPublisherAppConfig={Boolean(publisherAppConfig)}
     />
   );

@@ -39,6 +39,12 @@
   overflow: visible;
 }
 
+.atomic-raster {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+}
+
 .atomic-text {
   position: absolute;
   display: block;
@@ -50,11 +56,11 @@
 
 .atomic-title {
   font-family:
-    var(--font-fredoka), "Arial Rounded MT Bold", "Trebuchet MS", Arial,
-    sans-serif;
-  font-weight: 700;
-  letter-spacing: -1.9px;
-  line-height: 1.04;
+    var(--font-space-grotesk), var(--font-public-sans), "Arial Rounded MT Bold",
+    Arial, sans-serif;
+  font-weight: 900;
+  letter-spacing: -2.35px;
+  line-height: 0.99;
 }
 
 .atomic-device {

@@ -19,6 +19,7 @@ const ATOMIC_BANNER_SCRIPT = "/open-api/pocketgenes-atomic-banner/banner.js";
 type PublisherAppPromoBannerProps = {
   organizationName: string;
   organizationTint?: string;
+  organizationImageUrl?: string;
   ctaLabel?: string;
 };
 
@@ -37,9 +38,16 @@ type AtomicBannerConfig = {
   accent: string;
   companyName: string;
   actionLabel: string;
+  brandLogoUrl: string;
   backgroundDepthOpacity: number;
   cornerShadeOpacity: number;
   backgroundBloomOpacity: number;
+  backgroundDeep: string;
+  backgroundMid: string;
+  materialLight: string;
+  surface: string;
+  highlight: string;
+  shadow: string;
 };
 
 declare global {
@@ -148,6 +156,11 @@ export function publisherAppIntensePalette(value?: string) {
         VIVID_MATERIAL_SATURATION,
         VIVID_MATERIAL_LIGHTNESS,
       );
+  const backgroundDeep = hslToHex(sceneHue, 92, 18);
+  const backgroundMid = hslToHex(sceneHue, 94, 36);
+  const materialLight = hslToHex(sceneHue, 100, 74);
+  const surface = hslToHex(sceneHue, 24, 96);
+  const shadow = hslToHex(sceneHue, 78, 8);
 
   return {
     source,
@@ -161,6 +174,12 @@ export function publisherAppIntensePalette(value?: string) {
       ? WARM_SCENE_CORNER_SHADE_OPACITY
       : 0.65,
     backgroundBloomOpacity: isWarmScene ? WARM_SCENE_BLOOM_OPACITY : 0.65,
+    backgroundDeep,
+    backgroundMid,
+    materialLight,
+    surface,
+    highlight: "#FFFFFF",
+    shadow,
   };
 }
 
@@ -237,10 +256,12 @@ function loadAtomicBannerRuntime() {
 export function PublisherAppPromoBanner({
   organizationName,
   organizationTint,
+  organizationImageUrl,
   ctaLabel = "Crear mi app",
 }: PublisherAppPromoBannerProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const brandName = organizationName.trim() || "Tu marca";
+  const brandLogoUrl = organizationImageUrl?.trim() ?? "";
   const palette = publisherAppIntensePalette(organizationTint);
 
   useEffect(() => {
@@ -263,9 +284,16 @@ export function PublisherAppPromoBanner({
           accent: palette.accent,
           companyName: brandName,
           actionLabel: ctaLabel,
+          brandLogoUrl,
           backgroundDepthOpacity: palette.backgroundDepthOpacity,
           cornerShadeOpacity: palette.cornerShadeOpacity,
           backgroundBloomOpacity: palette.backgroundBloomOpacity,
+          backgroundDeep: palette.backgroundDeep,
+          backgroundMid: palette.backgroundMid,
+          materialLight: palette.materialLight,
+          surface: palette.surface,
+          highlight: palette.highlight,
+          shadow: palette.shadow,
         });
         host.dataset.runtimeState = "ready";
       })
@@ -283,11 +311,18 @@ export function PublisherAppPromoBanner({
     };
   }, [
     brandName,
+    brandLogoUrl,
     ctaLabel,
     palette.accent,
     palette.backgroundDepthOpacity,
     palette.cornerShadeOpacity,
     palette.backgroundBloomOpacity,
+    palette.backgroundDeep,
+    palette.backgroundMid,
+    palette.materialLight,
+    palette.surface,
+    palette.highlight,
+    palette.shadow,
   ]);
 
   return (

@@ -25,6 +25,12 @@ describe("PublisherAppPromoBanner atomic renderer", () => {
       backgroundDepthOpacity: 1,
       cornerShadeOpacity: 0.65,
       backgroundBloomOpacity: 0.65,
+      backgroundDeep: "#04581A",
+      backgroundMid: "#06B234",
+      materialLight: "#7AFF9E",
+      surface: "#F2F7F4",
+      highlight: "#FFFFFF",
+      shadow: "#04240D",
     });
     expect(publisherAppIntensePalette("#123ABC").accent).toMatch(
       /^#[0-9A-F]{6}$/,
@@ -44,6 +50,12 @@ describe("PublisherAppPromoBanner atomic renderer", () => {
       backgroundDepthOpacity: 0.18,
       cornerShadeOpacity: 0.36,
       backgroundBloomOpacity: 0.42,
+      backgroundDeep: "#581D04",
+      backgroundMid: "#B23806",
+      materialLight: "#FFA27A",
+      surface: "#F7F4F2",
+      highlight: "#FFFFFF",
+      shadow: "#240E04",
     });
   });
 
@@ -60,6 +72,7 @@ describe("PublisherAppPromoBanner atomic renderer", () => {
       <PublisherAppPromoBanner
         organizationName="DNA Institute"
         organizationTint="#657960"
+        organizationImageUrl="https://example.org/dna-institute.png"
         ctaLabel="Editar mi app"
       />,
     );
@@ -76,9 +89,16 @@ describe("PublisherAppPromoBanner atomic renderer", () => {
         accent: "#00E83C",
         companyName: "DNA Institute",
         actionLabel: "Editar mi app",
+        brandLogoUrl: "https://example.org/dna-institute.png",
         backgroundDepthOpacity: 1,
         cornerShadeOpacity: 0.65,
         backgroundBloomOpacity: 0.65,
+        backgroundDeep: "#04581A",
+        backgroundMid: "#06B234",
+        materialLight: "#7AFF9E",
+        surface: "#F2F7F4",
+        highlight: "#FFFFFF",
+        shadow: "#04240D",
       }),
     );
     expect(banner.dataset.runtimeState).toBe("ready");
