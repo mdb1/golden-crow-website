@@ -7,6 +7,7 @@ import { adminDbFor } from "../config/firebase.js";
 import type {
   AdminContext,
   PublisherAppConfigColors,
+  PublisherAppConfigCreateInput,
   PublisherAppConfigInput,
   PublisherAppConfigRecord,
   PublisherAppStatus,
@@ -22,6 +23,7 @@ const adminDb = adminDbFor("mydnamap");
 
 const APP_CONFIGS_COLLECTION = "app_configs";
 const APP_CONFIG_SCHEMA_VERSION = 1 as const;
+const APP_TERMS_VERSION = "2026-10-31";
 const HEX_COLOR_PATTERN = /^#[0-9A-F]{6}$/;
 
 type PublisherScope = {
@@ -370,6 +372,10 @@ function toPublisherAppConfigRecord(
       500,
     );
   }
+  const termsAcceptedByUserId =
+    typeof data.termsAcceptedByUserId === "string"
+      ? data.termsAcceptedByUserId.trim()
+      : "";
 
   return {
     id: snapshot.id,
@@ -406,6 +412,20 @@ function toPublisherAppConfigRecord(
     updatedAt: timestampToIso(data.updatedAt, "updatedAt timestamp"),
     createdByUserId: requiredString(data.createdByUserId, "creator user id"),
     updatedByUserId: requiredString(data.updatedByUserId, "updater user id"),
+    ...(typeof data.termsVersion === "string" && data.termsVersion.trim()
+      ? { termsVersion: data.termsVersion.trim() }
+      : {}),
+    ...(data.termsAcceptedAt
+      ? {
+          termsAcceptedAt: timestampToIso(
+            data.termsAcceptedAt,
+            "termsAcceptedAt timestamp",
+          ),
+        }
+      : {}),
+    ...(termsAcceptedByUserId
+      ? { termsAcceptedByUserId }
+      : {}),
   };
 }
 
@@ -432,7 +452,7 @@ export async function getPublisherAppConfig(
 
 export async function createPublisherAppConfig(
   context: AdminContext,
-  input: PublisherAppConfigInput,
+  input: PublisherAppConfigCreateInput,
 ): Promise<PublisherAppConfigRecord> {
   const scope = publisherScope(context);
   const ref = adminDb
@@ -448,6 +468,12 @@ export async function createPublisherAppConfig(
 
   const identity = await publisherIdentity(context, scope);
   const normalizedInput = normalizeInput(input, identity);
+  if (input.termsAccepted !== true) {
+    throw new AdminRepositoryError(
+      "Accept the publisher app terms before creating the config.",
+      400,
+    );
+  }
   const timestamp = FieldValue.serverTimestamp();
   const document = {
     schemaVersion: APP_CONFIG_SCHEMA_VERSION,
@@ -460,6 +486,9 @@ export async function createPublisherAppConfig(
     feedEnabled: true,
     status: "pending_revision",
     ...normalizedInput,
+    termsVersion: APP_TERMS_VERSION,
+    termsAcceptedAt: timestamp,
+    termsAcceptedByUserId: context.uid,
     createdAt: timestamp,
     updatedAt: timestamp,
     createdByUserId: context.uid,

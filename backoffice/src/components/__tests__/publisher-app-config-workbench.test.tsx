@@ -87,7 +87,7 @@ describe("PublisherAppConfigWorkbench", () => {
     jest.clearAllMocks();
   });
 
-  it("creates a configuration from the four-step flow without sending identity or status fields", async () => {
+  it("reviews and accepts the five-step request before creating the app", async () => {
     jest.mocked(sdkFetch).mockResolvedValue({ config: savedConfig });
     renderWorkbench();
 
@@ -138,7 +138,37 @@ describe("PublisherAppConfigWorkbench", () => {
       target: { value: "#112233" },
     });
     advanceToIcon();
-    fireEvent.click(screen.getByRole("button", { name: "Crear mi app" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Revisar solicitud" }),
+    );
+
+    expect(screen.getByTestId("publisher-app-review")).toBeTruthy();
+    expect(
+      screen.getByRole("heading", {
+        name: "Revisión de configuración y condiciones",
+      }),
+    ).toBeTruthy();
+    expect(screen.getByText("Solo iOS")).toBeTruthy();
+    expect(screen.getByText("#112233")).toBeTruthy();
+    expect(screen.getByText(/El pedido de/i).textContent).toContain(
+      "Pocket Genes Lab",
+    );
+    expect(screen.getByText(/USD 59 por mes · precio bonificado/i)).toBeTruthy();
+    expect(screen.getByText(/USD 139,99 · pago único/i)).toBeTruthy();
+
+    const acceptButton = screen.getByRole("button", {
+      name: "Aceptar condiciones y continuar",
+    });
+    expect(acceptButton).toBeDisabled();
+    expect(sdkFetch).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: /Leí y acepto los términos y condiciones/i,
+      }),
+    );
+    expect(acceptButton).toBeEnabled();
+    fireEvent.click(acceptButton);
 
     await waitFor(() => {
       expect(sdkFetch).toHaveBeenCalledTimes(1);
@@ -154,6 +184,7 @@ describe("PublisherAppConfigWorkbench", () => {
       learnCustomizationEnabled: true,
       colors: { primary: "#112233" },
       iconSource: "publisher",
+      termsAccepted: true,
     });
     expect(payload).not.toHaveProperty("publisherId");
     expect(payload).not.toHaveProperty("publisherKind");

@@ -38,6 +38,9 @@ const config: PublisherAppConfigRecord = {
   updatedAt: "2026-10-30T15:00:00.000Z",
   createdByUserId: "user-1",
   updatedByUserId: "user-1",
+  termsVersion: "2026-10-31",
+  termsAcceptedAt: "2026-10-31T01:00:00.000Z",
+  termsAcceptedByUserId: "user-1",
 };
 
 describe("publisher app creation notification email", () => {
@@ -56,6 +59,8 @@ describe("publisher app creation notification email", () => {
     expect(message.text).toContain("Publisher ID: org-1");
     expect(message.text).toContain("Usuario: @pocketgenes");
     expect(message.text).toContain("Estado: pending_revision");
+    expect(message.text).toContain("Términos: 2026-10-31");
+    expect(message.text).toContain("Aceptados por: user-1");
   });
 
   it("notifies support and Federico on creation", async () => {

@@ -941,6 +941,11 @@ export interface PublisherAppConfigInput {
   iconImageUploadDataUrl: string | null;
 }
 
+export interface PublisherAppConfigCreateInput
+  extends PublisherAppConfigInput {
+  termsAccepted: true;
+}
+
 export interface PublisherAppConfigRecord extends PublisherAppConfigInput {
   id: string;
   schemaVersion: 1;
@@ -956,6 +961,9 @@ export interface PublisherAppConfigRecord extends PublisherAppConfigInput {
   updatedAt: string;
   createdByUserId: string;
   updatedByUserId: string;
+  termsVersion?: string;
+  termsAcceptedAt?: string;
+  termsAcceptedByUserId?: string;
 }
 
 export type DiscoverFeedType =

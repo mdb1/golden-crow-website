@@ -48,6 +48,9 @@ export type PublisherAppConfig = PublisherAppConfigInput & {
   updatedAt: string;
   createdByUserId: string;
   updatedByUserId: string;
+  termsVersion?: string;
+  termsAcceptedAt?: string;
+  termsAcceptedByUserId?: string;
 };
 
 export type PublisherAppConfigResponse = {

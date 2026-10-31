@@ -19,42 +19,64 @@ const HexColorSchema = z
   .regex(/^#[0-9a-fA-F]{6}$/, "Use the #RRGGBB hex color format.")
   .transform((value) => value.toUpperCase());
 
-const PublisherAppConfigBodySchema = z
+const PublisherAppConfigBodyShape = {
+  platformOption: z.enum(["ios", "ios_android"]),
+  connectEnabled: z.boolean(),
+  profileEnabled: z.boolean(),
+  learnCustomizationEnabled: z.boolean(),
+  colors: z
+    .object({
+      primary: HexColorSchema,
+      secondary: HexColorSchema,
+      tertiary: HexColorSchema,
+    })
+    .strict(),
+  iconSource: z.enum(["publisher", "custom"]).default("publisher"),
+  iconImageUrl: z.string().trim().url().max(2_048).nullable().default(null),
+  iconImageUploadDataUrl: z
+    .string()
+    .max(900_000)
+    .regex(APP_ICON_DATA_URL_PATTERN)
+    .nullable()
+    .default(null),
+};
+
+function validatePublisherAppIcon(
+  value: {
+    iconSource: "publisher" | "custom";
+    iconImageUrl: string | null;
+    iconImageUploadDataUrl: string | null;
+  },
+  context: z.RefinementCtx,
+) {
+  if (
+    value.iconSource === "custom" &&
+    !value.iconImageUrl &&
+    !value.iconImageUploadDataUrl
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["iconSource"],
+      message: "Choose a custom app icon or use the publisher icon.",
+    });
+  }
+}
+
+const PublisherAppConfigCreateBodySchema = z
   .object({
-    platformOption: z.enum(["ios", "ios_android"]),
-    connectEnabled: z.boolean(),
-    profileEnabled: z.boolean(),
-    learnCustomizationEnabled: z.boolean(),
-    colors: z
-      .object({
-        primary: HexColorSchema,
-        secondary: HexColorSchema,
-        tertiary: HexColorSchema,
-      })
-      .strict(),
-    iconSource: z.enum(["publisher", "custom"]).default("publisher"),
-    iconImageUrl: z.string().trim().url().max(2_048).nullable().default(null),
-    iconImageUploadDataUrl: z
-      .string()
-      .max(900_000)
-      .regex(APP_ICON_DATA_URL_PATTERN)
-      .nullable()
-      .default(null),
+    ...PublisherAppConfigBodyShape,
+    termsAccepted: z.literal(true),
   })
   .strict()
-  .superRefine((value, context) => {
-    if (
-      value.iconSource === "custom" &&
-      !value.iconImageUrl &&
-      !value.iconImageUploadDataUrl
-    ) {
-      context.addIssue({
-        code: "custom",
-        path: ["iconSource"],
-        message: "Choose a custom app icon or use the publisher icon.",
-      });
-    }
-  });
+  .superRefine(validatePublisherAppIcon);
+
+const PublisherAppConfigUpdateBodySchema = z
+  .object({
+    ...PublisherAppConfigBodyShape,
+    termsAccepted: z.literal(true).optional(),
+  })
+  .strict()
+  .superRefine(validatePublisherAppIcon);
 
 function sendRepositoryError(reply: FastifyReply, error: unknown) {
   if (isAdminRepositoryError(error)) {
@@ -86,7 +108,7 @@ export async function publisherAppConfigRoutes(
 
   f.post(
     "/publisher-app/config",
-    { schema: { body: PublisherAppConfigBodySchema } },
+    { schema: { body: PublisherAppConfigCreateBodySchema } },
     async (request, reply) => {
       if (!request.adminContext) {
         return reply
@@ -116,7 +138,7 @@ export async function publisherAppConfigRoutes(
 
   f.put(
     "/publisher-app/config",
-    { schema: { body: PublisherAppConfigBodySchema } },
+    { schema: { body: PublisherAppConfigUpdateBodySchema } },
     async (request, reply) => {
       if (!request.adminContext) {
         return reply

@@ -147,6 +147,7 @@ const validBody = {
   iconSource: "publisher" as const,
   iconImageUrl: null,
   iconImageUploadDataUrl: null,
+  termsAccepted: true as const,
 };
 
 function organizationContext(
@@ -310,6 +311,9 @@ describe("publisher app config contract", () => {
       iconSource: "publisher",
       iconImageUrl: "https://example.org/canonical-icon.png",
       iconImageUploadDataUrl: null,
+      termsVersion: "2026-10-31",
+      termsAcceptedAt: new Date("2026-10-30T15:00:00.000Z"),
+      termsAcceptedByUserId: "org-user-1",
       createdAt: new Date("2026-10-30T15:00:00.000Z"),
       updatedAt: new Date("2026-10-30T15:00:00.000Z"),
       createdByUserId: "org-user-1",
@@ -334,6 +338,9 @@ describe("publisher app config contract", () => {
         "iconSource",
         "iconImageUrl",
         "iconImageUploadDataUrl",
+        "termsVersion",
+        "termsAcceptedAt",
+        "termsAcceptedByUserId",
         "createdAt",
         "updatedAt",
         "createdByUserId",
@@ -362,11 +369,27 @@ describe("publisher app config contract", () => {
         feedEnabled: true,
         iconSource: "publisher",
         iconImageUrl: "https://example.org/canonical-icon.png",
+        termsVersion: "2026-10-31",
+        termsAcceptedByUserId: "org-user-1",
       },
     });
     expect(
       mockSendPublisherAppCreationNotificationEmails,
     ).toHaveBeenCalledTimes(1);
+  });
+
+  it("requires explicit terms acceptance before creating an app config", async () => {
+    const { termsAccepted: _termsAccepted, ...payload } = validBody;
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config",
+      payload,
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(collectionStore("app_configs").size).toBe(0);
+    expect(mockGetProfileSetupState).not.toHaveBeenCalled();
   });
 
   it("keeps organization and individual configs separate when their publisher ids match", async () => {
@@ -569,6 +592,9 @@ describe("publisher app config contract", () => {
       status: "pending_revision",
       catalogEnabled: true,
       feedEnabled: true,
+      termsVersion: "2026-10-31",
+      termsAcceptedAt: new Date("2026-10-30T15:00:00.000Z"),
+      termsAcceptedByUserId: "org-user-1",
     });
   });
 

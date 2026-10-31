@@ -16,6 +16,7 @@ import {
   Check,
   CheckCircle2,
   Download,
+  FileCheck2,
   GraduationCap,
   ImageIcon,
   LoaderCircle,
@@ -80,7 +81,7 @@ type PublisherAppConfigWorkbenchProps = {
   publisherUsername: string;
 };
 
-type WizardStep = "platform" | "features" | "colors" | "icon";
+type WizardStep = "platform" | "features" | "colors" | "icon" | "review";
 type ColorKey = keyof PublisherAppColors;
 
 const WIZARD_STEPS: Array<{
@@ -119,6 +120,14 @@ const WIZARD_STEPS: Array<{
     icon: ImageIcon,
   },
 ];
+
+const REVIEW_STEP = {
+  id: "review",
+  title: "Revisá y confirmá tu solicitud",
+  shortTitle: "Revisión",
+  description: "Resumen y condiciones",
+  icon: FileCheck2,
+} satisfies (typeof WIZARD_STEPS)[number];
 
 const COLOR_FIELDS: Array<{
   key: ColorKey;
@@ -484,6 +493,343 @@ function PublisherAppLivePreview({
   );
 }
 
+function ReviewField({
+  label,
+  children,
+  wide = false,
+}: {
+  label: string;
+  children: ReactNode;
+  wide?: boolean;
+}) {
+  return (
+    <div className={wide ? "sm:col-span-2" : undefined}>
+      <dt className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-black/55">
+        {label}
+      </dt>
+      <dd className="mt-1 min-h-9 whitespace-pre-wrap break-words border-b border-black/12 pb-2 text-sm leading-6 text-black">
+        {children}
+      </dd>
+    </div>
+  );
+}
+
+function ReviewSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="border-t border-black/12 pt-6 first:border-t-0 first:pt-0">
+      <h4 className="font-heading text-base font-semibold text-black">
+        {title}
+      </h4>
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
+
+function PublisherAppReviewDocument({
+  publisherName,
+  publisherEmail,
+  publisherUsername,
+  state,
+  colors,
+  iconSource,
+  termsAccepted,
+  onTermsAcceptedChange,
+}: {
+  publisherName: string;
+  publisherEmail: string;
+  publisherUsername: string;
+  state: PublisherAppConfigInput;
+  colors: PublisherAppColors;
+  iconSource?: string | null;
+  termsAccepted: boolean;
+  onTermsAcceptedChange: (accepted: boolean) => void;
+}) {
+  const selectedFeatures = [
+    {
+      label: "Catálogo de productos y servicios",
+      enabled: true,
+      detail: "Incluida de forma obligatoria",
+    },
+    {
+      label: "Feed de novedades",
+      enabled: true,
+      detail: "Notas, eventos y publicaciones",
+    },
+    {
+      label: "Contenidos educativos propios",
+      enabled: state.learnCustomizationEnabled,
+      detail: "Clases y contenidos personalizados",
+    },
+    {
+      label: "Sección Comunidad",
+      enabled: state.connectEnabled,
+      detail: "Interacción y publicaciones entre usuarios",
+    },
+    {
+      label: "Gestión de turnos",
+      enabled: state.profileEnabled,
+      detail: "Solicitud y reserva de turnos",
+    },
+  ];
+  const iconDescription =
+    state.iconSource === "publisher"
+      ? "Identidad actual del publicador"
+      : state.iconImageUploadDataUrl
+        ? "Icono personalizado subido"
+        : "Icono personalizado mediante URL HTTPS";
+
+  return (
+    <div className="space-y-5" data-testid="publisher-app-review">
+      <article className="mx-auto max-w-5xl rounded-sm bg-white px-6 py-8 text-black shadow-[0_24px_70px_rgba(15,23,42,0.16)] ring-1 ring-black/10 sm:px-10 sm:py-12">
+        <header className="border-b border-black/20 pb-6">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/55">
+                Pocket Genes · Solicitud de app propia
+              </p>
+              <h3 className="mt-2 font-heading text-2xl font-semibold text-black">
+                Revisión de configuración y condiciones
+              </h3>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-black/70">
+                Documento de revisión de solo lectura. Volvé a los pasos
+                anteriores si necesitás modificar alguna selección antes de
+                aceptar.
+              </p>
+            </div>
+            <AppIcon
+              source={iconSource}
+              publisherName={publisherName}
+              colors={colors}
+              whiteBackground={state.iconSource === "publisher"}
+              className="size-20"
+            />
+          </div>
+        </header>
+
+        <div className="mt-8 space-y-8">
+          <ReviewSection title="Identidad del solicitante">
+            <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
+              <ReviewField label="Cliente">{publisherName}</ReviewField>
+              <ReviewField label="Usuario">
+                {publisherUsername ? `@${publisherUsername}` : "No informado"}
+              </ReviewField>
+              <ReviewField label="Email" wide>
+                {publisherEmail || "No informado"}
+              </ReviewField>
+            </dl>
+          </ReviewSection>
+
+          <ReviewSection title="Configuración solicitada">
+            <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
+              <ReviewField label="Plataformas">
+                {state.platformOption === "ios_android"
+                  ? "iOS + Android"
+                  : "Solo iOS"}
+              </ReviewField>
+              <ReviewField label="Icono de la app">
+                {iconDescription}
+              </ReviewField>
+              <ReviewField label="Estado inicial">
+                Pending revision
+              </ReviewField>
+              <ReviewField label="Revisión estimada">
+                24 a 48 horas
+              </ReviewField>
+            </dl>
+          </ReviewSection>
+
+          <ReviewSection title="Funciones y experiencias">
+            <div className="overflow-hidden border border-black/15">
+              {selectedFeatures.map((feature) => (
+                <div
+                  key={feature.label}
+                  className="grid gap-2 border-b border-black/10 px-4 py-3 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-black">
+                      {feature.label}
+                    </p>
+                    <p className="mt-0.5 text-xs leading-5 text-black/60">
+                      {feature.detail}
+                    </p>
+                  </div>
+                  <span
+                    className={cn(
+                      "inline-flex w-fit items-center gap-1.5 text-xs font-semibold",
+                      feature.enabled ? "text-emerald-700" : "text-black/45",
+                    )}
+                  >
+                    {feature.enabled ? (
+                      <CheckCircle2 className="size-4" />
+                    ) : (
+                      <span className="size-4 rounded-full border border-black/30" />
+                    )}
+                    {feature.enabled ? "Incluida" : "No incluida"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </ReviewSection>
+
+          <ReviewSection title="Paleta visual">
+            <dl className="grid gap-4 sm:grid-cols-3">
+              {COLOR_FIELDS.map((field) => (
+                <div
+                  key={field.key}
+                  className="border border-black/15 p-3"
+                >
+                  <dt className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-black/55">
+                    {field.label}
+                  </dt>
+                  <dd className="mt-3 flex items-center gap-3 text-sm font-semibold text-black">
+                    <span
+                      className="size-9 rounded-sm border border-black/15"
+                      style={{ backgroundColor: colors[field.key] }}
+                    />
+                    {colors[field.key]}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </ReviewSection>
+
+          <ReviewSection title="Resumen comercial">
+            <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
+              <ReviewField label="PocketGenesSDK">
+                USD 59 por mes · precio bonificado
+              </ReviewField>
+              <ReviewField label="Alta inicial en stores">
+                USD 139,99 · pago único
+              </ReviewField>
+            </dl>
+          </ReviewSection>
+
+          <ReviewSection title="Términos y condiciones">
+            <div className="space-y-5 text-sm leading-7 text-black/80">
+              <p>
+                El pedido de <strong>{publisherName}</strong> (de ahora en más,
+                <strong> EL CLIENTE</strong>) de crear una aplicación será
+                evaluado por el equipo de desarrollo para proveer una propuesta
+                final adaptada a las necesidades planteadas por EL CLIENTE.
+              </p>
+              <p>
+                El precio bonificado de <strong>USD 59 por mes</strong>
+                corresponde al uso mensual de la PocketGenesSDK, ofrecida
+                <em> as-is</em>, para cubrir servicios destacados, productos,
+                notas y eventos con un funcionamiento análogo al observado en
+                la app principal de Pocket Genes. Si EL CLIENTE no continúa con
+                la contratación, la SDK dejará de poder utilizarse dentro de
+                una app propia, aunque continuará disponible el uso habitual de
+                la plataforma dentro de la app principal de Pocket Genes.
+              </p>
+              <p>
+                El abono mensual no incluye la creación ni el asesoramiento
+                para dar de alta las apps en App Store y Play Store. Ese
+                <em> setup</em> inicial tendrá un costo adicional único de
+                <strong> USD 139,99</strong>. Las apps serán dadas de alta a
+                nombre de la empresa correspondiente y permanecerán a
+                disposición de EL CLIENTE; Pocket Genes no se arroga el derecho
+                de darlas de baja unilateralmente.
+              </p>
+              <p>
+                La PocketGenesSDK se ofrece con las funcionalidades detalladas
+                en este documento dentro de un rango razonable de uso indicado
+                en el Anexo A. No se permite utilizar la infraestructura para
+                fines distintos de los establecidos, incluyendo almacenamiento
+                personal de la empresa o gestión interna ajena a los servicios
+                ofrecidos al público.
+              </p>
+              <p>
+                Las funcionalidades más complejas para gestión interna de
+                pacientes, médicos o profesionales de laboratorio deberán
+                discutirse bajo un modelo separado, con cuotas de uso y
+                software específicamente diseñado para ese propósito.
+              </p>
+              <p>
+                El servicio incluye soporte continuo para resolver errores en
+                las experiencias contempladas por la SDK y actualizaciones con
+                las mejoras que se incorporen. Sobre la app base se permiten
+                personalizaciones razonables de interfaz, paleta de colores e
+                ilustraciones para aproximarla a la identidad de EL CLIENTE.
+              </p>
+              <p>
+                Cuando se habiliten funcionalidades comunitarias, las cuentas
+                creadas mediante la PocketGenesSDK serán también cuentas de la
+                plataforma PocketGenes. Existirá interoperabilidad con la app
+                principal: cada usuario podrá acceder a su contenido, perfil,
+                progreso, consultas y servicios desde la app específica de EL
+                CLIENTE y desde Pocket Genes, incluso si EL CLIENTE decide dar
+                de baja su app propia.
+              </p>
+              <p>
+                La baja del servicio por parte de EL CLIENTE no deberá
+                perjudicar al usuario final ni impedirle acceder desde Pocket
+                Genes a servicios ya solicitados o pagados.
+              </p>
+              <p>
+                Pocket Genes se limita a facilitar el contacto y brindar de
+                buena fe información sobre las operaciones realizadas mediante
+                la plataforma. No responde por la calidad, tiempos de entrega,
+                formato, errores de resultados, cancelaciones ni otros
+                inconvenientes entre usuarios y EL CLIENTE.
+              </p>
+              <p>
+                EL CLIENTE es el único responsable de proveer servicios y
+                productos de calidad, validar que cada usuario cumpla las
+                condiciones necesarias para realizar estudios, obtener los
+                consentimientos informados correspondientes y responder en
+                tiempo y forma a nivel institucional y legal. Al aceptar estas
+                condiciones, EL CLIENTE reconoce expresamente que Pocket Genes
+                queda desligado de esas responsabilidades.
+              </p>
+            </div>
+          </ReviewSection>
+
+          <ReviewSection title="Anexo A · Rango razonable de uso">
+            <p className="text-sm leading-7 text-black/80">
+              La propuesta final definirá los límites mensuales aplicables a
+              servicios contratados, productos publicados, notas, eventos,
+              publicaciones y transferencia o almacenamiento directamente
+              asociados a esas experiencias. Cualquier necesidad que exceda
+              ese alcance será evaluada y cotizada de manera independiente
+              antes de su implementación.
+            </p>
+          </ReviewSection>
+        </div>
+
+        <footer className="mt-10 border-t border-black/20 pt-5 text-xs leading-5 text-black/55">
+          Versión de condiciones: 31 de octubre de 2026 · La aceptación será
+          registrada junto con la solicitud de creación.
+        </footer>
+      </article>
+
+      <div className="mx-auto flex max-w-5xl items-start gap-3 rounded-xl border border-violet-200 bg-violet-50/70 px-4 py-3 text-sm text-violet-950">
+        <Checkbox
+          id="publisher-app-terms"
+          checked={termsAccepted}
+          onCheckedChange={(checked) =>
+            onTermsAcceptedChange(checked === true)
+          }
+          className="mt-0.5"
+        />
+        <Label
+          htmlFor="publisher-app-terms"
+          className="cursor-pointer font-normal leading-6"
+        >
+          Leí y acepto los términos y condiciones de esta solicitud en
+          representación de <strong>{publisherName}</strong>.
+        </Label>
+      </div>
+    </div>
+  );
+}
+
 function SuccessCelebration({ publisherName }: { publisherName: string }) {
   const particles = Array.from({ length: 18 }, (_, index) => ({
     angle: (360 / 18) * index,
@@ -571,8 +917,11 @@ export function PublisherAppConfigWorkbench({
   const [deletePending, setDeletePending] = useState(false);
   const [iconUploadPending, setIconUploadPending] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
-  const activeStep = WIZARD_STEPS[stepIndex] ?? WIZARD_STEPS[0];
+  const wizardSteps =
+    mode === "create" ? [...WIZARD_STEPS, REVIEW_STEP] : WIZARD_STEPS;
+  const activeStep = wizardSteps[stepIndex] ?? wizardSteps[0];
   const statusLabel = publisherAppStatusLabel(
     persistedConfig?.status ?? "pending_revision",
   );
@@ -626,9 +975,11 @@ export function PublisherAppConfigWorkbench({
       : (state.iconImageUploadDataUrl ?? state.iconImageUrl);
 
   function updateState(patch: Partial<PublisherAppConfigInput>) {
+    setTermsAccepted(false);
     setState((current) => ({ ...current, ...patch }));
   }
   function updateColor(key: ColorKey, value: string) {
+    setTermsAccepted(false);
     setState((current) => ({
       ...current,
       colors: { ...current.colors, [key]: value },
@@ -737,6 +1088,7 @@ export function PublisherAppConfigWorkbench({
       customIconUrlInvalid ||
       pending ||
       iconUploadPending ||
+      (mode === "create" && !termsAccepted) ||
       (mode === "edit" && !changed)
     )
       return;
@@ -747,7 +1099,11 @@ export function PublisherAppConfigWorkbench({
         "/publisher-app/config",
         {
           method: mode === "create" ? "POST" : "PUT",
-          body: JSON.stringify(payload),
+          body: JSON.stringify(
+            mode === "create"
+              ? { ...payload, termsAccepted: true as const }
+              : payload,
+          ),
         },
       );
       const saved = response.config;
@@ -839,9 +1195,12 @@ export function PublisherAppConfigWorkbench({
 
       <ol
         aria-label="Progreso de configuración"
-        className="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4"
+        className={cn(
+          "mb-6 grid gap-3 md:grid-cols-2",
+          mode === "create" ? "xl:grid-cols-5" : "xl:grid-cols-4",
+        )}
       >
-        {WIZARD_STEPS.map((step, index) => {
+        {wizardSteps.map((step, index) => {
           const active = index === stepIndex;
           const complete = index < stepIndex;
           const Icon = step.icon;
@@ -891,18 +1250,26 @@ export function PublisherAppConfigWorkbench({
         })}
       </ol>
 
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
+      <div
+        className={cn(
+          "grid items-start gap-6",
+          activeStep.id === "review"
+            ? "grid-cols-1"
+            : "xl:grid-cols-[minmax(0,1fr)_390px]",
+        )}
+      >
         <div className="overflow-hidden rounded-[28px] border border-border/80 bg-card shadow-[0_26px_68px_-48px_rgba(15,23,42,0.68)]">
           <div className="border-b border-violet-100 bg-[linear-gradient(135deg,rgba(109,40,217,0.08),rgba(139,92,246,0.03))] px-5 py-5 sm:px-7">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-violet-700 dark:text-violet-300">
-              Paso {stepIndex + 1} de {WIZARD_STEPS.length}
+              Paso {stepIndex + 1} de {wizardSteps.length}
             </p>
             <h3 className="mt-1 font-heading text-2xl font-semibold text-foreground sm:text-3xl">
               {activeStep.title}
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              Podés tocar cualquier paso de arriba para avanzar o volver cuando
-              quieras.
+              {activeStep.id === "review"
+                ? "Revisá todas las selecciones y las condiciones antes de enviar la solicitud."
+                : "Podés tocar cualquier paso de arriba para avanzar o volver cuando quieras."}
             </p>
           </div>
 
@@ -1302,6 +1669,19 @@ export function PublisherAppConfigWorkbench({
                 ) : null}
               </div>
             ) : null}
+
+            {activeStep.id === "review" ? (
+              <PublisherAppReviewDocument
+                publisherName={publisherName}
+                publisherEmail={publisherEmail}
+                publisherUsername={publisherUsername}
+                state={state}
+                colors={previewColors}
+                iconSource={resolvedIconSource}
+                termsAccepted={termsAccepted}
+                onTermsAcceptedChange={setTermsAccepted}
+              />
+            ) : null}
           </div>
 
           <div className="flex flex-col gap-3 border-t border-border/70 bg-muted/15 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
@@ -1333,18 +1713,26 @@ export function PublisherAppConfigWorkbench({
                   Descartar cambios
                 </Button>
               ) : null}
-              {stepIndex < WIZARD_STEPS.length - 1 ? (
+              {stepIndex < wizardSteps.length - 1 ? (
                 <Button
                   type="button"
                   onClick={() =>
                     setStepIndex((current) =>
-                      Math.min(current + 1, WIZARD_STEPS.length - 1),
+                      Math.min(current + 1, wizardSteps.length - 1),
                     )
                   }
-                  disabled={pending}
+                  disabled={
+                    pending ||
+                    (activeStep.id === "icon" &&
+                      (iconUploadPending ||
+                        customIconMissing ||
+                        customIconUrlInvalid))
+                  }
                   className="h-11 rounded-xl bg-violet-600 px-5 text-white shadow-[0_14px_28px_-18px_rgba(109,40,217,0.9)] hover:bg-violet-700"
                 >
-                  Siguiente
+                  {activeStep.id === "icon" && mode === "create"
+                    ? "Revisar solicitud"
+                    : "Siguiente"}
                   <ArrowRight className="size-4" />
                 </Button>
               ) : (
@@ -1356,19 +1744,25 @@ export function PublisherAppConfigWorkbench({
                     iconUploadPending ||
                     customIconMissing ||
                     customIconUrlInvalid ||
+                    (mode === "create" && !termsAccepted) ||
                     (mode === "edit" && !changed)
                   }
-                  className="h-11 rounded-xl bg-violet-600 px-5 text-white shadow-[0_14px_28px_-18px_rgba(109,40,217,0.9)] hover:bg-violet-700"
+                  className={cn(
+                    "rounded-xl bg-violet-600 px-6 text-white shadow-[0_14px_28px_-18px_rgba(109,40,217,0.9)] hover:bg-violet-700",
+                    mode === "create" ? "h-14 text-base" : "h-11",
+                  )}
                 >
                   {pending ? (
                     <LoaderCircle className="size-4 animate-spin" />
+                  ) : mode === "create" ? (
+                    <CheckCircle2 className="size-5" />
                   ) : (
                     <Save className="size-4" />
                   )}
                   {pending
                     ? "Guardando…"
                     : mode === "create"
-                      ? "Crear mi app"
+                      ? "Aceptar condiciones y continuar"
                       : "Guardar cambios"}
                 </Button>
               )}
@@ -1376,26 +1770,28 @@ export function PublisherAppConfigWorkbench({
           </div>
         </div>
 
-        <div className="xl:sticky xl:top-24">
-          <PublisherAppLivePreview
-            publisherName={publisherName}
-            state={state}
-            colors={previewColors}
-            iconSource={resolvedIconSource}
-          />
-          {mode === "edit" ? (
-            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-              <div className="flex items-center gap-2 font-semibold">
-                <LockKeyhole className="size-4" /> Estado administrado por
-                Pocket Genes
+        {activeStep.id !== "review" ? (
+          <div className="xl:sticky xl:top-24">
+            <PublisherAppLivePreview
+              publisherName={publisherName}
+              state={state}
+              colors={previewColors}
+              iconSource={resolvedIconSource}
+            />
+            {mode === "edit" ? (
+              <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+                <div className="flex items-center gap-2 font-semibold">
+                  <LockKeyhole className="size-4" /> Estado administrado por
+                  Pocket Genes
+                </div>
+                <p className="mt-1 text-xs leading-5 text-amber-900/75">
+                  Tu app está en <strong>{statusLabel}</strong>. El publicador no
+                  puede cambiar este estado.
+                </p>
               </div>
-              <p className="mt-1 text-xs leading-5 text-amber-900/75">
-                Tu app está en <strong>{statusLabel}</strong>. El publicador no
-                puede cambiar este estado.
-              </p>
-            </div>
-          ) : null}
-        </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       {mode === "edit" ? (
