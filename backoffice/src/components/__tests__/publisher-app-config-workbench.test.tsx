@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AppLanguageProvider } from "@/components/app-language-provider";
@@ -173,15 +173,15 @@ describe("PublisherAppConfigWorkbench", () => {
     );
     expect(screen.queryByText(/El pedido de/i)).toBeNull();
     expect(screen.queryByText(/Anexo A · Rango razonable de uso/i)).toBeNull();
-    expect(
-      existsSync(
-        join(
-          process.cwd(),
-          "public",
-          "PocketGenesSDK_Terminos_y_Condiciones.pdf",
-        ),
-      ),
-    ).toBe(true);
+    const termsPdfPath = join(
+      process.cwd(),
+      "public",
+      "PocketGenesSDK_Terminos_y_Condiciones.pdf",
+    );
+    expect(existsSync(termsPdfPath)).toBe(true);
+    expect(readFileSync(termsPdfPath).subarray(0, 5).toString("ascii")).toBe(
+      "%PDF-",
+    );
     expect(screen.getByText(/USD 59 por mes · precio bonificado/i)).toBeTruthy();
     expect(screen.getByText(/USD 139,99 · pago único/i)).toBeTruthy();
 
