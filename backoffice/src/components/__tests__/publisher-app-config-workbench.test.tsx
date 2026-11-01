@@ -428,7 +428,11 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(payload.colors.tertiary).toBe("#AABBCC");
     expect(mockRouterReplace).not.toHaveBeenCalled();
     expect(mockRouterRefresh).toHaveBeenCalled();
-    expect(screen.getAllByText("Pending revision").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("En revisión").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Pending revision")).toBeNull();
+    expect(
+      screen.getByText(/Si eliminás esta solicitud, se borrarán los datos/i),
+    ).toBeTruthy();
   });
 
   it("uses branded palette suggestions and full visual pickers without editable hex fields", () => {
@@ -544,6 +548,8 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(
       screen.getByRole("button", { name: "Eliminar mi app" }),
     ).toBeDisabled();
-    expect(screen.getByText(/ya no está pendiente de revisión/i)).toBeTruthy();
+    expect(
+      screen.getByText(/Para cancelar esta solicitud, contactá al equipo/i),
+    ).toBeTruthy();
   });
 });

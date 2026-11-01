@@ -6,13 +6,13 @@ export type PublisherAppStatus =
 export function publisherAppStatusLabel(status: PublisherAppStatus) {
   switch (status) {
     case "approved":
-      return "Approved";
+      return "Aprobada";
     case "changes_requested":
-      return "Changes requested";
+      return "Requiere ajustes";
     case "rejected":
-      return "Rejected";
+      return "No aprobada";
     default:
-      return "Pending revision";
+      return "En revisión";
   }
 }
 
@@ -156,7 +156,8 @@ function hslToHex(hue: number, saturation: number, lightness: number) {
 export function publisherAppPaletteSuggestions(
   tint?: string,
 ): PublisherAppColors[] {
-  const source = normalizePublisherAppColor(tint) ?? DEFAULT_PUBLISHER_APP_COLOR;
+  const source =
+    normalizePublisherAppColor(tint) ?? DEFAULT_PUBLISHER_APP_COLOR;
   const { hue, saturation } = rgbToHsl(hexToRgb(source));
   const vividSaturation = Math.min(82, Math.max(72, saturation));
 

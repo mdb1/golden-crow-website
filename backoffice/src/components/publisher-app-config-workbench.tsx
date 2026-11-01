@@ -1291,11 +1291,11 @@ function PublisherAppEditSheet({
               <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-400/24 dark:bg-amber-500/10 dark:text-amber-100">
                 <div className="flex items-center gap-2 font-semibold">
                   <LockKeyhole className="size-4" />
-                  Estado administrado por Pocket Genes
+                  Seguimiento de la solicitud
                 </div>
                 <p className="mt-1 text-xs leading-5 text-amber-900/75 dark:text-amber-100/70">
-                  Tu app está en <strong>{statusLabel}</strong>. Este estado no
-                  puede ser modificado desde el portal del publicador.
+                  Estado actual: <strong>{statusLabel}</strong>. Nuestro equipo
+                  te avisará cuando haya novedades.
                 </p>
               </div>
             </div>
@@ -1313,13 +1313,13 @@ function PublisherAppEditSheet({
                   Zona de peligro
                 </h3>
                 <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
-                  Eliminar la app borra permanentemente toda su configuración.
-                  Sólo está disponible mientras continúe pendiente de revisión.
+                  Si eliminás esta solicitud, se borrarán los datos que
+                  cargaste. Esta acción no se puede deshacer.
                 </p>
                 {!canDelete ? (
                   <p className="mt-2 text-sm font-semibold text-destructive">
-                    La app ya no está pendiente de revisión y no puede ser
-                    eliminada por el publicador.
+                    Para cancelar esta solicitud, contactá al equipo de Pocket
+                    Genes.
                   </p>
                 ) : null}
               </div>
@@ -1350,9 +1350,10 @@ function PublisherAppEditSheet({
                     ¿Eliminar definitivamente tu app?
                   </AlertDialogTitle>
                   <AlertDialogDescription>
-                    Se borrará la configuración completa de {publisherName}.
-                    Esta acción no se puede deshacer. Podrás iniciar una nueva
-                    solicitud desde el banner de Mi app.
+                    Se eliminarán la solicitud de {publisherName} y todos los
+                    datos que cargaste. Esta acción no se puede deshacer. Si más
+                    adelante cambiás de opinión, podrás crear una nueva
+                    solicitud desde Mi app.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -1384,8 +1385,8 @@ function PublisherAppEditSheet({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground">
               {changed
-                ? "Tenés cambios sin guardar en la configuración."
-                : "La configuración está actualizada."}
+                ? "Tenés cambios sin guardar."
+                : "Todos los cambios están guardados."}
             </p>
             <Button
               type="button"
