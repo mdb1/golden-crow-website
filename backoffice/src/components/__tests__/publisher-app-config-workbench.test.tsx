@@ -510,6 +510,39 @@ describe("PublisherAppConfigWorkbench", () => {
     );
   });
 
+  it("hides optional feature cells that are not selected in the edit summary", () => {
+    renderWorkbench({
+      mode: "edit",
+      initialConfig: {
+        ...savedConfig,
+        connectEnabled: true,
+        learnCustomizationEnabled: false,
+        profileEnabled: false,
+      },
+    });
+
+    const featureSummary = screen.getByTestId("publisher-app-edit-features");
+    expect(featureSummary).toHaveTextContent("3 de 5 experiencias incluidas");
+    expect(featureSummary).toHaveTextContent(
+      "Catálogo de productos y servicios",
+    );
+    expect(featureSummary).toHaveTextContent("Feed de novedades");
+    expect(featureSummary).toHaveTextContent("Sección Comunidad");
+    expect(featureSummary).not.toHaveTextContent(
+      "Contenidos educativos propios",
+    );
+    expect(featureSummary).not.toHaveTextContent("Gestión de turnos");
+    expect(featureSummary).not.toHaveTextContent("No incluida");
+
+    fireEvent.click(screen.getByRole("button", { name: "Editar funciones" }));
+    expect(
+      screen.getByRole("checkbox", { name: "Contenidos educativos propios" }),
+    ).not.toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: "Gestión de turnos" }),
+    ).not.toBeChecked();
+  });
+
   it("uses branded palette suggestions and full visual pickers without editable hex fields", () => {
     renderWorkbench();
     advanceToColors();

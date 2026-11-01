@@ -1248,43 +1248,30 @@ function PublisherAppEditSheet({
                     ...feature,
                     locked: false,
                   })),
-                ].map((feature) => {
-                  const Icon = feature.icon;
-                  return (
-                    <div
-                      key={feature.label}
-                      className="flex items-center gap-3 rounded-xl border border-violet-100/80 bg-white/72 px-3 py-3 dark:border-violet-400/14 dark:bg-slate-950/28"
-                    >
-                      <span
-                        className={cn(
-                          "flex size-9 shrink-0 items-center justify-center rounded-xl",
-                          feature.enabled
-                            ? "bg-violet-100 text-violet-700 dark:bg-violet-500/14 dark:text-violet-100"
-                            : "bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500",
-                        )}
+                ]
+                  .filter((feature) => feature.enabled)
+                  .map((feature) => {
+                    const Icon = feature.icon;
+                    return (
+                      <div
+                        key={feature.label}
+                        className="flex items-center gap-3 rounded-xl border border-violet-100/80 bg-white/72 px-3 py-3 dark:border-violet-400/14 dark:bg-slate-950/28"
                       >
-                        <Icon className="size-4" />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold text-foreground">
-                          {feature.label}
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-500/14 dark:text-violet-100">
+                          <Icon className="size-4" />
                         </span>
-                        <span className="mt-0.5 block text-xs text-muted-foreground">
-                          {feature.locked
-                            ? "Incluida siempre"
-                            : feature.enabled
-                              ? "Activa"
-                              : "No incluida"}
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold text-foreground">
+                            {feature.label}
+                          </span>
+                          <span className="mt-0.5 block text-xs text-muted-foreground">
+                            {feature.locked ? "Incluida siempre" : "Activa"}
+                          </span>
                         </span>
-                      </span>
-                      {feature.enabled ? (
                         <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
-                      ) : (
-                        <span className="size-4 shrink-0 rounded-full border border-slate-300 dark:border-slate-600" />
-                      )}
-                    </div>
-                  );
-                })}
+                      </div>
+                    );
+                  })}
               </div>
             </PublisherAppEditSection>
 
