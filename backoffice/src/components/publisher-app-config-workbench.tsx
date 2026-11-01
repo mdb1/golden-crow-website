@@ -26,6 +26,7 @@ import {
   Newspaper,
   Package,
   Palette,
+  Pencil,
   RotateCcw,
   Save,
   Smartphone,
@@ -50,6 +51,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -690,10 +699,7 @@ function PublisherAppReviewDocument({
           <ReviewSection title="Paleta visual">
             <dl className="grid gap-4 sm:grid-cols-3">
               {COLOR_FIELDS.map((field) => (
-                <div
-                  key={field.key}
-                  className="border border-black/15 p-3"
-                >
+                <div key={field.key} className="border border-black/15 p-3">
                   <dt className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-black/55">
                     {field.label}
                   </dt>
@@ -850,9 +856,7 @@ function PublisherAppReviewDocument({
         <Checkbox
           id="publisher-app-terms"
           checked={termsAccepted}
-          onCheckedChange={(checked) =>
-            onTermsAcceptedChange(checked === true)
-          }
+          onCheckedChange={(checked) => onTermsAcceptedChange(checked === true)}
           className="mt-0.5"
         />
         <Label
@@ -863,6 +867,926 @@ function PublisherAppReviewDocument({
           representación de <strong>{publisherName}</strong>.
         </Label>
       </div>
+    </div>
+  );
+}
+
+function PublisherAppEditSection({
+  icon,
+  title,
+  description,
+  actionLabel,
+  onAction,
+  children,
+  testId,
+}: {
+  icon: ReactNode;
+  title: string;
+  description: string;
+  actionLabel: string;
+  onAction: () => void;
+  children: ReactNode;
+  testId: string;
+}) {
+  return (
+    <section
+      data-testid={testId}
+      className="overflow-hidden rounded-2xl border border-violet-100/80 bg-white/78 shadow-[0_18px_56px_-48px_rgba(109,40,217,0.48)] dark:border-violet-400/16 dark:bg-slate-950/32"
+    >
+      <div className="flex flex-col gap-4 border-b border-violet-100/80 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5 dark:border-violet-400/14">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-violet-100 bg-violet-50 text-violet-700 shadow-inner dark:border-violet-400/16 dark:bg-violet-500/10 dark:text-violet-100">
+            {icon}
+          </span>
+          <div className="min-w-0">
+            <h3 className="font-heading text-lg font-semibold text-foreground">
+              {title}
+            </h3>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              {description}
+            </p>
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onAction}
+          className="h-9 shrink-0 rounded-xl border-violet-200/80 bg-white/82 px-3 font-semibold text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50 hover:text-violet-950 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-50 dark:hover:bg-violet-500/18"
+        >
+          <Pencil className="size-3.5" />
+          {actionLabel}
+        </Button>
+      </div>
+      <div className="p-4 sm:p-5">{children}</div>
+    </section>
+  );
+}
+
+type PublisherAppEditDialog =
+  "platforms" | "features" | "colors" | "icon" | null;
+
+function PublisherAppEditSheet({
+  publisherName,
+  publisherEmail,
+  publisherUsername,
+  publisherImageUrl,
+  state,
+  colors,
+  iconSource,
+  suggestedPalettes,
+  statusLabel,
+  changed,
+  pending,
+  iconUploadPending,
+  customIconMissing,
+  customIconUrlInvalid,
+  canDelete,
+  deletePending,
+  hasPersistedConfig,
+  onUpdateState,
+  onUpdateColor,
+  onChooseIconSource,
+  onIconUpload,
+  onReset,
+  onSave,
+  onDownload,
+  onDelete,
+}: {
+  publisherName: string;
+  publisherEmail: string;
+  publisherUsername: string;
+  publisherImageUrl?: string;
+  state: PublisherAppConfigInput;
+  colors: PublisherAppColors;
+  iconSource?: string | null;
+  suggestedPalettes: Array<{
+    name: string;
+    description: string;
+    colors: PublisherAppColors;
+  }>;
+  statusLabel: string;
+  changed: boolean;
+  pending: boolean;
+  iconUploadPending: boolean;
+  customIconMissing: boolean;
+  customIconUrlInvalid: boolean;
+  canDelete: boolean;
+  deletePending: boolean;
+  hasPersistedConfig: boolean;
+  onUpdateState: (patch: Partial<PublisherAppConfigInput>) => void;
+  onUpdateColor: (key: ColorKey, value: string) => void;
+  onChooseIconSource: (source: "publisher" | "custom") => void;
+  onIconUpload: (event: ChangeEvent<HTMLInputElement>) => void;
+  onReset: () => void;
+  onSave: () => void;
+  onDownload: () => void;
+  onDelete: () => void;
+}) {
+  const [activeDialog, setActiveDialog] =
+    useState<PublisherAppEditDialog>(null);
+  const optionalFeatures = [
+    {
+      label: "Sección Comunidad",
+      enabled: state.connectEnabled,
+      icon: UsersRound,
+    },
+    {
+      label: "Contenidos educativos propios",
+      enabled: state.learnCustomizationEnabled,
+      icon: GraduationCap,
+    },
+    {
+      label: "Gestión de turnos",
+      enabled: state.profileEnabled,
+      icon: CalendarDays,
+    },
+  ];
+  const enabledFeatureCount =
+    2 + optionalFeatures.filter((feature) => feature.enabled).length;
+  const currentPlatformLabel =
+    state.platformOption === "ios_android" ? "iOS + Android" : "Solo iOS";
+  const dialogCopy = {
+    platforms: {
+      title: "Editar plataformas",
+      description: "Definí en qué stores se prepara y mantiene la aplicación.",
+    },
+    features: {
+      title: "Editar funciones",
+      description:
+        "Combiná las experiencias incluidas y opcionales de tu aplicación.",
+    },
+    colors: {
+      title: "Editar identidad visual",
+      description:
+        "Elegí una paleta completa o ajustá cada color con el selector visual.",
+    },
+    icon: {
+      title: "Editar icono de la app",
+      description:
+        "Usá la identidad actual o prepará un icono específico para los stores.",
+    },
+  } as const;
+  const activeDialogCopy = activeDialog ? dialogCopy[activeDialog] : null;
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          asChild
+          className="h-9 rounded-xl text-violet-800 hover:bg-violet-100 hover:text-violet-950 dark:text-violet-100 dark:hover:bg-violet-500/14"
+        >
+          <Link href={PUBLISHER_PORTAL_HOME_ROUTE}>
+            <ArrowLeft className="size-3.5" />
+            Volver al inicio
+          </Link>
+        </Button>
+      </div>
+
+      <section
+        data-testid="publisher-app-edit-sheet"
+        className="overflow-hidden rounded-2xl border border-violet-100/80 bg-white/92 shadow-[0_22px_62px_-46px_rgba(109,40,217,0.46)] dark:border-violet-400/16 dark:bg-slate-950/50"
+      >
+        <header className="border-b border-violet-100/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(245,243,255,0.90)_54%,rgba(240,249,255,0.72))] px-5 py-4 dark:border-violet-400/14 dark:bg-[linear-gradient(145deg,rgba(30,24,57,0.94),rgba(12,35,54,0.68))]">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <AppIcon
+                source={iconSource}
+                publisherName={publisherName}
+                colors={colors}
+                whiteBackground={state.iconSource === "publisher"}
+                className="size-12"
+              />
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="font-heading text-xl font-semibold text-foreground">
+                    Editar app
+                  </h2>
+                  <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800 dark:border-amber-400/24 dark:bg-amber-500/12 dark:text-amber-100">
+                    {statusLabel}
+                  </span>
+                  <HeaderUnclutterButton />
+                </div>
+                <p className="mt-0.5 truncate text-sm font-medium text-foreground">
+                  {publisherName}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {publisherUsername ? `@${publisherUsername} · ` : ""}
+                  {publisherEmail}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onReset}
+                disabled={!changed || pending}
+                className="h-9 rounded-xl border-violet-200/80 bg-white/82 text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-50"
+              >
+                <RotateCcw className="size-3.5" />
+                Descartar cambios
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onDownload}
+                disabled={!hasPersistedConfig}
+                className="h-9 rounded-xl border-violet-200/80 bg-white/82 text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-50"
+              >
+                <Download className="size-3.5" />
+                Descargar configuración
+              </Button>
+            </div>
+          </div>
+        </header>
+
+        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_24rem]">
+          <div className="flex flex-col gap-5 px-5 py-5">
+            <PublisherAppEditSection
+              testId="publisher-app-edit-platforms"
+              icon={<Smartphone className="size-5" />}
+              title="Plataformas"
+              description="Disponibilidad, alcance y costo operativo de la app."
+              actionLabel="Editar plataformas"
+              onAction={() => setActiveDialog("platforms")}
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-violet-100 bg-violet-50/55 p-4 dark:border-violet-400/14 dark:bg-violet-500/8">
+                  <p className="text-xs font-semibold uppercase tracking-[0.1em] text-violet-700 dark:text-violet-200">
+                    Publicación seleccionada
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-foreground">
+                    {currentPlatformLabel}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <span className="rounded-full border border-violet-200 bg-white px-3 py-1 text-xs font-semibold text-violet-800 dark:border-violet-400/20 dark:bg-violet-950/40 dark:text-violet-100">
+                      iOS
+                    </span>
+                    {state.platformOption === "ios_android" ? (
+                      <span className="rounded-full border border-violet-200 bg-white px-3 py-1 text-xs font-semibold text-violet-800 dark:border-violet-400/20 dark:bg-violet-950/40 dark:text-violet-100">
+                        Android
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50/55 p-4 dark:border-emerald-400/14 dark:bg-emerald-500/8">
+                  <p className="text-xs font-semibold uppercase tracking-[0.1em] text-emerald-700 dark:text-emerald-200">
+                    Suscripción promocional
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-foreground">
+                    {state.platformOption === "ios_android"
+                      ? "USD 119,98 / mes"
+                      : "USD 59,99 / mes"}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    Precio total para las plataformas elegidas durante los
+                    primeros seis meses.
+                  </p>
+                </div>
+              </div>
+            </PublisherAppEditSection>
+
+            <PublisherAppEditSection
+              testId="publisher-app-edit-features"
+              icon={<Sparkles className="size-5" />}
+              title="Funciones de la app"
+              description={`${enabledFeatureCount} de 5 experiencias incluidas en la configuración actual.`}
+              actionLabel="Editar funciones"
+              onAction={() => setActiveDialog("features")}
+            >
+              <div className="grid gap-2 sm:grid-cols-2">
+                {[
+                  {
+                    label: "Catálogo de productos y servicios",
+                    enabled: true,
+                    locked: true,
+                    icon: Package,
+                  },
+                  {
+                    label: "Feed de novedades",
+                    enabled: true,
+                    locked: true,
+                    icon: Newspaper,
+                  },
+                  ...optionalFeatures.map((feature) => ({
+                    ...feature,
+                    locked: false,
+                  })),
+                ].map((feature) => {
+                  const Icon = feature.icon;
+                  return (
+                    <div
+                      key={feature.label}
+                      className="flex items-center gap-3 rounded-xl border border-violet-100/80 bg-white/72 px-3 py-3 dark:border-violet-400/14 dark:bg-slate-950/28"
+                    >
+                      <span
+                        className={cn(
+                          "flex size-9 shrink-0 items-center justify-center rounded-xl",
+                          feature.enabled
+                            ? "bg-violet-100 text-violet-700 dark:bg-violet-500/14 dark:text-violet-100"
+                            : "bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500",
+                        )}
+                      >
+                        <Icon className="size-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-foreground">
+                          {feature.label}
+                        </span>
+                        <span className="mt-0.5 block text-xs text-muted-foreground">
+                          {feature.locked
+                            ? "Incluida siempre"
+                            : feature.enabled
+                              ? "Activa"
+                              : "No incluida"}
+                        </span>
+                      </span>
+                      {feature.enabled ? (
+                        <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
+                      ) : (
+                        <span className="size-4 shrink-0 rounded-full border border-slate-300 dark:border-slate-600" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </PublisherAppEditSection>
+
+            <PublisherAppEditSection
+              testId="publisher-app-edit-colors"
+              icon={<Palette className="size-5" />}
+              title="Identidad visual"
+              description="Paleta principal aplicada a navegación, superficies y acentos."
+              actionLabel="Editar paleta"
+              onAction={() => setActiveDialog("colors")}
+            >
+              <div className="grid gap-3 sm:grid-cols-3">
+                {COLOR_FIELDS.map((field) => (
+                  <div
+                    key={field.key}
+                    className="flex items-center gap-3 rounded-xl border border-violet-100/80 bg-white/72 p-3 dark:border-violet-400/14 dark:bg-slate-950/28"
+                  >
+                    <span
+                      className="size-11 shrink-0 rounded-xl border-2 border-white shadow-[0_10px_24px_-14px_rgba(15,23,42,0.85)] ring-1 ring-black/8"
+                      style={{ backgroundColor: colors[field.key] }}
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-foreground">
+                        {field.label}
+                      </span>
+                      <span className="block font-mono text-xs text-muted-foreground">
+                        {colors[field.key]}
+                      </span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </PublisherAppEditSection>
+
+            <PublisherAppEditSection
+              testId="publisher-app-edit-icon"
+              icon={<ImageIcon className="size-5" />}
+              title="Icono de la app"
+              description="Identidad que se muestra en el dispositivo y en los stores."
+              actionLabel="Editar icono"
+              onAction={() => setActiveDialog("icon")}
+            >
+              <div className="flex flex-col gap-4 rounded-xl border border-violet-100/80 bg-white/72 p-4 sm:flex-row sm:items-center dark:border-violet-400/14 dark:bg-slate-950/28">
+                <AppIcon
+                  source={iconSource}
+                  publisherName={publisherName}
+                  colors={colors}
+                  whiteBackground={state.iconSource === "publisher"}
+                  className="size-20"
+                />
+                <div className="min-w-0">
+                  <p className="font-heading text-lg font-semibold text-foreground">
+                    {state.iconSource === "publisher"
+                      ? "Identidad actual"
+                      : "Icono personalizado"}
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                    {state.iconSource === "publisher"
+                      ? "Se reutiliza el logo vigente del publicador sobre fondo blanco."
+                      : "Se utilizará la imagen personalizada configurada para esta app."}
+                  </p>
+                </div>
+              </div>
+            </PublisherAppEditSection>
+          </div>
+
+          <aside className="border-t border-violet-100/80 bg-violet-50/35 px-5 py-5 xl:border-l xl:border-t-0 dark:border-violet-400/14 dark:bg-violet-950/10">
+            <div className="xl:sticky xl:top-24">
+              <PublisherAppLivePreview
+                publisherName={publisherName}
+                state={state}
+                colors={colors}
+                iconSource={iconSource}
+              />
+              <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-400/24 dark:bg-amber-500/10 dark:text-amber-100">
+                <div className="flex items-center gap-2 font-semibold">
+                  <LockKeyhole className="size-4" />
+                  Estado administrado por Pocket Genes
+                </div>
+                <p className="mt-1 text-xs leading-5 text-amber-900/75 dark:text-amber-100/70">
+                  Tu app está en <strong>{statusLabel}</strong>. Este estado no
+                  puede ser modificado desde el portal del publicador.
+                </p>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        <div className="border-t border-destructive/20 bg-destructive/[0.025] px-5 py-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-destructive/10 text-destructive">
+                <Trash2 className="size-5" />
+              </span>
+              <div>
+                <h3 className="font-heading text-lg font-semibold text-destructive">
+                  Zona de peligro
+                </h3>
+                <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+                  Eliminar la app borra permanentemente toda su configuración.
+                  Sólo está disponible mientras continúe pendiente de revisión.
+                </p>
+                {!canDelete ? (
+                  <p className="mt-2 text-sm font-semibold text-destructive">
+                    La app ya no está pendiente de revisión y no puede ser
+                    eliminada por el publicador.
+                  </p>
+                ) : null}
+              </div>
+            </div>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={!canDelete || pending || deletePending}
+                  className="h-11 shrink-0 rounded-xl"
+                >
+                  {deletePending ? (
+                    <LoaderCircle className="size-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="size-4" />
+                  )}
+                  {deletePending ? "Eliminando…" : "Eliminar mi app"}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogMedia className="bg-destructive/10 text-destructive">
+                    <Trash2 className="size-5" />
+                  </AlertDialogMedia>
+                  <AlertDialogTitle>
+                    ¿Eliminar definitivamente tu app?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Se borrará la configuración completa de {publisherName}.
+                    Esta acción no se puede deshacer. Podrás iniciar una nueva
+                    solicitud desde el banner de Mi app.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={deletePending}>
+                    Cancelar
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    variant="destructive"
+                    disabled={deletePending}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      onDelete();
+                    }}
+                  >
+                    {deletePending ? (
+                      <LoaderCircle className="size-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="size-4" />
+                    )}
+                    {deletePending ? "Eliminando…" : "Eliminar definitivamente"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </div>
+
+        <footer className="sticky bottom-0 z-20 border-t border-violet-100/80 bg-white/92 px-5 py-4 shadow-[0_-20px_60px_rgba(109,40,217,0.10)] backdrop-blur dark:border-violet-400/14 dark:bg-slate-950/88">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              {changed
+                ? "Tenés cambios sin guardar en la configuración."
+                : "La configuración está actualizada."}
+            </p>
+            <Button
+              type="button"
+              size="lg"
+              onClick={onSave}
+              disabled={
+                pending ||
+                iconUploadPending ||
+                customIconMissing ||
+                customIconUrlInvalid ||
+                !changed
+              }
+              className="h-14 min-w-[min(100%,15rem)] justify-center rounded-xl bg-violet-600 text-base font-semibold text-white shadow-[0_16px_42px_rgba(109,40,217,0.24)] hover:bg-violet-700"
+            >
+              {pending ? (
+                <LoaderCircle className="size-5 animate-spin" />
+              ) : (
+                <Save className="size-5" />
+              )}
+              {pending ? "Guardando…" : "Guardar cambios"}
+            </Button>
+          </div>
+        </footer>
+      </section>
+
+      <Dialog
+        open={Boolean(activeDialog)}
+        onOpenChange={(open) => {
+          if (!open) setActiveDialog(null);
+        }}
+      >
+        <DialogContent className="max-h-[88vh] overflow-hidden rounded-[24px] border-violet-100 p-0 sm:max-w-4xl dark:border-violet-400/18">
+          <DialogHeader className="border-b border-violet-100 bg-violet-50/55 px-6 py-5 text-left dark:border-violet-400/14 dark:bg-violet-950/18">
+            <DialogTitle className="font-heading text-xl font-semibold">
+              {activeDialogCopy?.title}
+            </DialogTitle>
+            <DialogDescription>
+              {activeDialogCopy?.description}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-[66vh] overflow-y-auto px-5 py-5 sm:px-6">
+            {activeDialog === "platforms" ? (
+              <RadioGroup
+                aria-label="Plataformas de la app"
+                value={state.platformOption}
+                onValueChange={(value) =>
+                  onUpdateState({
+                    platformOption: value as PublisherAppPlatformOption,
+                  })
+                }
+                className="grid gap-4 md:grid-cols-2"
+              >
+                {[
+                  {
+                    value: "ios" as const,
+                    title: "Solo iOS",
+                    description:
+                      "App para iPhone con mantenimiento y publicaciones en App Store.",
+                    price: "USD 59,99 / mes",
+                  },
+                  {
+                    value: "ios_android" as const,
+                    title: "iOS + Android",
+                    description:
+                      "La misma experiencia disponible en App Store y Google Play.",
+                    price: "USD 119,98 / mes",
+                  },
+                ].map((option) => {
+                  const selected = state.platformOption === option.value;
+                  return (
+                    <Label
+                      key={option.value}
+                      htmlFor={`publisher-app-edit-platform-${option.value}`}
+                      className={cn(
+                        "relative flex min-h-56 cursor-pointer flex-col overflow-hidden rounded-[22px] border p-5 transition hover:-translate-y-0.5",
+                        selected
+                          ? "border-violet-500 bg-[linear-gradient(145deg,#5b21b6,#7c3aed)] text-white shadow-[0_24px_50px_-30px_rgba(109,40,217,0.95)]"
+                          : "border-violet-100 bg-white hover:border-violet-300 hover:bg-violet-50 dark:border-violet-400/16 dark:bg-slate-950/42",
+                      )}
+                    >
+                      <span className="sr-only">
+                        <RadioGroupItem
+                          id={`publisher-app-edit-platform-${option.value}`}
+                          value={option.value}
+                        />
+                      </span>
+                      <div className="flex items-start justify-between gap-3">
+                        <span
+                          className={cn(
+                            "flex size-14 items-center justify-center rounded-2xl border",
+                            selected
+                              ? "border-white/25 bg-white/15"
+                              : "border-violet-200 bg-violet-100 text-violet-700",
+                          )}
+                        >
+                          <Smartphone className="size-7" />
+                        </span>
+                        <span
+                          className={cn(
+                            "flex size-9 items-center justify-center rounded-xl border-2",
+                            selected
+                              ? "border-white bg-white text-violet-700"
+                              : "border-violet-200 text-transparent",
+                          )}
+                        >
+                          <Check className="size-5" strokeWidth={3} />
+                        </span>
+                      </div>
+                      <span className="mt-5 text-xl font-semibold">
+                        {option.title}
+                      </span>
+                      <span
+                        className={cn(
+                          "mt-2 text-sm font-normal leading-6",
+                          selected ? "text-white/78" : "text-muted-foreground",
+                        )}
+                      >
+                        {option.description}
+                      </span>
+                      <span
+                        className={cn(
+                          "mt-auto pt-5 text-sm font-bold",
+                          selected ? "text-white" : "text-violet-800",
+                        )}
+                      >
+                        {option.price}
+                      </span>
+                    </Label>
+                  );
+                })}
+              </RadioGroup>
+            ) : null}
+
+            {activeDialog === "features" ? (
+              <div
+                className="grid gap-3"
+                data-testid="publisher-app-edit-feature-list"
+              >
+                <FeatureCard
+                  id="publisher-app-edit-catalog"
+                  checked
+                  locked
+                  icon={<Package className="size-5" />}
+                  title="Catálogo de productos y servicios"
+                  description="Tus productos y servicios, siempre organizados, disponibles y listos para descubrir."
+                />
+                <FeatureCard
+                  id="publisher-app-edit-feed"
+                  checked
+                  locked
+                  icon={<Newspaper className="size-5" />}
+                  title="Feed de novedades"
+                  description="Notas, eventos y publicaciones para mantener informada y activa tu comunidad."
+                />
+                <FeatureCard
+                  id="publisher-app-edit-connect"
+                  checked={state.connectEnabled}
+                  onCheckedChange={(connectEnabled) =>
+                    onUpdateState({ connectEnabled })
+                  }
+                  icon={<UsersRound className="size-5" />}
+                  title="Sección Comunidad"
+                  description="Permite conversar, publicar preguntas y encontrar otros miembros de la comunidad."
+                />
+                <FeatureCard
+                  id="publisher-app-edit-learn"
+                  checked={state.learnCustomizationEnabled}
+                  onCheckedChange={(learnCustomizationEnabled) =>
+                    onUpdateState({ learnCustomizationEnabled })
+                  }
+                  icon={<GraduationCap className="size-5" />}
+                  title="Contenidos educativos propios"
+                  description="Customiza tus clases y contenidos según las necesidades de tus usuarios."
+                />
+                <FeatureCard
+                  id="publisher-app-edit-profile"
+                  checked={state.profileEnabled}
+                  onCheckedChange={(profileEnabled) =>
+                    onUpdateState({ profileEnabled })
+                  }
+                  icon={<CalendarDays className="size-5" />}
+                  title="Gestión de turnos"
+                  description="Tus usuarios pueden solicitar y reservar turnos directamente desde la aplicación."
+                />
+              </div>
+            ) : null}
+
+            {activeDialog === "colors" ? (
+              <div className="space-y-6">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-violet-700 dark:text-violet-200">
+                    Paletas creadas desde tu identidad
+                  </p>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    {suggestedPalettes.map((palette) => {
+                      const selected = samePalette(
+                        state.colors,
+                        palette.colors,
+                      );
+                      return (
+                        <button
+                          key={palette.name}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() =>
+                            onUpdateState({ colors: palette.colors })
+                          }
+                          className={cn(
+                            "flex min-h-24 items-center gap-4 rounded-2xl border p-4 text-left transition hover:-translate-y-0.5",
+                            selected
+                              ? "border-violet-400 bg-violet-50 shadow-[0_16px_36px_-28px_rgba(109,40,217,0.8)] dark:bg-violet-500/12"
+                              : "border-violet-100 bg-white hover:border-violet-300 dark:border-violet-400/16 dark:bg-slate-950/36",
+                          )}
+                        >
+                          <span className="flex shrink-0 -space-x-2">
+                            {Object.values(palette.colors).map((color) => (
+                              <span
+                                key={color}
+                                className="size-10 rounded-full border-2 border-white shadow-sm dark:border-slate-950"
+                                style={{ backgroundColor: color }}
+                              />
+                            ))}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block font-semibold text-foreground">
+                              {palette.name}
+                            </span>
+                            <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                              {palette.description}
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {COLOR_FIELDS.map((field) => {
+                    const normalized =
+                      normalizePublisherAppColor(state.colors[field.key]) ??
+                      DEFAULT_PUBLISHER_APP_COLOR;
+                    return (
+                      <label
+                        key={field.key}
+                        className="group relative flex min-h-52 cursor-pointer flex-col items-center rounded-[22px] border border-violet-100 bg-white p-4 text-center transition hover:-translate-y-0.5 hover:border-violet-400 dark:border-violet-400/16 dark:bg-slate-950/36"
+                      >
+                        <input
+                          type="color"
+                          aria-label={`Elegir ${field.label.toLowerCase()}`}
+                          value={normalized}
+                          onChange={(event) =>
+                            onUpdateColor(
+                              field.key,
+                              event.target.value.toUpperCase(),
+                            )
+                          }
+                          className="absolute inset-0 z-20 size-full cursor-pointer opacity-0"
+                        />
+                        <span
+                          className="mt-2 size-24 rounded-[28px] border-4 border-white shadow-[0_20px_36px_-20px_rgba(15,23,42,0.8)] ring-1 ring-black/8"
+                          style={{ backgroundColor: normalized }}
+                        />
+                        <span className="mt-4 font-semibold text-foreground">
+                          {field.label}
+                        </span>
+                        <span className="mt-1 text-xs leading-5 text-muted-foreground">
+                          {field.description}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            {activeDialog === "icon" ? (
+              <div className="space-y-5">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => onChooseIconSource("publisher")}
+                    className={cn(
+                      "flex min-h-48 flex-col items-center rounded-[22px] border p-5 text-center transition hover:-translate-y-0.5",
+                      state.iconSource === "publisher"
+                        ? "border-violet-400 bg-violet-50 shadow-[0_20px_42px_-32px_rgba(109,40,217,0.85)] dark:bg-violet-500/12"
+                        : "border-violet-100 bg-white hover:border-violet-300 dark:border-violet-400/16 dark:bg-slate-950/36",
+                    )}
+                  >
+                    <AppIcon
+                      source={publisherImageUrl}
+                      publisherName={publisherName}
+                      colors={colors}
+                      whiteBackground
+                      className="size-20"
+                    />
+                    <span className="mt-4 font-semibold text-foreground">
+                      Usar mi identidad actual
+                    </span>
+                    <span className="mt-1 text-xs leading-5 text-muted-foreground">
+                      Mantiene el logo vigente del publicador.
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onChooseIconSource("custom")}
+                    className={cn(
+                      "flex min-h-48 flex-col items-center rounded-[22px] border p-5 text-center transition hover:-translate-y-0.5",
+                      state.iconSource === "custom"
+                        ? "border-violet-400 bg-violet-50 shadow-[0_20px_42px_-32px_rgba(109,40,217,0.85)] dark:bg-violet-500/12"
+                        : "border-violet-100 bg-white hover:border-violet-300 dark:border-violet-400/16 dark:bg-slate-950/36",
+                    )}
+                  >
+                    <span className="flex size-20 items-center justify-center rounded-[24px] border-2 border-dashed border-violet-300 bg-white text-violet-700 dark:bg-slate-950/40 dark:text-violet-100">
+                      <UploadCloud className="size-8" />
+                    </span>
+                    <span className="mt-4 font-semibold text-foreground">
+                      Usar un icono distinto
+                    </span>
+                    <span className="mt-1 text-xs leading-5 text-muted-foreground">
+                      Subí una imagen cuadrada o usá una URL segura.
+                    </span>
+                  </button>
+                </div>
+
+                {state.iconSource === "custom" ? (
+                  <div className="grid gap-4 rounded-[22px] border border-violet-200 bg-violet-50/55 p-5 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center dark:border-violet-400/18 dark:bg-violet-500/10">
+                    <AppIcon
+                      source={
+                        state.iconImageUploadDataUrl ?? state.iconImageUrl
+                      }
+                      publisherName={publisherName}
+                      colors={colors}
+                      className="size-24"
+                    />
+                    <div className="min-w-0 space-y-3">
+                      <label className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700">
+                        {iconUploadPending ? (
+                          <LoaderCircle className="size-4 animate-spin" />
+                        ) : (
+                          <UploadCloud className="size-4" />
+                        )}
+                        {iconUploadPending
+                          ? "Preparando icono…"
+                          : "Subir PNG, JPG o WebP"}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          onChange={(event) => onIconUpload(event)}
+                          disabled={iconUploadPending}
+                          className="sr-only"
+                        />
+                      </label>
+                      <div>
+                        <Label
+                          htmlFor="publisher-app-edit-icon-url"
+                          className="text-xs font-semibold text-foreground"
+                        >
+                          O usá una URL HTTPS
+                        </Label>
+                        <Input
+                          id="publisher-app-edit-icon-url"
+                          type="url"
+                          value={state.iconImageUrl ?? ""}
+                          onChange={(event) =>
+                            onUpdateState({
+                              iconSource: "custom",
+                              iconImageUrl: event.target.value,
+                              iconImageUploadDataUrl: null,
+                            })
+                          }
+                          placeholder="https://ejemplo.com/icono.png"
+                          className="mt-1 h-11 rounded-xl border-violet-200/80"
+                        />
+                      </div>
+                      {customIconMissing || customIconUrlInvalid ? (
+                        <p className="text-xs font-medium text-destructive">
+                          {customIconUrlInvalid
+                            ? "Ingresá una URL HTTPS válida."
+                            : "Subí un icono o ingresá una URL para continuar."}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+
+          <DialogFooter className="border-t border-violet-100 bg-violet-50/55 px-6 py-4 dark:border-violet-400/14 dark:bg-violet-950/18">
+            <Button
+              type="button"
+              onClick={() => setActiveDialog(null)}
+              className="h-11 min-w-28 rounded-xl bg-violet-600 text-white hover:bg-violet-700"
+            >
+              Listo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -966,19 +1890,16 @@ export function PublisherAppConfigWorkbench({
   const changed =
     JSON.stringify(payload) !==
     JSON.stringify(normalizedPayload(persistedState));
-  const suggestedPalettes = useMemo(
-    () => {
-      const generated = publisherAppPaletteSuggestions(publisherTint);
-      return PALETTE_SUGGESTION_COPY.map((copy, index) => ({
-        ...copy,
-        colors:
-          generated[index] ??
-          generated[0] ??
-          publisherAppDefaultColors(publisherTint),
-      }));
-    },
-    [publisherTint],
-  );
+  const suggestedPalettes = useMemo(() => {
+    const generated = publisherAppPaletteSuggestions(publisherTint);
+    return PALETTE_SUGGESTION_COPY.map((copy, index) => ({
+      ...copy,
+      colors:
+        generated[index] ??
+        generated[0] ??
+        publisherAppDefaultColors(publisherTint),
+    }));
+  }, [publisherTint]);
   const customIconMissing =
     state.iconSource === "custom" &&
     !state.iconImageUrl?.trim() &&
@@ -1195,6 +2116,45 @@ export function PublisherAppConfigWorkbench({
       </section>
     );
 
+  if (mode === "edit") {
+    return (
+      <section className="pb-24" data-testid="publisher-app-config-workbench">
+        <ActionToast
+          toast={toast}
+          onDismiss={() => setToast(null)}
+          language="es"
+        />
+        <PublisherAppEditSheet
+          publisherName={publisherName}
+          publisherEmail={publisherEmail}
+          publisherUsername={publisherUsername}
+          publisherImageUrl={publisherImageUrl}
+          state={state}
+          colors={previewColors}
+          iconSource={resolvedIconSource}
+          suggestedPalettes={suggestedPalettes}
+          statusLabel={statusLabel}
+          changed={changed}
+          pending={pending}
+          iconUploadPending={iconUploadPending}
+          customIconMissing={customIconMissing}
+          customIconUrlInvalid={customIconUrlInvalid}
+          canDelete={canDelete}
+          deletePending={deletePending}
+          hasPersistedConfig={Boolean(persistedConfig)}
+          onUpdateState={updateState}
+          onUpdateColor={updateColor}
+          onChooseIconSource={chooseIconSource}
+          onIconUpload={(event) => void handleIconUpload(event)}
+          onReset={() => setState(normalizedPayload(persistedState))}
+          onSave={() => void save()}
+          onDownload={downloadConfig}
+          onDelete={() => void deleteApp()}
+        />
+      </section>
+    );
+  }
+
   return (
     <section className="pb-24" data-testid="publisher-app-config-workbench">
       <ActionToast
@@ -1206,13 +2166,8 @@ export function PublisherAppConfigWorkbench({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="font-heading text-2xl font-semibold text-foreground">
-              {mode === "create" ? "Configurá tu app" : "Editá tu app"}
+              Configurá tu app
             </h2>
-            {mode === "edit" ? (
-              <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">
-                {statusLabel}
-              </span>
-            ) : null}
             <HeaderUnclutterButton />
           </div>
           <p className="mt-1 truncate text-sm text-muted-foreground">
@@ -1400,7 +2355,10 @@ export function PublisherAppConfigWorkbench({
             ) : null}
 
             {activeStep.id === "features" ? (
-              <div className="grid gap-3" data-testid="publisher-app-feature-list">
+              <div
+                className="grid gap-3"
+                data-testid="publisher-app-feature-list"
+              >
                 <FeatureCard
                   id="publisher-app-catalog"
                   checked
@@ -1488,12 +2446,16 @@ export function PublisherAppConfigWorkbench({
                           >
                             <span
                               className="absolute -right-4 -top-4 size-14 rounded-full"
-                              style={{ backgroundColor: preset.colors.secondary }}
+                              style={{
+                                backgroundColor: preset.colors.secondary,
+                              }}
                             />
                             <span className="absolute bottom-2 left-2 h-8 w-12 rounded-[10px] bg-white/92 shadow-sm" />
                             <span
                               className="absolute bottom-2 right-2 size-5 rounded-full border-2 border-white/70"
-                              style={{ backgroundColor: preset.colors.tertiary }}
+                              style={{
+                                backgroundColor: preset.colors.tertiary,
+                              }}
                             />
                           </span>
                           <span className="min-w-0 flex-1 pr-4">
@@ -1733,21 +2695,6 @@ export function PublisherAppConfigWorkbench({
               Anterior
             </Button>
             <div className="flex flex-col gap-2 sm:flex-row">
-              {mode === "edit" ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => {
-                    setState(normalizedPayload(persistedState));
-                    setStepIndex(0);
-                  }}
-                  disabled={!changed || pending}
-                  className="h-11 rounded-xl"
-                >
-                  <RotateCcw className="size-4" />
-                  Descartar cambios
-                </Button>
-              ) : null}
               {stepIndex < wizardSteps.length - 1 ? (
                 <Button
                   type="button"
@@ -1765,9 +2712,7 @@ export function PublisherAppConfigWorkbench({
                   }
                   className="h-11 rounded-xl bg-violet-600 px-5 text-white shadow-[0_14px_28px_-18px_rgba(109,40,217,0.9)] hover:bg-violet-700"
                 >
-                  {activeStep.id === "icon" && mode === "create"
-                    ? "Revisar solicitud"
-                    : "Siguiente"}
+                  {activeStep.id === "icon" ? "Revisar solicitud" : "Siguiente"}
                   <ArrowRight className="size-4" />
                 </Button>
               ) : (
@@ -1779,26 +2724,16 @@ export function PublisherAppConfigWorkbench({
                     iconUploadPending ||
                     customIconMissing ||
                     customIconUrlInvalid ||
-                    (mode === "create" && !termsAccepted) ||
-                    (mode === "edit" && !changed)
+                    !termsAccepted
                   }
-                  className={cn(
-                    "rounded-xl bg-violet-600 px-6 text-white shadow-[0_14px_28px_-18px_rgba(109,40,217,0.9)] hover:bg-violet-700",
-                    mode === "create" ? "h-14 text-base" : "h-11",
-                  )}
+                  className="h-14 rounded-xl bg-violet-600 px-6 text-base text-white shadow-[0_14px_28px_-18px_rgba(109,40,217,0.9)] hover:bg-violet-700"
                 >
                   {pending ? (
                     <LoaderCircle className="size-4 animate-spin" />
-                  ) : mode === "create" ? (
-                    <CheckCircle2 className="size-5" />
                   ) : (
-                    <Save className="size-4" />
+                    <CheckCircle2 className="size-5" />
                   )}
-                  {pending
-                    ? "Guardando…"
-                    : mode === "create"
-                      ? "Aceptar condiciones y continuar"
-                      : "Guardar cambios"}
+                  {pending ? "Guardando…" : "Aceptar condiciones y continuar"}
                 </Button>
               )}
             </div>
@@ -1813,140 +2748,9 @@ export function PublisherAppConfigWorkbench({
               colors={previewColors}
               iconSource={resolvedIconSource}
             />
-            {mode === "edit" ? (
-              <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-                <div className="flex items-center gap-2 font-semibold">
-                  <LockKeyhole className="size-4" /> Estado administrado por
-                  Pocket Genes
-                </div>
-                <p className="mt-1 text-xs leading-5 text-amber-900/75">
-                  Tu app está en <strong>{statusLabel}</strong>. El publicador no
-                  puede cambiar este estado.
-                </p>
-              </div>
-            ) : null}
           </div>
         ) : null}
       </div>
-
-      {mode === "edit" ? (
-        <div className="mt-8 grid gap-5">
-          <section className="rounded-[24px] border border-violet-200/80 bg-[linear-gradient(135deg,rgba(245,243,255,.92),rgba(255,255,255,.96))] p-5 shadow-sm sm:p-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex min-w-0 items-start gap-3">
-                <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
-                  <Download className="size-5" />
-                </span>
-                <div>
-                  <h3 className="font-heading text-lg font-semibold text-foreground">
-                    Descargar configuración
-                  </h3>
-                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                    Exportá toda la información persistida de esta app en un
-                    archivo JSON, incluyendo identidad, funciones, colores,
-                    icono, estado y datos de auditoría.
-                  </p>
-                </div>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={downloadConfig}
-                disabled={!persistedConfig}
-                className="h-11 shrink-0 rounded-xl border-violet-300 bg-white text-violet-800 hover:bg-violet-50"
-              >
-                <Download className="size-4" />
-                Descargar configuración
-              </Button>
-            </div>
-          </section>
-
-          <section className="rounded-[24px] border border-destructive/30 bg-destructive/[0.04] p-5 shadow-sm sm:p-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="flex min-w-0 items-start gap-3">
-                <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-destructive/10 text-destructive">
-                  <Trash2 className="size-5" />
-                </span>
-                <div>
-                  <h3 className="font-heading text-lg font-semibold text-destructive">
-                    Zona de peligro
-                  </h3>
-                  <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
-                    Eliminar la app borra permanentemente su configuración. Esta
-                    acción sólo está disponible mientras el estado sea
-                    <strong className="text-foreground">
-                      {" "}
-                      Pending revision
-                    </strong>
-                    .
-                  </p>
-                  {!canDelete ? (
-                    <p className="mt-2 text-sm font-semibold text-destructive">
-                      La app ya no está pendiente de revisión y no puede ser
-                      eliminada por el publicador.
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    disabled={!canDelete || pending || deletePending}
-                    className="h-11 shrink-0 rounded-xl"
-                  >
-                    {deletePending ? (
-                      <LoaderCircle className="size-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="size-4" />
-                    )}
-                    {deletePending ? "Eliminando…" : "Eliminar mi app"}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogMedia className="bg-destructive/10 text-destructive">
-                      <Trash2 className="size-5" />
-                    </AlertDialogMedia>
-                    <AlertDialogTitle>
-                      ¿Eliminar definitivamente tu app?
-                    </AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Se borrará la configuración completa de {publisherName}.
-                      Esta acción no se puede deshacer. Podrás iniciar una nueva
-                      solicitud desde el banner de Mi app.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel disabled={deletePending}>
-                      Cancelar
-                    </AlertDialogCancel>
-                    <AlertDialogAction
-                      variant="destructive"
-                      disabled={deletePending}
-                      onClick={(event) => {
-                        event.preventDefault();
-                        void deleteApp();
-                      }}
-                    >
-                      {deletePending ? (
-                        <LoaderCircle className="size-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="size-4" />
-                      )}
-                      {deletePending
-                        ? "Eliminando…"
-                        : "Eliminar definitivamente"}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          </section>
-        </div>
-      ) : null}
     </section>
   );
 }

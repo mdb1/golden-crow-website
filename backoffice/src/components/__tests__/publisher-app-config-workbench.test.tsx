@@ -115,7 +115,9 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(catalogCheckbox.parentElement).toHaveClass("sr-only");
     expect(screen.getAllByText("Incluida")).toHaveLength(2);
     expect(
-      screen.getByTestId("publisher-app-feature-list").querySelectorAll("label"),
+      screen
+        .getByTestId("publisher-app-feature-list")
+        .querySelectorAll("label"),
     ).toHaveLength(5);
     const featureCheckboxes = screen.getAllByRole("checkbox");
     expect(
@@ -160,9 +162,7 @@ describe("PublisherAppConfigWorkbench", () => {
       target: { value: "#112233" },
     });
     advanceToIcon();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Revisar solicitud" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Revisar solicitud" }));
 
     expect(screen.getByTestId("publisher-app-review")).toBeTruthy();
     expect(
@@ -215,9 +215,7 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(screen.queryByText("Revisión estimada")).toBeNull();
     expect(screen.queryByText("Pending revision")).toBeNull();
     expect(screen.queryByText("24 a 48 horas")).toBeNull();
-    expect(
-      screen.queryByTestId("publisher-app-terms-document"),
-    ).toBeNull();
+    expect(screen.queryByTestId("publisher-app-terms-document")).toBeNull();
     expect(
       screen.queryByTitle("Términos y condiciones de PocketGenesSDK"),
     ).toBeNull();
@@ -280,9 +278,7 @@ describe("PublisherAppConfigWorkbench", () => {
         name: "See full terms and conditions",
       }),
     ).toHaveAttribute("aria-expanded", "false");
-    expect(
-      screen.queryByTestId("publisher-app-terms-document"),
-    ).toBeNull();
+    expect(screen.queryByTestId("publisher-app-terms-document")).toBeNull();
 
     const acceptButton = screen.getByRole("button", {
       name: "Aceptar condiciones y continuar",
@@ -322,21 +318,20 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(payload).not.toHaveProperty("catalogEnabled");
     expect(payload).not.toHaveProperty("feedEnabled");
     expect(await screen.findByText(/próximas 24 a 48 horas/i)).toBeTruthy();
-    const successOverlay = screen.getByTestId(
-      "publisher-app-success-overlay",
-    );
+    const successOverlay = screen.getByTestId("publisher-app-success-overlay");
     expect(successOverlay).toHaveClass(
       "fixed",
       "inset-0",
       "z-[2200]",
       "publisher-app-success-overlay",
     );
-    expect(
-      screen.getByTestId("publisher-app-success-circle"),
-    ).toHaveClass("publisher-app-success-circle", "bg-[#16a34a]");
-    expect(
-      screen.getByTestId("publisher-app-success-content"),
-    ).toHaveClass("publisher-app-success-content");
+    expect(screen.getByTestId("publisher-app-success-circle")).toHaveClass(
+      "publisher-app-success-circle",
+      "bg-[#16a34a]",
+    );
+    expect(screen.getByTestId("publisher-app-success-content")).toHaveClass(
+      "publisher-app-success-content",
+    );
     expect(screen.getByTestId("publisher-app-success-mark")).toBeTruthy();
     expect(successOverlay.querySelector(".app-success-particle")).toBeNull();
     const successCss = readFileSync(
@@ -349,9 +344,7 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(successCss).toContain(
       "animation: publisher-app-success-content-in 720ms ease 640ms forwards",
     );
-    expect(successCss).toContain(
-      "transform: translate(-50%, -50%) scale(120)",
-    );
+    expect(successCss).toContain("transform: translate(-50%, -50%) scale(120)");
     expect(
       screen.getByRole("link", { name: /Ver y editar mi app/i }),
     ).toHaveAttribute("href", PUBLISHER_PORTAL_APP_EDIT_ROUTE);
@@ -360,13 +353,9 @@ describe("PublisherAppConfigWorkbench", () => {
   it("doubles subscription and store setup prices for iOS and Android", () => {
     renderWorkbench();
 
-    fireEvent.click(
-      screen.getByRole("radio", { name: /iOS \+ Android/i }),
-    );
+    fireEvent.click(screen.getByRole("radio", { name: /iOS \+ Android/i }));
     advanceToIcon();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Revisar solicitud" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Revisar solicitud" }));
 
     expect(screen.getByText("iOS + Android")).toBeTruthy();
     expect(
@@ -385,10 +374,25 @@ describe("PublisherAppConfigWorkbench", () => {
     jest.mocked(sdkFetch).mockResolvedValue({ config: updatedConfig });
     renderWorkbench({ mode: "edit", initialConfig: savedConfig });
 
+    expect(screen.getByTestId("publisher-app-edit-sheet")).toBeTruthy();
+    expect(screen.queryByLabelText("Progreso de configuración")).toBeNull();
+    expect(screen.queryByText(/Paso 1 de/i)).toBeNull();
+    expect(screen.getByTestId("publisher-app-edit-platforms")).toBeTruthy();
+    expect(screen.getByTestId("publisher-app-edit-features")).toBeTruthy();
+    expect(screen.getByTestId("publisher-app-edit-colors")).toBeTruthy();
+    expect(screen.getByTestId("publisher-app-edit-icon")).toBeTruthy();
+    expect(screen.getByLabelText("Vista previa de la app")).toBeTruthy();
+
+    const saveButton = screen.getByRole("button", { name: "Guardar cambios" });
+    expect(saveButton).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Editar plataformas" }));
     expect(
       screen.getByRole("radio", { name: /iOS \+ Android/i }),
     ).toHaveAttribute("data-state", "checked");
-    fireEvent.click(screen.getByRole("button", { name: /Paso 2 Funciones/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Listo" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Editar funciones" }));
     expect(
       screen.getByRole("checkbox", { name: "Sección Comunidad" }),
     ).toBeChecked();
@@ -398,20 +402,17 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(
       screen.getByRole("checkbox", { name: "Gestión de turnos" }),
     ).toBeChecked();
-    advanceToColors();
+    expect(screen.getByTestId("publisher-app-edit-feature-list")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Listo" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Editar paleta" }));
     expect(screen.getByLabelText("Elegir color principal")).toHaveValue(
       "#123abc",
     );
-    advanceToIcon();
-    expect(
-      screen.getByRole("button", { name: "Guardar cambios" }),
-    ).toBeDisabled();
-    advanceToColors();
     fireEvent.change(screen.getByLabelText("Elegir color terciario"), {
       target: { value: "#AABBCC" },
     });
-    advanceToIcon();
-    const saveButton = screen.getByRole("button", { name: "Guardar cambios" });
+    fireEvent.click(screen.getByRole("button", { name: "Listo" }));
     expect(saveButton).toBeEnabled();
     fireEvent.click(saveButton);
 
@@ -455,7 +456,9 @@ describe("PublisherAppConfigWorkbench", () => {
       "Elegir color principal",
     ) as HTMLInputElement;
     expect(primaryPicker.type).toBe("color");
-    expect(screen.queryByRole("textbox", { name: /color principal/i })).toBeNull();
+    expect(
+      screen.queryByRole("textbox", { name: /color principal/i }),
+    ).toBeNull();
     expect(screen.queryByText(/^#[0-9A-F]{6}$/)).toBeNull();
 
     fireEvent.change(primaryPicker, { target: { value: "#445566" } });
