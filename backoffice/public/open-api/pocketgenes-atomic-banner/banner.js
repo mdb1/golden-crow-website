@@ -89,7 +89,12 @@ function mountAtomicBanner(host,initial={}){
   while(size>min&&(el.scrollWidth>el.clientWidth+1||el.scrollHeight>el.clientHeight+1)){size-=.5;el.style.fontSize=px(size);}
   layout[Number(el.dataset.layoutIndex)].fontSize=size;return el.scrollWidth<=el.clientWidth+1&&el.scrollHeight<=el.clientHeight+1;
  }
- function brandMark(parent,x,y,size,z,color){if(!config.brandLogoUrl)return icon(config.brandIcon,x,y,size,z,parent,color);const img=document.createElement('img');img.src=config.brandLogoUrl;img.alt='';img.dataset.part='configured-brand-mark';Object.assign(img.style,{position:'absolute',left:px(x),top:px(y),width:px(size),height:px(size),objectFit:'contain',zIndex:String(z)});parent.append(img);return img;}
+ function brandMark(parent,x,y,size,z,color){
+  if(!config.brandLogoUrl)return icon(config.brandIcon,x,y,size,z,parent,color);
+  const img=document.createElement('img');img.src=config.brandLogoUrl;img.alt='';img.dataset.part='configured-brand-mark';
+  Object.assign(img.style,{position:'absolute',left:px(x),top:px(y),width:px(size),height:px(size),objectFit:'contain',borderRadius:px(Math.max(3,size*.22)),overflow:'hidden',display:'block',zIndex:String(z)});
+  parent.append(img);return img;
+ }
  function sparkle(x,y,s){svgPart('sparkle-soft-glow',x-s/2,y-s/2,s*2,s*2,44);svgPart('sparkle-rounded-cross',x,y,s,s,45);}
  function vectorDocument(title,width,height,body,defs=''){return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" fill="none"><title>${title}</title>${defs?`<defs>${defs}</defs>`:''}${body}</svg>`;}
  function satinSurfaceSvg(width,height,radius){
@@ -197,7 +202,7 @@ function mountAtomicBanner(host,initial={}){
   svgPart('tile-extrusion',0,0,120,120,1,node,neutral?'#e8ece7':config.backgroundMid);
   svgPart(neutral?'tile-face-neutral':'tile-face',0,0,120,120,2,node);
   inlineSvgPart('tile-specular',tileSpecularSvg(neutral),0,0,120,120,3,node,config.highlight,.96);
-  if(neutral)inlineSvgPart('tile-neutral-glyph',filledSparkSvg(),35,35,42,42,4,node,ink);else brandMark(node,27,27,56,4,'white');
+  if(neutral)inlineSvgPart('tile-neutral-glyph',filledSparkSvg(),35,35,42,42,4,node,ink);else if(config.brandLogoUrl)brandMark(node,22,22,76,4,'white');else brandMark(node,27,27,56,4,'white');
   layout.push({kind:'group',id:node.dataset.group,x,y,width:120,height:120,scale:size/120,rotation,z:45,transformOrigin:'50% 50%'});
  }
  function uiRow(node,y,glyph,label,x=26,width=184,height=48){
@@ -233,7 +238,7 @@ function mountAtomicBanner(host,initial={}){
   svgPart('device-home-indicator',80,424,76,3,15,node,'#11191a');
   if(type==='home'){
    svgPart('tile-face',26,55,24,24,12,node);
-   brandMark(node,31,61,12,13,'white');
+   if(config.brandLogoUrl)brandMark(node,29,59,16,13,'white');else brandMark(node,31,61,12,13,'white');
    const name=text(renderedName,52,61,130,17,9,800,'#0e1616',13,node);fitted(name,9,5.5,false);
    svgPart('surface-icon-disc',188,56,20,20,12,node,'#82918a',.3);icon('bell',193,61,10,13,node,ink);
    inlineSvgPart('shadow-ui-feature',featureShadowSvg(),20,84,194,93,8,node,'black',1);

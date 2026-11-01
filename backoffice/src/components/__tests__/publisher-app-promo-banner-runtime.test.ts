@@ -80,6 +80,7 @@ describe("PocketGenes atomic banner material contract", () => {
       highlight: "#FFFFFF",
       ink: "#052E10",
       shadow: "#04240D",
+      brandLogoUrl: "https://example.org/dna-institute.png",
     });
 
     expect(instance).toBeDefined();
@@ -110,13 +111,13 @@ describe("PocketGenes atomic banner material contract", () => {
     expect(byId("cta-face-highlight")).toHaveLength(1);
     expect(byId("cta-filled-spark")).toHaveLength(1);
 
-    expect(byId("surface-pill").map(({ width, height }) => [width, height])).toEqual(
-      [
-        [116, 36],
-        [129, 36],
-        [141, 36],
-      ],
-    );
+    expect(
+      byId("surface-pill").map(({ width, height }) => [width, height]),
+    ).toEqual([
+      [116, 36],
+      [129, 36],
+      [141, 36],
+    ]);
 
     expect(byId("surface-ui-row")).toEqual(
       expect.arrayContaining([
@@ -134,11 +135,34 @@ describe("PocketGenes atomic banner material contract", () => {
     expect(byId("floor-reflection-patch-center")).toHaveLength(1);
 
     const titlePrefix = host.querySelector<HTMLElement>(".atomic-title-prefix");
-    const companyTitle = host.querySelector<HTMLElement>(".atomic-company-title");
+    const companyTitle = host.querySelector<HTMLElement>(
+      ".atomic-company-title",
+    );
     expect(titlePrefix?.style.color).toBe("rgb(255, 255, 255)");
     expect(companyTitle?.style.color).toBe("rgb(255, 255, 255)");
     expect(titlePrefix?.style.fontWeight).toBe("600");
     expect(companyTitle?.style.fontWeight).toBe("600");
+
+    const floatingBrandMark = host.querySelector<HTMLImageElement>(
+      '[data-group="floating-tile-accent"] [data-part="configured-brand-mark"]',
+    );
+    expect(floatingBrandMark?.style.left).toBe("22px");
+    expect(floatingBrandMark?.style.top).toBe("22px");
+    expect(floatingBrandMark?.style.width).toBe("76px");
+    expect(floatingBrandMark?.style.height).toBe("76px");
+    expect(
+      Number.parseFloat(floatingBrandMark?.style.borderRadius ?? "0"),
+    ).toBeGreaterThan(0);
+    expect(floatingBrandMark?.style.objectFit).toBe("contain");
+
+    const phoneBrandMark = host.querySelector<HTMLImageElement>(
+      '[data-group="front"] [data-part="configured-brand-mark"]',
+    );
+    expect(phoneBrandMark?.style.width).toBe("16px");
+    expect(phoneBrandMark?.style.height).toBe("16px");
+    expect(
+      Number.parseFloat(phoneBrandMark?.style.borderRadius ?? "0"),
+    ).toBeGreaterThan(0);
 
     const devices = layout.filter((entry) =>
       ["rear-left", "rear-right", "front"].includes(entry.id ?? ""),
