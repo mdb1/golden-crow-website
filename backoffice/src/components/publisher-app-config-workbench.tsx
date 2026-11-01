@@ -852,19 +852,51 @@ function PublisherAppReviewDocument({
         </footer>
       </article>
 
-      <div className="mx-auto flex max-w-5xl items-start gap-3 rounded-xl border border-violet-200 bg-violet-50/70 px-4 py-3 text-sm text-violet-950">
-        <Checkbox
-          id="publisher-app-terms"
-          checked={termsAccepted}
-          onCheckedChange={(checked) => onTermsAcceptedChange(checked === true)}
-          className="mt-0.5"
-        />
+      <div
+        data-testid="publisher-app-terms-acceptance"
+        data-selected={termsAccepted ? "true" : "false"}
+        className={cn(
+          "mx-auto max-w-5xl rounded-[22px] border p-1 shadow-[0_18px_48px_-36px_rgba(109,40,217,0.7)] transition-all duration-200",
+          termsAccepted
+            ? "border-emerald-300 bg-emerald-50/80 shadow-[0_18px_48px_-32px_rgba(5,150,105,0.55)]"
+            : "border-violet-200 bg-[linear-gradient(135deg,rgba(245,243,255,0.94),rgba(255,255,255,0.96))] hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-[0_22px_52px_-34px_rgba(109,40,217,0.75)]",
+        )}
+      >
         <Label
           htmlFor="publisher-app-terms"
-          className="cursor-pointer font-normal leading-6"
+          className="flex cursor-pointer items-center gap-4 rounded-[18px] px-4 py-4 sm:gap-5 sm:px-6 sm:py-5"
         >
-          Leí y acepto los términos y condiciones de esta solicitud en
-          representación de <strong>{publisherName}</strong>.
+          <Checkbox
+            id="publisher-app-terms"
+            checked={termsAccepted}
+            onCheckedChange={(checked) =>
+              onTermsAcceptedChange(checked === true)
+            }
+            className="size-8 rounded-[10px] border-[2.5px] border-violet-300 bg-white shadow-[0_8px_20px_-12px_rgba(109,40,217,0.9)] hover:border-violet-500 data-checked:border-violet-600 data-checked:bg-violet-600 data-checked:text-white [&_svg]:size-5"
+          />
+          <span className="min-w-0 flex-1">
+            <span className="block text-base font-semibold leading-6 text-violet-950 sm:text-lg">
+              Leí y acepto los términos y condiciones.
+            </span>
+            <span className="mt-1 block text-sm font-normal leading-6 text-violet-900/72 sm:text-[15px]">
+              Confirmo esta solicitud en representación de
+              <strong className="font-semibold text-violet-950">
+                {" "}
+                {publisherName}
+              </strong>
+              .
+            </span>
+          </span>
+          <span
+            className={cn(
+              "hidden shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold sm:inline-flex",
+              termsAccepted
+                ? "border-emerald-200 bg-white text-emerald-700"
+                : "border-violet-200 bg-white/80 text-violet-700",
+            )}
+          >
+            {termsAccepted ? "Aceptado" : "Requerido"}
+          </span>
         </Label>
       </div>
     </div>

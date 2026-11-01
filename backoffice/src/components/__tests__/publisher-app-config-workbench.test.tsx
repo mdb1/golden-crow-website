@@ -286,11 +286,19 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(acceptButton).toBeDisabled();
     expect(sdkFetch).not.toHaveBeenCalled();
 
-    fireEvent.click(
-      screen.getByRole("checkbox", {
-        name: /Leí y acepto los términos y condiciones/i,
-      }),
+    const termsAcceptance = screen.getByTestId(
+      "publisher-app-terms-acceptance",
     );
+    const termsCheckbox = screen.getByRole("checkbox", {
+      name: /Leí y acepto los términos y condiciones/i,
+    });
+    expect(termsAcceptance).toHaveAttribute("data-selected", "false");
+    expect(termsCheckbox).toHaveClass("size-8");
+    expect(screen.getByText("Requerido")).toBeTruthy();
+
+    fireEvent.click(termsCheckbox);
+    expect(termsAcceptance).toHaveAttribute("data-selected", "true");
+    expect(screen.getByText("Aceptado")).toBeTruthy();
     expect(acceptButton).toBeEnabled();
     fireEvent.click(acceptButton);
 
