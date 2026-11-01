@@ -1054,6 +1054,7 @@ function PublisherAppEditSheet({
 }) {
   const [activeDialog, setActiveDialog] =
     useState<PublisherAppEditDialog>(null);
+  const [dangerOpen, setDangerOpen] = useState(false);
   const optionalFeatures = [
     {
       label: "Sección Comunidad",
@@ -1371,83 +1372,115 @@ function PublisherAppEditSheet({
           </aside>
         </div>
 
-        <div className="border-t border-destructive/20 bg-destructive/[0.025] px-5 py-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex min-w-0 items-start gap-3">
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-destructive/10 text-destructive">
-                <Trash2 className="size-5" />
+        <div className="border-t border-violet-100/80 dark:border-violet-400/14">
+          <button
+            type="button"
+            aria-expanded={dangerOpen}
+            aria-controls="publisher-app-danger-content"
+            data-testid="publisher-app-danger-toggle"
+            onClick={() => setDangerOpen((open) => !open)}
+            className="group flex w-full items-center gap-3 bg-slate-50/55 px-5 py-4 text-left transition hover:bg-slate-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-500 dark:bg-slate-950/22 dark:hover:bg-slate-900/45"
+          >
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-slate-200/70 text-slate-600 transition group-hover:bg-destructive/10 group-hover:text-destructive dark:bg-slate-800 dark:text-slate-300">
+              <Trash2 className="size-4" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-heading text-base font-semibold text-foreground">
+                Zona de peligro
               </span>
-              <div>
-                <h3 className="font-heading text-lg font-semibold text-destructive">
-                  Zona de peligro
-                </h3>
-                <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
-                  Si eliminás esta solicitud, se borrarán los datos que
-                  cargaste. Esta acción no se puede deshacer.
-                </p>
-                {!canDelete ? (
-                  <p className="mt-2 text-sm font-semibold text-destructive">
-                    Para cancelar esta solicitud, contactá al equipo de Pocket
-                    Genes.
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                Acciones sensibles sobre esta solicitud
+              </span>
+            </span>
+            <span className="hidden text-xs font-semibold text-muted-foreground sm:inline">
+              {dangerOpen ? "Ocultar" : "Mostrar"}
+            </span>
+            <ChevronDown
+              className={cn(
+                "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                dangerOpen && "rotate-180",
+              )}
+            />
+          </button>
+
+          {dangerOpen ? (
+            <div
+              id="publisher-app-danger-content"
+              data-testid="publisher-app-danger-content"
+              className="animate-in fade-in slide-in-from-top-2 border-t border-destructive/20 bg-destructive/[0.025] px-5 py-5 duration-200"
+            >
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+                    Si eliminás esta solicitud, se borrarán los datos que
+                    cargaste. Esta acción no se puede deshacer.
                   </p>
-                ) : null}
+                  {!canDelete ? (
+                    <p className="mt-2 text-sm font-semibold text-destructive">
+                      Para cancelar esta solicitud, contactá al equipo de Pocket
+                      Genes.
+                    </p>
+                  ) : null}
+                </div>
+
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      disabled={!canDelete || pending || deletePending}
+                      className="h-11 shrink-0 rounded-xl"
+                    >
+                      {deletePending ? (
+                        <LoaderCircle className="size-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="size-4" />
+                      )}
+                      {deletePending ? "Eliminando…" : "Eliminar mi app"}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogMedia className="bg-destructive/10 text-destructive">
+                        <Trash2 className="size-5" />
+                      </AlertDialogMedia>
+                      <AlertDialogTitle>
+                        ¿Eliminar definitivamente tu app?
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Se eliminarán la solicitud de {publisherName} y todos
+                        los datos que cargaste. Esta acción no se puede
+                        deshacer. Si más adelante cambiás de opinión, podrás
+                        crear una nueva solicitud desde Mi app.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel disabled={deletePending}>
+                        Cancelar
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        variant="destructive"
+                        disabled={deletePending}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          onDelete();
+                        }}
+                      >
+                        {deletePending ? (
+                          <LoaderCircle className="size-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="size-4" />
+                        )}
+                        {deletePending
+                          ? "Eliminando…"
+                          : "Eliminar definitivamente"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
-
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  disabled={!canDelete || pending || deletePending}
-                  className="h-11 shrink-0 rounded-xl"
-                >
-                  {deletePending ? (
-                    <LoaderCircle className="size-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="size-4" />
-                  )}
-                  {deletePending ? "Eliminando…" : "Eliminar mi app"}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogMedia className="bg-destructive/10 text-destructive">
-                    <Trash2 className="size-5" />
-                  </AlertDialogMedia>
-                  <AlertDialogTitle>
-                    ¿Eliminar definitivamente tu app?
-                  </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Se eliminarán la solicitud de {publisherName} y todos los
-                    datos que cargaste. Esta acción no se puede deshacer. Si más
-                    adelante cambiás de opinión, podrás crear una nueva
-                    solicitud desde Mi app.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel disabled={deletePending}>
-                    Cancelar
-                  </AlertDialogCancel>
-                  <AlertDialogAction
-                    variant="destructive"
-                    disabled={deletePending}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      onDelete();
-                    }}
-                  >
-                    {deletePending ? (
-                      <LoaderCircle className="size-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="size-4" />
-                    )}
-                    {deletePending ? "Eliminando…" : "Eliminar definitivamente"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
+          ) : null}
         </div>
 
         <footer className="sticky bottom-0 z-20 border-t border-violet-100/80 bg-white/92 px-5 py-4 shadow-[0_-20px_60px_rgba(109,40,217,0.10)] backdrop-blur dark:border-violet-400/14 dark:bg-slate-950/88">

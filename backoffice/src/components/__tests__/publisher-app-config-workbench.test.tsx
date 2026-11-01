@@ -464,8 +464,12 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(screen.getAllByText("En revisión").length).toBeGreaterThan(0);
     expect(screen.queryByText("Pending revision")).toBeNull();
     expect(
-      screen.getByText(/Si eliminás esta solicitud, se borrarán los datos/i),
-    ).toBeTruthy();
+      screen.queryByText(/Si eliminás esta solicitud, se borrarán los datos/i),
+    ).toBeNull();
+    expect(screen.getByTestId("publisher-app-danger-toggle")).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
   });
 
   it("uses branded palette suggestions and full visual pickers without editable hex fields", () => {
@@ -544,6 +548,16 @@ describe("PublisherAppConfigWorkbench", () => {
 
     renderWorkbench({ mode: "edit", initialConfig: savedConfig });
 
+    const dangerToggle = screen.getByTestId("publisher-app-danger-toggle");
+    expect(dangerToggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByTestId("publisher-app-danger-content")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Eliminar mi app" }),
+    ).toBeNull();
+    expect(
+      screen.queryByText(/Si eliminás esta solicitud, se borrarán los datos/i),
+    ).toBeNull();
+
     fireEvent.click(
       screen.getByRole("button", { name: "Descargar configuración" }),
     );
@@ -554,6 +568,9 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(clickSpy).toHaveBeenCalledTimes(1);
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:publisher-app-config");
 
+    fireEvent.click(dangerToggle);
+    expect(dangerToggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("publisher-app-danger-content")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Eliminar mi app" }));
     fireEvent.click(
       screen.getByRole("button", { name: "Eliminar definitivamente" }),
@@ -578,6 +595,14 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(
       screen.getByRole("button", { name: "Descargar configuración" }),
     ).toBeEnabled();
+
+    const dangerToggle = screen.getByTestId("publisher-app-danger-toggle");
+    expect(dangerToggle).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByRole("button", { name: "Eliminar mi app" }),
+    ).toBeNull();
+    fireEvent.click(dangerToggle);
+
     expect(
       screen.getByRole("button", { name: "Eliminar mi app" }),
     ).toBeDisabled();
