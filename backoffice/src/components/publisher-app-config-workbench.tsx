@@ -15,6 +15,7 @@ import {
   CalendarDays,
   Check,
   CheckCircle2,
+  ChevronDown,
   Download,
   ExternalLink,
   FileCheck2,
@@ -87,6 +88,15 @@ type ColorKey = keyof PublisherAppColors;
 
 const PUBLISHER_APP_TERMS_PDF_PATH =
   "/PocketGenesSDK_Terminos_y_Condiciones.pdf";
+
+const PUBLISHER_APP_MANAGED_SERVICE_BENEFITS = [
+  "Continued licensing of PocketGenesSDK.",
+  "Ongoing SDK maintenance and improvements.",
+  "Integration of SDK updates into your app.",
+  "New app builds and store submissions included.",
+  "Security and compatibility updates.",
+  "Technical support for SDK functionality.",
+];
 
 const WIZARD_STEPS: Array<{
   id: WizardStep;
@@ -554,6 +564,7 @@ function PublisherAppReviewDocument({
   termsAccepted: boolean;
   onTermsAcceptedChange: (accepted: boolean) => void;
 }) {
+  const [showFullTerms, setShowFullTerms] = useState(false);
   const selectedFeatures = [
     {
       label: "Catálogo de productos y servicios",
@@ -703,59 +714,122 @@ function PublisherAppReviewDocument({
             </dl>
           </ReviewSection>
 
-          <ReviewSection title="Resumen comercial">
-            <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
-              <ReviewField label="PocketGenesSDK">
-                USD 59 por mes · precio bonificado
-              </ReviewField>
-              <ReviewField label="Alta inicial en stores">
-                USD 139,99 · pago único
-              </ReviewField>
-            </dl>
-          </ReviewSection>
-
-          <ReviewSection title="Términos y condiciones">
+          <ReviewSection title="PocketGenesSDK managed service">
             <div
-              data-testid="publisher-app-terms-document"
-              className="overflow-hidden rounded-2xl border border-black/15 bg-[#e8ebef] shadow-[0_18px_45px_-32px_rgba(15,23,42,0.5)]"
+              data-testid="publisher-app-subscription-offer"
+              className="relative isolate overflow-hidden rounded-[28px] border border-white/10 bg-[#0b0c0d] px-5 py-6 text-white shadow-[0_28px_64px_-34px_rgba(0,0,0,0.88)] sm:px-8 sm:py-8"
             >
-              <div className="flex flex-col gap-3 border-b border-black/10 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
-                    <FileCheck2 className="size-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-black">
-                      PocketGenesSDK_Terminos_y_Condiciones.pdf
-                    </p>
-                    <p className="mt-0.5 text-xs text-black/55">
-                      Documento contractual · PDF · 25 páginas
-                    </p>
-                  </div>
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute -right-24 -top-28 size-72 rounded-full bg-emerald-500/10 blur-3xl"
+              />
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute -bottom-28 left-1/3 size-64 rounded-full bg-violet-500/10 blur-3xl"
+              />
+              <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-lg font-medium text-white/72 sm:text-xl">
+                    Monthly subscription per platform
+                  </p>
+                  <p className="mt-3 font-heading text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+                    $99.99 USD
+                  </p>
+                  <p className="mt-3 text-lg font-medium text-white/72 sm:text-xl">
+                    $59.99/month for the first six months
+                  </p>
                 </div>
-                <a
-                  href={PUBLISHER_APP_TERMS_PDF_PATH}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg border border-black/15 bg-white px-3 text-xs font-semibold text-black transition hover:border-violet-300 hover:text-violet-700"
-                >
-                  Abrir PDF <ExternalLink className="size-3.5" />
-                </a>
+                <span className="inline-flex w-fit shrink-0 items-center rounded-full border border-emerald-400/15 bg-emerald-500/15 px-4 py-2 text-sm font-semibold text-emerald-400 sm:text-base">
+                  Managed service
+                </span>
               </div>
-              <div className="h-[360px] overflow-hidden bg-[#d7dbe1] sm:h-[440px]">
-                <iframe
-                  title="Términos y condiciones de PocketGenesSDK"
-                  src={`${PUBLISHER_APP_TERMS_PDF_PATH}#page=1&view=FitH&toolbar=0&navpanes=0`}
-                  loading="lazy"
-                  scrolling="yes"
-                  className="h-full w-full bg-white"
-                />
+
+              <div className="relative mt-7 border-t border-white/10 pt-7">
+                <h5 className="text-lg font-semibold text-white sm:text-xl">
+                  Included while the subscription is active
+                </h5>
+                <ul className="mt-5 grid gap-4">
+                  {PUBLISHER_APP_MANAGED_SERVICE_BENEFITS.map((benefit) => (
+                    <li
+                      key={benefit}
+                      className="flex items-start gap-3 text-base leading-6 text-white/88 sm:text-lg"
+                    >
+                      <CheckCircle2
+                        aria-hidden="true"
+                        className="mt-0.5 size-5 shrink-0 text-emerald-400 sm:size-6"
+                      />
+                      <span>{benefit}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <p className="border-t border-black/10 bg-white px-4 py-2.5 text-xs leading-5 text-black/55">
-                Desplazate dentro del documento para revisar todas las páginas
-                sin abandonar este paso.
-              </p>
             </div>
+
+            <div className="mt-5 flex justify-center">
+              <Button
+                type="button"
+                variant="outline"
+                aria-expanded={showFullTerms}
+                aria-controls="publisher-app-full-terms"
+                onClick={() => setShowFullTerms((current) => !current)}
+                className="h-11 rounded-xl border-violet-200 bg-white px-5 font-semibold text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50 hover:text-violet-900"
+              >
+                {showFullTerms
+                  ? "Hide full terms and conditions"
+                  : "See full terms and conditions"}
+                <ChevronDown
+                  className={cn(
+                    "size-4 transition-transform duration-200",
+                    showFullTerms && "rotate-180",
+                  )}
+                />
+              </Button>
+            </div>
+
+            {showFullTerms ? (
+              <div
+                id="publisher-app-full-terms"
+                data-testid="publisher-app-terms-document"
+                className="mt-5 overflow-hidden rounded-2xl border border-black/15 bg-[#e8ebef] shadow-[0_18px_45px_-32px_rgba(15,23,42,0.5)]"
+              >
+                <div className="flex flex-col gap-3 border-b border-black/10 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
+                      <FileCheck2 className="size-5" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-black">
+                        PocketGenesSDK_Terminos_y_Condiciones.pdf
+                      </p>
+                      <p className="mt-0.5 text-xs text-black/55">
+                        Documento contractual · PDF · 25 páginas
+                      </p>
+                    </div>
+                  </div>
+                  <a
+                    href={PUBLISHER_APP_TERMS_PDF_PATH}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg border border-black/15 bg-white px-3 text-xs font-semibold text-black transition hover:border-violet-300 hover:text-violet-700"
+                  >
+                    Abrir PDF <ExternalLink className="size-3.5" />
+                  </a>
+                </div>
+                <div className="h-[360px] overflow-hidden bg-[#d7dbe1] sm:h-[440px]">
+                  <iframe
+                    title="Términos y condiciones de PocketGenesSDK"
+                    src={`${PUBLISHER_APP_TERMS_PDF_PATH}#page=1&view=FitH&toolbar=0&navpanes=0`}
+                    loading="lazy"
+                    scrolling="yes"
+                    className="h-full w-full bg-white"
+                  />
+                </div>
+                <p className="border-t border-black/10 bg-white px-4 py-2.5 text-xs leading-5 text-black/55">
+                  Desplazate dentro del documento para revisar todas las páginas
+                  sin abandonar este paso.
+                </p>
+              </div>
+            ) : null}
           </ReviewSection>
         </div>
 

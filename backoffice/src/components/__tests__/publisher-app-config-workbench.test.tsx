@@ -172,11 +172,62 @@ describe("PublisherAppConfigWorkbench", () => {
     ).toBeTruthy();
     expect(screen.getByText("Solo iOS")).toBeTruthy();
     expect(screen.getByText("#112233")).toBeTruthy();
+    const subscriptionOffer = screen.getByTestId(
+      "publisher-app-subscription-offer",
+    );
+    expect(subscriptionOffer).toHaveTextContent(
+      "Monthly subscription per platform",
+    );
+    expect(subscriptionOffer).toHaveTextContent("$99.99 USD");
+    expect(subscriptionOffer).toHaveTextContent(
+      "$59.99/month for the first six months",
+    );
+    expect(subscriptionOffer).toHaveTextContent("Managed service");
+    expect(subscriptionOffer).toHaveTextContent(
+      "Included while the subscription is active",
+    );
+    [
+      "Continued licensing of PocketGenesSDK.",
+      "Ongoing SDK maintenance and improvements.",
+      "Integration of SDK updates into your app.",
+      "New app builds and store submissions included.",
+      "Security and compatibility updates.",
+      "Technical support for SDK functionality.",
+    ].forEach((benefit) => {
+      expect(screen.getByText(benefit)).toBeTruthy();
+    });
+    expect(screen.queryByText(/USD 59 por mes · precio bonificado/i)).toBeNull();
+    expect(screen.queryByText(/USD 139,99 · pago único/i)).toBeNull();
+    expect(
+      screen.queryByTestId("publisher-app-terms-document"),
+    ).toBeNull();
+    expect(
+      screen.queryByTitle("Términos y condiciones de PocketGenesSDK"),
+    ).toBeNull();
+    expect(screen.queryByRole("link", { name: /Abrir PDF/i })).toBeNull();
+
+    const termsDisclosure = screen.getByRole("button", {
+      name: "See full terms and conditions",
+    });
+    expect(termsDisclosure).toHaveAttribute("aria-expanded", "false");
+    expect(termsDisclosure).toHaveAttribute(
+      "aria-controls",
+      "publisher-app-full-terms",
+    );
+    fireEvent.click(termsDisclosure);
+    expect(sdkFetch).not.toHaveBeenCalled();
+
     const termsDocument = screen.getByTestId("publisher-app-terms-document");
     const termsFrame = screen.getByTitle(
       "Términos y condiciones de PocketGenesSDK",
     );
     expect(termsDocument).toContainElement(termsFrame);
+    expect(termsDocument).toHaveAttribute("id", "publisher-app-full-terms");
+    expect(
+      screen.getByRole("button", {
+        name: "Hide full terms and conditions",
+      }),
+    ).toHaveAttribute("aria-expanded", "true");
     expect(termsFrame).toHaveAttribute(
       "src",
       "/PocketGenesSDK_Terminos_y_Condiciones.pdf#page=1&view=FitH&toolbar=0&navpanes=0",
@@ -202,8 +253,19 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(readFileSync(termsPdfPath).subarray(0, 5).toString("ascii")).toBe(
       "%PDF-",
     );
-    expect(screen.getByText(/USD 59 por mes · precio bonificado/i)).toBeTruthy();
-    expect(screen.getByText(/USD 139,99 · pago único/i)).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Hide full terms and conditions",
+      }),
+    );
+    expect(
+      screen.getByRole("button", {
+        name: "See full terms and conditions",
+      }),
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByTestId("publisher-app-terms-document"),
+    ).toBeNull();
 
     const acceptButton = screen.getByRole("button", {
       name: "Aceptar condiciones y continuar",
