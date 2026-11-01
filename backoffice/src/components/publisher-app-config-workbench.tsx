@@ -745,19 +745,45 @@ function PublisherAppReviewDocument({
                   <p className="text-lg font-medium text-black/65 dark:text-white/72 sm:text-xl">
                     Monthly subscription per platform
                   </p>
-                  <p
+                  <div
                     data-testid="publisher-app-promotional-price"
-                    className="mt-3 flex flex-wrap items-baseline gap-x-2 font-heading font-semibold tracking-tight text-black dark:text-white"
+                    aria-label="$59.99 USD per month for the first six months"
+                    className="mt-4 flex flex-col gap-4 text-black dark:text-white sm:flex-row sm:items-end sm:gap-6"
                   >
-                    <span className="text-5xl sm:text-6xl">$59.99</span>
-                    <span className="text-lg sm:text-xl">
-                      /month for the first six months
+                    <span className="shrink-0 font-heading font-semibold tracking-tight">
+                      <span
+                        data-testid="publisher-app-promotional-amount"
+                        className="block text-5xl leading-none sm:text-6xl"
+                      >
+                        $59.99
+                      </span>
+                      <span
+                        data-testid="publisher-app-promotional-unit"
+                        className="mt-2 block text-sm font-bold uppercase tracking-[0.16em] text-black/55 dark:text-white/60 sm:text-base"
+                      >
+                        USD / month
+                      </span>
                     </span>
-                  </p>
+                    <span
+                      data-testid="publisher-app-promotional-duration"
+                      className="border-t border-emerald-700/20 pt-3 sm:border-l sm:border-t-0 sm:pb-0.5 sm:pl-6 sm:pt-0 dark:border-emerald-300/25"
+                    >
+                      <span className="block text-sm font-semibold uppercase tracking-[0.12em] text-emerald-700 dark:text-emerald-400">
+                        Promotional price
+                      </span>
+                      <span className="mt-1 block text-lg font-medium leading-tight text-black/65 dark:text-white/70 sm:text-xl">
+                        for the first
+                      </span>
+                      <span className="block font-heading text-3xl font-semibold leading-tight tracking-tight text-emerald-700 dark:text-emerald-400 sm:text-4xl">
+                        six months
+                      </span>
+                    </span>
+                  </div>
                   <p
                     data-testid="publisher-app-standard-price"
                     className="mt-3 text-base font-medium text-black/48 dark:text-white/55 sm:text-lg"
                   >
+                    Regular price:{" "}
                     <span className="line-through decoration-2 decoration-black/35 dark:decoration-white/35">
                       $99.99 USD
                     </span>

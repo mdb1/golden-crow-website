@@ -184,21 +184,34 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(subscriptionOffer).toHaveTextContent(
       "Monthly subscription per platform",
     );
-    expect(subscriptionOffer).toHaveTextContent(
-      "$59.99/month for the first six months",
-    );
+    expect(subscriptionOffer).toHaveTextContent("$59.99");
+    expect(subscriptionOffer).toHaveTextContent("USD / month");
+    expect(subscriptionOffer).toHaveTextContent("for the first");
+    expect(subscriptionOffer).toHaveTextContent("six months");
     expect(subscriptionOffer).toHaveTextContent("$99.99 USD");
     const promotionalPrice = screen.getByTestId(
       "publisher-app-promotional-price",
     );
+    const promotionalAmount = screen.getByTestId(
+      "publisher-app-promotional-amount",
+    );
+    const promotionalUnit = screen.getByTestId(
+      "publisher-app-promotional-unit",
+    );
+    const promotionalDuration = screen.getByTestId(
+      "publisher-app-promotional-duration",
+    );
     const standardPrice = screen.getByTestId("publisher-app-standard-price");
-    expect(promotionalPrice).toHaveClass("font-heading");
-    expect(promotionalPrice.querySelector("span")).toHaveClass("text-5xl");
-    expect(
-      subscriptionOffer.textContent?.indexOf(
-        "$59.99/month for the first six months",
-      ),
-    ).toBeLessThan(subscriptionOffer.textContent?.indexOf("$99.99 USD") ?? -1);
+    expect(promotionalPrice).toHaveClass("flex-col");
+    expect(promotionalAmount).toHaveClass("block", "text-5xl");
+    expect(promotionalUnit).toHaveClass("block");
+    expect(promotionalDuration.children).toHaveLength(3);
+    expect(promotionalDuration).toHaveTextContent("for the first");
+    expect(promotionalDuration).toHaveTextContent("six months");
+    expect(screen.getByText("six months")).toHaveClass("text-3xl");
+    expect(subscriptionOffer.textContent?.indexOf("$59.99")).toBeLessThan(
+      subscriptionOffer.textContent?.indexOf("$99.99 USD") ?? -1,
+    );
     expect(standardPrice.querySelector("span")).toHaveClass("line-through");
     expect(subscriptionOffer).toHaveTextContent("Managed service");
     expect(subscriptionOffer).toHaveTextContent(
