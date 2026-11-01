@@ -852,6 +852,55 @@
   }
 }
 
+.publisher-app-success-overlay {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.publisher-app-success-overlay::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.publisher-app-success-circle {
+  transform: translate(-50%, -50%) scale(0);
+  animation: publisher-app-success-explode 980ms
+    cubic-bezier(0.76, 0, 0.24, 1) forwards;
+}
+
+.publisher-app-success-content {
+  opacity: 0;
+  transform: translateY(22px);
+  animation: publisher-app-success-content-in 720ms ease 640ms forwards;
+}
+
+@keyframes publisher-app-success-explode {
+  to {
+    transform: translate(-50%, -50%) scale(120);
+  }
+}
+
+@keyframes publisher-app-success-content-in {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .publisher-app-success-circle {
+    animation: none;
+    transform: translate(-50%, -50%) scale(120);
+  }
+
+  .publisher-app-success-content {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* ===================================================================
    Corvo — UNLAYERED overrides (2026-06 redesign).
    These intentionally sit OUTSIDE @layer so they win over Tailwind

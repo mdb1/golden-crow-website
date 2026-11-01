@@ -322,6 +322,36 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(payload).not.toHaveProperty("catalogEnabled");
     expect(payload).not.toHaveProperty("feedEnabled");
     expect(await screen.findByText(/próximas 24 a 48 horas/i)).toBeTruthy();
+    const successOverlay = screen.getByTestId(
+      "publisher-app-success-overlay",
+    );
+    expect(successOverlay).toHaveClass(
+      "fixed",
+      "inset-0",
+      "z-[2200]",
+      "publisher-app-success-overlay",
+    );
+    expect(
+      screen.getByTestId("publisher-app-success-circle"),
+    ).toHaveClass("publisher-app-success-circle", "bg-[#16a34a]");
+    expect(
+      screen.getByTestId("publisher-app-success-content"),
+    ).toHaveClass("publisher-app-success-content");
+    expect(screen.getByTestId("publisher-app-success-mark")).toBeTruthy();
+    expect(successOverlay.querySelector(".app-success-particle")).toBeNull();
+    const successCss = readFileSync(
+      join(process.cwd(), "src", "app", "globals.css"),
+      "utf8",
+    );
+    expect(successCss).toContain(
+      "animation: publisher-app-success-explode 980ms",
+    );
+    expect(successCss).toContain(
+      "animation: publisher-app-success-content-in 720ms ease 640ms forwards",
+    );
+    expect(successCss).toContain(
+      "transform: translate(-50%, -50%) scale(120)",
+    );
     expect(
       screen.getByRole("link", { name: /Ver y editar mi app/i }),
     ).toHaveAttribute("href", PUBLISHER_PORTAL_APP_EDIT_ROUTE);

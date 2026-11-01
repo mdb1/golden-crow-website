@@ -868,67 +868,66 @@ function PublisherAppReviewDocument({
 }
 
 function SuccessCelebration({ publisherName }: { publisherName: string }) {
-  const particles = Array.from({ length: 18 }, (_, index) => ({
-    angle: (360 / 18) * index,
-    distance: 90 + (index % 4) * 24,
-    delay: (index % 6) * 55,
-  }));
   return (
-    <div className="relative isolate overflow-hidden rounded-[32px] border border-emerald-200 bg-[radial-gradient(circle_at_50%_18%,rgba(74,222,128,0.32),transparent_30%),linear-gradient(145deg,#ecfdf5,#f0fdf4_48%,#ffffff)] px-6 py-14 text-center shadow-[0_30px_80px_-48px_rgba(5,150,105,0.7)] sm:px-12 sm:py-20">
-      <div
+    <section
+      role="status"
+      aria-live="polite"
+      data-testid="publisher-app-success-overlay"
+      className="publisher-app-success-overlay fixed inset-0 z-[2200] grid place-items-center overflow-y-auto px-5 py-8 text-white sm:px-12 sm:py-12"
+    >
+      <span
+        data-testid="publisher-app-success-circle"
         aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-[38%]"
+        className="publisher-app-success-circle pointer-events-none fixed left-1/2 top-1/2 size-9 rounded-full bg-[#16a34a]"
+      />
+
+      <div
+        data-testid="publisher-app-success-content"
+        className="publisher-app-success-content relative z-10 w-full max-w-[920px] text-center"
       >
-        {particles.map((particle, index) => (
-          <span
-            key={index}
-            className="app-success-particle absolute left-0 top-0 size-3 rounded-full bg-emerald-400 shadow-[0_0_18px_rgba(52,211,153,0.9)]"
-            style={
-              {
-                "--burst-angle": `${particle.angle}deg`,
-                "--burst-distance": `${particle.distance}px`,
-                animationDelay: `${particle.delay}ms`,
-              } as CSSProperties
-            }
-          />
-        ))}
-      </div>
-      <div className="relative mx-auto flex size-24 items-center justify-center rounded-[30px] border border-white/80 bg-[linear-gradient(145deg,#22c55e,#10b981)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_24px_48px_-22px_rgba(5,150,105,0.85)]">
-        <CheckCircle2 className="size-12" strokeWidth={2.4} />
-        <Sparkles className="absolute -right-5 -top-4 size-8 fill-lime-300 text-lime-300 drop-shadow" />
-      </div>
-      <p className="relative mt-7 text-xs font-extrabold uppercase tracking-[0.2em] text-emerald-700">
-        Solicitud recibida
-      </p>
-      <h2 className="relative mt-2 font-heading text-3xl font-bold tracking-tight text-emerald-950 sm:text-4xl">
-        ¡La app de {publisherName} ya está en marcha!
-      </h2>
-      <p className="relative mx-auto mt-4 max-w-2xl text-base leading-7 text-emerald-900/75">
-        Recibimos la configuración y nuestro equipo la va a revisar dentro de
-        las próximas 24 a 48 horas. Te contactaremos si necesitamos algún
-        detalle adicional.
-      </p>
-      <div className="relative mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-        <Button
-          asChild
-          className="h-12 rounded-xl bg-emerald-600 px-6 text-white shadow-[0_14px_28px_-16px_rgba(5,150,105,0.9)] hover:bg-emerald-700"
+        <div
+          data-testid="publisher-app-success-mark"
+          aria-hidden="true"
+          className="mx-auto grid size-[92px] place-items-center rounded-full bg-white/15 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.28)]"
         >
-          <Link href={PUBLISHER_PORTAL_APP_EDIT_ROUTE}>
-            Ver y editar mi app <ArrowRight className="size-4" />
+          <Check className="size-12" strokeWidth={2.7} />
+        </div>
+
+        <p className="mt-7 text-xs font-extrabold uppercase tracking-[0.2em] text-white/72">
+          Solicitud recibida
+        </p>
+        <h2 className="mx-auto mt-3 max-w-4xl font-heading text-4xl font-bold leading-[1.05] tracking-tight text-white sm:text-5xl lg:text-[3.4rem]">
+          ¡La app de {publisherName} ya está en marcha!
+        </h2>
+        <p className="mx-auto mt-6 max-w-[720px] text-lg leading-[1.55] text-white/88 sm:text-xl">
+          Recibimos la configuración y nuestro equipo la va a revisar dentro de
+          las próximas 24 a 48 horas.
+          <br />
+          <br />
+          Te contactaremos si necesitamos algún detalle adicional.
+        </p>
+
+        <div className="mt-9 flex flex-col flex-wrap justify-center gap-4 sm:flex-row">
+          <Link
+            href={PUBLISHER_PORTAL_APP_EDIT_ROUTE}
+            className="inline-grid min-h-[68px] place-items-center gap-0.5 rounded-full bg-white px-8 py-3 text-emerald-700 shadow-[0_20px_45px_-22px_rgba(0,0,0,0.42)] transition hover:-translate-y-0.5 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/45 motion-reduce:transform-none"
+          >
+            <span className="text-xs font-semibold text-slate-500">
+              Tu solicitud
+            </span>
+            <strong className="inline-flex items-center gap-2 font-extrabold">
+              Ver y editar mi app <ArrowRight className="size-4" />
+            </strong>
           </Link>
-        </Button>
-        <Button
-          asChild
-          variant="outline"
-          className="h-12 rounded-xl border-emerald-200 bg-white/80 px-6 text-emerald-900"
-        >
-          <Link href={PUBLISHER_PORTAL_HOME_ROUTE}>
+          <Link
+            href={PUBLISHER_PORTAL_HOME_ROUTE}
+            className="inline-flex min-h-[68px] items-center justify-center gap-2 rounded-full border border-white/50 px-8 py-3 font-extrabold text-white transition hover:-translate-y-0.5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/35 motion-reduce:transform-none"
+          >
             <ArrowLeft className="size-4" /> Volver al inicio
           </Link>
-        </Button>
+        </div>
       </div>
-      <style>{`@keyframes app-success-burst { 0% { opacity: 0; transform: translate(-50%, -50%) rotate(var(--burst-angle)) translateX(0) scale(.4); } 24% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -50%) rotate(var(--burst-angle)) translateX(var(--burst-distance)) scale(1.15); } } .app-success-particle { animation: app-success-burst 1.5s cubic-bezier(.17,.67,.26,1.02) infinite; }`}</style>
-    </div>
+    </section>
   );
 }
 
