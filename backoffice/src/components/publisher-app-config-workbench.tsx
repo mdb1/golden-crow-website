@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  useEffect,
   useMemo,
   useState,
   type CSSProperties,
@@ -1981,6 +1982,7 @@ export function PublisherAppConfigWorkbench({
   const [iconUploadPending, setIconUploadPending] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [iconStepVisited, setIconStepVisited] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const wizardSteps =
     mode === "create" ? [...WIZARD_STEPS, REVIEW_STEP] : WIZARD_STEPS;
@@ -2016,6 +2018,9 @@ export function PublisherAppConfigWorkbench({
       return true;
     }
   }, [state.iconImageUrl, state.iconSource]);
+  const iconSelectionBlocksSubmission =
+    (customIconMissing || customIconUrlInvalid) &&
+    !(mode === "create" && !iconStepVisited);
   const previewColors = {
     primary:
       normalizePublisherAppColor(state.colors.primary) ??
@@ -2033,6 +2038,12 @@ export function PublisherAppConfigWorkbench({
         state.iconImageUrl ??
         state.iconImageUploadDataUrl)
       : (state.iconImageUploadDataUrl ?? state.iconImageUrl);
+
+  useEffect(() => {
+    if (activeStep.id === "icon") {
+      setIconStepVisited(true);
+    }
+  }, [activeStep.id]);
 
   function updateState(patch: Partial<PublisherAppConfigInput>) {
     setTermsAccepted(false);
@@ -2144,8 +2155,7 @@ export function PublisherAppConfigWorkbench({
 
   async function save() {
     if (
-      customIconMissing ||
-      customIconUrlInvalid ||
+      iconSelectionBlocksSubmission ||
       pending ||
       iconUploadPending ||
       (mode === "create" && !termsAccepted) ||
@@ -2155,14 +2165,28 @@ export function PublisherAppConfigWorkbench({
     setPending(true);
     setToast(null);
     try {
+      const shouldUsePublisherIconDefault =
+        mode === "create" && !iconStepVisited;
+      const submissionState = shouldUsePublisherIconDefault
+        ? {
+            ...state,
+            iconSource: "publisher" as const,
+            iconImageUrl: publisherImageUrl?.trim() || null,
+            iconImageUploadDataUrl: null,
+          }
+        : state;
+      const submissionPayload = normalizedPayload(submissionState);
+      if (shouldUsePublisherIconDefault) {
+        setState(submissionState);
+      }
       const response = await sdkFetch<PublisherAppConfigResponse>(
         "/publisher-app/config",
         {
           method: mode === "create" ? "POST" : "PUT",
           body: JSON.stringify(
             mode === "create"
-              ? { ...payload, termsAccepted: true as const }
-              : payload,
+              ? { ...submissionPayload, termsAccepted: true as const }
+              : submissionPayload,
           ),
         },
       );
@@ -2838,8 +2862,7 @@ export function PublisherAppConfigWorkbench({
                   disabled={
                     pending ||
                     iconUploadPending ||
-                    customIconMissing ||
-                    customIconUrlInvalid ||
+                    iconSelectionBlocksSubmission ||
                     !termsAccepted
                   }
                   className="h-14 rounded-xl bg-violet-600 px-6 text-base text-white shadow-[0_14px_28px_-18px_rgba(109,40,217,0.9)] hover:bg-violet-700"

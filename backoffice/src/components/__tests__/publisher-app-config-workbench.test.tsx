@@ -407,6 +407,36 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(screen.getByText(/USD 279,98 · pago único/i)).toBeTruthy();
   });
 
+  it("uses the existing publisher icon when review is opened before step four", async () => {
+    jest.mocked(sdkFetch).mockResolvedValue({ config: savedConfig });
+    renderWorkbench({
+      publisherImageUrl: "https://example.org/existing-publisher-icon.png",
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Paso 5 Revisión/i }));
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: /Leí y acepto los términos y condiciones/i,
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Aceptar condiciones y continuar",
+      }),
+    );
+
+    await waitFor(() => expect(sdkFetch).toHaveBeenCalledTimes(1));
+    const payload = JSON.parse(
+      String(jest.mocked(sdkFetch).mock.calls[0][1]?.body),
+    );
+    expect(payload).toMatchObject({
+      iconSource: "publisher",
+      iconImageUrl: "https://example.org/existing-publisher-icon.png",
+      iconImageUploadDataUrl: null,
+      termsAccepted: true,
+    });
+  });
+
   it("loads an existing configuration and saves only after it changes", async () => {
     const updatedConfig = {
       ...savedConfig,
