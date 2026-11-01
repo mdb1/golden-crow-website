@@ -548,7 +548,6 @@ function ReviewSection({
 function PublisherAppReviewDocument({
   publisherName,
   publisherEmail,
-  publisherUsername,
   state,
   colors,
   iconSource,
@@ -557,7 +556,6 @@ function PublisherAppReviewDocument({
 }: {
   publisherName: string;
   publisherEmail: string;
-  publisherUsername: string;
   state: PublisherAppConfigInput;
   colors: PublisherAppColors;
   iconSource?: string | null;
@@ -598,6 +596,12 @@ function PublisherAppReviewDocument({
       : state.iconImageUploadDataUrl
         ? "Icono personalizado subido"
         : "Icono personalizado mediante URL HTTPS";
+  const platformMultiplier = state.platformOption === "ios_android" ? 2 : 1;
+  const formatCommercialPrice = (pricePerPlatform: number) =>
+    (pricePerPlatform * platformMultiplier).toFixed(2).replace(".", ",");
+  const promotionalMonthlyPrice = formatCommercialPrice(59.99);
+  const standardMonthlyPrice = formatCommercialPrice(99.99);
+  const initialStoreSetupPrice = formatCommercialPrice(139.99);
 
   return (
     <div className="space-y-5" data-testid="publisher-app-review">
@@ -631,10 +635,7 @@ function PublisherAppReviewDocument({
           <ReviewSection title="Identidad del solicitante">
             <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
               <ReviewField label="Cliente">{publisherName}</ReviewField>
-              <ReviewField label="Usuario">
-                {publisherUsername ? `@${publisherUsername}` : "No informado"}
-              </ReviewField>
-              <ReviewField label="Email" wide>
+              <ReviewField label="Email">
                 {publisherEmail || "No informado"}
               </ReviewField>
             </dl>
@@ -649,12 +650,6 @@ function PublisherAppReviewDocument({
               </ReviewField>
               <ReviewField label="Icono de la app">
                 {iconDescription}
-              </ReviewField>
-              <ReviewField label="Estado inicial">
-                Pending revision
-              </ReviewField>
-              <ReviewField label="Revisión estimada">
-                24 a 48 horas
               </ReviewField>
             </dl>
           </ReviewSection>
@@ -714,14 +709,26 @@ function PublisherAppReviewDocument({
             </dl>
           </ReviewSection>
 
+          <ReviewSection title="Resumen comercial">
+            <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
+              <ReviewField label="Suscripción mensual">
+                USD {promotionalMonthlyPrice} por mes · precio bonificado por 6
+                meses (luego USD {standardMonthlyPrice})
+              </ReviewField>
+              <ReviewField label="Alta inicial en stores">
+                USD {initialStoreSetupPrice} · pago único
+              </ReviewField>
+            </dl>
+          </ReviewSection>
+
           <ReviewSection title="PocketGenesSDK managed service">
             <div
               data-testid="publisher-app-subscription-offer"
-              className="relative isolate overflow-hidden rounded-[28px] border border-white/10 bg-[#0b0c0d] px-5 py-6 text-white shadow-[0_28px_64px_-34px_rgba(0,0,0,0.88)] sm:px-8 sm:py-8"
+              className="relative isolate overflow-hidden rounded-[28px] border border-black/10 bg-white px-5 py-6 text-black shadow-[0_28px_64px_-38px_rgba(15,23,42,0.35)] dark:border-white/10 dark:bg-[#0b0c0d] dark:text-white dark:shadow-[0_28px_64px_-34px_rgba(0,0,0,0.88)] sm:px-8 sm:py-8"
             >
               <span
                 aria-hidden="true"
-                className="pointer-events-none absolute -right-24 -top-28 size-72 rounded-full bg-emerald-500/10 blur-3xl"
+                className="pointer-events-none absolute -right-24 -top-28 size-72 rounded-full bg-emerald-500/15 blur-3xl dark:bg-emerald-500/10"
               />
               <span
                 aria-hidden="true"
@@ -729,30 +736,30 @@ function PublisherAppReviewDocument({
               />
               <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-lg font-medium text-white/72 sm:text-xl">
+                  <p className="text-lg font-medium text-black/65 dark:text-white/72 sm:text-xl">
                     Monthly subscription per platform
                   </p>
-                  <p className="mt-3 font-heading text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+                  <p className="mt-3 font-heading text-4xl font-semibold tracking-tight text-black dark:text-white sm:text-5xl">
                     $99.99 USD
                   </p>
-                  <p className="mt-3 text-lg font-medium text-white/72 sm:text-xl">
+                  <p className="mt-3 text-lg font-medium text-black/65 dark:text-white/72 sm:text-xl">
                     $59.99/month for the first six months
                   </p>
                 </div>
-                <span className="inline-flex w-fit shrink-0 items-center rounded-full border border-emerald-400/15 bg-emerald-500/15 px-4 py-2 text-sm font-semibold text-emerald-400 sm:text-base">
+                <span className="inline-flex w-fit shrink-0 items-center rounded-full border border-emerald-700/15 bg-emerald-100 px-4 py-2 text-sm font-semibold text-emerald-700 dark:border-emerald-400/15 dark:bg-emerald-500/15 dark:text-emerald-400 sm:text-base">
                   Managed service
                 </span>
               </div>
 
-              <div className="relative mt-7 border-t border-white/10 pt-7">
-                <h5 className="text-lg font-semibold text-white sm:text-xl">
+              <div className="relative mt-7 border-t border-black/10 pt-7 dark:border-white/10">
+                <h5 className="text-lg font-semibold text-black dark:text-white sm:text-xl">
                   Included while the subscription is active
                 </h5>
                 <ul className="mt-5 grid gap-4">
                   {PUBLISHER_APP_MANAGED_SERVICE_BENEFITS.map((benefit) => (
                     <li
                       key={benefit}
-                      className="flex items-start gap-3 text-base leading-6 text-white/88 sm:text-lg"
+                      className="flex items-start gap-3 text-base leading-6 text-black/80 dark:text-white/88 sm:text-lg"
                     >
                       <CheckCircle2
                         aria-hidden="true"
@@ -1704,7 +1711,6 @@ export function PublisherAppConfigWorkbench({
               <PublisherAppReviewDocument
                 publisherName={publisherName}
                 publisherEmail={publisherEmail}
-                publisherUsername={publisherUsername}
                 state={state}
                 colors={previewColors}
                 iconSource={resolvedIconSource}

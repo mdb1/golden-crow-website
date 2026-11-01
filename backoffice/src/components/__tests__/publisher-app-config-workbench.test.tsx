@@ -175,6 +175,12 @@ describe("PublisherAppConfigWorkbench", () => {
     const subscriptionOffer = screen.getByTestId(
       "publisher-app-subscription-offer",
     );
+    expect(subscriptionOffer).toHaveClass(
+      "bg-white",
+      "text-black",
+      "dark:bg-[#0b0c0d]",
+      "dark:text-white",
+    );
     expect(subscriptionOffer).toHaveTextContent(
       "Monthly subscription per platform",
     );
@@ -196,8 +202,19 @@ describe("PublisherAppConfigWorkbench", () => {
     ].forEach((benefit) => {
       expect(screen.getByText(benefit)).toBeTruthy();
     });
-    expect(screen.queryByText(/USD 59 por mes · precio bonificado/i)).toBeNull();
-    expect(screen.queryByText(/USD 139,99 · pago único/i)).toBeNull();
+    expect(screen.getByText("Resumen comercial")).toBeTruthy();
+    expect(screen.getByText("Suscripción mensual")).toBeTruthy();
+    expect(
+      screen.getByText(
+        /USD 59,99 por mes · precio bonificado por 6 meses \(luego USD 99,99\)/i,
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText(/USD 139,99 · pago único/i)).toBeTruthy();
+    expect(screen.queryByText("Usuario")).toBeNull();
+    expect(screen.queryByText("Estado inicial")).toBeNull();
+    expect(screen.queryByText("Revisión estimada")).toBeNull();
+    expect(screen.queryByText("Pending revision")).toBeNull();
+    expect(screen.queryByText("24 a 48 horas")).toBeNull();
     expect(
       screen.queryByTestId("publisher-app-terms-document"),
     ).toBeNull();
@@ -308,6 +325,26 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(
       screen.getByRole("link", { name: /Ver y editar mi app/i }),
     ).toHaveAttribute("href", PUBLISHER_PORTAL_APP_EDIT_ROUTE);
+  });
+
+  it("doubles subscription and store setup prices for iOS and Android", () => {
+    renderWorkbench();
+
+    fireEvent.click(
+      screen.getByRole("radio", { name: /iOS \+ Android/i }),
+    );
+    advanceToIcon();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Revisar solicitud" }),
+    );
+
+    expect(screen.getByText("iOS + Android")).toBeTruthy();
+    expect(
+      screen.getByText(
+        /USD 119,98 por mes · precio bonificado por 6 meses \(luego USD 199,98\)/i,
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText(/USD 279,98 · pago único/i)).toBeTruthy();
   });
 
   it("loads an existing configuration and saves only after it changes", async () => {
