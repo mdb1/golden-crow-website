@@ -104,6 +104,14 @@ describe("PublisherAppConfigWorkbench", () => {
     });
     expect(iosAndroidRadio).toHaveAttribute("data-state", "unchecked");
     expect(iosAndroidRadio.parentElement).toHaveClass("sr-only");
+    const iosPrice = screen.getByTestId("publisher-app-platform-price-ios");
+    const bothPlatformsPrice = screen.getByTestId(
+      "publisher-app-platform-price-ios_android",
+    );
+    expect(iosPrice).toHaveTextContent("USD 59.99 / mes");
+    expect(bothPlatformsPrice).toHaveTextContent("USD 119.98 / mes");
+    expect(iosPrice).toHaveClass("rounded-full", "text-[11px]");
+    expect(bothPlatformsPrice).toHaveClass("rounded-full", "text-[11px]");
     fireEvent.click(screen.getByRole("button", { name: /Paso 2 Funciones/i }));
     const catalogCheckbox = screen.getByRole("checkbox", {
       name: "Catálogo de productos y servicios",

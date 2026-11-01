@@ -2386,6 +2386,7 @@ export function PublisherAppConfigWorkbench({
                     description:
                       "Una experiencia enfocada en iPhone y el ecosistema Apple.",
                     badges: ["iPhone"],
+                    price: "USD 59.99 / mes",
                   },
                   {
                     value: "ios_android" as const,
@@ -2393,6 +2394,7 @@ export function PublisherAppConfigWorkbench({
                     description:
                       "Tu identidad y funciones disponibles en las dos plataformas.",
                     badges: ["iPhone", "Android"],
+                    price: "USD 119.98 / mes",
                   },
                 ].map((option) => (
                   <Label
@@ -2416,6 +2418,17 @@ export function PublisherAppConfigWorkbench({
                         )}
                       >
                         <Smartphone className="size-7" />
+                      </span>
+                      <span
+                        data-testid={`publisher-app-platform-price-${option.value}`}
+                        className={cn(
+                          "rounded-full border px-3 py-1.5 text-[11px] font-bold tracking-[0.02em] shadow-sm",
+                          state.platformOption === option.value
+                            ? "border-white/30 bg-white/18 text-white"
+                            : "border-violet-200 bg-violet-50 text-violet-800",
+                        )}
+                      >
+                        {option.price}
                       </span>
                       <span className="sr-only">
                         <RadioGroupItem
