@@ -184,10 +184,22 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(subscriptionOffer).toHaveTextContent(
       "Monthly subscription per platform",
     );
-    expect(subscriptionOffer).toHaveTextContent("$99.99 USD");
     expect(subscriptionOffer).toHaveTextContent(
       "$59.99/month for the first six months",
     );
+    expect(subscriptionOffer).toHaveTextContent("$99.99 USD");
+    const promotionalPrice = screen.getByTestId(
+      "publisher-app-promotional-price",
+    );
+    const standardPrice = screen.getByTestId("publisher-app-standard-price");
+    expect(promotionalPrice).toHaveClass("font-heading");
+    expect(promotionalPrice.querySelector("span")).toHaveClass("text-5xl");
+    expect(
+      subscriptionOffer.textContent?.indexOf(
+        "$59.99/month for the first six months",
+      ),
+    ).toBeLessThan(subscriptionOffer.textContent?.indexOf("$99.99 USD") ?? -1);
+    expect(standardPrice.querySelector("span")).toHaveClass("line-through");
     expect(subscriptionOffer).toHaveTextContent("Managed service");
     expect(subscriptionOffer).toHaveTextContent(
       "Included while the subscription is active",

@@ -745,11 +745,22 @@ function PublisherAppReviewDocument({
                   <p className="text-lg font-medium text-black/65 dark:text-white/72 sm:text-xl">
                     Monthly subscription per platform
                   </p>
-                  <p className="mt-3 font-heading text-4xl font-semibold tracking-tight text-black dark:text-white sm:text-5xl">
-                    $99.99 USD
+                  <p
+                    data-testid="publisher-app-promotional-price"
+                    className="mt-3 flex flex-wrap items-baseline gap-x-2 font-heading font-semibold tracking-tight text-black dark:text-white"
+                  >
+                    <span className="text-5xl sm:text-6xl">$59.99</span>
+                    <span className="text-lg sm:text-xl">
+                      /month for the first six months
+                    </span>
                   </p>
-                  <p className="mt-3 text-lg font-medium text-black/65 dark:text-white/72 sm:text-xl">
-                    $59.99/month for the first six months
+                  <p
+                    data-testid="publisher-app-standard-price"
+                    className="mt-3 text-base font-medium text-black/48 dark:text-white/55 sm:text-lg"
+                  >
+                    <span className="line-through decoration-2 decoration-black/35 dark:decoration-white/35">
+                      $99.99 USD
+                    </span>
                   </p>
                 </div>
                 <span className="inline-flex w-fit shrink-0 items-center rounded-full border border-emerald-700/15 bg-emerald-100 px-4 py-2 text-sm font-semibold text-emerald-700 dark:border-emerald-400/15 dark:bg-emerald-500/15 dark:text-emerald-400 sm:text-base">
