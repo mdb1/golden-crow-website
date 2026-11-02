@@ -57,6 +57,11 @@ export type PublisherAppConfigResponse = {
   config: PublisherAppConfig | null;
 };
 
+export type PublisherAppConfigsPage = {
+  apps: PublisherAppConfig[];
+  nextCursor: string | null;
+};
+
 export const DEFAULT_PUBLISHER_APP_COLOR = "#6D28D9";
 
 export function normalizePublisherAppColor(value?: string) {

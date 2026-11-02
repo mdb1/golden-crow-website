@@ -7,6 +7,7 @@ import { adminDbFor } from "../config/firebase.js";
 import type {
   AdminContext,
   PublisherAppConfigColors,
+  PublisherAppConfigAdminUpdateInput,
   PublisherAppConfigCreateInput,
   PublisherAppConfigInput,
   PublisherAppConfigRecord,
@@ -42,6 +43,9 @@ type PublisherIdentity = PublisherScope & {
 
 const APP_ICON_DATA_URL_PATTERN =
   /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
+
+const DEFAULT_ADMIN_APP_CONFIG_PAGE_SIZE = 20;
+const MAX_ADMIN_APP_CONFIG_PAGE_SIZE = 100;
 
 function requiredString(value: unknown, label: string) {
   if (typeof value !== "string" || !value.trim()) {
@@ -342,7 +346,7 @@ function storedColors(value: unknown): PublisherAppConfigColors {
   };
 }
 
-function toPublisherAppConfigRecord(
+export function toPublisherAppConfigRecord(
   snapshot: DocumentSnapshot,
 ): PublisherAppConfigRecord {
   const data = snapshot.data() as Record<string, unknown> | undefined;
@@ -423,10 +427,126 @@ function toPublisherAppConfigRecord(
           ),
         }
       : {}),
-    ...(termsAcceptedByUserId
-      ? { termsAcceptedByUserId }
-      : {}),
+    ...(termsAcceptedByUserId ? { termsAcceptedByUserId } : {}),
   };
+}
+
+function normalizedAdminPageSize(limit?: number) {
+  if (!Number.isFinite(limit)) {
+    return DEFAULT_ADMIN_APP_CONFIG_PAGE_SIZE;
+  }
+
+  return Math.min(
+    MAX_ADMIN_APP_CONFIG_PAGE_SIZE,
+    Math.max(1, Math.trunc(limit ?? DEFAULT_ADMIN_APP_CONFIG_PAGE_SIZE)),
+  );
+}
+
+export async function listPublisherAppConfigsPage(options: {
+  limit?: number;
+  cursor?: string;
+}): Promise<{
+  apps: PublisherAppConfigRecord[];
+  nextCursor: string | null;
+}> {
+  const pageSize = normalizedAdminPageSize(options.limit);
+  const collection = adminDb.collection(APP_CONFIGS_COLLECTION);
+  let query = collection.orderBy("updatedAt", "desc");
+
+  if (options.cursor) {
+    const cursorSnapshot = await collection.doc(options.cursor).get();
+    if (!cursorSnapshot.exists) {
+      throw new AdminRepositoryError("App config page cursor not found.", 400);
+    }
+    query = query.startAfter(cursorSnapshot);
+  }
+
+  const snapshot = await query.limit(pageSize + 1).get();
+  const pageDocs = snapshot.docs.slice(0, pageSize);
+  const lastPageDoc = pageDocs.at(-1);
+
+  return {
+    apps: pageDocs.map(toPublisherAppConfigRecord),
+    nextCursor:
+      snapshot.docs.length > pageSize && lastPageDoc ? lastPageDoc.id : null,
+  };
+}
+
+export async function getPublisherAppConfigById(
+  configId: string,
+): Promise<PublisherAppConfigRecord> {
+  const normalizedId = configId.trim();
+  if (!normalizedId) {
+    throw new AdminRepositoryError("Publisher app config id is required.", 400);
+  }
+
+  const snapshot = await adminDb
+    .collection(APP_CONFIGS_COLLECTION)
+    .doc(normalizedId)
+    .get();
+  return toPublisherAppConfigRecord(snapshot);
+}
+
+async function adminPublisherIdentity(
+  config: PublisherAppConfigRecord,
+): Promise<PublisherIdentity> {
+  const collection =
+    config.publisherKind === "organization"
+      ? "feed_organizations"
+      : "feed_individuals";
+  const publisherSnapshot = await adminDb
+    .collection(collection)
+    .doc(config.publisherId)
+    .get();
+  const publisherData = (publisherSnapshot.data() ?? {}) as Record<
+    string,
+    unknown
+  >;
+  const currentPublisherIcon = config.iconSource === "publisher";
+
+  return {
+    kind: config.publisherKind,
+    id: config.publisherId,
+    collection,
+    name: config.publisherName,
+    email: config.publisherEmail,
+    username: config.publisherUsername,
+    imageUrl:
+      typeof publisherData.imageUrl === "string" &&
+      publisherData.imageUrl.trim()
+        ? publisherData.imageUrl.trim()
+        : currentPublisherIcon
+          ? config.iconImageUrl
+          : null,
+    imageUploadDataUrl:
+      typeof publisherData.imageUploadDataUrl === "string" &&
+      publisherData.imageUploadDataUrl.trim()
+        ? publisherData.imageUploadDataUrl.trim()
+        : currentPublisherIcon
+          ? config.iconImageUploadDataUrl
+          : null,
+  };
+}
+
+export async function updatePublisherAppConfigById(
+  context: AdminContext,
+  configId: string,
+  input: PublisherAppConfigAdminUpdateInput,
+): Promise<PublisherAppConfigRecord> {
+  const ref = adminDb.collection(APP_CONFIGS_COLLECTION).doc(configId.trim());
+  const existing = await ref.get();
+  const config = toPublisherAppConfigRecord(existing);
+  const identity = await adminPublisherIdentity(config);
+  const normalizedInput = normalizeInput(input, identity);
+
+  await ref.update({
+    ...normalizedInput,
+    status: input.status,
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedByUserId: context.uid,
+  });
+
+  return toPublisherAppConfigRecord(await ref.get());
 }
 
 function isAlreadyExistsError(error: unknown) {

@@ -74,6 +74,7 @@ import {
   type PublisherAppConfigInput,
   type PublisherAppConfigResponse,
   type PublisherAppPlatformOption,
+  type PublisherAppStatus,
 } from "@/lib/publisher-app-config";
 import {
   PUBLISHER_PORTAL_APP_EDIT_ROUTE,
@@ -91,6 +92,11 @@ type PublisherAppConfigWorkbenchProps = {
   publisherImageUrl?: string;
   publisherEmail: string;
   publisherUsername: string;
+  apiPath?: string;
+  backHref?: string;
+  backLabel?: string;
+  allowStatusEditing?: boolean;
+  showDangerZone?: boolean;
 };
 
 type WizardStep = "platform" | "features" | "colors" | "icon" | "review";
@@ -1006,6 +1012,11 @@ function PublisherAppEditSheet({
   iconSource,
   suggestedPalettes,
   statusLabel,
+  status,
+  onUpdateStatus,
+  backHref,
+  backLabel,
+  showDangerZone,
   changed,
   pending,
   iconUploadPending,
@@ -1036,6 +1047,11 @@ function PublisherAppEditSheet({
     colors: PublisherAppColors;
   }>;
   statusLabel: string;
+  status: PublisherAppStatus;
+  onUpdateStatus?: (status: PublisherAppStatus) => void;
+  backHref: string;
+  backLabel: string;
+  showDangerZone: boolean;
   changed: boolean;
   pending: boolean;
   iconUploadPending: boolean;
@@ -1109,9 +1125,9 @@ function PublisherAppEditSheet({
           asChild
           className="h-9 rounded-xl text-violet-800 hover:bg-violet-100 hover:text-violet-950 dark:text-violet-100 dark:hover:bg-violet-500/14"
         >
-          <Link href={PUBLISHER_PORTAL_HOME_ROUTE}>
+          <Link href={backHref}>
             <ArrowLeft className="size-3.5" />
-            Volver al inicio
+            {backLabel}
           </Link>
         </Button>
       </div>
@@ -1178,6 +1194,55 @@ function PublisherAppEditSheet({
 
         <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_24rem]">
           <div className="flex flex-col gap-5 px-5 py-5">
+            {onUpdateStatus ? (
+              <section
+                data-testid="publisher-app-edit-status"
+                className="overflow-hidden rounded-2xl border border-violet-100/80 bg-white/78 p-4 shadow-[0_18px_56px_-48px_rgba(109,40,217,0.48)] sm:p-5 dark:border-violet-400/16 dark:bg-slate-950/32"
+              >
+                <div className="flex items-start gap-3">
+                  <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-violet-100 bg-violet-50 text-violet-700 shadow-inner dark:border-violet-400/16 dark:bg-violet-500/10 dark:text-violet-100">
+                    <FileCheck2 className="size-5" />
+                  </span>
+                  <div>
+                    <h3 className="font-heading text-lg font-semibold text-foreground">
+                      Estado de revisión
+                    </h3>
+                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                      Controlá el estado visible para el publicador.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  {(
+                    [
+                      "pending_revision",
+                      "approved",
+                      "changes_requested",
+                      "rejected",
+                    ] as PublisherAppStatus[]
+                  ).map((option) => {
+                    const selected = status === option;
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => onUpdateStatus(option)}
+                        className={cn(
+                          "flex min-h-12 items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left text-sm font-semibold transition",
+                          selected
+                            ? "border-violet-500 bg-violet-600 text-white shadow-[0_12px_28px_-18px_rgba(109,40,217,0.9)]"
+                            : "border-violet-100 bg-white text-foreground hover:border-violet-300 hover:bg-violet-50 dark:border-violet-400/16 dark:bg-slate-950/28 dark:hover:bg-violet-500/10",
+                        )}
+                      >
+                        <span>{publisherAppStatusLabel(option)}</span>
+                        {selected ? <Check className="size-4" /> : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ) : null}
+
             <PublisherAppEditSection
               testId="publisher-app-edit-platforms"
               icon={<Smartphone className="size-5" />}
@@ -1360,7 +1425,12 @@ function PublisherAppEditSheet({
           </aside>
         </div>
 
-        <div className="border-t border-violet-100/80 dark:border-violet-400/14">
+        <div
+          className={cn(
+            "border-t border-violet-100/80 dark:border-violet-400/14",
+            !showDangerZone && "hidden",
+          )}
+        >
           <button
             type="button"
             aria-expanded={dangerOpen}
@@ -1954,6 +2024,11 @@ export function PublisherAppConfigWorkbench({
   publisherImageUrl,
   publisherEmail,
   publisherUsername,
+  apiPath = "/publisher-app/config",
+  backHref = PUBLISHER_PORTAL_HOME_ROUTE,
+  backLabel = "Volver al inicio",
+  allowStatusEditing = false,
+  showDangerZone = true,
 }: PublisherAppConfigWorkbenchProps) {
   const router = useRouter();
   const [stepIndex, setStepIndex] = useState(0);
@@ -1964,6 +2039,12 @@ export function PublisherAppConfigWorkbench({
     initialState(initialConfig, publisherTint, publisherImageUrl),
   );
   const [persistedConfig, setPersistedConfig] = useState(initialConfig);
+  const [status, setStatus] = useState<PublisherAppStatus>(
+    initialConfig?.status ?? "pending_revision",
+  );
+  const [persistedStatus, setPersistedStatus] = useState<PublisherAppStatus>(
+    initialConfig?.status ?? "pending_revision",
+  );
   const [pending, setPending] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
   const [iconUploadPending, setIconUploadPending] = useState(false);
@@ -1974,14 +2055,13 @@ export function PublisherAppConfigWorkbench({
   const wizardSteps =
     mode === "create" ? [...WIZARD_STEPS, REVIEW_STEP] : WIZARD_STEPS;
   const activeStep = wizardSteps[stepIndex] ?? wizardSteps[0];
-  const statusLabel = publisherAppStatusLabel(
-    persistedConfig?.status ?? "pending_revision",
-  );
+  const statusLabel = publisherAppStatusLabel(status);
   const canDelete = persistedConfig?.status === "pending_revision";
   const payload = useMemo(() => normalizedPayload(state), [state]);
   const changed =
     JSON.stringify(payload) !==
-    JSON.stringify(normalizedPayload(persistedState));
+      JSON.stringify(normalizedPayload(persistedState)) ||
+    (allowStatusEditing && status !== persistedStatus);
   const suggestedPalettes = useMemo(() => {
     const generated = publisherAppPaletteSuggestions(publisherTint);
     return PALETTE_SUGGESTION_COPY.map((copy, index) => ({
@@ -2116,13 +2196,13 @@ export function PublisherAppConfigWorkbench({
     setToast(null);
     try {
       const response = await sdkFetch<{ deleted: boolean; configId: string }>(
-        "/publisher-app/config",
+        apiPath,
         { method: "DELETE" },
       );
       if (!response.deleted) {
         throw new Error("El servidor no confirmó la eliminación.");
       }
-      router.replace(PUBLISHER_PORTAL_HOME_ROUTE);
+      router.replace(backHref);
       router.refresh();
     } catch (error) {
       setToast({
@@ -2166,17 +2246,16 @@ export function PublisherAppConfigWorkbench({
       if (shouldUsePublisherIconDefault) {
         setState(submissionState);
       }
-      const response = await sdkFetch<PublisherAppConfigResponse>(
-        "/publisher-app/config",
-        {
-          method: mode === "create" ? "POST" : "PUT",
-          body: JSON.stringify(
-            mode === "create"
-              ? { ...submissionPayload, termsAccepted: true as const }
+      const response = await sdkFetch<PublisherAppConfigResponse>(apiPath, {
+        method: mode === "create" ? "POST" : "PUT",
+        body: JSON.stringify(
+          mode === "create"
+            ? { ...submissionPayload, termsAccepted: true as const }
+            : allowStatusEditing
+              ? { ...submissionPayload, status }
               : submissionPayload,
-          ),
-        },
-      );
+        ),
+      });
       const saved = response.config;
       if (!saved)
         throw new Error(
@@ -2186,6 +2265,8 @@ export function PublisherAppConfigWorkbench({
       setState(nextState);
       setPersistedState(nextState);
       setPersistedConfig(saved);
+      setStatus(saved.status);
+      setPersistedStatus(saved.status);
       if (mode === "create") {
         setCompleted(true);
         return;
@@ -2194,8 +2275,9 @@ export function PublisherAppConfigWorkbench({
         id: Date.now(),
         tone: "success",
         title: "Cambios guardados",
-        message:
-          "La configuración de tu app está actualizada y continúa pendiente de revisión.",
+        message: allowStatusEditing
+          ? `La configuración quedó actualizada con estado ${publisherAppStatusLabel(saved.status)}.`
+          : "La configuración de tu app está actualizada y continúa pendiente de revisión.",
       });
       router.refresh();
     } catch (error) {
@@ -2248,6 +2330,11 @@ export function PublisherAppConfigWorkbench({
           iconSource={resolvedIconSource}
           suggestedPalettes={suggestedPalettes}
           statusLabel={statusLabel}
+          status={status}
+          onUpdateStatus={allowStatusEditing ? setStatus : undefined}
+          backHref={backHref}
+          backLabel={backLabel}
+          showDangerZone={showDangerZone}
           changed={changed}
           pending={pending}
           iconUploadPending={iconUploadPending}
@@ -2260,7 +2347,10 @@ export function PublisherAppConfigWorkbench({
           onUpdateColor={updateColor}
           onChooseIconSource={chooseIconSource}
           onIconUpload={(event) => void handleIconUpload(event)}
-          onReset={() => setState(normalizedPayload(persistedState))}
+          onReset={() => {
+            setState(normalizedPayload(persistedState));
+            setStatus(persistedStatus);
+          }}
           onSave={() => void save()}
           onDownload={downloadConfig}
           onDelete={() => void deleteApp()}

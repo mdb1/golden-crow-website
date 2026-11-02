@@ -18,6 +18,12 @@ type MockDocumentReference = {
   update: jest.Mock<Promise<void>, [StoredDocument]>;
   delete: jest.Mock<Promise<void>, []>;
 };
+type MockQuery = {
+  orderBy: jest.Mock<MockQuery, []>;
+  startAfter: jest.Mock<MockQuery, [MockSnapshot]>;
+  limit: jest.Mock<MockQuery, [number]>;
+  get: jest.Mock<Promise<{ docs: MockSnapshot[] }>, []>;
+};
 
 const collections = new Map<string, Map<string, StoredDocument>>();
 const mockGetProfileSetupState = jest.fn();
@@ -82,9 +88,45 @@ function documentReferenceFor(
   return ref;
 }
 
-const mockCollection = jest.fn((name: string) => ({
-  doc: jest.fn((id: string) => documentReferenceFor(name, id)),
-}));
+function queryForCollection(name: string) {
+  let afterId = "";
+  let pageLimit = Number.POSITIVE_INFINITY;
+  const query = {} as MockQuery;
+  query.orderBy = jest.fn(() => query);
+  query.startAfter = jest.fn((snapshot: MockSnapshot) => {
+    afterId = snapshot.id;
+    return query;
+  });
+  query.limit = jest.fn((limit: number) => {
+    pageLimit = limit;
+    return query;
+  });
+  query.get = jest.fn(async () => {
+    const records = [...collectionStore(name).entries()].sort((left, right) => {
+      const leftTime = new Date(String(left[1].updatedAt)).getTime();
+      const rightTime = new Date(String(right[1].updatedAt)).getTime();
+      return rightTime - leftTime || left[0].localeCompare(right[0]);
+    });
+    const startIndex = afterId
+      ? Math.max(0, records.findIndex(([id]) => id === afterId) + 1)
+      : 0;
+    return {
+      docs: records.slice(startIndex, startIndex + pageLimit).map(([id]) => {
+        const ref = documentReferenceFor(name, id);
+        return snapshotFor(name, id, ref);
+      }),
+    };
+  });
+  return query;
+}
+
+const mockCollection = jest.fn((name: string) => {
+  const query = queryForCollection(name);
+  return {
+    doc: jest.fn((id: string) => documentReferenceFor(name, id)),
+    orderBy: query.orderBy,
+  };
+});
 const mockRunTransaction = jest.fn(
   async (
     operation: (transaction: {
@@ -664,6 +706,110 @@ describe("publisher app config contract", () => {
     expect(response.statusCode).toBe(403);
     expect(response.json()).toEqual({
       error: "Publisher portal access is required to manage an app config.",
+    });
+  });
+
+  it("restricts the global app collection routes to GOD MODE", async () => {
+    context = makeAdminContext({ role: "full_admin", isBootstrap: false });
+
+    for (const url of [
+      "/admin/publisher-app-configs",
+      "/admin/publisher-app-configs/organization_shared-publisher-id",
+    ]) {
+      const response = await fastify.inject({ method: "GET", url });
+      expect(response.statusCode).toBe(403);
+      expect(response.json()).toEqual({ error: "GOD MODE access required" });
+    }
+  });
+
+  it("lists every app config for GOD MODE with a bounded cursor page", async () => {
+    const firstCreate = await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config",
+      payload: validBody,
+    });
+    expect(firstCreate.statusCode).toBe(201);
+
+    context = individualContext();
+    seedPublisher("individual", "shared-publisher-id", {
+      name: "Canonical Individual",
+    });
+    const secondCreate = await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config",
+      payload: { ...validBody, platformOption: "ios" },
+    });
+    expect(secondCreate.statusCode).toBe(201);
+
+    context = makeAdminContext({
+      role: "full_admin",
+      isBootstrap: true,
+      uid: "god-user",
+    });
+    const firstPage = await fastify.inject({
+      method: "GET",
+      url: "/admin/publisher-app-configs?limit=1",
+    });
+    expect(firstPage.statusCode).toBe(200);
+    expect(firstPage.json().apps).toHaveLength(1);
+    expect(firstPage.json().nextCursor).toEqual(expect.any(String));
+
+    const secondPage = await fastify.inject({
+      method: "GET",
+      url: `/admin/publisher-app-configs?limit=1&cursor=${encodeURIComponent(
+        firstPage.json().nextCursor,
+      )}`,
+    });
+    expect(secondPage.statusCode).toBe(200);
+    expect(secondPage.json().apps).toHaveLength(1);
+    expect(secondPage.json().apps[0].id).not.toBe(firstPage.json().apps[0].id);
+    expect(secondPage.json().nextCursor).toBeNull();
+  });
+
+  it("lets GOD MODE open and update any app config by document id", async () => {
+    const createResponse = await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config",
+      payload: validBody,
+    });
+    expect(createResponse.statusCode).toBe(201);
+    const configId = "organization_shared-publisher-id";
+
+    context = makeAdminContext({
+      role: "full_admin",
+      isBootstrap: true,
+      uid: "god-user",
+    });
+    const detailResponse = await fastify.inject({
+      method: "GET",
+      url: `/admin/publisher-app-configs/${configId}`,
+    });
+    expect(detailResponse.statusCode).toBe(200);
+    expect(detailResponse.json().config.id).toBe(configId);
+
+    const updateResponse = await fastify.inject({
+      method: "PUT",
+      url: `/admin/publisher-app-configs/${configId}`,
+      payload: {
+        ...validBody,
+        termsAccepted: undefined,
+        platformOption: "ios",
+        status: "approved",
+      },
+    });
+    expect(updateResponse.statusCode).toBe(200);
+    expect(updateResponse.json().config).toMatchObject({
+      id: configId,
+      platformOption: "ios",
+      status: "approved",
+      updatedByUserId: "god-user",
+    });
+    expect(collectionStore("app_configs").get(configId)).toMatchObject({
+      publisherName: "Canonical Organization",
+      publisherId: "shared-publisher-id",
+      platformOption: "ios",
+      status: "approved",
+      updatedByUserId: "god-user",
     });
   });
 });

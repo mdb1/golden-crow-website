@@ -941,9 +941,12 @@ export interface PublisherAppConfigInput {
   iconImageUploadDataUrl: string | null;
 }
 
-export interface PublisherAppConfigCreateInput
-  extends PublisherAppConfigInput {
+export interface PublisherAppConfigCreateInput extends PublisherAppConfigInput {
   termsAccepted: true;
+}
+
+export interface PublisherAppConfigAdminUpdateInput extends PublisherAppConfigInput {
+  status: PublisherAppStatus;
 }
 
 export interface PublisherAppConfigRecord extends PublisherAppConfigInput {

@@ -141,6 +141,18 @@ describe("AppSidebar PGFlex section", () => {
 });
 
 describe("AppSidebar GOD MODE actions", () => {
+  it("shows the global Apps section only in GOD MODE", () => {
+    const godModeRender = renderSidebar(godModeContext);
+    expect(screen.getByRole("link", { name: /^Apps$/ })).toHaveAttribute(
+      "href",
+      "/god-mode/apps",
+    );
+    godModeRender.unmount();
+
+    renderSidebar(fullAdminContext);
+    expect(document.querySelector('a[href="/god-mode/apps"]')).toBeNull();
+  });
+
   it("places deferred transactions immediately below service transactions", () => {
     renderSidebar(godModeContext);
 

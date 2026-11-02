@@ -543,6 +543,44 @@ describe("PublisherAppConfigWorkbench", () => {
     ).not.toBeChecked();
   });
 
+  it("supports a GOD MODE endpoint, status editing, and a safe admin layout", async () => {
+    jest.mocked(sdkFetch).mockResolvedValue({
+      config: { ...savedConfig, status: "approved" },
+    });
+    renderWorkbench({
+      mode: "edit",
+      initialConfig: savedConfig,
+      apiPath: "/admin/publisher-app-configs/organization_org-1",
+      backHref: "/god-mode/apps",
+      backLabel: "Volver a Apps",
+      allowStatusEditing: true,
+      showDangerZone: false,
+    });
+
+    expect(screen.getByRole("link", { name: "Volver a Apps" })).toHaveAttribute(
+      "href",
+      "/god-mode/apps",
+    );
+    expect(screen.getByTestId("publisher-app-edit-status")).toBeTruthy();
+    expect(
+      screen.getByTestId("publisher-app-danger-toggle").parentElement,
+    ).toHaveClass("hidden");
+
+    fireEvent.click(screen.getByRole("button", { name: "Aprobada" }));
+    fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    await waitFor(() =>
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/admin/publisher-app-configs/organization_org-1",
+        expect.objectContaining({ method: "PUT" }),
+      ),
+    );
+    const payload = JSON.parse(
+      String(jest.mocked(sdkFetch).mock.calls[0][1]?.body),
+    );
+    expect(payload.status).toBe("approved");
+  });
+
   it("uses branded palette suggestions and full visual pickers without editable hex fields", () => {
     renderWorkbench();
     advanceToColors();
