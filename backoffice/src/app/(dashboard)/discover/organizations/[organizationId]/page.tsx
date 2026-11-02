@@ -4,7 +4,10 @@ import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 import { requireDiscoverAccess } from "@/lib/discover-server";
 import { isGlobalAdminRole } from "@/lib/admin-areas";
-import type { DiscoverOrganizationRecord } from "@/lib/discover";
+import type {
+  DiscoverOrganizationProfessionalLinksResult,
+  DiscoverOrganizationRecord,
+} from "@/lib/discover";
 import { appText } from "@/lib/language";
 import { sdkFetchServer } from "@/lib/sdk-server";
 import { getServerAppLanguage } from "@/lib/server-language";
@@ -32,6 +35,18 @@ export default async function DiscoverOrganizationDetailPage({
   } catch {
     redirect("/discover/organizations");
   }
+  let professionalLinksAudit: DiscoverOrganizationProfessionalLinksResult | null =
+    null;
+  if (isGlobalAdminRole(adminContext.role)) {
+    try {
+      professionalLinksAudit =
+        await sdkFetchServer<DiscoverOrganizationProfessionalLinksResult>(
+          `/discover/organizations/${encodeURIComponent(organizationId)}/professional-links`,
+        );
+    } catch {
+      professionalLinksAudit = null;
+    }
+  }
 
   const canDeleteOwnPublisher =
     adminContext.role === "organization_publisher" &&
@@ -53,6 +68,7 @@ export default async function DiscoverOrganizationDetailPage({
       >
         <DiscoverOrganizationWorkbench
           organization={organization}
+          initialProfessionalLinksAudit={professionalLinksAudit}
           canManageSystemFields={isGlobalAdminRole(adminContext.role)}
           canManageGrcHighlight={
             isGlobalAdminRole(adminContext.role) && adminContext.isBootstrap

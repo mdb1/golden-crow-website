@@ -27,11 +27,13 @@ import {
   getDiscoverFeedItem,
   getDiscoverIndividual,
   getDiscoverOrganization,
+  getDiscoverOrganizationProfessionalLinks,
   getDiscoverOrganizationProductCatalogItem,
   listDiscoverFeedItems,
   listDiscoverIndividuals,
   listDiscoverOrganizations,
   listDiscoverOrganizationProductCatalog,
+  sanitizeDiscoverOrganizationProfessionalLinks,
   syncDiscoverPublisherSnapshot,
   updateDiscoverFeedItem,
   updateDiscoverIndividual,
@@ -290,6 +292,11 @@ const OrganizationBodySchema = z.object({
   isGrcHighlighted: z.boolean().optional(),
   contactEmail: z.string().optional(),
   internalNotes: z.string().optional(),
+  linkedIndividualProfessionalIds: z
+    .array(z.string().trim().min(1).max(300))
+    .max(200)
+    .optional(),
+  linkedIndividualProfessionals: z.never().optional(),
 });
 
 const ProductCatalogItemBodySchema = z.object({
@@ -750,6 +757,46 @@ export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
           request.body,
         );
         return reply.send({ organization });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/discover/organizations/:organizationId/professional-links",
+    {
+      schema: {
+        params: z.object({ organizationId: z.string().min(1) }),
+      },
+    },
+    async (request, reply) => {
+      try {
+        const result = await getDiscoverOrganizationProfessionalLinks(
+          request.adminContext!,
+          request.params.organizationId,
+        );
+        return reply.send(result);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.post(
+    "/discover/organizations/:organizationId/professional-links/sanitize",
+    {
+      schema: {
+        params: z.object({ organizationId: z.string().min(1) }),
+      },
+    },
+    async (request, reply) => {
+      try {
+        const result = await sanitizeDiscoverOrganizationProfessionalLinks(
+          request.adminContext!,
+          request.params.organizationId,
+        );
+        return reply.send(result);
       } catch (error) {
         return sendRepositoryError(reply, error);
       }

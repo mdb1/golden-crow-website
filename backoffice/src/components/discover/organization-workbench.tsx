@@ -29,6 +29,7 @@ import {
   Link2,
   Palette,
   PencilLine,
+  Plus,
   RotateCcw,
   Save,
   Search,
@@ -37,6 +38,7 @@ import {
   Sparkles,
   Trash2,
   UploadCloud,
+  UsersRound,
   XCircle,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
@@ -83,8 +85,11 @@ import {
   discoverOrganizationStatusLabel,
   type DiscoverIndividualRecord,
   type DiscoverIndividualStatus,
+  type DiscoverIndividualsPage,
+  type DiscoverLinkedIndividualProfessionalSnapshot,
   type DiscoverLinkedParentOrganizationSnapshot,
   type DiscoverOrganizationRecord,
+  type DiscoverOrganizationProfessionalLinksResult,
   type DiscoverOrganizationStatus,
   type DiscoverOrganizationsPage,
   type DiscoverPublisherSocialKey,
@@ -167,6 +172,7 @@ type OrganizationFormState = {
   contactEmail: string;
   internalNotes: string;
   linkedParentOrganizationId: string;
+  linkedIndividualProfessionalIds: string[];
 };
 
 function toFormState(
@@ -213,6 +219,10 @@ function toFormState(
     internalNotes: publisher?.internalNotes ?? "",
     linkedParentOrganizationId:
       individual?.linkedParentOrganizationId ?? "",
+    linkedIndividualProfessionalIds:
+      organization?.linkedIndividualProfessionals?.map(
+        (professional) => professional.id,
+      ) ?? [],
   };
 }
 
@@ -272,6 +282,10 @@ function payloadFromState(
     linkedParentOrganizationId:
       publisherKind === "individual"
         ? state.linkedParentOrganizationId || null
+        : undefined,
+    linkedIndividualProfessionalIds:
+      publisherKind === "organization"
+        ? state.linkedIndividualProfessionalIds
         : undefined,
     colorHex: normalizedColorHex(state.colorHex) || undefined,
     isGeneticReportProvider:
@@ -997,6 +1011,471 @@ function LinkedParentOrganizationPicker({
   );
 }
 
+function LinkedIndividualProfessionalsEditor({
+  organizationId,
+  initialAudit,
+  value,
+  initialSnapshots,
+  disabled,
+  hasUnsavedChanges,
+  onChange,
+  onSanitized,
+  t,
+}: {
+  organizationId: string;
+  initialAudit: DiscoverOrganizationProfessionalLinksResult | null;
+  value: string[];
+  initialSnapshots: DiscoverLinkedIndividualProfessionalSnapshot[];
+  disabled: boolean;
+  hasUnsavedChanges: boolean;
+  onChange: (individualIds: string[]) => void;
+  onSanitized: (organization: DiscoverOrganizationRecord) => void;
+  t: (text: string) => string;
+}) {
+  const [audit, setAudit] =
+    useState<DiscoverOrganizationProfessionalLinksResult | null>(initialAudit);
+  const [auditError, setAuditError] = useState(initialAudit === null);
+  const [sanitizing, setSanitizing] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [candidates, setCandidates] = useState<DiscoverIndividualRecord[]>([]);
+  const [candidateCursor, setCandidateCursor] = useState<string | null>(null);
+  const [candidateLoading, setCandidateLoading] = useState(false);
+  const [candidatesLoaded, setCandidatesLoaded] = useState(false);
+  const [candidateError, setCandidateError] = useState(false);
+  const [candidateAttempt, setCandidateAttempt] = useState(0);
+  const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    setAudit(initialAudit);
+    setAuditError(initialAudit === null);
+  }, [initialAudit]);
+
+  useEffect(() => {
+    if (!pickerOpen || candidatesLoaded) {
+      return;
+    }
+    let cancelled = false;
+    setCandidateLoading(true);
+    setCandidateError(false);
+    void sdkFetch<DiscoverIndividualsPage>("/discover/individuals?limit=20")
+      .then((page) => {
+        if (cancelled) {
+          return;
+        }
+        setCandidates(page.individuals);
+        setCandidateCursor(page.nextCursor);
+        setCandidatesLoaded(true);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCandidateError(true);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setCandidateLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [candidateAttempt, candidatesLoaded, pickerOpen]);
+
+  const knownProfessionals = new Map<
+    string,
+    DiscoverLinkedIndividualProfessionalSnapshot
+  >();
+  initialSnapshots.forEach((professional) =>
+    knownProfessionals.set(professional.id, professional),
+  );
+  audit?.links.forEach((link) =>
+    knownProfessionals.set(link.individual.id, link.individual),
+  );
+  candidates.forEach((professional) =>
+    knownProfessionals.set(professional.id, {
+      id: professional.id,
+      name: professional.name,
+      imageUrl: professional.imageUrl,
+    }),
+  );
+  const linkById = new Map(
+    audit?.links.map((link) => [link.individual.id, link]) ?? [],
+  );
+  const selected = value.map(
+    (individualId) =>
+      knownProfessionals.get(individualId) ?? {
+        id: individualId,
+        name: individualId,
+        imageUrl: null,
+      },
+  );
+  const normalizedQuery = query.trim().toLowerCase();
+  const eligibleCandidates = candidates.filter(
+    (candidate) =>
+      (!candidate.linkedParentOrganizationId ||
+        candidate.linkedParentOrganizationId === organizationId) &&
+      (!normalizedQuery ||
+        [candidate.name, candidate.id].some((text) =>
+          text.toLowerCase().includes(normalizedQuery),
+        )),
+  );
+  const inconsistentLinks =
+    audit?.links.filter(
+      (link) => link.state !== "synced" || link.snapshotOutdated,
+    ) ?? [];
+
+  function toggleCandidate(individualId: string) {
+    onChange(
+      value.includes(individualId)
+        ? value.filter((currentId) => currentId !== individualId)
+        : [...value, individualId],
+    );
+  }
+
+  async function loadMoreCandidates() {
+    if (!candidateCursor || candidateLoading) {
+      return;
+    }
+    setCandidateLoading(true);
+    setCandidateError(false);
+    try {
+      const page = await sdkFetch<DiscoverIndividualsPage>(
+        `/discover/individuals?limit=20&cursor=${encodeURIComponent(candidateCursor)}`,
+      );
+      setCandidates((current) => {
+        const merged = new Map(
+          current.map((professional) => [professional.id, professional]),
+        );
+        page.individuals.forEach((professional) =>
+          merged.set(professional.id, professional),
+        );
+        return Array.from(merged.values());
+      });
+      setCandidateCursor(page.nextCursor);
+    } catch {
+      setCandidateError(true);
+    } finally {
+      setCandidateLoading(false);
+    }
+  }
+
+  async function sanitize() {
+    setSanitizing(true);
+    setAuditError(false);
+    try {
+      const result = await sdkFetch<{
+        organization: DiscoverOrganizationRecord;
+        links: DiscoverOrganizationProfessionalLinksResult;
+      }>(
+        `/discover/organizations/${organizationId}/professional-links/sanitize`,
+        { method: "POST" },
+      );
+      setAudit(result.links);
+      onSanitized(result.organization);
+    } catch {
+      setAuditError(true);
+    } finally {
+      setSanitizing(false);
+    }
+  }
+
+  function stateLabel(individualId: string) {
+    const link = linkById.get(individualId);
+    if (!link) {
+      return t("Pending save");
+    }
+    if (link.snapshotOutdated && link.state === "synced") {
+      return t("Snapshot needs refresh");
+    }
+    const labels = {
+      synced: "Linked on both profiles",
+      organization_only: "Only linked on the organization",
+      individual_only: "Only linked on the professional",
+      conflicting_parent: "Professional points to another organization",
+      missing_individual: "Professional profile no longer exists",
+    } as const;
+    return t(labels[link.state]);
+  }
+
+  return (
+    <section className="space-y-4 rounded-3xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-background to-fuchsia-50/60 p-5 shadow-[0_18px_55px_rgba(109,40,217,0.08)] dark:border-violet-400/20 dark:from-violet-500/10 dark:via-background dark:to-fuchsia-500/5 md:col-span-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-600 text-white shadow-lg shadow-violet-600/20">
+            <UsersRound className="h-5 w-5" />
+          </span>
+          <div>
+            <h3 className="text-base font-semibold text-foreground">
+              {t("Linked professionals")}
+            </h3>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              {t(
+                "Connect independent professionals to this organization. Both profiles stay synchronized automatically.",
+              )}
+            </p>
+          </div>
+        </div>
+        <Button
+          type="button"
+          onClick={() => setPickerOpen(true)}
+          disabled={disabled}
+          className="shrink-0 bg-violet-600 text-white hover:bg-violet-700"
+        >
+          <Plus className="h-4 w-4" />
+          {t("Add professional")}
+        </Button>
+      </div>
+
+      {selected.length ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {selected.map((professional) => {
+            const link = linkById.get(professional.id);
+            const hasIssue = Boolean(
+              link && (link.state !== "synced" || link.snapshotOutdated),
+            );
+            return (
+              <article
+                key={professional.id}
+                className={cn(
+                  "group flex items-center gap-3 rounded-2xl border bg-background/90 p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md",
+                  hasIssue ? "border-amber-300" : "border-border",
+                )}
+              >
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border bg-muted text-sm font-bold text-muted-foreground">
+                  {professional.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={professional.imageUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    previewInitials(professional.name, "PG")
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold">
+                    {professional.name}
+                  </span>
+                  <span
+                    className={cn(
+                      "mt-1 block truncate text-xs",
+                      hasIssue ? "text-amber-700" : "text-muted-foreground",
+                    )}
+                  >
+                    {stateLabel(professional.id)}
+                  </span>
+                </span>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  aria-label={`${t("Remove professional")} ${professional.name}`}
+                  onClick={() => toggleCandidate(professional.id)}
+                  disabled={disabled}
+                  className="shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-dashed border-violet-200 bg-background/60 px-5 py-8 text-center dark:border-violet-400/20">
+          <UsersRound className="mx-auto h-7 w-7 text-violet-400" />
+          <p className="mt-3 text-sm font-semibold">
+            {t("No professionals linked yet")}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t("Choose from professionals who are not assigned to an organization.")}
+          </p>
+        </div>
+      )}
+
+      {inconsistentLinks.length ? (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-100">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold">
+                  {t("Relationship mismatch detected")}
+                </p>
+                <p className="mt-1 text-xs leading-5 opacity-80">
+                  {t(
+                    "One or more links disagree between the organization and professional profiles.",
+                  )}
+                </p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void sanitize()}
+              disabled={disabled || sanitizing || hasUnsavedChanges}
+              className="shrink-0 border-amber-400 bg-white/70 text-amber-950 hover:bg-white dark:bg-black/20 dark:text-amber-100"
+            >
+              {sanitizing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Link2 className="h-4 w-4" />
+              )}
+              {t("Repair reciprocal links")}
+            </Button>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {inconsistentLinks.map((link) => (
+              <div
+                key={`${link.state}-${link.individual.id}`}
+                className="rounded-xl border border-amber-300/70 bg-white/60 px-3 py-2 dark:border-amber-400/20 dark:bg-black/10"
+              >
+                <p className="truncate text-xs font-semibold">
+                  {link.individual.name}
+                </p>
+                <p className="mt-0.5 text-xs opacity-75">
+                  {stateLabel(link.individual.id)}
+                </p>
+              </div>
+            ))}
+          </div>
+          {hasUnsavedChanges ? (
+            <p className="mt-2 text-xs font-medium">
+              {t("Save or reset your current changes before repairing links.")}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {auditError ? (
+        <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          {t("Unable to verify professional links.")}
+        </p>
+      ) : null}
+
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DialogContent className="flex max-h-[86vh] flex-col overflow-hidden sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t("Add linked professionals")}</DialogTitle>
+            <DialogDescription>
+              {t(
+                "Only independent professionals can be added. Selections are applied when you save the organization.",
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              aria-label={t("Search professionals")}
+              placeholder={t("Search loaded professionals")}
+              className="pl-9"
+            />
+          </div>
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+            {eligibleCandidates.map((professional) => {
+              const isSelected = value.includes(professional.id);
+              return (
+                <button
+                  key={professional.id}
+                  type="button"
+                  onClick={() => toggleCandidate(professional.id)}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition",
+                    isSelected
+                      ? "border-violet-400 bg-violet-50 dark:bg-violet-500/10"
+                      : "border-border hover:bg-muted/60",
+                  )}
+                >
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border bg-background text-xs font-bold text-muted-foreground">
+                    {professional.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={professional.imageUrl}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      previewInitials(professional.name, "PG")
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold">
+                      {professional.name}
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {professional.id}
+                    </span>
+                  </span>
+                  <span
+                    className={cn(
+                      "flex h-7 w-7 items-center justify-center rounded-full border",
+                      isSelected
+                        ? "border-violet-600 bg-violet-600 text-white"
+                        : "border-border text-transparent",
+                    )}
+                  >
+                    <Check className="h-4 w-4" />
+                  </span>
+                </button>
+              );
+            })}
+            {candidateLoading && !candidatesLoaded ? (
+              <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {t("Loading professionals...")}
+              </div>
+            ) : null}
+            {!candidateLoading &&
+            candidatesLoaded &&
+            eligibleCandidates.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+                {t("No available professionals match this search.")}
+              </p>
+            ) : null}
+          </div>
+          {candidateError ? (
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+              <span>{t("Unable to load professionals.")}</span>
+              {!candidatesLoaded ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setCandidateAttempt((attempt) => attempt + 1)
+                  }
+                >
+                  {t("Retry")}
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+          <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+            <p className="text-xs text-muted-foreground">
+              {t("Professionals are loaded 20 at a time.")}
+            </p>
+            {candidateCursor ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void loadMoreCandidates()}
+                disabled={candidateLoading}
+              >
+                {candidateLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : null}
+                {t("Load more professionals")}
+              </Button>
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </section>
+  );
+}
+
 function DiscoverPublisherWorkbench({
   publisher,
   publisherKind,
@@ -1007,6 +1486,7 @@ function DiscoverPublisherWorkbench({
   deleteSuccessAction = "list",
   routeBase,
   showListBackLink = true,
+  initialProfessionalLinksAudit = null,
 }: {
   publisher?: PublisherRecord;
   publisherKind: PublisherKind;
@@ -1017,6 +1497,7 @@ function DiscoverPublisherWorkbench({
   deleteSuccessAction?: DeleteSuccessAction;
   routeBase?: string;
   showListBackLink?: boolean;
+  initialProfessionalLinksAudit?: DiscoverOrganizationProfessionalLinksResult | null;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -1066,6 +1547,10 @@ function DiscoverPublisherWorkbench({
     ? ((publisher as DiscoverIndividualRecord | undefined)
         ?.linkedParentOrganizationSnapshot ?? null)
     : null;
+  const linkedIndividualProfessionalSnapshots = !isIndividual
+    ? ((publisher as DiscoverOrganizationRecord | undefined)
+        ?.linkedIndividualProfessionals ?? [])
+    : [];
   const publisherRouteBase =
     routeBase ??
     (isIndividual ? "/discover/individuals" : "/discover/organizations");
@@ -2577,6 +3062,37 @@ function DiscoverPublisherWorkbench({
                 t={t}
               />
             ) : null}
+            {!isIndividual &&
+            mode === "edit" &&
+            publisher &&
+            canManageSystemFields ? (
+              <LinkedIndividualProfessionalsEditor
+                organizationId={publisher.id}
+                initialAudit={initialProfessionalLinksAudit}
+                value={state.linkedIndividualProfessionalIds}
+                initialSnapshots={linkedIndividualProfessionalSnapshots}
+                disabled={pending}
+                hasUnsavedChanges={changed}
+                onChange={(linkedIndividualProfessionalIds) =>
+                  updateState({ linkedIndividualProfessionalIds })
+                }
+                onSanitized={(organization) => {
+                  updateState({
+                    linkedIndividualProfessionalIds:
+                      organization.linkedIndividualProfessionals.map(
+                        (professional) => professional.id,
+                      ),
+                  });
+                  setToast({
+                    id: Date.now(),
+                    tone: "success",
+                    message: t("Reciprocal professional links repaired."),
+                  });
+                  router.refresh();
+                }}
+                t={t}
+              />
+            ) : null}
             <label className="flex items-center gap-2 self-end rounded-md border border-border px-3 py-2 text-sm">
               <input
                 type="checkbox"
@@ -3067,6 +3583,7 @@ export function DiscoverOrganizationWorkbench({
   deleteSuccessAction = "list",
   routeBase,
   showListBackLink = true,
+  initialProfessionalLinksAudit = null,
 }: {
   organization?: DiscoverOrganizationRecord;
   mode?: "create" | "edit";
@@ -3076,6 +3593,7 @@ export function DiscoverOrganizationWorkbench({
   deleteSuccessAction?: DeleteSuccessAction;
   routeBase?: string;
   showListBackLink?: boolean;
+  initialProfessionalLinksAudit?: DiscoverOrganizationProfessionalLinksResult | null;
 }) {
   return (
     <DiscoverPublisherWorkbench
@@ -3088,6 +3606,7 @@ export function DiscoverOrganizationWorkbench({
       deleteSuccessAction={deleteSuccessAction}
       routeBase={routeBase}
       showListBackLink={showListBackLink}
+      initialProfessionalLinksAudit={initialProfessionalLinksAudit}
     />
   );
 }

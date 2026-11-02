@@ -311,6 +311,7 @@ jest.mock("../config/firebase.js", () => ({
     batch: jest.fn(() => {
       const deletes: MockDocumentRef[] = [];
       const updates: Array<{ ref: MockDocumentRef; data: MockDocData }> = [];
+      const sets: Array<{ ref: MockDocumentRef; data: MockDocData }> = [];
       return {
         delete: jest.fn((ref: MockDocumentRef) => {
           deletes.push(ref);
@@ -318,11 +319,15 @@ jest.mock("../config/firebase.js", () => ({
         update: jest.fn((ref: MockDocumentRef, data: MockDocData) => {
           updates.push({ ref, data });
         }),
+        set: jest.fn((ref: MockDocumentRef, data: MockDocData) => {
+          sets.push({ ref, data });
+        }),
         commit: jest.fn(async () => {
           mockBatchCommitCount += 1;
           await Promise.all([
             ...deletes.map((ref) => ref.delete()),
             ...updates.map(({ ref, data }) => ref.update(data)),
+            ...sets.map(({ ref, data }) => ref.set(data)),
           ]);
         }),
       };
@@ -618,6 +623,16 @@ describe("discover repository", () => {
         imageUploadDataUrl: null,
       },
     });
+    expect(
+      mockOrganizationDocs.find((doc) => doc.id === "org-1")?.data
+        .linkedIndividualProfessionals,
+    ).toEqual([
+      {
+        id: "person-1",
+        name: "Dr. Publisher One",
+        imageUrl: "https://example.org/individual.png",
+      },
+    ]);
 
     const cleared = await updateDiscoverIndividual(
       fullAdminContext,
@@ -632,6 +647,149 @@ describe("discover repository", () => {
 
     expect(cleared.linkedParentOrganizationId).toBeNull();
     expect(cleared.linkedParentOrganizationSnapshot).toBeNull();
+    expect(
+      mockOrganizationDocs.find((doc) => doc.id === "org-1")?.data
+        .linkedIndividualProfessionals,
+    ).toEqual([]);
+  });
+
+  it("links and unlinks professionals from the organization side atomically", async () => {
+    const { updateDiscoverIndividual, updateDiscoverOrganization } =
+      await import("../repositories/discover.repository");
+
+    const linked = await updateDiscoverOrganization(
+      fullAdminContext,
+      "org-1",
+      {
+        name: "Publisher One",
+        imageUrl: "https://example.org/publisher.png",
+        organizationType:
+          "org_patient_advocacy_organizations,org_genetics_research_institutes",
+        linkedIndividualProfessionalIds: ["person-1"],
+      } as Record<string, unknown>,
+    );
+
+    expect(linked.linkedIndividualProfessionals).toEqual([
+      {
+        id: "person-1",
+        name: "Dr. Publisher One",
+        imageUrl: "https://example.org/individual.png",
+      },
+    ]);
+    expect(
+      mockIndividualDocs.find((doc) => doc.id === "person-1")?.data,
+    ).toMatchObject({
+      linkedParentOrganizationId: "org-1",
+      linkedParentOrganizationSnapshot: {
+        id: "org-1",
+        name: "Publisher One",
+        imageUrl: "https://example.org/publisher.png",
+        imageUploadDataUrl: null,
+      },
+    });
+
+    await updateDiscoverOrganization(fullAdminContext, "org-1", {
+      name: "Publisher One Renamed",
+      imageUrl: "https://example.org/publisher.png",
+      organizationType:
+        "org_patient_advocacy_organizations,org_genetics_research_institutes",
+    } as Record<string, unknown>);
+    expect(
+      mockIndividualDocs.find((doc) => doc.id === "person-1")?.data
+        .linkedParentOrganizationSnapshot,
+    ).toMatchObject({ name: "Publisher One Renamed" });
+
+    await updateDiscoverIndividual(fullAdminContext, "person-1", {
+      name: "Dr. Publisher Renamed",
+      imageUrl: "https://example.org/individual.png",
+      individualType: "pro_research_scientists",
+      linkedParentOrganizationId: "org-1",
+    } as Record<string, unknown>);
+    expect(
+      mockOrganizationDocs.find((doc) => doc.id === "org-1")?.data
+        .linkedIndividualProfessionals,
+    ).toEqual([
+      {
+        id: "person-1",
+        name: "Dr. Publisher Renamed",
+        imageUrl: "https://example.org/individual.png",
+      },
+    ]);
+
+    const unlinked = await updateDiscoverOrganization(
+      fullAdminContext,
+      "org-1",
+      {
+        name: "Publisher One Renamed",
+        imageUrl: "https://example.org/publisher.png",
+        organizationType:
+          "org_patient_advocacy_organizations,org_genetics_research_institutes",
+        linkedIndividualProfessionalIds: [],
+      } as Record<string, unknown>,
+    );
+
+    expect(unlinked.linkedIndividualProfessionals).toEqual([]);
+    expect(
+      mockIndividualDocs.find((doc) => doc.id === "person-1")?.data,
+    ).toMatchObject({
+      linkedParentOrganizationId: null,
+      linkedParentOrganizationSnapshot: null,
+    });
+  });
+
+  it("audits and sanitizes one-sided professional links", async () => {
+    const {
+      getDiscoverOrganizationProfessionalLinks,
+      sanitizeDiscoverOrganizationProfessionalLinks,
+    } = await import("../repositories/discover.repository");
+    const organization = mockOrganizationDocs.find(
+      (doc) => doc.id === "org-1",
+    );
+    const individual = mockIndividualDocs.find(
+      (doc) => doc.id === "person-1",
+    );
+    organization!.data.linkedIndividualProfessionals = [];
+    individual!.data.linkedParentOrganizationId = "org-1";
+    individual!.data.linkedParentOrganizationSnapshot = {
+      id: "org-1",
+      name: "Old organization name",
+      imageUrl: null,
+      imageUploadDataUrl: null,
+    };
+
+    const audit = await getDiscoverOrganizationProfessionalLinks(
+      fullAdminContext,
+      "org-1",
+    );
+    expect(audit.consistent).toBe(false);
+    expect(audit.links).toEqual([
+      expect.objectContaining({
+        state: "individual_only",
+        individual: expect.objectContaining({ id: "person-1" }),
+      }),
+    ]);
+
+    const sanitized = await sanitizeDiscoverOrganizationProfessionalLinks(
+      fullAdminContext,
+      "org-1",
+    );
+    expect(sanitized.links.consistent).toBe(true);
+    expect(sanitized.organization.linkedIndividualProfessionals).toEqual([
+      {
+        id: "person-1",
+        name: "Dr. Publisher One",
+        imageUrl: "https://example.org/individual.png",
+      },
+    ]);
+    expect(
+      mockIndividualDocs.find((doc) => doc.id === "person-1")?.data
+        .linkedParentOrganizationSnapshot,
+    ).toEqual({
+      id: "org-1",
+      name: "Publisher One",
+      imageUrl: "https://example.org/publisher.png",
+      imageUploadDataUrl: null,
+    });
   });
 
   it("rejects a parent organization that does not exist", async () => {

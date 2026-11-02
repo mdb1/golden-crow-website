@@ -26,8 +26,11 @@ import type {
   DiscoverGeneticReportCategory,
   DiscoverIndividualRecord,
   DiscoverIndividualStatus,
+  DiscoverLinkedIndividualProfessionalSnapshot,
   DiscoverLinkedParentOrganizationSnapshot,
   DiscoverListPage,
+  DiscoverOrganizationProfessionalLink,
+  DiscoverOrganizationProfessionalLinksResult,
   DiscoverOrganizationProductCatalogItem,
   DiscoverOrganizationRecord,
   DiscoverOrganizationStatus,
@@ -48,6 +51,7 @@ const FIRESTORE_BATCH_SAFE_MAX_BYTES = 8_000_000;
 const FIRESTORE_DOCUMENT_SAFE_MAX_BYTES = 950_000;
 const FIRESTORE_WRITE_OVERHEAD_BYTES = 2_048;
 const MAX_PRODUCT_CATALOG_ITEMS = 200;
+const MAX_LINKED_INDIVIDUAL_PROFESSIONALS = 200;
 
 const FEED_TYPE_VALUES = [
   "news",
@@ -586,6 +590,7 @@ type OrganizationInput = PublisherImageUploadInput &
     isGrcHighlighted?: unknown;
     contactEmail?: unknown;
     internalNotes?: unknown;
+    linkedIndividualProfessionalIds?: unknown;
   };
 
 type IndividualInput = PublisherImageUploadInput & {
@@ -1973,6 +1978,35 @@ function cursorFromDoc(doc: QueryDocumentSnapshot): PageCursor | null {
   };
 }
 
+function readLinkedIndividualProfessionals(
+  value: unknown,
+): DiscoverLinkedIndividualProfessionalSnapshot[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const snapshots: DiscoverLinkedIndividualProfessionalSnapshot[] = [];
+  for (const item of value.slice(0, MAX_LINKED_INDIVIDUAL_PROFESSIONALS)) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      continue;
+    }
+    const source = item as Record<string, unknown>;
+    const id = normalizeOptionalString(source.id);
+    const name = normalizeOptionalString(source.name);
+    if (!id || !name || seen.has(id)) {
+      continue;
+    }
+    seen.add(id);
+    snapshots.push({
+      id,
+      name,
+      imageUrl: normalizeNullableString(source.imageUrl),
+    });
+  }
+  return snapshots;
+}
+
 function toOrganizationRecord(
   doc: QueryDocumentSnapshot,
 ): DiscoverOrganizationRecord {
@@ -2020,6 +2054,9 @@ function toOrganizationRecord(
     contactEmail: normalizeOptionalString(data.contactEmail),
     internalNotes: normalizeOptionalString(data.internalNotes),
     productCatalog: readProductCatalog(data.productCatalog),
+    linkedIndividualProfessionals: readLinkedIndividualProfessionals(
+      data.linkedIndividualProfessionals,
+    ),
     createdAt: timestampToIso(data.createdAt) ?? "",
     updatedAt: timestampToIso(data.updatedAt) ?? "",
     createdByUserId: normalizeOptionalString(data.createdByUserId),
@@ -2603,6 +2640,8 @@ function organizationDocument(
     contactEmail: normalizeOptionalEmail(input.contactEmail, "Contact email"),
     internalNotes: normalizeOptionalString(input.internalNotes),
     productCatalog: options.existingRecord?.productCatalog ?? [],
+    linkedIndividualProfessionals:
+      options.existingRecord?.linkedIndividualProfessionals ?? [],
     updatedAt: FieldValue.serverTimestamp(),
     updatedByUserId: context.uid,
   };
@@ -2637,6 +2676,7 @@ function publicOrganizationRequestDocument(input: PublicPublisherRequestInput) {
     contactEmail: normalizeRequiredEmail(input.contactEmail, "Contact email"),
     internalNotes: undefined,
     productCatalog: [],
+    linkedIndividualProfessionals: [],
     isRequestedThroughWebWizard: true,
     approvalRequestDate: FieldValue.serverTimestamp(),
     createdAt: FieldValue.serverTimestamp(),
@@ -2724,6 +2764,105 @@ async function getOrganizationSnapshot(organizationId: string) {
   return snapshot.exists ? (snapshot as QueryDocumentSnapshot) : null;
 }
 
+function linkedIndividualProfessionalSnapshotFor(
+  individual: Pick<DiscoverIndividualRecord, "id" | "name" | "imageUrl">,
+): DiscoverLinkedIndividualProfessionalSnapshot {
+  return {
+    id: individual.id,
+    name: individual.name,
+    imageUrl: individual.imageUrl,
+  };
+}
+
+function linkedParentOrganizationSnapshotFor(
+  organization: Pick<
+    DiscoverOrganizationRecord,
+    "id" | "name" | "imageUrl" | "imageUploadDataUrl"
+  >,
+): DiscoverLinkedParentOrganizationSnapshot {
+  return {
+    id: organization.id,
+    name: organization.name,
+    imageUrl: organization.imageUrl,
+    imageUploadDataUrl: organization.imageUploadDataUrl ?? null,
+  };
+}
+
+function upsertLinkedIndividualProfessional(
+  organization: DiscoverOrganizationRecord,
+  professional: DiscoverLinkedIndividualProfessionalSnapshot,
+) {
+  const withoutProfessional =
+    organization.linkedIndividualProfessionals.filter(
+      (current) => current.id !== professional.id,
+    );
+  if (withoutProfessional.length >= MAX_LINKED_INDIVIDUAL_PROFESSIONALS) {
+    throw new AdminRepositoryError(
+      `An organization can link at most ${MAX_LINKED_INDIVIDUAL_PROFESSIONALS} individual professionals.`,
+      400,
+    );
+  }
+  return [...withoutProfessional, professional];
+}
+
+function normalizeLinkedIndividualProfessionalIds(
+  value: unknown,
+): string[] | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!Array.isArray(value)) {
+    throw new AdminRepositoryError(
+      "Linked individual professional ids must be an array.",
+      400,
+    );
+  }
+
+  const ids = Array.from(
+    new Set(
+      value.map((item) =>
+        normalizeRequiredString(item, "Linked individual professional id"),
+      ),
+    ),
+  );
+  if (ids.length > MAX_LINKED_INDIVIDUAL_PROFESSIONALS) {
+    throw new AdminRepositoryError(
+      `An organization can link at most ${MAX_LINKED_INDIVIDUAL_PROFESSIONALS} individual professionals.`,
+      400,
+    );
+  }
+  return ids;
+}
+
+async function individualSnapshotsLinkedToOrganization(
+  organizationId: string,
+): Promise<QueryDocumentSnapshot[]> {
+  const snapshot = await adminDb
+    .collection(INDIVIDUALS_COLLECTION)
+    .where("linkedParentOrganizationId", "==", organizationId)
+    .limit(MAX_LINKED_INDIVIDUAL_PROFESSIONALS + 1)
+    .get();
+  if (snapshot.docs.length > MAX_LINKED_INDIVIDUAL_PROFESSIONALS) {
+    throw new AdminRepositoryError(
+      `An organization can link at most ${MAX_LINKED_INDIVIDUAL_PROFESSIONALS} individual professionals.`,
+      400,
+    );
+  }
+  return snapshot.docs;
+}
+
+async function individualSnapshotsForIds(
+  individualIds: readonly string[],
+): Promise<Map<string, QueryDocumentSnapshot>> {
+  const entries = await Promise.all(
+    individualIds.map(async (individualId) => {
+      const snapshot = await getIndividualSnapshot(individualId);
+      return snapshot ? ([individualId, snapshot] as const) : null;
+    }),
+  );
+  return new Map(entries.filter((entry) => entry !== null));
+}
+
 async function linkedParentOrganizationFields(
   input: IndividualInput,
   existingRecord?: DiscoverIndividualRecord,
@@ -2777,12 +2916,8 @@ async function linkedParentOrganizationFields(
 
   return {
     linkedParentOrganizationId,
-    linkedParentOrganizationSnapshot: {
-      id: organization.id,
-      name: organization.name,
-      imageUrl: organization.imageUrl,
-      imageUploadDataUrl: organization.imageUploadDataUrl ?? null,
-    },
+    linkedParentOrganizationSnapshot:
+      linkedParentOrganizationSnapshotFor(organization),
   };
 }
 
@@ -3333,19 +3468,205 @@ export async function getDiscoverOrganization(
   return toOrganizationRecord(snapshot);
 }
 
+function linkedProfessionalSnapshotMatches(
+  left: DiscoverLinkedIndividualProfessionalSnapshot,
+  right: DiscoverLinkedIndividualProfessionalSnapshot,
+) {
+  return (
+    left.id === right.id &&
+    left.name === right.name &&
+    left.imageUrl === right.imageUrl
+  );
+}
+
+export async function getDiscoverOrganizationProfessionalLinks(
+  context: AdminContext,
+  organizationId: string,
+): Promise<DiscoverOrganizationProfessionalLinksResult> {
+  requireOrganizationSurfaceAccess(context);
+  assertOrganizationScope(context, organizationId);
+  const organizationSnapshot = await getOrganizationSnapshot(organizationId);
+  if (!organizationSnapshot) {
+    throw new AdminRepositoryError("Organization not found.", 404);
+  }
+  const organization = toOrganizationRecord(organizationSnapshot);
+  const individualSideSnapshots =
+    await individualSnapshotsLinkedToOrganization(organizationId);
+  const individualSideById = new Map(
+    individualSideSnapshots.map((snapshot) => [snapshot.id, snapshot]),
+  );
+  const organizationSideIds = organization.linkedIndividualProfessionals.map(
+    (professional) => professional.id,
+  );
+  const missingFromIndividualQuery = organizationSideIds.filter(
+    (individualId) => !individualSideById.has(individualId),
+  );
+  const liveOrganizationSide = await individualSnapshotsForIds(
+    missingFromIndividualQuery,
+  );
+  const liveById = new Map([
+    ...individualSideById,
+    ...liveOrganizationSide,
+  ]);
+  const links: DiscoverOrganizationProfessionalLink[] = [];
+
+  for (const organizationProfessional of organization.linkedIndividualProfessionals) {
+    const individualSnapshot = liveById.get(organizationProfessional.id);
+    if (!individualSnapshot) {
+      links.push({
+        individual: organizationProfessional,
+        organizationSnapshot: organizationProfessional,
+        individualParentOrganizationId: null,
+        state: "missing_individual",
+        snapshotOutdated: false,
+      });
+      continue;
+    }
+    const individual = toIndividualRecord(individualSnapshot);
+    const liveProfessional = linkedIndividualProfessionalSnapshotFor(individual);
+    const parentOrganizationId = individual.linkedParentOrganizationId;
+    links.push({
+      individual: liveProfessional,
+      organizationSnapshot: organizationProfessional,
+      individualParentOrganizationId: parentOrganizationId,
+      state:
+        parentOrganizationId === organizationId
+          ? "synced"
+          : parentOrganizationId
+            ? "conflicting_parent"
+            : "organization_only",
+      snapshotOutdated: !linkedProfessionalSnapshotMatches(
+        organizationProfessional,
+        liveProfessional,
+      ),
+    });
+  }
+
+  const organizationSideIdSet = new Set(organizationSideIds);
+  for (const individualSnapshot of individualSideSnapshots) {
+    if (organizationSideIdSet.has(individualSnapshot.id)) {
+      continue;
+    }
+    const individual = toIndividualRecord(individualSnapshot);
+    links.push({
+      individual: linkedIndividualProfessionalSnapshotFor(individual),
+      organizationSnapshot: null,
+      individualParentOrganizationId: organizationId,
+      state: "individual_only",
+      snapshotOutdated: false,
+    });
+  }
+
+  return {
+    links,
+    consistent: links.every(
+      (link) => link.state === "synced" && !link.snapshotOutdated,
+    ),
+    canonicalIndividualIds: individualSideSnapshots.map(
+      (snapshot) => snapshot.id,
+    ),
+  };
+}
+
+export async function sanitizeDiscoverOrganizationProfessionalLinks(
+  context: AdminContext,
+  organizationId: string,
+) {
+  requireFullAdmin(context);
+  const organizationSnapshot = await getOrganizationSnapshot(organizationId);
+  if (!organizationSnapshot) {
+    throw new AdminRepositoryError("Organization not found.", 404);
+  }
+  const organization = toOrganizationRecord(organizationSnapshot);
+  const individualSnapshots =
+    await individualSnapshotsLinkedToOrganization(organizationId);
+  const linkedIndividualProfessionals = individualSnapshots.map((snapshot) =>
+    linkedIndividualProfessionalSnapshotFor(toIndividualRecord(snapshot)),
+  );
+  const parentSnapshot = linkedParentOrganizationSnapshotFor(organization);
+  const batch = adminDb.batch();
+  batch.update(organizationSnapshot.ref, {
+    linkedIndividualProfessionals,
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedByUserId: context.uid,
+  });
+  for (const individualSnapshot of individualSnapshots) {
+    batch.update(individualSnapshot.ref, {
+      linkedParentOrganizationSnapshot: parentSnapshot,
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedByUserId: context.uid,
+    });
+  }
+  await batch.commit();
+
+  return {
+    organization: await getDiscoverOrganization(context, organizationId),
+    links: await getDiscoverOrganizationProfessionalLinks(
+      context,
+      organizationId,
+    ),
+  };
+}
+
 export async function createDiscoverOrganization(
   context: AdminContext,
   input: OrganizationInput,
 ) {
   requireFullAdmin(context);
   const ref = adminDb.collection(ORGANIZATIONS_COLLECTION).doc();
-  await ref.set(
-    withoutUndefined({
-      ...organizationDocument(input, context),
-      createdAt: FieldValue.serverTimestamp(),
-      createdByUserId: context.uid,
-    }),
+  const requestedProfessionalIds =
+    normalizeLinkedIndividualProfessionalIds(
+      input.linkedIndividualProfessionalIds,
+    ) ?? [];
+  const requestedById = await individualSnapshotsForIds(
+    requestedProfessionalIds,
   );
+  for (const individualId of requestedProfessionalIds) {
+    const snapshot = requestedById.get(individualId);
+    if (!snapshot) {
+      throw new AdminRepositoryError(
+        `Individual publisher ${individualId} does not exist.`,
+        400,
+      );
+    }
+    const individual = toIndividualRecord(snapshot);
+    if (individual.linkedParentOrganizationId) {
+      throw new AdminRepositoryError(
+        `${individual.name} is already linked to another organization.`,
+        409,
+      );
+    }
+  }
+  const linkedIndividualProfessionals = requestedProfessionalIds.map(
+    (individualId) =>
+      linkedIndividualProfessionalSnapshotFor(
+        toIndividualRecord(requestedById.get(individualId)!),
+      ),
+  );
+  const organizationData = withoutUndefined({
+    ...organizationDocument(input, context),
+    linkedIndividualProfessionals,
+    createdAt: FieldValue.serverTimestamp(),
+    createdByUserId: context.uid,
+  });
+  const organizationRecord = toOrganizationRecord({
+    id: ref.id,
+    ref,
+    data: () => organizationData,
+  } as unknown as QueryDocumentSnapshot);
+  const parentSnapshot =
+    linkedParentOrganizationSnapshotFor(organizationRecord);
+  const batch = adminDb.batch();
+  batch.set(ref, organizationData);
+  for (const snapshot of requestedById.values()) {
+    batch.update(snapshot.ref, {
+      linkedParentOrganizationId: ref.id,
+      linkedParentOrganizationSnapshot: parentSnapshot,
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedByUserId: context.uid,
+    });
+  }
+  await batch.commit();
 
   return getDiscoverOrganization(context, ref.id);
 }
@@ -3409,16 +3730,94 @@ export async function updateDiscoverOrganization(
     inputWithImageUpload,
     existingRecord,
   );
-
-  await existing.ref.set(
-    withoutUndefined({
-      ...existing.data(),
-      ...organizationDocument(inputWithBannerImage, context, {
-        existingRecord,
-      }),
+  const nextOrganizationData = withoutUndefined({
+    ...existing.data(),
+    ...organizationDocument(inputWithBannerImage, context, {
+      existingRecord,
     }),
+  });
+  const nextOrganizationRecord = toOrganizationRecord({
+    ...existing,
+    data: () => nextOrganizationData,
+  } as unknown as QueryDocumentSnapshot);
+  const canEditProfessionalLinks = context.role !== "organization_publisher";
+  const requestedProfessionalIds = canEditProfessionalLinks
+    ? normalizeLinkedIndividualProfessionalIds(
+        input.linkedIndividualProfessionalIds,
+      )
+    : undefined;
+  const currentlyLinkedSnapshots =
+    await individualSnapshotsLinkedToOrganization(organizationId);
+  const currentlyLinkedById = new Map(
+    currentlyLinkedSnapshots.map((snapshot) => [snapshot.id, snapshot]),
+  );
+  const requestedById = requestedProfessionalIds
+    ? await individualSnapshotsForIds(requestedProfessionalIds)
+    : new Map<string, QueryDocumentSnapshot>();
+
+  if (requestedProfessionalIds) {
+    for (const individualId of requestedProfessionalIds) {
+      const snapshot = requestedById.get(individualId);
+      if (!snapshot) {
+        throw new AdminRepositoryError(
+          `Individual publisher ${individualId} does not exist.`,
+          400,
+        );
+      }
+      const individual = toIndividualRecord(snapshot);
+      if (
+        individual.linkedParentOrganizationId &&
+        individual.linkedParentOrganizationId !== organizationId
+      ) {
+        throw new AdminRepositoryError(
+          `${individual.name} is already linked to another organization.`,
+          409,
+        );
+      }
+    }
+  }
+
+  const nextLinkedProfessionals = requestedProfessionalIds
+    ? requestedProfessionalIds.map((individualId) =>
+        linkedIndividualProfessionalSnapshotFor(
+          toIndividualRecord(requestedById.get(individualId)!),
+        ),
+      )
+    : existingRecord.linkedIndividualProfessionals;
+  const nextParentSnapshot =
+    linkedParentOrganizationSnapshotFor(nextOrganizationRecord);
+  const batch = adminDb.batch();
+  batch.set(
+    existing.ref,
+    {
+      ...nextOrganizationData,
+      linkedIndividualProfessionals: nextLinkedProfessionals,
+    },
     { merge: false },
   );
+
+  if (requestedProfessionalIds) {
+    const requestedIds = new Set(requestedProfessionalIds);
+    const affected = new Map([...currentlyLinkedById, ...requestedById]);
+    for (const [individualId, snapshot] of affected) {
+      const linked = requestedIds.has(individualId);
+      batch.update(snapshot.ref, {
+        linkedParentOrganizationId: linked ? organizationId : null,
+        linkedParentOrganizationSnapshot: linked ? nextParentSnapshot : null,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedByUserId: context.uid,
+      });
+    }
+  } else {
+    for (const snapshot of currentlyLinkedSnapshots) {
+      batch.update(snapshot.ref, {
+        linkedParentOrganizationSnapshot: nextParentSnapshot,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedByUserId: context.uid,
+      });
+    }
+  }
+  await batch.commit();
 
   return getDiscoverOrganization(context, organizationId);
 }
@@ -3444,10 +3843,19 @@ export async function deleteDiscoverOrganization(
     kind: "organization",
     publisherId: organizationId,
   });
-  await adminDb
-    .collection(ORGANIZATIONS_COLLECTION)
-    .doc(organizationId)
-    .delete();
+  const linkedIndividuals =
+    await individualSnapshotsLinkedToOrganization(organizationId);
+  const batch = adminDb.batch();
+  for (const individual of linkedIndividuals) {
+    batch.update(individual.ref, {
+      linkedParentOrganizationId: null,
+      linkedParentOrganizationSnapshot: null,
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedByUserId: context.uid,
+    });
+  }
+  batch.delete(existing.ref);
+  await batch.commit();
 
   return {
     deleted: true,
@@ -3808,14 +4216,36 @@ export async function createDiscoverIndividual(
   requireFullAdmin(context);
   const ref = adminDb.collection(INDIVIDUALS_COLLECTION).doc();
   const parentOrganization = await linkedParentOrganizationFields(input);
-  await ref.set(
-    withoutUndefined({
-      ...individualDocument(input, context),
-      ...parentOrganization,
-      createdAt: FieldValue.serverTimestamp(),
-      createdByUserId: context.uid,
-    }),
-  );
+  const individualData = withoutUndefined({
+    ...individualDocument(input, context),
+    ...parentOrganization,
+    createdAt: FieldValue.serverTimestamp(),
+    createdByUserId: context.uid,
+  });
+  const individualRecord = toIndividualRecord({
+    id: ref.id,
+    ref,
+    data: () => individualData,
+  } as unknown as QueryDocumentSnapshot);
+  const parentSnapshot = parentOrganization.linkedParentOrganizationId
+    ? await getOrganizationSnapshot(
+        parentOrganization.linkedParentOrganizationId,
+      )
+    : null;
+  const batch = adminDb.batch();
+  batch.set(ref, individualData);
+  if (parentSnapshot) {
+    const organization = toOrganizationRecord(parentSnapshot);
+    batch.update(parentSnapshot.ref, {
+      linkedIndividualProfessionals: upsertLinkedIndividualProfessional(
+        organization,
+        linkedIndividualProfessionalSnapshotFor(individualRecord),
+      ),
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedByUserId: context.uid,
+    });
+  }
+  await batch.commit();
 
   return getDiscoverIndividual(context, ref.id);
 }
@@ -3854,15 +4284,65 @@ export async function updateDiscoverIndividual(
     existingRecord,
     canEditParentOrganization,
   );
-
-  await existing.ref.set(
-    withoutUndefined({
-      ...existing.data(),
-      ...individualDocument(inputWithImageUpload, context, { existingRecord }),
-      ...parentOrganization,
-    }),
-    { merge: false },
+  const nextIndividualData = withoutUndefined({
+    ...existing.data(),
+    ...individualDocument(inputWithImageUpload, context, { existingRecord }),
+    ...parentOrganization,
+  });
+  const nextIndividualRecord = toIndividualRecord({
+    ...existing,
+    data: () => nextIndividualData,
+  } as unknown as QueryDocumentSnapshot);
+  const organizationIds = Array.from(
+    new Set(
+      [
+        existingRecord.linkedParentOrganizationId,
+        nextIndividualRecord.linkedParentOrganizationId,
+      ].filter((value): value is string => Boolean(value)),
+    ),
   );
+  const organizationSnapshots = new Map<
+    string,
+    QueryDocumentSnapshot
+  >();
+  for (const organizationId of organizationIds) {
+    const snapshot = await getOrganizationSnapshot(organizationId);
+    if (snapshot) {
+      organizationSnapshots.set(organizationId, snapshot);
+    }
+  }
+
+  const nextParentOrganization = nextIndividualRecord.linkedParentOrganizationId
+    ? organizationSnapshots.get(nextIndividualRecord.linkedParentOrganizationId)
+    : null;
+  if (nextParentOrganization) {
+    nextIndividualData.linkedParentOrganizationSnapshot =
+      linkedParentOrganizationSnapshotFor(
+        toOrganizationRecord(nextParentOrganization),
+      );
+  }
+
+  const batch = adminDb.batch();
+  batch.set(existing.ref, nextIndividualData, { merge: false });
+  for (const [organizationId, snapshot] of organizationSnapshots) {
+    const organization = toOrganizationRecord(snapshot);
+    const withoutIndividual = organization.linkedIndividualProfessionals.filter(
+      (professional) => professional.id !== individualId,
+    );
+    const linkedIndividualProfessionals =
+      organizationId === nextIndividualRecord.linkedParentOrganizationId
+        ? upsertLinkedIndividualProfessional(
+            organization,
+            linkedIndividualProfessionalSnapshotFor(nextIndividualRecord),
+          )
+        : withoutIndividual;
+    batch.update(snapshot.ref, {
+      linkedIndividualProfessionals,
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedByUserId: context.uid,
+    });
+  }
+  await batch.commit();
 
   return getDiscoverIndividual(context, individualId);
 }
@@ -3888,7 +4368,24 @@ export async function deleteDiscoverIndividual(
     kind: "individual",
     publisherId: individualId,
   });
-  await adminDb.collection(INDIVIDUALS_COLLECTION).doc(individualId).delete();
+  const individual = toIndividualRecord(existing);
+  const parentOrganization = individual.linkedParentOrganizationId
+    ? await getOrganizationSnapshot(individual.linkedParentOrganizationId)
+    : null;
+  const batch = adminDb.batch();
+  if (parentOrganization) {
+    const organization = toOrganizationRecord(parentOrganization);
+    batch.update(parentOrganization.ref, {
+      linkedIndividualProfessionals:
+        organization.linkedIndividualProfessionals.filter(
+          (professional) => professional.id !== individualId,
+        ),
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedByUserId: context.uid,
+    });
+  }
+  batch.delete(existing.ref);
+  await batch.commit();
 
   return {
     deleted: true,

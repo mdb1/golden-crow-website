@@ -81,6 +81,33 @@ export interface DiscoverOrganizationProductCatalogItem {
   updatedByUserId?: string;
 }
 
+export interface DiscoverLinkedIndividualProfessionalSnapshot {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+}
+
+export type DiscoverOrganizationProfessionalLinkState =
+  | "synced"
+  | "organization_only"
+  | "individual_only"
+  | "conflicting_parent"
+  | "missing_individual";
+
+export interface DiscoverOrganizationProfessionalLink {
+  individual: DiscoverLinkedIndividualProfessionalSnapshot;
+  organizationSnapshot: DiscoverLinkedIndividualProfessionalSnapshot | null;
+  individualParentOrganizationId: string | null;
+  state: DiscoverOrganizationProfessionalLinkState;
+  snapshotOutdated: boolean;
+}
+
+export interface DiscoverOrganizationProfessionalLinksResult {
+  links: DiscoverOrganizationProfessionalLink[];
+  consistent: boolean;
+  canonicalIndividualIds: string[];
+}
+
 export interface DiscoverOrganizationRecord {
   id: string;
   name: string;
@@ -108,6 +135,7 @@ export interface DiscoverOrganizationRecord {
   contactEmail?: string;
   internalNotes?: string;
   productCatalog?: DiscoverOrganizationProductCatalogItem[];
+  linkedIndividualProfessionals: DiscoverLinkedIndividualProfessionalSnapshot[];
   createdAt: string;
   updatedAt: string;
   createdByUserId?: string;

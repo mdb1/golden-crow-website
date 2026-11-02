@@ -9,6 +9,9 @@ const mockCreateDiscoverFeedItem = jest.fn();
 const mockSyncDiscoverPublisherSnapshot = jest.fn();
 const mockSendDiscoverPublisherRequestNotificationEmail = jest.fn();
 const mockUpdateDiscoverIndividual = jest.fn();
+const mockUpdateDiscoverOrganization = jest.fn();
+const mockGetDiscoverOrganizationProfessionalLinks = jest.fn();
+const mockSanitizeDiscoverOrganizationProfessionalLinks = jest.fn();
 
 jest.mock("../repositories/discover.repository.js", () => ({
   createDiscoverFeedItem: mockCreateDiscoverFeedItem,
@@ -25,13 +28,17 @@ jest.mock("../repositories/discover.repository.js", () => ({
   getDiscoverFeedItem: jest.fn(),
   getDiscoverIndividual: jest.fn(),
   getDiscoverOrganization: jest.fn(),
+  getDiscoverOrganizationProfessionalLinks:
+    mockGetDiscoverOrganizationProfessionalLinks,
   listDiscoverFeedItems: jest.fn(),
   listDiscoverIndividuals: jest.fn(),
   listDiscoverOrganizations: jest.fn(),
+  sanitizeDiscoverOrganizationProfessionalLinks:
+    mockSanitizeDiscoverOrganizationProfessionalLinks,
   syncDiscoverPublisherSnapshot: mockSyncDiscoverPublisherSnapshot,
   updateDiscoverFeedItem: jest.fn(),
   updateDiscoverIndividual: mockUpdateDiscoverIndividual,
-  updateDiscoverOrganization: jest.fn(),
+  updateDiscoverOrganization: mockUpdateDiscoverOrganization,
 }));
 
 jest.mock("../repositories/roles.repository.js", () => ({
@@ -115,6 +122,16 @@ describe("Discover public routes", () => {
     mockUpdateDiscoverIndividual.mockResolvedValue({
       id: "person-1",
       linkedParentOrganizationId: "org-1",
+    });
+    mockUpdateDiscoverOrganization.mockResolvedValue({ id: "org-1" });
+    mockGetDiscoverOrganizationProfessionalLinks.mockResolvedValue({
+      links: [],
+      consistent: true,
+      canonicalIndividualIds: [],
+    });
+    mockSanitizeDiscoverOrganizationProfessionalLinks.mockResolvedValue({
+      organization: { id: "org-1", linkedIndividualProfessionals: [] },
+      links: { links: [], consistent: true, canonicalIndividualIds: [] },
     });
   });
 
@@ -312,5 +329,63 @@ describe("Discover public routes", () => {
 
     expect(forgedResponse.statusCode).toBe(400);
     expect(mockUpdateDiscoverIndividual).not.toHaveBeenCalled();
+  });
+
+  it("accepts professional ids but rejects client-authored organization snapshots", async () => {
+    const fastify = await buildTestServer();
+
+    const validResponse = await fastify.inject({
+      method: "PUT",
+      url: "/discover/organizations/org-1",
+      payload: { linkedIndividualProfessionalIds: ["person-1"] },
+    });
+    expect(validResponse.statusCode).toBe(200);
+    expect(mockUpdateDiscoverOrganization).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: "uid-1" }),
+      "org-1",
+      expect.objectContaining({
+        linkedIndividualProfessionalIds: ["person-1"],
+      }),
+    );
+
+    mockUpdateDiscoverOrganization.mockClear();
+    const forgedResponse = await fastify.inject({
+      method: "PUT",
+      url: "/discover/organizations/org-1",
+      payload: {
+        linkedIndividualProfessionalIds: ["person-1"],
+        linkedIndividualProfessionals: [
+          { id: "person-1", name: "Forged", imageUrl: null },
+        ],
+      },
+    });
+    expect(forgedResponse.statusCode).toBe(400);
+    expect(mockUpdateDiscoverOrganization).not.toHaveBeenCalled();
+  });
+
+  it("exposes professional relationship audit and sanitization routes", async () => {
+    const fastify = await buildTestServer();
+
+    const auditResponse = await fastify.inject({
+      method: "GET",
+      url: "/discover/organizations/org-1/professional-links",
+    });
+    expect(auditResponse.statusCode).toBe(200);
+    expect(mockGetDiscoverOrganizationProfessionalLinks).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: "uid-1" }),
+      "org-1",
+    );
+
+    const sanitizeResponse = await fastify.inject({
+      method: "POST",
+      url: "/discover/organizations/org-1/professional-links/sanitize",
+    });
+    expect(sanitizeResponse.statusCode).toBe(200);
+    expect(
+      mockSanitizeDiscoverOrganizationProfessionalLinks,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: "uid-1" }),
+      "org-1",
+    );
   });
 });

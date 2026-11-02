@@ -16,6 +16,7 @@ import {
 import { sdkFetch } from "@/lib/sdk-client";
 import type {
   DiscoverIndividualRecord,
+  DiscoverOrganizationProfessionalLinksResult,
   DiscoverOrganizationRecord,
 } from "@/lib/discover";
 
@@ -60,6 +61,7 @@ const organization: DiscoverOrganizationRecord = {
   isGrcHighlighted: false,
   contactEmail: "hello@example.org",
   internalNotes: "Internal notes",
+  linkedIndividualProfessionals: [],
   createdAt: "2026-08-01T00:00:00.000Z",
   updatedAt: "2026-08-02T00:00:00.000Z",
 };
@@ -92,14 +94,22 @@ type WorkbenchOverrides = {
   mode?: "create" | "edit";
   organization?: DiscoverOrganizationRecord;
   individual?: DiscoverIndividualRecord;
+  initialProfessionalLinksAudit?: DiscoverOrganizationProfessionalLinksResult | null;
 };
 
 function renderWorkbench(
   initialLanguage: "en" | "es" = "en",
   overrides: WorkbenchOverrides = {},
 ) {
-  const { organization: organizationOverride, ...workbenchOverrides } =
-    overrides;
+  const {
+    organization: organizationOverride,
+    initialProfessionalLinksAudit = {
+      links: [],
+      consistent: true,
+      canonicalIndividualIds: [],
+    },
+    ...workbenchOverrides
+  } = overrides;
 
   render(
     <AppLanguageProvider
@@ -108,6 +118,7 @@ function renderWorkbench(
     >
       <DiscoverOrganizationWorkbench
         organization={organizationOverride ?? organization}
+        initialProfessionalLinksAudit={initialProfessionalLinksAudit}
         {...workbenchOverrides}
       />
     </AppLanguageProvider>,
@@ -135,6 +146,13 @@ function renderIndividualWorkbench(
       />
     </AppLanguageProvider>,
   );
+}
+
+function lastSdkRequestBody() {
+  const call = [...jest.mocked(sdkFetch).mock.calls]
+    .reverse()
+    .find(([, init]) => typeof init?.body === "string");
+  return JSON.parse(call?.[1]?.body as string) as Record<string, unknown>;
 }
 
 describe("DiscoverOrganizationWorkbench accent color", () => {
@@ -194,9 +212,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       });
     });
 
-    const body = JSON.parse(
-      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
-    ) as Record<string, unknown>;
+    const body = lastSdkRequestBody();
     expect(body.colorHex).toBe("#ABCDEF");
   });
 
@@ -489,9 +505,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(calledUrls).not.toContain(
       "/discover/organizations/org-1/submission-evaluation",
     );
-    const body = JSON.parse(
-      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
-    ) as Record<string, unknown>;
+    const body = lastSdkRequestBody();
     expect(body.status).toBe("inactive");
   });
 
@@ -692,9 +706,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       });
     });
 
-    const body = JSON.parse(
-      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
-    ) as Record<string, unknown>;
+    const body = lastSdkRequestBody();
     expect(body.organizationType).toBe(
       "org_patient_advocacy_organizations,org_genetics_research_institutes,org_medical_societies",
     );
@@ -765,9 +777,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       });
     });
 
-    const body = JSON.parse(
-      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
-    ) as Record<string, unknown>;
+    const body = lastSdkRequestBody();
     expect(body.isGeneticReportProvider).toBe(false);
     expect(body.geneticReportCategory).toBeNull();
   });
@@ -797,9 +807,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       });
     });
 
-    const body = JSON.parse(
-      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
-    ) as Record<string, unknown>;
+    const body = lastSdkRequestBody();
     expect(body.isGrcHighlighted).toBe(true);
   });
 
@@ -860,9 +868,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       });
     });
 
-    const body = JSON.parse(
-      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
-    ) as Record<string, unknown>;
+    const body = lastSdkRequestBody();
     expect(body.isGrcHighlighted).toBe(true);
     expect(body.bannerImageUrl).toBe("https://example.org/grc-banner.png");
     expect(body.bannerImageUploadDataUrl).toBeNull();
@@ -891,9 +897,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       });
     });
 
-    const body = JSON.parse(
-      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
-    ) as Record<string, unknown>;
+    const body = lastSdkRequestBody();
     expect(body.bannerImageUrl).toBeNull();
     expect(body.bannerImageUploadDataUrl).toMatch(/^data:image\/png;base64,/);
     expect(body.bannerImageUploadName).toBe("grc-banner.png");
@@ -929,9 +933,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       });
     });
 
-    const body = JSON.parse(
-      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
-    ) as Record<string, unknown>;
+    const body = lastSdkRequestBody();
     expect(body.bannerImageUrl).toBeNull();
     expect(body.bannerImageUploadDataUrl).toMatch(/^data:image\/jpeg;base64,/);
     expect(body.bannerImageUploadName).toBe("finder-banner.jpg");
@@ -978,9 +980,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       });
     });
 
-    const body = JSON.parse(
-      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
-    ) as Record<string, unknown>;
+    const body = lastSdkRequestBody();
     expect(body.bannerImageUrl).toBeNull();
     expect(body.bannerImageUploadDataUrl).toBeNull();
     expect(body.bannerImageUploadName).toBeUndefined();
@@ -1016,9 +1016,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       });
     });
 
-    const body = JSON.parse(
-      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
-    ) as Record<string, unknown>;
+    const body = lastSdkRequestBody();
     expect(body.isGrcHighlighted).toBe(false);
     expect(body.bannerImageUrl).toBeNull();
     expect(body.bannerImageUploadDataUrl).toBeNull();
@@ -1046,9 +1044,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       });
     });
 
-    const body = JSON.parse(
-      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
-    ) as Record<string, unknown>;
+    const body = lastSdkRequestBody();
     expect(body.geneticReportCategory).toBe("grc_full_genome,grc_reproductive");
   });
 
@@ -1159,6 +1155,112 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     ).toBeNull();
   });
 
+  it("adds an unassigned professional from the organization editor", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      if (path === "/discover/individuals?limit=20") {
+        return { individuals: [individual], nextCursor: null };
+      }
+      return {
+        organization: {
+          ...organization,
+          linkedIndividualProfessionals: [
+            {
+              id: individual.id,
+              name: individual.name,
+              imageUrl: individual.imageUrl,
+            },
+          ],
+        },
+      };
+    });
+    renderWorkbench();
+
+    await user.click(screen.getByRole("button", { name: "Add professional" }));
+    await user.click(
+      await screen.findByRole("button", {
+        name: /Individual One individual-1/,
+      }),
+    );
+    await user.keyboard("{Escape}");
+
+    expect(screen.getByText("Individual One")).toBeTruthy();
+    expect(screen.getByText("Pending save")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith("/discover/organizations/org-1", {
+        method: "PUT",
+        body: expect.any(String),
+      });
+    });
+    expect(lastSdkRequestBody().linkedIndividualProfessionalIds).toEqual([
+      "individual-1",
+    ]);
+  });
+
+  it("shows and repairs a one-sided professional relationship", async () => {
+    const user = userEvent.setup();
+    const mismatchedAudit: DiscoverOrganizationProfessionalLinksResult = {
+      consistent: false,
+      canonicalIndividualIds: [individual.id],
+      links: [
+        {
+          individual: {
+            id: individual.id,
+            name: individual.name,
+            imageUrl: individual.imageUrl,
+          },
+          organizationSnapshot: null,
+          individualParentOrganizationId: organization.id,
+          state: "individual_only",
+          snapshotOutdated: false,
+        },
+      ],
+    };
+    jest.mocked(sdkFetch).mockResolvedValue({
+      organization: {
+        ...organization,
+        linkedIndividualProfessionals: [
+          {
+            id: individual.id,
+            name: individual.name,
+            imageUrl: individual.imageUrl,
+          },
+        ],
+      },
+      links: {
+        ...mismatchedAudit,
+        consistent: true,
+        links: [
+          {
+            ...mismatchedAudit.links[0],
+            organizationSnapshot: mismatchedAudit.links[0]?.individual ?? null,
+            state: "synced",
+          },
+        ],
+      },
+    });
+    renderWorkbench("en", {
+      initialProfessionalLinksAudit: mismatchedAudit,
+    });
+
+    expect(screen.getByText("Relationship mismatch detected")).toBeTruthy();
+    await user.click(
+      screen.getByRole("button", { name: "Repair reciprocal links" }),
+    );
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/discover/organizations/org-1/professional-links/sanitize",
+        { method: "POST" },
+      );
+    });
+    expect(
+      await screen.findByText("Reciprocal professional links repaired."),
+    ).toBeTruthy();
+  });
+
   it("saves multiple country coverage selections as comma-separated country codes", async () => {
     const user = userEvent.setup();
     renderWorkbench();
@@ -1175,9 +1277,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       });
     });
 
-    const body = JSON.parse(
-      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
-    ) as Record<string, unknown>;
+    const body = lastSdkRequestBody();
     expect(body.countryCode).toBe("US,AR");
   });
 
@@ -1243,9 +1343,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       });
     });
 
-    const body = JSON.parse(
-      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
-    ) as Record<string, unknown>;
+    const body = lastSdkRequestBody();
     expect(body.imageUrl).toBeNull();
     expect(body.imageUploadDataUrl).toMatch(/^data:image\/png;base64,/);
     expect(body.imageUploadName).toBe("publisher-logo.png");
@@ -1284,9 +1382,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       );
     });
 
-    const body = JSON.parse(
-      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
-    ) as Record<string, unknown>;
+    const body = lastSdkRequestBody();
     expect(body.imageUrl).toBeNull();
     expect(body.imageUploadDataUrl).toMatch(/^data:image\/jpeg;base64,/);
     expect(body.imageUploadName).toBe("publisher-portrait.jpg");
@@ -1331,9 +1427,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       });
     });
 
-    const body = JSON.parse(
-      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
-    ) as Record<string, unknown>;
+    const body = lastSdkRequestBody();
     expect(body.imageUrl).toBe("https://example.org/replacement.png");
     expect(body.imageUploadDataUrl).toBeNull();
     expect(body.imageUploadName).toBeUndefined();
@@ -1370,9 +1464,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       });
     });
 
-    const body = JSON.parse(
-      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
-    ) as Record<string, unknown>;
+    const body = lastSdkRequestBody();
     expect(body.imageUrl).toBeNull();
     expect(body.imageUploadDataUrl).toBe("data:image/png;base64,iVBORw0KGgo=");
     expect(body.imageUploadName).toBe("wizard-logo.png");
@@ -1405,9 +1497,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       });
     });
 
-    const body = JSON.parse(
-      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
-    ) as Record<string, unknown>;
+    const body = lastSdkRequestBody();
     expect(body.social).toEqual({
       facebook: "https://facebook.com/publisher-one",
       linkedin: "https://linkedin.com/in/publisher-one",
@@ -1578,9 +1668,7 @@ describe("DiscoverOrganizationWorkbench localized description", () => {
       });
     });
 
-    const body = JSON.parse(
-      jest.mocked(sdkFetch).mock.calls[0][1]?.body as string,
-    ) as Record<string, unknown>;
+    const body = lastSdkRequestBody();
     expect(body.description).toBe("Descripción pública");
     expect(body.descriptionEn).toBe("Public English description");
   });

@@ -807,6 +807,47 @@ const SPANISH_TEXT: Record<string, string> = {
     "Las organizaciones se cargan de a 20.",
   "Load more organizations": "Cargar más organizaciones",
   "Loading organizations...": "Cargando organizaciones...",
+  "Linked professionals": "Profesionales vinculados",
+  "Connect independent professionals to this organization. Both profiles stay synchronized automatically.":
+    "Vinculá profesionales independientes con esta organización. Ambos perfiles se mantienen sincronizados automáticamente.",
+  "Add professional": "Agregar profesional",
+  "Remove professional": "Quitar profesional",
+  "No professionals linked yet": "Todavía no hay profesionales vinculados",
+  "Choose from professionals who are not assigned to an organization.":
+    "Elegí entre profesionales que no están asignados a una organización.",
+  "Checking reciprocal links...": "Verificando vínculos recíprocos...",
+  "Relationship mismatch detected": "Se detectó un vínculo inconsistente",
+  "One or more links disagree between the organization and professional profiles.":
+    "Uno o más vínculos no coinciden entre la organización y los perfiles profesionales.",
+  "Repair reciprocal links": "Reparar vínculos recíprocos",
+  "Save or reset your current changes before repairing links.":
+    "Guardá o restablecé los cambios actuales antes de reparar los vínculos.",
+  "Unable to verify professional links.":
+    "No se pudieron verificar los vínculos profesionales.",
+  "Add linked professionals": "Agregar profesionales vinculados",
+  "Only independent professionals can be added. Selections are applied when you save the organization.":
+    "Solo se pueden agregar profesionales independientes. La selección se aplica al guardar la organización.",
+  "Search professionals": "Buscar profesionales",
+  "Search loaded professionals": "Buscar entre los profesionales cargados",
+  "Loading professionals...": "Cargando profesionales...",
+  "No available professionals match this search.":
+    "Ningún profesional disponible coincide con la búsqueda.",
+  "Unable to load professionals.":
+    "No se pudieron cargar los profesionales.",
+  "Professionals are loaded 20 at a time.":
+    "Los profesionales se cargan de a 20.",
+  "Load more professionals": "Cargar más profesionales",
+  "Pending save": "Pendiente de guardar",
+  "Snapshot needs refresh": "La vista resumida necesita actualizarse",
+  "Linked on both profiles": "Vinculado en ambos perfiles",
+  "Only linked on the organization": "Solo vinculado en la organización",
+  "Only linked on the professional": "Solo vinculado en el profesional",
+  "Professional points to another organization":
+    "El profesional apunta a otra organización",
+  "Professional profile no longer exists":
+    "El perfil profesional ya no existe",
+  "Reciprocal professional links repaired.":
+    "Se repararon los vínculos recíprocos de profesionales.",
   "Choose publisher": "Elegir publicador",
   "Choose a publisher organization.": "Elegí una organización publicadora.",
   "Choose one publisher.": "Elegí un publicador.",
