@@ -1,7 +1,37 @@
 import {
+  isCurrentPublisherAppIdentifier,
   publisherAppDefaultColors,
   publisherAppPaletteSuggestions,
 } from "@/lib/publisher-app-config";
+
+describe("publisher app identifiers", () => {
+  it("accepts only readable identifiers for the matching publisher kind", () => {
+    expect(
+      isCurrentPublisherAppIdentifier(
+        "app_org_pocket_genes_lab_48217",
+        "organization",
+      ),
+    ).toBe(true);
+    expect(
+      isCurrentPublisherAppIdentifier(
+        "app_ind_maria_jose_perez_10482",
+        "individual",
+      ),
+    ).toBe(true);
+    expect(
+      isCurrentPublisherAppIdentifier(
+        "app_org_pocket_genes_lab_48217",
+        "individual",
+      ),
+    ).toBe(false);
+    expect(
+      isCurrentPublisherAppIdentifier(
+        "organization_8thNEDU1xbFqwnQDUrPt",
+        "organization",
+      ),
+    ).toBe(false);
+  });
+});
 
 describe("publisher app color palettes", () => {
   it("intensifies a muted publisher tint into a vivid default palette", () => {

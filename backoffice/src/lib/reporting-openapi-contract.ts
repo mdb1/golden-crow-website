@@ -168,7 +168,7 @@ export function buildReportingOpenApiDocument(
           responses: {
             "200": jsonResponse("Published custom-app runtime config.", {
               schemaVersion: 2,
-              appProviderIdentifier: "organization_medicgen",
+              appProviderIdentifier: "app_org_medicgen_48217",
               revision: 1,
               status: "published",
               baseContentVersion: "pg-core-v1",
@@ -243,7 +243,7 @@ export function buildReportingOpenApiDocument(
           "x-codeSamples": [
             {
               lang: "curl",
-              source: `curl -X GET "${serverUrl}/open-api/apps/config?app-provider-identifier=organization_medicgen&platform=ios&runtime-version=2&base-content-version=pg-core-v1" \\
+              source: `curl -X GET "${serverUrl}/open-api/apps/config?app-provider-identifier=app_org_medicgen_48217&platform=ios&runtime-version=2&base-content-version=pg-core-v1" \\
   -H "Authorization: Bearer <access_token>"`,
             },
           ],

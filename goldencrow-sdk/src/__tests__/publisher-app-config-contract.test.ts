@@ -131,12 +131,16 @@ const mockRunTransaction = jest.fn(
   async (
     operation: (transaction: {
       get: (ref: MockDocumentReference) => Promise<MockSnapshot>;
+      create: (ref: MockDocumentReference, value: StoredDocument) => void;
       update: (ref: MockDocumentReference, value: StoredDocument) => void;
       delete: (ref: MockDocumentReference) => void;
     }) => Promise<unknown>,
   ) =>
     operation({
       get: (ref) => ref.get(),
+      create: (ref, value) => {
+        void ref.create(value);
+      },
       update: (ref, value) => {
         void ref.update(value);
       },
@@ -451,14 +455,39 @@ describe("publisher app config contract", () => {
       url: "/publisher-app/config/identifier",
     });
     expect(identifierResponse.statusCode).toBe(200);
+    const appProviderIdentifier = identifierResponse.json().config
+      .appProviderIdentifier as string;
+    expect(appProviderIdentifier).toMatch(
+      /^app_org_canonical_organization_[0-9]{5}$/,
+    );
     expect(identifierResponse.json()).toMatchObject({
       config: {
         status: "active",
-        appProviderIdentifier: "organization_shared-publisher-id",
         runtimeRevision: 1,
         activatedByUserId: "org-user-1",
       },
     });
+    expect(
+      collectionStore("app_config_identifiers").get(appProviderIdentifier),
+    ).toMatchObject({
+      appProviderIdentifier,
+      configId: "organization_shared-publisher-id",
+      publisherKind: "organization",
+      publisherId: "shared-publisher-id",
+      createdByUserId: "org-user-1",
+    });
+
+    const repeatedIdentifierResponse = await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config/identifier",
+    });
+    expect(repeatedIdentifierResponse.statusCode).toBe(200);
+    expect(repeatedIdentifierResponse.json().config).toMatchObject({
+      appProviderIdentifier,
+      runtimeRevision: 1,
+      status: "active",
+    });
+    expect(collectionStore("app_config_identifiers").size).toBe(1);
 
     const runtimeResponse = await fastify.inject({
       method: "GET",
@@ -467,7 +496,7 @@ describe("publisher app config contract", () => {
     expect(runtimeResponse.statusCode).toBe(200);
     expect(runtimeResponse.json()).toEqual({
       schemaVersion: 2,
-      appProviderIdentifier: "organization_shared-publisher-id",
+      appProviderIdentifier,
       revision: 1,
       status: "published",
       baseContentVersion: "pg-core-v1",
@@ -533,6 +562,61 @@ describe("publisher app config contract", () => {
         termsURL: "https://goldencrowvs.com/terms/",
       },
     });
+  });
+
+  it("replaces a legacy active identifier with the memorable name format", async () => {
+    await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config",
+      payload: validBody,
+    });
+    const configId = "organization_shared-publisher-id";
+    collectionStore("app_configs").set(configId, {
+      ...collectionStore("app_configs").get(configId),
+      status: "active",
+      appProviderIdentifier: "organization_8thNEDU1xbFqwnQDUrPt",
+      runtimeRevision: 1,
+    });
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config/identifier",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().config).toMatchObject({
+      status: "active",
+      runtimeRevision: 2,
+      appProviderIdentifier: expect.stringMatching(
+        /^app_org_canonical_organization_[0-9]{5}$/,
+      ),
+    });
+  });
+
+  it("uses at most three normalized profile-name words for individual identifiers", async () => {
+    context = individualContext();
+    seedPublisher("individual", "shared-publisher-id", {
+      name: "Dra. María José Pérez Extra",
+    });
+    mockGetProfileSetupState.mockResolvedValue({
+      defaults: { username: "maria-jose" },
+    });
+    const creationResponse = await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config",
+      payload: validBody,
+    });
+    expect(creationResponse.statusCode).toBe(201);
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config/identifier",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().config.appProviderIdentifier).toMatch(
+      /^app_ind_dra_maria_jose_[0-9]{5}$/,
+    );
   });
 
   it("keeps organization and individual configs separate when their publisher ids match", async () => {

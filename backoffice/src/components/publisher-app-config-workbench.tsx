@@ -66,6 +66,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   DEFAULT_PUBLISHER_APP_COLOR,
+  isCurrentPublisherAppIdentifier,
   normalizePublisherAppColor,
   publisherAppDefaultColors,
   publisherAppPaletteSuggestions,
@@ -1016,6 +1017,7 @@ function PublisherAppEditSheet({
   statusLabel,
   status,
   appProviderIdentifier,
+  identifierIsCurrent,
   onUpdateStatus,
   backHref,
   backLabel,
@@ -1055,6 +1057,7 @@ function PublisherAppEditSheet({
   statusLabel: string;
   status: PublisherAppStatus;
   appProviderIdentifier?: string;
+  identifierIsCurrent: boolean;
   onUpdateStatus?: (status: PublisherAppStatus) => void;
   backHref: string;
   backLabel: string;
@@ -1181,9 +1184,7 @@ function PublisherAppEditSheet({
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              {onCreateIdentifier &&
-              !appProviderIdentifier &&
-              status === "pending_revision" ? (
+              {onCreateIdentifier ? (
                 <Button
                   type="button"
                   size="sm"
@@ -1218,6 +1219,7 @@ function PublisherAppEditSheet({
                 disabled={
                   !hasPersistedConfig ||
                   !appProviderIdentifier ||
+                  !identifierIsCurrent ||
                   status !== "active" ||
                   changed ||
                   downloadPending
@@ -2105,6 +2107,13 @@ export function PublisherAppConfigWorkbench({
     mode === "create" ? [...WIZARD_STEPS, REVIEW_STEP] : WIZARD_STEPS;
   const activeStep = wizardSteps[stepIndex] ?? wizardSteps[0];
   const statusLabel = publisherAppStatusLabel(status);
+  const identifierIsCurrent = Boolean(
+    persistedConfig &&
+      isCurrentPublisherAppIdentifier(
+        persistedConfig.appProviderIdentifier,
+        persistedConfig.publisherKind,
+      ),
+  );
   const canDelete = persistedConfig?.status === "pending_revision";
   const payload = useMemo(() => normalizedPayload(state), [state]);
   const changed =
@@ -2248,7 +2257,7 @@ export function PublisherAppConfigWorkbench({
     if (
       identifierPending ||
       changed ||
-      persistedConfig?.appProviderIdentifier ||
+      identifierIsCurrent ||
       apiPath !== "/publisher-app/config"
     ) {
       return;
@@ -2429,6 +2438,7 @@ export function PublisherAppConfigWorkbench({
           statusLabel={statusLabel}
           status={status}
           appProviderIdentifier={persistedConfig?.appProviderIdentifier}
+          identifierIsCurrent={identifierIsCurrent}
           onUpdateStatus={allowStatusEditing ? setStatus : undefined}
           backHref={backHref}
           backLabel={backLabel}
@@ -2454,7 +2464,9 @@ export function PublisherAppConfigWorkbench({
           onSave={() => void save()}
           onDownload={() => void downloadConfig()}
           onCreateIdentifier={
-            apiPath === "/publisher-app/config"
+            apiPath === "/publisher-app/config" &&
+            (status === "pending_revision" ||
+              (status === "active" && !identifierIsCurrent))
               ? () => void createIdentifier()
               : undefined
           }

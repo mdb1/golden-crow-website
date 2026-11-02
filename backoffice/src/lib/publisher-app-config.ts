@@ -81,6 +81,16 @@ export type PublisherAppConfigsPage = {
   nextCursor: string | null;
 };
 
+export function isCurrentPublisherAppIdentifier(
+  value: string | undefined,
+  publisherKind: "organization" | "individual",
+) {
+  const kind = publisherKind === "organization" ? "org" : "ind";
+  return new RegExp(
+    `^app_${kind}_[a-z0-9]+(?:_[a-z0-9]+){0,2}_[0-9]{5}$`,
+  ).test(value ?? "");
+}
+
 export const DEFAULT_PUBLISHER_APP_COLOR = "#6D28D9";
 
 export function normalizePublisherAppColor(value?: string) {

@@ -641,7 +641,7 @@ describe("PublisherAppConfigWorkbench", () => {
   it("downloads the published runtime v2 config instead of the administrative record", async () => {
     const runtimeConfig = {
       schemaVersion: 2 as const,
-      appProviderIdentifier: "organization_org-1",
+      appProviderIdentifier: "app_org_pocket_genes_lab_48217",
       revision: 1,
       status: "published" as const,
       baseContentVersion: "pg-core-v1" as const,
@@ -669,7 +669,7 @@ describe("PublisherAppConfigWorkbench", () => {
       initialConfig: {
         ...savedConfig,
         status: "active",
-        appProviderIdentifier: "organization_org-1",
+        appProviderIdentifier: "app_org_pocket_genes_lab_48217",
         runtimeRevision: 1,
       },
     });
@@ -695,7 +695,7 @@ describe("PublisherAppConfigWorkbench", () => {
       config: {
         ...savedConfig,
         status: "active",
-        appProviderIdentifier: "organization_org-1",
+        appProviderIdentifier: "app_org_pocket_genes_lab_48217",
         runtimeRevision: 1,
       },
     });
@@ -714,10 +714,31 @@ describe("PublisherAppConfigWorkbench", () => {
         { method: "POST" },
       );
     });
-    expect(await screen.findByText("organization_org-1")).toBeTruthy();
+    expect(
+      await screen.findByText("app_org_pocket_genes_lab_48217"),
+    ).toBeTruthy();
     expect(
       screen.getByRole("button", { name: "Descargar configuración" }),
     ).toBeEnabled();
+  });
+
+  it("offers to replace a legacy active identifier before downloading", () => {
+    renderWorkbench({
+      mode: "edit",
+      initialConfig: {
+        ...savedConfig,
+        status: "active",
+        appProviderIdentifier: "organization_8thNEDU1xbFqwnQDUrPt",
+        runtimeRevision: 1,
+      },
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Create app identifier" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Descargar configuración" }),
+    ).toBeDisabled();
   });
 
   it("deletes a pending app after expanding the danger zone", async () => {

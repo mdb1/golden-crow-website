@@ -47,7 +47,7 @@ describe("route config", () => {
 
 describe("GET /open-api/apps/config", () => {
   const query =
-    "app-provider-identifier=organization_medicgen&platform=ios&runtime-version=2&base-content-version=pg-core-v1";
+    "app-provider-identifier=app_org_medicgen_48217&platform=ios&runtime-version=2&base-content-version=pg-core-v1";
 
   it("requires a bearer token before contacting the SDK", async () => {
     const response = await appConfigRoute.GET(
@@ -70,7 +70,7 @@ describe("GET /open-api/apps/config", () => {
       new Response(
         JSON.stringify({
           schemaVersion: 2,
-          appProviderIdentifier: "organization_medicgen",
+          appProviderIdentifier: "app_org_medicgen_48217",
         }),
         {
           status: 200,
@@ -95,7 +95,7 @@ describe("GET /open-api/apps/config", () => {
     );
     const [url, init] = fetchMock.mock.calls[0];
     expect(String(url)).toBe(
-      "https://sdk.example.com/internal/openapi/apps/config?app-provider-identifier=organization_medicgen&platform=ios&runtime-version=2&base-content-version=pg-core-v1",
+      "https://sdk.example.com/internal/openapi/apps/config?app-provider-identifier=app_org_medicgen_48217&platform=ios&runtime-version=2&base-content-version=pg-core-v1",
     );
     expect((init.headers as Headers).get("authorization")).toBe(
       "Bearer reporting-token",

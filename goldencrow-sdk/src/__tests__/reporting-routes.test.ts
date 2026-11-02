@@ -42,7 +42,7 @@ function protectedRequests() {
     {
       name: "GET app runtime config",
       method: "GET" as const,
-      url: "/internal/openapi/apps/config?app-provider-identifier=organization_medicgen&platform=ios&runtime-version=2&base-content-version=pg-core-v1",
+      url: "/internal/openapi/apps/config?app-provider-identifier=app_org_medicgen_48217&platform=ios&runtime-version=2&base-content-version=pg-core-v1",
     },
     {
       name: "GET patients (query)",
@@ -321,7 +321,7 @@ describe("reporting Open API routes", () => {
   describe("GET /internal/openapi/apps/config", () => {
     const runtimeConfig = {
       schemaVersion: 2,
-      appProviderIdentifier: "organization_medicgen",
+      appProviderIdentifier: "app_org_medicgen_48217",
       revision: 1,
       status: "published",
       baseContentVersion: "pg-core-v1",
@@ -331,7 +331,7 @@ describe("reporting Open API routes", () => {
       mockGetActivePublisherAppRuntimeConfig.mockResolvedValue(runtimeConfig);
       const response = await fastify.inject({
         method: "GET",
-        url: "/internal/openapi/apps/config?app-provider-identifier=organization_medicgen&platform=ios&runtime-version=2&base-content-version=pg-core-v1",
+        url: "/internal/openapi/apps/config?app-provider-identifier=app_org_medicgen_48217&platform=ios&runtime-version=2&base-content-version=pg-core-v1",
         headers: { authorization: `Bearer ${TOKEN}` },
       });
 
@@ -344,7 +344,7 @@ describe("reporting Open API routes", () => {
         "/open-api/apps/config",
       );
       expect(mockGetActivePublisherAppRuntimeConfig).toHaveBeenCalledWith(
-        "organization_medicgen",
+        "app_org_medicgen_48217",
         "ios",
       );
     });
@@ -353,12 +353,12 @@ describe("reporting Open API routes", () => {
       mockGetActivePublisherAppRuntimeConfig.mockResolvedValue(runtimeConfig);
       const first = await fastify.inject({
         method: "GET",
-        url: "/internal/openapi/apps/config?app-provider-identifier=organization_medicgen&platform=ios&runtime-version=2&base-content-version=pg-core-v1",
+        url: "/internal/openapi/apps/config?app-provider-identifier=app_org_medicgen_48217&platform=ios&runtime-version=2&base-content-version=pg-core-v1",
         headers: { authorization: `Bearer ${TOKEN}` },
       });
       const response = await fastify.inject({
         method: "GET",
-        url: "/internal/openapi/apps/config?app-provider-identifier=organization_medicgen&platform=ios&runtime-version=2&base-content-version=pg-core-v1",
+        url: "/internal/openapi/apps/config?app-provider-identifier=app_org_medicgen_48217&platform=ios&runtime-version=2&base-content-version=pg-core-v1",
         headers: {
           authorization: `Bearer ${TOKEN}`,
           "if-none-match": String(first.headers.etag),
@@ -375,7 +375,7 @@ describe("reporting Open API routes", () => {
     ])("rejects an incompatible contract with %s", async (contract, status) => {
       const response = await fastify.inject({
         method: "GET",
-        url: `/internal/openapi/apps/config?app-provider-identifier=organization_medicgen&platform=ios&${contract}`,
+        url: `/internal/openapi/apps/config?app-provider-identifier=app_org_medicgen_48217&platform=ios&${contract}`,
         headers: { authorization: `Bearer ${TOKEN}` },
       });
       expect(response.statusCode).toBe(status);

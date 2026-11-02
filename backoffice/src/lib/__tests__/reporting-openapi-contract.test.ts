@@ -30,7 +30,7 @@ describe("reporting OpenAPI contract", () => {
     ]);
     expect(example).toMatchObject({
       schemaVersion: 2,
-      appProviderIdentifier: "organization_medicgen",
+      appProviderIdentifier: "app_org_medicgen_48217",
       revision: 1,
       status: "published",
       baseContentVersion: "pg-core-v1",

@@ -3,7 +3,7 @@ import {
   Timestamp,
   type DocumentSnapshot,
 } from "firebase-admin/firestore";
-import { createHash } from "node:crypto";
+import { randomInt } from "node:crypto";
 import { adminDbFor } from "../config/firebase.js";
 import type {
   AdminContext,
@@ -26,6 +26,7 @@ import {
 const adminDb = adminDbFor("mydnamap");
 
 const APP_CONFIGS_COLLECTION = "app_configs";
+const APP_CONFIG_IDENTIFIERS_COLLECTION = "app_config_identifiers";
 const APP_CONFIG_SCHEMA_VERSION = 1 as const;
 const APP_TERMS_VERSION = "2026-10-31";
 const HEX_COLOR_PATTERN = /^#[0-9A-F]{6}$/;
@@ -351,21 +352,36 @@ function storedPositiveInteger(value: unknown, label: string) {
   return value;
 }
 
-function appProviderIdentifierFor(config: PublisherAppConfigRecord) {
-  const preferred = `${config.publisherKind}_${config.publisherId}`;
-  if (APP_PROVIDER_IDENTIFIER_PATTERN.test(preferred)) {
-    return preferred;
-  }
+function publisherNameWords(value: string) {
+  const words = value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 3)
+    .map((word) => word.slice(0, 32));
+  return words.length > 0 ? words.join("_") : "publisher";
+}
 
-  const digest = createHash("sha256")
-    .update(`${config.publisherKind}:${config.publisherId}`)
-    .digest("hex")
-    .slice(0, 12);
-  const safePrefix = preferred
-    .replace(/[^A-Za-z0-9_-]+/g, "_")
-    .replace(/^[^A-Za-z0-9]+/, "")
-    .slice(0, 114);
-  return `${safePrefix || "app"}_${digest}`;
+function appProviderIdentifierFor(config: PublisherAppConfigRecord) {
+  const kind = config.publisherKind === "organization" ? "org" : "ind";
+  return `app_${kind}_${publisherNameWords(config.publisherName)}_${randomInt(
+    10_000,
+    100_000,
+  )}`;
+}
+
+function isCurrentAppProviderIdentifier(
+  value: string | undefined,
+  kind: PublisherAppPublisherKind,
+) {
+  const kindPrefix = kind === "organization" ? "org" : "ind";
+  return new RegExp(
+    `^app_${kindPrefix}_[a-z0-9]+(?:_[a-z0-9]+){0,2}_[0-9]{5}$`,
+  ).test(value ?? "");
 }
 
 function storedColors(value: unknown): PublisherAppConfigColors {
@@ -753,30 +769,87 @@ export async function createPublisherAppIdentifier(
     .collection(APP_CONFIGS_COLLECTION)
     .doc(`${scope.kind}_${scope.id}`);
 
-  await adminDb.runTransaction(async (transaction) => {
-    const snapshot = await transaction.get(ref);
-    const config = toPublisherAppConfigRecord(snapshot);
-    if (config.status === "active" && config.appProviderIdentifier) {
-      return;
-    }
-    if (config.status !== "pending_revision") {
-      throw new AdminRepositoryError(
-        "Only an app pending revision can be activated for testing.",
-        409,
-      );
-    }
+  const initialSnapshot = await ref.get();
+  const initialConfig = toPublisherAppConfigRecord(initialSnapshot);
+  if (
+    initialConfig.status === "active" &&
+    isCurrentAppProviderIdentifier(
+      initialConfig.appProviderIdentifier,
+      initialConfig.publisherKind,
+    )
+  ) {
+    return initialConfig;
+  }
+  if (
+    initialConfig.status !== "pending_revision" &&
+    initialConfig.status !== "active"
+  ) {
+    throw new AdminRepositoryError(
+      "Only an app pending revision or active for testing can create an identifier.",
+      409,
+    );
+  }
 
-    const appProviderIdentifier = appProviderIdentifierFor(config);
-    transaction.update(ref, {
-      appProviderIdentifier,
-      runtimeRevision: 1,
-      status: "active",
-      activatedAt: FieldValue.serverTimestamp(),
-      activatedByUserId: context.uid,
-      updatedAt: FieldValue.serverTimestamp(),
-      updatedByUserId: context.uid,
+  let activated = false;
+  for (let attempt = 0; attempt < 20 && !activated; attempt += 1) {
+    const appProviderIdentifier = appProviderIdentifierFor(initialConfig);
+    const identifierRef = adminDb
+      .collection(APP_CONFIG_IDENTIFIERS_COLLECTION)
+      .doc(appProviderIdentifier);
+
+    activated = await adminDb.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(ref);
+      const config = toPublisherAppConfigRecord(snapshot);
+      if (
+        config.status === "active" &&
+        isCurrentAppProviderIdentifier(
+          config.appProviderIdentifier,
+          config.publisherKind,
+        )
+      ) {
+        return true;
+      }
+      if (config.status !== "pending_revision" && config.status !== "active") {
+        throw new AdminRepositoryError(
+          "Only an app pending revision or active for testing can create an identifier.",
+          409,
+        );
+      }
+
+      const identifierSnapshot = await transaction.get(identifierRef);
+      if (identifierSnapshot.exists) {
+        return false;
+      }
+
+      const timestamp = FieldValue.serverTimestamp();
+      transaction.create(identifierRef, {
+        appProviderIdentifier,
+        configId: config.id,
+        publisherKind: config.publisherKind,
+        publisherId: config.publisherId,
+        createdAt: timestamp,
+        createdByUserId: context.uid,
+      });
+      transaction.update(ref, {
+        appProviderIdentifier,
+        runtimeRevision:
+          config.status === "active" ? (config.runtimeRevision ?? 1) + 1 : 1,
+        status: "active",
+        activatedAt: timestamp,
+        activatedByUserId: context.uid,
+        updatedAt: timestamp,
+        updatedByUserId: context.uid,
+      });
+      return true;
     });
-  });
+  }
+
+  if (!activated) {
+    throw new AdminRepositoryError(
+      "Could not reserve a unique app identifier. Try again.",
+      409,
+    );
+  }
 
   return toPublisherAppConfigRecord(await ref.get());
 }
