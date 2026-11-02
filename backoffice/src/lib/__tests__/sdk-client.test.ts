@@ -73,6 +73,37 @@ describe("sdkFetch error handling", () => {
     });
   });
 
+  it("shows the precise server message when a privileged diagnostic is present", async () => {
+    const responseBody = {
+      error: "Internal Server Error",
+      message:
+        "Discover operation failed during preparing reciprocal writes: Invalid Firestore value.",
+      stage: "preparing reciprocal writes",
+      diagnostic: {
+        name: "DiscoverRepositoryOperationError",
+        message:
+          "Discover operation failed during preparing reciprocal writes: Invalid Firestore value.",
+      },
+    };
+    global.fetch = jest.fn().mockResolvedValue(
+      Response.json(responseBody, {
+        status: 500,
+        statusText: "Internal Server Error",
+      }),
+    ) as unknown as typeof fetch;
+
+    const error = await sdkFetch("/discover/organizations/org-1", {
+      method: "PUT",
+      body: JSON.stringify({ linkedIndividualProfessionalIds: ["person-1"] }),
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(SdkRequestError);
+    expect(error).toMatchObject({ message: responseBody.message });
+    expect((error as SdkRequestError).details).toContain(
+      '"stage": "preparing reciprocal writes"',
+    );
+  });
+
   it("omits uploaded image data from request diagnostics", async () => {
     global.fetch = jest.fn().mockResolvedValue(
       Response.json(

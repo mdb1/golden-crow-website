@@ -687,6 +687,15 @@ describe("discover repository", () => {
         imageUploadDataUrl: null,
       },
     });
+    expect(
+      mockQueryStubs.some((query) =>
+        query.operations.some(
+          (operation) =>
+            operation.type === "where" &&
+            operation.field === "linkedParentOrganizationId",
+        ),
+      ),
+    ).toBe(false);
 
     await updateDiscoverOrganization(fullAdminContext, "org-1", {
       name: "Publisher One Renamed",
@@ -792,6 +801,32 @@ describe("discover repository", () => {
       imageUrl: "https://example.org/publisher.png",
       imageUploadDataUrl: null,
     });
+  });
+
+  it("preserves Firestore-native values while replacing a publisher document", async () => {
+    const { updateDiscoverOrganization } =
+      await import("../repositories/discover.repository");
+    class NativeFirestoreValue {
+      constructor(readonly marker: string) {}
+    }
+    const nativeValue = new NativeFirestoreValue("keep-native-instance");
+    const organization = mockOrganizationDocs.find(
+      (doc) => doc.id === "org-1",
+    );
+    organization!.data.nativeLocation = nativeValue;
+
+    await updateDiscoverOrganization(fullAdminContext, "org-1", {
+      name: "Publisher One",
+      imageUrl: "https://example.org/publisher.png",
+      organizationType:
+        "org_patient_advocacy_organizations,org_genetics_research_institutes",
+      linkedIndividualProfessionalIds: [],
+    } as Record<string, unknown>);
+
+    expect(
+      mockOrganizationDocs.find((doc) => doc.id === "org-1")?.data
+        .nativeLocation,
+    ).toBe(nativeValue);
   });
 
   it("audits and sanitizes one-sided professional links", async () => {

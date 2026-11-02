@@ -409,6 +409,61 @@ describe("Discover public routes", () => {
       errorName: "Error",
       errorCode: "3",
       hint: expect.stringContaining("document size limit"),
+      message: "Document exceeds the maximum size of 1048576 bytes.",
+      diagnostic: expect.objectContaining({
+        name: "Error",
+        message: "Document exceeds the maximum size of 1048576 bytes.",
+        code: "3",
+        stack: expect.stringContaining(
+          "Document exceeds the maximum size of 1048576 bytes.",
+        ),
+      }),
+    });
+  });
+
+  it("preserves the failing stage and nested cause for God Mode diagnostics", async () => {
+    const firestoreError = Object.assign(
+      new Error("Transaction rejected by Firestore."),
+      { code: "aborted", details: "Too much contention." },
+    );
+    const stagedError = Object.assign(
+      new Error(
+        "Discover operation failed during committing reciprocal links.",
+        { cause: firestoreError },
+      ),
+      {
+        name: "DiscoverRepositoryOperationError",
+        stage: "committing reciprocal links",
+      },
+    );
+    mockUpdateDiscoverOrganization.mockRejectedValueOnce(stagedError);
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "PUT",
+      url: "/discover/organizations/org-1",
+      payload: { linkedIndividualProfessionalIds: ["person-1"] },
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toMatchObject({
+      error: "Internal Server Error",
+      errorName: "DiscoverRepositoryOperationError",
+      message:
+        "Discover operation failed during committing reciprocal links.",
+      stage: "committing reciprocal links",
+      diagnostic: {
+        name: "DiscoverRepositoryOperationError",
+        message:
+          "Discover operation failed during committing reciprocal links.",
+        stage: "committing reciprocal links",
+        cause: {
+          name: "Error",
+          message: "Transaction rejected by Firestore.",
+          code: "aborted",
+          details: "Too much contention.",
+        },
+      },
     });
   });
 });

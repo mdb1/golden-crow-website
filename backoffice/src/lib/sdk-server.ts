@@ -36,8 +36,13 @@ async function buildSdkServerError(
         parsedBody.error.trim()
           ? parsedBody.error.trim()
           : undefined;
+      const hasPrivilegedDiagnostic =
+        parsedBody.diagnostic !== null &&
+        typeof parsedBody.diagnostic === "object";
       parsedMessage =
-        parsedBody.code === "FST_ERR_VALIDATION" && serverMessage
+        (parsedBody.code === "FST_ERR_VALIDATION" ||
+          hasPrivilegedDiagnostic) &&
+        serverMessage
           ? serverMessage
           : publicError ?? serverMessage;
     } catch {

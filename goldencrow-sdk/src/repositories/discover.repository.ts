@@ -7,7 +7,10 @@ import {
   type QueryDocumentSnapshot,
 } from "firebase-admin/firestore";
 import { adminDbFor } from "../config/firebase.js";
-import { AdminRepositoryError } from "./admin-errors.js";
+import {
+  AdminRepositoryError,
+  isAdminRepositoryError,
+} from "./admin-errors.js";
 import { isGlobalAdminRole } from "../lib/admin-roles.js";
 import {
   discoverIndividualCategoryProvider,
@@ -1854,6 +1857,15 @@ function withoutUndefined<T>(value: T): T {
   }
 
   if (value && typeof value === "object") {
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) {
+      // Firestore documents may contain native values such as GeoPoint,
+      // DocumentReference, Bytes, Date, or custom converter output. Turning
+      // those class instances into ordinary maps corrupts them and makes the
+      // Admin SDK reject the write synchronously. Only recurse through actual
+      // JSON-like maps; preserve every other native value verbatim.
+      return value;
+    }
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>)
         .filter(([, entry]) => entry !== undefined)
@@ -1890,6 +1902,38 @@ function assertPublisherDocumentFitsFirestore(
       `${publisherLabel} is too large to save. Use a hosted profile image URL or upload a smaller profile image.`,
       400,
     );
+  }
+}
+
+class DiscoverRepositoryOperationError extends Error {
+  readonly stage: string;
+  override readonly cause: unknown;
+
+  constructor(stage: string, cause: unknown) {
+    const causeMessage =
+      cause instanceof Error && cause.message.trim()
+        ? cause.message.trim()
+        : "The underlying operation returned no error message.";
+    super(`Discover operation failed during ${stage}: ${causeMessage}`, {
+      cause: cause instanceof Error ? cause : undefined,
+    });
+    this.name = "DiscoverRepositoryOperationError";
+    this.stage = stage;
+    this.cause = cause;
+  }
+}
+
+async function runDiscoverOperationStage<T>(
+  stage: string,
+  operation: () => T | Promise<T>,
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    if (isAdminRepositoryError(error)) {
+      throw error;
+    }
+    throw new DiscoverRepositoryOperationError(stage, error);
   }
 }
 
@@ -3776,14 +3820,30 @@ export async function updateDiscoverOrganization(
         input.linkedIndividualProfessionalIds,
       )
     : undefined;
-  const currentlyLinkedSnapshots =
-    await individualSnapshotsLinkedToOrganization(organizationId);
-  const currentlyLinkedById = new Map(
-    currentlyLinkedSnapshots.map((snapshot) => [snapshot.id, snapshot]),
+  // The organization-side snapshots are the canonical selection edited by
+  // this screen. Loading the reciprocal side with a collection query here is
+  // both unnecessary and brittle: a normal profile save should not depend on
+  // a secondary index scan. Relationship auditing/sanitization intentionally
+  // keeps its broader query so one-sided orphan links remain visible there.
+  const existingProfessionalIds = existingRecord.linkedIndividualProfessionals.map(
+    (professional) => professional.id,
   );
-  const requestedById = requestedProfessionalIds
-    ? await individualSnapshotsForIds(requestedProfessionalIds)
-    : new Map<string, QueryDocumentSnapshot>();
+  const affectedProfessionalIds = Array.from(
+    new Set([
+      ...existingProfessionalIds,
+      ...(requestedProfessionalIds ?? []),
+    ]),
+  );
+  const affectedById = await runDiscoverOperationStage(
+    "loading affected professional profiles",
+    () => individualSnapshotsForIds(affectedProfessionalIds),
+  );
+  const requestedById = new Map(
+    (requestedProfessionalIds ?? []).flatMap((individualId) => {
+      const snapshot = affectedById.get(individualId);
+      return snapshot ? ([[individualId, snapshot]] as const) : [];
+    }),
+  );
 
   if (requestedProfessionalIds) {
     for (const individualId of requestedProfessionalIds) {
@@ -3824,43 +3884,56 @@ export async function updateDiscoverOrganization(
     organizationWrite,
     "The organization profile",
   );
-  const batch = adminDb.batch();
-  batch.set(existing.ref, organizationWrite, { merge: false });
+  const batch = await runDiscoverOperationStage(
+    "preparing the organization and reciprocal professional writes",
+    () => {
+      const pendingBatch = adminDb.batch();
+      pendingBatch.set(existing.ref, organizationWrite, { merge: false });
 
-  if (requestedProfessionalIds) {
-    const requestedIds = new Set(requestedProfessionalIds);
-    const affected = new Map([...currentlyLinkedById, ...requestedById]);
-    for (const [individualId, snapshot] of affected) {
-      const linked = requestedIds.has(individualId);
-      const relationshipUpdate = {
-        linkedParentOrganizationId: linked ? organizationId : null,
-        linkedParentOrganizationSnapshot: linked ? nextParentSnapshot : null,
-        updatedAt: FieldValue.serverTimestamp(),
-        updatedByUserId: context.uid,
-      };
-      assertPublisherDocumentFitsFirestore(
-        { ...snapshot.data(), ...relationshipUpdate },
-        `The individual publisher ${individualId}`,
-      );
-      batch.update(snapshot.ref, relationshipUpdate);
-    }
-  } else {
-    for (const snapshot of currentlyLinkedSnapshots) {
-      const relationshipUpdate = {
-        linkedParentOrganizationSnapshot: nextParentSnapshot,
-        updatedAt: FieldValue.serverTimestamp(),
-        updatedByUserId: context.uid,
-      };
-      assertPublisherDocumentFitsFirestore(
-        { ...snapshot.data(), ...relationshipUpdate },
-        `The individual publisher ${snapshot.id}`,
-      );
-      batch.update(snapshot.ref, relationshipUpdate);
-    }
-  }
-  await batch.commit();
+      if (requestedProfessionalIds) {
+        const requestedIds = new Set(requestedProfessionalIds);
+        for (const [individualId, snapshot] of affectedById) {
+          const linked = requestedIds.has(individualId);
+          const relationshipUpdate = {
+            linkedParentOrganizationId: linked ? organizationId : null,
+            linkedParentOrganizationSnapshot: linked
+              ? nextParentSnapshot
+              : null,
+            updatedAt: FieldValue.serverTimestamp(),
+            updatedByUserId: context.uid,
+          };
+          assertPublisherDocumentFitsFirestore(
+            { ...snapshot.data(), ...relationshipUpdate },
+            `The individual publisher ${individualId}`,
+          );
+          pendingBatch.update(snapshot.ref, relationshipUpdate);
+        }
+      } else {
+        for (const snapshot of affectedById.values()) {
+          const relationshipUpdate = {
+            linkedParentOrganizationSnapshot: nextParentSnapshot,
+            updatedAt: FieldValue.serverTimestamp(),
+            updatedByUserId: context.uid,
+          };
+          assertPublisherDocumentFitsFirestore(
+            { ...snapshot.data(), ...relationshipUpdate },
+            `The individual publisher ${snapshot.id}`,
+          );
+          pendingBatch.update(snapshot.ref, relationshipUpdate);
+        }
+      }
 
-  return getDiscoverOrganization(context, organizationId);
+      return pendingBatch;
+    },
+  );
+  await runDiscoverOperationStage(
+    "committing the organization and reciprocal professional links",
+    () => batch.commit(),
+  );
+
+  return runDiscoverOperationStage("reloading the saved organization", () =>
+    getDiscoverOrganization(context, organizationId),
+  );
 }
 
 export async function deleteDiscoverOrganization(
@@ -4329,10 +4402,14 @@ export async function updateDiscoverIndividual(
     scopedInput,
     existingRecord,
   );
-  const parentOrganization = await linkedParentOrganizationFields(
-    inputWithImageUpload,
-    existingRecord,
-    canEditParentOrganization,
+  const parentOrganization = await runDiscoverOperationStage(
+    "loading the selected parent organization",
+    () =>
+      linkedParentOrganizationFields(
+        inputWithImageUpload,
+        existingRecord,
+        canEditParentOrganization,
+      ),
   );
   const nextIndividualData = withoutUndefined({
     ...existing.data(),
@@ -4356,7 +4433,10 @@ export async function updateDiscoverIndividual(
     QueryDocumentSnapshot
   >();
   for (const organizationId of organizationIds) {
-    const snapshot = await getOrganizationSnapshot(organizationId);
+    const snapshot = await runDiscoverOperationStage(
+      `loading affected organization ${organizationId}`,
+      () => getOrganizationSnapshot(organizationId),
+    );
     if (snapshot) {
       organizationSnapshots.set(organizationId, snapshot);
     }
@@ -4376,34 +4456,46 @@ export async function updateDiscoverIndividual(
     "The individual publisher profile",
   );
 
-  const batch = adminDb.batch();
-  batch.set(existing.ref, nextIndividualData, { merge: false });
-  for (const [organizationId, snapshot] of organizationSnapshots) {
-    const organization = toOrganizationRecord(snapshot);
-    const withoutIndividual = organization.linkedIndividualProfessionals.filter(
-      (professional) => professional.id !== individualId,
-    );
-    const linkedIndividualProfessionals =
-      organizationId === nextIndividualRecord.linkedParentOrganizationId
-        ? upsertLinkedIndividualProfessional(
-            organization,
-            linkedIndividualProfessionalSnapshotFor(nextIndividualRecord),
-          )
-        : withoutIndividual;
-    const relationshipUpdate = {
-      linkedIndividualProfessionals,
-      updatedAt: FieldValue.serverTimestamp(),
-      updatedByUserId: context.uid,
-    };
-    assertPublisherDocumentFitsFirestore(
-      { ...snapshot.data(), ...relationshipUpdate },
-      `The organization ${organizationId}`,
-    );
-    batch.update(snapshot.ref, relationshipUpdate);
-  }
-  await batch.commit();
+  const batch = await runDiscoverOperationStage(
+    "preparing the individual and reciprocal organization writes",
+    () => {
+      const pendingBatch = adminDb.batch();
+      pendingBatch.set(existing.ref, nextIndividualData, { merge: false });
+      for (const [organizationId, snapshot] of organizationSnapshots) {
+        const organization = toOrganizationRecord(snapshot);
+        const withoutIndividual =
+          organization.linkedIndividualProfessionals.filter(
+            (professional) => professional.id !== individualId,
+          );
+        const linkedIndividualProfessionals =
+          organizationId === nextIndividualRecord.linkedParentOrganizationId
+            ? upsertLinkedIndividualProfessional(
+                organization,
+                linkedIndividualProfessionalSnapshotFor(nextIndividualRecord),
+              )
+            : withoutIndividual;
+        const relationshipUpdate = {
+          linkedIndividualProfessionals,
+          updatedAt: FieldValue.serverTimestamp(),
+          updatedByUserId: context.uid,
+        };
+        assertPublisherDocumentFitsFirestore(
+          { ...snapshot.data(), ...relationshipUpdate },
+          `The organization ${organizationId}`,
+        );
+        pendingBatch.update(snapshot.ref, relationshipUpdate);
+      }
+      return pendingBatch;
+    },
+  );
+  await runDiscoverOperationStage(
+    "committing the individual and reciprocal organization links",
+    () => batch.commit(),
+  );
 
-  return getDiscoverIndividual(context, individualId);
+  return runDiscoverOperationStage("reloading the saved individual", () =>
+    getDiscoverIndividual(context, individualId),
+  );
 }
 
 export async function deleteDiscoverIndividual(

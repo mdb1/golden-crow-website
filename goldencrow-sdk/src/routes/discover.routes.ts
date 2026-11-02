@@ -11,6 +11,7 @@ import {
   sendDiscoverPublisherRequestNotificationEmail,
 } from "../lib/discover-publisher-request-notification-email.js";
 import { canAccessDiscover } from "../repositories/roles.repository.js";
+import { isGlobalAdminRole } from "../lib/admin-roles.js";
 import {
   createDiscoverFeedItem,
   createDiscoverIndividual,
@@ -391,7 +392,83 @@ const PUBLIC_PUBLISHER_REQUEST_ORIGINS = new Set([
   "http://127.0.0.1:4321",
 ]);
 
-function sendRepositoryError(reply: FastifyReply, error: unknown) {
+type UnexpectedErrorDiagnostic = {
+  name: string;
+  message: string;
+  stage?: string;
+  code?: string;
+  details?: string;
+  stack?: string;
+  cause?: UnexpectedErrorDiagnostic;
+};
+
+function errorProperty(error: unknown, property: string): unknown {
+  if (!error || (typeof error !== "object" && typeof error !== "function")) {
+    return undefined;
+  }
+
+  try {
+    return Reflect.get(error, property);
+  } catch {
+    return undefined;
+  }
+}
+
+function diagnosticText(value: unknown, maxLength = 12_000) {
+  if (typeof value === "string") {
+    return value.slice(0, maxLength);
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  return undefined;
+}
+
+function unexpectedErrorDiagnostic(
+  error: unknown,
+  depth = 0,
+): UnexpectedErrorDiagnostic {
+  const name =
+    diagnosticText(errorProperty(error, "name"), 200) ??
+    (error instanceof Error ? error.name : typeof error);
+  const message =
+    diagnosticText(errorProperty(error, "message")) ??
+    (typeof error === "string" ? error.slice(0, 12_000) : "") ??
+    "";
+  const stage = diagnosticText(errorProperty(error, "stage"), 500);
+  const code = diagnosticText(errorProperty(error, "code"), 500);
+  const details =
+    diagnosticText(errorProperty(error, "details")) ??
+    diagnosticText(errorProperty(error, "reason"));
+  const stack = diagnosticText(errorProperty(error, "stack"));
+  const cause = errorProperty(error, "cause");
+
+  return {
+    name,
+    message: message || "The thrown error did not include a message.",
+    stage,
+    code,
+    details,
+    stack,
+    cause:
+      cause !== undefined && cause !== error && depth < 3
+        ? unexpectedErrorDiagnostic(cause, depth + 1)
+        : undefined,
+  };
+}
+
+function canSeeInternalDiscoverDiagnostics(request: FastifyRequest) {
+  const context = request.adminContext;
+  return Boolean(
+    context?.isBootstrap && isGlobalAdminRole(context.role),
+  );
+}
+
+function sendRepositoryError(
+  reply: FastifyReply,
+  error: unknown,
+  options: { includeInternalDiagnostics?: boolean } = {},
+) {
   if (isAdminRepositoryError(error)) {
     return reply.status(error.statusCode).send({ error: error.message });
   }
@@ -415,11 +492,18 @@ function sendRepositoryError(reply: FastifyReply, error: unknown) {
     ? "The write exceeded Firestore's document size limit. Use hosted image URLs or smaller profile images."
     : undefined;
 
+  const diagnostic = options.includeInternalDiagnostics
+    ? unexpectedErrorDiagnostic(error)
+    : undefined;
+
   return reply.status(500).send({
     error: "Internal Server Error",
     errorName,
     errorCode,
     hint,
+    message: diagnostic?.message,
+    stage: diagnostic?.stage,
+    diagnostic,
   });
 }
 
@@ -722,7 +806,10 @@ export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
         );
         return reply.send(result);
       } catch (error) {
-        return sendRepositoryError(reply, error);
+        return sendRepositoryError(reply, error, {
+          includeInternalDiagnostics:
+            canSeeInternalDiscoverDiagnostics(request),
+        });
       }
     },
   );
@@ -740,7 +827,10 @@ export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
         );
         return reply.send({ organization });
       } catch (error) {
-        return sendRepositoryError(reply, error);
+        return sendRepositoryError(reply, error, {
+          includeInternalDiagnostics:
+            canSeeInternalDiscoverDiagnostics(request),
+        });
       }
     },
   );
@@ -782,7 +872,10 @@ export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
         );
         return reply.send({ organization });
       } catch (error) {
-        return sendRepositoryError(reply, error);
+        return sendRepositoryError(reply, error, {
+          includeInternalDiagnostics:
+            canSeeInternalDiscoverDiagnostics(request),
+        });
       }
     },
   );
@@ -1080,7 +1173,10 @@ export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
         );
         return reply.send({ individual });
       } catch (error) {
-        return sendRepositoryError(reply, error);
+        return sendRepositoryError(reply, error, {
+          includeInternalDiagnostics:
+            canSeeInternalDiscoverDiagnostics(request),
+        });
       }
     },
   );
