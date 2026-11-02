@@ -741,6 +741,45 @@ describe("PublisherAppConfigWorkbench", () => {
     ).toBeDisabled();
   });
 
+  it("turns down an active identifier and returns the edit screen to review", async () => {
+    jest.mocked(sdkFetch).mockResolvedValue({
+      config: {
+        ...savedConfig,
+        status: "pending_revision",
+      },
+    });
+    renderWorkbench({
+      mode: "edit",
+      initialConfig: {
+        ...savedConfig,
+        status: "active",
+        appProviderIdentifier: "app_org_pocket_genes_lab_48217",
+        runtimeRevision: 1,
+      },
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Desactivar identificador" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Desactivar para pruebas" }),
+    );
+
+    await waitFor(() =>
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/publisher-app/config/identifier",
+        { method: "DELETE" },
+      ),
+    );
+    expect(
+      await screen.findByRole("button", { name: "Create app identifier" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Descargar configuración" }),
+    ).toBeDisabled();
+    expect(screen.getAllByText("En revisión")).toHaveLength(2);
+  });
+
   it("deletes a pending app after expanding the danger zone", async () => {
     jest.mocked(sdkFetch).mockResolvedValue({
       deleted: true,

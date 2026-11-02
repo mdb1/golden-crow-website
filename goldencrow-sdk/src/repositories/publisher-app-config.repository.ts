@@ -854,6 +854,38 @@ export async function createPublisherAppIdentifier(
   return toPublisherAppConfigRecord(await ref.get());
 }
 
+export async function deactivatePublisherAppIdentifier(
+  context: AdminContext,
+): Promise<PublisherAppConfigRecord> {
+  const scope = publisherScope(context);
+  const ref = adminDb
+    .collection(APP_CONFIGS_COLLECTION)
+    .doc(`${scope.kind}_${scope.id}`);
+
+  await adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(ref);
+    const config = toPublisherAppConfigRecord(snapshot);
+    if (config.status !== "active" || !config.appProviderIdentifier) {
+      throw new AdminRepositoryError(
+        "Only an app active for testing can deactivate its identifier.",
+        409,
+      );
+    }
+
+    transaction.update(ref, {
+      appProviderIdentifier: FieldValue.delete(),
+      runtimeRevision: FieldValue.delete(),
+      activatedAt: FieldValue.delete(),
+      activatedByUserId: FieldValue.delete(),
+      status: "pending_revision",
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedByUserId: context.uid,
+    });
+  });
+
+  return toPublisherAppConfigRecord(await ref.get());
+}
+
 export async function getPublisherAppRuntimeConfig(
   context: AdminContext,
 ): Promise<PublisherAppRuntimeConfig> {

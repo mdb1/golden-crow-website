@@ -5,6 +5,7 @@ import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
   createPublisherAppConfig,
   createPublisherAppIdentifier,
+  deactivatePublisherAppIdentifier,
   deletePublisherAppConfig,
   getPublisherAppConfigById,
   getPublisherAppConfig,
@@ -260,6 +261,21 @@ export async function publisherAppConfigRoutes(
     try {
       return reply.send({
         config: await createPublisherAppIdentifier(request.adminContext),
+      });
+    } catch (error) {
+      return sendRepositoryError(reply, error);
+    }
+  });
+
+  f.delete("/publisher-app/config/identifier", async (request, reply) => {
+    if (!request.adminContext) {
+      return reply
+        .status(401)
+        .send({ error: "No authenticated admin context" });
+    }
+    try {
+      return reply.send({
+        config: await deactivatePublisherAppIdentifier(request.adminContext),
       });
     } catch (error) {
       return sendRepositoryError(reply, error);

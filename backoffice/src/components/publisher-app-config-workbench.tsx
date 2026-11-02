@@ -29,6 +29,7 @@ import {
   Package,
   Palette,
   Pencil,
+  Power,
   RotateCcw,
   Save,
   Smartphone,
@@ -1040,6 +1041,7 @@ function PublisherAppEditSheet({
   onSave,
   onDownload,
   onCreateIdentifier,
+  onDeactivateIdentifier,
   onDelete,
 }: {
   publisherName: string;
@@ -1080,6 +1082,7 @@ function PublisherAppEditSheet({
   onSave: () => void;
   onDownload: () => void;
   onCreateIdentifier?: () => void;
+  onDeactivateIdentifier?: () => void;
   onDelete: () => void;
 }) {
   const [activeDialog, setActiveDialog] =
@@ -1200,6 +1203,54 @@ function PublisherAppEditSheet({
                   Create app identifier
                 </Button>
               ) : null}
+              {onDeactivateIdentifier ? (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={changed || pending || identifierPending}
+                      className="h-9 rounded-xl border-amber-200 bg-amber-50/85 text-amber-900 shadow-sm hover:border-amber-300 hover:bg-amber-100 dark:border-amber-400/24 dark:bg-amber-500/10 dark:text-amber-100"
+                    >
+                      {identifierPending ? (
+                        <LoaderCircle className="size-3.5 animate-spin" />
+                      ) : (
+                        <Power className="size-3.5" />
+                      )}
+                      Desactivar identificador
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogMedia className="bg-amber-100 text-amber-800 dark:bg-amber-500/12 dark:text-amber-100">
+                        <Power className="size-5" />
+                      </AlertDialogMedia>
+                      <AlertDialogTitle>
+                        ¿Desactivar la app para pruebas?
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        La app dejará de estar disponible para pruebas. Podrás
+                        generar un identificador nuevo cuando quieras volver a
+                        activarla.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel disabled={identifierPending}>
+                        Cancelar
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        variant="destructive"
+                        disabled={identifierPending}
+                        onClick={onDeactivateIdentifier}
+                      >
+                        <Power className="size-4" />
+                        Desactivar para pruebas
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              ) : null}
               <Button
                 type="button"
                 variant="outline"
@@ -1222,6 +1273,7 @@ function PublisherAppEditSheet({
                   !identifierIsCurrent ||
                   status !== "active" ||
                   changed ||
+                  identifierPending ||
                   downloadPending
                 }
                 className="h-9 rounded-xl border-violet-200/80 bg-white/82 text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-50"
@@ -2296,6 +2348,51 @@ export function PublisherAppConfigWorkbench({
     }
   }
 
+  async function deactivateIdentifier() {
+    if (
+      identifierPending ||
+      changed ||
+      status !== "active" ||
+      !persistedConfig?.appProviderIdentifier ||
+      apiPath !== "/publisher-app/config"
+    ) {
+      return;
+    }
+    setIdentifierPending(true);
+    setToast(null);
+    try {
+      const response = await sdkFetch<PublisherAppConfigResponse>(
+        `${apiPath}/identifier`,
+        { method: "DELETE" },
+      );
+      if (!response.config) {
+        throw new Error("El servidor no devolvió la configuración de la app.");
+      }
+      setPersistedConfig(response.config);
+      setStatus(response.config.status);
+      setPersistedStatus(response.config.status);
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        title: "App desactivada para pruebas",
+        message:
+          "La configuración volvió a revisión y ya no está publicada para pruebas.",
+      });
+      router.refresh();
+    } catch (error) {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        title: "No pudimos desactivar el identificador",
+        message:
+          error instanceof Error ? error.message : "Volvé a intentarlo.",
+        details: error instanceof SdkRequestError ? error.details : undefined,
+      });
+    } finally {
+      setIdentifierPending(false);
+    }
+  }
+
   async function deleteApp() {
     if (!canDelete || deletePending) return;
     setDeletePending(true);
@@ -2468,6 +2565,13 @@ export function PublisherAppConfigWorkbench({
             (status === "pending_revision" ||
               (status === "active" && !identifierIsCurrent))
               ? () => void createIdentifier()
+              : undefined
+          }
+          onDeactivateIdentifier={
+            apiPath === "/publisher-app/config" &&
+            status === "active" &&
+            Boolean(persistedConfig?.appProviderIdentifier)
+              ? () => void deactivateIdentifier()
               : undefined
           }
           onDelete={() => void deleteApp()}

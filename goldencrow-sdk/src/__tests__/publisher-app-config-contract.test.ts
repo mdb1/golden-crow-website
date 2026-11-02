@@ -26,6 +26,7 @@ type MockQuery = {
 };
 
 const collections = new Map<string, Map<string, StoredDocument>>();
+const DELETE_FIELD = Symbol("delete-field");
 const mockGetProfileSetupState = jest.fn();
 const mockSendPublisherAppCreationNotificationEmails = jest.fn();
 let timestampCallCount = 0;
@@ -79,7 +80,15 @@ function documentReferenceFor(
     if (!existing) {
       throw new Error(`Missing document ${collectionName}/${id}`);
     }
-    store.set(id, { ...existing, ...update });
+    const next = { ...existing };
+    for (const [key, value] of Object.entries(update)) {
+      if (value === DELETE_FIELD) {
+        delete next[key];
+      } else {
+        next[key] = value;
+      }
+    }
+    store.set(id, next);
   });
   ref.delete = jest.fn(async () => {
     collectionStore(collectionName).delete(id);
@@ -152,6 +161,10 @@ const mockRunTransaction = jest.fn(
 
 jest.mock("firebase-admin/firestore", () => ({
   FieldValue: class FieldValueStub {
+    static delete() {
+      return DELETE_FIELD;
+    }
+
     static serverTimestamp() {
       const timestamp = new Date(FIXED_TIME + timestampCallCount * 1_000);
       timestampCallCount += 1;
@@ -590,6 +603,79 @@ describe("publisher app config contract", () => {
       appProviderIdentifier: expect.stringMatching(
         /^app_org_canonical_organization_[0-9]{5}$/,
       ),
+    });
+  });
+
+  it("turns down an active identifier and returns the app to pending revision", async () => {
+    await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config",
+      payload: validBody,
+    });
+    const activationResponse = await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config/identifier",
+    });
+    const appProviderIdentifier = activationResponse.json().config
+      .appProviderIdentifier as string;
+
+    const response = await fastify.inject({
+      method: "DELETE",
+      url: "/publisher-app/config/identifier",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().config).toMatchObject({
+      status: "pending_revision",
+      updatedByUserId: "org-user-1",
+    });
+    expect(response.json().config).not.toHaveProperty("appProviderIdentifier");
+    expect(response.json().config).not.toHaveProperty("runtimeRevision");
+    expect(response.json().config).not.toHaveProperty("activatedAt");
+    expect(response.json().config).not.toHaveProperty("activatedByUserId");
+    expect(
+      collectionStore("app_config_identifiers").get(appProviderIdentifier),
+    ).toMatchObject({ configId: "organization_shared-publisher-id" });
+
+    const runtimeResponse = await fastify.inject({
+      method: "GET",
+      url: "/publisher-app/config/runtime",
+    });
+    expect(runtimeResponse.statusCode).toBe(409);
+
+    const reactivationResponse = await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config/identifier",
+    });
+    expect(reactivationResponse.statusCode).toBe(200);
+    expect(reactivationResponse.json().config).toMatchObject({
+      status: "active",
+      runtimeRevision: 1,
+      appProviderIdentifier: expect.stringMatching(
+        /^app_org_canonical_organization_[0-9]{5}$/,
+      ),
+    });
+    expect(
+      reactivationResponse.json().config.appProviderIdentifier,
+    ).not.toBe(appProviderIdentifier);
+    expect(collectionStore("app_config_identifiers").size).toBe(2);
+  });
+
+  it("rejects identifier deactivation when the app is not active for testing", async () => {
+    await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config",
+      payload: validBody,
+    });
+
+    const response = await fastify.inject({
+      method: "DELETE",
+      url: "/publisher-app/config/identifier",
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({
+      error: "Only an app active for testing can deactivate its identifier.",
     });
   });
 
