@@ -8,6 +8,7 @@ const mockCreateDiscoverPublisherApprovalRequest = jest.fn();
 const mockCreateDiscoverFeedItem = jest.fn();
 const mockSyncDiscoverPublisherSnapshot = jest.fn();
 const mockSendDiscoverPublisherRequestNotificationEmail = jest.fn();
+const mockUpdateDiscoverIndividual = jest.fn();
 
 jest.mock("../repositories/discover.repository.js", () => ({
   createDiscoverFeedItem: mockCreateDiscoverFeedItem,
@@ -29,7 +30,7 @@ jest.mock("../repositories/discover.repository.js", () => ({
   listDiscoverOrganizations: jest.fn(),
   syncDiscoverPublisherSnapshot: mockSyncDiscoverPublisherSnapshot,
   updateDiscoverFeedItem: jest.fn(),
-  updateDiscoverIndividual: jest.fn(),
+  updateDiscoverIndividual: mockUpdateDiscoverIndividual,
   updateDiscoverOrganization: jest.fn(),
 }));
 
@@ -111,6 +112,10 @@ describe("Discover public routes", () => {
       },
     });
     mockSyncDiscoverPublisherSnapshot.mockResolvedValue({ updated: 1 });
+    mockUpdateDiscoverIndividual.mockResolvedValue({
+      id: "person-1",
+      linkedParentOrganizationId: "org-1",
+    });
   });
 
   it("sends Federico a notification after a public organization request is saved", async () => {
@@ -271,5 +276,41 @@ describe("Discover public routes", () => {
       expect.objectContaining({ uid: "uid-1" }),
       "org-1",
     );
+  });
+
+  it("accepts a parent organization id but rejects client-authored snapshots", async () => {
+    const fastify = await buildTestServer();
+
+    const validResponse = await fastify.inject({
+      method: "PUT",
+      url: "/discover/individuals/person-1",
+      payload: {
+        linkedParentOrganizationId: "org-1",
+      },
+    });
+
+    expect(validResponse.statusCode).toBe(200);
+    expect(mockUpdateDiscoverIndividual).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: "uid-1" }),
+      "person-1",
+      expect.objectContaining({ linkedParentOrganizationId: "org-1" }),
+    );
+
+    mockUpdateDiscoverIndividual.mockClear();
+    const forgedResponse = await fastify.inject({
+      method: "PUT",
+      url: "/discover/individuals/person-1",
+      payload: {
+        linkedParentOrganizationId: "org-1",
+        linkedParentOrganizationSnapshot: {
+          id: "org-1",
+          name: "Forged organization",
+          imageUrl: "https://attacker.example/logo.png",
+        },
+      },
+    });
+
+    expect(forgedResponse.statusCode).toBe(400);
+    expect(mockUpdateDiscoverIndividual).not.toHaveBeenCalled();
   });
 });

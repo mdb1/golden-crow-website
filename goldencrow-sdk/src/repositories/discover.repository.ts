@@ -26,6 +26,7 @@ import type {
   DiscoverGeneticReportCategory,
   DiscoverIndividualRecord,
   DiscoverIndividualStatus,
+  DiscoverLinkedParentOrganizationSnapshot,
   DiscoverListPage,
   DiscoverOrganizationProductCatalogItem,
   DiscoverOrganizationRecord,
@@ -601,6 +602,7 @@ type IndividualInput = PublisherImageUploadInput & {
   verified?: unknown;
   contactEmail?: unknown;
   internalNotes?: unknown;
+  linkedParentOrganizationId?: unknown;
 };
 
 type ProductCatalogItemInput = PublisherImageUploadInput & {
@@ -2037,6 +2039,14 @@ function toIndividualRecord(
   const individualType = discoverIndividualCategoryProvider.normalizeCsv(
     normalizeOptionalString(data.individualType),
   );
+  const linkedParentOrganizationId = normalizeNullableString(
+    data.linkedParentOrganizationId,
+  );
+  const linkedParentOrganizationSnapshot =
+    readLinkedParentOrganizationSnapshot(
+      data.linkedParentOrganizationSnapshot,
+      linkedParentOrganizationId,
+    );
 
   return {
     id: doc.id,
@@ -2057,10 +2067,40 @@ function toIndividualRecord(
     verified: data.verified === true,
     contactEmail: normalizeOptionalString(data.contactEmail),
     internalNotes: normalizeOptionalString(data.internalNotes),
+    linkedParentOrganizationId,
+    linkedParentOrganizationSnapshot,
     createdAt: timestampToIso(data.createdAt) ?? "",
     updatedAt: timestampToIso(data.updatedAt) ?? "",
     createdByUserId: normalizeOptionalString(data.createdByUserId),
     updatedByUserId: normalizeOptionalString(data.updatedByUserId),
+  };
+}
+
+function readLinkedParentOrganizationSnapshot(
+  value: unknown,
+  linkedParentOrganizationId: string | null,
+): DiscoverLinkedParentOrganizationSnapshot | null {
+  if (
+    !linkedParentOrganizationId ||
+    !value ||
+    typeof value !== "object" ||
+    Array.isArray(value)
+  ) {
+    return null;
+  }
+
+  const source = value as Record<string, unknown>;
+  const id = normalizeOptionalString(source.id);
+  const name = normalizeOptionalString(source.name);
+  if (id !== linkedParentOrganizationId || !name) {
+    return null;
+  }
+
+  return {
+    id,
+    name,
+    imageUrl: normalizeNullableString(source.imageUrl),
+    imageUploadDataUrl: normalizeNullableString(source.imageUploadDataUrl),
   };
 }
 
@@ -2664,6 +2704,8 @@ function publicIndividualRequestDocument(input: PublicPublisherRequestInput) {
     verified: false,
     contactEmail: normalizeRequiredEmail(input.contactEmail, "Contact email"),
     internalNotes: undefined,
+    linkedParentOrganizationId: null,
+    linkedParentOrganizationSnapshot: null,
     isRequestedThroughWebWizard: true,
     approvalRequestDate: FieldValue.serverTimestamp(),
     createdAt: FieldValue.serverTimestamp(),
@@ -2680,6 +2722,68 @@ async function getOrganizationSnapshot(organizationId: string) {
     .get();
 
   return snapshot.exists ? (snapshot as QueryDocumentSnapshot) : null;
+}
+
+async function linkedParentOrganizationFields(
+  input: IndividualInput,
+  existingRecord?: DiscoverIndividualRecord,
+  canEdit = true,
+): Promise<{
+  linkedParentOrganizationId: string | null;
+  linkedParentOrganizationSnapshot: DiscoverLinkedParentOrganizationSnapshot | null;
+}> {
+  if (!canEdit || input.linkedParentOrganizationId === undefined) {
+    return {
+      linkedParentOrganizationId:
+        existingRecord?.linkedParentOrganizationId ?? null,
+      linkedParentOrganizationSnapshot:
+        existingRecord?.linkedParentOrganizationSnapshot ?? null,
+    };
+  }
+
+  const linkedParentOrganizationId = normalizeNullableString(
+    input.linkedParentOrganizationId,
+  );
+  if (!linkedParentOrganizationId) {
+    return {
+      linkedParentOrganizationId: null,
+      linkedParentOrganizationSnapshot: null,
+    };
+  }
+
+  if (
+    linkedParentOrganizationId ===
+      existingRecord?.linkedParentOrganizationId &&
+    existingRecord.linkedParentOrganizationSnapshot?.id ===
+      linkedParentOrganizationId
+  ) {
+    return {
+      linkedParentOrganizationId,
+      linkedParentOrganizationSnapshot:
+        existingRecord.linkedParentOrganizationSnapshot,
+    };
+  }
+
+  const organizationSnapshot = await getOrganizationSnapshot(
+    linkedParentOrganizationId,
+  );
+  if (!organizationSnapshot) {
+    throw new AdminRepositoryError(
+      "The selected parent organization does not exist.",
+      400,
+    );
+  }
+  const organization = toOrganizationRecord(organizationSnapshot);
+
+  return {
+    linkedParentOrganizationId,
+    linkedParentOrganizationSnapshot: {
+      id: organization.id,
+      name: organization.name,
+      imageUrl: organization.imageUrl,
+      imageUploadDataUrl: organization.imageUploadDataUrl ?? null,
+    },
+  };
 }
 
 async function getIndividualSnapshot(individualId: string) {
@@ -3703,9 +3807,11 @@ export async function createDiscoverIndividual(
 ) {
   requireFullAdmin(context);
   const ref = adminDb.collection(INDIVIDUALS_COLLECTION).doc();
+  const parentOrganization = await linkedParentOrganizationFields(input);
   await ref.set(
     withoutUndefined({
       ...individualDocument(input, context),
+      ...parentOrganization,
       createdAt: FieldValue.serverTimestamp(),
       createdByUserId: context.uid,
     }),
@@ -3726,6 +3832,7 @@ export async function updateDiscoverIndividual(
     throw new AdminRepositoryError("Individual publisher not found.", 404);
   }
   const existingRecord = toIndividualRecord(existing);
+  const canEditParentOrganization = context.role !== "individual_publisher";
   const scopedInput =
     context.role === "individual_publisher"
       ? {
@@ -3733,6 +3840,8 @@ export async function updateDiscoverIndividual(
           status: existingRecord.status,
           verified: existingRecord.verified,
           internalNotes: existingRecord.internalNotes,
+          linkedParentOrganizationId:
+            existingRecord.linkedParentOrganizationId,
         }
       : input;
 
@@ -3740,11 +3849,17 @@ export async function updateDiscoverIndividual(
     scopedInput,
     existingRecord,
   );
+  const parentOrganization = await linkedParentOrganizationFields(
+    inputWithImageUpload,
+    existingRecord,
+    canEditParentOrganization,
+  );
 
   await existing.ref.set(
     withoutUndefined({
       ...existing.data(),
       ...individualDocument(inputWithImageUpload, context, { existingRecord }),
+      ...parentOrganization,
     }),
     { merge: false },
   );

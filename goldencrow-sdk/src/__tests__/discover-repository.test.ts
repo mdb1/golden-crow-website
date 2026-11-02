@@ -579,6 +579,106 @@ describe("discover repository", () => {
     );
     expect(result.individuals[0]?.description).toBe("Descripción individual");
     expect(result.individuals[0]?.descriptionEn).toBe("Individual description");
+    expect(result.individuals[0]?.linkedParentOrganizationId).toBeNull();
+    expect(
+      result.individuals[0]?.linkedParentOrganizationSnapshot,
+    ).toBeNull();
+  });
+
+  it("links an individual to one organization with a server-owned snapshot and allows clearing it", async () => {
+    const { updateDiscoverIndividual } =
+      await import("../repositories/discover.repository");
+
+    const linked = await updateDiscoverIndividual(
+      fullAdminContext,
+      "person-1",
+      {
+        name: "Dr. Publisher One",
+        imageUrl: "https://example.org/individual.png",
+        individualType: "pro_research_scientists",
+        linkedParentOrganizationId: "org-1",
+      } as Record<string, unknown>,
+    );
+
+    expect(linked.linkedParentOrganizationId).toBe("org-1");
+    expect(linked.linkedParentOrganizationSnapshot).toEqual({
+      id: "org-1",
+      name: "Publisher One",
+      imageUrl: "https://example.org/publisher.png",
+      imageUploadDataUrl: null,
+    });
+    expect(
+      mockIndividualDocs.find((doc) => doc.id === "person-1")?.data,
+    ).toMatchObject({
+      linkedParentOrganizationId: "org-1",
+      linkedParentOrganizationSnapshot: {
+        id: "org-1",
+        name: "Publisher One",
+        imageUrl: "https://example.org/publisher.png",
+        imageUploadDataUrl: null,
+      },
+    });
+
+    const cleared = await updateDiscoverIndividual(
+      fullAdminContext,
+      "person-1",
+      {
+        name: "Dr. Publisher One",
+        imageUrl: "https://example.org/individual.png",
+        individualType: "pro_research_scientists",
+        linkedParentOrganizationId: null,
+      } as Record<string, unknown>,
+    );
+
+    expect(cleared.linkedParentOrganizationId).toBeNull();
+    expect(cleared.linkedParentOrganizationSnapshot).toBeNull();
+  });
+
+  it("rejects a parent organization that does not exist", async () => {
+    const { updateDiscoverIndividual } =
+      await import("../repositories/discover.repository");
+
+    await expect(
+      updateDiscoverIndividual(fullAdminContext, "person-1", {
+        name: "Dr. Publisher One",
+        imageUrl: "https://example.org/individual.png",
+        individualType: "pro_research_scientists",
+        linkedParentOrganizationId: "missing-organization",
+      } as Record<string, unknown>),
+    ).rejects.toThrow("The selected parent organization does not exist.");
+  });
+
+  it("does not let an individual publisher alter its parent organization link", async () => {
+    const { updateDiscoverIndividual } =
+      await import("../repositories/discover.repository");
+    const stored = mockIndividualDocs.find((doc) => doc.id === "person-1");
+    stored!.data.linkedParentOrganizationId = "org-1";
+    stored!.data.linkedParentOrganizationSnapshot = {
+      id: "org-1",
+      name: "Publisher One",
+      imageUrl: "https://example.org/publisher.png",
+      imageUploadDataUrl: null,
+    };
+
+    const result = await updateDiscoverIndividual(
+      {
+        ...fullAdminContext,
+        role: "individual_publisher",
+        individualId: "person-1",
+      },
+      "person-1",
+      {
+        name: "Dr. Publisher One",
+        imageUrl: "https://example.org/individual.png",
+        individualType: "pro_research_scientists",
+        linkedParentOrganizationId: null,
+      } as Record<string, unknown>,
+    );
+
+    expect(result.linkedParentOrganizationId).toBe("org-1");
+    expect(result.linkedParentOrganizationSnapshot?.name).toBe(
+      "Publisher One",
+    );
   });
 
   it("requires god mode or the matching publisher scope to hard delete Discover publishers", async () => {
@@ -1444,6 +1544,8 @@ describe("discover repository", () => {
     expect(stored?.data.individualType).toBe(
       "pro_clinical_geneticists,pro_genetic_counselors",
     );
+    expect(stored?.data.linkedParentOrganizationId).toBeNull();
+    expect(stored?.data.linkedParentOrganizationSnapshot).toBeNull();
     expect(stored?.data.isGeneticReportProvider).toBeUndefined();
     expect(stored?.data.geneticReportCategory).toBeUndefined();
   });

@@ -78,6 +78,8 @@ const individual: DiscoverIndividualRecord = {
   colorHex: "#123ABC",
   verified: true,
   contactEmail: "individual@example.org",
+  linkedParentOrganizationId: null,
+  linkedParentOrganizationSnapshot: null,
   createdAt: "2026-08-01T00:00:00.000Z",
   updatedAt: "2026-08-02T00:00:00.000Z",
 };
@@ -1091,6 +1093,70 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(screen.getAllByText("Médico").length).toBeGreaterThan(0);
     expect(screen.queryByText("Genetistas clínicos")).toBeNull();
     expect(screen.queryByText("Médicos")).toBeNull();
+  });
+
+  it("lets an administrator pick one parent organization without authoring its snapshot", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      if (path === "/discover/organizations?limit=20") {
+        return { organizations: [organization], nextCursor: null };
+      }
+      return {
+        individual: {
+          ...individual,
+          linkedParentOrganizationId: organization.id,
+          linkedParentOrganizationSnapshot: {
+            id: organization.id,
+            name: organization.name,
+            imageUrl: organization.imageUrl,
+            imageUploadDataUrl: null,
+          },
+        },
+      };
+    });
+    renderIndividualWorkbench();
+
+    await user.click(
+      screen.getByRole("button", { name: "Choose organization" }),
+    );
+    await user.click(
+      await screen.findByRole("button", { name: /Publisher One org-1/ }),
+    );
+    expect(screen.getByText("Publisher One")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/discover/individuals/individual-1",
+        {
+          method: "PUT",
+          body: expect.any(String),
+        },
+      );
+    });
+    const saveCall = jest
+      .mocked(sdkFetch)
+      .mock.calls.find(
+        ([path, init]) =>
+          path === "/discover/individuals/individual-1" &&
+          init?.method === "PUT",
+      );
+    const body = JSON.parse(saveCall?.[1]?.body as string) as Record<
+      string,
+      unknown
+    >;
+    expect(body.linkedParentOrganizationId).toBe("org-1");
+    expect(body).not.toHaveProperty("linkedParentOrganizationSnapshot");
+  });
+
+  it("keeps the parent organization relationship out of publisher self-edit", () => {
+    renderIndividualWorkbench("en", { canManageSystemFields: false });
+
+    expect(screen.queryByText("Parent organization")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Choose organization" }),
+    ).toBeNull();
   });
 
   it("saves multiple country coverage selections as comma-separated country codes", async () => {

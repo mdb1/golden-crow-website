@@ -789,6 +789,24 @@ const SPANISH_TEXT: Record<string, string> = {
   "Publisher draft": "Borrador de publicador",
   "No publisher selected": "Sin publicador seleccionado",
   "Choose organization": "Elegir organización",
+  "Parent organization": "Organización vinculada",
+  "Choose parent organization": "Elegir organización vinculada",
+  "Change organization": "Cambiar organización",
+  "Independent professional": "Profesional independiente",
+  "No parent organization assigned": "Sin organización vinculada",
+  "Link this professional to one Discover organization, or leave them independent.":
+    "Vinculá este profesional con una organización de Discover o dejalo como independiente.",
+  "Select one organization or leave this professional unassigned.":
+    "Elegí una organización o dejá este profesional sin asignar.",
+  "Search organizations": "Buscar organizaciones",
+  "Search loaded organizations": "Buscar entre las organizaciones cargadas",
+  "No loaded organizations match this search.":
+    "Ninguna organización cargada coincide con la búsqueda.",
+  "Unable to load organizations.": "No se pudieron cargar las organizaciones.",
+  "Organizations are loaded 20 at a time.":
+    "Las organizaciones se cargan de a 20.",
+  "Load more organizations": "Cargar más organizaciones",
+  "Loading organizations...": "Cargando organizaciones...",
   "Choose publisher": "Elegir publicador",
   "Choose a publisher organization.": "Elegí una organización publicadora.",
   "Choose one publisher.": "Elegí un publicador.",

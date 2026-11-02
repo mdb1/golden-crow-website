@@ -320,6 +320,14 @@ const IndividualBodySchema = z.object({
   verified: z.boolean().optional(),
   contactEmail: z.string().optional(),
   internalNotes: z.string().optional(),
+  linkedParentOrganizationId: z
+    .string()
+    .trim()
+    .min(1)
+    .max(300)
+    .nullable()
+    .optional(),
+  linkedParentOrganizationSnapshot: z.never().optional(),
 });
 
 const FeedPayloadSchema = z.record(z.string(), z.unknown()).optional();

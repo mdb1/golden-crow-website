@@ -6,6 +6,7 @@ import {
   type ChangeEvent,
   type CSSProperties,
   type DragEvent,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -15,6 +16,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   BadgeCheck,
+  Building2,
   ChevronDown,
   ChevronRight,
   Check,
@@ -29,6 +31,7 @@ import {
   PencilLine,
   RotateCcw,
   Save,
+  Search,
   ShieldCheck,
   ShoppingBag,
   Sparkles,
@@ -58,6 +61,13 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -73,8 +83,10 @@ import {
   discoverOrganizationStatusLabel,
   type DiscoverIndividualRecord,
   type DiscoverIndividualStatus,
+  type DiscoverLinkedParentOrganizationSnapshot,
   type DiscoverOrganizationRecord,
   type DiscoverOrganizationStatus,
+  type DiscoverOrganizationsPage,
   type DiscoverPublisherSocialKey,
   type DiscoverPublisherSocialLinks,
 } from "@/lib/discover";
@@ -154,6 +166,7 @@ type OrganizationFormState = {
   isGrcHighlighted: boolean;
   contactEmail: string;
   internalNotes: string;
+  linkedParentOrganizationId: string;
 };
 
 function toFormState(
@@ -198,6 +211,8 @@ function toFormState(
     isGrcHighlighted: organization?.isGrcHighlighted ?? false,
     contactEmail: publisher?.contactEmail ?? "",
     internalNotes: publisher?.internalNotes ?? "",
+    linkedParentOrganizationId:
+      individual?.linkedParentOrganizationId ?? "",
   };
 }
 
@@ -254,6 +269,10 @@ function payloadFromState(
         : undefined,
     individualType:
       publisherKind === "individual" ? individualType || undefined : undefined,
+    linkedParentOrganizationId:
+      publisherKind === "individual"
+        ? state.linkedParentOrganizationId || null
+        : undefined,
     colorHex: normalizedColorHex(state.colorHex) || undefined,
     isGeneticReportProvider:
       publisherKind === "organization"
@@ -679,6 +698,305 @@ const DESCRIPTION_LANGUAGE_OPTIONS = [
 type DescriptionLanguage =
   (typeof DESCRIPTION_LANGUAGE_OPTIONS)[number]["value"];
 
+function LinkedParentOrganizationPicker({
+  value,
+  snapshot,
+  disabled,
+  onChange,
+  t,
+}: {
+  value: string;
+  snapshot: DiscoverLinkedParentOrganizationSnapshot | null;
+  disabled: boolean;
+  onChange: (organizationId: string) => void;
+  t: (text: string) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [organizations, setOrganizations] = useState<
+    DiscoverOrganizationRecord[]
+  >([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    if (!open || hasLoaded) {
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError(false);
+    void sdkFetch<DiscoverOrganizationsPage>("/discover/organizations?limit=20")
+      .then((page) => {
+        if (cancelled) {
+          return;
+        }
+        setOrganizations(page.organizations);
+        setNextCursor(page.nextCursor);
+        setHasLoaded(true);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setError(true);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasLoaded, loadAttempt, open]);
+
+  const selectedOrganization = organizations.find(
+    (organization) => organization.id === value,
+  );
+  const selectedName = selectedOrganization?.name ?? snapshot?.name ?? "";
+  const selectedImage =
+    selectedOrganization?.imageUrl ??
+    selectedOrganization?.imageUploadDataUrl ??
+    snapshot?.imageUrl ??
+    snapshot?.imageUploadDataUrl ??
+    "";
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleOrganizations = normalizedQuery
+    ? organizations.filter((organization) =>
+        [organization.name, organization.id].some((candidate) =>
+          candidate.toLowerCase().includes(normalizedQuery),
+        ),
+      )
+    : organizations;
+
+  async function loadMore() {
+    if (!nextCursor || loading) {
+      return;
+    }
+    setLoading(true);
+    setError(false);
+    try {
+      const page = await sdkFetch<DiscoverOrganizationsPage>(
+        `/discover/organizations?limit=20&cursor=${encodeURIComponent(nextCursor)}`,
+      );
+      setOrganizations((current) => {
+        const merged = new Map(
+          current.map((organization) => [organization.id, organization]),
+        );
+        page.organizations.forEach((organization) =>
+          merged.set(organization.id, organization),
+        );
+        return Array.from(merged.values());
+      });
+      setNextCursor(page.nextCursor);
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function choose(organizationId: string) {
+    onChange(organizationId);
+    setOpen(false);
+    setQuery("");
+  }
+
+  return (
+    <div className="flex flex-col gap-3 md:col-span-2">
+      <div className="space-y-1">
+        <Label>{t("Parent organization")}</Label>
+        <p className="text-sm leading-6 text-muted-foreground">
+          {t(
+            "Link this professional to one Discover organization, or leave them independent.",
+          )}
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-2xl border border-border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-background text-muted-foreground shadow-sm">
+            {selectedImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={selectedImage}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <Building2 className="h-5 w-5" />
+            )}
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-semibold text-foreground">
+              {value && selectedName
+                ? selectedName
+                : t("Independent professional")}
+            </span>
+            <span className="block truncate text-xs text-muted-foreground">
+              {value || t("No parent organization assigned")}
+            </span>
+          </span>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setOpen(true)}
+          disabled={disabled}
+          className="shrink-0"
+        >
+          <Building2 className="h-4 w-4" />
+          {value ? t("Change organization") : t("Choose organization")}
+        </Button>
+      </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="flex max-h-[86vh] flex-col overflow-hidden sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t("Choose parent organization")}</DialogTitle>
+            <DialogDescription>
+              {t(
+                "Select one organization or leave this professional unassigned.",
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t("Search loaded organizations")}
+              aria-label={t("Search organizations")}
+              className="pl-9"
+            />
+          </div>
+
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+            <button
+              type="button"
+              onClick={() => choose("")}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition",
+                !value
+                  ? "border-violet-400 bg-violet-50 dark:bg-violet-500/10"
+                  : "border-border hover:bg-muted/60",
+              )}
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                <Building2 className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold">
+                  {t("Independent professional")}
+                </span>
+                <span className="block text-xs text-muted-foreground">
+                  {t("No parent organization assigned")}
+                </span>
+              </span>
+              {!value ? <Check className="h-5 w-5 text-violet-600" /> : null}
+            </button>
+
+            {visibleOrganizations.map((organization) => {
+              const image =
+                organization.imageUrl || organization.imageUploadDataUrl;
+              const selected = organization.id === value;
+              return (
+                <button
+                  key={organization.id}
+                  type="button"
+                  onClick={() => choose(organization.id)}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition",
+                    selected
+                      ? "border-violet-400 bg-violet-50 dark:bg-violet-500/10"
+                      : "border-border hover:bg-muted/60",
+                  )}
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-background text-xs font-bold text-muted-foreground">
+                    {image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={image}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      previewInitials(organization.name, "PG")
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold">
+                      {organization.name}
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {organization.id}
+                    </span>
+                  </span>
+                  {selected ? (
+                    <Check className="h-5 w-5 text-violet-600" />
+                  ) : null}
+                </button>
+              );
+            })}
+
+            {loading && !hasLoaded ? (
+              <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border px-4 py-8 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {t("Loading organizations...")}
+              </div>
+            ) : null}
+
+            {!loading && hasLoaded && visibleOrganizations.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+                {t("No loaded organizations match this search.")}
+              </p>
+            ) : null}
+          </div>
+
+          {error ? (
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+              <span>{t("Unable to load organizations.")}</span>
+              {!hasLoaded ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setLoadAttempt((attempt) => attempt + 1)}
+                >
+                  {t("Retry")}
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+            <p className="text-xs text-muted-foreground">
+              {t("Organizations are loaded 20 at a time.")}
+            </p>
+            {nextCursor ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void loadMore()}
+                disabled={loading}
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {t("Load more organizations")}
+              </Button>
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 function DiscoverPublisherWorkbench({
   publisher,
   publisherKind,
@@ -744,6 +1062,10 @@ function DiscoverPublisherWorkbench({
         )
       : DISCOVER_ORGANIZATION_STATUS_OPTIONS;
   const isIndividual = publisherKind === "individual";
+  const linkedParentOrganizationSnapshot = isIndividual
+    ? ((publisher as DiscoverIndividualRecord | undefined)
+        ?.linkedParentOrganizationSnapshot ?? null)
+    : null;
   const publisherRouteBase =
     routeBase ??
     (isIndividual ? "/discover/individuals" : "/discover/organizations");
@@ -2244,6 +2566,17 @@ function DiscoverPublisherWorkbench({
                 }
               />
             </div>
+            {isIndividual && mode === "edit" && canManageSystemFields ? (
+              <LinkedParentOrganizationPicker
+                value={state.linkedParentOrganizationId}
+                snapshot={linkedParentOrganizationSnapshot}
+                disabled={pending}
+                onChange={(linkedParentOrganizationId) =>
+                  updateState({ linkedParentOrganizationId })
+                }
+                t={t}
+              />
+            ) : null}
             <label className="flex items-center gap-2 self-end rounded-md border border-border px-3 py-2 text-sm">
               <input
                 type="checkbox"

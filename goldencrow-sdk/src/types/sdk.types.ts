@@ -893,6 +893,13 @@ export interface DiscoverOrganizationRecord {
   updatedByUserId?: string;
 }
 
+export interface DiscoverLinkedParentOrganizationSnapshot {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+  imageUploadDataUrl: string | null;
+}
+
 export interface DiscoverIndividualRecord {
   id: string;
   name: string;
@@ -912,6 +919,8 @@ export interface DiscoverIndividualRecord {
   verified: boolean;
   contactEmail?: string;
   internalNotes?: string;
+  linkedParentOrganizationId: string | null;
+  linkedParentOrganizationSnapshot: DiscoverLinkedParentOrganizationSnapshot | null;
   createdAt: string;
   updatedAt: string;
   createdByUserId?: string;
