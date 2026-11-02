@@ -437,6 +437,41 @@ describe("PublisherAppConfigWorkbench", () => {
     });
   });
 
+  it("submits an uploaded publisher identity in the upload field", async () => {
+    const publisherIconDataUrl = "data:image/png;base64,QUJDRA==";
+    jest.mocked(sdkFetch).mockResolvedValue({
+      config: {
+        ...savedConfig,
+        iconImageUrl: null,
+        iconImageUploadDataUrl: publisherIconDataUrl,
+      },
+    });
+    renderWorkbench({ publisherImageUrl: publisherIconDataUrl });
+
+    fireEvent.click(screen.getByRole("button", { name: /Paso 5 Revisión/i }));
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: /Leí y acepto los términos y condiciones/i,
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Aceptar condiciones y continuar",
+      }),
+    );
+
+    await waitFor(() => expect(sdkFetch).toHaveBeenCalledTimes(1));
+    const payload = JSON.parse(
+      String(jest.mocked(sdkFetch).mock.calls[0][1]?.body),
+    );
+    expect(payload).toMatchObject({
+      iconSource: "publisher",
+      iconImageUrl: null,
+      iconImageUploadDataUrl: publisherIconDataUrl,
+      termsAccepted: true,
+    });
+  });
+
   it("loads an existing configuration and saves only after it changes", async () => {
     const updatedConfig = {
       ...savedConfig,

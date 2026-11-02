@@ -212,6 +212,16 @@ function samePalette(left: PublisherAppColors, right: PublisherAppColors) {
   );
 }
 
+function publisherIconFields(source?: string | null) {
+  const value = source?.trim() || null;
+  const isUploadDataUrl = value?.startsWith("data:image/") ?? false;
+
+  return {
+    iconImageUrl: isUploadDataUrl ? null : value,
+    iconImageUploadDataUrl: isUploadDataUrl ? value : null,
+  };
+}
+
 function initialState(
   config: PublisherAppConfig | undefined,
   publisherTint?: string,
@@ -236,16 +246,23 @@ function initialState(
     learnCustomizationEnabled: false,
     colors: publisherAppDefaultColors(publisherTint),
     iconSource: "publisher",
-    iconImageUrl: publisherImageUrl?.trim() || null,
-    iconImageUploadDataUrl: null,
+    ...publisherIconFields(publisherImageUrl),
   };
 }
 
 function normalizedPayload(state: PublisherAppConfigInput) {
+  const normalizedIconImageUrl = state.iconImageUrl?.trim() || null;
+  const misplacedUploadDataUrl = normalizedIconImageUrl?.startsWith(
+    "data:image/",
+  )
+    ? normalizedIconImageUrl
+    : null;
+
   return {
     ...state,
-    iconImageUrl: state.iconImageUrl?.trim() || null,
-    iconImageUploadDataUrl: state.iconImageUploadDataUrl?.trim() || null,
+    iconImageUrl: misplacedUploadDataUrl ? null : normalizedIconImageUrl,
+    iconImageUploadDataUrl:
+      state.iconImageUploadDataUrl?.trim() || misplacedUploadDataUrl || null,
     colors: {
       primary:
         normalizePublisherAppColor(state.colors.primary) ??
@@ -2238,8 +2255,7 @@ export function PublisherAppConfigWorkbench({
       iconSource === "publisher"
         ? {
             iconSource,
-            iconImageUrl: publisherImageUrl?.trim() || null,
-            iconImageUploadDataUrl: null,
+            ...publisherIconFields(publisherImageUrl),
           }
         : { iconSource, iconImageUrl: null, iconImageUploadDataUrl: null },
     );
@@ -2441,8 +2457,7 @@ export function PublisherAppConfigWorkbench({
         ? {
             ...state,
             iconSource: "publisher" as const,
-            iconImageUrl: publisherImageUrl?.trim() || null,
-            iconImageUploadDataUrl: null,
+            ...publisherIconFields(publisherImageUrl),
           }
         : state;
       const submissionPayload = normalizedPayload(submissionState);
