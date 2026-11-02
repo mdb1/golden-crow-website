@@ -67,6 +67,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -1044,6 +1045,7 @@ function LinkedIndividualProfessionalsEditor({
   const [candidateError, setCandidateError] = useState(false);
   const [candidateAttempt, setCandidateAttempt] = useState(0);
   const [query, setQuery] = useState("");
+  const [pickerDraftIds, setPickerDraftIds] = useState<string[]>(value);
 
   useEffect(() => {
     setAudit(initialAudit);
@@ -1124,12 +1126,33 @@ function LinkedIndividualProfessionalsEditor({
       (link) => link.state !== "synced" || link.snapshotOutdated,
     ) ?? [];
 
-  function toggleCandidate(individualId: string) {
+  function toggleSelectedProfessional(individualId: string) {
     onChange(
       value.includes(individualId)
         ? value.filter((currentId) => currentId !== individualId)
         : [...value, individualId],
     );
+  }
+
+  function setPickerVisibility(open: boolean) {
+    if (open) {
+      setPickerDraftIds(value);
+      setQuery("");
+    }
+    setPickerOpen(open);
+  }
+
+  function toggleDraftCandidate(individualId: string) {
+    setPickerDraftIds((current) =>
+      current.includes(individualId)
+        ? current.filter((currentId) => currentId !== individualId)
+        : [...current, individualId],
+    );
+  }
+
+  function applyPickerSelection() {
+    onChange(pickerDraftIds);
+    setPickerOpen(false);
   }
 
   async function loadMoreCandidates() {
@@ -1217,7 +1240,7 @@ function LinkedIndividualProfessionalsEditor({
         </div>
         <Button
           type="button"
-          onClick={() => setPickerOpen(true)}
+          onClick={() => setPickerVisibility(true)}
           disabled={disabled}
           className="shrink-0 bg-violet-600 text-white hover:bg-violet-700"
         >
@@ -1271,7 +1294,7 @@ function LinkedIndividualProfessionalsEditor({
                   size="icon"
                   variant="ghost"
                   aria-label={`${t("Remove professional")} ${professional.name}`}
-                  onClick={() => toggleCandidate(professional.id)}
+                  onClick={() => toggleSelectedProfessional(professional.id)}
                   disabled={disabled}
                   className="shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                 >
@@ -1353,13 +1376,13 @@ function LinkedIndividualProfessionalsEditor({
         </p>
       ) : null}
 
-      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+      <Dialog open={pickerOpen} onOpenChange={setPickerVisibility}>
         <DialogContent className="flex max-h-[86vh] flex-col overflow-hidden sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{t("Add linked professionals")}</DialogTitle>
             <DialogDescription>
               {t(
-                "Only independent professionals can be added. Selections are applied when you save the organization.",
+                "Choose the independent professionals to link, then press Add. The relationship is saved when you save the organization.",
               )}
             </DialogDescription>
           </DialogHeader>
@@ -1375,12 +1398,12 @@ function LinkedIndividualProfessionalsEditor({
           </div>
           <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
             {eligibleCandidates.map((professional) => {
-              const isSelected = value.includes(professional.id);
+              const isSelected = pickerDraftIds.includes(professional.id);
               return (
                 <button
                   key={professional.id}
                   type="button"
-                  onClick={() => toggleCandidate(professional.id)}
+                  onClick={() => toggleDraftCandidate(professional.id)}
                   className={cn(
                     "flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition",
                     isSelected
@@ -1452,7 +1475,7 @@ function LinkedIndividualProfessionalsEditor({
               ) : null}
             </div>
           ) : null}
-          <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+          <div className="flex items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">
               {t("Professionals are loaded 20 at a time.")}
             </p>
@@ -1470,6 +1493,31 @@ function LinkedIndividualProfessionalsEditor({
               </Button>
             ) : null}
           </div>
+          <DialogFooter className="gap-3 sm:items-center sm:justify-between">
+            <p className="text-center text-sm font-medium text-muted-foreground sm:mr-auto sm:text-left">
+              {pickerDraftIds.length}{" "}
+              {t(
+                pickerDraftIds.length === 1
+                  ? "professional selected"
+                  : "professionals selected",
+              )}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPickerVisibility(false)}
+            >
+              {t("Cancel")}
+            </Button>
+            <Button
+              type="button"
+              onClick={applyPickerSelection}
+              className="bg-violet-600 text-white shadow-lg shadow-violet-600/20 hover:bg-violet-700"
+            >
+              <Plus className="h-4 w-4" />
+              {t("Add selected professionals")}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </section>

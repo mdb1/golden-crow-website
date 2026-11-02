@@ -1182,7 +1182,14 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
         name: /Individual One individual-1/,
       }),
     );
-    await user.keyboard("{Escape}");
+
+    expect(screen.queryByText("Pending save")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Add selected professionals" }),
+    ).toBeTruthy();
+    await user.click(
+      screen.getByRole("button", { name: "Add selected professionals" }),
+    );
 
     expect(screen.getByText("Individual One")).toBeTruthy();
     expect(screen.getByText("Pending save")).toBeTruthy();
@@ -1197,6 +1204,27 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     expect(lastSdkRequestBody().linkedIndividualProfessionalIds).toEqual([
       "individual-1",
     ]);
+  });
+
+  it("discards unconfirmed professional selections when the picker is cancelled", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockResolvedValue({
+      individuals: [individual],
+      nextCursor: null,
+    });
+    renderWorkbench();
+
+    await user.click(screen.getByRole("button", { name: "Add professional" }));
+    await user.click(
+      await screen.findByRole("button", {
+        name: /Individual One individual-1/,
+      }),
+    );
+    expect(screen.getByText("1 professional selected")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByText("Individual One")).toBeNull();
+    expect(screen.queryByText("Pending save")).toBeNull();
   });
 
   it("shows and repairs a one-sided professional relationship", async () => {

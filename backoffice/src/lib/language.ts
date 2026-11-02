@@ -825,8 +825,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "Unable to verify professional links.":
     "No se pudieron verificar los vínculos profesionales.",
   "Add linked professionals": "Agregar profesionales vinculados",
-  "Only independent professionals can be added. Selections are applied when you save the organization.":
-    "Solo se pueden agregar profesionales independientes. La selección se aplica al guardar la organización.",
+  "Choose the independent professionals to link, then press Add. The relationship is saved when you save the organization.":
+    "Elegí los profesionales independientes que querés vincular y después tocá Agregar. La relación se guarda al guardar la organización.",
+  "Add selected professionals": "Agregar profesionales",
   "Search professionals": "Buscar profesionales",
   "Search loaded professionals": "Buscar entre los profesionales cargados",
   "Loading professionals...": "Cargando profesionales...",
