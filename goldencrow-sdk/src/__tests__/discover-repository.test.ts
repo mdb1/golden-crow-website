@@ -251,12 +251,20 @@ function documentSnapshotFor(
   exists: boolean,
   collectionName: string,
 ): MockDocumentSnapshot {
-  return {
+  const snapshot = {
     exists,
-    id: doc.id,
     data: () => doc.data,
     ref: documentRefFor(collectionName, doc.id),
-  };
+  } as MockDocumentSnapshot;
+  // Firestore exposes snapshot.id through a prototype getter. Keeping it
+  // non-enumerable here prevents tests from masking production bugs where a
+  // snapshot is spread into an object and silently loses its document id.
+  Object.defineProperty(snapshot, "id", {
+    configurable: false,
+    enumerable: false,
+    get: () => doc.id,
+  });
+  return snapshot;
 }
 
 jest.mock("firebase-admin/firestore", () => ({

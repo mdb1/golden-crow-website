@@ -3811,7 +3811,8 @@ export async function updateDiscoverOrganization(
     }),
   });
   const nextOrganizationRecord = toOrganizationRecord({
-    ...existing,
+    id: existing.id,
+    ref: existing.ref,
     data: () => nextOrganizationData,
   } as unknown as QueryDocumentSnapshot);
   const canEditProfessionalLinks = context.role !== "organization_publisher";
@@ -4417,7 +4418,8 @@ export async function updateDiscoverIndividual(
     ...parentOrganization,
   });
   const nextIndividualRecord = toIndividualRecord({
-    ...existing,
+    id: existing.id,
+    ref: existing.ref,
     data: () => nextIndividualData,
   } as unknown as QueryDocumentSnapshot);
   const organizationIds = Array.from(
