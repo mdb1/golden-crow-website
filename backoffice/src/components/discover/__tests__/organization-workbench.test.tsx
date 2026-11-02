@@ -1157,9 +1157,18 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
 
   it("adds an unassigned professional from the organization editor", async () => {
     const user = userEvent.setup();
+    const uploadedProfileImage = "data:image/png;base64,iVBORw0KGgo=";
+    const individualWithUploadedProfileImage = {
+      ...individual,
+      imageUrl: null,
+      imageUploadDataUrl: uploadedProfileImage,
+    };
     jest.mocked(sdkFetch).mockImplementation(async (path) => {
       if (path === "/discover/individuals?limit=20") {
-        return { individuals: [individual], nextCursor: null };
+        return {
+          individuals: [individualWithUploadedProfileImage],
+          nextCursor: null,
+        };
       }
       return {
         organization: {
@@ -1177,8 +1186,16 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     renderWorkbench();
 
     await user.click(screen.getByRole("button", { name: "Add professional" }));
-    await user.click(
+    expect(
       await screen.findByRole("button", {
+        name: /Individual One individual-1/,
+      }),
+    ).toBeTruthy();
+    expect(
+      document.querySelector(`img[src="${uploadedProfileImage}"]`),
+    ).toBeTruthy();
+    await user.click(
+      screen.getByRole("button", {
         name: /Individual One individual-1/,
       }),
     );
@@ -1193,6 +1210,9 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
 
     expect(screen.getByText("Individual One")).toBeTruthy();
     expect(screen.getByText("Pending save")).toBeTruthy();
+    expect(
+      document.querySelector(`img[src="${uploadedProfileImage}"]`),
+    ).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => {

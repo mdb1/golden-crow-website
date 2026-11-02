@@ -147,6 +147,11 @@ type ProcessedPublisherImageUpload = {
   compressed: boolean;
 };
 
+type LinkedProfessionalPreview =
+  DiscoverLinkedIndividualProfessionalSnapshot & {
+    imageUploadDataUrl?: string | null;
+  };
+
 type OrganizationFormState = {
   name: string;
   imageUrl: string;
@@ -1083,10 +1088,7 @@ function LinkedIndividualProfessionalsEditor({
     };
   }, [candidateAttempt, candidatesLoaded, pickerOpen]);
 
-  const knownProfessionals = new Map<
-    string,
-    DiscoverLinkedIndividualProfessionalSnapshot
-  >();
+  const knownProfessionals = new Map<string, LinkedProfessionalPreview>();
   initialSnapshots.forEach((professional) =>
     knownProfessionals.set(professional.id, professional),
   );
@@ -1098,6 +1100,7 @@ function LinkedIndividualProfessionalsEditor({
       id: professional.id,
       name: professional.name,
       imageUrl: professional.imageUrl,
+      imageUploadDataUrl: professional.imageUploadDataUrl ?? null,
     }),
   );
   const linkById = new Map(
@@ -1253,6 +1256,8 @@ function LinkedIndividualProfessionalsEditor({
         <div className="grid gap-3 sm:grid-cols-2">
           {selected.map((professional) => {
             const link = linkById.get(professional.id);
+            const professionalImageSource =
+              professional.imageUrl || professional.imageUploadDataUrl;
             const hasIssue = Boolean(
               link && (link.state !== "synced" || link.snapshotOutdated),
             );
@@ -1265,10 +1270,10 @@ function LinkedIndividualProfessionalsEditor({
                 )}
               >
                 <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border bg-muted text-sm font-bold text-muted-foreground">
-                  {professional.imageUrl ? (
+                  {professionalImageSource ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={professional.imageUrl}
+                      src={professionalImageSource}
                       alt=""
                       className="h-full w-full object-cover"
                     />
@@ -1399,6 +1404,8 @@ function LinkedIndividualProfessionalsEditor({
           <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
             {eligibleCandidates.map((professional) => {
               const isSelected = pickerDraftIds.includes(professional.id);
+              const professionalImageSource =
+                professional.imageUrl || professional.imageUploadDataUrl;
               return (
                 <button
                   key={professional.id}
@@ -1412,10 +1419,10 @@ function LinkedIndividualProfessionalsEditor({
                   )}
                 >
                   <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border bg-background text-xs font-bold text-muted-foreground">
-                    {professional.imageUrl ? (
+                    {professionalImageSource ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={professional.imageUrl}
+                        src={professionalImageSource}
                         alt=""
                         className="h-full w-full object-cover"
                       />
