@@ -634,11 +634,16 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(previewIcon).toHaveStyle({ background: "#FFFFFF" });
   });
 
-  it("downloads the complete persisted config and deletes a pending app after confirmation", async () => {
-    jest.mocked(sdkFetch).mockResolvedValue({
-      deleted: true,
-      configId: savedConfig.id,
-    });
+  it("downloads the published runtime v2 config instead of the administrative record", async () => {
+    const runtimeConfig = {
+      schemaVersion: 2 as const,
+      appProviderIdentifier: "organization_org-1",
+      revision: 1,
+      status: "published" as const,
+      baseContentVersion: "pg-core-v1" as const,
+      publisher: { kind: "organization", id: "org-1", name: "Pocket Genes Lab" },
+    };
+    jest.mocked(sdkFetch).mockResolvedValue(runtimeConfig);
     const createObjectURL = jest.fn(
       (_blob: Blob) => "blob:publisher-app-config",
     );
@@ -655,31 +660,72 @@ describe("PublisherAppConfigWorkbench", () => {
       .spyOn(HTMLAnchorElement.prototype, "click")
       .mockImplementation(() => undefined);
 
-    renderWorkbench({ mode: "edit", initialConfig: savedConfig });
-
-    const dangerToggle = screen.getByTestId("publisher-app-danger-toggle");
-    expect(dangerToggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByTestId("publisher-app-danger-content")).toBeNull();
-    expect(
-      screen.queryByRole("button", { name: "Eliminar mi app" }),
-    ).toBeNull();
-    expect(
-      screen.queryByText(/Si eliminás esta solicitud, se borrarán los datos/i),
-    ).toBeNull();
+    renderWorkbench({
+      mode: "edit",
+      initialConfig: {
+        ...savedConfig,
+        status: "active",
+        appProviderIdentifier: "organization_org-1",
+        runtimeRevision: 1,
+      },
+    });
 
     fireEvent.click(
       screen.getByRole("button", { name: "Descargar configuración" }),
     );
-    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(createObjectURL).toHaveBeenCalledTimes(1));
+    expect(sdkFetch).toHaveBeenCalledWith(
+      "/publisher-app/config/runtime",
+    );
     const exportedBlob = createObjectURL.mock.calls[0][0] as Blob;
     expect(exportedBlob.type).toBe("application/json;charset=utf-8");
     expect(exportedBlob.size).toBeGreaterThan(100);
     expect(clickSpy).toHaveBeenCalledTimes(1);
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:publisher-app-config");
 
+    clickSpy.mockRestore();
+  });
+
+  it("creates the app identifier and activates the config for testing", async () => {
+    jest.mocked(sdkFetch).mockResolvedValue({
+      config: {
+        ...savedConfig,
+        status: "active",
+        appProviderIdentifier: "organization_org-1",
+        runtimeRevision: 1,
+      },
+    });
+    renderWorkbench({ mode: "edit", initialConfig: savedConfig });
+
+    expect(
+      screen.getByRole("button", { name: "Descargar configuración" }),
+    ).toBeDisabled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create app identifier" }),
+    );
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/publisher-app/config/identifier",
+        { method: "POST" },
+      );
+    });
+    expect(await screen.findByText("organization_org-1")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Descargar configuración" }),
+    ).toBeEnabled();
+  });
+
+  it("deletes a pending app after expanding the danger zone", async () => {
+    jest.mocked(sdkFetch).mockResolvedValue({
+      deleted: true,
+      configId: savedConfig.id,
+    });
+    renderWorkbench({ mode: "edit", initialConfig: savedConfig });
+
+    const dangerToggle = screen.getByTestId("publisher-app-danger-toggle");
+    expect(dangerToggle).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(dangerToggle);
-    expect(dangerToggle).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByTestId("publisher-app-danger-content")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Eliminar mi app" }));
     fireEvent.click(
       screen.getByRole("button", { name: "Eliminar definitivamente" }),
@@ -691,11 +737,9 @@ describe("PublisherAppConfigWorkbench", () => {
       });
     });
     expect(mockRouterReplace).toHaveBeenCalledWith(PUBLISHER_PORTAL_HOME_ROUTE);
-    expect(mockRouterRefresh).toHaveBeenCalled();
-    clickSpy.mockRestore();
   });
 
-  it("keeps download available but blocks deletion after pending revision", () => {
+  it("blocks runtime download and deletion when the app is not active", () => {
     renderWorkbench({
       mode: "edit",
       initialConfig: { ...savedConfig, status: "approved" },
@@ -703,7 +747,7 @@ describe("PublisherAppConfigWorkbench", () => {
 
     expect(
       screen.getByRole("button", { name: "Descargar configuración" }),
-    ).toBeEnabled();
+    ).toBeDisabled();
 
     const dangerToggle = screen.getByTestId("publisher-app-danger-toggle");
     expect(dangerToggle).toHaveAttribute("aria-expanded", "false");

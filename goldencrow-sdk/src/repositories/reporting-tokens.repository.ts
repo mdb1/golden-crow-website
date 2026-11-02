@@ -685,6 +685,13 @@ function requiredScopeForEndpoint(endpoint?: string): ReportingScope | null {
     return null;
   }
 
+  // Custom-app runtime configs are intentionally cross-publisher and may be
+  // fetched by any active integration client. Client credentials and quota
+  // still apply, but no reporting-specific scope is required.
+  if (endpoint === "/open-api/apps/config") {
+    return null;
+  }
+
   return endpoint.includes("/reports/upload")
     ? "reporting:write"
     : "reporting:read";

@@ -22,6 +22,7 @@ import {
   FileCheck2,
   GraduationCap,
   ImageIcon,
+  KeyRound,
   LoaderCircle,
   LockKeyhole,
   Newspaper,
@@ -73,6 +74,7 @@ import {
   type PublisherAppConfig,
   type PublisherAppConfigInput,
   type PublisherAppConfigResponse,
+  type PublisherAppRuntimeConfig,
   type PublisherAppPlatformOption,
   type PublisherAppStatus,
 } from "@/lib/publisher-app-config";
@@ -1013,12 +1015,15 @@ function PublisherAppEditSheet({
   suggestedPalettes,
   statusLabel,
   status,
+  appProviderIdentifier,
   onUpdateStatus,
   backHref,
   backLabel,
   showDangerZone,
   changed,
   pending,
+  identifierPending,
+  downloadPending,
   iconUploadPending,
   customIconMissing,
   customIconUrlInvalid,
@@ -1032,6 +1037,7 @@ function PublisherAppEditSheet({
   onReset,
   onSave,
   onDownload,
+  onCreateIdentifier,
   onDelete,
 }: {
   publisherName: string;
@@ -1048,12 +1054,15 @@ function PublisherAppEditSheet({
   }>;
   statusLabel: string;
   status: PublisherAppStatus;
+  appProviderIdentifier?: string;
   onUpdateStatus?: (status: PublisherAppStatus) => void;
   backHref: string;
   backLabel: string;
   showDangerZone: boolean;
   changed: boolean;
   pending: boolean;
+  identifierPending: boolean;
+  downloadPending: boolean;
   iconUploadPending: boolean;
   customIconMissing: boolean;
   customIconUrlInvalid: boolean;
@@ -1067,6 +1076,7 @@ function PublisherAppEditSheet({
   onReset: () => void;
   onSave: () => void;
   onDownload: () => void;
+  onCreateIdentifier?: () => void;
   onDelete: () => void;
 }) {
   const [activeDialog, setActiveDialog] =
@@ -1163,9 +1173,32 @@ function PublisherAppEditSheet({
                   {publisherUsername ? `@${publisherUsername} · ` : ""}
                   {publisherEmail}
                 </p>
+                {appProviderIdentifier ? (
+                  <p className="mt-1 truncate font-mono text-[11px] font-semibold text-violet-700 dark:text-violet-200">
+                    {appProviderIdentifier}
+                  </p>
+                ) : null}
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
+              {onCreateIdentifier &&
+              !appProviderIdentifier &&
+              status === "pending_revision" ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={onCreateIdentifier}
+                  disabled={changed || pending || identifierPending}
+                  className="h-9 rounded-xl bg-violet-600 text-white shadow-[0_12px_28px_-18px_rgba(109,40,217,0.95)] hover:bg-violet-700"
+                >
+                  {identifierPending ? (
+                    <LoaderCircle className="size-3.5 animate-spin" />
+                  ) : (
+                    <KeyRound className="size-3.5" />
+                  )}
+                  Create app identifier
+                </Button>
+              ) : null}
               <Button
                 type="button"
                 variant="outline"
@@ -1182,10 +1215,20 @@ function PublisherAppEditSheet({
                 variant="outline"
                 size="sm"
                 onClick={onDownload}
-                disabled={!hasPersistedConfig}
+                disabled={
+                  !hasPersistedConfig ||
+                  !appProviderIdentifier ||
+                  status !== "active" ||
+                  changed ||
+                  downloadPending
+                }
                 className="h-9 rounded-xl border-violet-200/80 bg-white/82 text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-50"
               >
-                <Download className="size-3.5" />
+                {downloadPending ? (
+                  <LoaderCircle className="size-3.5 animate-spin" />
+                ) : (
+                  <Download className="size-3.5" />
+                )}
                 Descargar configuración
               </Button>
             </div>
@@ -1216,6 +1259,7 @@ function PublisherAppEditSheet({
                   {(
                     [
                       "pending_revision",
+                      "active",
                       "approved",
                       "changes_requested",
                       "rejected",
@@ -2047,6 +2091,8 @@ export function PublisherAppConfigWorkbench({
   );
   const [pending, setPending] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
+  const [identifierPending, setIdentifierPending] = useState(false);
+  const [downloadPending, setDownloadPending] = useState(false);
   const [iconUploadPending, setIconUploadPending] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -2160,33 +2206,81 @@ export function PublisherAppConfigWorkbench({
     }
   }
 
-  function downloadConfig() {
-    if (!persistedConfig) return;
+  async function downloadConfig() {
+    if (!persistedConfig?.appProviderIdentifier || downloadPending) return;
+    setDownloadPending(true);
+    setToast(null);
     try {
-      const blob = new Blob([JSON.stringify(persistedConfig, null, 2)], {
+      const runtimeConfig = await sdkFetch<PublisherAppRuntimeConfig>(
+        `${apiPath}/runtime`,
+      );
+      const blob = new Blob([JSON.stringify(runtimeConfig, null, 2)], {
         type: "application/json;charset=utf-8",
       });
       const objectUrl = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
-      const baseName =
-        publisherName
-          .trim()
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-|-$/g, "") || "publisher";
       anchor.href = objectUrl;
-      anchor.download = `${baseName}-app-config.json`;
+      anchor.download = `${runtimeConfig.appProviderIdentifier}.runtime.json`;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
       URL.revokeObjectURL(objectUrl);
-    } catch {
+    } catch (error) {
       setToast({
         id: Date.now(),
         tone: "error",
         title: "No pudimos descargar la configuración",
-        message: "Volvé a intentarlo desde este navegador.",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Volvé a intentarlo desde este navegador.",
+        details: error instanceof SdkRequestError ? error.details : undefined,
       });
+    } finally {
+      setDownloadPending(false);
+    }
+  }
+
+  async function createIdentifier() {
+    if (
+      identifierPending ||
+      changed ||
+      persistedConfig?.appProviderIdentifier ||
+      apiPath !== "/publisher-app/config"
+    ) {
+      return;
+    }
+    setIdentifierPending(true);
+    setToast(null);
+    try {
+      const response = await sdkFetch<PublisherAppConfigResponse>(
+        `${apiPath}/identifier`,
+        { method: "POST" },
+      );
+      if (!response.config?.appProviderIdentifier) {
+        throw new Error("El servidor no devolvió un identificador de app.");
+      }
+      setPersistedConfig(response.config);
+      setStatus(response.config.status);
+      setPersistedStatus(response.config.status);
+      setToast({
+        id: Date.now(),
+        tone: "success",
+        title: "Identificador creado",
+        message: `${response.config.appProviderIdentifier} ya está activo para pruebas.`,
+      });
+      router.refresh();
+    } catch (error) {
+      setToast({
+        id: Date.now(),
+        tone: "error",
+        title: "No pudimos crear el identificador",
+        message:
+          error instanceof Error ? error.message : "Volvé a intentarlo.",
+        details: error instanceof SdkRequestError ? error.details : undefined,
+      });
+    } finally {
+      setIdentifierPending(false);
     }
   }
 
@@ -2331,12 +2425,15 @@ export function PublisherAppConfigWorkbench({
           suggestedPalettes={suggestedPalettes}
           statusLabel={statusLabel}
           status={status}
+          appProviderIdentifier={persistedConfig?.appProviderIdentifier}
           onUpdateStatus={allowStatusEditing ? setStatus : undefined}
           backHref={backHref}
           backLabel={backLabel}
           showDangerZone={showDangerZone}
           changed={changed}
           pending={pending}
+          identifierPending={identifierPending}
+          downloadPending={downloadPending}
           iconUploadPending={iconUploadPending}
           customIconMissing={customIconMissing}
           customIconUrlInvalid={customIconUrlInvalid}
@@ -2352,7 +2449,12 @@ export function PublisherAppConfigWorkbench({
             setStatus(persistedStatus);
           }}
           onSave={() => void save()}
-          onDownload={downloadConfig}
+          onDownload={() => void downloadConfig()}
+          onCreateIdentifier={
+            apiPath === "/publisher-app/config"
+              ? () => void createIdentifier()
+              : undefined
+          }
           onDelete={() => void deleteApp()}
         />
       </section>

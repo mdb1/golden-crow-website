@@ -12,6 +12,7 @@ const mockGetReportingTwoPQCaseByCode = jest.fn();
 const mockRecordUploadedReportNotification = jest.fn();
 const mockExchangeReportingClientCredentials = jest.fn();
 const mockVerifyReportingAccessToken = jest.fn();
+const mockGetActivePublisherAppRuntimeConfig = jest.fn();
 
 jest.mock("../repositories/reporting.repository.js", () => ({
   getReportingPatient: mockGetReportingPatient,
@@ -24,6 +25,10 @@ jest.mock("../repositories/reporting-tokens.repository.js", () => ({
   verifyReportingAccessToken: mockVerifyReportingAccessToken,
 }));
 
+jest.mock("../repositories/publisher-app-config.repository.js", () => ({
+  getActivePublisherAppRuntimeConfig: mockGetActivePublisherAppRuntimeConfig,
+}));
+
 const TOKEN = "rpt_access_valid-token";
 
 async function buildServer(): Promise<FastifyInstance> {
@@ -34,6 +39,11 @@ async function buildServer(): Promise<FastifyInstance> {
 
 function protectedRequests() {
   return [
+    {
+      name: "GET app runtime config",
+      method: "GET" as const,
+      url: "/internal/openapi/apps/config?app-provider-identifier=organization_medicgen&platform=ios&runtime-version=2&base-content-version=pg-core-v1",
+    },
     {
       name: "GET patients (query)",
       method: "GET" as const,
@@ -65,6 +75,7 @@ function expectNoRepositoryReads() {
   expect(mockGetReportingPatient).not.toHaveBeenCalled();
   expect(mockGetReportingTwoPQCaseByCode).not.toHaveBeenCalled();
   expect(mockRecordUploadedReportNotification).not.toHaveBeenCalled();
+  expect(mockGetActivePublisherAppRuntimeConfig).not.toHaveBeenCalled();
 }
 
 describe("reporting Open API routes", () => {
@@ -304,6 +315,71 @@ describe("reporting Open API routes", () => {
       for (const endpoint of endpoints) {
         expect(endpoint).not.toContain("/reports/upload");
       }
+    });
+  });
+
+  describe("GET /internal/openapi/apps/config", () => {
+    const runtimeConfig = {
+      schemaVersion: 2,
+      appProviderIdentifier: "organization_medicgen",
+      revision: 1,
+      status: "published",
+      baseContentVersion: "pg-core-v1",
+    };
+
+    it("returns the published runtime config with cache headers", async () => {
+      mockGetActivePublisherAppRuntimeConfig.mockResolvedValue(runtimeConfig);
+      const response = await fastify.inject({
+        method: "GET",
+        url: "/internal/openapi/apps/config?app-provider-identifier=organization_medicgen&platform=ios&runtime-version=2&base-content-version=pg-core-v1",
+        headers: { authorization: `Bearer ${TOKEN}` },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual(runtimeConfig);
+      expect(response.headers.etag).toMatch(/^"[a-f0-9]{64}"$/);
+      expect(response.headers["cache-control"]).toBe("public, max-age=300");
+      expect(mockVerifyReportingAccessToken).toHaveBeenCalledWith(
+        TOKEN,
+        "/open-api/apps/config",
+      );
+      expect(mockGetActivePublisherAppRuntimeConfig).toHaveBeenCalledWith(
+        "organization_medicgen",
+        "ios",
+      );
+    });
+
+    it("returns 304 when If-None-Match matches the current config", async () => {
+      mockGetActivePublisherAppRuntimeConfig.mockResolvedValue(runtimeConfig);
+      const first = await fastify.inject({
+        method: "GET",
+        url: "/internal/openapi/apps/config?app-provider-identifier=organization_medicgen&platform=ios&runtime-version=2&base-content-version=pg-core-v1",
+        headers: { authorization: `Bearer ${TOKEN}` },
+      });
+      const response = await fastify.inject({
+        method: "GET",
+        url: "/internal/openapi/apps/config?app-provider-identifier=organization_medicgen&platform=ios&runtime-version=2&base-content-version=pg-core-v1",
+        headers: {
+          authorization: `Bearer ${TOKEN}`,
+          "if-none-match": String(first.headers.etag),
+        },
+      });
+
+      expect(response.statusCode).toBe(304);
+      expect(response.body).toBe("");
+    });
+
+    it.each([
+      ["runtime-version=3&base-content-version=pg-core-v1", 426],
+      ["runtime-version=2&base-content-version=pg-core-v2", 409],
+    ])("rejects an incompatible contract with %s", async (contract, status) => {
+      const response = await fastify.inject({
+        method: "GET",
+        url: `/internal/openapi/apps/config?app-provider-identifier=organization_medicgen&platform=ios&${contract}`,
+        headers: { authorization: `Bearer ${TOKEN}` },
+      });
+      expect(response.statusCode).toBe(status);
+      expect(mockGetActivePublisherAppRuntimeConfig).not.toHaveBeenCalled();
     });
   });
 

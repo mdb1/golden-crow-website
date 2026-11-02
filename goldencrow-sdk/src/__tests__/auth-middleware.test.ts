@@ -38,6 +38,12 @@ describe("auth middleware", () => {
     );
     expect(isPublisherPortalSdkPath("/discover/feed-items/feed-1")).toBe(true);
     expect(isPublisherPortalSdkPath("/publisher-app/config")).toBe(true);
+    expect(isPublisherPortalSdkPath("/publisher-app/config/runtime")).toBe(
+      true,
+    );
+    expect(
+      isPublisherPortalSdkPath("/publisher-app/config/identifier"),
+    ).toBe(true);
     expect(
       isPublisherPortalSdkPath("/admin/support-services/offers"),
     ).toBe(true);

@@ -4,9 +4,12 @@ import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
   createPublisherAppConfig,
+  createPublisherAppIdentifier,
   deletePublisherAppConfig,
   getPublisherAppConfigById,
   getPublisherAppConfig,
+  getPublisherAppRuntimeConfig,
+  getPublisherAppRuntimeConfigById,
   listPublisherAppConfigsPage,
   updatePublisherAppConfig,
   updatePublisherAppConfigById,
@@ -86,6 +89,7 @@ const PublisherAppConfigAdminUpdateBodySchema = z
     ...PublisherAppConfigBodyShape,
     status: z.enum([
       "pending_revision",
+      "active",
       "approved",
       "changes_requested",
       "rejected",
@@ -164,6 +168,28 @@ export async function publisherAppConfigRoutes(
     },
   );
 
+  f.get(
+    "/admin/publisher-app-configs/:configId/runtime",
+    { schema: { params: PublisherAppConfigAdminParamsSchema } },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
+      }
+      if (!request.adminContext.isBootstrap) {
+        return reply.status(403).send({ error: "GOD MODE access required" });
+      }
+      try {
+        return reply.send(
+          await getPublisherAppRuntimeConfigById(request.params.configId),
+        );
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
   f.put(
     "/admin/publisher-app-configs/:configId",
     {
@@ -205,6 +231,36 @@ export async function publisherAppConfigRoutes(
     try {
       const config = await getPublisherAppConfig(request.adminContext);
       return reply.send({ config });
+    } catch (error) {
+      return sendRepositoryError(reply, error);
+    }
+  });
+
+  f.get("/publisher-app/config/runtime", async (request, reply) => {
+    if (!request.adminContext) {
+      return reply
+        .status(401)
+        .send({ error: "No authenticated admin context" });
+    }
+    try {
+      return reply.send(
+        await getPublisherAppRuntimeConfig(request.adminContext),
+      );
+    } catch (error) {
+      return sendRepositoryError(reply, error);
+    }
+  });
+
+  f.post("/publisher-app/config/identifier", async (request, reply) => {
+    if (!request.adminContext) {
+      return reply
+        .status(401)
+        .send({ error: "No authenticated admin context" });
+    }
+    try {
+      return reply.send({
+        config: await createPublisherAppIdentifier(request.adminContext),
+      });
     } catch (error) {
       return sendRepositoryError(reply, error);
     }

@@ -117,6 +117,8 @@ const ANONYMOUS_ROUTES = [
   // reporting token instead (asserted below). oauth/token is the
   // client-credentials exchange that MINTS that token.
   "POST /internal/openapi/oauth/token",
+  "GET /internal/openapi/apps/config",
+  "HEAD /internal/openapi/apps/config",
   "GET /internal/openapi/reporting/patients",
   "HEAD /internal/openapi/reporting/patients",
   "GET /internal/openapi/reporting/patients/:patientId",
@@ -415,6 +417,14 @@ describe("/internal/openapi/* — public to the hook, but Bearer-protected", () 
   // Valid inputs, so the request clears schema validation and the ONLY thing
   // missing is the Bearer reporting token.
   const BEARER_ROUTES: Array<{ method: string; url: string; payload?: object }> = [
+    {
+      method: "GET",
+      url: "/internal/openapi/apps/config?app-provider-identifier=organization_medicgen&platform=ios&runtime-version=2&base-content-version=pg-core-v1",
+    },
+    {
+      method: "HEAD",
+      url: "/internal/openapi/apps/config?app-provider-identifier=organization_medicgen&platform=ios&runtime-version=2&base-content-version=pg-core-v1",
+    },
     { method: "GET", url: "/internal/openapi/reporting/patients?patientId=p1" },
     { method: "HEAD", url: "/internal/openapi/reporting/patients?patientId=p1" },
     { method: "GET", url: "/internal/openapi/reporting/patients/p1" },

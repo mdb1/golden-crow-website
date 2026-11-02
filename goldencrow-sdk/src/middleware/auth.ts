@@ -66,6 +66,8 @@ export function isPublisherPortalSdkPath(path: string) {
 
   return (
     PUBLISHER_PORTAL_SDK_PATHS.has(path) ||
+    path === "/publisher-app/config/runtime" ||
+    path === "/publisher-app/config/identifier" ||
     path.startsWith("/discover/organizations/") ||
     path.startsWith("/discover/individuals/") ||
     path.startsWith("/discover/feed-items/") ||

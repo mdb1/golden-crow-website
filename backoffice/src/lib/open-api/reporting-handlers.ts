@@ -55,6 +55,18 @@ const OAuthTokenRequestSchema = z
   })
   .strict();
 
+const AppRuntimeConfigQuerySchema = z
+  .object({
+    "app-provider-identifier": z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/),
+    platform: z.enum(["ios", "android"]),
+    "runtime-version": z.string().trim().min(1),
+    "base-content-version": z.string().trim().min(1),
+  })
+  .strict();
+
 class SdkBridgeError extends Error {
   constructor(
     readonly statusCode: number,
@@ -357,4 +369,54 @@ export async function handleOAuthTokenExchange(request: Request) {
     }
     throw error;
   }
+}
+
+export async function handleAppRuntimeConfig(request: Request) {
+  const accessToken = requireReportingAccessToken(request);
+  if (accessToken instanceof Response) {
+    return accessToken;
+  }
+
+  const incomingParams = new URL(request.url).searchParams;
+  const parsedQuery = AppRuntimeConfigQuerySchema.safeParse({
+    "app-provider-identifier": optionalQueryValue(
+      incomingParams,
+      "app-provider-identifier",
+    ),
+    platform: optionalQueryValue(incomingParams, "platform"),
+    "runtime-version": optionalQueryValue(incomingParams, "runtime-version"),
+    "base-content-version": optionalQueryValue(
+      incomingParams,
+      "base-content-version",
+    ),
+  });
+  if (!parsedQuery.success) {
+    return json(
+      { error: parsedQuery.error.issues[0]?.message ?? "Invalid query." },
+      400,
+    );
+  }
+
+  const params = new URLSearchParams(parsedQuery.data);
+  const targetUrl = new URL(
+    `/internal/openapi/apps/config?${params.toString()}`,
+    resolveSdkBaseUrl({ currentHost: incomingHost(request) }),
+  );
+  const headers = new Headers({ authorization: `Bearer ${accessToken}` });
+  const ifNoneMatch = request.headers.get("if-none-match");
+  if (ifNoneMatch) headers.set("if-none-match", ifNoneMatch);
+
+  const response = await fetch(targetUrl, {
+    headers,
+    cache: "no-store",
+  });
+  const outgoingHeaders = new Headers();
+  for (const headerName of ["content-type", "etag", "cache-control"]) {
+    const value = response.headers.get(headerName);
+    if (value) outgoingHeaders.set(headerName, value);
+  }
+  return new Response(response.status === 304 ? null : await response.text(), {
+    status: response.status,
+    headers: outgoingHeaders,
+  });
 }

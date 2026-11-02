@@ -3,6 +3,7 @@ import {
   Timestamp,
   type DocumentSnapshot,
 } from "firebase-admin/firestore";
+import { createHash } from "node:crypto";
 import { adminDbFor } from "../config/firebase.js";
 import type {
   AdminContext,
@@ -11,9 +12,11 @@ import type {
   PublisherAppConfigCreateInput,
   PublisherAppConfigInput,
   PublisherAppConfigRecord,
+  PublisherAppRuntimeConfig,
   PublisherAppStatus,
   PublisherAppPublisherKind,
 } from "../types/sdk.types.js";
+import { buildPublisherAppRuntimeConfig } from "../lib/publisher-app-runtime-config.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 import {
   getProfileSetupState,
@@ -26,6 +29,8 @@ const APP_CONFIGS_COLLECTION = "app_configs";
 const APP_CONFIG_SCHEMA_VERSION = 1 as const;
 const APP_TERMS_VERSION = "2026-10-31";
 const HEX_COLOR_PATTERN = /^#[0-9A-F]{6}$/;
+const APP_PROVIDER_IDENTIFIER_PATTERN =
+  /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 
 type PublisherScope = {
   kind: PublisherAppPublisherKind;
@@ -318,6 +323,7 @@ function storedAppStatus(value: unknown): PublisherAppStatus {
   }
   if (
     value === "pending_revision" ||
+    value === "active" ||
     value === "approved" ||
     value === "changes_requested" ||
     value === "rejected"
@@ -328,6 +334,38 @@ function storedAppStatus(value: unknown): PublisherAppStatus {
     "Stored publisher app config has an invalid status.",
     500,
   );
+}
+
+function storedPositiveInteger(value: unknown, label: string) {
+  if (
+    typeof value !== "number" ||
+    !Number.isInteger(value) ||
+    value < 1 ||
+    value > 2_147_483_647
+  ) {
+    throw new AdminRepositoryError(
+      `Stored publisher app config has an invalid ${label}.`,
+      500,
+    );
+  }
+  return value;
+}
+
+function appProviderIdentifierFor(config: PublisherAppConfigRecord) {
+  const preferred = `${config.publisherKind}_${config.publisherId}`;
+  if (APP_PROVIDER_IDENTIFIER_PATTERN.test(preferred)) {
+    return preferred;
+  }
+
+  const digest = createHash("sha256")
+    .update(`${config.publisherKind}:${config.publisherId}`)
+    .digest("hex")
+    .slice(0, 12);
+  const safePrefix = preferred
+    .replace(/[^A-Za-z0-9_-]+/g, "_")
+    .replace(/^[^A-Za-z0-9]+/, "")
+    .slice(0, 114);
+  return `${safePrefix || "app"}_${digest}`;
 }
 
 function storedColors(value: unknown): PublisherAppConfigColors {
@@ -395,6 +433,30 @@ export function toPublisherAppConfigRecord(
     catalogEnabled: true,
     feedEnabled: true,
     status: storedAppStatus(data.status),
+    ...(typeof data.appProviderIdentifier === "string" &&
+    data.appProviderIdentifier.trim()
+      ? { appProviderIdentifier: data.appProviderIdentifier.trim() }
+      : {}),
+    ...(data.runtimeRevision !== undefined
+      ? {
+          runtimeRevision: storedPositiveInteger(
+            data.runtimeRevision,
+            "runtime revision",
+          ),
+        }
+      : {}),
+    ...(data.activatedAt
+      ? {
+          activatedAt: timestampToIso(
+            data.activatedAt,
+            "activatedAt timestamp",
+          ),
+        }
+      : {}),
+    ...(typeof data.activatedByUserId === "string" &&
+    data.activatedByUserId.trim()
+      ? { activatedByUserId: data.activatedByUserId.trim() }
+      : {}),
     platformOption,
     connectEnabled: requiredBoolean(data.connectEnabled, "Connect setting"),
     profileEnabled: requiredBoolean(data.profileEnabled, "Profile setting"),
@@ -538,10 +600,19 @@ export async function updatePublisherAppConfigById(
   const config = toPublisherAppConfigRecord(existing);
   const identity = await adminPublisherIdentity(config);
   const normalizedInput = normalizeInput(input, identity);
+  if (input.status === "active" && !config.appProviderIdentifier) {
+    throw new AdminRepositoryError(
+      "Create an app identifier before activating the config.",
+      409,
+    );
+  }
 
   await ref.update({
     ...normalizedInput,
     status: input.status,
+    ...(config.status === "active"
+      ? { runtimeRevision: (config.runtimeRevision ?? 1) + 1 }
+      : {}),
     updatedAt: FieldValue.serverTimestamp(),
     updatedByUserId: context.uid,
   });
@@ -646,6 +717,7 @@ export async function updatePublisherAppConfig(
   const identity = await publisherIdentity(context, scope);
   const normalizedInput = normalizeInput(input, identity);
   const existingData = (existing.data() ?? {}) as Record<string, unknown>;
+  const existingStatus = storedAppStatus(existingData.status);
   await ref.update({
     schemaVersion: APP_CONFIG_SCHEMA_VERSION,
     publisherKind: identity.kind,
@@ -655,13 +727,118 @@ export async function updatePublisherAppConfig(
     publisherUsername: identity.username,
     catalogEnabled: true,
     feedEnabled: true,
-    status: storedAppStatus(existingData.status),
+    status: existingStatus,
     ...normalizedInput,
+    ...(existingStatus === "active"
+      ? {
+          runtimeRevision:
+            storedPositiveInteger(
+              existingData.runtimeRevision ?? 1,
+              "runtime revision",
+            ) + 1,
+        }
+      : {}),
     updatedAt: FieldValue.serverTimestamp(),
     updatedByUserId: context.uid,
   });
 
   return toPublisherAppConfigRecord(await ref.get());
+}
+
+export async function createPublisherAppIdentifier(
+  context: AdminContext,
+): Promise<PublisherAppConfigRecord> {
+  const scope = publisherScope(context);
+  const ref = adminDb
+    .collection(APP_CONFIGS_COLLECTION)
+    .doc(`${scope.kind}_${scope.id}`);
+
+  await adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(ref);
+    const config = toPublisherAppConfigRecord(snapshot);
+    if (config.status === "active" && config.appProviderIdentifier) {
+      return;
+    }
+    if (config.status !== "pending_revision") {
+      throw new AdminRepositoryError(
+        "Only an app pending revision can be activated for testing.",
+        409,
+      );
+    }
+
+    const appProviderIdentifier = appProviderIdentifierFor(config);
+    transaction.update(ref, {
+      appProviderIdentifier,
+      runtimeRevision: 1,
+      status: "active",
+      activatedAt: FieldValue.serverTimestamp(),
+      activatedByUserId: context.uid,
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedByUserId: context.uid,
+    });
+  });
+
+  return toPublisherAppConfigRecord(await ref.get());
+}
+
+export async function getPublisherAppRuntimeConfig(
+  context: AdminContext,
+): Promise<PublisherAppRuntimeConfig> {
+  const config = await getPublisherAppConfig(context);
+  if (!config) {
+    throw new AdminRepositoryError("Publisher app config not found.", 404);
+  }
+  return buildPublisherAppRuntimeConfig(config);
+}
+
+export async function getPublisherAppRuntimeConfigById(
+  configId: string,
+): Promise<PublisherAppRuntimeConfig> {
+  return buildPublisherAppRuntimeConfig(
+    await getPublisherAppConfigById(configId),
+  );
+}
+
+export async function getActivePublisherAppRuntimeConfig(
+  appProviderIdentifier: string,
+  platform: "ios" | "android",
+): Promise<PublisherAppRuntimeConfig> {
+  const normalizedIdentifier = appProviderIdentifier.trim();
+  if (!APP_PROVIDER_IDENTIFIER_PATTERN.test(normalizedIdentifier)) {
+    throw new AdminRepositoryError("Invalid app provider identifier.", 400);
+  }
+
+  const snapshot = await adminDb
+    .collection(APP_CONFIGS_COLLECTION)
+    .where("appProviderIdentifier", "==", normalizedIdentifier)
+    .limit(2)
+    .get();
+  if (snapshot.empty) {
+    throw new AdminRepositoryError("App runtime config not found.", 404);
+  }
+  if (snapshot.docs.length > 1) {
+    throw new AdminRepositoryError(
+      "App provider identifier is not unique.",
+      409,
+    );
+  }
+
+  const configSnapshot = snapshot.docs[0];
+  if (!configSnapshot) {
+    throw new AdminRepositoryError("App runtime config not found.", 404);
+  }
+  const config = toPublisherAppConfigRecord(configSnapshot);
+  if (config.status !== "active") {
+    throw new AdminRepositoryError("App runtime config not found.", 404);
+  }
+  if (platform === "android" && config.platformOption !== "ios_android") {
+    throw new AdminRepositoryError(
+      "This app config is not compatible with Android.",
+      409,
+    );
+  }
+
+  return buildPublisherAppRuntimeConfig(config);
 }
 
 export async function deletePublisherAppConfig(

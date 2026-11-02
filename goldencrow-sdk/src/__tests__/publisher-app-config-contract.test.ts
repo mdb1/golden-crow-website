@@ -131,11 +131,15 @@ const mockRunTransaction = jest.fn(
   async (
     operation: (transaction: {
       get: (ref: MockDocumentReference) => Promise<MockSnapshot>;
+      update: (ref: MockDocumentReference, value: StoredDocument) => void;
       delete: (ref: MockDocumentReference) => void;
     }) => Promise<unknown>,
   ) =>
     operation({
       get: (ref) => ref.get(),
+      update: (ref, value) => {
+        void ref.update(value);
+      },
       delete: (ref) => {
         void ref.delete();
       },
@@ -432,6 +436,103 @@ describe("publisher app config contract", () => {
     expect(response.statusCode).toBe(400);
     expect(collectionStore("app_configs").size).toBe(0);
     expect(mockGetProfileSetupState).not.toHaveBeenCalled();
+  });
+
+  it("creates a stable runtime identifier, activates testing, and exports schema v2", async () => {
+    const createResponse = await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config",
+      payload: validBody,
+    });
+    expect(createResponse.statusCode).toBe(201);
+
+    const identifierResponse = await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config/identifier",
+    });
+    expect(identifierResponse.statusCode).toBe(200);
+    expect(identifierResponse.json()).toMatchObject({
+      config: {
+        status: "active",
+        appProviderIdentifier: "organization_shared-publisher-id",
+        runtimeRevision: 1,
+        activatedByUserId: "org-user-1",
+      },
+    });
+
+    const runtimeResponse = await fastify.inject({
+      method: "GET",
+      url: "/publisher-app/config/runtime",
+    });
+    expect(runtimeResponse.statusCode).toBe(200);
+    expect(runtimeResponse.json()).toEqual({
+      schemaVersion: 2,
+      appProviderIdentifier: "organization_shared-publisher-id",
+      revision: 1,
+      status: "published",
+      baseContentVersion: "pg-core-v1",
+      publisher: {
+        kind: "organization",
+        id: "shared-publisher-id",
+        name: "Canonical Organization",
+      },
+      branding: {
+        displayName: "Canonical Organization",
+        logoURL: "https://example.org/canonical-icon.png",
+        colors: expect.objectContaining({
+          primary: "#AABBCC",
+          secondary: "#123456",
+          accent: "#FEDCBA",
+          primaryStrong: expect.stringMatching(/^#[0-9A-F]{6}$/),
+          primaryDeep: expect.stringMatching(/^#[0-9A-F]{6}$/),
+          primarySoft: expect.stringMatching(/^#[0-9A-F]{6}$/),
+          accentTextLight: expect.stringMatching(/^#[0-9A-F]{6}$/),
+          accentTextDark: expect.stringMatching(/^#[0-9A-F]{6}$/),
+          accentSurfaceLight: expect.stringMatching(/^#[0-9A-F]{6}$/),
+        }),
+      },
+      features: {
+        catalogEnabled: true,
+        feedEnabled: true,
+        connectEnabled: true,
+        profileEnabled: false,
+        learnEnabled: true,
+      },
+      discoverScope: {
+        mode: "organization",
+        publisherOrganizationId: "shared-publisher-id",
+      },
+      serviceScope: {
+        mode: "provider",
+        providerId: "shared-publisher-id",
+        providerKind: "organization",
+      },
+      localization: {
+        defaultLanguage: "es",
+        availableLanguages: ["en", "es"],
+        copyOverrides: {
+          en: {
+            "Only on Pocket Genes": "Only on Canonical Organization",
+            "Contact Pocket Genes": "Contact Canonical Organization",
+          },
+          es: {
+            "Only on Pocket Genes": "Solo en Canonical Organization",
+            "Contact Pocket Genes": "Contactá a Canonical Organization",
+          },
+        },
+      },
+      learn: { mode: "base" },
+      resourceOverrides: {},
+      links: {
+        joinUs: {
+          en: "https://goldencrowvs.com/en/pocket-genes/join-us/",
+          es: "https://goldencrowvs.com/pocket-genes/join-us/",
+        },
+        supportEmail: "support@goldencrowvs.com",
+        privacyURL: "https://goldencrowvs.com/privacy/",
+        termsURL: "https://goldencrowvs.com/terms/",
+      },
+    });
   });
 
   it("keeps organization and individual configs separate when their publisher ids match", async () => {

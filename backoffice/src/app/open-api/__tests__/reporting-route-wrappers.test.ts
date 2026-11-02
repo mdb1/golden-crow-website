@@ -8,6 +8,7 @@ import { POST as tokenPOST } from "@/app/open-api/oauth/token/route";
 import * as patientsRoute from "@/app/open-api/reporting/patients/route";
 import * as caseRoute from "@/app/open-api/reporting/2pq/cases/[caseCode]/route";
 import * as uploadRoute from "@/app/open-api/reporting/reports/upload/route";
+import * as appConfigRoute from "@/app/open-api/apps/config/route";
 
 const ORIGIN = "https://backoffice.example.com/open-api";
 const BEARER = { authorization: "Bearer reporting-token" };
@@ -40,6 +41,80 @@ describe("route config", () => {
     expect(patientsRoute.dynamic).toBe("force-dynamic");
     expect(caseRoute.dynamic).toBe("force-dynamic");
     expect(uploadRoute.dynamic).toBe("force-dynamic");
+    expect(appConfigRoute.dynamic).toBe("force-dynamic");
+  });
+});
+
+describe("GET /open-api/apps/config", () => {
+  const query =
+    "app-provider-identifier=organization_medicgen&platform=ios&runtime-version=2&base-content-version=pg-core-v1";
+
+  it("requires a bearer token before contacting the SDK", async () => {
+    const response = await appConfigRoute.GET(
+      new Request(`${ORIGIN}/apps/config?${query}`),
+    );
+    expect(response.status).toBe(401);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an incomplete runtime query", async () => {
+    const response = await appConfigRoute.GET(
+      new Request(`${ORIGIN}/apps/config?platform=ios`, { headers: BEARER }),
+    );
+    expect(response.status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("forwards query, bearer, ETag and cache headers", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          schemaVersion: 2,
+          appProviderIdentifier: "organization_medicgen",
+        }),
+        {
+          status: 200,
+          headers: {
+            "content-type": "application/json",
+            etag: '"runtime-etag"',
+            "cache-control": "public, max-age=300",
+          },
+        },
+      ),
+    );
+    const response = await appConfigRoute.GET(
+      new Request(`${ORIGIN}/apps/config?${query}`, {
+        headers: { ...BEARER, "if-none-match": '"old-etag"' },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("etag")).toBe('"runtime-etag"');
+    expect(response.headers.get("cache-control")).toBe(
+      "public, max-age=300",
+    );
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe(
+      "https://sdk.example.com/internal/openapi/apps/config?app-provider-identifier=organization_medicgen&platform=ios&runtime-version=2&base-content-version=pg-core-v1",
+    );
+    expect((init.headers as Headers).get("authorization")).toBe(
+      "Bearer reporting-token",
+    );
+    expect((init.headers as Headers).get("if-none-match")).toBe('"old-etag"');
+  });
+
+  it("preserves a 304 response without inventing a body", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(null, {
+        status: 304,
+        headers: { etag: '"runtime-etag"' },
+      }),
+    );
+    const response = await appConfigRoute.GET(
+      new Request(`${ORIGIN}/apps/config?${query}`, { headers: BEARER }),
+    );
+    expect(response.status).toBe(304);
+    expect(await response.text()).toBe("");
   });
 });
 

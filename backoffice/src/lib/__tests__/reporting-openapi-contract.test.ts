@@ -1,14 +1,42 @@
 import { buildReportingOpenApiDocument } from "@/lib/reporting-openapi-contract";
 
 describe("reporting OpenAPI contract", () => {
-  it("lists token exchange first and the 2PQ case lookup as the first business endpoint", () => {
+  it("lists token exchange first and the app runtime as the first business endpoint", () => {
     const document = buildReportingOpenApiDocument(
       "https://public.example.com",
     );
     const paths = Object.keys(document.paths ?? {});
 
     expect(paths[0]).toBe("/open-api/oauth/token");
-    expect(paths[1]).toBe("/open-api/reporting/2pq/cases/{caseCode}");
+    expect(paths[1]).toBe("/open-api/apps/config");
+  });
+
+  it("documents the cross-publisher custom-app runtime contract", () => {
+    const document = buildReportingOpenApiDocument(
+      "https://public.example.com",
+    );
+    const operation = document.paths?.["/open-api/apps/config"]?.get;
+    const example =
+      operation?.responses?.["200"]?.content?.["application/json"]?.example;
+
+    expect(operation?.description).toContain(
+      "not restricted to the app publisher or organization",
+    );
+    expect(operation?.parameters?.map((parameter) => parameter.name)).toEqual([
+      "app-provider-identifier",
+      "platform",
+      "runtime-version",
+      "base-content-version",
+    ]);
+    expect(example).toMatchObject({
+      schemaVersion: 2,
+      appProviderIdentifier: "organization_medicgen",
+      revision: 1,
+      status: "published",
+      baseContentVersion: "pg-core-v1",
+      learn: { mode: "base" },
+      resourceOverrides: {},
+    });
   });
 
   it("documents client credentials token exchange with a 24-hour access token", () => {

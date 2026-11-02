@@ -133,6 +133,122 @@ export function buildReportingOpenApiDocument(
           ],
         },
       },
+      "/open-api/apps/config": {
+        get: {
+          tags: ["Apps"],
+          summary: "Fetch a published PocketGenes custom-app runtime config.",
+          description:
+            "Requires a bearer token obtained from /open-api/oauth/token with any valid integration client and secret. Access is intentionally not restricted to the app publisher or organization. The response follows custom-app-config schema v2 and supports ETag revalidation.",
+          parameters: [
+            {
+              name: "app-provider-identifier",
+              in: "query",
+              required: true,
+              description: "Stable identifier created from the app editor.",
+            },
+            {
+              name: "platform",
+              in: "query",
+              required: true,
+              description: "Runtime platform: ios or android.",
+            },
+            {
+              name: "runtime-version",
+              in: "query",
+              required: true,
+              description: "PocketGenes runtime contract version. Send 2.",
+            },
+            {
+              name: "base-content-version",
+              in: "query",
+              required: true,
+              description: "Bundled base content version. Send pg-core-v1.",
+            },
+          ],
+          responses: {
+            "200": jsonResponse("Published custom-app runtime config.", {
+              schemaVersion: 2,
+              appProviderIdentifier: "organization_medicgen",
+              revision: 1,
+              status: "published",
+              baseContentVersion: "pg-core-v1",
+              publisher: {
+                kind: "organization",
+                id: "medicgen",
+                name: "Medicgen",
+              },
+              branding: {
+                displayName: "Medicgen",
+                logoURL: null,
+                colors: {
+                  primary: "#F97316",
+                  primaryStrong: "#DB6613",
+                  primaryDeep: "#B85410",
+                  primarySoft: "#FCB98A",
+                  secondary: "#FB923C",
+                  accent: "#F97316",
+                  accentTextLight: "#B34E10",
+                  accentTextDark: "#FBA66F",
+                  accentSurfaceLight: "#FEF1E8",
+                },
+              },
+              features: {
+                catalogEnabled: true,
+                feedEnabled: true,
+                connectEnabled: true,
+                profileEnabled: true,
+                learnEnabled: false,
+              },
+              discoverScope: {
+                mode: "organization",
+                publisherOrganizationId: "medicgen",
+              },
+              serviceScope: {
+                mode: "provider",
+                providerId: "medicgen",
+                providerKind: "organization",
+              },
+              localization: {
+                defaultLanguage: "es",
+                availableLanguages: ["en", "es"],
+                copyOverrides: { en: {}, es: {} },
+              },
+              learn: { mode: "base" },
+              resourceOverrides: {},
+              links: {
+                joinUs: {
+                  en: "https://goldencrowvs.com/en/pocket-genes/join-us/",
+                  es: "https://goldencrowvs.com/pocket-genes/join-us/",
+                },
+                supportEmail: "support@goldencrowvs.com",
+                privacyURL: "https://goldencrowvs.com/privacy/",
+                termsURL: "https://goldencrowvs.com/terms/",
+              },
+            }),
+            "304": { description: "The caller already has this revision." },
+            "400": jsonResponse("Invalid or incomplete runtime query.", {
+              error: "Invalid query.",
+            }),
+            "404": jsonResponse("No active config uses this identifier.", {
+              error: "App runtime config not found.",
+            }),
+            "409": jsonResponse("The platform or contract is incompatible.", {
+              error: "This app config is not compatible with Android.",
+            }),
+            "426": jsonResponse("The runtime contract version is unsupported.", {
+              error: "Unsupported custom-app runtime version.",
+            }),
+            ...errorResponses(),
+          },
+          "x-codeSamples": [
+            {
+              lang: "curl",
+              source: `curl -X GET "${serverUrl}/open-api/apps/config?app-provider-identifier=organization_medicgen&platform=ios&runtime-version=2&base-content-version=pg-core-v1" \\
+  -H "Authorization: Bearer <access_token>"`,
+            },
+          ],
+        },
+      },
       "/open-api/reporting/2pq/cases/{caseCode}": {
         get: {
           tags: ["Reporting"],

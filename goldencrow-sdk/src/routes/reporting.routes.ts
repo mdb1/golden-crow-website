@@ -1,4 +1,5 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
@@ -12,6 +13,7 @@ import {
   exchangeReportingClientCredentials,
   verifyReportingAccessToken,
 } from "../repositories/reporting-tokens.repository.js";
+import { getActivePublisherAppRuntimeConfig } from "../repositories/publisher-app-config.repository.js";
 
 const CaseCodeSchema = z
   .string()
@@ -66,6 +68,18 @@ const OAuthTokenRequestSchema = z
     grant_type: z.literal("client_credentials"),
     client_id: z.string().trim().min(1),
     client_secret: z.string().trim().min(1),
+  })
+  .strict();
+
+const AppRuntimeConfigQuerySchema = z
+  .object({
+    "app-provider-identifier": z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/),
+    platform: z.enum(["ios", "android"]),
+    "runtime-version": z.string().trim().min(1),
+    "base-content-version": z.string().trim().min(1),
   })
   .strict();
 
@@ -196,6 +210,51 @@ export async function reportingRoutes(fastify: FastifyInstance): Promise<void> {
       try {
         const result = await exchangeReportingClientCredentials(request.body);
         return reply.send(result);
+      } catch (error) {
+        return adminErrorResponse(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/internal/openapi/apps/config",
+    { schema: { querystring: AppRuntimeConfigQuerySchema } },
+    async (request, reply) => {
+      if (
+        !(await requireReportingAccessToken(
+          request,
+          reply,
+          "/open-api/apps/config",
+        ))
+      ) {
+        return reply;
+      }
+
+      try {
+        if (request.query["runtime-version"] !== "2") {
+          return reply.status(426).send({
+            error: "Unsupported custom-app runtime version.",
+          });
+        }
+        if (request.query["base-content-version"] !== "pg-core-v1") {
+          return reply.status(409).send({
+            error: "Base content version is not compatible with this config.",
+          });
+        }
+        const config = await getActivePublisherAppRuntimeConfig(
+          request.query["app-provider-identifier"],
+          request.query.platform,
+        );
+        const responseBytes = JSON.stringify(config);
+        const etag = `"${createHash("sha256")
+          .update(responseBytes)
+          .digest("hex")}"`;
+        reply.header("ETag", etag);
+        reply.header("Cache-Control", "public, max-age=300");
+        if (request.headers["if-none-match"] === etag) {
+          return reply.status(304).send();
+        }
+        return reply.type("application/json").send(responseBytes);
       } catch (error) {
         return adminErrorResponse(reply, error);
       }

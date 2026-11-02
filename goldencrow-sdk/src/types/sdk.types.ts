@@ -921,7 +921,11 @@ export interface DiscoverIndividualRecord {
 export type PublisherAppPlatformOption = "ios" | "ios_android";
 export type PublisherAppPublisherKind = "organization" | "individual";
 export type PublisherAppStatus =
-  "pending_revision" | "approved" | "changes_requested" | "rejected";
+  | "pending_revision"
+  | "active"
+  | "approved"
+  | "changes_requested"
+  | "rejected";
 export type PublisherAppIconSource = "publisher" | "custom";
 
 export interface PublisherAppConfigColors {
@@ -960,6 +964,10 @@ export interface PublisherAppConfigRecord extends PublisherAppConfigInput {
   catalogEnabled: true;
   feedEnabled: true;
   status: PublisherAppStatus;
+  appProviderIdentifier?: string;
+  runtimeRevision?: number;
+  activatedAt?: string;
+  activatedByUserId?: string;
   createdAt: string;
   updatedAt: string;
   createdByUserId: string;
@@ -967,6 +975,65 @@ export interface PublisherAppConfigRecord extends PublisherAppConfigInput {
   termsVersion?: string;
   termsAcceptedAt?: string;
   termsAcceptedByUserId?: string;
+}
+
+export interface PublisherAppRuntimeConfig {
+  schemaVersion: 2;
+  appProviderIdentifier: string;
+  revision: number;
+  status: "published";
+  baseContentVersion: "pg-core-v1";
+  publisher: {
+    kind: PublisherAppPublisherKind;
+    id: string;
+    name: string;
+  };
+  branding: {
+    displayName: string;
+    logoURL: string | null;
+    colors: {
+      primary: string;
+      primaryStrong: string;
+      primaryDeep: string;
+      primarySoft: string;
+      secondary: string;
+      accent: string;
+      accentTextLight: string;
+      accentTextDark: string;
+      accentSurfaceLight: string;
+    };
+  };
+  features: {
+    catalogEnabled: boolean;
+    feedEnabled: boolean;
+    connectEnabled: boolean;
+    profileEnabled: boolean;
+    learnEnabled: boolean;
+  };
+  discoverScope:
+    | { mode: "all" }
+    | { mode: "organization"; publisherOrganizationId: string };
+  serviceScope: {
+    mode: "provider";
+    providerId: string;
+    providerKind: PublisherAppPublisherKind;
+  };
+  localization: {
+    defaultLanguage: "es";
+    availableLanguages: ["en", "es"];
+    copyOverrides: {
+      en: Record<string, string>;
+      es: Record<string, string>;
+    };
+  };
+  learn: { mode: "base" };
+  resourceOverrides: Record<string, never>;
+  links: {
+    joinUs: { en: string; es: string };
+    supportEmail: string;
+    privacyURL: string;
+    termsURL: string;
+  };
 }
 
 export type DiscoverFeedType =

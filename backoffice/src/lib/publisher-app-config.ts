@@ -1,10 +1,16 @@
 export type PublisherAppPlatformOption = "ios" | "ios_android";
 export type PublisherAppIconSource = "publisher" | "custom";
 export type PublisherAppStatus =
-  "pending_revision" | "approved" | "changes_requested" | "rejected";
+  | "pending_revision"
+  | "active"
+  | "approved"
+  | "changes_requested"
+  | "rejected";
 
 export function publisherAppStatusLabel(status: PublisherAppStatus) {
   switch (status) {
+    case "active":
+      return "Activa para pruebas";
     case "approved":
       return "Aprobada";
     case "changes_requested":
@@ -43,6 +49,10 @@ export type PublisherAppConfig = PublisherAppConfigInput & {
   catalogEnabled: true;
   feedEnabled: true;
   status: PublisherAppStatus;
+  appProviderIdentifier?: string;
+  runtimeRevision?: number;
+  activatedAt?: string;
+  activatedByUserId?: string;
   schemaVersion: 1;
   createdAt: string;
   updatedAt: string;
@@ -51,6 +61,15 @@ export type PublisherAppConfig = PublisherAppConfigInput & {
   termsVersion?: string;
   termsAcceptedAt?: string;
   termsAcceptedByUserId?: string;
+};
+
+export type PublisherAppRuntimeConfig = {
+  schemaVersion: 2;
+  appProviderIdentifier: string;
+  revision: number;
+  status: "published";
+  baseContentVersion: "pg-core-v1";
+  [key: string]: unknown;
 };
 
 export type PublisherAppConfigResponse = {
