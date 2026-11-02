@@ -327,6 +327,17 @@ function previewInitials(name: string, fallback: string) {
   return initials || "PG";
 }
 
+function actionErrorLogDetails(error: unknown) {
+  if (error && typeof error === "object") {
+    const details = (error as { details?: unknown }).details;
+    if (typeof details === "string" && details.trim()) {
+      return details;
+    }
+  }
+
+  return error instanceof Error ? error.message : undefined;
+}
+
 function previewDescriptionForLanguage(
   language: "en" | "es",
   description: string,
@@ -2259,6 +2270,7 @@ function DiscoverPublisherWorkbench({
             : isIndividual
               ? t("Unable to save the individual publisher.")
               : t("Unable to save the organization."),
+        details: actionErrorLogDetails(error),
       });
     } finally {
       setPending(false);
@@ -2303,7 +2315,7 @@ function DiscoverPublisherWorkbench({
         message: isIndividual
           ? t("Unable to delete the individual publisher.")
           : t("Unable to delete the organization."),
-        details: error instanceof Error ? error.message : undefined,
+        details: actionErrorLogDetails(error),
       });
       setDeletePending(false);
     }
@@ -2347,7 +2359,7 @@ function DiscoverPublisherWorkbench({
         id: Date.now(),
         tone: "error",
         message: evaluationError,
-        details: error instanceof Error ? error.message : undefined,
+        details: actionErrorLogDetails(error),
       });
     } finally {
       setEvaluationPending(null);

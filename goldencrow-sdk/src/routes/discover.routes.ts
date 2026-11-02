@@ -396,7 +396,31 @@ function sendRepositoryError(reply: FastifyReply, error: unknown) {
     return reply.status(error.statusCode).send({ error: error.message });
   }
 
-  throw error;
+  reply.log.error({ err: error }, "Discover repository request failed");
+  const errorRecord =
+    error && typeof error === "object"
+      ? (error as Record<string, unknown>)
+      : undefined;
+  const errorName =
+    error instanceof Error && error.name ? error.name : "UnknownError";
+  const errorCode =
+    typeof errorRecord?.code === "string" ||
+    typeof errorRecord?.code === "number"
+      ? String(errorRecord.code)
+      : undefined;
+  const errorMessage = error instanceof Error ? error.message : "";
+  const hint = /(?:maximum|document).*(?:size|bytes)|(?:size|bytes).*limit|too large|1048576/i.test(
+    errorMessage,
+  )
+    ? "The write exceeded Firestore's document size limit. Use hosted image URLs or smaller profile images."
+    : undefined;
+
+  return reply.status(500).send({
+    error: "Internal Server Error",
+    errorName,
+    errorCode,
+    hint,
+  });
 }
 
 function headerValue(value: string | string[] | undefined) {

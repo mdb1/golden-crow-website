@@ -50,6 +50,7 @@ const FIRESTORE_BATCH_MAX_WRITES = 450;
 const FIRESTORE_BATCH_SAFE_MAX_BYTES = 8_000_000;
 const FIRESTORE_DOCUMENT_SAFE_MAX_BYTES = 950_000;
 const FIRESTORE_WRITE_OVERHEAD_BYTES = 2_048;
+const LINKED_PARENT_SNAPSHOT_IMAGE_DATA_URL_MAX_BYTES = 24_000;
 const MAX_PRODUCT_CATALOG_ITEMS = 200;
 const MAX_LINKED_INDIVIDUAL_PROFESSIONALS = 200;
 
@@ -1878,6 +1879,20 @@ function assertFeedItemDocumentFitsFirestore(document: Record<string, unknown>) 
   }
 }
 
+function assertPublisherDocumentFitsFirestore(
+  document: Record<string, unknown>,
+  publisherLabel: string,
+) {
+  if (
+    estimatedFirestoreJsonBytes(document) > FIRESTORE_DOCUMENT_SAFE_MAX_BYTES
+  ) {
+    throw new AdminRepositoryError(
+      `${publisherLabel} is too large to save. Use a hosted profile image URL or upload a smaller profile image.`,
+      400,
+    );
+  }
+}
+
 function encodeCursor(cursor: PageCursor): string {
   return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
 }
@@ -2780,11 +2795,20 @@ function linkedParentOrganizationSnapshotFor(
     "id" | "name" | "imageUrl" | "imageUploadDataUrl"
   >,
 ): DiscoverLinkedParentOrganizationSnapshot {
+  const uploadedImage = organization.imageUploadDataUrl ?? null;
+  const compactUploadedImage =
+    !organization.imageUrl &&
+    uploadedImage &&
+    Buffer.byteLength(uploadedImage, "utf8") <=
+      LINKED_PARENT_SNAPSHOT_IMAGE_DATA_URL_MAX_BYTES
+      ? uploadedImage
+      : null;
+
   return {
     id: organization.id,
     name: organization.name,
     imageUrl: organization.imageUrl,
-    imageUploadDataUrl: organization.imageUploadDataUrl ?? null,
+    imageUploadDataUrl: compactUploadedImage,
   };
 }
 
@@ -2887,19 +2911,6 @@ async function linkedParentOrganizationFields(
     return {
       linkedParentOrganizationId: null,
       linkedParentOrganizationSnapshot: null,
-    };
-  }
-
-  if (
-    linkedParentOrganizationId ===
-      existingRecord?.linkedParentOrganizationId &&
-    existingRecord.linkedParentOrganizationSnapshot?.id ===
-      linkedParentOrganizationId
-  ) {
-    return {
-      linkedParentOrganizationId,
-      linkedParentOrganizationSnapshot:
-        existingRecord.linkedParentOrganizationSnapshot,
     };
   }
 
@@ -3585,17 +3596,27 @@ export async function sanitizeDiscoverOrganizationProfessionalLinks(
   );
   const parentSnapshot = linkedParentOrganizationSnapshotFor(organization);
   const batch = adminDb.batch();
-  batch.update(organizationSnapshot.ref, {
+  const organizationUpdate = {
     linkedIndividualProfessionals,
     updatedAt: FieldValue.serverTimestamp(),
     updatedByUserId: context.uid,
-  });
+  };
+  assertPublisherDocumentFitsFirestore(
+    { ...organizationSnapshot.data(), ...organizationUpdate },
+    "The organization profile",
+  );
+  batch.update(organizationSnapshot.ref, organizationUpdate);
   for (const individualSnapshot of individualSnapshots) {
-    batch.update(individualSnapshot.ref, {
+    const relationshipUpdate = {
       linkedParentOrganizationSnapshot: parentSnapshot,
       updatedAt: FieldValue.serverTimestamp(),
       updatedByUserId: context.uid,
-    });
+    };
+    assertPublisherDocumentFitsFirestore(
+      { ...individualSnapshot.data(), ...relationshipUpdate },
+      `The individual publisher ${individualSnapshot.id}`,
+    );
+    batch.update(individualSnapshot.ref, relationshipUpdate);
   }
   await batch.commit();
 
@@ -3649,6 +3670,10 @@ export async function createDiscoverOrganization(
     createdAt: FieldValue.serverTimestamp(),
     createdByUserId: context.uid,
   });
+  assertPublisherDocumentFitsFirestore(
+    organizationData,
+    "The organization profile",
+  );
   const organizationRecord = toOrganizationRecord({
     id: ref.id,
     ref,
@@ -3659,12 +3684,17 @@ export async function createDiscoverOrganization(
   const batch = adminDb.batch();
   batch.set(ref, organizationData);
   for (const snapshot of requestedById.values()) {
-    batch.update(snapshot.ref, {
+    const relationshipUpdate = {
       linkedParentOrganizationId: ref.id,
       linkedParentOrganizationSnapshot: parentSnapshot,
       updatedAt: FieldValue.serverTimestamp(),
       updatedByUserId: context.uid,
-    });
+    };
+    assertPublisherDocumentFitsFirestore(
+      { ...snapshot.data(), ...relationshipUpdate },
+      `The individual publisher ${snapshot.id}`,
+    );
+    batch.update(snapshot.ref, relationshipUpdate);
   }
   await batch.commit();
 
@@ -3786,35 +3816,46 @@ export async function updateDiscoverOrganization(
     : existingRecord.linkedIndividualProfessionals;
   const nextParentSnapshot =
     linkedParentOrganizationSnapshotFor(nextOrganizationRecord);
-  const batch = adminDb.batch();
-  batch.set(
-    existing.ref,
-    {
-      ...nextOrganizationData,
-      linkedIndividualProfessionals: nextLinkedProfessionals,
-    },
-    { merge: false },
+  const organizationWrite = {
+    ...nextOrganizationData,
+    linkedIndividualProfessionals: nextLinkedProfessionals,
+  };
+  assertPublisherDocumentFitsFirestore(
+    organizationWrite,
+    "The organization profile",
   );
+  const batch = adminDb.batch();
+  batch.set(existing.ref, organizationWrite, { merge: false });
 
   if (requestedProfessionalIds) {
     const requestedIds = new Set(requestedProfessionalIds);
     const affected = new Map([...currentlyLinkedById, ...requestedById]);
     for (const [individualId, snapshot] of affected) {
       const linked = requestedIds.has(individualId);
-      batch.update(snapshot.ref, {
+      const relationshipUpdate = {
         linkedParentOrganizationId: linked ? organizationId : null,
         linkedParentOrganizationSnapshot: linked ? nextParentSnapshot : null,
         updatedAt: FieldValue.serverTimestamp(),
         updatedByUserId: context.uid,
-      });
+      };
+      assertPublisherDocumentFitsFirestore(
+        { ...snapshot.data(), ...relationshipUpdate },
+        `The individual publisher ${individualId}`,
+      );
+      batch.update(snapshot.ref, relationshipUpdate);
     }
   } else {
     for (const snapshot of currentlyLinkedSnapshots) {
-      batch.update(snapshot.ref, {
+      const relationshipUpdate = {
         linkedParentOrganizationSnapshot: nextParentSnapshot,
         updatedAt: FieldValue.serverTimestamp(),
         updatedByUserId: context.uid,
-      });
+      };
+      assertPublisherDocumentFitsFirestore(
+        { ...snapshot.data(), ...relationshipUpdate },
+        `The individual publisher ${snapshot.id}`,
+      );
+      batch.update(snapshot.ref, relationshipUpdate);
     }
   }
   await batch.commit();
@@ -4222,6 +4263,10 @@ export async function createDiscoverIndividual(
     createdAt: FieldValue.serverTimestamp(),
     createdByUserId: context.uid,
   });
+  assertPublisherDocumentFitsFirestore(
+    individualData,
+    "The individual publisher profile",
+  );
   const individualRecord = toIndividualRecord({
     id: ref.id,
     ref,
@@ -4236,14 +4281,19 @@ export async function createDiscoverIndividual(
   batch.set(ref, individualData);
   if (parentSnapshot) {
     const organization = toOrganizationRecord(parentSnapshot);
-    batch.update(parentSnapshot.ref, {
+    const relationshipUpdate = {
       linkedIndividualProfessionals: upsertLinkedIndividualProfessional(
         organization,
         linkedIndividualProfessionalSnapshotFor(individualRecord),
       ),
       updatedAt: FieldValue.serverTimestamp(),
       updatedByUserId: context.uid,
-    });
+    };
+    assertPublisherDocumentFitsFirestore(
+      { ...parentSnapshot.data(), ...relationshipUpdate },
+      `The organization ${parentSnapshot.id}`,
+    );
+    batch.update(parentSnapshot.ref, relationshipUpdate);
   }
   await batch.commit();
 
@@ -4321,6 +4371,10 @@ export async function updateDiscoverIndividual(
         toOrganizationRecord(nextParentOrganization),
       );
   }
+  assertPublisherDocumentFitsFirestore(
+    nextIndividualData,
+    "The individual publisher profile",
+  );
 
   const batch = adminDb.batch();
   batch.set(existing.ref, nextIndividualData, { merge: false });
@@ -4336,11 +4390,16 @@ export async function updateDiscoverIndividual(
             linkedIndividualProfessionalSnapshotFor(nextIndividualRecord),
           )
         : withoutIndividual;
-    batch.update(snapshot.ref, {
+    const relationshipUpdate = {
       linkedIndividualProfessionals,
       updatedAt: FieldValue.serverTimestamp(),
       updatedByUserId: context.uid,
-    });
+    };
+    assertPublisherDocumentFitsFirestore(
+      { ...snapshot.data(), ...relationshipUpdate },
+      `The organization ${organizationId}`,
+    );
+    batch.update(snapshot.ref, relationshipUpdate);
   }
   await batch.commit();
 

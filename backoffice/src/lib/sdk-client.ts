@@ -40,6 +40,45 @@ function hasRequestBody(body: RequestInit["body"]) {
   return true;
 }
 
+function requestLogValue(value: unknown, key = ""): unknown {
+  if (typeof value === "string") {
+    if (/dataurl$/i.test(key) || value.startsWith("data:image/")) {
+      return `<image data omitted: ${value.length} characters>`;
+    }
+    if (value.length > 10_000) {
+      return `<large value omitted: ${value.length} characters>`;
+    }
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => requestLogValue(entry));
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(
+        ([entryKey, entryValue]) => [
+          entryKey,
+          requestLogValue(entryValue, entryKey),
+        ],
+      ),
+    );
+  }
+
+  return value;
+}
+
+function requestBodyDetailsForLog(body: string) {
+  try {
+    return JSON.stringify(requestLogValue(JSON.parse(body)), null, 2);
+  } catch {
+    return body.length > 10_000
+      ? `<large request body omitted: ${body.length} characters>`
+      : body;
+  }
+}
+
 async function buildSdkRequestError(
   response: Response,
   method: string,
@@ -140,11 +179,7 @@ export async function sdkFetch<T = unknown>(
   if (!res.ok) {
     let requestBodyDetails: string | undefined;
     if (typeof init?.body === "string" && init.body.trim()) {
-      try {
-        requestBodyDetails = JSON.stringify(JSON.parse(init.body), null, 2);
-      } catch {
-        requestBodyDetails = init.body;
-      }
+      requestBodyDetails = requestBodyDetailsForLog(init.body);
     }
 
     throw await buildSdkRequestError(res, method, path, requestBodyDetails);

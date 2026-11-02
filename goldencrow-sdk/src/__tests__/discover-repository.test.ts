@@ -737,6 +737,63 @@ describe("discover repository", () => {
     });
   });
 
+  it("does not duplicate large uploaded artwork into reciprocal relationship snapshots", async () => {
+    const { updateDiscoverIndividual, updateDiscoverOrganization } =
+      await import("../repositories/discover.repository");
+    const largeUploadedImage = `data:image/jpeg;base64,${"A".repeat(700_000)}`;
+    const organization = mockOrganizationDocs.find(
+      (doc) => doc.id === "org-1",
+    );
+    const individual = mockIndividualDocs.find(
+      (doc) => doc.id === "person-1",
+    );
+    organization!.data.imageUploadDataUrl = largeUploadedImage;
+    individual!.data.imageUploadDataUrl = largeUploadedImage;
+
+    await updateDiscoverOrganization(fullAdminContext, "org-1", {
+      name: "Publisher One",
+      imageUrl: "https://example.org/publisher.png",
+      organizationType:
+        "org_patient_advocacy_organizations,org_genetics_research_institutes",
+      linkedIndividualProfessionalIds: ["person-1"],
+    } as Record<string, unknown>);
+
+    expect(
+      mockIndividualDocs.find((doc) => doc.id === "person-1")?.data
+        .linkedParentOrganizationSnapshot,
+    ).toMatchObject({
+      id: "org-1",
+      imageUrl: "https://example.org/publisher.png",
+      imageUploadDataUrl: null,
+    });
+
+    const storedIndividual = mockIndividualDocs.find(
+      (doc) => doc.id === "person-1",
+    );
+    storedIndividual!.data.linkedParentOrganizationSnapshot = {
+      id: "org-1",
+      name: "Publisher One",
+      imageUrl: "https://example.org/publisher.png",
+      imageUploadDataUrl: largeUploadedImage,
+    };
+    const relinked = await updateDiscoverIndividual(
+      fullAdminContext,
+      "person-1",
+      {
+        name: "Dr. Publisher One",
+        imageUrl: "https://example.org/individual.png",
+        individualType: "pro_research_scientists",
+        linkedParentOrganizationId: "org-1",
+      } as Record<string, unknown>,
+    );
+
+    expect(relinked.linkedParentOrganizationSnapshot).toMatchObject({
+      id: "org-1",
+      imageUrl: "https://example.org/publisher.png",
+      imageUploadDataUrl: null,
+    });
+  });
+
   it("audits and sanitizes one-sided professional links", async () => {
     const {
       getDiscoverOrganizationProfessionalLinks,

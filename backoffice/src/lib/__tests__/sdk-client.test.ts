@@ -72,4 +72,24 @@ describe("sdkFetch error handling", () => {
       message: "Customer update failed.",
     });
   });
+
+  it("omits uploaded image data from request diagnostics", async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      Response.json(
+        { error: "Internal Server Error", errorName: "Error" },
+        { status: 500, statusText: "Internal Server Error" },
+      ),
+    ) as unknown as typeof fetch;
+    const imageUploadDataUrl = `data:image/png;base64,${"A".repeat(20_000)}`;
+
+    const error = await sdkFetch("/discover/individuals/person-1", {
+      method: "PUT",
+      body: JSON.stringify({ imageUploadDataUrl }),
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(SdkRequestError);
+    const details = (error as SdkRequestError).details;
+    expect(details).toContain("<image data omitted:");
+    expect(details).not.toContain(imageUploadDataUrl);
+  });
 });

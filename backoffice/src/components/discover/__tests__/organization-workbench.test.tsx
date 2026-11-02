@@ -1155,6 +1155,31 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     ).toBeNull();
   });
 
+  it("shows the structured request log when a publisher save returns 500", async () => {
+    const user = userEvent.setup();
+    const failure = Object.assign(new Error("Internal Server Error"), {
+      status: 500,
+      details:
+        "Request: PUT /discover/individuals/individual-1\n\nStatus: 500 Internal Server Error\n\nHint: Firestore write failed.",
+    });
+    jest.mocked(sdkFetch).mockRejectedValue(failure);
+    renderIndividualWorkbench();
+
+    await user.clear(screen.getByLabelText("Name"));
+    await user.type(screen.getByLabelText("Name"), "Individual One Updated");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(await screen.findByText("Internal Server Error")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Show log" }));
+    const logDialog = await screen.findByRole("dialog", {
+      name: "Action error log",
+    });
+    expect(
+      within(logDialog).getByText(/PUT \/discover\/individuals\/individual-1/),
+    ).toBeTruthy();
+    expect(within(logDialog).getByText(/Firestore write failed/)).toBeTruthy();
+  });
+
   it("adds an unassigned professional from the organization editor", async () => {
     const user = userEvent.setup();
     const uploadedProfileImage = "data:image/png;base64,iVBORw0KGgo=";

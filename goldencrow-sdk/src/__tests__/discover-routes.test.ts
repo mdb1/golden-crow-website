@@ -388,4 +388,27 @@ describe("Discover public routes", () => {
       "org-1",
     );
   });
+
+  it("returns safe diagnostics for unexpected Discover write failures", async () => {
+    const firestoreError = Object.assign(
+      new Error("Document exceeds the maximum size of 1048576 bytes."),
+      { code: 3 },
+    );
+    mockUpdateDiscoverIndividual.mockRejectedValueOnce(firestoreError);
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "PUT",
+      url: "/discover/individuals/person-1",
+      payload: { linkedParentOrganizationId: "org-1" },
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual({
+      error: "Internal Server Error",
+      errorName: "Error",
+      errorCode: "3",
+      hint: expect.stringContaining("document size limit"),
+    });
+  });
 });
