@@ -1123,10 +1123,24 @@
   }
 }
 
-/* Keep the consent-wizard dock aligned with the live desktop sidebar width.
-   Mobile sheets do not consume layout width, so the dock remains full-width
+/* Keep fixed action docks aligned with the live desktop sidebar width.
+   Mobile sheets do not consume layout width, so docks remain full-width
    below the desktop breakpoint. */
 @media (min-width: 768px) {
+  [data-slot="sidebar-wrapper"]:has(
+      [data-slot="sidebar"][data-state="expanded"]
+    )
+    .publisher-app-edit-save-bar {
+    left: var(--sidebar-width);
+  }
+
+  [data-slot="sidebar-wrapper"]:has(
+      [data-slot="sidebar"][data-state="collapsed"]
+    )
+    .publisher-app-edit-save-bar {
+    left: calc(var(--sidebar-width-icon) + 1rem);
+  }
+
   [data-slot="sidebar-wrapper"]:has(
       [data-slot="sidebar"][data-state="expanded"]
     )

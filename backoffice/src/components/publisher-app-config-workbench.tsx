@@ -1585,8 +1585,11 @@ function PublisherAppEditSheet({
           ) : null}
         </div>
 
-        <footer className="sticky bottom-0 z-20 border-t border-violet-100/80 bg-white/92 px-5 py-4 shadow-[0_-20px_60px_rgba(109,40,217,0.10)] backdrop-blur dark:border-violet-400/14 dark:bg-slate-950/88">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <footer
+          data-testid="publisher-app-edit-save-bar"
+          className="publisher-app-edit-save-bar fixed inset-x-0 bottom-0 z-40 border-t border-violet-100/80 bg-white/92 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-20px_60px_rgba(109,40,217,0.10)] backdrop-blur-2xl dark:border-violet-400/14 dark:bg-slate-950/88 sm:px-5 lg:px-6"
+        >
+          <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground">
               {changed
                 ? "Tenés cambios sin guardar."
@@ -2408,7 +2411,7 @@ export function PublisherAppConfigWorkbench({
 
   if (mode === "edit") {
     return (
-      <section className="pb-24" data-testid="publisher-app-config-workbench">
+      <section className="pb-32" data-testid="publisher-app-config-workbench">
         <ActionToast
           toast={toast}
           onDismiss={() => setToast(null)}

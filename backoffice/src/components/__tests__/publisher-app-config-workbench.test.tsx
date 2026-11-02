@@ -454,6 +454,10 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(screen.getByTestId("publisher-app-edit-icon")).toBeTruthy();
     expect(screen.getByLabelText("Vista previa de la app")).toBeTruthy();
 
+    const saveBar = screen.getByTestId("publisher-app-edit-save-bar");
+    expect(saveBar).toHaveClass("fixed", "inset-x-0", "bottom-0", "z-40");
+    expect(saveBar).not.toHaveClass("sticky");
+
     const saveButton = screen.getByRole("button", { name: "Guardar cambios" });
     expect(saveButton).toBeDisabled();
 
