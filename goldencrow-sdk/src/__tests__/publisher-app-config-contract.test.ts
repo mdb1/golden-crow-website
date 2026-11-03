@@ -1,5 +1,8 @@
 import type { FastifyInstance } from "fastify";
-import type { AdminContext } from "../types/sdk.types.js";
+import type {
+  AdminContext,
+  PublisherAppAdvancedConfiguration,
+} from "../types/sdk.types.js";
 import { buildRouteServer, makeAdminContext } from "./support/route-harness.js";
 
 const FIXED_TIME = Date.parse("2026-10-30T15:00:00.000Z");
@@ -219,6 +222,92 @@ const validBody = {
   termsAccepted: true as const,
 };
 
+const advancedConfigurationBody = {
+  displayName: "Advanced Experience",
+  semanticColors: {
+    primary: "#101010",
+    primaryStrong: "#202020",
+    primaryDeep: "#303030",
+    primarySoft: "#404040",
+    secondary: "#505050",
+    accent: "#606060",
+    accentTextLight: "#707070",
+    accentTextDark: "#808080",
+    accentSurfaceLight: "#F0F0F0",
+  },
+  catalogEnabled: false,
+  feedEnabled: true,
+  discoverScope: { mode: "all" as const },
+  serviceScope: {
+    mode: "provider" as const,
+    providerId: "professional-42",
+    providerKind: "individual" as const,
+  },
+  localization: {
+    defaultLanguage: "en" as const,
+    availableLanguages: ["en", "es"] as Array<"en" | "es">,
+    copyOverrides: {
+      en: { "Contact Pocket Genes": "Contact Advanced Experience" },
+      es: { "Contact Pocket Genes": "Contactá a Advanced Experience" },
+    },
+  },
+  learn: {
+    mode: "replace" as const,
+    curriculumId: "advanced-curriculum",
+    curriculumRevision: 3,
+    defaultLanguage: "es",
+    subjects: [
+      {
+        subjectIdentifier: "ADV",
+        subjectTitle: "Advanced subject",
+        chapters: [
+          {
+            chapterTitle: "Advanced chapter",
+            lessons: [
+              {
+                lessonIdentifier: "ADV.1",
+                lessonTitle: "Advanced lesson",
+                imageUrl: "https://example.org/lesson.png",
+                lessonColor: "#ABCDEF",
+                paragraphs: [
+                  {
+                    paragraphTitle: "Welcome",
+                    icon: "hand.wave",
+                    contentText: "Advanced educational content.",
+                  },
+                ],
+                usefulLinks: ["https://example.org/guide"],
+                relatedLessons: [],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    topics: { personalized_medicine: ["ADV"] },
+  },
+  resourceOverrides: {
+    discoverBannerTitles: {
+      lessonTitles: { "ADV.1": "Advanced card" },
+      specialItemTitles: {},
+    },
+    spanishResources: {
+      "SpanishServicesContent.json": {
+        Services: "Servicios avanzados",
+      },
+    },
+  },
+  links: {
+    joinUs: {
+      en: "https://example.org/en/contact",
+      es: "https://example.org/es/contact",
+    },
+    supportEmail: "help@example.org",
+    privacyUrl: "https://example.org/privacy",
+    termsUrl: "https://example.org/terms",
+  },
+};
+
 function organizationContext(
   overrides: Partial<AdminContext> = {},
 ): AdminContext {
@@ -381,6 +470,22 @@ describe("publisher app config contract", () => {
       iconSource: "publisher",
       iconImageUrl: "https://example.org/canonical-icon.png",
       iconImageUploadDataUrl: null,
+      advancedConfiguration: expect.objectContaining({
+        displayName: "Canonical Organization",
+        semanticColors: null,
+        catalogEnabled: true,
+        feedEnabled: true,
+        discoverScope: {
+          mode: "organization",
+          publisherOrganizationId: "shared-publisher-id",
+        },
+        serviceScope: {
+          mode: "provider",
+          providerId: "shared-publisher-id",
+          providerKind: "organization",
+        },
+        learn: { mode: "base" },
+      }),
       termsVersion: "2026-10-31",
       termsAcceptedAt: new Date("2026-10-30T15:00:00.000Z"),
       termsAcceptedByUserId: "org-user-1",
@@ -408,6 +513,7 @@ describe("publisher app config contract", () => {
         "iconSource",
         "iconImageUrl",
         "iconImageUploadDataUrl",
+        "advancedConfiguration",
         "termsVersion",
         "termsAcceptedAt",
         "termsAcceptedByUserId",
@@ -544,7 +650,7 @@ describe("publisher app config contract", () => {
         catalogEnabled: true,
         feedEnabled: true,
         connectEnabled: true,
-        profileEnabled: false,
+        profileEnabled: true,
         learnEnabled: true,
       },
       discoverScope: {
@@ -582,6 +688,149 @@ describe("publisher app config contract", () => {
         termsURL: "https://goldencrowvs.com/terms/",
       },
     });
+  });
+
+  it("publishes every advanced configuration block into the runtime contract", async () => {
+    const createResponse = await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config",
+      payload: {
+        ...validBody,
+        iconSource: "custom",
+        iconImageUrl: null,
+        iconImageUploadDataUrl: "data:image/png;base64,QUJDRA==",
+        advancedConfiguration: advancedConfigurationBody,
+      },
+    });
+    expect(createResponse.statusCode).toBe(201);
+
+    const activationResponse = await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config/identifier",
+    });
+    expect(activationResponse.statusCode).toBe(200);
+
+    const runtimeResponse = await fastify.inject({
+      method: "GET",
+      url: "/publisher-app/config/runtime",
+    });
+    expect(runtimeResponse.statusCode).toBe(200);
+    expect(runtimeResponse.json()).toMatchObject({
+      branding: {
+        displayName: "Advanced Experience",
+        logoURL: null,
+        logoUploadDataUrl: "data:image/png;base64,QUJDRA==",
+        colors: advancedConfigurationBody.semanticColors,
+      },
+      features: {
+        catalogEnabled: false,
+        feedEnabled: true,
+      },
+      discoverScope: { mode: "all" },
+      serviceScope: {
+        mode: "provider",
+        providerId: "professional-42",
+        providerKind: "individual",
+      },
+      localization: advancedConfigurationBody.localization,
+      learn: {
+        mode: "replace",
+        curriculumId: "advanced-curriculum",
+        curriculumRevision: 3,
+        defaultLanguage: "es",
+        lessonReference: {
+          subjects: [
+            {
+              subjectIdentifier: "ADV",
+              chapters: [
+                {
+                  chapterTitle: "Advanced chapter",
+                  lessons: [
+                    {
+                      lessonIdentifier: "ADV.1",
+                      imageURL: "https://example.org/lesson.png",
+                      lessonColor: "#ABCDEF",
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        lessonDictionary: {
+          "ADV.1": {
+            lessonIdentifier: "ADV.1",
+            paragraphs: [
+              {
+                paragraphTitle: "Welcome",
+                icon: "hand.wave",
+                contentText: "Advanced educational content.",
+              },
+            ],
+            useful_links: ["https://example.org/guide"],
+            related_lessons: [],
+          },
+        },
+        topics: { personalized_medicine: ["ADV"] },
+      },
+      resourceOverrides: {
+        "DiscoverBannerTitles.json": {
+          lessonTitles: { "ADV.1": "Advanced card" },
+          specialItemTitles: {},
+        },
+        "SpanishServicesContent.json": {
+          version: 1,
+          locale: "es",
+          strings: { Services: "Servicios avanzados" },
+        },
+      },
+      links: {
+        joinUs: advancedConfigurationBody.links.joinUs,
+        supportEmail: "help@example.org",
+        privacyURL: "https://example.org/privacy",
+        termsURL: "https://example.org/terms",
+      },
+    });
+  });
+
+  it.each([
+    {
+      label: "mismatched bilingual wording keys",
+      mutate: (advanced: PublisherAppAdvancedConfiguration) => {
+        advanced.localization.copyOverrides.es = {};
+      },
+    },
+    {
+      label: "an unknown related lesson",
+      mutate: (advanced: PublisherAppAdvancedConfiguration) => {
+        if (advanced.learn.mode === "replace") {
+          advanced.learn.subjects[0]!.chapters[0]!.lessons[0]!.relatedLessons = [
+            "UNKNOWN.1",
+          ];
+        }
+      },
+    },
+    {
+      label: "an unsupported Learn topic",
+      mutate: (advanced: PublisherAppAdvancedConfiguration) => {
+        if (advanced.learn.mode === "replace") {
+          advanced.learn.topics = { unsupported_topic: ["ADV"] };
+        }
+      },
+    },
+  ])("rejects $label in advanced configuration", async ({ mutate }) => {
+    const advanced: PublisherAppAdvancedConfiguration = structuredClone(
+      advancedConfigurationBody,
+    );
+    mutate(advanced);
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config",
+      payload: { ...validBody, advancedConfiguration: advanced },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(collectionStore("app_configs").size).toBe(0);
   });
 
   it("replaces a legacy active identifier with the memorable name format", async () => {
@@ -1201,6 +1450,26 @@ describe("publisher app config contract", () => {
     expect(
       collectionStore("custom_apps_snapshot").get("simple")?.updatedAt,
     ).toEqual(initialSnapshotUpdatedAt);
+
+    const displayNameUpdate = await fastify.inject({
+      method: "PUT",
+      url: "/admin/publisher-app-configs/organization_shared-publisher-id",
+      payload: {
+        ...validBody,
+        termsAccepted: undefined,
+        advancedConfiguration: {
+          ...createResponse.json().config.advancedConfiguration,
+          displayName: "Custom Catalog Name",
+        },
+        status: "pending_revision",
+      },
+    });
+    expect(displayNameUpdate.statusCode).toBe(200);
+    expect(
+      (collectionStore("custom_apps_snapshot").get("simple")?.apps as Array<
+        Record<string, unknown>
+      >)[0],
+    ).toMatchObject({ name: "Custom Catalog Name" });
 
     const iconUpdate = await fastify.inject({
       method: "PUT",

@@ -3,21 +3,9 @@ import type {
   PublisherAppRuntimeConfig,
 } from "../types/sdk.types.js";
 import { AdminRepositoryError } from "../repositories/admin-errors.js";
+import { derivePublisherAppSemanticColors } from "./publisher-app-advanced-config.js";
 
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
-
-function mixHex(left: string, right: string, rightWeight: number) {
-  const weight = Math.min(1, Math.max(0, rightWeight));
-  const channel = (offset: number) => {
-    const from = Number.parseInt(left.slice(offset, offset + 2), 16);
-    const to = Number.parseInt(right.slice(offset, offset + 2), 16);
-    return Math.round(from + (to - from) * weight)
-      .toString(16)
-      .padStart(2, "0");
-  };
-
-  return `#${channel(1)}${channel(3)}${channel(5)}`.toUpperCase();
-}
 
 function httpsLogoUrl(value: string | null) {
   if (!value) return null;
@@ -47,9 +35,61 @@ export function buildPublisherAppRuntimeConfig(
   }
 
   const primary = config.colors.primary;
-  const secondary = config.colors.secondary;
-  const accent = config.colors.tertiary;
   const publisherName = config.publisherName;
+  const advanced = config.advancedConfiguration;
+  const learn: PublisherAppRuntimeConfig["learn"] =
+    advanced.learn.mode === "base"
+      ? { mode: "base" }
+      : {
+          mode: "replace",
+          curriculumId: advanced.learn.curriculumId,
+          curriculumRevision: advanced.learn.curriculumRevision,
+          defaultLanguage: advanced.learn.defaultLanguage,
+          lessonReference: {
+            subjects: advanced.learn.subjects.map((subject) => ({
+              subjectIdentifier: subject.subjectIdentifier,
+              subjectTitle: subject.subjectTitle,
+              chapters: subject.chapters.map((chapter) => ({
+                chapterTitle: chapter.chapterTitle,
+                lessons: chapter.lessons.map((lesson) => ({
+                  lessonIdentifier: lesson.lessonIdentifier,
+                  lessonTitle: lesson.lessonTitle,
+                  imageURL: lesson.imageUrl,
+                  lessonColor: lesson.lessonColor,
+                })),
+              })),
+            })),
+          },
+          lessonDictionary: Object.fromEntries(
+            advanced.learn.subjects.flatMap((subject) =>
+              subject.chapters.flatMap((chapter) =>
+                chapter.lessons.map((lesson) => [
+                  lesson.lessonIdentifier,
+                  {
+                    lessonIdentifier: lesson.lessonIdentifier,
+                    lessonTitle: lesson.lessonTitle,
+                    imageURL: lesson.imageUrl,
+                    lessonColor: lesson.lessonColor,
+                    paragraphs: lesson.paragraphs,
+                    useful_links: lesson.usefulLinks,
+                    related_lessons: lesson.relatedLessons,
+                  },
+                ]),
+              ),
+            ),
+          ),
+          topics: advanced.learn.topics,
+        };
+  const resourceOverrides: Record<string, unknown> = {};
+  if (advanced.resourceOverrides.discoverBannerTitles) {
+    resourceOverrides["DiscoverBannerTitles.json"] =
+      advanced.resourceOverrides.discoverBannerTitles;
+  }
+  for (const [resource, strings] of Object.entries(
+    advanced.resourceOverrides.spanishResources,
+  )) {
+    resourceOverrides[resource] = { version: 1, locale: "es", strings };
+  }
 
   return {
     schemaVersion: 2,
@@ -63,66 +103,42 @@ export function buildPublisherAppRuntimeConfig(
       name: publisherName,
     },
     branding: {
-      displayName: publisherName,
+      displayName: advanced.displayName,
       logoURL: httpsLogoUrl(config.iconImageUrl),
-      colors: {
-        primary,
-        primaryStrong: mixHex(primary, "#000000", 0.12),
-        primaryDeep: mixHex(primary, "#000000", 0.26),
-        primarySoft: mixHex(primary, "#FFFFFF", 0.48),
-        secondary,
-        accent,
-        accentTextLight: mixHex(accent, "#000000", 0.28),
-        accentTextDark: mixHex(accent, "#FFFFFF", 0.38),
-        accentSurfaceLight: mixHex(accent, "#FFFFFF", 0.9),
-      },
+      ...(config.iconImageUploadDataUrl
+        ? { logoUploadDataUrl: config.iconImageUploadDataUrl }
+        : {}),
+      colors:
+        advanced.semanticColors ??
+        derivePublisherAppSemanticColors({
+          primary,
+          secondary: config.colors.secondary,
+          tertiary: config.colors.tertiary,
+        }),
     },
     features: {
-      catalogEnabled: config.catalogEnabled,
-      feedEnabled: config.feedEnabled,
+      catalogEnabled: advanced.catalogEnabled,
+      feedEnabled: advanced.feedEnabled,
       connectEnabled: config.connectEnabled,
-      profileEnabled: config.profileEnabled,
-      learnEnabled: config.learnCustomizationEnabled,
+      // Runtime v2 accepts these flags for compatibility, but the native apps
+      // deliberately keep Profile and Learn available in every experience.
+      profileEnabled: true,
+      learnEnabled: true,
     },
-    discoverScope:
-      config.publisherKind === "organization"
-        ? {
-            mode: "organization",
-            publisherOrganizationId: config.publisherId,
-          }
-        : { mode: "all" },
-    serviceScope: {
-      mode: "provider",
-      providerId: config.publisherId,
-      providerKind: config.publisherKind,
-    },
+    discoverScope: advanced.discoverScope,
+    serviceScope: advanced.serviceScope,
     localization: {
-      defaultLanguage: "es",
-      availableLanguages: ["en", "es"],
-      copyOverrides: {
-        en: {
-          "Only on Pocket Genes": `Only on ${publisherName}`,
-          "Contact Pocket Genes": `Contact ${publisherName}`,
-        },
-        es: {
-          "Only on Pocket Genes": `Solo en ${publisherName}`,
-          "Contact Pocket Genes": `Contactá a ${publisherName}`,
-        },
-      },
+      defaultLanguage: advanced.localization.defaultLanguage,
+      availableLanguages: advanced.localization.availableLanguages,
+      copyOverrides: advanced.localization.copyOverrides,
     },
-    // The editor currently requests Learn customization but does not author a
-    // complete replacement curriculum. The v2 contract requires that complete
-    // graph, so the runtime safely keeps the canonical base curriculum.
-    learn: { mode: "base" },
-    resourceOverrides: {},
+    learn,
+    resourceOverrides,
     links: {
-      joinUs: {
-        en: "https://goldencrowvs.com/en/pocket-genes/join-us/",
-        es: "https://goldencrowvs.com/pocket-genes/join-us/",
-      },
-      supportEmail: "support@goldencrowvs.com",
-      privacyURL: "https://goldencrowvs.com/privacy/",
-      termsURL: "https://goldencrowvs.com/terms/",
+      joinUs: advanced.links.joinUs,
+      supportEmail: advanced.links.supportEmail,
+      privacyURL: advanced.links.privacyUrl,
+      termsURL: advanced.links.termsUrl,
     },
   };
 }

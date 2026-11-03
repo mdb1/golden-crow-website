@@ -52,6 +52,40 @@ const savedConfig: PublisherAppConfig = {
   iconSource: "publisher",
   iconImageUrl: "https://example.org/icon.png",
   iconImageUploadDataUrl: null,
+  advancedConfiguration: {
+    displayName: "Pocket Genes Lab",
+    semanticColors: null,
+    catalogEnabled: true,
+    feedEnabled: true,
+    discoverScope: {
+      mode: "organization",
+      publisherOrganizationId: "org-1",
+    },
+    serviceScope: {
+      mode: "provider",
+      providerId: "org-1",
+      providerKind: "organization",
+    },
+    localization: {
+      defaultLanguage: "es",
+      availableLanguages: ["en", "es"],
+      copyOverrides: {
+        en: { "Contact Pocket Genes": "Contact Pocket Genes Lab" },
+        es: { "Contact Pocket Genes": "Contactá a Pocket Genes Lab" },
+      },
+    },
+    learn: { mode: "base" },
+    resourceOverrides: { spanishResources: {} },
+    links: {
+      joinUs: {
+        en: "https://example.org/en/contact",
+        es: "https://example.org/es/contact",
+      },
+      supportEmail: "support@example.org",
+      privacyUrl: "https://example.org/privacy",
+      termsUrl: "https://example.org/terms",
+    },
+  },
   schemaVersion: 1,
   createdAt: "2026-10-30T12:00:00.000Z",
   updatedAt: "2026-10-30T12:00:00.000Z",
@@ -615,6 +649,60 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(
       screen.getByRole("checkbox", { name: "Gestión de turnos" }),
     ).not.toBeChecked();
+  });
+
+  it("expands the advanced configuration blocks and persists fine-tuning", async () => {
+    jest.mocked(sdkFetch).mockResolvedValue({ config: savedConfig });
+    renderWorkbench({ mode: "edit", initialConfig: savedConfig });
+
+    const advancedToggle = screen.getByTestId("publisher-app-advanced-toggle");
+    expect(advancedToggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByTestId("publisher-app-advanced-content")).toBeNull();
+
+    fireEvent.click(advancedToggle);
+    expect(advancedToggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("publisher-app-advanced-content")).toBeTruthy();
+    expect(screen.getByText("Identidad y disponibilidad")).toBeTruthy();
+    expect(screen.getByText("Alcance de Discover y servicios")).toBeTruthy();
+    expect(screen.getByText("Textos e idiomas")).toBeTruthy();
+    expect(screen.getByText("Currículo Learn")).toBeTruthy();
+    expect(screen.getByText("Recursos y títulos de Discover")).toBeTruthy();
+    expect(screen.getByText("Enlaces y contacto")).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("Nombre de la experiencia"), {
+      target: { value: "Pocket Genes Advanced" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Personalizar 9 tonos" }),
+    );
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /Catálogo y solicitudes/i }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+    await waitFor(() =>
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/publisher-app/config",
+        expect.objectContaining({ method: "PUT" }),
+      ),
+    );
+    const payload = JSON.parse(
+      String(jest.mocked(sdkFetch).mock.calls[0][1]?.body),
+    );
+    expect(payload.advancedConfiguration).toMatchObject({
+      displayName: "Pocket Genes Advanced",
+      catalogEnabled: false,
+      semanticColors: expect.objectContaining({
+        primary: "#123ABC",
+        secondary: "#456DEF",
+        accent: "#FEDCBA",
+      }),
+      discoverScope: {
+        mode: "organization",
+        publisherOrganizationId: "org-1",
+      },
+      learn: { mode: "base" },
+    });
   });
 
   it("supports a GOD MODE endpoint, status editing, and a safe admin layout", async () => {

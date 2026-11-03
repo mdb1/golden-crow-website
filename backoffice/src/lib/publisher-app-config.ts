@@ -28,6 +28,101 @@ export type PublisherAppColors = {
   tertiary: string;
 };
 
+export type PublisherAppSemanticColors = {
+  primary: string;
+  primaryStrong: string;
+  primaryDeep: string;
+  primarySoft: string;
+  secondary: string;
+  accent: string;
+  accentTextLight: string;
+  accentTextDark: string;
+  accentSurfaceLight: string;
+};
+
+export type PublisherAppLearnLesson = {
+  lessonIdentifier: string;
+  lessonTitle: string;
+  imageUrl: string | null;
+  lessonColor: string;
+  paragraphs: Array<{
+    paragraphTitle: string;
+    icon: string;
+    contentText: string;
+  }>;
+  usefulLinks: string[];
+  relatedLessons: string[];
+};
+
+export type PublisherAppLearnSubject = {
+  subjectIdentifier: string;
+  subjectTitle: string;
+  chapters: Array<{
+    chapterTitle: string;
+    lessons: PublisherAppLearnLesson[];
+  }>;
+};
+
+export type PublisherAppLearnConfiguration =
+  | { mode: "base" }
+  | {
+      mode: "replace";
+      curriculumId: string;
+      curriculumRevision: number;
+      defaultLanguage: string;
+      subjects: PublisherAppLearnSubject[];
+      topics: Record<string, string[]>;
+    };
+
+export type PublisherAppSpanishResourceKey =
+  | "SpanishInternalContent.json"
+  | "SpanishLearnContent.json"
+  | "SpanishObjectAdminContent.json"
+  | "SpanishPGOExploreContent.json"
+  | "SpanishPGOSchema1Content.json"
+  | "SpanishServicesContent.json";
+
+export type PublisherAppAdvancedConfiguration = {
+  displayName: string;
+  semanticColors: PublisherAppSemanticColors | null;
+  catalogEnabled: boolean;
+  feedEnabled: boolean;
+  discoverScope:
+    | { mode: "all" }
+    | { mode: "organization"; publisherOrganizationId: string };
+  serviceScope:
+    | { mode: "all" }
+    | {
+        mode: "provider";
+        providerId: string;
+        providerKind: "organization" | "individual";
+      };
+  localization: {
+    defaultLanguage: "en" | "es";
+    availableLanguages: Array<"en" | "es">;
+    copyOverrides: {
+      en: Record<string, string>;
+      es: Record<string, string>;
+    };
+  };
+  learn: PublisherAppLearnConfiguration;
+  resourceOverrides: {
+    discoverBannerTitles?: {
+      lessonTitles: Record<string, string>;
+      specialItemTitles: Record<string, string>;
+    };
+    spanishResources: Partial<
+      Record<PublisherAppSpanishResourceKey, Record<string, string>>
+    >;
+  };
+  links: {
+    joinUs: { en: string; es: string };
+    supportEmail: string;
+    privacyUrl: string;
+    termsUrl: string;
+  };
+};
+
 export type PublisherAppConfigInput = {
   platformOption: PublisherAppPlatformOption;
   connectEnabled: boolean;
@@ -37,6 +132,7 @@ export type PublisherAppConfigInput = {
   iconSource: PublisherAppIconSource;
   iconImageUrl: string | null;
   iconImageUploadDataUrl: string | null;
+  advancedConfiguration?: PublisherAppAdvancedConfiguration;
 };
 
 export type PublisherAppConfig = PublisherAppConfigInput & {
@@ -46,8 +142,8 @@ export type PublisherAppConfig = PublisherAppConfigInput & {
   publisherName: string;
   publisherEmail: string;
   publisherUsername: string;
-  catalogEnabled: true;
-  feedEnabled: true;
+  catalogEnabled: boolean;
+  feedEnabled: boolean;
   status: PublisherAppStatus;
   appProviderIdentifier?: string;
   runtimeRevision?: number;
@@ -131,6 +227,41 @@ export function normalizePublisherAppColor(value?: string) {
   return /^#[0-9a-fA-F]{6}$/.test(withHash)
     ? withHash.toUpperCase()
     : undefined;
+}
+
+function mixPublisherAppHex(
+  left: string,
+  right: string,
+  rightWeight: number,
+) {
+  const weight = Math.min(1, Math.max(0, rightWeight));
+  const channel = (offset: number) => {
+    const from = Number.parseInt(left.slice(offset, offset + 2), 16);
+    const to = Number.parseInt(right.slice(offset, offset + 2), 16);
+    return Math.round(from + (to - from) * weight)
+      .toString(16)
+      .padStart(2, "0");
+  };
+  return `#${channel(1)}${channel(3)}${channel(5)}`.toUpperCase();
+}
+
+export function publisherAppSemanticColors(
+  colors: PublisherAppColors,
+): PublisherAppSemanticColors {
+  const primary = normalizePublisherAppColor(colors.primary) ?? "#6D28D9";
+  const secondary = normalizePublisherAppColor(colors.secondary) ?? primary;
+  const accent = normalizePublisherAppColor(colors.tertiary) ?? primary;
+  return {
+    primary,
+    primaryStrong: mixPublisherAppHex(primary, "#000000", 0.12),
+    primaryDeep: mixPublisherAppHex(primary, "#000000", 0.26),
+    primarySoft: mixPublisherAppHex(primary, "#FFFFFF", 0.48),
+    secondary,
+    accent,
+    accentTextLight: mixPublisherAppHex(accent, "#000000", 0.28),
+    accentTextDark: mixPublisherAppHex(accent, "#FFFFFF", 0.38),
+    accentSurfaceLight: mixPublisherAppHex(accent, "#FFFFFF", 0.9),
+  };
 }
 
 function hexToRgb(value: string) {

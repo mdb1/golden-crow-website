@@ -9,6 +9,7 @@ import {
   buildPublisherAppCreationNotificationEmail,
   sendPublisherAppCreationNotificationEmails,
 } from "../lib/publisher-app-creation-notification-email.js";
+import { defaultPublisherAppAdvancedConfiguration } from "../lib/publisher-app-advanced-config.js";
 import type { PublisherAppConfigRecord } from "../types/sdk.types.js";
 
 const config: PublisherAppConfigRecord = {
@@ -34,6 +35,11 @@ const config: PublisherAppConfigRecord = {
   iconSource: "publisher",
   iconImageUrl: "https://example.org/icon.png",
   iconImageUploadDataUrl: null,
+  advancedConfiguration: defaultPublisherAppAdvancedConfiguration({
+    kind: "organization",
+    id: "org-1",
+    name: "Pocket Genes Lab",
+  }),
   createdAt: "2026-10-30T15:00:00.000Z",
   updatedAt: "2026-10-30T15:00:00.000Z",
   createdByUserId: "user-1",

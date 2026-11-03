@@ -976,6 +976,109 @@ export interface PublisherAppConfigColors {
   tertiary: string;
 }
 
+export interface PublisherAppSemanticColors {
+  primary: string;
+  primaryStrong: string;
+  primaryDeep: string;
+  primarySoft: string;
+  secondary: string;
+  accent: string;
+  accentTextLight: string;
+  accentTextDark: string;
+  accentSurfaceLight: string;
+}
+
+export type PublisherAppDiscoverScope =
+  | { mode: "all" }
+  | { mode: "organization"; publisherOrganizationId: string };
+
+export type PublisherAppServiceScope =
+  | { mode: "all" }
+  | {
+      mode: "provider";
+      providerId: string;
+      providerKind: PublisherAppPublisherKind;
+    };
+
+export interface PublisherAppLearnParagraph {
+  paragraphTitle: string;
+  icon: string;
+  contentText: string;
+}
+
+export interface PublisherAppLearnLesson {
+  lessonIdentifier: string;
+  lessonTitle: string;
+  imageUrl: string | null;
+  lessonColor: string;
+  paragraphs: PublisherAppLearnParagraph[];
+  usefulLinks: string[];
+  relatedLessons: string[];
+}
+
+export interface PublisherAppLearnChapter {
+  chapterTitle: string;
+  lessons: PublisherAppLearnLesson[];
+}
+
+export interface PublisherAppLearnSubject {
+  subjectIdentifier: string;
+  subjectTitle: string;
+  chapters: PublisherAppLearnChapter[];
+}
+
+export type PublisherAppLearnConfiguration =
+  | { mode: "base" }
+  | {
+      mode: "replace";
+      curriculumId: string;
+      curriculumRevision: number;
+      defaultLanguage: string;
+      subjects: PublisherAppLearnSubject[];
+      topics: Record<string, string[]>;
+    };
+
+export type PublisherAppSpanishResourceKey =
+  | "SpanishInternalContent.json"
+  | "SpanishLearnContent.json"
+  | "SpanishObjectAdminContent.json"
+  | "SpanishPGOExploreContent.json"
+  | "SpanishPGOSchema1Content.json"
+  | "SpanishServicesContent.json";
+
+export interface PublisherAppAdvancedConfiguration {
+  displayName: string;
+  semanticColors: PublisherAppSemanticColors | null;
+  catalogEnabled: boolean;
+  feedEnabled: boolean;
+  discoverScope: PublisherAppDiscoverScope;
+  serviceScope: PublisherAppServiceScope;
+  localization: {
+    defaultLanguage: "en" | "es";
+    availableLanguages: Array<"en" | "es">;
+    copyOverrides: {
+      en: Record<string, string>;
+      es: Record<string, string>;
+    };
+  };
+  learn: PublisherAppLearnConfiguration;
+  resourceOverrides: {
+    discoverBannerTitles?: {
+      lessonTitles: Record<string, string>;
+      specialItemTitles: Record<string, string>;
+    };
+    spanishResources: Partial<
+      Record<PublisherAppSpanishResourceKey, Record<string, string>>
+    >;
+  };
+  links: {
+    joinUs: { en: string; es: string };
+    supportEmail: string;
+    privacyUrl: string;
+    termsUrl: string;
+  };
+}
+
 export interface PublisherAppConfigInput {
   platformOption: PublisherAppPlatformOption;
   connectEnabled: boolean;
@@ -985,6 +1088,7 @@ export interface PublisherAppConfigInput {
   iconSource: PublisherAppIconSource;
   iconImageUrl: string | null;
   iconImageUploadDataUrl: string | null;
+  advancedConfiguration?: PublisherAppAdvancedConfiguration;
 }
 
 export interface PublisherAppConfigCreateInput extends PublisherAppConfigInput {
@@ -1003,8 +1107,8 @@ export interface PublisherAppConfigRecord extends PublisherAppConfigInput {
   publisherName: string;
   publisherEmail: string;
   publisherUsername: string;
-  catalogEnabled: true;
-  feedEnabled: true;
+  catalogEnabled: boolean;
+  feedEnabled: boolean;
   status: PublisherAppStatus;
   appProviderIdentifier?: string;
   runtimeRevision?: number;
@@ -1014,6 +1118,7 @@ export interface PublisherAppConfigRecord extends PublisherAppConfigInput {
   updatedAt: string;
   createdByUserId: string;
   updatedByUserId: string;
+  advancedConfiguration: PublisherAppAdvancedConfiguration;
   termsVersion?: string;
   termsAcceptedAt?: string;
   termsAcceptedByUserId?: string;
@@ -1063,17 +1168,8 @@ export interface PublisherAppRuntimeConfig {
   branding: {
     displayName: string;
     logoURL: string | null;
-    colors: {
-      primary: string;
-      primaryStrong: string;
-      primaryDeep: string;
-      primarySoft: string;
-      secondary: string;
-      accent: string;
-      accentTextLight: string;
-      accentTextDark: string;
-      accentSurfaceLight: string;
-    };
+    logoUploadDataUrl?: string | null;
+    colors: PublisherAppSemanticColors;
   };
   features: {
     catalogEnabled: boolean;
@@ -1082,24 +1178,53 @@ export interface PublisherAppRuntimeConfig {
     profileEnabled: boolean;
     learnEnabled: boolean;
   };
-  discoverScope:
-    | { mode: "all" }
-    | { mode: "organization"; publisherOrganizationId: string };
-  serviceScope: {
-    mode: "provider";
-    providerId: string;
-    providerKind: PublisherAppPublisherKind;
-  };
+  discoverScope: PublisherAppDiscoverScope;
+  serviceScope: PublisherAppServiceScope;
   localization: {
-    defaultLanguage: "es";
-    availableLanguages: ["en", "es"];
+    defaultLanguage: "en" | "es";
+    availableLanguages: Array<"en" | "es">;
     copyOverrides: {
       en: Record<string, string>;
       es: Record<string, string>;
     };
   };
-  learn: { mode: "base" };
-  resourceOverrides: Record<string, never>;
+  learn:
+    | { mode: "base" }
+    | {
+        mode: "replace";
+        curriculumId: string;
+        curriculumRevision: number;
+        defaultLanguage: string;
+        lessonReference: {
+          subjects: Array<{
+            subjectIdentifier: string;
+            subjectTitle: string;
+            chapters: Array<{
+              chapterTitle: string;
+              lessons: Array<{
+                lessonIdentifier: string;
+                lessonTitle: string;
+                imageURL: string | null;
+                lessonColor: string;
+              }>;
+            }>;
+          }>;
+        };
+        lessonDictionary: Record<
+          string,
+          {
+            lessonIdentifier: string;
+            lessonTitle: string;
+            imageURL: string | null;
+            lessonColor: string;
+            paragraphs: PublisherAppLearnParagraph[];
+            useful_links: string[];
+            related_lessons: string[];
+          }
+        >;
+        topics: Record<string, string[]>;
+      };
+  resourceOverrides: Record<string, unknown>;
   links: {
     joinUs: { en: string; es: string };
     supportEmail: string;

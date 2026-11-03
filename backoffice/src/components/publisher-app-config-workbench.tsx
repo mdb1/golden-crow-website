@@ -33,6 +33,7 @@ import {
   Power,
   RotateCcw,
   Save,
+  SlidersHorizontal,
   Smartphone,
   Sparkles,
   Trash2,
@@ -41,6 +42,7 @@ import {
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
+import { PublisherAppAdvancedConfigurationEditor } from "@/components/publisher-app-advanced-configuration";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -238,6 +240,7 @@ function initialState(
       iconSource: config.iconSource,
       iconImageUrl: config.iconImageUrl,
       iconImageUploadDataUrl: config.iconImageUploadDataUrl,
+      advancedConfiguration: config.advancedConfiguration,
     };
   }
   return {
@@ -1106,6 +1109,7 @@ function PublisherAppEditSheet({
   const [activeDialog, setActiveDialog] =
     useState<PublisherAppEditDialog>(null);
   const [dangerOpen, setDangerOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const optionalFeatures = [
     {
       label: "Sección Comunidad",
@@ -1540,6 +1544,56 @@ function PublisherAppEditSheet({
             </div>
           </aside>
         </div>
+
+        {state.advancedConfiguration ? (
+          <div className="border-t border-violet-100/80 dark:border-violet-400/14">
+            <button
+              type="button"
+              aria-expanded={advancedOpen}
+              aria-controls="publisher-app-advanced-content"
+              data-testid="publisher-app-advanced-toggle"
+              onClick={() => setAdvancedOpen((open) => !open)}
+              className="group flex w-full items-center gap-3 bg-violet-50/45 px-5 py-4 text-left transition hover:bg-violet-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-500 dark:bg-violet-950/16 dark:hover:bg-violet-500/8"
+            >
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 transition group-hover:bg-violet-600 group-hover:text-white dark:bg-violet-500/14 dark:text-violet-100">
+                <SlidersHorizontal className="size-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-heading text-base font-semibold text-foreground">
+                  Advanced configuration
+                </span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  Fine-tune branding, content scope, wording, Learn, resources and links
+                </span>
+              </span>
+              <span className="hidden text-xs font-semibold text-muted-foreground sm:inline">
+                {advancedOpen ? "Ocultar" : "Configurar"}
+              </span>
+              <ChevronDown
+                className={cn(
+                  "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                  advancedOpen && "rotate-180",
+                )}
+              />
+            </button>
+
+            {advancedOpen ? (
+              <div
+                id="publisher-app-advanced-content"
+                data-testid="publisher-app-advanced-content"
+                className="animate-in fade-in slide-in-from-top-2 border-t border-violet-100/80 bg-violet-50/20 px-5 py-5 duration-200 dark:border-violet-400/14 dark:bg-violet-950/8"
+              >
+                <PublisherAppAdvancedConfigurationEditor
+                  configuration={state.advancedConfiguration}
+                  baseColors={state.colors}
+                  onChange={(advancedConfiguration) =>
+                    onUpdateState({ advancedConfiguration })
+                  }
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <div
           className={cn(

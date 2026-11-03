@@ -8,6 +8,7 @@ import { randomInt } from "node:crypto";
 import { adminDbFor } from "../config/firebase.js";
 import type {
   AdminContext,
+  PublisherAppAdvancedConfiguration,
   PublisherAppConfigColors,
   PublisherAppConfigAdminUpdateInput,
   PublisherAppCatalogSnapshot,
@@ -20,6 +21,7 @@ import type {
   PublisherAppPublisherKind,
 } from "../types/sdk.types.js";
 import { buildPublisherAppRuntimeConfig } from "../lib/publisher-app-runtime-config.js";
+import { normalizePublisherAppAdvancedConfiguration } from "../lib/publisher-app-advanced-config.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 import {
   getProfileSetupState,
@@ -141,7 +143,9 @@ function normalizeColors(colors: PublisherAppConfigColors) {
 function normalizeInput(
   input: PublisherAppConfigInput,
   identity: PublisherIdentity,
-): PublisherAppConfigInput {
+): PublisherAppConfigInput & {
+  advancedConfiguration: PublisherAppAdvancedConfiguration;
+} {
   if (
     input.platformOption !== "ios" &&
     input.platformOption !== "ios_android"
@@ -219,6 +223,10 @@ function normalizeInput(
     iconSource: input.iconSource,
     iconImageUrl,
     iconImageUploadDataUrl,
+    advancedConfiguration: normalizePublisherAppAdvancedConfiguration(
+      input.advancedConfiguration,
+      identity,
+    ),
   };
 }
 
@@ -459,20 +467,27 @@ export function toPublisherAppConfigRecord(
     typeof data.termsAcceptedByUserId === "string"
       ? data.termsAcceptedByUserId.trim()
       : "";
+  const publisherId = requiredString(data.publisherId, "publisher id");
+  const publisherName = requiredString(data.publisherName, "publisher name");
+  const advancedConfiguration = normalizePublisherAppAdvancedConfiguration(
+    data.advancedConfiguration as PublisherAppAdvancedConfiguration | undefined,
+    { id: publisherId, kind: publisherKind, name: publisherName },
+    500,
+  );
 
   return {
     id: snapshot.id,
     schemaVersion: APP_CONFIG_SCHEMA_VERSION,
     publisherKind,
-    publisherId: requiredString(data.publisherId, "publisher id"),
-    publisherName: requiredString(data.publisherName, "publisher name"),
+    publisherId,
+    publisherName,
     publisherEmail: requiredString(data.publisherEmail, "publisher email"),
     publisherUsername: requiredString(
       data.publisherUsername,
       "publisher username",
     ),
-    catalogEnabled: true,
-    feedEnabled: true,
+    catalogEnabled: advancedConfiguration.catalogEnabled,
+    feedEnabled: advancedConfiguration.feedEnabled,
     status: storedAppStatus(data.status),
     ...(typeof data.appProviderIdentifier === "string" &&
     data.appProviderIdentifier.trim()
@@ -515,6 +530,7 @@ export function toPublisherAppConfigRecord(
       data.iconImageUploadDataUrl,
       "icon image upload",
     ),
+    advancedConfiguration,
     createdAt: timestampToIso(data.createdAt, "createdAt timestamp"),
     updatedAt: timestampToIso(data.updatedAt, "updatedAt timestamp"),
     createdByUserId: requiredString(data.createdByUserId, "creator user id"),
@@ -773,6 +789,7 @@ type PublisherAppSnapshotSource = Pick<
   | "id"
   | "appProviderIdentifier"
   | "publisherName"
+  | "advancedConfiguration"
   | "iconImageUrl"
   | "iconImageUploadDataUrl"
   | "status"
@@ -792,7 +809,7 @@ function publisherAppSnapshotItemFromSource(
   return {
     id: config.id,
     appProviderIdentifier: config.appProviderIdentifier ?? null,
-    name: config.publisherName,
+    name: config.advancedConfiguration?.displayName ?? config.publisherName,
     image:
       config.iconImageUrl ??
       config.iconImageUploadDataUrl ??
@@ -1110,7 +1127,17 @@ export async function updatePublisherAppConfigById(
   const existing = await ref.get();
   const config = toPublisherAppConfigRecord(existing);
   const identity = await adminPublisherIdentity(config);
-  const normalizedInput = normalizeInput(input, identity);
+  const normalizedInput = normalizeInput(
+    {
+      ...input,
+      advancedConfiguration:
+        input.advancedConfiguration ??
+        (config.advancedConfiguration.displayName === config.publisherName
+          ? { ...config.advancedConfiguration, displayName: identity.name }
+          : config.advancedConfiguration),
+    },
+    identity,
+  );
   if (input.status === "active" && !config.appProviderIdentifier) {
     throw new AdminRepositoryError(
       "Create an app identifier before activating the config.",
@@ -1244,6 +1271,7 @@ export async function createPublisherAppConfig(
       id: ref.id,
       appProviderIdentifier: undefined,
       publisherName: identity.name,
+      advancedConfiguration: normalizedInput.advancedConfiguration,
       iconImageUrl: normalizedInput.iconImageUrl,
       iconImageUploadDataUrl: normalizedInput.iconImageUploadDataUrl,
       status: "pending_revision",
@@ -1301,9 +1329,19 @@ export async function updatePublisherAppConfig(
     throw new AdminRepositoryError("Publisher app config not found.", 404);
   }
 
-  const identity = await publisherIdentity(context, scope);
-  const normalizedInput = normalizeInput(input, identity);
   const config = toPublisherAppConfigRecord(existing);
+  const identity = await publisherIdentity(context, scope);
+  const normalizedInput = normalizeInput(
+    {
+      ...input,
+      advancedConfiguration:
+        input.advancedConfiguration ??
+        (config.advancedConfiguration.displayName === config.publisherName
+          ? { ...config.advancedConfiguration, displayName: identity.name }
+          : config.advancedConfiguration),
+    },
+    identity,
+  );
   const nextSnapshotItem = publisherAppSnapshotItemFromSource(
     {
       ...config,

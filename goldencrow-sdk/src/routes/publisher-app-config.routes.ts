@@ -21,12 +21,165 @@ import { sendPublisherAppCreationNotificationEmails } from "../lib/publisher-app
 
 const APP_ICON_DATA_URL_PATTERN =
   /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
+const CUSTOM_APP_CONFIG_BODY_LIMIT_BYTES = 16 * 1024 * 1024;
 
 const HexColorSchema = z
   .string()
   .trim()
   .regex(/^#[0-9a-fA-F]{6}$/, "Use the #RRGGBB hex color format.")
   .transform((value) => value.toUpperCase());
+
+const NonBlankTextSchema = z.string().trim().min(1);
+const IdentifierSchema = NonBlankTextSchema.regex(
+  /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/,
+);
+const LessonIdentifierSchema = NonBlankTextSchema.regex(
+  /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/,
+);
+const HttpsUrlSchema = z
+  .string()
+  .trim()
+  .url()
+  .refine((value) => {
+    const parsed = new URL(value);
+    return (
+      parsed.protocol === "https:" && !parsed.username && !parsed.password
+    );
+  }, "Use a credential-free HTTPS URL.");
+const StringMapSchema = z.record(NonBlankTextSchema, NonBlankTextSchema);
+
+const SemanticColorsSchema = z
+  .object({
+    primary: HexColorSchema,
+    primaryStrong: HexColorSchema,
+    primaryDeep: HexColorSchema,
+    primarySoft: HexColorSchema,
+    secondary: HexColorSchema,
+    accent: HexColorSchema,
+    accentTextLight: HexColorSchema,
+    accentTextDark: HexColorSchema,
+    accentSurfaceLight: HexColorSchema,
+  })
+  .strict();
+
+const LearnParagraphSchema = z
+  .object({
+    paragraphTitle: NonBlankTextSchema,
+    icon: NonBlankTextSchema,
+    contentText: NonBlankTextSchema,
+  })
+  .strict();
+const LearnLessonSchema = z
+  .object({
+    lessonIdentifier: LessonIdentifierSchema,
+    lessonTitle: NonBlankTextSchema,
+    imageUrl: HttpsUrlSchema.nullable(),
+    lessonColor: HexColorSchema,
+    paragraphs: z.array(LearnParagraphSchema).min(1),
+    usefulLinks: z.array(HttpsUrlSchema),
+    relatedLessons: z.array(LessonIdentifierSchema),
+  })
+  .strict();
+const LearnChapterSchema = z
+  .object({
+    chapterTitle: NonBlankTextSchema,
+    lessons: z.array(LearnLessonSchema).min(1),
+  })
+  .strict();
+const LearnSubjectSchema = z
+  .object({
+    subjectIdentifier: NonBlankTextSchema,
+    subjectTitle: NonBlankTextSchema,
+    chapters: z.array(LearnChapterSchema).min(1),
+  })
+  .strict();
+const LearnConfigurationSchema = z.discriminatedUnion("mode", [
+  z.object({ mode: z.literal("base") }).strict(),
+  z
+    .object({
+      mode: z.literal("replace"),
+      curriculumId: IdentifierSchema,
+      curriculumRevision: z.number().int().min(1).max(2_147_483_647),
+      defaultLanguage: NonBlankTextSchema.regex(
+        /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/,
+      ),
+      subjects: z.array(LearnSubjectSchema).min(1),
+      topics: z.record(z.string(), z.array(NonBlankTextSchema)),
+    })
+    .strict(),
+]);
+
+const SpanishResourcesSchema = z
+  .object({
+    "SpanishInternalContent.json": StringMapSchema.optional(),
+    "SpanishLearnContent.json": StringMapSchema.optional(),
+    "SpanishObjectAdminContent.json": StringMapSchema.optional(),
+    "SpanishPGOExploreContent.json": StringMapSchema.optional(),
+    "SpanishPGOSchema1Content.json": StringMapSchema.optional(),
+    "SpanishServicesContent.json": StringMapSchema.optional(),
+  })
+  .strict();
+
+const PublisherAppAdvancedConfigurationSchema = z
+  .object({
+    displayName: NonBlankTextSchema,
+    semanticColors: SemanticColorsSchema.nullable(),
+    catalogEnabled: z.boolean(),
+    feedEnabled: z.boolean(),
+    discoverScope: z.discriminatedUnion("mode", [
+      z.object({ mode: z.literal("all") }).strict(),
+      z
+        .object({
+          mode: z.literal("organization"),
+          publisherOrganizationId: NonBlankTextSchema,
+        })
+        .strict(),
+    ]),
+    serviceScope: z.discriminatedUnion("mode", [
+      z.object({ mode: z.literal("all") }).strict(),
+      z
+        .object({
+          mode: z.literal("provider"),
+          providerId: NonBlankTextSchema,
+          providerKind: z.enum(["organization", "individual"]),
+        })
+        .strict(),
+    ]),
+    localization: z
+      .object({
+        defaultLanguage: z.enum(["en", "es"]),
+        availableLanguages: z
+          .array(z.enum(["en", "es"]))
+          .min(1)
+          .max(2),
+        copyOverrides: z
+          .object({ en: StringMapSchema, es: StringMapSchema })
+          .strict(),
+      })
+      .strict(),
+    learn: LearnConfigurationSchema,
+    resourceOverrides: z
+      .object({
+        discoverBannerTitles: z
+          .object({
+            lessonTitles: StringMapSchema,
+            specialItemTitles: StringMapSchema,
+          })
+          .strict()
+          .optional(),
+        spanishResources: SpanishResourcesSchema,
+      })
+      .strict(),
+    links: z
+      .object({
+        joinUs: z.object({ en: HttpsUrlSchema, es: HttpsUrlSchema }).strict(),
+        supportEmail: z.string().trim().email(),
+        privacyUrl: HttpsUrlSchema,
+        termsUrl: HttpsUrlSchema,
+      })
+      .strict(),
+  })
+  .strict();
 
 const PublisherAppConfigBodyShape = {
   platformOption: z.enum(["ios", "ios_android"]),
@@ -48,6 +201,7 @@ const PublisherAppConfigBodyShape = {
     .regex(APP_ICON_DATA_URL_PATTERN)
     .nullable()
     .default(null),
+  advancedConfiguration: PublisherAppAdvancedConfigurationSchema.optional(),
 };
 
 function validatePublisherAppIcon(
@@ -244,6 +398,7 @@ export async function publisherAppConfigRoutes(
   f.put(
     "/admin/publisher-app-configs/:configId",
     {
+      bodyLimit: CUSTOM_APP_CONFIG_BODY_LIMIT_BYTES,
       schema: {
         params: PublisherAppConfigAdminParamsSchema,
         body: PublisherAppConfigAdminUpdateBodySchema,
@@ -334,7 +489,10 @@ export async function publisherAppConfigRoutes(
 
   f.post(
     "/publisher-app/config",
-    { schema: { body: PublisherAppConfigCreateBodySchema } },
+    {
+      bodyLimit: CUSTOM_APP_CONFIG_BODY_LIMIT_BYTES,
+      schema: { body: PublisherAppConfigCreateBodySchema },
+    },
     async (request, reply) => {
       if (!request.adminContext) {
         return reply
@@ -364,7 +522,10 @@ export async function publisherAppConfigRoutes(
 
   f.put(
     "/publisher-app/config",
-    { schema: { body: PublisherAppConfigUpdateBodySchema } },
+    {
+      bodyLimit: CUSTOM_APP_CONFIG_BODY_LIMIT_BYTES,
+      schema: { body: PublisherAppConfigUpdateBodySchema },
+    },
     async (request, reply) => {
       if (!request.adminContext) {
         return reply
