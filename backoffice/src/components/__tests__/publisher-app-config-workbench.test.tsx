@@ -2,7 +2,13 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { PublisherAppConfigWorkbench } from "@/components/publisher-app-config-workbench";
 import type { PublisherAppConfig } from "@/lib/publisher-app-config";
@@ -668,6 +674,19 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(screen.getByText("Currículo Learn")).toBeTruthy();
     expect(screen.getByText("Recursos y títulos de Discover")).toBeTruthy();
     expect(screen.getByText("Enlaces y contacto")).toBeTruthy();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /Alcance de Discover y servicios/i,
+      }),
+    );
+    const scope = screen.getByTestId("publisher-app-scope-readonly");
+    expect(within(scope).queryAllByRole("combobox")).toHaveLength(0);
+    expect(within(scope).queryAllByRole("textbox")).toHaveLength(0);
+    expect(within(scope).getAllByText("org-1")).toHaveLength(2);
+    expect(
+      within(scope).getAllByText(/no se puede editar aquí/i),
+    ).toHaveLength(2);
 
     fireEvent.change(screen.getByLabelText("Nombre de la experiencia"), {
       target: { value: "Pocket Genes Advanced" },

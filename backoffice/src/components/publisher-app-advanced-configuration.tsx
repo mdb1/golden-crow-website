@@ -537,22 +537,6 @@ export function PublisherAppAdvancedConfigurationEditor({
   );
   const update = (patch: Partial<PublisherAppAdvancedConfiguration>) =>
     onChange({ ...configuration, ...patch });
-  const updateServiceProvider = (
-    patch: Partial<{
-      providerId: string;
-      providerKind: "organization" | "individual";
-    }>,
-  ) => {
-    const current =
-      configuration.serviceScope.mode === "provider"
-        ? configuration.serviceScope
-        : {
-            mode: "provider" as const,
-            providerId: "provider-id",
-            providerKind: "organization" as const,
-          };
-    update({ serviceScope: { ...current, ...patch, mode: "provider" } });
-  };
 
   return (
     <Accordion type="multiple" defaultValue={["identity"]} className="space-y-3">
@@ -584,10 +568,20 @@ export function PublisherAppAdvancedConfigurationEditor({
       </AccordionItem>
 
       <AccordionItem value="scope" className="rounded-2xl border border-violet-100 bg-white/75 px-4 dark:border-violet-400/15 dark:bg-slate-950/25">
-        <AccordionTrigger><span className="flex items-center gap-2"><Globe2 className="size-4 text-violet-600" /> Alcance de Discover y servicios</span></AccordionTrigger>
-        <AccordionContent className="grid gap-5 pb-5 md:grid-cols-2">
-          <div className="space-y-3 rounded-xl border p-4"><p className="font-semibold">Discover</p><Select value={configuration.discoverScope.mode} onValueChange={(mode) => update({ discoverScope: mode === "all" ? { mode: "all" } : { mode: "organization", publisherOrganizationId: configuration.discoverScope.mode === "organization" ? configuration.discoverScope.publisherOrganizationId : "organization-id" } })}><SelectTrigger aria-label="Alcance de Discover"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todo el contenido</SelectItem><SelectItem value="organization">Una organización</SelectItem></SelectContent></Select>{configuration.discoverScope.mode === "organization" ? <Input aria-label="ID de organización Discover" value={configuration.discoverScope.publisherOrganizationId} onChange={(event) => update({ discoverScope: { mode: "organization", publisherOrganizationId: event.target.value } })} /> : null}<p className="text-xs text-muted-foreground">Un ID inexistente produce una experiencia vacía; nunca amplía el filtro.</p></div>
-          <div className="space-y-3 rounded-xl border p-4"><p className="font-semibold">Servicios</p><Select value={configuration.serviceScope.mode} onValueChange={(mode) => update({ serviceScope: mode === "all" ? { mode: "all" } : { mode: "provider", providerId: configuration.serviceScope.mode === "provider" ? configuration.serviceScope.providerId : "provider-id", providerKind: configuration.serviceScope.mode === "provider" ? configuration.serviceScope.providerKind : "organization" } })}><SelectTrigger aria-label="Alcance de servicios"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todos los proveedores</SelectItem><SelectItem value="provider">Un proveedor</SelectItem></SelectContent></Select>{configuration.serviceScope.mode === "provider" ? <><Select value={configuration.serviceScope.providerKind} onValueChange={(providerKind) => updateServiceProvider({ providerKind: providerKind as "organization" | "individual" })}><SelectTrigger aria-label="Tipo de proveedor"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="organization">Organización</SelectItem><SelectItem value="individual">Profesional individual</SelectItem></SelectContent></Select><Input aria-label="ID del proveedor" value={configuration.serviceScope.providerId} onChange={(event) => updateServiceProvider({ providerId: event.target.value })} /></> : null}</div>
+        <AccordionTrigger><span className="flex items-center gap-2"><Globe2 className="size-4 text-violet-600" /> Alcance de Discover y servicios <Badge variant="outline" className="ml-1 rounded-full">Sólo lectura</Badge></span></AccordionTrigger>
+        <AccordionContent className="pb-5">
+          <div data-testid="publisher-app-scope-readonly" className="grid gap-5 md:grid-cols-2">
+            <div className="space-y-3 rounded-xl border bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-900/35">
+              <div className="flex items-center justify-between gap-3"><p className="font-semibold">Discover</p><Badge variant="secondary">{configuration.discoverScope.mode === "all" ? "Todo el contenido" : "Una organización"}</Badge></div>
+              {configuration.discoverScope.mode === "organization" ? <div><p className="text-xs font-semibold text-muted-foreground">ID de organización</p><p className="mt-1 break-all font-mono text-sm text-foreground">{configuration.discoverScope.publisherOrganizationId}</p></div> : null}
+              <p className="text-xs leading-5 text-muted-foreground">Este alcance se resuelve desde la identidad del publicador y no se puede editar aquí.</p>
+            </div>
+            <div className="space-y-3 rounded-xl border bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-900/35">
+              <div className="flex items-center justify-between gap-3"><p className="font-semibold">Servicios</p><Badge variant="secondary">{configuration.serviceScope.mode === "all" ? "Todos los proveedores" : "Un proveedor"}</Badge></div>
+              {configuration.serviceScope.mode === "provider" ? <dl className="grid gap-3 sm:grid-cols-2"><div><dt className="text-xs font-semibold text-muted-foreground">Tipo</dt><dd className="mt-1 text-sm font-medium text-foreground">{configuration.serviceScope.providerKind === "organization" ? "Organización" : "Profesional individual"}</dd></div><div><dt className="text-xs font-semibold text-muted-foreground">ID del proveedor</dt><dd className="mt-1 break-all font-mono text-sm text-foreground">{configuration.serviceScope.providerId}</dd></div></dl> : null}
+              <p className="text-xs leading-5 text-muted-foreground">Este alcance se resuelve desde el proveedor vinculado y no se puede editar aquí.</p>
+            </div>
+          </div>
         </AccordionContent>
       </AccordionItem>
 
