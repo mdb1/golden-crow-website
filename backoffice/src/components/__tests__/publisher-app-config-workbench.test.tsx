@@ -136,11 +136,13 @@ describe("PublisherAppConfigWorkbench", () => {
       appProviderIdentifier: "app_org_pocket_genes_lab_48217",
       runtimeRevision: 1,
     };
-    jest.mocked(sdkFetch).mockImplementation(async (path) =>
-      path === "/publisher-app/config/identifier"
-        ? { config: activatedConfig }
-        : { config: savedConfig },
-    );
+    jest
+      .mocked(sdkFetch)
+      .mockImplementation(async (path) =>
+        path === "/publisher-app/config/identifier"
+          ? { config: activatedConfig }
+          : { config: savedConfig },
+      );
     renderWorkbench();
 
     expect(
@@ -454,8 +456,7 @@ describe("PublisherAppConfigWorkbench", () => {
       jest
         .mocked(sdkFetch)
         .mock.calls.filter(
-          ([requestPath]) =>
-            requestPath === "/publisher-app/config/identifier",
+          ([requestPath]) => requestPath === "/publisher-app/config/identifier",
         ),
     ).toHaveLength(1);
     expect(
@@ -680,23 +681,51 @@ describe("PublisherAppConfigWorkbench", () => {
         name: /Alcance de Discover y servicios/i,
       }),
     );
+    const advancedModal = screen.getByTestId("publisher-app-advanced-modal");
+    expect(advancedModal).toHaveClass("sm:max-w-[90rem]");
+    expect(within(advancedModal).getByText("Etapa 1 de 3")).toBeTruthy();
+    fireEvent.click(
+      within(advancedModal).getByRole("button", { name: /Siguiente/i }),
+    );
     const scope = screen.getByTestId("publisher-app-scope-readonly");
     expect(within(scope).queryAllByRole("combobox")).toHaveLength(0);
     expect(within(scope).queryAllByRole("textbox")).toHaveLength(0);
     expect(within(scope).getAllByText("org-1")).toHaveLength(2);
-    expect(
-      within(scope).getAllByText(/no se puede editar aquí/i),
-    ).toHaveLength(2);
+    expect(within(scope).getAllByText(/no se puede editar aquí/i)).toHaveLength(
+      2,
+    );
+    fireEvent.click(
+      within(advancedModal).getByRole("button", { name: "Cerrar" }),
+    );
 
+    fireEvent.click(
+      screen.getByRole("button", { name: /Identidad y disponibilidad/i }),
+    );
+    fireEvent.change(screen.getByLabelText("Nombre de la experiencia"), {
+      target: { value: "Cambio descartado" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Identidad y disponibilidad/i }),
+    );
+    expect(screen.getByLabelText("Nombre de la experiencia")).toHaveValue(
+      "Pocket Genes Lab",
+    );
     fireEvent.change(screen.getByLabelText("Nombre de la experiencia"), {
       target: { value: "Pocket Genes Advanced" },
     });
+    fireEvent.click(screen.getByRole("button", { name: /Siguiente/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Catálogo y solicitudes/i }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Siguiente/i }));
     fireEvent.click(
       screen.getByRole("button", { name: "Personalizar 9 tonos" }),
     );
     fireEvent.click(
-      screen.getByRole("checkbox", { name: /Catálogo y solicitudes/i }),
+      screen.getByRole("button", { name: "Aplicar configuración" }),
     );
+    expect(screen.queryByTestId("publisher-app-advanced-modal")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
     await waitFor(() =>
@@ -822,7 +851,11 @@ describe("PublisherAppConfigWorkbench", () => {
       revision: 1,
       status: "published" as const,
       baseContentVersion: "pg-core-v1" as const,
-      publisher: { kind: "organization", id: "org-1", name: "Pocket Genes Lab" },
+      publisher: {
+        kind: "organization",
+        id: "org-1",
+        name: "Pocket Genes Lab",
+      },
     };
     jest.mocked(sdkFetch).mockResolvedValue(runtimeConfig);
     const createObjectURL = jest.fn(
@@ -855,9 +888,7 @@ describe("PublisherAppConfigWorkbench", () => {
       screen.getByRole("button", { name: "Descargar configuración" }),
     );
     await waitFor(() => expect(createObjectURL).toHaveBeenCalledTimes(1));
-    expect(sdkFetch).toHaveBeenCalledWith(
-      "/publisher-app/config/runtime",
-    );
+    expect(sdkFetch).toHaveBeenCalledWith("/publisher-app/config/runtime");
     const exportedBlob = createObjectURL.mock.calls[0][0] as Blob;
     expect(exportedBlob.type).toBe("application/json;charset=utf-8");
     expect(exportedBlob.size).toBeGreaterThan(100);
