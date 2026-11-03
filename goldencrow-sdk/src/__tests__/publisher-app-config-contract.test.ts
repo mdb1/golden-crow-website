@@ -30,6 +30,7 @@ const collections = new Map<string, Map<string, StoredDocument>>();
 const DELETE_FIELD = Symbol("delete-field");
 const mockGetProfileSetupState = jest.fn();
 const mockSendPublisherAppCreationNotificationEmails = jest.fn();
+const mockQueryReadCollections: string[] = [];
 let timestampCallCount = 0;
 
 function collectionStore(name: string) {
@@ -115,6 +116,7 @@ function queryForCollection(name: string) {
     return query;
   });
   query.get = jest.fn(async () => {
+    mockQueryReadCollections.push(name);
     const records = [...collectionStore(name).entries()].sort((left, right) => {
       const leftTime = new Date(String(left[1].updatedAt)).getTime();
       const rightTime = new Date(String(right[1].updatedAt)).getTime();
@@ -272,6 +274,7 @@ describe("publisher app config contract", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     collections.clear();
+    mockQueryReadCollections.length = 0;
     timestampCallCount = 0;
     context = organizationContext();
     seedPublisher("organization", "shared-publisher-id", {
@@ -1154,6 +1157,166 @@ describe("publisher app config contract", () => {
     expect(readResponse.statusCode).toBe(200);
     expect(readResponse.headers["cache-control"]).toBe("private, no-store");
     expect(readResponse.json()).toEqual(updateResponse.json());
+  });
+
+  it("updates only the affected snapshot item for relevant app mutations", async () => {
+    const createResponse = await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config",
+      payload: validBody,
+    });
+    expect(createResponse.statusCode).toBe(201);
+
+    context = makeAdminContext({
+      role: "full_admin",
+      isBootstrap: true,
+      uid: "god-user",
+    });
+    const fullRefresh = await fastify.inject({
+      method: "PUT",
+      url: "/admin/publisher-app-configs/snapshot",
+    });
+    expect(fullRefresh.statusCode).toBe(200);
+    mockQueryReadCollections.length = 0;
+    const initialSnapshot = collectionStore("custom_apps_snapshot").get(
+      "simple",
+    );
+    const initialSnapshotUpdatedAt = initialSnapshot?.updatedAt;
+
+    const paletteOnlyUpdate = await fastify.inject({
+      method: "PUT",
+      url: "/admin/publisher-app-configs/organization_shared-publisher-id",
+      payload: {
+        ...validBody,
+        termsAccepted: undefined,
+        colors: {
+          primary: "#010203",
+          secondary: "#040506",
+          tertiary: "#070809",
+        },
+        status: "pending_revision",
+      },
+    });
+    expect(paletteOnlyUpdate.statusCode).toBe(200);
+    expect(
+      collectionStore("custom_apps_snapshot").get("simple")?.updatedAt,
+    ).toEqual(initialSnapshotUpdatedAt);
+
+    const iconUpdate = await fastify.inject({
+      method: "PUT",
+      url: "/admin/publisher-app-configs/organization_shared-publisher-id",
+      payload: {
+        ...validBody,
+        termsAccepted: undefined,
+        iconSource: "custom",
+        iconImageUrl: null,
+        iconImageUploadDataUrl: "data:image/png;base64,QUJD",
+        status: "pending_revision",
+      },
+    });
+    expect(iconUpdate.statusCode).toBe(200);
+    expect(
+      (collectionStore("custom_apps_snapshot").get("simple")?.apps as Array<
+        Record<string, unknown>
+      >)[0],
+    ).toMatchObject({
+      id: "organization_shared-publisher-id",
+      image: "data:image/png;base64,QUJD",
+      status: "pending_revision",
+      isActive: false,
+    });
+
+    context = organizationContext();
+    const activation = await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config/identifier",
+    });
+    expect(activation.statusCode).toBe(200);
+    expect(
+      (collectionStore("custom_apps_snapshot").get("simple")?.apps as Array<
+        Record<string, unknown>
+      >)[0],
+    ).toMatchObject({
+      appProviderIdentifier: activation.json().config.appProviderIdentifier,
+      status: "active",
+      isActive: true,
+    });
+    expect(
+      collectionStore("custom_apps_snapshot").get("simple"),
+    ).toMatchObject({ activeCount: 1, inactiveCount: 0, totalCount: 1 });
+
+    const deactivation = await fastify.inject({
+      method: "DELETE",
+      url: "/publisher-app/config/identifier",
+    });
+    expect(deactivation.statusCode).toBe(200);
+    expect(
+      (collectionStore("custom_apps_snapshot").get("simple")?.apps as Array<
+        Record<string, unknown>
+      >)[0],
+    ).toMatchObject({
+      appProviderIdentifier: null,
+      status: "pending_revision",
+      isActive: false,
+    });
+
+    const deletion = await fastify.inject({
+      method: "DELETE",
+      url: "/publisher-app/config",
+    });
+    expect(deletion.statusCode).toBe(200);
+    expect(
+      collectionStore("custom_apps_snapshot").get("simple"),
+    ).toMatchObject({
+      totalCount: 0,
+      activeCount: 0,
+      inactiveCount: 0,
+      apps: [],
+    });
+
+    context = individualContext();
+    seedPublisher("individual", "shared-publisher-id", {
+      name: "New Individual App",
+      imageUploadDataUrl: "data:image/png;base64,REVG",
+      description: "New app description.",
+    });
+    const incrementalCreation = await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config",
+      payload: validBody,
+    });
+    expect(incrementalCreation.statusCode).toBe(201);
+    expect(
+      (collectionStore("custom_apps_snapshot").get("simple")?.apps as Array<
+        Record<string, unknown>
+      >)[0],
+    ).toMatchObject({
+      id: "individual_shared-publisher-id",
+      name: "New Individual App",
+      image: "data:image/png;base64,REVG",
+      description: "New app description.",
+    });
+
+    seedPublisher("individual", "shared-publisher-id", {
+      name: "Renamed Individual App",
+      imageUrl: "https://example.org/renamed-app.png",
+      description: "New app description.",
+    });
+    const publisherUpdate = await fastify.inject({
+      method: "PUT",
+      url: "/publisher-app/config",
+      payload: validBody,
+    });
+    expect(publisherUpdate.statusCode).toBe(200);
+    expect(
+      (collectionStore("custom_apps_snapshot").get("simple")?.apps as Array<
+        Record<string, unknown>
+      >)[0],
+    ).toMatchObject({
+      name: "Renamed Individual App",
+      image: "https://example.org/renamed-app.png",
+    });
+    expect(mockQueryReadCollections).not.toContain("app_configs");
   });
 
   it("lets GOD MODE open and update any app config by document id", async () => {

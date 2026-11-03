@@ -2,6 +2,7 @@ import {
   FieldValue,
   Timestamp,
   type DocumentSnapshot,
+  type Transaction,
 } from "firebase-admin/firestore";
 import { randomInt } from "node:crypto";
 import { adminDbFor } from "../config/firebase.js";
@@ -50,6 +51,8 @@ type PublisherIdentity = PublisherScope & {
   username: string;
   imageUrl: string | null;
   imageUploadDataUrl: string | null;
+  description: string;
+  descriptionEn: string;
 };
 
 const APP_ICON_DATA_URL_PATTERN =
@@ -316,6 +319,14 @@ async function publisherIdentity(
       publisherData.imageUploadDataUrl.trim()
         ? publisherData.imageUploadDataUrl.trim()
         : null,
+    description:
+      typeof publisherData.description === "string"
+        ? publisherData.description
+        : "",
+    descriptionEn:
+      typeof publisherData.descriptionEn === "string"
+        ? publisherData.descriptionEn
+        : "",
   };
 }
 
@@ -757,6 +768,176 @@ function compactSnapshotDescription(value: unknown) {
     .slice(0, APP_SNAPSHOT_DESCRIPTION_MAX_LENGTH);
 }
 
+type PublisherAppSnapshotSource = Pick<
+  PublisherAppConfigRecord,
+  | "id"
+  | "appProviderIdentifier"
+  | "publisherName"
+  | "iconImageUrl"
+  | "iconImageUploadDataUrl"
+  | "status"
+  | "publisherKind"
+  | "publisherId"
+>;
+
+function publisherAppSnapshotItemFromSource(
+  config: PublisherAppSnapshotSource,
+  publisher: {
+    imageUrl?: string | null;
+    imageUploadDataUrl?: string | null;
+    description?: string;
+    descriptionEn?: string;
+  } = {},
+): PublisherAppCatalogSnapshotItem {
+  return {
+    id: config.id,
+    appProviderIdentifier: config.appProviderIdentifier ?? null,
+    name: config.publisherName,
+    image:
+      config.iconImageUrl ??
+      config.iconImageUploadDataUrl ??
+      publisher.imageUrl ??
+      publisher.imageUploadDataUrl ??
+      null,
+    description:
+      compactSnapshotDescription(publisher.description) ||
+      compactSnapshotDescription(publisher.descriptionEn),
+    status: config.status,
+    isActive: config.status === "active",
+    publisherKind: config.publisherKind,
+    publisherId: config.publisherId,
+  };
+}
+
+function catalogSnapshotItemsEqual(
+  left: PublisherAppCatalogSnapshotItem,
+  right: PublisherAppCatalogSnapshotItem,
+) {
+  return (
+    left.id === right.id &&
+    left.appProviderIdentifier === right.appProviderIdentifier &&
+    left.name === right.name &&
+    left.image === right.image &&
+    left.description === right.description &&
+    left.status === right.status &&
+    left.isActive === right.isActive &&
+    left.publisherKind === right.publisherKind &&
+    left.publisherId === right.publisherId
+  );
+}
+
+function appConfigChangeAffectsCatalogSnapshot(
+  previous: PublisherAppConfigRecord,
+  next: PublisherAppCatalogSnapshotItem,
+) {
+  const previousItem = publisherAppSnapshotItemFromSource(previous, {
+    description: next.description,
+  });
+  return !catalogSnapshotItemsEqual(previousItem, next);
+}
+
+function catalogSnapshotIncrementalUpdate(
+  snapshot: DocumentSnapshot,
+  targetId: string,
+  nextItem: PublisherAppCatalogSnapshotItem | null,
+  updatedByUserId: string,
+) {
+  if (!snapshot.exists) return null;
+
+  const current = toPublisherAppCatalogSnapshot(snapshot);
+  const previousIndex = current.apps.findIndex((app) => app.id === targetId);
+  const previousItem =
+    previousIndex >= 0 ? current.apps[previousIndex] ?? null : null;
+  if (
+    (previousItem &&
+      nextItem &&
+      catalogSnapshotItemsEqual(previousItem, nextItem)) ||
+    (!previousItem && !nextItem)
+  ) {
+    return null;
+  }
+
+  const apps = [...current.apps];
+  if (previousIndex >= 0) {
+    if (nextItem) {
+      apps[previousIndex] = nextItem;
+    } else {
+      apps.splice(previousIndex, 1);
+    }
+  } else if (nextItem) {
+    apps.push(nextItem);
+  }
+  apps.sort(
+    (left, right) =>
+      left.name.localeCompare(right.name) || left.id.localeCompare(right.id),
+  );
+
+  const statusCounts = new Map(
+    current.statusCounts.map(({ status, count }) => [status, count]),
+  );
+  if (previousItem) {
+    statusCounts.set(
+      previousItem.status,
+      Math.max(0, (statusCounts.get(previousItem.status) ?? 0) - 1),
+    );
+  }
+  if (nextItem) {
+    statusCounts.set(
+      nextItem.status,
+      (statusCounts.get(nextItem.status) ?? 0) + 1,
+    );
+  }
+
+  const activeCount =
+    current.activeCount - (previousItem?.isActive ? 1 : 0) +
+    (nextItem?.isActive ? 1 : 0);
+  return {
+    id: CUSTOM_APPS_SNAPSHOT_DOCUMENT,
+    schemaVersion: CUSTOM_APPS_SNAPSHOT_SCHEMA_VERSION,
+    totalCount: apps.length,
+    activeCount,
+    inactiveCount: apps.length - activeCount,
+    statusCounts: PUBLISHER_APP_STATUSES.map((status) => ({
+      status,
+      count: statusCounts.get(status) ?? 0,
+    })),
+    apps,
+    sourceReadCount: current.sourceReadCount,
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedByUserId,
+  };
+}
+
+function updateCatalogSnapshotInTransaction(
+  transaction: Transaction,
+  snapshot: DocumentSnapshot,
+  targetId: string,
+  nextItem: PublisherAppCatalogSnapshotItem | null,
+  updatedByUserId: string,
+) {
+  const update = catalogSnapshotIncrementalUpdate(
+    snapshot,
+    targetId,
+    nextItem,
+    updatedByUserId,
+  );
+  if (update) transaction.update(snapshot.ref, update);
+}
+
+function publisherAppSnapshotItemPreservingDescription(
+  config: PublisherAppSnapshotSource,
+  snapshot: DocumentSnapshot,
+) {
+  const existingItem = snapshot.exists
+    ? toPublisherAppCatalogSnapshot(snapshot).apps.find(
+        (app) => app.id === config.id,
+      )
+    : undefined;
+  return publisherAppSnapshotItemFromSource(config, {
+    description: existingItem?.description ?? "",
+  });
+}
+
 async function publisherAppSnapshotItem(
   config: PublisherAppConfigRecord,
 ): Promise<PublisherAppCatalogSnapshotItem> {
@@ -781,23 +962,18 @@ async function publisherAppSnapshotItem(
     "publisher image upload",
   );
 
-  return {
-    id: config.id,
-    appProviderIdentifier: config.appProviderIdentifier ?? null,
-    name: config.publisherName,
-    image:
-      config.iconImageUrl ??
-      config.iconImageUploadDataUrl ??
-      publisherImageUrl ??
-      publisherImageUpload,
+  return publisherAppSnapshotItemFromSource(config, {
+    imageUrl: publisherImageUrl,
+    imageUploadDataUrl: publisherImageUpload,
     description:
-      compactSnapshotDescription(publisherData.description) ||
-      compactSnapshotDescription(publisherData.descriptionEn),
-    status: config.status,
-    isActive: config.status === "active",
-    publisherKind: config.publisherKind,
-    publisherId: config.publisherId,
-  };
+      typeof publisherData.description === "string"
+        ? publisherData.description
+        : "",
+    descriptionEn:
+      typeof publisherData.descriptionEn === "string"
+        ? publisherData.descriptionEn
+        : "",
+  });
 }
 
 async function loadAllPublisherAppConfigs() {
@@ -914,6 +1090,14 @@ async function adminPublisherIdentity(
         : currentPublisherIcon
           ? config.iconImageUploadDataUrl
           : null,
+    description:
+      typeof publisherData.description === "string"
+        ? publisherData.description
+        : "",
+    descriptionEn:
+      typeof publisherData.descriptionEn === "string"
+        ? publisherData.descriptionEn
+        : "",
   };
 }
 
@@ -933,16 +1117,59 @@ export async function updatePublisherAppConfigById(
       409,
     );
   }
-
-  await ref.update({
+  const nextSnapshotItem = publisherAppSnapshotItemFromSource(
+    {
+      ...config,
+      ...normalizedInput,
+      status: input.status,
+    },
+    identity,
+  );
+  const snapshotRelevantChange = appConfigChangeAffectsCatalogSnapshot(
+    config,
+    nextSnapshotItem,
+  );
+  const update = {
     ...normalizedInput,
     status: input.status,
-    ...(config.status === "active"
-      ? { runtimeRevision: (config.runtimeRevision ?? 1) + 1 }
-      : {}),
     updatedAt: FieldValue.serverTimestamp(),
     updatedByUserId: context.uid,
-  });
+  };
+
+  if (snapshotRelevantChange) {
+    const snapshotRef = adminDb
+      .collection(CUSTOM_APPS_SNAPSHOT_COLLECTION)
+      .doc(CUSTOM_APPS_SNAPSHOT_DOCUMENT);
+    await adminDb.runTransaction(async (transaction) => {
+      const currentConfigSnapshot = await transaction.get(ref);
+      const currentConfig = toPublisherAppConfigRecord(currentConfigSnapshot);
+      const catalogSnapshot = await transaction.get(snapshotRef);
+      transaction.update(ref, {
+        ...update,
+        ...(currentConfig.status === "active"
+          ? { runtimeRevision: (currentConfig.runtimeRevision ?? 1) + 1 }
+          : {}),
+      });
+      updateCatalogSnapshotInTransaction(
+        transaction,
+        catalogSnapshot,
+        currentConfig.id,
+        {
+          ...nextSnapshotItem,
+          appProviderIdentifier:
+            currentConfig.appProviderIdentifier ?? null,
+        },
+        context.uid,
+      );
+    });
+  } else {
+    await ref.update({
+      ...update,
+      ...(config.status === "active"
+        ? { runtimeRevision: (config.runtimeRevision ?? 1) + 1 }
+        : {}),
+    });
+  }
 
   return toPublisherAppConfigRecord(await ref.get());
 }
@@ -1012,9 +1239,42 @@ export async function createPublisherAppConfig(
     createdByUserId: context.uid,
     updatedByUserId: context.uid,
   };
+  const snapshotItem = publisherAppSnapshotItemFromSource(
+    {
+      id: ref.id,
+      appProviderIdentifier: undefined,
+      publisherName: identity.name,
+      iconImageUrl: normalizedInput.iconImageUrl,
+      iconImageUploadDataUrl: normalizedInput.iconImageUploadDataUrl,
+      status: "pending_revision",
+      publisherKind: identity.kind,
+      publisherId: identity.id,
+    },
+    identity,
+  );
+  const snapshotRef = adminDb
+    .collection(CUSTOM_APPS_SNAPSHOT_COLLECTION)
+    .doc(CUSTOM_APPS_SNAPSHOT_DOCUMENT);
 
   try {
-    await ref.create(document);
+    await adminDb.runTransaction(async (transaction) => {
+      const currentConfig = await transaction.get(ref);
+      if (currentConfig.exists) {
+        throw new AdminRepositoryError(
+          "A publisher app config already exists.",
+          409,
+        );
+      }
+      const catalogSnapshot = await transaction.get(snapshotRef);
+      transaction.create(ref, document);
+      updateCatalogSnapshotInTransaction(
+        transaction,
+        catalogSnapshot,
+        ref.id,
+        snapshotItem,
+        context.uid,
+      );
+    });
   } catch (error) {
     if (isAlreadyExistsError(error)) {
       throw new AdminRepositoryError(
@@ -1043,9 +1303,20 @@ export async function updatePublisherAppConfig(
 
   const identity = await publisherIdentity(context, scope);
   const normalizedInput = normalizeInput(input, identity);
-  const existingData = (existing.data() ?? {}) as Record<string, unknown>;
-  const existingStatus = storedAppStatus(existingData.status);
-  await ref.update({
+  const config = toPublisherAppConfigRecord(existing);
+  const nextSnapshotItem = publisherAppSnapshotItemFromSource(
+    {
+      ...config,
+      ...normalizedInput,
+      publisherName: identity.name,
+    },
+    identity,
+  );
+  const snapshotRelevantChange = appConfigChangeAffectsCatalogSnapshot(
+    config,
+    nextSnapshotItem,
+  );
+  const baseUpdate = {
     schemaVersion: APP_CONFIG_SCHEMA_VERSION,
     publisherKind: identity.kind,
     publisherId: identity.id,
@@ -1054,20 +1325,49 @@ export async function updatePublisherAppConfig(
     publisherUsername: identity.username,
     catalogEnabled: true,
     feedEnabled: true,
-    status: existingStatus,
+    status: config.status,
     ...normalizedInput,
-    ...(existingStatus === "active"
-      ? {
-          runtimeRevision:
-            storedPositiveInteger(
-              existingData.runtimeRevision ?? 1,
-              "runtime revision",
-            ) + 1,
-        }
-      : {}),
     updatedAt: FieldValue.serverTimestamp(),
     updatedByUserId: context.uid,
-  });
+  };
+
+  if (snapshotRelevantChange) {
+    const snapshotRef = adminDb
+      .collection(CUSTOM_APPS_SNAPSHOT_COLLECTION)
+      .doc(CUSTOM_APPS_SNAPSHOT_DOCUMENT);
+    await adminDb.runTransaction(async (transaction) => {
+      const currentConfigSnapshot = await transaction.get(ref);
+      const currentConfig = toPublisherAppConfigRecord(currentConfigSnapshot);
+      const catalogSnapshot = await transaction.get(snapshotRef);
+      transaction.update(ref, {
+        ...baseUpdate,
+        status: currentConfig.status,
+        ...(currentConfig.status === "active"
+          ? { runtimeRevision: (currentConfig.runtimeRevision ?? 1) + 1 }
+          : {}),
+      });
+      updateCatalogSnapshotInTransaction(
+        transaction,
+        catalogSnapshot,
+        currentConfig.id,
+        {
+          ...nextSnapshotItem,
+          appProviderIdentifier:
+            currentConfig.appProviderIdentifier ?? null,
+          status: currentConfig.status,
+          isActive: currentConfig.status === "active",
+        },
+        context.uid,
+      );
+    });
+  } else {
+    await ref.update({
+      ...baseUpdate,
+      ...(config.status === "active"
+        ? { runtimeRevision: (config.runtimeRevision ?? 1) + 1 }
+        : {}),
+    });
+  }
 
   return toPublisherAppConfigRecord(await ref.get());
 }
@@ -1079,6 +1379,9 @@ export async function createPublisherAppIdentifier(
   const ref = adminDb
     .collection(APP_CONFIGS_COLLECTION)
     .doc(`${scope.kind}_${scope.id}`);
+  const catalogSnapshotRef = adminDb
+    .collection(CUSTOM_APPS_SNAPSHOT_COLLECTION)
+    .doc(CUSTOM_APPS_SNAPSHOT_DOCUMENT);
 
   const initialSnapshot = await ref.get();
   const initialConfig = toPublisherAppConfigRecord(initialSnapshot);
@@ -1132,6 +1435,16 @@ export async function createPublisherAppIdentifier(
         return false;
       }
 
+      const catalogSnapshot = await transaction.get(catalogSnapshotRef);
+      const nextSnapshotItem = publisherAppSnapshotItemPreservingDescription(
+        {
+          ...config,
+          appProviderIdentifier,
+          status: "active",
+        },
+        catalogSnapshot,
+      );
+
       const timestamp = FieldValue.serverTimestamp();
       transaction.create(identifierRef, {
         appProviderIdentifier,
@@ -1151,6 +1464,13 @@ export async function createPublisherAppIdentifier(
         updatedAt: timestamp,
         updatedByUserId: context.uid,
       });
+      updateCatalogSnapshotInTransaction(
+        transaction,
+        catalogSnapshot,
+        config.id,
+        nextSnapshotItem,
+        context.uid,
+      );
       return true;
     });
   }
@@ -1172,6 +1492,9 @@ export async function deactivatePublisherAppIdentifier(
   const ref = adminDb
     .collection(APP_CONFIGS_COLLECTION)
     .doc(`${scope.kind}_${scope.id}`);
+  const catalogSnapshotRef = adminDb
+    .collection(CUSTOM_APPS_SNAPSHOT_COLLECTION)
+    .doc(CUSTOM_APPS_SNAPSHOT_DOCUMENT);
 
   await adminDb.runTransaction(async (transaction) => {
     const snapshot = await transaction.get(ref);
@@ -1183,6 +1506,16 @@ export async function deactivatePublisherAppIdentifier(
       );
     }
 
+    const catalogSnapshot = await transaction.get(catalogSnapshotRef);
+    const nextSnapshotItem = publisherAppSnapshotItemPreservingDescription(
+      {
+        ...config,
+        appProviderIdentifier: undefined,
+        status: "pending_revision",
+      },
+      catalogSnapshot,
+    );
+
     transaction.update(ref, {
       appProviderIdentifier: FieldValue.delete(),
       runtimeRevision: FieldValue.delete(),
@@ -1192,6 +1525,13 @@ export async function deactivatePublisherAppIdentifier(
       updatedAt: FieldValue.serverTimestamp(),
       updatedByUserId: context.uid,
     });
+    updateCatalogSnapshotInTransaction(
+      transaction,
+      catalogSnapshot,
+      config.id,
+      nextSnapshotItem,
+      context.uid,
+    );
   });
 
   return toPublisherAppConfigRecord(await ref.get());
@@ -1264,6 +1604,9 @@ export async function deletePublisherAppConfig(
   const ref = adminDb
     .collection(APP_CONFIGS_COLLECTION)
     .doc(`${scope.kind}_${scope.id}`);
+  const catalogSnapshotRef = adminDb
+    .collection(CUSTOM_APPS_SNAPSHOT_COLLECTION)
+    .doc(CUSTOM_APPS_SNAPSHOT_DOCUMENT);
 
   return adminDb.runTransaction(async (transaction) => {
     const existing = await transaction.get(ref);
@@ -1279,7 +1622,15 @@ export async function deletePublisherAppConfig(
       );
     }
 
+    const catalogSnapshot = await transaction.get(catalogSnapshotRef);
     transaction.delete(ref);
+    updateCatalogSnapshotInTransaction(
+      transaction,
+      catalogSnapshot,
+      config.id,
+      null,
+      context.uid,
+    );
     return { id: config.id };
   });
 }
