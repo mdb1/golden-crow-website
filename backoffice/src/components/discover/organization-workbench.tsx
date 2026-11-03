@@ -147,10 +147,7 @@ type ProcessedPublisherImageUpload = {
   compressed: boolean;
 };
 
-type LinkedProfessionalPreview =
-  DiscoverLinkedIndividualProfessionalSnapshot & {
-    imageUploadDataUrl?: string | null;
-  };
+type LinkedProfessionalPreview = DiscoverLinkedIndividualProfessionalSnapshot;
 
 type OrganizationFormState = {
   name: string;
@@ -796,6 +793,12 @@ function LinkedParentOrganizationPicker({
     snapshot?.imageUrl ??
     snapshot?.imageUploadDataUrl ??
     "";
+  const selectedDescription =
+    selectedOrganization?.description ??
+    selectedOrganization?.descriptionEn ??
+    snapshot?.description ??
+    snapshot?.descriptionEn ??
+    "";
   const normalizedQuery = query.trim().toLowerCase();
   const visibleOrganizations = normalizedQuery
     ? organizations.filter((organization) =>
@@ -869,8 +872,10 @@ function LinkedParentOrganizationPicker({
                 ? selectedName
                 : t("Independent professional")}
             </span>
-            <span className="block truncate text-xs text-muted-foreground">
-              {value || t("No parent organization assigned")}
+            <span className="block text-xs leading-5 text-muted-foreground">
+              {value
+                ? selectedDescription || value
+                : t("No parent organization assigned")}
             </span>
           </span>
         </div>
@@ -965,8 +970,10 @@ function LinkedParentOrganizationPicker({
                     <span className="block truncate text-sm font-semibold">
                       {organization.name}
                     </span>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {organization.id}
+                    <span className="block text-xs leading-5 text-muted-foreground">
+                      {organization.description ||
+                        organization.descriptionEn ||
+                        organization.id}
                     </span>
                   </span>
                   {selected ? (
@@ -1112,6 +1119,8 @@ function LinkedIndividualProfessionalsEditor({
       name: professional.name,
       imageUrl: professional.imageUrl,
       imageUploadDataUrl: professional.imageUploadDataUrl ?? null,
+      description: professional.description ?? null,
+      descriptionEn: professional.descriptionEn ?? null,
     }),
   );
   const linkById = new Map(
@@ -1123,6 +1132,9 @@ function LinkedIndividualProfessionalsEditor({
         id: individualId,
         name: individualId,
         imageUrl: null,
+        imageUploadDataUrl: null,
+        description: null,
+        descriptionEn: null,
       },
   );
   const normalizedQuery = query.trim().toLowerCase();
@@ -1296,9 +1308,14 @@ function LinkedIndividualProfessionalsEditor({
                   <span className="block truncate text-sm font-semibold">
                     {professional.name}
                   </span>
+                  {professional.description || professional.descriptionEn ? (
+                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                      {professional.description || professional.descriptionEn}
+                    </span>
+                  ) : null}
                   <span
                     className={cn(
-                      "mt-1 block truncate text-xs",
+                      "mt-1 block text-xs",
                       hasIssue ? "text-amber-700" : "text-muted-foreground",
                     )}
                   >
@@ -1445,8 +1462,10 @@ function LinkedIndividualProfessionalsEditor({
                     <span className="block truncate text-sm font-semibold">
                       {professional.name}
                     </span>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {professional.id}
+                    <span className="block text-xs leading-5 text-muted-foreground">
+                      {professional.description ||
+                        professional.descriptionEn ||
+                        professional.id}
                     </span>
                   </span>
                   <span
@@ -2400,7 +2419,7 @@ function DiscoverPublisherWorkbench({
                   ? t("Create individual publisher")
                   : t("Create organization")
                 : isIndividual
-                  ? t("Individual publisher")
+                  ? state.name.trim() || t("Individual publisher")
                   : t("Organization")}
             </h2>
             <HeaderUnclutterButton />

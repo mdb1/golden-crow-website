@@ -608,6 +608,8 @@ describe("discover repository", () => {
       {
         name: "Dr. Publisher One",
         imageUrl: "https://example.org/individual.png",
+        description: "Descripción individual",
+        descriptionEn: "Individual description",
         individualType: "pro_research_scientists",
         linkedParentOrganizationId: "org-1",
       } as Record<string, unknown>,
@@ -619,6 +621,8 @@ describe("discover repository", () => {
       name: "Publisher One",
       imageUrl: "https://example.org/publisher.png",
       imageUploadDataUrl: null,
+      description: "Descripción pública",
+      descriptionEn: "Public description",
     });
     expect(
       mockIndividualDocs.find((doc) => doc.id === "person-1")?.data,
@@ -639,6 +643,9 @@ describe("discover repository", () => {
         id: "person-1",
         name: "Dr. Publisher One",
         imageUrl: "https://example.org/individual.png",
+        imageUploadDataUrl: null,
+        description: "Descripción individual",
+        descriptionEn: "Individual description",
       },
     ]);
 
@@ -648,6 +655,9 @@ describe("discover repository", () => {
       {
         name: "Dr. Publisher One",
         imageUrl: "https://example.org/individual.png",
+        imageUploadDataUrl: null,
+        description: "Descripción individual",
+        descriptionEn: "Individual description",
         individualType: "pro_research_scientists",
         linkedParentOrganizationId: null,
       } as Record<string, unknown>,
@@ -682,6 +692,9 @@ describe("discover repository", () => {
         id: "person-1",
         name: "Dr. Publisher One",
         imageUrl: "https://example.org/individual.png",
+        imageUploadDataUrl: null,
+        description: "Descripción individual",
+        descriptionEn: "Individual description",
       },
     ]);
     expect(
@@ -719,6 +732,8 @@ describe("discover repository", () => {
     await updateDiscoverIndividual(fullAdminContext, "person-1", {
       name: "Dr. Publisher Renamed",
       imageUrl: "https://example.org/individual.png",
+      description: "Descripción individual",
+      descriptionEn: "Individual description",
       individualType: "pro_research_scientists",
       linkedParentOrganizationId: "org-1",
     } as Record<string, unknown>);
@@ -730,6 +745,9 @@ describe("discover repository", () => {
         id: "person-1",
         name: "Dr. Publisher Renamed",
         imageUrl: "https://example.org/individual.png",
+        imageUploadDataUrl: null,
+        description: "Descripción individual",
+        descriptionEn: "Individual description",
       },
     ]);
 
@@ -770,6 +788,8 @@ describe("discover repository", () => {
     await updateDiscoverOrganization(fullAdminContext, "org-1", {
       name: "Publisher One",
       imageUrl: "https://example.org/publisher.png",
+      description: "Descripción pública",
+      descriptionEn: "Public description",
       organizationType:
         "org_patient_advocacy_organizations,org_genetics_research_institutes",
       linkedIndividualProfessionalIds: ["person-1"],
@@ -782,6 +802,8 @@ describe("discover repository", () => {
       id: "org-1",
       imageUrl: "https://example.org/publisher.png",
       imageUploadDataUrl: null,
+      description: "Descripción pública",
+      descriptionEn: "Public description",
     });
 
     const storedIndividual = mockIndividualDocs.find(
@@ -808,6 +830,59 @@ describe("discover repository", () => {
       id: "org-1",
       imageUrl: "https://example.org/publisher.png",
       imageUploadDataUrl: null,
+    });
+  });
+
+  it("copies uploaded images and real descriptions into both reciprocal snapshots", async () => {
+    const { updateDiscoverOrganization } =
+      await import("../repositories/discover.repository");
+    const organizationImage = "data:image/png;base64,T1JH";
+    const professionalImage = "data:image/png;base64,UFJP";
+    const organization = mockOrganizationDocs.find(
+      (doc) => doc.id === "org-1",
+    );
+    const individual = mockIndividualDocs.find(
+      (doc) => doc.id === "person-1",
+    );
+    organization!.data.imageUrl = null;
+    organization!.data.imageUploadDataUrl = organizationImage;
+    individual!.data.imageUrl = null;
+    individual!.data.imageUploadDataUrl = professionalImage;
+
+    const linked = await updateDiscoverOrganization(
+      fullAdminContext,
+      "org-1",
+      {
+        name: "Publisher One",
+        imageUrl: null,
+        description: "Descripción pública completa",
+        descriptionEn: "Complete public description",
+        organizationType:
+          "org_patient_advocacy_organizations,org_genetics_research_institutes",
+        linkedIndividualProfessionalIds: ["person-1"],
+      } as Record<string, unknown>,
+    );
+
+    expect(linked.linkedIndividualProfessionals).toEqual([
+      {
+        id: "person-1",
+        name: "Dr. Publisher One",
+        imageUrl: null,
+        imageUploadDataUrl: professionalImage,
+        description: "Descripción individual",
+        descriptionEn: "Individual description",
+      },
+    ]);
+    expect(
+      mockIndividualDocs.find((doc) => doc.id === "person-1")?.data
+        .linkedParentOrganizationSnapshot,
+    ).toEqual({
+      id: "org-1",
+      name: "Publisher One",
+      imageUrl: null,
+      imageUploadDataUrl: organizationImage,
+      description: "Descripción pública completa",
+      descriptionEn: "Complete public description",
     });
   });
 
@@ -879,6 +954,9 @@ describe("discover repository", () => {
         id: "person-1",
         name: "Dr. Publisher One",
         imageUrl: "https://example.org/individual.png",
+        imageUploadDataUrl: null,
+        description: "Descripción individual",
+        descriptionEn: "Individual description",
       },
     ]);
     expect(
@@ -889,6 +967,8 @@ describe("discover repository", () => {
       name: "Publisher One",
       imageUrl: "https://example.org/publisher.png",
       imageUploadDataUrl: null,
+      description: "Descripción pública",
+      descriptionEn: "Public description",
     });
   });
 

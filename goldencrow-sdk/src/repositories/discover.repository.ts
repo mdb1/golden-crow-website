@@ -53,7 +53,6 @@ const FIRESTORE_BATCH_MAX_WRITES = 450;
 const FIRESTORE_BATCH_SAFE_MAX_BYTES = 8_000_000;
 const FIRESTORE_DOCUMENT_SAFE_MAX_BYTES = 950_000;
 const FIRESTORE_WRITE_OVERHEAD_BYTES = 2_048;
-const LINKED_PARENT_SNAPSHOT_IMAGE_DATA_URL_MAX_BYTES = 24_000;
 const MAX_PRODUCT_CATALOG_ITEMS = 200;
 const MAX_LINKED_INDIVIDUAL_PROFESSIONALS = 200;
 
@@ -2061,6 +2060,9 @@ function readLinkedIndividualProfessionals(
       id,
       name,
       imageUrl: normalizeNullableString(source.imageUrl),
+      imageUploadDataUrl: normalizeNullableString(source.imageUploadDataUrl),
+      description: normalizeNullableString(source.description),
+      descriptionEn: normalizeNullableString(source.descriptionEn),
     });
   }
   return snapshots;
@@ -2197,6 +2199,8 @@ function readLinkedParentOrganizationSnapshot(
     name,
     imageUrl: normalizeNullableString(source.imageUrl),
     imageUploadDataUrl: normalizeNullableString(source.imageUploadDataUrl),
+    description: normalizeNullableString(source.description),
+    descriptionEn: normalizeNullableString(source.descriptionEn),
   };
 }
 
@@ -2824,35 +2828,48 @@ async function getOrganizationSnapshot(organizationId: string) {
 }
 
 function linkedIndividualProfessionalSnapshotFor(
-  individual: Pick<DiscoverIndividualRecord, "id" | "name" | "imageUrl">,
+  individual: Pick<
+    DiscoverIndividualRecord,
+    | "id"
+    | "name"
+    | "imageUrl"
+    | "imageUploadDataUrl"
+    | "description"
+    | "descriptionEn"
+  >,
 ): DiscoverLinkedIndividualProfessionalSnapshot {
   return {
     id: individual.id,
     name: individual.name,
     imageUrl: individual.imageUrl,
+    imageUploadDataUrl: individual.imageUrl
+      ? null
+      : (individual.imageUploadDataUrl ?? null),
+    description: individual.description ?? null,
+    descriptionEn: individual.descriptionEn ?? null,
   };
 }
 
 function linkedParentOrganizationSnapshotFor(
   organization: Pick<
     DiscoverOrganizationRecord,
-    "id" | "name" | "imageUrl" | "imageUploadDataUrl"
+    | "id"
+    | "name"
+    | "imageUrl"
+    | "imageUploadDataUrl"
+    | "description"
+    | "descriptionEn"
   >,
 ): DiscoverLinkedParentOrganizationSnapshot {
-  const uploadedImage = organization.imageUploadDataUrl ?? null;
-  const compactUploadedImage =
-    !organization.imageUrl &&
-    uploadedImage &&
-    Buffer.byteLength(uploadedImage, "utf8") <=
-      LINKED_PARENT_SNAPSHOT_IMAGE_DATA_URL_MAX_BYTES
-      ? uploadedImage
-      : null;
-
   return {
     id: organization.id,
     name: organization.name,
     imageUrl: organization.imageUrl,
-    imageUploadDataUrl: compactUploadedImage,
+    imageUploadDataUrl: organization.imageUrl
+      ? null
+      : (organization.imageUploadDataUrl ?? null),
+    description: organization.description ?? null,
+    descriptionEn: organization.descriptionEn ?? null,
   };
 }
 
@@ -3530,7 +3547,10 @@ function linkedProfessionalSnapshotMatches(
   return (
     left.id === right.id &&
     left.name === right.name &&
-    left.imageUrl === right.imageUrl
+    left.imageUrl === right.imageUrl &&
+    left.imageUploadDataUrl === right.imageUploadDataUrl &&
+    left.description === right.description &&
+    left.descriptionEn === right.descriptionEn
   );
 }
 

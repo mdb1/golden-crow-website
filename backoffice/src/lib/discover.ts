@@ -85,6 +85,9 @@ export interface DiscoverLinkedIndividualProfessionalSnapshot {
   id: string;
   name: string;
   imageUrl: string | null;
+  imageUploadDataUrl: string | null;
+  description: string | null;
+  descriptionEn: string | null;
 }
 
 export type DiscoverOrganizationProfessionalLinkState =
@@ -147,6 +150,8 @@ export interface DiscoverLinkedParentOrganizationSnapshot {
   name: string;
   imageUrl: string | null;
   imageUploadDataUrl: string | null;
+  description: string | null;
+  descriptionEn: string | null;
 }
 
 export interface DiscoverIndividualRecord {

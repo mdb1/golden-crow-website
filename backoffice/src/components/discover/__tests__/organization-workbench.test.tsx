@@ -1106,6 +1106,8 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
             name: organization.name,
             imageUrl: organization.imageUrl,
             imageUploadDataUrl: null,
+            description: organization.description ?? null,
+            descriptionEn: organization.descriptionEn ?? null,
           },
         },
       };
@@ -1116,7 +1118,9 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
       screen.getByRole("button", { name: "Choose organization" }),
     );
     await user.click(
-      await screen.findByRole("button", { name: /Publisher One org-1/ }),
+      await screen.findByRole("button", {
+        name: /Publisher One Descripción pública/,
+      }),
     );
     expect(screen.getByText("Publisher One")).toBeTruthy();
 
@@ -1213,7 +1217,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     await user.click(screen.getByRole("button", { name: "Add professional" }));
     expect(
       await screen.findByRole("button", {
-        name: /Individual One individual-1/,
+        name: /Individual One Descripción individual/,
       }),
     ).toBeTruthy();
     expect(
@@ -1221,7 +1225,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     ).toBeTruthy();
     await user.click(
       screen.getByRole("button", {
-        name: /Individual One individual-1/,
+        name: /Individual One Descripción individual/,
       }),
     );
 
@@ -1262,7 +1266,7 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
     await user.click(screen.getByRole("button", { name: "Add professional" }));
     await user.click(
       await screen.findByRole("button", {
-        name: /Individual One individual-1/,
+        name: /Individual One Descripción individual/,
       }),
     );
     expect(screen.getByText("1 professional selected")).toBeTruthy();
@@ -1283,6 +1287,9 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
             id: individual.id,
             name: individual.name,
             imageUrl: individual.imageUrl,
+            imageUploadDataUrl: individual.imageUploadDataUrl ?? null,
+            description: individual.description ?? null,
+            descriptionEn: individual.descriptionEn ?? null,
           },
           organizationSnapshot: null,
           individualParentOrganizationId: organization.id,
@@ -1299,6 +1306,9 @@ describe("DiscoverOrganizationWorkbench accent color", () => {
             id: individual.id,
             name: individual.name,
             imageUrl: individual.imageUrl,
+            imageUploadDataUrl: individual.imageUploadDataUrl ?? null,
+            description: individual.description ?? null,
+            descriptionEn: individual.descriptionEn ?? null,
           },
         ],
       },
