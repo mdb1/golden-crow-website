@@ -194,16 +194,16 @@ const PALETTE_SUGGESTION_COPY = [
     description: "La recomendada: intensifica tu identidad sin perderla.",
   },
   {
-    name: "Comunidad vibrante",
-    description: "Contraste enérgico para interacción y novedades.",
+    name: "Destello vecino",
+    description: "Conserva la paleta y desplaza sólo el color secundario.",
   },
   {
-    name: "Lectura y contenido",
-    description: "Equilibrio luminoso para clases, notas y navegación.",
+    name: "Acento cercano",
+    description: "Mantiene dos tonos y acerca el acento a la identidad.",
   },
   {
-    name: "Profundidad premium",
-    description: "Una base profunda con acentos claros y expresivos.",
+    name: "Principal alternativo",
+    description: "Cambia sólo el principal por un matiz vecino y brillante.",
   },
 ] as const;
 

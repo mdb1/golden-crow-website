@@ -755,13 +755,13 @@ describe("PublisherAppConfigWorkbench", () => {
       screen.getByRole("button", { name: /Tu marca, más viva/i }),
     ).toHaveAttribute("aria-pressed", "true");
     expect(
-      screen.getByRole("button", { name: /Comunidad vibrante/i }),
+      screen.getByRole("button", { name: /Destello vecino/i }),
     ).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: /Lectura y contenido/i }),
+      screen.getByRole("button", { name: /Acento cercano/i }),
     ).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: /Profundidad premium/i }),
+      screen.getByRole("button", { name: /Principal alternativo/i }),
     ).toBeTruthy();
 
     const primaryPicker = screen.getByLabelText(

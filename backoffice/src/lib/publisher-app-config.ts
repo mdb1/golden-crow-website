@@ -355,29 +355,31 @@ export function publisherAppPaletteSuggestions(
 ): PublisherAppColors[] {
   const source =
     normalizePublisherAppColor(tint) ?? DEFAULT_PUBLISHER_APP_COLOR;
-  const { hue, saturation } = rgbToHsl(hexToRgb(source));
-  const vividSaturation = Math.min(82, Math.max(72, saturation));
+  const sourceHsl = rgbToHsl(hexToRgb(source));
+  const fallbackHue = rgbToHsl(hexToRgb(DEFAULT_PUBLISHER_APP_COLOR)).hue;
+  // A nearly neutral color has no useful brand hue. Any perceptible tint,
+  // including washed or brownish colors, keeps its hue but is rebuilt as a
+  // bright saturated color instead of being reused as-is.
+  const hue = sourceHsl.saturation < 1 ? fallbackHue : sourceHsl.hue;
+  const basePalette: PublisherAppColors = {
+    primary: hslToHex(hue, 100, 50),
+    secondary: hslToHex(hue + 24, 86, 55),
+    tertiary: hslToHex(hue + 7, 90, 56),
+  };
 
   return [
+    basePalette,
     {
-      primary: hslToHex(hue, vividSaturation, 36),
-      secondary: hslToHex(hue + 24, vividSaturation + 4, 55),
-      tertiary: hslToHex(hue - 70, vividSaturation + 8, 56),
+      ...basePalette,
+      secondary: hslToHex(hue + 34, 92, 54),
     },
     {
-      primary: hslToHex(hue, vividSaturation, 40),
-      secondary: hslToHex(hue + 155, vividSaturation + 2, 50),
-      tertiary: hslToHex(hue + 190, vividSaturation + 8, 58),
+      ...basePalette,
+      tertiary: hslToHex(hue - 12, 94, 55),
     },
     {
-      primary: hslToHex(hue + 8, vividSaturation - 7, 32),
-      secondary: hslToHex(hue + 48, vividSaturation, 56),
-      tertiary: hslToHex(hue - 38, vividSaturation + 6, 58),
-    },
-    {
-      primary: hslToHex(hue, vividSaturation - 4, 22),
-      secondary: hslToHex(hue + 20, vividSaturation + 2, 48),
-      tertiary: hslToHex(hue + 170, vividSaturation + 6, 60),
+      ...basePalette,
+      primary: hslToHex(hue + 10, 100, 50),
     },
   ];
 }
