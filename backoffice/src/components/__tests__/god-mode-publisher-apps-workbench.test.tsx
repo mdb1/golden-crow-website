@@ -137,6 +137,7 @@ describe("GodModePublisherAppsBrowser", () => {
   });
 
   it("shows and fully refreshes the single lightweight app snapshot", async () => {
+    const betaDataImage = "data:image/png;base64,iVBORw0KGgo=";
     const currentSnapshot = {
       id: "simple" as const,
       schemaVersion: 1 as const,
@@ -179,7 +180,7 @@ describe("GodModePublisherAppsBrowser", () => {
           id: "individual_beta",
           appProviderIdentifier: null,
           name: "Beta Catalog",
-          image: null,
+          image: betaDataImage,
           description: "Beta snapshot description.",
           status: "approved" as const,
           isActive: false,
@@ -220,7 +221,9 @@ describe("GodModePublisherAppsBrowser", () => {
     expect(
       within(file).getByText("app_org_alpha_12345"),
     ).toBeInTheDocument();
-    expect(within(file).getByText(/Image included/)).toBeInTheDocument();
+    expect(
+      within(file).getByRole("img", { name: "Alpha Catalog thumbnail" }),
+    ).toHaveAttribute("src", "https://example.org/alpha.png");
     expect(sdkFetch).toHaveBeenCalledWith(
       "/admin/publisher-app-configs/snapshot",
       { cache: "no-store" },
@@ -231,6 +234,9 @@ describe("GodModePublisherAppsBrowser", () => {
     );
 
     expect(await within(dialog).findByText("Beta Catalog")).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("img", { name: "Beta Catalog thumbnail" }),
+    ).toHaveAttribute("src", betaDataImage);
     expect(sdkFetch).toHaveBeenCalledWith(
       "/admin/publisher-app-configs/snapshot",
       { method: "PUT" },

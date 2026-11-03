@@ -13,6 +13,7 @@ import {
   BarChart3,
   Building2,
   FileJson2,
+  ImageIcon,
   Loader2,
   RefreshCw,
   Search,
@@ -67,6 +68,37 @@ function formatDate(value: string) {
         dateStyle: "medium",
         timeStyle: "short",
       }).format(date);
+}
+
+function SnapshotAppThumbnail({
+  image,
+  name,
+}: {
+  image: string | null;
+  name: string;
+}) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const showImage = Boolean(image) && !imageFailed;
+
+  return (
+    <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-100 text-slate-400 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-500">
+      {showImage ? (
+        // The snapshot supports arbitrary HTTPS and data-image sources, so
+        // this preview cannot use Next Image's configured host allowlist.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={image ?? undefined}
+          alt={`${name} thumbnail`}
+          className="size-full object-cover"
+          loading="lazy"
+          decoding="async"
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        <ImageIcon aria-hidden="true" className="size-5" />
+      )}
+    </span>
+  );
 }
 
 function AppRow({ app }: { app: PublisherAppConfig }) {
@@ -298,18 +330,25 @@ function PublisherAppsSnapshotDialog({
                         className="rounded-xl border border-slate-200 bg-background/85 p-3 dark:border-slate-700"
                       >
                         <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="font-semibold text-foreground">
-                              {app.name}
-                            </p>
-                            <p className="mt-0.5 break-all font-mono text-xs text-muted-foreground">
-                              {app.id}
-                            </p>
-                            {app.appProviderIdentifier ? (
-                              <p className="mt-0.5 break-all font-mono text-xs text-violet-700 dark:text-violet-200">
-                                {app.appProviderIdentifier}
+                          <div className="flex min-w-0 flex-1 items-start gap-3">
+                            <SnapshotAppThumbnail
+                              key={app.image ?? "no-image"}
+                              image={app.image}
+                              name={app.name}
+                            />
+                            <div className="min-w-0">
+                              <p className="font-semibold text-foreground">
+                                {app.name}
                               </p>
-                            ) : null}
+                              <p className="mt-0.5 break-all font-mono text-xs text-muted-foreground">
+                                {app.id}
+                              </p>
+                              {app.appProviderIdentifier ? (
+                                <p className="mt-0.5 break-all font-mono text-xs text-violet-700 dark:text-violet-200">
+                                  {app.appProviderIdentifier}
+                                </p>
+                              ) : null}
+                            </div>
                           </div>
                           <Badge
                             variant="outline"
@@ -325,7 +364,6 @@ function PublisherAppsSnapshotDialog({
                           {app.description || "No description"}
                         </p>
                         <p className="mt-1 text-[11px] text-muted-foreground">
-                          {app.image ? "Image included" : "No image"} ·{" "}
                           {app.publisherKind} · {app.publisherId}
                         </p>
                       </div>
