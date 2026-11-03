@@ -32,7 +32,7 @@ const DAILY_USAGE_COLLECTION = "partnership_crm_daily_usage";
 const SNAPSHOTS_COLLECTION = "partnership_crm_snapshots";
 const SNAPSHOT_CURRENT_DOCUMENT = "current";
 const SNAPSHOT_ITEMS_COLLECTION = "items";
-const SNAPSHOT_SCHEMA_VERSION = 1;
+const SNAPSHOT_SCHEMA_VERSION = 2;
 const SNAPSHOT_SCAN_PAGE_SIZE = 250;
 const SNAPSHOT_TIME_ZONE = "America/Argentina/Buenos_Aires";
 const MAX_PAGE_SIZE = 10;
@@ -2253,6 +2253,24 @@ type PartnershipCrmSnapshotTargets = Record<
   PartnershipCrmSnapshotTargetCounts
 >;
 
+type PartnershipCrmSnapshotCountBucket = {
+  value: string;
+  count: number;
+};
+
+type PartnershipCrmStoredSnapshotTargetCounts = {
+  total: number;
+  statusCounts: PartnershipCrmSnapshotCountBucket[];
+  categoryCounts: PartnershipCrmSnapshotCountBucket[];
+  countryCounts: PartnershipCrmSnapshotCountBucket[];
+  linkedInStateCounts: PartnershipCrmSnapshotCountBucket[];
+};
+
+type PartnershipCrmStoredSnapshotTargets = Record<
+  PartnershipCrmTargetKind,
+  PartnershipCrmStoredSnapshotTargetCounts
+>;
+
 function emptySnapshotTargetCounts(): PartnershipCrmSnapshotTargetCounts {
   return {
     total: 0,
@@ -2284,17 +2302,30 @@ function nonNegativeInteger(value: unknown) {
     : 0;
 }
 
-function snapshotCountMap(value: unknown) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {} as Record<string, number>;
+function snapshotCountMap(value: unknown): Record<string, number> | null {
+  if (!Array.isArray(value)) {
+    return null;
   }
 
-  return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>).map(([key, count]) => [
-      key,
-      nonNegativeInteger(count),
-    ]),
-  );
+  const result: Record<string, number> = {};
+  for (const item of value) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return null;
+    }
+    const data = item as Record<string, unknown>;
+    const bucketValue = cleanString(data.value);
+    if (
+      !bucketValue ||
+      Object.hasOwn(result, bucketValue) ||
+      typeof data.count !== "number" ||
+      !Number.isInteger(data.count) ||
+      data.count < 0
+    ) {
+      return null;
+    }
+    result[bucketValue] = data.count;
+  }
+  return result;
 }
 
 function snapshotTargetCountsFromValue(
@@ -2313,17 +2344,30 @@ function snapshotTargetCountsFromValue(
     return null;
   }
 
+  const statusCounts = snapshotCountMap(data.statusCounts);
+  const categoryCounts = snapshotCountMap(data.categoryCounts);
+  const countryCounts = snapshotCountMap(data.countryCounts);
+  const linkedInStateCounts = snapshotCountMap(data.linkedInStateCounts);
+  if (
+    !statusCounts ||
+    !categoryCounts ||
+    !countryCounts ||
+    !linkedInStateCounts
+  ) {
+    return null;
+  }
+
   return {
     total: data.total,
     statusCounts: {
       ...emptySnapshotTargetCounts().statusCounts,
-      ...snapshotCountMap(data.statusCounts),
+      ...statusCounts,
     },
-    categoryCounts: snapshotCountMap(data.categoryCounts),
-    countryCounts: snapshotCountMap(data.countryCounts),
+    categoryCounts,
+    countryCounts,
     linkedInStateCounts: {
       ...emptySnapshotTargetCounts().linkedInStateCounts,
-      ...snapshotCountMap(data.linkedInStateCounts),
+      ...linkedInStateCounts,
     },
   };
 }
@@ -2341,6 +2385,41 @@ function snapshotTargetsFromValue(
   return organizations && professionals
     ? { organizations, professionals }
     : null;
+}
+
+function snapshotCountBuckets(
+  value: Record<string, number>,
+): PartnershipCrmSnapshotCountBucket[] {
+  return Object.entries(value)
+    .map(([bucketValue, count]) => ({
+      value: bucketValue,
+      count: nonNegativeInteger(count),
+    }))
+    .sort((left, right) =>
+      left.value < right.value ? -1 : left.value > right.value ? 1 : 0,
+    );
+}
+
+function snapshotTargetsForStorage(
+  targets: PartnershipCrmSnapshotTargets,
+): PartnershipCrmStoredSnapshotTargets {
+  return Object.fromEntries(
+    PARTNERSHIP_CRM_TEMPLATE_AUDIENCES.map((targetKind) => {
+      const target = targets[targetKind];
+      return [
+        targetKind,
+        {
+          total: target.total,
+          statusCounts: snapshotCountBuckets(target.statusCounts),
+          categoryCounts: snapshotCountBuckets(target.categoryCounts),
+          countryCounts: snapshotCountBuckets(target.countryCounts),
+          linkedInStateCounts: snapshotCountBuckets(
+            target.linkedInStateCounts,
+          ),
+        },
+      ];
+    }),
+  ) as PartnershipCrmStoredSnapshotTargets;
 }
 
 function cloneSnapshotTargetCounts(
@@ -2536,6 +2615,30 @@ function snapshotRefreshState(
     : "empty";
 }
 
+function isRetryableReservedFieldSnapshotFailure(
+  currentData: Record<string, unknown>,
+  attemptDate: string,
+) {
+  return (
+    cleanString(currentData.lastRefreshAttemptDate) === attemptDate &&
+    snapshotRefreshState(currentData.refreshState) === "failed" &&
+    /field name ['"]__(?:no_category|no_country)__['"] is reserved/i.test(
+      cleanString(currentData.lastRefreshError),
+    ) &&
+    cleanString(currentData.reservedFieldRetryAttemptDate) !== attemptDate
+  );
+}
+
+function snapshotRefreshAttemptUsedToday(
+  currentData: Record<string, unknown>,
+  attemptDate: string,
+) {
+  return (
+    cleanString(currentData.lastRefreshAttemptDate) === attemptDate &&
+    !isRetryableReservedFieldSnapshotFailure(currentData, attemptDate)
+  );
+}
+
 async function publicPartnershipCrmSnapshot(
   currentData: Record<string, unknown>,
 ): Promise<PartnershipCrmSnapshot> {
@@ -2578,7 +2681,7 @@ async function publicPartnershipCrmSnapshot(
   return withoutUndefined({
     schemaVersion: SNAPSHOT_SCHEMA_VERSION,
     refreshState,
-    canRefreshToday: lastRefreshAttemptDate !== window.date,
+    canRefreshToday: !snapshotRefreshAttemptUsedToday(currentData, window.date),
     nextRefreshAt: window.nextRefreshAt,
     generationId: activeGenerationId || undefined,
     lastRefreshAttemptDate: lastRefreshAttemptDate || undefined,
@@ -2730,7 +2833,9 @@ export async function refreshPartnershipCrmSnapshot(
         const currentData = currentSnapshot.exists
           ? (currentSnapshot.data() ?? {})
           : {};
-        if (cleanString(currentData.lastRefreshAttemptDate) === window.date) {
+        const retryingReservedFieldFailure =
+          isRetryableReservedFieldSnapshotFailure(currentData, window.date);
+        if (snapshotRefreshAttemptUsedToday(currentData, window.date)) {
           throw new PartnershipCrmSnapshotError(
             "The CRM snapshot refresh has already been attempted today.",
             409,
@@ -2751,6 +2856,9 @@ export async function refreshPartnershipCrmSnapshot(
             refreshStartedRevision: sourceRevision,
             lastRefreshError: "",
             sourceReadCount: 0,
+            ...(retryingReservedFieldFailure
+              ? { reservedFieldRetryAttemptDate: window.date }
+              : {}),
             updatedAt: FieldValue.serverTimestamp(),
             createdAt:
               currentData.createdAt ?? FieldValue.serverTimestamp(),
@@ -2805,7 +2913,7 @@ export async function refreshPartnershipCrmSnapshot(
           refreshState: "ready",
           sourceRevision: startedRevision,
           sourceReadCount,
-          targets,
+          targets: snapshotTargetsForStorage(targets),
           completedAt: FieldValue.serverTimestamp(),
           createdByEmail: context.email,
         },
@@ -2970,7 +3078,7 @@ async function syncPartnershipCrmSnapshotMutation(
     transaction.set(
       generationReference,
       {
-        targets: updatedTargets,
+        targets: snapshotTargetsForStorage(updatedTargets),
         lastIncrementalUpdateAt: FieldValue.serverTimestamp(),
       },
       { merge: true },

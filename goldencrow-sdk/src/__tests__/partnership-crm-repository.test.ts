@@ -1297,6 +1297,93 @@ describe("partnership CRM snapshots", () => {
     ).toHaveLength(2);
   });
 
+  it("stores missing facet sentinels as bucket values instead of reserved Firestore field names", async () => {
+    const { refreshPartnershipCrmSnapshot } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    seedOrganization("org-missing-facets", 1, "");
+    const organizationKey = mockDocKey(
+      "partnership_crm_organizations",
+      "org-missing-facets",
+    );
+    mockDocs.set(organizationKey, {
+      ...(mockDocs.get(organizationKey) ?? {}),
+      country: "",
+    });
+
+    const snapshot = await refreshPartnershipCrmSnapshot(godModeContext);
+    const generation = mockDocs.get(
+      mockDocKey(
+        "partnership_crm_snapshots",
+        snapshot.generationId as string,
+      ),
+    );
+    const targets = generation?.targets as {
+      organizations: {
+        categoryCounts: unknown;
+        countryCounts: unknown;
+      };
+    };
+
+    expect(snapshot.schemaVersion).toBe(2);
+    expect(snapshot.targets.organizations.facets.category.buckets).toContainEqual(
+      { value: "__no_category__", count: 1 },
+    );
+    expect(snapshot.targets.organizations.facets.country.buckets).toContainEqual(
+      { value: "__no_country__", count: 1 },
+    );
+    expect(targets.organizations.categoryCounts).toContainEqual({
+      value: "__no_category__",
+      count: 1,
+    });
+    expect(targets.organizations.countryCounts).toContainEqual({
+      value: "__no_country__",
+      count: 1,
+    });
+    expect(Array.isArray(targets.organizations.categoryCounts)).toBe(true);
+    expect(Array.isArray(targets.organizations.countryCounts)).toBe(true);
+  });
+
+  it("allows one same-day retry for the legacy reserved-field refresh failure", async () => {
+    const {
+      getPartnershipCrmSnapshot,
+      refreshPartnershipCrmSnapshot,
+    } = await import("../repositories/partnership-crm.repository");
+    seedOrganization("org-1", 1, "org_genomics_laboratories");
+    const first = await refreshPartnershipCrmSnapshot(godModeContext);
+    const currentKey = mockDocKey("partnership_crm_snapshots", "current");
+    mockDocs.set(currentKey, {
+      ...(mockDocs.get(currentKey) ?? {}),
+      refreshState: "failed",
+      lastRefreshError:
+        "3 INVALID_ARGUMENT: field name '__no_category__' is reserved.",
+    });
+
+    await expect(getPartnershipCrmSnapshot(godModeContext)).resolves.toEqual(
+      expect.objectContaining({
+        refreshState: "failed",
+        canRefreshToday: true,
+      }),
+    );
+
+    const retried = await refreshPartnershipCrmSnapshot(godModeContext);
+
+    expect(retried.generationId).not.toBe(first.generationId);
+    expect(retried.refreshState).toBe("ready");
+    expect(retried.canRefreshToday).toBe(false);
+    expect(mockDocs.get(currentKey)?.reservedFieldRetryAttemptDate).toBe(
+      mockDocs.get(currentKey)?.lastRefreshAttemptDate,
+    );
+    await expect(
+      refreshPartnershipCrmSnapshot(godModeContext),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        statusCode: 409,
+        code: "CRM_SNAPSHOT_ALREADY_ATTEMPTED_TODAY",
+      }),
+    );
+  });
+
   it("blocks a second refresh on the same Buenos Aires civil day", async () => {
     const { refreshPartnershipCrmSnapshot } = await import(
       "../repositories/partnership-crm.repository"
