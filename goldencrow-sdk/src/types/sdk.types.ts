@@ -1019,6 +1019,36 @@ export interface PublisherAppConfigRecord extends PublisherAppConfigInput {
   termsAcceptedByUserId?: string;
 }
 
+export interface PublisherAppCatalogSnapshotItem {
+  id: string;
+  appProviderIdentifier: string | null;
+  name: string;
+  image: string | null;
+  description: string;
+  status: PublisherAppStatus;
+  isActive: boolean;
+  publisherKind: PublisherAppPublisherKind;
+  publisherId: string;
+}
+
+export interface PublisherAppCatalogSnapshotStatusCount {
+  status: PublisherAppStatus;
+  count: number;
+}
+
+export interface PublisherAppCatalogSnapshot {
+  id: "simple";
+  schemaVersion: 1;
+  totalCount: number;
+  activeCount: number;
+  inactiveCount: number;
+  statusCounts: PublisherAppCatalogSnapshotStatusCount[];
+  apps: PublisherAppCatalogSnapshotItem[];
+  sourceReadCount: number;
+  updatedAt: string;
+  updatedByUserId: string;
+}
+
 export interface PublisherAppRuntimeConfig {
   schemaVersion: 2;
   appProviderIdentifier: string;

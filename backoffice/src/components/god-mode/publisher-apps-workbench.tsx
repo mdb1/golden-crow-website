@@ -2,11 +2,19 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   ArrowRight,
+  BarChart3,
   Building2,
+  FileJson2,
   Loader2,
+  RefreshCw,
   Search,
   Smartphone,
   UserRound,
@@ -14,10 +22,18 @@ import {
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   publisherAppStatusLabel,
+  type PublisherAppCatalogSnapshotResponse,
   type PublisherAppConfig,
   type PublisherAppConfigsPage,
 } from "@/lib/publisher-app-config";
@@ -25,6 +41,8 @@ import { sdkFetch } from "@/lib/sdk-client";
 import { cn } from "@/lib/utils";
 
 const API_ROUTE = "/admin/publisher-app-configs";
+const SNAPSHOT_ROUTE = `${API_ROUTE}/snapshot`;
+const SNAPSHOT_QUERY_KEY = ["god-mode-publisher-apps-snapshot"] as const;
 
 function statusClassName(status: PublisherAppConfig["status"]) {
   switch (status) {
@@ -146,8 +164,227 @@ function AppRow({ app }: { app: PublisherAppConfig }) {
   );
 }
 
+function PublisherAppsSnapshotDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const queryClient = useQueryClient();
+  const snapshotQuery = useQuery({
+    queryKey: SNAPSHOT_QUERY_KEY,
+    enabled: open,
+    queryFn: () =>
+      sdkFetch<PublisherAppCatalogSnapshotResponse>(SNAPSHOT_ROUTE, {
+        cache: "no-store",
+      }),
+  });
+  const updateSnapshot = useMutation({
+    mutationFn: () =>
+      sdkFetch<PublisherAppCatalogSnapshotResponse>(SNAPSHOT_ROUTE, {
+        method: "PUT",
+      }),
+    onSuccess: (response) => {
+      queryClient.setQueryData(SNAPSHOT_QUERY_KEY, response);
+    },
+  });
+  const snapshot = snapshotQuery.data?.snapshot ?? null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[88vh] flex-col overflow-hidden sm:max-w-4xl">
+        <DialogHeader className="pr-10">
+          <div className="flex items-center gap-2">
+            <FileJson2 className="size-5 text-violet-600" />
+            <DialogTitle>custom_apps_snapshot/simple</DialogTitle>
+          </div>
+          <DialogDescription>
+            Single lightweight catalog document for clients that need available
+            app options without loading every full app configuration.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+          {snapshotQuery.isPending ? (
+            <div className="grid gap-3" aria-label="Loading snapshot stats">
+              <Skeleton className="h-24 rounded-2xl" />
+              <Skeleton className="h-48 rounded-2xl" />
+            </div>
+          ) : snapshotQuery.isError ? (
+            <div
+              role="alert"
+              className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900 dark:border-rose-400/25 dark:bg-rose-500/10 dark:text-rose-100"
+            >
+              Unable to load the app snapshot.
+            </div>
+          ) : snapshot ? (
+            <article
+              data-testid="publisher-apps-snapshot-file"
+              className="space-y-5 rounded-2xl border border-violet-100 bg-violet-50/35 p-4 dark:border-violet-400/20 dark:bg-violet-500/6"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-mono text-xs text-muted-foreground">
+                    custom_apps_snapshot/simple
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Updated {formatDate(snapshot.updatedAt)} by{" "}
+                    {snapshot.updatedByUserId}
+                  </p>
+                </div>
+                <Badge variant="outline" className="rounded-full">
+                  schema v{snapshot.schemaVersion}
+                </Badge>
+              </div>
+
+              <dl className="grid gap-2 sm:grid-cols-4">
+                {[
+                  ["Available apps", snapshot.totalCount],
+                  ["Active", snapshot.activeCount],
+                  ["Inactive", snapshot.inactiveCount],
+                  ["Source reads", snapshot.sourceReadCount],
+                ].map(([label, value]) => (
+                  <div
+                    key={label}
+                    className="rounded-xl border border-violet-100 bg-background/80 p-3 dark:border-violet-400/15"
+                  >
+                    <dt className="text-xs text-muted-foreground">{label}</dt>
+                    <dd className="mt-1 text-2xl font-semibold text-foreground">
+                      {value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+
+              <section aria-labelledby="snapshot-statuses-title">
+                <h3
+                  id="snapshot-statuses-title"
+                  className="text-sm font-semibold text-foreground"
+                >
+                  Statuses
+                </h3>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {snapshot.statusCounts.map(({ status, count }) => (
+                    <Badge
+                      key={status}
+                      variant="outline"
+                      className={cn(
+                        "rounded-full",
+                        statusClassName(status),
+                      )}
+                    >
+                      {publisherAppStatusLabel(status)} · {count}
+                    </Badge>
+                  ))}
+                </div>
+              </section>
+
+              <section aria-labelledby="snapshot-apps-title">
+                <div className="flex items-center justify-between gap-3">
+                  <h3
+                    id="snapshot-apps-title"
+                    className="font-mono text-sm font-semibold text-foreground"
+                  >
+                    apps[]
+                  </h3>
+                  <Badge variant="secondary">{snapshot.apps.length}</Badge>
+                </div>
+                <div className="mt-2 grid gap-2">
+                  {snapshot.apps.length > 0 ? (
+                    snapshot.apps.map((app) => (
+                      <div
+                        key={app.id}
+                        className="rounded-xl border border-slate-200 bg-background/85 p-3 dark:border-slate-700"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-foreground">
+                              {app.name}
+                            </p>
+                            <p className="mt-0.5 break-all font-mono text-xs text-muted-foreground">
+                              {app.id}
+                            </p>
+                            {app.appProviderIdentifier ? (
+                              <p className="mt-0.5 break-all font-mono text-xs text-violet-700 dark:text-violet-200">
+                                {app.appProviderIdentifier}
+                              </p>
+                            ) : null}
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "rounded-full",
+                              statusClassName(app.status),
+                            )}
+                          >
+                            {app.isActive ? "Active" : "Inactive"}
+                          </Badge>
+                        </div>
+                        <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
+                          {app.description || "No description"}
+                        </p>
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          {app.image ? "Image included" : "No image"} ·{" "}
+                          {app.publisherKind} · {app.publisherId}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+                      The snapshot catalog is empty.
+                    </p>
+                  )}
+                </div>
+              </section>
+            </article>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-violet-200 bg-violet-50/45 p-8 text-center dark:border-violet-400/25 dark:bg-violet-500/8">
+              <BarChart3 className="mx-auto size-8 text-violet-500" />
+              <p className="mt-3 font-semibold text-foreground">
+                Snapshot not created yet
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Update the snapshot to create custom_apps_snapshot/simple.
+              </p>
+            </div>
+          )}
+
+          {updateSnapshot.isError ? (
+            <div
+              role="alert"
+              className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900 dark:border-rose-400/25 dark:bg-rose-500/10 dark:text-rose-100"
+            >
+              {updateSnapshot.error instanceof Error
+                ? updateSnapshot.error.message
+                : "Unable to update the app snapshot."}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="flex justify-end border-t pt-4">
+          <Button
+            type="button"
+            onClick={() => updateSnapshot.mutate()}
+            disabled={updateSnapshot.isPending}
+          >
+            <RefreshCw
+              className={cn(
+                "size-4",
+                updateSnapshot.isPending && "animate-spin",
+              )}
+            />
+            {updateSnapshot.isPending ? "Updating…" : "Update snapshot"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function GodModePublisherAppsBrowser() {
   const [query, setQuery] = useState("");
+  const [snapshotOpen, setSnapshotOpen] = useState(false);
   const appsQuery = useInfiniteQuery({
     queryKey: ["god-mode-publisher-apps"],
     initialPageParam: "",
@@ -201,17 +438,33 @@ export function GodModePublisherAppsBrowser() {
               </p>
             </div>
           </div>
-          <label className="relative block w-full lg:max-w-md">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Buscar por cliente, email o ID"
-              className="h-11 rounded-xl pl-10"
-            />
-          </label>
+          <div className="flex w-full flex-col gap-2 sm:flex-row lg:max-w-2xl lg:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 shrink-0 rounded-xl"
+              onClick={() => setSnapshotOpen(true)}
+            >
+              <BarChart3 className="size-4" />
+              Show snapshot stats
+            </Button>
+            <label className="relative block w-full lg:max-w-md">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Buscar por cliente, email o ID"
+                className="h-11 rounded-xl pl-10"
+              />
+            </label>
+          </div>
         </div>
       </div>
+
+      <PublisherAppsSnapshotDialog
+        open={snapshotOpen}
+        onOpenChange={setSnapshotOpen}
+      />
 
       {appsQuery.isPending ? (
         <div className="grid gap-3">

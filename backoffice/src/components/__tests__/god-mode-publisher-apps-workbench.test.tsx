@@ -2,7 +2,13 @@
 
 import "@testing-library/jest-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { GodModePublisherAppsBrowser } from "@/components/god-mode/publisher-apps-workbench";
 import type { PublisherAppConfig } from "@/lib/publisher-app-config";
 import { sdkFetch } from "@/lib/sdk-client";
@@ -128,5 +134,106 @@ describe("GodModePublisherAppsBrowser", () => {
     expect(screen.queryByText("Alpha Lab")).toBeNull();
     expect(screen.getByText("Gamma Genetics")).toBeInTheDocument();
     expect(sdkFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows and fully refreshes the single lightweight app snapshot", async () => {
+    const currentSnapshot = {
+      id: "simple" as const,
+      schemaVersion: 1 as const,
+      totalCount: 1,
+      activeCount: 1,
+      inactiveCount: 0,
+      sourceReadCount: 2,
+      updatedAt: "2026-11-03T12:00:00.000Z",
+      updatedByUserId: "god-user",
+      statusCounts: [
+        { status: "pending_revision" as const, count: 0 },
+        { status: "active" as const, count: 1 },
+        { status: "approved" as const, count: 0 },
+        { status: "changes_requested" as const, count: 0 },
+        { status: "rejected" as const, count: 0 },
+      ],
+      apps: [
+        {
+          id: "organization_alpha",
+          appProviderIdentifier: "app_org_alpha_12345",
+          name: "Alpha Catalog",
+          image: "https://example.org/alpha.png",
+          description: "Alpha snapshot description.",
+          status: "active" as const,
+          isActive: true,
+          publisherKind: "organization" as const,
+          publisherId: "alpha",
+        },
+      ],
+    };
+    const refreshedSnapshot = {
+      ...currentSnapshot,
+      totalCount: 2,
+      activeCount: 1,
+      inactiveCount: 1,
+      sourceReadCount: 4,
+      apps: [
+        ...currentSnapshot.apps,
+        {
+          id: "individual_beta",
+          appProviderIdentifier: null,
+          name: "Beta Catalog",
+          image: null,
+          description: "Beta snapshot description.",
+          status: "approved" as const,
+          isActive: false,
+          publisherKind: "individual" as const,
+          publisherId: "beta",
+        },
+      ],
+      statusCounts: currentSnapshot.statusCounts.map((entry) =>
+        entry.status === "approved" ? { ...entry, count: 1 } : entry,
+      ),
+    };
+
+    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+      if (path === "/admin/publisher-app-configs/snapshot") {
+        return init?.method === "PUT"
+          ? { snapshot: refreshedSnapshot }
+          : { snapshot: currentSnapshot };
+      }
+      return {
+        apps: [app("organization_alpha", "Alpha Lab")],
+        nextCursor: null,
+      };
+    });
+
+    renderBrowser();
+    await screen.findByText("Alpha Lab");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show snapshot stats" }),
+    );
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "custom_apps_snapshot/simple",
+    });
+    const file = await within(dialog).findByTestId(
+      "publisher-apps-snapshot-file",
+    );
+    expect(within(file).getByText("Alpha Catalog")).toBeInTheDocument();
+    expect(
+      within(file).getByText("app_org_alpha_12345"),
+    ).toBeInTheDocument();
+    expect(within(file).getByText(/Image included/)).toBeInTheDocument();
+    expect(sdkFetch).toHaveBeenCalledWith(
+      "/admin/publisher-app-configs/snapshot",
+      { cache: "no-store" },
+    );
+
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Update snapshot" }),
+    );
+
+    expect(await within(dialog).findByText("Beta Catalog")).toBeInTheDocument();
+    expect(sdkFetch).toHaveBeenCalledWith(
+      "/admin/publisher-app-configs/snapshot",
+      { method: "PUT" },
+    );
   });
 });

@@ -81,6 +81,38 @@ export type PublisherAppConfigsPage = {
   nextCursor: string | null;
 };
 
+export type PublisherAppCatalogSnapshotItem = {
+  id: string;
+  appProviderIdentifier: string | null;
+  name: string;
+  image: string | null;
+  description: string;
+  status: PublisherAppStatus;
+  isActive: boolean;
+  publisherKind: "organization" | "individual";
+  publisherId: string;
+};
+
+export type PublisherAppCatalogSnapshot = {
+  id: "simple";
+  schemaVersion: 1;
+  totalCount: number;
+  activeCount: number;
+  inactiveCount: number;
+  statusCounts: Array<{
+    status: PublisherAppStatus;
+    count: number;
+  }>;
+  apps: PublisherAppCatalogSnapshotItem[];
+  sourceReadCount: number;
+  updatedAt: string;
+  updatedByUserId: string;
+};
+
+export type PublisherAppCatalogSnapshotResponse = {
+  snapshot: PublisherAppCatalogSnapshot | null;
+};
+
 export function isCurrentPublisherAppIdentifier(
   value: string | undefined,
   publisherKind: "organization" | "individual",

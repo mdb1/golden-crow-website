@@ -15,6 +15,7 @@ type MockDocumentReference = {
   id: string;
   get: jest.Mock<Promise<MockSnapshot>, []>;
   create: jest.Mock<Promise<void>, [StoredDocument]>;
+  set: jest.Mock<Promise<void>, [StoredDocument]>;
   update: jest.Mock<Promise<void>, [StoredDocument]>;
   delete: jest.Mock<Promise<void>, []>;
 };
@@ -73,6 +74,9 @@ function documentReferenceFor(
       throw error;
     }
     store.set(id, { ...document });
+  });
+  ref.set = jest.fn(async (document: StoredDocument) => {
+    collectionStore(collectionName).set(id, { ...document });
   });
   ref.update = jest.fn(async (update: StoredDocument) => {
     const store = collectionStore(collectionName);
@@ -983,11 +987,16 @@ describe("publisher app config contract", () => {
   it("restricts the global app collection routes to GOD MODE", async () => {
     context = makeAdminContext({ role: "full_admin", isBootstrap: false });
 
-    for (const url of [
-      "/admin/publisher-app-configs",
-      "/admin/publisher-app-configs/organization_shared-publisher-id",
-    ]) {
-      const response = await fastify.inject({ method: "GET", url });
+    for (const { method, url } of [
+      { method: "GET", url: "/admin/publisher-app-configs" },
+      { method: "GET", url: "/admin/publisher-app-configs/snapshot" },
+      { method: "PUT", url: "/admin/publisher-app-configs/snapshot" },
+      {
+        method: "GET",
+        url: "/admin/publisher-app-configs/organization_shared-publisher-id",
+      },
+    ] as const) {
+      const response = await fastify.inject({ method, url });
       expect(response.statusCode).toBe(403);
       expect(response.json()).toEqual({ error: "GOD MODE access required" });
     }
@@ -1035,6 +1044,116 @@ describe("publisher app config contract", () => {
     expect(secondPage.json().apps).toHaveLength(1);
     expect(secondPage.json().apps[0].id).not.toBe(firstPage.json().apps[0].id);
     expect(secondPage.json().nextCursor).toBeNull();
+  });
+
+  it("creates and reads one lightweight custom app catalog snapshot", async () => {
+    seedPublisher("organization", "shared-publisher-id", {
+      name: "Canonical Organization",
+      imageUrl: "https://example.org/canonical-icon.png",
+      description: "  A compact organization app description.  ",
+    });
+    const organizationCreate = await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config",
+      payload: validBody,
+    });
+    expect(organizationCreate.statusCode).toBe(201);
+    collectionStore("app_configs").set(
+      "organization_shared-publisher-id",
+      {
+        ...collectionStore("app_configs").get(
+          "organization_shared-publisher-id",
+        ),
+        status: "active",
+        appProviderIdentifier: "app_org_canonical_12345",
+      },
+    );
+
+    context = individualContext();
+    seedPublisher("individual", "shared-publisher-id", {
+      name: "Canonical Individual",
+      imageUploadDataUrl: "data:image/png;base64,QUJD",
+      descriptionEn: "Individual app description.",
+    });
+    const individualCreate = await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config",
+      payload: { ...validBody, platformOption: "ios" },
+    });
+    expect(individualCreate.statusCode).toBe(201);
+    collectionStore("app_configs").set("individual_shared-publisher-id", {
+      ...collectionStore("app_configs").get("individual_shared-publisher-id"),
+      status: "approved",
+    });
+
+    context = makeAdminContext({
+      role: "full_admin",
+      isBootstrap: true,
+      uid: "god-user",
+    });
+    const emptyResponse = await fastify.inject({
+      method: "GET",
+      url: "/admin/publisher-app-configs/snapshot",
+    });
+    expect(emptyResponse.statusCode).toBe(200);
+    expect(emptyResponse.json()).toEqual({ snapshot: null });
+
+    const updateResponse = await fastify.inject({
+      method: "PUT",
+      url: "/admin/publisher-app-configs/snapshot",
+    });
+
+    expect(updateResponse.statusCode).toBe(200);
+    expect(updateResponse.headers["cache-control"]).toBe("private, no-store");
+    expect(updateResponse.json().snapshot).toMatchObject({
+      id: "simple",
+      schemaVersion: 1,
+      totalCount: 2,
+      activeCount: 1,
+      inactiveCount: 1,
+      sourceReadCount: 4,
+      updatedByUserId: "god-user",
+      statusCounts: expect.arrayContaining([
+        { status: "active", count: 1 },
+        { status: "approved", count: 1 },
+        { status: "pending_revision", count: 0 },
+      ]),
+      apps: expect.arrayContaining([
+        {
+          id: "organization_shared-publisher-id",
+          appProviderIdentifier: "app_org_canonical_12345",
+          name: "Canonical Organization",
+          image: "https://example.org/canonical-icon.png",
+          description: "A compact organization app description.",
+          status: "active",
+          isActive: true,
+          publisherKind: "organization",
+          publisherId: "shared-publisher-id",
+        },
+        {
+          id: "individual_shared-publisher-id",
+          appProviderIdentifier: null,
+          name: "Canonical Individual",
+          image: "data:image/png;base64,QUJD",
+          description: "Individual app description.",
+          status: "approved",
+          isActive: false,
+          publisherKind: "individual",
+          publisherId: "shared-publisher-id",
+        },
+      ]),
+    });
+    expect([...collectionStore("custom_apps_snapshot").keys()]).toEqual([
+      "simple",
+    ]);
+
+    const readResponse = await fastify.inject({
+      method: "GET",
+      url: "/admin/publisher-app-configs/snapshot",
+    });
+    expect(readResponse.statusCode).toBe(200);
+    expect(readResponse.headers["cache-control"]).toBe("private, no-store");
+    expect(readResponse.json()).toEqual(updateResponse.json());
   });
 
   it("lets GOD MODE open and update any app config by document id", async () => {

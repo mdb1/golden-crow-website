@@ -9,6 +9,8 @@ import type {
   AdminContext,
   PublisherAppConfigColors,
   PublisherAppConfigAdminUpdateInput,
+  PublisherAppCatalogSnapshot,
+  PublisherAppCatalogSnapshotItem,
   PublisherAppConfigCreateInput,
   PublisherAppConfigInput,
   PublisherAppConfigRecord,
@@ -27,7 +29,10 @@ const adminDb = adminDbFor("mydnamap");
 
 const APP_CONFIGS_COLLECTION = "app_configs";
 const APP_CONFIG_IDENTIFIERS_COLLECTION = "app_config_identifiers";
+const CUSTOM_APPS_SNAPSHOT_COLLECTION = "custom_apps_snapshot";
+const CUSTOM_APPS_SNAPSHOT_DOCUMENT = "simple";
 const APP_CONFIG_SCHEMA_VERSION = 1 as const;
+const CUSTOM_APPS_SNAPSHOT_SCHEMA_VERSION = 1 as const;
 const APP_TERMS_VERSION = "2026-10-31";
 const HEX_COLOR_PATTERN = /^#[0-9A-F]{6}$/;
 const APP_PROVIDER_IDENTIFIER_PATTERN =
@@ -52,6 +57,15 @@ const APP_ICON_DATA_URL_PATTERN =
 
 const DEFAULT_ADMIN_APP_CONFIG_PAGE_SIZE = 20;
 const MAX_ADMIN_APP_CONFIG_PAGE_SIZE = 100;
+const APP_SNAPSHOT_PUBLISHER_READ_BATCH_SIZE = 50;
+const APP_SNAPSHOT_DESCRIPTION_MAX_LENGTH = 280;
+const PUBLISHER_APP_STATUSES = [
+  "pending_revision",
+  "active",
+  "approved",
+  "changes_requested",
+  "rejected",
+] as const satisfies readonly PublisherAppStatus[];
 
 function requiredString(value: unknown, label: string) {
   if (typeof value !== "string" || !value.trim()) {
@@ -548,6 +562,303 @@ export async function listPublisherAppConfigsPage(options: {
     nextCursor:
       snapshot.docs.length > pageSize && lastPageDoc ? lastPageDoc.id : null,
   };
+}
+
+function storedNonNegativeInteger(value: unknown, label: string) {
+  if (
+    typeof value !== "number" ||
+    !Number.isInteger(value) ||
+    value < 0 ||
+    value > 2_147_483_647
+  ) {
+    throw new AdminRepositoryError(
+      `Stored publisher app snapshot has an invalid ${label}.`,
+      500,
+    );
+  }
+  return value;
+}
+
+function requiredSnapshotString(value: unknown, label: string) {
+  if (typeof value !== "string") {
+    throw new AdminRepositoryError(
+      `Stored publisher app snapshot has an invalid ${label}.`,
+      500,
+    );
+  }
+  return value.trim();
+}
+
+function requiredSnapshotStatus(value: unknown): PublisherAppStatus {
+  if (
+    !PUBLISHER_APP_STATUSES.includes(
+      value as (typeof PUBLISHER_APP_STATUSES)[number],
+    )
+  ) {
+    throw new AdminRepositoryError(
+      "Stored publisher app snapshot has an invalid app status.",
+      500,
+    );
+  }
+  return value as PublisherAppStatus;
+}
+
+function toPublisherAppCatalogSnapshotItem(
+  value: unknown,
+): PublisherAppCatalogSnapshotItem {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new AdminRepositoryError(
+      "Stored publisher app snapshot has an invalid app item.",
+      500,
+    );
+  }
+  const data = value as Record<string, unknown>;
+  const publisherKind = data.publisherKind;
+  if (publisherKind !== "organization" && publisherKind !== "individual") {
+    throw new AdminRepositoryError(
+      "Stored publisher app snapshot has an invalid publisher kind.",
+      500,
+    );
+  }
+
+  return {
+    id: requiredString(data.id, "snapshot app id"),
+    appProviderIdentifier: storedNullableString(
+      data.appProviderIdentifier,
+      "snapshot app provider identifier",
+    ),
+    name: requiredString(data.name, "snapshot app name"),
+    image: storedNullableString(data.image, "snapshot app image"),
+    description: requiredSnapshotString(
+      data.description,
+      "app description",
+    ),
+    status: requiredSnapshotStatus(data.status),
+    isActive: requiredBoolean(data.isActive, "snapshot active flag"),
+    publisherKind,
+    publisherId: requiredString(data.publisherId, "snapshot publisher id"),
+  };
+}
+
+function toPublisherAppCatalogSnapshot(
+  snapshot: DocumentSnapshot,
+): PublisherAppCatalogSnapshot {
+  const data = snapshot.data() as Record<string, unknown> | undefined;
+  if (!snapshot.exists || !data) {
+    throw new AdminRepositoryError("Publisher app snapshot not found.", 404);
+  }
+  if (
+    snapshot.id !== CUSTOM_APPS_SNAPSHOT_DOCUMENT ||
+    data.id !== CUSTOM_APPS_SNAPSHOT_DOCUMENT ||
+    data.schemaVersion !== CUSTOM_APPS_SNAPSHOT_SCHEMA_VERSION
+  ) {
+    throw new AdminRepositoryError(
+      "Stored publisher app snapshot has an unsupported identity or schema version.",
+      500,
+    );
+  }
+  if (!Array.isArray(data.apps) || !Array.isArray(data.statusCounts)) {
+    throw new AdminRepositoryError(
+      "Stored publisher app snapshot has invalid catalog arrays.",
+      500,
+    );
+  }
+
+  const apps = data.apps.map(toPublisherAppCatalogSnapshotItem);
+  const statusCounts = data.statusCounts.map((value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new AdminRepositoryError(
+        "Stored publisher app snapshot has an invalid status count.",
+        500,
+      );
+    }
+    const countData = value as Record<string, unknown>;
+    return {
+      status: requiredSnapshotStatus(countData.status),
+      count: storedNonNegativeInteger(countData.count, "status count"),
+    };
+  });
+  const totalCount = storedNonNegativeInteger(data.totalCount, "total count");
+  const activeCount = storedNonNegativeInteger(
+    data.activeCount,
+    "active count",
+  );
+  const inactiveCount = storedNonNegativeInteger(
+    data.inactiveCount,
+    "inactive count",
+  );
+  const expectedStatusCounts = new Map(
+    PUBLISHER_APP_STATUSES.map((status) => [status, 0]),
+  );
+  for (const app of apps) {
+    expectedStatusCounts.set(
+      app.status,
+      (expectedStatusCounts.get(app.status) ?? 0) + 1,
+    );
+  }
+  const storedStatusCounts = new Map(
+    statusCounts.map(({ status, count }) => [status, count]),
+  );
+  const expectedActiveCount = apps.filter((app) => app.isActive).length;
+  if (
+    new Set(apps.map((app) => app.id)).size !== apps.length ||
+    apps.some((app) => app.isActive !== (app.status === "active")) ||
+    statusCounts.length !== PUBLISHER_APP_STATUSES.length ||
+    storedStatusCounts.size !== PUBLISHER_APP_STATUSES.length ||
+    PUBLISHER_APP_STATUSES.some(
+      (status) =>
+        storedStatusCounts.get(status) !== expectedStatusCounts.get(status),
+    ) ||
+    totalCount !== apps.length ||
+    activeCount !== expectedActiveCount ||
+    inactiveCount !== apps.length - expectedActiveCount
+  ) {
+    throw new AdminRepositoryError(
+      "Stored publisher app snapshot statistics do not match its catalog.",
+      500,
+    );
+  }
+
+  return {
+    id: CUSTOM_APPS_SNAPSHOT_DOCUMENT,
+    schemaVersion: CUSTOM_APPS_SNAPSHOT_SCHEMA_VERSION,
+    totalCount,
+    activeCount,
+    inactiveCount,
+    statusCounts,
+    apps,
+    sourceReadCount: storedNonNegativeInteger(
+      data.sourceReadCount,
+      "source read count",
+    ),
+    updatedAt: timestampToIso(data.updatedAt, "snapshot updatedAt timestamp"),
+    updatedByUserId: requiredString(
+      data.updatedByUserId,
+      "snapshot updater user id",
+    ),
+  };
+}
+
+export async function getPublisherAppCatalogSnapshot(): Promise<
+  PublisherAppCatalogSnapshot | null
+> {
+  const snapshot = await adminDb
+    .collection(CUSTOM_APPS_SNAPSHOT_COLLECTION)
+    .doc(CUSTOM_APPS_SNAPSHOT_DOCUMENT)
+    .get();
+  return snapshot.exists ? toPublisherAppCatalogSnapshot(snapshot) : null;
+}
+
+function compactSnapshotDescription(value: unknown) {
+  if (typeof value !== "string") return "";
+  return value
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, APP_SNAPSHOT_DESCRIPTION_MAX_LENGTH);
+}
+
+async function publisherAppSnapshotItem(
+  config: PublisherAppConfigRecord,
+): Promise<PublisherAppCatalogSnapshotItem> {
+  const publisherCollection =
+    config.publisherKind === "organization"
+      ? "feed_organizations"
+      : "feed_individuals";
+  const publisherSnapshot = await adminDb
+    .collection(publisherCollection)
+    .doc(config.publisherId)
+    .get();
+  const publisherData = (publisherSnapshot.data() ?? {}) as Record<
+    string,
+    unknown
+  >;
+  const publisherImageUrl = storedNullableString(
+    publisherData.imageUrl,
+    "publisher image URL",
+  );
+  const publisherImageUpload = storedNullableString(
+    publisherData.imageUploadDataUrl,
+    "publisher image upload",
+  );
+
+  return {
+    id: config.id,
+    appProviderIdentifier: config.appProviderIdentifier ?? null,
+    name: config.publisherName,
+    image:
+      config.iconImageUrl ??
+      config.iconImageUploadDataUrl ??
+      publisherImageUrl ??
+      publisherImageUpload,
+    description:
+      compactSnapshotDescription(publisherData.description) ||
+      compactSnapshotDescription(publisherData.descriptionEn),
+    status: config.status,
+    isActive: config.status === "active",
+    publisherKind: config.publisherKind,
+    publisherId: config.publisherId,
+  };
+}
+
+async function loadAllPublisherAppConfigs() {
+  const configs: PublisherAppConfigRecord[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await listPublisherAppConfigsPage({
+      limit: MAX_ADMIN_APP_CONFIG_PAGE_SIZE,
+      cursor,
+    });
+    configs.push(...page.apps);
+    cursor = page.nextCursor ?? undefined;
+  } while (cursor);
+  return configs;
+}
+
+export async function refreshPublisherAppCatalogSnapshot(
+  context: AdminContext,
+): Promise<PublisherAppCatalogSnapshot> {
+  const configs = await loadAllPublisherAppConfigs();
+  const apps: PublisherAppCatalogSnapshotItem[] = [];
+  for (
+    let index = 0;
+    index < configs.length;
+    index += APP_SNAPSHOT_PUBLISHER_READ_BATCH_SIZE
+  ) {
+    apps.push(
+      ...(await Promise.all(
+        configs
+          .slice(index, index + APP_SNAPSHOT_PUBLISHER_READ_BATCH_SIZE)
+          .map(publisherAppSnapshotItem),
+      )),
+    );
+  }
+  apps.sort(
+    (left, right) =>
+      left.name.localeCompare(right.name) || left.id.localeCompare(right.id),
+  );
+
+  const statusCounts = PUBLISHER_APP_STATUSES.map((status) => ({
+    status,
+    count: apps.filter((app) => app.status === status).length,
+  }));
+  const activeCount = apps.filter((app) => app.isActive).length;
+  const reference = adminDb
+    .collection(CUSTOM_APPS_SNAPSHOT_COLLECTION)
+    .doc(CUSTOM_APPS_SNAPSHOT_DOCUMENT);
+  await reference.set({
+    id: CUSTOM_APPS_SNAPSHOT_DOCUMENT,
+    schemaVersion: CUSTOM_APPS_SNAPSHOT_SCHEMA_VERSION,
+    totalCount: apps.length,
+    activeCount,
+    inactiveCount: apps.length - activeCount,
+    statusCounts,
+    apps,
+    sourceReadCount: configs.length * 2,
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedByUserId: context.uid,
+  });
+
+  return toPublisherAppCatalogSnapshot(await reference.get());
 }
 
 export async function getPublisherAppConfigById(

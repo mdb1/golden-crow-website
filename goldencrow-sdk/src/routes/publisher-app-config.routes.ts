@@ -8,10 +8,12 @@ import {
   deactivatePublisherAppIdentifier,
   deletePublisherAppConfig,
   getPublisherAppConfigById,
+  getPublisherAppCatalogSnapshot,
   getPublisherAppConfig,
   getPublisherAppRuntimeConfig,
   getPublisherAppRuntimeConfigById,
   listPublisherAppConfigsPage,
+  refreshPublisherAppCatalogSnapshot,
   updatePublisherAppConfig,
   updatePublisherAppConfigById,
 } from "../repositories/publisher-app-config.repository.js";
@@ -141,6 +143,54 @@ export async function publisherAppConfigRoutes(
             cursor: request.query.cursor,
           }),
         );
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/admin/publisher-app-configs/snapshot",
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
+      }
+      if (!request.adminContext.isBootstrap) {
+        return reply.status(403).send({ error: "GOD MODE access required" });
+      }
+
+      try {
+        reply.header("Cache-Control", "private, no-store");
+        return reply.send({
+          snapshot: await getPublisherAppCatalogSnapshot(),
+        });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.put(
+    "/admin/publisher-app-configs/snapshot",
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
+      }
+      if (!request.adminContext.isBootstrap) {
+        return reply.status(403).send({ error: "GOD MODE access required" });
+      }
+
+      try {
+        reply.header("Cache-Control", "private, no-store");
+        return reply.send({
+          snapshot: await refreshPublisherAppCatalogSnapshot(
+            request.adminContext,
+          ),
+        });
       } catch (error) {
         return sendRepositoryError(reply, error);
       }
