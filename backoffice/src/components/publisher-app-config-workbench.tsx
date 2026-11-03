@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type ChangeEvent,
@@ -2070,7 +2071,29 @@ function PublisherAppEditSheet({
   );
 }
 
-function SuccessCelebration({ publisherName }: { publisherName: string }) {
+type AutomaticActivationState =
+  | { status: "waiting" }
+  | { status: "pending" }
+  | { status: "active"; appProviderIdentifier: string }
+  | { status: "error"; message: string };
+
+function SuccessCelebration({
+  publisherName,
+  automaticActivation,
+  onExplosionComplete,
+  onRetryActivation,
+}: {
+  publisherName: string;
+  automaticActivation: AutomaticActivationState;
+  onExplosionComplete: () => void;
+  onRetryActivation: () => void;
+}) {
+  useEffect(() => {
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      onExplosionComplete();
+    }
+  }, [onExplosionComplete]);
+
   return (
     <section
       role="status"
@@ -2082,6 +2105,7 @@ function SuccessCelebration({ publisherName }: { publisherName: string }) {
         data-testid="publisher-app-success-circle"
         aria-hidden="true"
         className="publisher-app-success-circle pointer-events-none fixed left-1/2 top-1/2 size-9 rounded-full bg-[#16a34a]"
+        onAnimationEnd={onExplosionComplete}
       />
 
       <div
@@ -2109,6 +2133,52 @@ function SuccessCelebration({ publisherName }: { publisherName: string }) {
           <br />
           Te contactaremos si necesitamos algún detalle adicional.
         </p>
+
+        <div
+          data-testid="publisher-app-automatic-activation"
+          className="mx-auto mt-7 max-w-[720px] rounded-2xl border border-white/25 bg-white/12 px-5 py-4 text-sm text-white shadow-[0_18px_40px_-28px_rgba(0,0,0,0.5)] backdrop-blur-sm"
+        >
+          {automaticActivation.status === "active" ? (
+            <div className="flex flex-col items-center justify-center gap-1 sm:flex-row sm:gap-2">
+              <CheckCircle2 className="size-5 shrink-0" />
+              <span>
+                La app está activa para pruebas con el identificador{" "}
+                <strong className="break-all font-mono">
+                  {automaticActivation.appProviderIdentifier}
+                </strong>
+                .
+              </span>
+            </div>
+          ) : automaticActivation.status === "error" ? (
+            <div className="space-y-3">
+              <p>
+                La app fue creada, pero no pudimos activarla para pruebas:{" "}
+                {automaticActivation.message}
+              </p>
+              <Button
+                type="button"
+                variant="secondary"
+                className="rounded-full bg-white text-emerald-800 hover:bg-emerald-50"
+                onClick={onRetryActivation}
+              >
+                Reintentar activación
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2">
+              {automaticActivation.status === "pending" ? (
+                <LoaderCircle className="size-5 animate-spin" />
+              ) : (
+                <KeyRound className="size-5" />
+              )}
+              <span>
+                {automaticActivation.status === "pending"
+                  ? "Creando el identificador y activando la app para pruebas…"
+                  : "La activación para pruebas comenzará al terminar la animación…"}
+              </span>
+            </div>
+          )}
+        </div>
 
         <div className="mt-9 flex flex-col flex-wrap justify-center gap-4 sm:flex-row">
           <Link
@@ -2169,6 +2239,9 @@ export function PublisherAppConfigWorkbench({
   const [downloadPending, setDownloadPending] = useState(false);
   const [iconUploadPending, setIconUploadPending] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [automaticActivation, setAutomaticActivation] =
+    useState<AutomaticActivationState>({ status: "waiting" });
+  const automaticActivationStarted = useRef(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [iconStepVisited, setIconStepVisited] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
@@ -2333,21 +2406,12 @@ export function PublisherAppConfigWorkbench({
     setIdentifierPending(true);
     setToast(null);
     try {
-      const response = await sdkFetch<PublisherAppConfigResponse>(
-        `${apiPath}/identifier`,
-        { method: "POST" },
-      );
-      if (!response.config?.appProviderIdentifier) {
-        throw new Error("El servidor no devolvió un identificador de app.");
-      }
-      setPersistedConfig(response.config);
-      setStatus(response.config.status);
-      setPersistedStatus(response.config.status);
+      const activatedConfig = await requestAppIdentifier();
       setToast({
         id: Date.now(),
         tone: "success",
         title: "Identificador creado",
-        message: `${response.config.appProviderIdentifier} ya está activo para pruebas.`,
+        message: `${activatedConfig.appProviderIdentifier} ya está activo para pruebas.`,
       });
       router.refresh();
     } catch (error) {
@@ -2358,6 +2422,48 @@ export function PublisherAppConfigWorkbench({
         message:
           error instanceof Error ? error.message : "Volvé a intentarlo.",
         details: error instanceof SdkRequestError ? error.details : undefined,
+      });
+    } finally {
+      setIdentifierPending(false);
+    }
+  }
+
+  async function requestAppIdentifier() {
+    const response = await sdkFetch<PublisherAppConfigResponse>(
+      `${apiPath}/identifier`,
+      { method: "POST" },
+    );
+    if (!response.config?.appProviderIdentifier) {
+      throw new Error("El servidor no devolvió un identificador de app.");
+    }
+    setPersistedConfig(response.config);
+    setStatus(response.config.status);
+    setPersistedStatus(response.config.status);
+    return response.config;
+  }
+
+  async function activateCreatedAppForTesting() {
+    if (
+      mode !== "create" ||
+      apiPath !== "/publisher-app/config" ||
+      automaticActivationStarted.current
+    ) {
+      return;
+    }
+    automaticActivationStarted.current = true;
+    setIdentifierPending(true);
+    setAutomaticActivation({ status: "pending" });
+    try {
+      const activatedConfig = await requestAppIdentifier();
+      setAutomaticActivation({
+        status: "active",
+        appProviderIdentifier: activatedConfig.appProviderIdentifier!,
+      });
+    } catch (error) {
+      automaticActivationStarted.current = false;
+      setAutomaticActivation({
+        status: "error",
+        message: error instanceof Error ? error.message : "Volvé a intentarlo.",
       });
     } finally {
       setIdentifierPending(false);
@@ -2526,7 +2632,12 @@ export function PublisherAppConfigWorkbench({
   if (completed)
     return (
       <section className="pb-24">
-        <SuccessCelebration publisherName={publisherName} />
+        <SuccessCelebration
+          publisherName={publisherName}
+          automaticActivation={automaticActivation}
+          onExplosionComplete={() => void activateCreatedAppForTesting()}
+          onRetryActivation={() => void activateCreatedAppForTesting()}
+        />
       </section>
     );
 

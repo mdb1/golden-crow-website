@@ -90,7 +90,17 @@ describe("PublisherAppConfigWorkbench", () => {
   });
 
   it("reviews and accepts the five-step request before creating the app", async () => {
-    jest.mocked(sdkFetch).mockResolvedValue({ config: savedConfig });
+    const activatedConfig: PublisherAppConfig = {
+      ...savedConfig,
+      status: "active",
+      appProviderIdentifier: "app_org_pocket_genes_lab_48217",
+      runtimeRevision: 1,
+    };
+    jest.mocked(sdkFetch).mockImplementation(async (path) =>
+      path === "/publisher-app/config/identifier"
+        ? { config: activatedConfig }
+        : { config: savedConfig },
+    );
     renderWorkbench();
 
     expect(
@@ -366,7 +376,8 @@ describe("PublisherAppConfigWorkbench", () => {
       "z-[2200]",
       "publisher-app-success-overlay",
     );
-    expect(screen.getByTestId("publisher-app-success-circle")).toHaveClass(
+    const successCircle = screen.getByTestId("publisher-app-success-circle");
+    expect(successCircle).toHaveClass(
       "publisher-app-success-circle",
       "bg-[#16a34a]",
     );
@@ -389,6 +400,30 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(
       screen.getByRole("link", { name: /Ver y editar mi app/i }),
     ).toHaveAttribute("href", PUBLISHER_PORTAL_APP_EDIT_ROUTE);
+
+    fireEvent.animationEnd(successCircle);
+    fireEvent.animationEnd(successCircle);
+
+    await waitFor(() => {
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/publisher-app/config/identifier",
+        { method: "POST" },
+      );
+    });
+    expect(
+      jest
+        .mocked(sdkFetch)
+        .mock.calls.filter(
+          ([requestPath]) =>
+            requestPath === "/publisher-app/config/identifier",
+        ),
+    ).toHaveLength(1);
+    expect(
+      await screen.findByText("app_org_pocket_genes_lab_48217"),
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId("publisher-app-automatic-activation"),
+    ).toHaveTextContent("La app está activa para pruebas");
   });
 
   it("doubles subscription and store setup prices for iOS and Android", () => {
