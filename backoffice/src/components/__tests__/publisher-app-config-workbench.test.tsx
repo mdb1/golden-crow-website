@@ -710,20 +710,42 @@ describe("PublisherAppConfigWorkbench", () => {
         }
         throw new Error("Unexpected catalog kind");
       });
-    renderWorkbench({ mode: "edit", initialConfig: savedConfig });
+    const medicGenConfig = {
+      ...savedConfig,
+      colors: { ...savedConfig.colors, primary: "#FF5500" },
+    };
+    renderWorkbench({ mode: "edit", initialConfig: medicGenConfig });
 
     const advancedToggle = screen.getByTestId("publisher-app-advanced-toggle");
+    const advancedTheme = screen.getByTestId("publisher-app-advanced-theme");
+    expect(advancedTheme.style.getPropertyValue("--primary")).toBe("#FF5500");
+    expect(advancedTheme.style.getPropertyValue("--primary-foreground")).toBe(
+      "#0F1728",
+    );
+    expect(advancedTheme.style.getPropertyValue("--ring")).toBe("#FF5500");
     expect(advancedToggle).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByTestId("publisher-app-advanced-content")).toBeNull();
 
     fireEvent.click(advancedToggle);
     expect(advancedToggle).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByTestId("publisher-app-advanced-content")).toBeTruthy();
+    const editorTheme = screen.getByTestId(
+      "publisher-app-advanced-editor-theme",
+    );
+    expect(editorTheme.style.getPropertyValue("--primary")).toBe("#FF5500");
+    expect(editorTheme.style.getPropertyValue("--primary-foreground")).toBe(
+      "#0F1728",
+    );
     expect(screen.getByText("Identidad y disponibilidad")).toBeTruthy();
     expect(screen.getByText("Alcance de Discover y servicios")).toBeTruthy();
     expect(screen.getByText("Textos e idiomas")).toBeTruthy();
     expect(screen.getByText("Currículo Learn")).toBeTruthy();
     expect(screen.getByText("Enlaces y contacto")).toBeTruthy();
+    const identitySegment = screen.getByRole("button", {
+      name: /Identidad y disponibilidad/i,
+    });
+    expect(identitySegment.querySelector(".bg-primary")).toBeTruthy();
+    expect(identitySegment.querySelector(".bg-foreground")).toBeNull();
 
     fireEvent.click(
       screen.getByRole("button", {
@@ -731,6 +753,10 @@ describe("PublisherAppConfigWorkbench", () => {
       }),
     );
     const advancedModal = screen.getByTestId("publisher-app-advanced-modal");
+    expect(advancedModal.style.getPropertyValue("--primary")).toBe("#FF5500");
+    expect(advancedModal.style.getPropertyValue("--primary-foreground")).toBe(
+      "#0F1728",
+    );
     expect(advancedModal).toHaveClass("sm:max-w-[90rem]");
     expect(
       within(advancedModal).getByTestId("publisher-app-section-index"),
@@ -812,6 +838,10 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(screen.queryByRole("textbox", { name: /Color Claro/i })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Cambiar color" }));
     const colorDialog = screen.getByRole("dialog", { name: "Cambiar color" });
+    expect(colorDialog.style.getPropertyValue("--primary")).toBe("#FF5500");
+    expect(colorDialog.style.getPropertyValue("--primary-foreground")).toBe(
+      "#0F1728",
+    );
     fireEvent.change(
       within(colorDialog).getByLabelText("Elegir color para Modo claro"),
       { target: { value: "#112233" } },
@@ -891,6 +921,16 @@ describe("PublisherAppConfigWorkbench", () => {
       },
       learn: { mode: "base" },
     });
+  });
+
+  it("uses a light foreground for a dark advanced-configuration brand tone", () => {
+    renderWorkbench({ mode: "edit", initialConfig: savedConfig });
+
+    const advancedTheme = screen.getByTestId("publisher-app-advanced-theme");
+    expect(advancedTheme.style.getPropertyValue("--primary")).toBe("#123ABC");
+    expect(advancedTheme.style.getPropertyValue("--primary-foreground")).toBe(
+      "#FFFFFF",
+    );
   });
 
   it("builds a custom Learn curriculum through hierarchical detail screens", async () => {

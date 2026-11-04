@@ -42,7 +42,10 @@ import {
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
-import { PublisherAppAdvancedConfigurationEditor } from "@/components/publisher-app-advanced-configuration";
+import {
+  PublisherAppAdvancedConfigurationEditor,
+  publisherAppBrandThemeStyle,
+} from "@/components/publisher-app-advanced-configuration";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1546,16 +1549,23 @@ function PublisherAppEditSheet({
         </div>
 
         {state.advancedConfiguration ? (
-          <div className="border-t border-violet-100/80 dark:border-violet-400/14">
+          <div
+            data-testid="publisher-app-advanced-theme"
+            className="border-t border-primary/20"
+            style={publisherAppBrandThemeStyle(
+              state.advancedConfiguration.semanticColors?.primary ??
+                state.colors.primary,
+            )}
+          >
             <button
               type="button"
               aria-expanded={advancedOpen}
               aria-controls="publisher-app-advanced-content"
               data-testid="publisher-app-advanced-toggle"
               onClick={() => setAdvancedOpen((open) => !open)}
-              className="group flex w-full items-center gap-3 bg-violet-50/45 px-5 py-4 text-left transition hover:bg-violet-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-500 dark:bg-violet-950/16 dark:hover:bg-violet-500/8"
+              className="group flex w-full items-center gap-3 bg-primary/5 px-5 py-4 text-left transition hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
             >
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 transition group-hover:bg-violet-600 group-hover:text-white dark:bg-violet-500/14 dark:text-violet-100">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition group-hover:bg-primary group-hover:text-primary-foreground">
                 <SlidersHorizontal className="size-4" />
               </span>
               <span className="min-w-0 flex-1">
@@ -1563,7 +1573,8 @@ function PublisherAppEditSheet({
                   Advanced configuration
                 </span>
                 <span className="mt-0.5 block text-xs text-muted-foreground">
-                  Fine-tune branding, content scope, wording, Learn, resources and links
+                  Fine-tune branding, content scope, wording, Learn, resources
+                  and links
                 </span>
               </span>
               <span className="hidden text-xs font-semibold text-muted-foreground sm:inline">
@@ -1581,7 +1592,7 @@ function PublisherAppEditSheet({
               <div
                 id="publisher-app-advanced-content"
                 data-testid="publisher-app-advanced-content"
-                className="animate-in fade-in slide-in-from-top-2 border-t border-violet-100/80 bg-violet-50/20 px-5 py-5 duration-200 dark:border-violet-400/14 dark:bg-violet-950/8"
+                className="animate-in fade-in slide-in-from-top-2 border-t border-primary/20 bg-primary/5 px-5 py-5 duration-200"
               >
                 <PublisherAppAdvancedConfigurationEditor
                   configuration={state.advancedConfiguration}
@@ -2517,7 +2528,8 @@ export function PublisherAppConfigWorkbench({
       automaticActivationStarted.current = false;
       setAutomaticActivation({
         status: "error",
-        message: error instanceof Error ? error.message : "Volvé a intentarlo.",
+        message:
+          error instanceof Error ? error.message : "Volvé a intentarlo.",
       });
     } finally {
       setIdentifierPending(false);
@@ -2560,8 +2572,7 @@ export function PublisherAppConfigWorkbench({
         id: Date.now(),
         tone: "error",
         title: "No pudimos desactivar el identificador",
-        message:
-          error instanceof Error ? error.message : "Volvé a intentarlo.",
+        message: error instanceof Error ? error.message : "Volvé a intentarlo.",
         details: error instanceof SdkRequestError ? error.details : undefined,
       });
     } finally {

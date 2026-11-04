@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ComponentProps,
+  type CSSProperties,
+} from "react";
 import {
   ArrowDown,
   ArrowLeft,
@@ -57,8 +65,60 @@ import type {
   PublisherAppSemanticColors,
   PublisherAppTextCatalogOption,
 } from "@/lib/publisher-app-config";
-import { publisherAppSemanticColors } from "@/lib/publisher-app-config";
+import {
+  normalizePublisherAppColor,
+  publisherAppSemanticColors,
+} from "@/lib/publisher-app-config";
 import { fetchPublisherAppCustomizationCatalog } from "@/lib/publisher-app-customization-catalog-client";
+
+const ADVANCED_CONFIGURATION_FALLBACK_TONE = "#6D28D9";
+
+function colorChannelToLinear(channel: number) {
+  const normalized = channel / 255;
+  return normalized <= 0.04045
+    ? normalized / 12.92
+    : ((normalized + 0.055) / 1.055) ** 2.4;
+}
+
+function brandToneForeground(color: string) {
+  const red = Number.parseInt(color.slice(1, 3), 16);
+  const green = Number.parseInt(color.slice(3, 5), 16);
+  const blue = Number.parseInt(color.slice(5, 7), 16);
+  const luminance =
+    0.2126 * colorChannelToLinear(red) +
+    0.7152 * colorChannelToLinear(green) +
+    0.0722 * colorChannelToLinear(blue);
+  const dark = "#0F1728";
+  const light = "#FFFFFF";
+  const darkLuminance = 0.008;
+  const darkContrast =
+    (Math.max(luminance, darkLuminance) + 0.05) /
+    (Math.min(luminance, darkLuminance) + 0.05);
+  const lightContrast = 1.05 / (luminance + 0.05);
+  return darkContrast >= lightContrast ? dark : light;
+}
+
+export function publisherAppBrandThemeStyle(color?: string): CSSProperties {
+  const tone =
+    normalizePublisherAppColor(color) ?? ADVANCED_CONFIGURATION_FALLBACK_TONE;
+  return {
+    "--primary": tone,
+    "--primary-foreground": brandToneForeground(tone),
+    "--ring": tone,
+  } as CSSProperties;
+}
+
+const PublisherAppBrandThemeContext = createContext<CSSProperties | null>(null);
+
+function PublisherAppBrandDialogContent({
+  style,
+  ...props
+}: ComponentProps<typeof DialogContent>) {
+  const brandTheme = useContext(PublisherAppBrandThemeContext);
+  return (
+    <DialogContent {...props} style={{ ...(brandTheme ?? {}), ...style }} />
+  );
+}
 
 const SEMANTIC_COLOR_FIELDS: Array<{
   key: keyof PublisherAppSemanticColors;
@@ -306,7 +366,7 @@ function ColorValueControl({
         </div>
       </div>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
+        <PublisherAppBrandDialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Cambiar color</DialogTitle>
             <DialogDescription>
@@ -347,7 +407,7 @@ function ColorValueControl({
                   min={0}
                   max={100}
                   value={opacity}
-                  className="mt-3 w-full accent-foreground"
+                  className="mt-3 w-full accent-primary"
                   onChange={(event) => setOpacity(Number(event.target.value))}
                 />
               </div>
@@ -371,7 +431,7 @@ function ColorValueControl({
               <Check className="size-4" /> Usar este color
             </Button>
           </DialogFooter>
-        </DialogContent>
+        </PublisherAppBrandDialogContent>
       </Dialog>
     </>
   );
@@ -569,7 +629,7 @@ function ColorOverridesEditor({
             if (!open) setColorPicker(null);
           }}
         >
-          <DialogContent className="sm:max-w-md">
+          <PublisherAppBrandDialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Cambiar color</DialogTitle>
               <DialogDescription>
@@ -616,7 +676,7 @@ function ColorOverridesEditor({
                   min={0}
                   max={100}
                   value={pickerOpacity}
-                  className="mt-3 w-full accent-foreground"
+                  className="mt-3 w-full accent-primary"
                   onChange={(event) =>
                     setPickerOpacity(Number(event.target.value))
                   }
@@ -645,7 +705,7 @@ function ColorOverridesEditor({
                 <Check className="size-4" /> Usar este color
               </Button>
             </DialogFooter>
-          </DialogContent>
+          </PublisherAppBrandDialogContent>
         </Dialog>
       </>
     );
@@ -685,7 +745,7 @@ function ColorOverridesEditor({
                 <button
                   key={option.key}
                   type="button"
-                  className="group rounded-2xl border bg-background p-4 text-left transition hover:border-foreground/30 hover:shadow-md"
+                  className="group rounded-2xl border bg-background p-4 text-left transition hover:border-primary/45 hover:shadow-md"
                   onClick={() => choose(option, "browse")}
                 >
                   <div className="flex items-start gap-3">
@@ -713,7 +773,7 @@ function ColorOverridesEditor({
                         {option.usageDescription}
                       </span>
                     </span>
-                    <ArrowRight className="size-4 text-muted-foreground transition group-hover:translate-x-1" />
+                    <ArrowRight className="size-4 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
                   </div>
                 </button>
               );
@@ -767,7 +827,7 @@ function ColorOverridesEditor({
               key={key}
               type="button"
               onClick={() => void editLoaded(key)}
-              className="rounded-2xl border bg-background p-4 text-left transition hover:border-foreground/30 hover:shadow-md"
+              className="rounded-2xl border bg-background p-4 text-left transition hover:border-primary/45 hover:shadow-md"
             >
               <code className="text-xs font-semibold text-muted-foreground">
                 {key}
@@ -1001,7 +1061,7 @@ function TextOverridesEditor({
                 <button
                   key={option.key}
                   type="button"
-                  className="group w-full rounded-2xl border bg-background p-4 text-left transition hover:border-foreground/30 hover:shadow-md"
+                  className="group w-full rounded-2xl border bg-background p-4 text-left transition hover:border-primary/45 hover:shadow-md"
                   onClick={() => choose(option, "browse")}
                 >
                   <div className="flex items-start gap-4">
@@ -1026,7 +1086,7 @@ function TextOverridesEditor({
                         </span>
                       </span>
                     </span>
-                    <ArrowRight className="size-4 text-muted-foreground transition group-hover:translate-x-1" />
+                    <ArrowRight className="size-4 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
                   </div>
                 </button>
               );
@@ -1079,7 +1139,7 @@ function TextOverridesEditor({
               key={row.key}
               type="button"
               onClick={() => void editLoaded(row.key)}
-              className="group w-full rounded-2xl border bg-background p-4 text-left transition hover:border-foreground/30 hover:shadow-md"
+              className="group w-full rounded-2xl border bg-background p-4 text-left transition hover:border-primary/45 hover:shadow-md"
             >
               <div className="flex items-start gap-4">
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted text-sm font-bold text-foreground">
@@ -1096,7 +1156,7 @@ function TextOverridesEditor({
                     </span>
                   </span>
                 </span>
-                <ArrowRight className="size-4 text-muted-foreground transition group-hover:translate-x-1" />
+                <ArrowRight className="size-4 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
               </div>
             </button>
           ))}
@@ -1777,10 +1837,10 @@ function LearnBuilder({
                     onClick={() => setScreen({ kind: "subject", subjectIndex })}
                   >
                     <div className="flex items-start justify-between gap-4">
-                      <span className="flex size-11 items-center justify-center rounded-2xl bg-muted text-foreground">
+                      <span className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                         <BookOpen className="size-5" />
                       </span>
-                      <ArrowRight className="size-5 text-muted-foreground transition group-hover:translate-x-1" />
+                      <ArrowRight className="size-5 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
                     </div>
                     <h5 className="mt-5 text-lg font-semibold">
                       {subject.subjectTitle || "Tema sin nombre"}
@@ -1846,7 +1906,7 @@ function LearnBuilder({
           <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
             <div>
               <div className="flex items-center gap-3">
-                <span className="flex size-10 items-center justify-center rounded-2xl bg-muted">
+                <span className="flex size-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                   <Boxes className="size-5" />
                 </span>
                 <div>
@@ -2673,7 +2733,7 @@ function LearnBuilder({
                 return (
                   <label
                     key={candidate.lessonIdentifier}
-                    className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition ${checked ? "border-foreground/35 bg-muted/40" : "bg-background hover:border-foreground/20"}`}
+                    className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition ${checked ? "border-primary/45 bg-primary/10" : "bg-background hover:border-primary/30"}`}
                   >
                     <Checkbox
                       aria-label={`Relacionar ${candidate.lessonTitle}`}
@@ -2902,15 +2962,15 @@ function LearnBuilder({
                 <button
                   key={topicId}
                   type="button"
-                  className="group rounded-3xl border bg-background p-5 text-left shadow-sm transition hover:border-foreground/25 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="group rounded-3xl border bg-background p-5 text-left shadow-sm transition hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={() => setScreen({ kind: "topic", topicId })}
                   aria-label={`Configurar categoría ${label}`}
                 >
                   <div className="flex items-start justify-between gap-4">
-                    <span className="flex size-10 items-center justify-center rounded-2xl bg-muted">
+                    <span className="flex size-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                       <Boxes className="size-5" />
                     </span>
-                    <ArrowRight className="size-5 text-muted-foreground transition group-hover:translate-x-1" />
+                    <ArrowRight className="size-5 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
                   </div>
                   <h5 className="mt-5 font-semibold">{label}</h5>
                   <code className="mt-1 block text-xs text-muted-foreground">
@@ -2949,7 +3009,7 @@ function LearnBuilder({
             <button
               key={topicId}
               type="button"
-              className="group rounded-3xl border bg-background p-5 text-left transition hover:border-foreground/30 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="group rounded-3xl border bg-background p-5 text-left transition hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label={`Agregar categoría ${label}`}
               onClick={() => {
                 onChange({
@@ -2960,10 +3020,10 @@ function LearnBuilder({
               }}
             >
               <div className="flex items-start justify-between gap-4">
-                <span className="flex size-10 items-center justify-center rounded-2xl bg-muted">
+                <span className="flex size-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                   <Plus className="size-5" />
                 </span>
-                <ArrowRight className="size-5 text-muted-foreground transition group-hover:translate-x-1" />
+                <ArrowRight className="size-5 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
               </div>
               <h4 className="mt-5 font-semibold">{label}</h4>
               <code className="mt-1 block text-xs text-muted-foreground">
@@ -3008,7 +3068,7 @@ function LearnBuilder({
           return (
             <label
               key={subject.subjectIdentifier}
-              className={`flex cursor-pointer items-start gap-4 rounded-3xl border p-5 transition ${checked ? "border-foreground/35 bg-muted/40" : "bg-background hover:border-foreground/20"}`}
+              className={`flex cursor-pointer items-start gap-4 rounded-3xl border p-5 transition ${checked ? "border-primary/45 bg-primary/10" : "bg-background hover:border-primary/30"}`}
             >
               <Checkbox
                 aria-label={`Asignar tema ${subject.subjectTitle}`}
@@ -3252,6 +3312,10 @@ export function PublisherAppAdvancedConfigurationEditor({
     () => working.semanticColors ?? publisherAppSemanticColors(baseColors),
     [baseColors, working.semanticColors],
   );
+  const brandThemeStyle = useMemo(
+    () => publisherAppBrandThemeStyle(effectiveSemanticColors.primary),
+    [effectiveSemanticColors.primary],
+  );
   const activeDefinition = ADVANCED_SEGMENTS.find(
     (segment) => segment.id === activeSegment,
   );
@@ -3395,11 +3459,11 @@ export function PublisherAppAdvancedConfigurationEditor({
                 <button
                   key={key}
                   type="button"
-                  className={`group relative overflow-hidden rounded-3xl border p-6 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${enabled ? "border-foreground/35 bg-muted/35" : "bg-background"}`}
+                  className={`group relative overflow-hidden rounded-3xl border p-6 text-left transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg ${enabled ? "border-primary/45 bg-primary/10" : "bg-background"}`}
                   onClick={() => updateDraft({ [key]: !enabled })}
                 >
                   <span
-                    className={`flex size-11 items-center justify-center rounded-2xl ${enabled ? "bg-foreground text-background" : "bg-muted text-muted-foreground"}`}
+                    className={`flex size-11 items-center justify-center rounded-2xl ${enabled ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
                   >
                     {index === 0 ? (
                       <Boxes className="size-5" />
@@ -3768,10 +3832,10 @@ export function PublisherAppAdvancedConfigurationEditor({
           <div className="grid gap-5 md:grid-cols-2">
             <button
               type="button"
-              className={`rounded-3xl border p-6 text-left transition-all hover:-translate-y-1 hover:shadow-lg ${working.learn.mode === "base" ? "border-foreground/40 bg-muted/35" : "bg-background"}`}
+              className={`rounded-3xl border p-6 text-left transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg ${working.learn.mode === "base" ? "border-primary/45 bg-primary/10" : "bg-background"}`}
               onClick={() => updateDraft({ learn: { mode: "base" } })}
             >
-              <BookOpen className="size-8 text-foreground" />
+              <BookOpen className="size-8 text-primary" />
               <p className="mt-8 text-xl font-semibold">
                 Currículo Pocket Genes
               </p>
@@ -3785,7 +3849,7 @@ export function PublisherAppAdvancedConfigurationEditor({
             </button>
             <button
               type="button"
-              className={`rounded-3xl border p-6 text-left transition-all hover:-translate-y-1 hover:shadow-lg ${working.learn.mode === "replace" ? "border-foreground/40 bg-muted/35" : "bg-background"}`}
+              className={`rounded-3xl border p-6 text-left transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg ${working.learn.mode === "replace" ? "border-primary/45 bg-primary/10" : "bg-background"}`}
               onClick={() =>
                 updateDraft({
                   learn:
@@ -3795,7 +3859,7 @@ export function PublisherAppAdvancedConfigurationEditor({
                 })
               }
             >
-              <Rocket className="size-8 text-foreground" />
+              <Rocket className="size-8 text-primary" />
               <p className="mt-8 text-xl font-semibold">Currículo propio</p>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 Reemplaza el recorrido con temas, capítulos y lecciones
@@ -4094,11 +4158,11 @@ export function PublisherAppAdvancedConfigurationEditor({
               key={section.title}
               type="button"
               onClick={() => setActiveSectionIndex(index)}
-              className="group flex min-h-44 flex-col rounded-3xl border bg-background p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-foreground/30 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="group flex min-h-44 flex-col rounded-3xl border bg-background p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <div className="flex items-start justify-between gap-4">
                 <Badge variant="secondary">Sección</Badge>
-                <ArrowRight className="size-5 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-foreground" />
+                <ArrowRight className="size-5 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
               </div>
               <h4 className="mt-6 text-lg font-semibold">{section.title}</h4>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -4124,149 +4188,156 @@ export function PublisherAppAdvancedConfigurationEditor({
   };
 
   return (
-    <div className="space-y-5">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {ADVANCED_SEGMENTS.map((segment) => {
-          const Icon = segment.icon;
-          return (
-            <button
-              key={segment.id}
-              type="button"
-              onClick={() => openSegment(segment.id)}
-              className="group min-h-64 rounded-3xl border bg-background p-6 text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-foreground/25 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <div className="flex h-full flex-col">
-                <div className="flex items-start justify-between">
-                  <span className="flex size-12 items-center justify-center rounded-2xl bg-muted text-foreground">
-                    <Icon className="size-5" />
-                  </span>
-                </div>
-                <h3 className="mt-7 text-lg font-semibold text-foreground">
-                  {segment.title}
-                </h3>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {segment.description}
-                </p>
-                <div className="mt-auto flex items-end justify-between gap-3 pt-6">
-                  <span className="line-clamp-2 text-xs font-medium text-foreground/75">
-                    {segmentSummary(segment.id)}
-                  </span>
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-transform duration-300 group-hover:translate-x-1">
-                    <ArrowRight className="size-4" />
-                  </span>
-                </div>
-                {segment.id === "scope" ? (
-                  <Badge
-                    variant="outline"
-                    className="absolute right-0 top-10 rounded-full"
-                  >
-                    Sólo lectura
-                  </Badge>
-                ) : null}
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="flex items-center gap-2 rounded-xl border bg-muted/25 p-3 text-xs text-muted-foreground">
-        <SlidersHorizontal className="size-4 shrink-0" />
-        Cada modal tiene un índice de secciones. El borrador se conserva al
-        entrar, volver y consultar otros detalles.
-        <Badge variant="outline" className="ml-auto shrink-0">
-          Configuración v2
-        </Badge>
-      </div>
-
-      <Dialog
-        open={Boolean(activeSegment)}
-        onOpenChange={(open) => {
-          if (!open) closeSegment();
-        }}
+    <PublisherAppBrandThemeContext.Provider value={brandThemeStyle}>
+      <div
+        data-testid="publisher-app-advanced-editor-theme"
+        className="space-y-5"
+        style={brandThemeStyle}
       >
-        <DialogContent
-          data-testid="publisher-app-advanced-modal"
-          className="h-[min(92vh,56rem)] w-[min(96vw,90rem)] gap-0 overflow-hidden p-0 sm:max-w-[90rem]"
-          showCloseButton={false}
-        >
-          {activeDefinition ? (
-            <>
-              <DialogHeader className="relative border-b bg-background px-6 py-5 pr-16 sm:px-8">
-                <div className="flex items-start gap-4">
-                  <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-muted text-foreground">
-                    <activeDefinition.icon className="size-5" />
-                  </span>
-                  <div>
-                    {activeSection ? (
-                      <p className="mb-1 text-xs font-semibold text-muted-foreground">
-                        {activeDefinition.title}
-                      </p>
-                    ) : null}
-                    <div className="flex flex-wrap items-center gap-2">
-                      <DialogTitle className="text-xl sm:text-2xl">
-                        {activeSection?.title ?? activeDefinition.title}
-                      </DialogTitle>
-                      {activeSegment === "scope" ? (
-                        <Badge variant="outline" className="rounded-full">
-                          Sólo lectura
-                        </Badge>
-                      ) : null}
-                    </div>
-                    <DialogDescription className="mt-1 max-w-3xl text-sm sm:text-base">
-                      {activeSection?.story ?? activeDefinition.description}
-                    </DialogDescription>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {ADVANCED_SEGMENTS.map((segment) => {
+            const Icon = segment.icon;
+            return (
+              <button
+                key={segment.id}
+                type="button"
+                onClick={() => openSegment(segment.id)}
+                className="group min-h-64 rounded-3xl border bg-background p-6 text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <div className="flex h-full flex-col">
+                  <div className="flex items-start justify-between">
+                    <span className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                      <Icon className="size-5" />
+                    </span>
                   </div>
+                  <h3 className="mt-7 text-lg font-semibold text-foreground">
+                    {segment.title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    {segment.description}
+                  </p>
+                  <div className="mt-auto flex items-end justify-between gap-3 pt-6">
+                    <span className="line-clamp-2 text-xs font-medium text-foreground/75">
+                      {segmentSummary(segment.id)}
+                    </span>
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform duration-300 group-hover:translate-x-1">
+                      <ArrowRight className="size-4" />
+                    </span>
+                  </div>
+                  {segment.id === "scope" ? (
+                    <Badge
+                      variant="outline"
+                      className="absolute right-0 top-10 rounded-full"
+                    >
+                      Sólo lectura
+                    </Badge>
+                  ) : null}
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Cerrar configuración avanzada"
-                  className="absolute right-4 top-4"
-                  onClick={closeSegment}
-                >
-                  ×
-                </Button>
-              </DialogHeader>
+              </button>
+            );
+          })}
+        </div>
 
-              {activeSection ? (
-                <div className="border-b bg-muted/20 px-6 py-3 sm:px-8">
+        <div className="flex items-center gap-2 rounded-xl border bg-muted/25 p-3 text-xs text-muted-foreground">
+          <SlidersHorizontal className="size-4 shrink-0" />
+          Cada modal tiene un índice de secciones. El borrador se conserva al
+          entrar, volver y consultar otros detalles.
+          <Badge variant="outline" className="ml-auto shrink-0">
+            Configuración v2
+          </Badge>
+        </div>
+
+        <Dialog
+          open={Boolean(activeSegment)}
+          onOpenChange={(open) => {
+            if (!open) closeSegment();
+          }}
+        >
+          <PublisherAppBrandDialogContent
+            data-testid="publisher-app-advanced-modal"
+            className="h-[min(92vh,56rem)] w-[min(96vw,90rem)] gap-0 overflow-hidden p-0 sm:max-w-[90rem]"
+            showCloseButton={false}
+          >
+            {activeDefinition ? (
+              <>
+                <DialogHeader className="relative border-b bg-background px-6 py-5 pr-16 sm:px-8">
+                  <div className="flex items-start gap-4">
+                    <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                      <activeDefinition.icon className="size-5" />
+                    </span>
+                    <div>
+                      {activeSection ? (
+                        <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                          {activeDefinition.title}
+                        </p>
+                      ) : null}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <DialogTitle className="text-xl sm:text-2xl">
+                          {activeSection?.title ?? activeDefinition.title}
+                        </DialogTitle>
+                        {activeSegment === "scope" ? (
+                          <Badge variant="outline" className="rounded-full">
+                            Sólo lectura
+                          </Badge>
+                        ) : null}
+                      </div>
+                      <DialogDescription className="mt-1 max-w-3xl text-sm sm:text-base">
+                        {activeSection?.story ?? activeDefinition.description}
+                      </DialogDescription>
+                    </div>
+                  </div>
                   <Button
                     type="button"
                     variant="ghost"
-                    size="sm"
-                    onClick={() => setActiveSectionIndex(null)}
+                    size="icon"
+                    aria-label="Cerrar configuración avanzada"
+                    className="absolute right-4 top-4"
+                    onClick={closeSegment}
                   >
-                    <ArrowLeft className="size-4" /> Volver a secciones
+                    ×
                   </Button>
+                </DialogHeader>
+
+                {activeSection ? (
+                  <div className="border-b bg-muted/20 px-6 py-3 sm:px-8">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setActiveSectionIndex(null)}
+                    >
+                      <ArrowLeft className="size-4" /> Volver a secciones
+                    </Button>
+                  </div>
+                ) : null}
+
+                <div
+                  key={`${activeSegment}-${activeSectionIndex ?? "index"}`}
+                  className="min-h-0 flex-1 overflow-y-auto px-6 py-7 animate-in fade-in duration-200 sm:px-8 sm:py-8"
+                >
+                  {activeSection ? renderCurrentSection() : renderSegmentHome()}
                 </div>
-              ) : null}
 
-              <div
-                key={`${activeSegment}-${activeSectionIndex ?? "index"}`}
-                className="min-h-0 flex-1 overflow-y-auto px-6 py-7 animate-in fade-in duration-200 sm:px-8 sm:py-8"
-              >
-                {activeSection ? renderCurrentSection() : renderSegmentHome()}
-              </div>
-
-              <DialogFooter className="m-0 shrink-0 rounded-none px-6 py-4 sm:px-8">
-                <Button type="button" variant="ghost" onClick={closeSegment}>
-                  {activeSegment === "scope" ? "Cerrar" : "Cancelar"}
-                </Button>
-                {activeSegment === "scope" ? (
-                  <Button type="button" onClick={closeSegment}>
-                    <Check className="size-4" /> Listo
+                <DialogFooter className="m-0 shrink-0 rounded-none px-6 py-4 sm:px-8">
+                  <Button type="button" variant="ghost" onClick={closeSegment}>
+                    {activeSegment === "scope" ? "Cerrar" : "Cancelar"}
                   </Button>
-                ) : (
-                  <Button type="button" onClick={applySegment}>
-                    <Check className="size-4" /> Guardar configuración avanzada
-                  </Button>
-                )}
-              </DialogFooter>
-            </>
-          ) : null}
-        </DialogContent>
-      </Dialog>
-    </div>
+                  {activeSegment === "scope" ? (
+                    <Button type="button" onClick={closeSegment}>
+                      <Check className="size-4" /> Listo
+                    </Button>
+                  ) : (
+                    <Button type="button" onClick={applySegment}>
+                      <Check className="size-4" /> Guardar configuración
+                      avanzada
+                    </Button>
+                  )}
+                </DialogFooter>
+              </>
+            ) : null}
+          </PublisherAppBrandDialogContent>
+        </Dialog>
+      </div>
+    </PublisherAppBrandThemeContext.Provider>
   );
 }
