@@ -34,6 +34,9 @@ export class FakeTimestamp {
   toMillis(): number {
     return this.ms;
   }
+  static fromMillis(ms: number): FakeTimestamp {
+    return new FakeTimestamp(ms);
+  }
   static fromDate(d: Date): FakeTimestamp {
     return new FakeTimestamp(d.getTime());
   }

@@ -382,6 +382,21 @@
       "params": ""
     },
     {
+      "file": "src/lib/gc-fitness/coach-challenge-actions.ts",
+      "export": "createCoachChallenge",
+      "params": "arg"
+    },
+    {
+      "file": "src/lib/gc-fitness/coach-challenge-actions.ts",
+      "export": "deleteCoachChallenge",
+      "params": "arg"
+    },
+    {
+      "file": "src/lib/gc-fitness/coach-challenge-actions.ts",
+      "export": "listCoachChallenges",
+      "params": ""
+    },
+    {
       "file": "src/lib/gc-fitness/coach-checklist-actions.ts",
       "export": "createCoachChecklistItem",
       "params": "arg"
