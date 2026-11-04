@@ -372,8 +372,8 @@ describe("reporting Open API routes", () => {
     });
 
     it.each([
-      ["runtime-version=3&base-content-version=pg-core-v1", 426],
-      ["runtime-version=2&base-content-version=pg-core-v2", 409],
+      ["runtime-version=2&base-content-version=pg-core-v1", 426],
+      ["runtime-version=3&base-content-version=pg-core-v2", 409],
     ])("rejects an incompatible contract with %s", async (contract, status) => {
       const response = await fastify.inject({
         method: "GET",

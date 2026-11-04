@@ -51,7 +51,6 @@ import type {
   PublisherAppAdvancedConfiguration,
   PublisherAppColorCatalogOption,
   PublisherAppColors,
-  PublisherAppCustomizationCatalogPage,
   PublisherAppLearnConfiguration,
   PublisherAppLearnLesson,
   PublisherAppLearnSubject,
@@ -59,7 +58,7 @@ import type {
   PublisherAppTextCatalogOption,
 } from "@/lib/publisher-app-config";
 import { publisherAppSemanticColors } from "@/lib/publisher-app-config";
-import { sdkFetch } from "@/lib/sdk-client";
+import { fetchPublisherAppCustomizationCatalog } from "@/lib/publisher-app-customization-catalog-client";
 
 const SEMANTIC_COLOR_FIELDS: Array<{
   key: keyof PublisherAppSemanticColors;
@@ -138,9 +137,7 @@ function useCustomizationCatalog<T>(kind: CatalogKind, enabled: boolean) {
     if (group) params.set("group", group);
     if (cursor) params.set("cursor", cursor);
     try {
-      const page = await sdkFetch<PublisherAppCustomizationCatalogPage<T>>(
-        `/publisher-app/customization-catalog/${kind}?${params.toString()}`,
-      );
+      const page = await fetchPublisherAppCustomizationCatalog<T>(kind, params);
       setItems((current) =>
         append ? [...current, ...page.items] : page.items,
       );
@@ -272,9 +269,11 @@ function ColorOverridesEditor({
 
   const editLoaded = async (key: string) => {
     const params = new URLSearchParams({ q: key, limit: "50" });
-    const page = await sdkFetch<
-      PublisherAppCustomizationCatalogPage<PublisherAppColorCatalogOption>
-    >(`/publisher-app/customization-catalog/colors?${params.toString()}`);
+    const page =
+      await fetchPublisherAppCustomizationCatalog<PublisherAppColorCatalogOption>(
+        "colors",
+        params,
+      );
     const option = page.items.find((item) => item.key === key);
     if (option) choose(option);
   };
@@ -581,9 +580,11 @@ function TextOverridesEditor({
 
   const editLoaded = async (key: string) => {
     const params = new URLSearchParams({ q: key, limit: "50" });
-    const page = await sdkFetch<
-      PublisherAppCustomizationCatalogPage<PublisherAppTextCatalogOption>
-    >(`/publisher-app/customization-catalog/texts?${params.toString()}`);
+    const page =
+      await fetchPublisherAppCustomizationCatalog<PublisherAppTextCatalogOption>(
+        "texts",
+        params,
+      );
     const option = page.items.find((item) => item.key === key);
     if (option) choose(option);
   };

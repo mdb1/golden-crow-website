@@ -395,37 +395,6 @@ describe("publisher app config contract", () => {
     },
   );
 
-  it("searches the canonical customization catalogs in bounded pages", async () => {
-    const colors = await fastify.inject({
-      method: "GET",
-      url: "/publisher-app/customization-catalog/colors?q=brand.primary&limit=20",
-    });
-    expect(colors.statusCode).toBe(200);
-    expect(colors.json()).toMatchObject({
-      catalogVersion: 1,
-      items: expect.arrayContaining([
-        expect.objectContaining({ key: "brand.primary", group: "Brand" }),
-      ]),
-    });
-    expect(colors.json().items.length).toBeLessThanOrEqual(20);
-
-    const texts = await fastify.inject({
-      method: "GET",
-      url: "/publisher-app/customization-catalog/texts?q=Contact%20Pocket%20Genes&limit=20",
-    });
-    expect(texts.statusCode).toBe(200);
-    expect(texts.json()).toMatchObject({
-      catalogVersion: 1,
-      items: expect.arrayContaining([
-        expect.objectContaining({
-          key: "Contact Pocket Genes",
-          defaultSpanishText: "Contactá a Pocket Genes",
-        }),
-      ]),
-    });
-    expect(texts.json().items.length).toBeLessThanOrEqual(20);
-  });
-
   it.each([
     {
       label: "server-owned identity and audit fields",

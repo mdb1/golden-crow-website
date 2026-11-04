@@ -18,10 +18,6 @@ import {
   updatePublisherAppConfigById,
 } from "../repositories/publisher-app-config.repository.js";
 import { sendPublisherAppCreationNotificationEmails } from "../lib/publisher-app-creation-notification-email.js";
-import {
-  searchPublisherAppColorCatalog,
-  searchPublisherAppTextCatalog,
-} from "../lib/publisher-app-customization-catalog.js";
 
 const APP_ICON_DATA_URL_PATTERN =
   /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
@@ -266,13 +262,6 @@ const PublisherAppConfigAdminListQuerySchema = z.object({
   cursor: z.string().trim().min(1).max(300).optional(),
 });
 
-const PublisherAppCustomizationCatalogQuerySchema = z.object({
-  q: z.string().trim().max(500).optional(),
-  group: z.string().trim().max(200).optional(),
-  cursor: z.coerce.number().int().min(0).default(0),
-  limit: z.coerce.number().int().min(1).max(50).default(20),
-});
-
 function sendRepositoryError(reply: FastifyReply, error: unknown) {
   if (isAdminRepositoryError(error)) {
     return reply.status(error.statusCode).send({ error: error.message });
@@ -285,48 +274,6 @@ export async function publisherAppConfigRoutes(
   fastify: FastifyInstance,
 ): Promise<void> {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
-
-  f.get(
-    "/publisher-app/customization-catalog/texts",
-    { schema: { querystring: PublisherAppCustomizationCatalogQuerySchema } },
-    async (request, reply) => {
-      if (!request.adminContext) {
-        return reply
-          .status(401)
-          .send({ error: "No authenticated admin context" });
-      }
-      reply.header("Cache-Control", "private, max-age=300");
-      return reply.send(
-        searchPublisherAppTextCatalog({
-          query: request.query.q,
-          group: request.query.group,
-          cursor: request.query.cursor,
-          limit: request.query.limit,
-        }),
-      );
-    },
-  );
-
-  f.get(
-    "/publisher-app/customization-catalog/colors",
-    { schema: { querystring: PublisherAppCustomizationCatalogQuerySchema } },
-    async (request, reply) => {
-      if (!request.adminContext) {
-        return reply
-          .status(401)
-          .send({ error: "No authenticated admin context" });
-      }
-      reply.header("Cache-Control", "private, max-age=300");
-      return reply.send(
-        searchPublisherAppColorCatalog({
-          query: request.query.q,
-          group: request.query.group,
-          cursor: request.query.cursor,
-          limit: request.query.limit,
-        }),
-      );
-    },
-  );
 
   f.get(
     "/admin/publisher-app-configs",

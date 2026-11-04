@@ -279,8 +279,7 @@ function normalizedTextOverrides(
       if (
         formattingArguments(replacement).join("\u0000") !==
           option.formatArguments.join("\u0000") ||
-        escapedPercentCount(replacement) !==
-          escapedPercentCount(option.defaultEnglishText)
+        escapedPercentCount(replacement) !== option.escapedPercentCount
       ) {
         invalid(
           `${language} text for “${key}” must preserve its formatting arguments.`,

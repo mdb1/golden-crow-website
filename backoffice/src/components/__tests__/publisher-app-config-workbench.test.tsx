@@ -16,6 +16,7 @@ import {
   PUBLISHER_PORTAL_APP_EDIT_ROUTE,
   PUBLISHER_PORTAL_HOME_ROUTE,
 } from "@/lib/publisher-portal-routes";
+import { fetchPublisherAppCustomizationCatalog } from "@/lib/publisher-app-customization-catalog-client";
 import { sdkFetch } from "@/lib/sdk-client";
 
 const mockRouterReplace = jest.fn();
@@ -35,6 +36,10 @@ jest.mock("@/lib/sdk-client", () => {
     sdkFetch: jest.fn(),
   };
 });
+
+jest.mock("@/lib/publisher-app-customization-catalog-client", () => ({
+  fetchPublisherAppCustomizationCatalog: jest.fn(),
+}));
 
 const savedConfig: PublisherAppConfig = {
   id: "organization_org-1",
@@ -662,46 +667,49 @@ describe("PublisherAppConfigWorkbench", () => {
   });
 
   it("expands the advanced configuration blocks and persists fine-tuning", async () => {
-    jest.mocked(sdkFetch).mockImplementation(async (path) => {
-      if (path.startsWith("/publisher-app/customization-catalog/colors")) {
-        return {
-          catalogVersion: 1,
-          groups: ["Brand"],
-          totalCount: 1,
-          nextCursor: null,
-          items: [
-            {
-              key: "brand.primary",
-              title: "Primary",
-              usageDescription: "Main brand color across the experience.",
-              defaultLightColor: "#F61C72",
-              defaultDarkColor: "#F61C72",
-              group: "Brand",
-              platforms: ["ios", "android"],
-            },
-          ],
-        };
-      }
-      if (path.startsWith("/publisher-app/customization-catalog/texts")) {
-        return {
-          catalogVersion: 1,
-          groups: ["General interface"],
-          totalCount: 1,
-          nextCursor: null,
-          items: [
-            {
-              key: "Services",
-              defaultEnglishText: "Services",
-              defaultSpanishText: "Servicios",
-              groups: ["General interface"],
-              platforms: ["ios", "android"],
-              formatArguments: [],
-            },
-          ],
-        };
-      }
-      return { config: savedConfig };
-    });
+    jest.mocked(sdkFetch).mockResolvedValue({ config: savedConfig });
+    jest
+      .mocked(fetchPublisherAppCustomizationCatalog)
+      .mockImplementation(async (kind) => {
+        if (kind === "colors") {
+          return {
+            catalogVersion: 1,
+            groups: ["Brand"],
+            totalCount: 1,
+            nextCursor: null,
+            items: [
+              {
+                key: "brand.primary",
+                title: "Primary",
+                usageDescription: "Main brand color across the experience.",
+                defaultLightColor: "#F61C72",
+                defaultDarkColor: "#F61C72",
+                group: "Brand",
+                platforms: ["ios", "android"],
+              },
+            ],
+          };
+        }
+        if (kind === "texts") {
+          return {
+            catalogVersion: 1,
+            groups: ["General interface"],
+            totalCount: 1,
+            nextCursor: null,
+            items: [
+              {
+                key: "Services",
+                defaultEnglishText: "Services",
+                defaultSpanishText: "Servicios",
+                groups: ["General interface"],
+                platforms: ["ios", "android"],
+                formatArguments: [],
+              },
+            ],
+          };
+        }
+        throw new Error("Unexpected catalog kind");
+      });
     renderWorkbench({ mode: "edit", initialConfig: savedConfig });
 
     const advancedToggle = screen.getByTestId("publisher-app-advanced-toggle");
@@ -765,10 +773,17 @@ describe("PublisherAppConfigWorkbench", () => {
       target: { value: "brand primary" },
     });
     await waitFor(() =>
-      expect(sdkFetch).toHaveBeenCalledWith(
-        expect.stringContaining("q=brand+primary"),
+      expect(fetchPublisherAppCustomizationCatalog).toHaveBeenCalledWith(
+        "colors",
+        expect.any(URLSearchParams),
       ),
     );
+    expect(
+      jest
+        .mocked(fetchPublisherAppCustomizationCatalog)
+        .mock.calls.at(-1)?.[1]
+        .toString(),
+    ).toContain("q=brand+primary");
     const colorOption = await screen.findByRole("button", {
       name: /Primary.*brand\.primary/i,
     });
