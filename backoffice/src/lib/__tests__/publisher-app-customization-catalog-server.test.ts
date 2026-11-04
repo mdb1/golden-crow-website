@@ -59,7 +59,7 @@ describe("publisher app customization catalogs", () => {
       limit: 20,
     });
 
-    expect(page.catalogVersion).toBe(1);
+    expect(page.catalogVersion).toBe(3);
     expect(page.items).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -69,6 +69,36 @@ describe("publisher app customization catalogs", () => {
       ]),
     );
     expect(page.items.length).toBeLessThanOrEqual(20);
-    expect(page.totalCount).toBeLessThan(26_592);
+    expect(page.totalCount).toBeLessThan(7_363);
+  });
+
+  it("exposes only the current non-curriculum text catalog", () => {
+    const page = searchPublisherAppTextCatalog({
+      cursor: 0,
+      limit: 20,
+    });
+    const curriculumSearch = searchPublisherAppTextCatalog({
+      query: "SLURM_ARRAY_TASK_ID",
+      cursor: 0,
+      limit: 20,
+    });
+    const studentSearch = searchPublisherAppTextCatalog({
+      query: "For students",
+      cursor: 0,
+      limit: 20,
+    });
+
+    expect(page.catalogVersion).toBe(3);
+    expect(page.totalCount).toBe(7_363);
+    expect(page.groups).not.toContain("Learn content");
+    expect(curriculumSearch.totalCount).toBe(0);
+    expect(studentSearch.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "For students",
+          defaultSpanishText: "Para estudiantes",
+        }),
+      ]),
+    );
   });
 });

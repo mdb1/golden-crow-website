@@ -748,9 +748,7 @@ describe("PublisherAppConfigWorkbench", () => {
       "#0F1728",
     );
     expect(screen.getByText("Nombre, funciones y colores")).toBeTruthy();
-    expect(
-      screen.queryByText("Contenido y servicios vinculados"),
-    ).toBeNull();
+    expect(screen.queryByText("Contenido y servicios vinculados")).toBeNull();
     expect(screen.getByText("Idiomas y textos")).toBeTruthy();
     expect(screen.getByText("Contenido educativo")).toBeTruthy();
     expect(screen.getByText("Enlaces y contacto")).toBeTruthy();
@@ -805,6 +803,7 @@ describe("PublisherAppConfigWorkbench", () => {
         expect.any(URLSearchParams),
       ),
     );
+    expect(await screen.findByText("1 color disponible")).toBeTruthy();
     expect(
       jest
         .mocked(fetchPublisherAppCustomizationCatalog)
@@ -847,6 +846,7 @@ describe("PublisherAppConfigWorkbench", () => {
     fireEvent.click(screen.getByRole("button", { name: /Idiomas y textos/i }));
     expect(screen.getByText("Contact Pocket Genes")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Agregar texto" }));
+    expect(await screen.findByText("1 texto disponible")).toBeTruthy();
     const textOption = await screen.findByRole("button", {
       name: /Services.*Servicios/i,
     });

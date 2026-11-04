@@ -247,6 +247,7 @@ function CatalogSearchControls({
   onGroupChange,
   groups,
   totalCount,
+  countLabel,
 }: {
   query: string;
   onQueryChange: (value: string) => void;
@@ -254,6 +255,7 @@ function CatalogSearchControls({
   onGroupChange: (value: string) => void;
   groups: string[];
   totalCount: number;
+  countLabel: { singular: string; plural: string };
 }) {
   return (
     <div className="sticky top-0 z-10 -mx-1 rounded-2xl border bg-background/95 p-3 shadow-sm backdrop-blur">
@@ -290,7 +292,8 @@ function CatalogSearchControls({
           variant="secondary"
           className="justify-center rounded-full px-3 py-1.5"
         >
-          {totalCount.toLocaleString("es-AR")} opciones
+          {totalCount.toLocaleString("es-AR")}{" "}
+          {totalCount === 1 ? countLabel.singular : countLabel.plural}
         </Badge>
       </div>
     </div>
@@ -736,6 +739,10 @@ function ColorOverridesEditor({
           onGroupChange={catalog.setGroup}
           groups={catalog.groups}
           totalCount={catalog.totalCount}
+          countLabel={{
+            singular: "color disponible",
+            plural: "colores disponibles",
+          }}
         />
         {catalog.loading && catalog.items.length === 0 ? (
           <CatalogLoadingState />
@@ -1052,6 +1059,10 @@ function TextOverridesEditor({
           onGroupChange={catalog.setGroup}
           groups={catalog.groups}
           totalCount={catalog.totalCount}
+          countLabel={{
+            singular: "texto disponible",
+            plural: "textos disponibles",
+          }}
         />
         {catalog.loading && catalog.items.length === 0 ? (
           <CatalogLoadingState />
