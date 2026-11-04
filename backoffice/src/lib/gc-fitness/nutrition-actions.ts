@@ -29,6 +29,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 
 import { getCurrentTrainer } from "./auth-helpers";
+import { assertOwnsAndCoaches } from "./coach-ownership";
 import { civilDateToday } from "./civil-date";
 import { FirestoreCollections } from "./collections";
 import { nutritionPlanEvent, recordCoachActivityEvent } from "./coach-activity-log";
@@ -373,7 +374,8 @@ export async function softDeleteNutritionPlan(planId: string): Promise<void> {
   if (!snap.exists) throw new Error("NotFound");
   const current = decodeNutritionPlan(planId, snap.data());
   if (!current) throw new Error("NotFound");
-  if (current.trainerId !== trainer.uid) throw new Error("Forbidden");
+  // #1503 — the author, AND only while the client is still theirs.
+  await assertOwnsAndCoaches(current, trainer.uid, db, "Forbidden");
 
   await ref.update({ deleted: true, updatedAt: FieldValue.serverTimestamp() });
 

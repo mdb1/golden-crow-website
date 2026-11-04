@@ -48,6 +48,10 @@ import {
 } from "./workout-assignment-schema";
 import { getCurrentTrainer } from "./auth-helpers";
 import {
+  assertOwnsAndCoaches,
+  clientInScopePredicate,
+} from "./coach-ownership";
+import {
   changedWeightExerciseIds,
   exercisesOf,
 } from "./weight-diff";
@@ -1219,10 +1223,9 @@ export async function editAssignmentScheduledFor(
   if (!snap.exists) {
     throw new Error("Not found");
   }
-  const existing = snap.data() as { trainerId?: string };
-  if (existing.trainerId !== trainer.uid) {
-    throw new Error("Not your assignment.");
-  }
+  const existing = snap.data() as { trainerId?: string; clientId?: string | null };
+  // #1503 — the author, AND only while the client is still theirs.
+  await assertOwnsAndCoaches(existing, trainer.uid, db, "Not your assignment.");
 
   const update: Record<string, unknown> = {
     scheduledFor: parsed.scheduledFor,
@@ -1284,11 +1287,11 @@ export async function deleteAssignment(
   }
   const existing = snap.data() as {
     trainerId?: string;
+    clientId?: string | null;
     seriesId?: string | null;
   };
-  if (existing.trainerId !== trainer.uid) {
-    throw new Error("Not your assignment.");
-  }
+  // #1503 — never a former coach deleting the plan of a client who left.
+  await assertOwnsAndCoaches(existing, trainer.uid, db, "Not your assignment.");
 
   // Non-cascade OR non-recurring: fall through to single-doc delete.
   if (!options?.cascadeFromDate || !existing.seriesId) {
@@ -1467,8 +1470,12 @@ export async function listFutureAssignmentsForTemplate(
     .where("trainerId", "==", trainer.uid)
     .where("templateId", "==", templateId)
     .get();
+  // #1503 — only clients the coach STILL coaches: a former client's inherited
+  // plan keeps trainerId == me but is no longer mine to see or rewrite.
+  const inScope = await clientInScopePredicate(db, trainer.uid);
   const candidates = snap.docs.filter((doc) => {
     const data = doc.data() as { scheduledFor?: string; status?: string };
+    if (!inScope(doc.data())) return false;
     if (typeof data.scheduledFor !== "string") return false;
     if (data.scheduledFor < todayUtc) return false;
     if (data.status && data.status !== "scheduled") return false;
@@ -1604,8 +1611,12 @@ export async function propagateTemplateToFutureAssignments(
     .where("trainerId", "==", trainer.uid)
     .where("templateId", "==", templateId)
     .get();
+  // #1503 — propagation rewrites future snapshots: only on clients the coach
+  // STILL coaches, never on a former client's inherited plan.
+  const inScope = await clientInScopePredicate(db, trainer.uid);
   const targets = snap.docs.filter((doc) => {
     const data = doc.data() as { scheduledFor?: string; status?: string };
+    if (!inScope(doc.data())) return false;
     if (typeof data.scheduledFor !== "string") return false;
     if (data.scheduledFor < todayUtc) return false;
     if (data.status && data.status !== "scheduled") return false;
@@ -1751,9 +1762,11 @@ export async function editAssignmentExercises(
   if (!snap.exists) throw new Error("Not found");
   const data = snap.data() as {
     trainerId?: string;
+    clientId?: string | null;
     seriesId?: string | null;
   };
-  if (data.trainerId !== trainer.uid) throw new Error("Not your assignment.");
+  // #1503 — the author, AND only while the client is still theirs.
+  await assertOwnsAndCoaches(data, trainer.uid, db, "Not your assignment.");
 
   const applyEdits = (snapshot: unknown): Record<string, unknown> => {
     const base =
@@ -2089,9 +2102,8 @@ export async function editAssignmentRecurrence(
     prescriptionUpdatedAt?: unknown;
     prescriptionUpdatedAtByExerciseId?: unknown;
   };
-  if (anchor.trainerId !== trainer.uid) {
-    throw new Error("Not your assignment.");
-  }
+  // #1503 — the author, AND only while the client is still theirs.
+  await assertOwnsAndCoaches(anchor, trainer.uid, db, "Not your assignment.");
   if (!anchor.seriesId || typeof anchor.seriesId !== "string") {
     throw new Error("This workout is not recurring — nothing to reschedule.");
   }
@@ -2236,10 +2248,14 @@ export async function listAssignmentsForTrainerDay(
     .orderBy("scheduledFor", "asc")
     .get();
 
+  // #1503 — not a former client's inherited workouts.
+  const inScope = await clientInScopePredicate(db, trainer.uid);
   return (snap.docs as unknown as Array<{
     id: string;
     data: () => Record<string, unknown>;
-  }>).map(snapToRow);
+  }>)
+    .filter((d) => inScope(d.data()))
+    .map(snapToRow);
 }
 
 /**
@@ -2263,7 +2279,11 @@ export async function countTemplateAssignments(): Promise<
     .collection(ASSIGNMENTS)
     .where("trainerId", "==", trainer.uid)
     .get();
-  const assignments: AssignmentForUsage[] = snap.docs.map((d) => {
+  // #1503 — the "N asignaciones" pill counts only clients the coach STILL coaches.
+  const inScope = await clientInScopePredicate(db, trainer.uid);
+  const assignments: AssignmentForUsage[] = snap.docs
+    .filter((d) => inScope(d.data()))
+    .map((d) => {
     const data = d.data() as Record<string, unknown>;
     return {
       id: d.id,
@@ -2311,9 +2331,12 @@ export async function listWorkoutAssignmentGroups(): Promise<
     .where("trainerId", "==", trainer.uid)
     .get();
 
+  // #1503 — the "Asignaciones" view lists only clients the coach STILL coaches.
+  const inScope = await clientInScopePredicate(db, trainer.uid);
   type Bucket = { sessions: number; earliest: string };
   const byTemplate = new Map<string, Map<string, Bucket>>();
   for (const doc of snap.docs) {
+    if (!inScope(doc.data())) continue;
     const d = doc.data() as {
       templateId?: string;
       clientId?: string;

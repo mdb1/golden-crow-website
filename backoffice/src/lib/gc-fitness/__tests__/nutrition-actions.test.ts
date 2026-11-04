@@ -351,4 +351,14 @@ describe("softDeleteNutritionPlan", () => {
     await expect(softDeleteNutritionPlan("p1")).rejects.toThrow("Forbidden");
     expect(planDocUpdate).not.toHaveBeenCalled();
   });
+  it("#1503 — refuses the plan's AUTHOR once the client moved to another coach", async () => {
+    mockPlanDocGet.mockResolvedValue({
+      exists: true,
+      data: () => planDoc("p1").data(),
+    });
+    mockUserGet.mockResolvedValue({ exists: true, data: () => ({ coachId: "another-coach" }) });
+    await expect(softDeleteNutritionPlan("p1")).rejects.toThrow("Not your client.");
+    expect(planDocUpdate).not.toHaveBeenCalled();
+    expect(recordCoachActivityEvent).not.toHaveBeenCalled();
+  });
 });

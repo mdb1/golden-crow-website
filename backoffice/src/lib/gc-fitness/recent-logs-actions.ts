@@ -1892,12 +1892,16 @@ async function coachCanAccessLog(
   coachUid: string,
   data: { trainerId?: unknown; clientId?: unknown },
 ): Promise<boolean> {
-  if (data.trainerId === coachUid) return true;
   const clientId =
     typeof data.clientId === "string" && data.clientId.trim().length > 0
       ? data.clientId.trim()
       : null;
-  if (!clientId) return false;
+  // #1503 — authorship (`trainerId`) alone no longer admits: a log copies its
+  // assignment's trainerId, so after a coach swap the ex-client's logs — even
+  // the ones written AFTER the swap — still name the former coach. The client
+  // must be the caller (own training) or currently coached by them.
+  if (!clientId) return data.trainerId === coachUid;
+  if (clientId === coachUid && data.trainerId === coachUid) return true;
   const clientSnap = await db
     .collection(FirestoreCollections.users)
     .doc(clientId)

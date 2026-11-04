@@ -46,6 +46,7 @@ import {
   type HabitScheduleType,
 } from "./habit-schema";
 import { getCurrentTrainer } from "./auth-helpers";
+import { clientInScopePredicate } from "./coach-ownership";
 import {
   recordCoachActivityEvent,
   markCoachActivityDeleted,
@@ -1266,9 +1267,11 @@ export async function listHabitsForTrainer(): Promise<HabitRow[]> {
     .limit(200)
     .get();
 
-  return snap.docs.map((d) =>
-    projectHabitRow(d.id, d.data() as Record<string, unknown>),
-  );
+  // #1503 — not a former client's inherited habits (trainerId still == me).
+  const inScope = await clientInScopePredicate(db, trainer.uid);
+  return snap.docs
+    .filter((d) => inScope(d.data()))
+    .map((d) => projectHabitRow(d.id, d.data() as Record<string, unknown>));
 }
 
 /**
@@ -1456,11 +1459,14 @@ export async function listHabitTemplateAssignments(
     .where("sourceTemplateId", "==", templateId)
     .get();
 
+  // #1503 — only clients the coach STILL coaches (pending docs stay theirs).
+  const inScope = await clientInScopePredicate(db, trainer.uid);
   const impacts: HabitTemplateAssignmentImpact[] = [];
   for (const doc of snap.docs) {
     const data = doc.data() as Record<string, unknown>;
     // Defense-in-depth: Admin SDK bypasses rules; scope to caller + live.
     if (data.trainerId !== trainer.uid) continue;
+    if (!inScope(data)) continue;
     if (data.deleted === true) continue;
     const row = projectHabitRow(doc.id, data);
     const pendingEmail =
@@ -1660,9 +1666,11 @@ export async function propagateHabitTemplateContent(
     .collection(COLLECTION)
     .where("sourceTemplateId", "==", templateId)
     .get();
+  // #1503 — never rewrite a former client's inherited habits.
+  const inScope = await clientInScopePredicate(db, trainer.uid);
   const mine = linked.docs.filter((d) => {
     const data = d.data() as { trainerId?: string; deleted?: boolean };
-    return data.trainerId === trainer.uid && data.deleted !== true;
+    return data.trainerId === trainer.uid && data.deleted !== true && inScope(data);
   });
 
   let updated = 0;
@@ -2028,7 +2036,12 @@ export async function listHabitsForClient(
   const clientBelongsToMe =
     clientSnap.exists && clientSnap.get("coachId") === trainer.uid;
 
+  // #1503 — authorship alone no longer admits a row: a FORMER client's habits
+  // (and their check-ins) are not the former coach's to see. Own-authored rows
+  // still pass when the queried client is the coach themselves.
   return rows.filter(
-    (r) => r.trainerId === trainer.uid || clientBelongsToMe,
+    (r) =>
+      clientBelongsToMe ||
+      (clientId === trainer.uid && r.trainerId === trainer.uid),
   );
 }
