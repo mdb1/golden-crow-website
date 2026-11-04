@@ -2128,6 +2128,13 @@ describe("support service repository versions", () => {
       updateSupportServiceOffer(context, "offer-1", {
         ...baseOffer,
         ...existingOfferContractAcknowledgement,
+        isStudentOffer: null,
+      } as unknown as typeof baseOffer),
+    ).rejects.toThrow("isStudentOffer must be a boolean.");
+    await expect(
+      updateSupportServiceOffer(context, "offer-1", {
+        ...baseOffer,
+        ...existingOfferContractAcknowledgement,
         is_highlighted_offer: false,
       } as typeof baseOffer),
     ).rejects.toThrow("Service offer uses forbidden snake-case field: is_highlighted_offer.");
@@ -5015,6 +5022,27 @@ describe("support service delivered transactions", () => {
     expect(updated.offerSnapshot).not.toHaveProperty("isHighlightedOffer");
     expect(updated.offerSnapshot).not.toHaveProperty("isProfessionalOffer");
     expect(updated.offerSnapshot).not.toHaveProperty("isStudentOffer");
+  });
+
+  it("keeps a historical null student flag readable without rewriting its frozen snapshot", async () => {
+    const legacyOfferSnapshot = clone(transaction.offerSnapshot) as MockData;
+    legacyOfferSnapshot.isStudentOffer = null;
+    seedDoc("service_transactions", "transaction-1", {
+      ...transaction,
+      offerSnapshot: legacyOfferSnapshot,
+    });
+    const { updateSupportServiceTransaction } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    const updated = await updateSupportServiceTransaction(
+      context,
+      "transaction-1",
+      { issues: [{ reason: "Legacy null review" }] },
+    );
+
+    expect(updated.issues).toEqual([{ reason: "Legacy null review" }]);
+    expect(updated.offerSnapshot).toHaveProperty("isStudentOffer", null);
   });
 
   it("attaches and delivers outputs without rewriting a legacy frozen input snapshot", async () => {
@@ -8014,7 +8042,7 @@ describe("support service canonical transaction creation", () => {
     ).resolves.toBeNull();
   });
 
-  it.each(["isHighlightedOffer", "isProfessionalOffer", "isStudentOffer"])(
+  it.each(["isHighlightedOffer", "isProfessionalOffer"])(
     "rejects a new transaction when the live offer is missing %s",
     async (missingField) => {
       const incompleteOffer = clone(baseOffer) as MockData;
@@ -8027,11 +8055,40 @@ describe("support service canonical transaction creation", () => {
       await expect(
         createSupportServiceTransaction(context, creationInput()),
       ).rejects.toThrow(
-        "must define boolean isHighlightedOffer, isProfessionalOffer, and isStudentOffer",
+        "must define boolean isHighlightedOffer and isProfessionalOffer",
       );
       expect(
         collectionStore("service_transactions").has("pgr_new_report_1"),
       ).toBe(false);
+    },
+  );
+
+  it.each(["missing", "null"] as const)(
+    "normalizes a legacy %s isStudentOffer to false when creating a transaction",
+    async (legacyValue) => {
+      const legacyOffer = clone(baseOffer) as MockData;
+      if (legacyValue === "missing") {
+        delete legacyOffer.isStudentOffer;
+      } else {
+        legacyOffer.isStudentOffer = null;
+      }
+      seedDoc("service_offers", "offer-1", legacyOffer);
+      const { createSupportServiceTransaction } = await import(
+        "../repositories/support-services.repository.js"
+      );
+
+      const created = await createSupportServiceTransaction(
+        context,
+        creationInput(),
+      );
+
+      expect(created.offerSnapshot).toEqual(
+        expect.objectContaining({ isStudentOffer: false }),
+      );
+      expect(
+        collectionStore("service_transactions").get("pgr_new_report_1")
+          ?.offerSnapshot,
+      ).toEqual(expect.objectContaining({ isStudentOffer: false }));
     },
   );
 

@@ -2766,6 +2766,12 @@ mutually exclusive; at most one may be true. If all values are false, native
 does not list it. isHiddenFromSearch overrides every segment flag and always
 hides the offer from the native marketplace.
 
+Historical service_offers and frozen transaction snapshots created before
+isStudentOffer may omit the field or expose it as null. Read either legacy form
+as false without blocking a new transaction or rewriting an existing frozen
+snapshot. New create and update writes must still provide a real boolean, and
+new offerSnapshot records must always persist the explicit boolean value.
+
 Optional service offer fields:
 
     subtitle: string

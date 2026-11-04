@@ -419,7 +419,11 @@
           "type": "boolean"
         },
         "isStudentOffer": {
-          "type": "boolean"
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "Audience flag frozen on new transactions. Historical snapshots may omit it or store null; readers normalize either legacy form to false without rewriting the snapshot."
         },
         "providerId": {
           "type": "string",
@@ -569,7 +573,6 @@
         "isHiddenFromSearch",
         "isHighlightedOffer",
         "isProfessionalOffer",
-        "isStudentOffer",
         "providerId",
         "providerName",
         "providerKind",

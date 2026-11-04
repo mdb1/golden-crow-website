@@ -1443,6 +1443,11 @@ describe("support service admin routes", () => {
       url: "/admin/support-services/offers",
       payload: { ...validOfferPayload, status: "paused" },
     });
+    const nullStudentResponse = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/offers",
+      payload: { ...validOfferPayload, isStudentOffer: null },
+    });
 
     expect(missingResponses.map((response) => response.statusCode)).toEqual([
       400, 400, 400, 400,
@@ -1451,6 +1456,7 @@ describe("support service admin routes", () => {
       400, 400,
     ]);
     expect(pausedResponse.statusCode).toBe(400);
+    expect(nullStudentResponse.statusCode).toBe(400);
     expect(mockCreateSupportServiceOffer).not.toHaveBeenCalled();
   });
 

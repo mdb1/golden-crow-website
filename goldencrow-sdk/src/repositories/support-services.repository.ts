@@ -3675,6 +3675,7 @@ function offerFromFrozenTransaction(
     (snapshot.isProfessionalOffer !== undefined &&
       typeof snapshot.isProfessionalOffer !== "boolean") ||
     (snapshot.isStudentOffer !== undefined &&
+      snapshot.isStudentOffer !== null &&
       typeof snapshot.isStudentOffer !== "boolean") ||
     Number(snapshot.isHighlightedOffer === true) +
       Number(snapshot.isProfessionalOffer === true) +
@@ -5772,11 +5773,10 @@ function toOfferRecord(
   if (
     options.requirePresentationFlags &&
     (typeof data.isHighlightedOffer !== "boolean" ||
-      typeof data.isProfessionalOffer !== "boolean" ||
-      typeof data.isStudentOffer !== "boolean")
+      typeof data.isProfessionalOffer !== "boolean")
   ) {
     throw new AdminRepositoryError(
-      "Selected service offer must define boolean isHighlightedOffer, isProfessionalOffer, and isStudentOffer fields before it can receive new transactions.",
+      "Selected service offer must define boolean isHighlightedOffer and isProfessionalOffer fields before it can receive new transactions.",
       400,
     );
   }

@@ -1488,6 +1488,12 @@ def validate_service_offer_stage_contract():
     }
     snapshot["stages"] = ["bioinformatics"]
     snapshot_validator.validate(snapshot)
+    legacy_snapshot_without_student = copy.deepcopy(snapshot)
+    legacy_snapshot_without_student.pop("isStudentOffer")
+    snapshot_validator.validate(legacy_snapshot_without_student)
+    legacy_snapshot_with_null_student = copy.deepcopy(snapshot)
+    legacy_snapshot_with_null_student["isStudentOffer"] = None
+    snapshot_validator.validate(legacy_snapshot_with_null_student)
 
     multi_snapshot = copy.deepcopy(snapshot)
     multi_snapshot["serviceCategory"] = f"{atomic_keys[-2]},{atomic_keys[-1]}"
