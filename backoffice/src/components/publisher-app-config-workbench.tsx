@@ -77,6 +77,7 @@ import {
   normalizePublisherAppColor,
   publisherAppDefaultAdvancedConfiguration,
   publisherAppDefaultColors,
+  publisherAppAutomaticOverrideTargetCount,
   publisherAppPaletteSuggestions,
   publisherAppSemanticColors,
   publisherAppStatusLabel,
@@ -251,7 +252,7 @@ function PaletteOverrideCalculationStatus({
         </span>
         <span className="min-w-0">
           <span className="block text-sm font-semibold">
-            Ajustando 167 colores a {calculation.paletteName}…
+            Ajustando los colores a {calculation.paletteName}…
           </span>
           <span className="block text-xs text-violet-700 dark:text-violet-200/80">
             Conservamos contraste, claridad, oscuridad y transparencias.
@@ -2549,9 +2550,16 @@ export function PublisherAppConfigWorkbench({
           return;
         }
         const overrideCount = Object.keys(plan.colorOverrides).length;
-        if (plan.selectedCount !== 167 || overrideCount !== 167) {
+        const expectedCount = publisherAppAutomaticOverrideTargetCount(
+          plan.sourceCount,
+        );
+        if (
+          expectedCount === 0 ||
+          plan.selectedCount !== expectedCount ||
+          overrideCount !== expectedCount
+        ) {
           throw new Error(
-            "La coordinación de colores no devolvió los 167 roles esperados.",
+            "La coordinación de colores devolvió una cobertura incompleta.",
           );
         }
         setState((current) => {

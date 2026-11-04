@@ -4,9 +4,10 @@ import type {
   PublisherAppColors,
   PublisherAppPaletteOverridePlan,
 } from "@/lib/publisher-app-config";
-import { normalizePublisherAppColor } from "@/lib/publisher-app-config";
-
-export const PUBLISHER_APP_AUTOMATIC_OVERRIDE_COUNT = 167;
+import {
+  normalizePublisherAppColor,
+  publisherAppAutomaticOverrideTargetCount,
+} from "@/lib/publisher-app-config";
 
 type RgbColor = {
   red: number;
@@ -50,18 +51,35 @@ type PaletteCandidate = {
  *    analogous family instead of being collapsed onto three near-identical
  *    anchors.
  * 5. Selection happens after preservation and transformation. An unchanged
- *    neutral cannot consume one of the 167 high-impact override positions.
+ *    neutral cannot consume one of the high-impact override positions. The
+ *    target stays at half of the installed catalog so coverage grows when the
+ *    native apps expose new named roles.
  */
 
 const GROUP_IMPACT: Record<string, number> = {
   Brand: 220,
   "Brand details": 208,
+  "Learn levels": 206,
   "Bottom navigation": 202,
   "Brand and community gradient details": 198,
+  "Discover suggestions": 218,
+  "Learn background": 196,
   "Discover categories": 194,
+  "Discover gene suggestions": 219,
+  "Discover lesson suggestions": 217,
+  "Discover request launcher": 216,
+  "Variant finder": 215,
   "Discover publishers": 188,
+  "Discover feed cards": 213,
   "Connect quick access": 184,
+  "Learn chapter cells": 212,
+  "Learn quiz words": 230,
+  "Learn chapter game": 211,
+  "Learn chapter modal": 210,
   "Screen surfaces and atmosphere": 178,
+  "Learn header": 209,
+  "Learn progress box": 208,
+  "Learn glass panels": 207,
   Discover: 174,
   Community: 168,
   "Community reference cards": 164,
@@ -98,6 +116,13 @@ const HIGH_IMPACT_TERMS = [
   "publisher",
   "quick access",
 ];
+
+const CORE_PALETTE_KEYS = new Set([
+  "app.accent",
+  "app.accentShadow",
+  "app.accentSubtleBackground",
+  "app.accentSubtleBorder",
+]);
 
 const SEMANTIC_STATUS_PATTERN =
   /\b(error|success|warning|failure|failed|rejected|cancelled|canceled|destructive|danger|requested|received|validating|accepted|queued|running|awaiting|delivered|status|unsupported|unavailable|disabled)\b/i;
@@ -290,6 +315,7 @@ function optionImpact(option: PublisherAppColorCatalogOption) {
   const colors = optionColors(option);
   const strongestChroma = Math.max(...colors.map((color) => color.chroma));
   let score = GROUP_IMPACT[option.group] ?? 110;
+  if (CORE_PALETTE_KEYS.has(option.key)) score += 100;
   for (const term of HIGH_IMPACT_TERMS) {
     if (text.toLocaleLowerCase("en").includes(term)) score += 6;
   }
@@ -462,7 +488,8 @@ export function createPublisherAppPaletteOverridePlan(
   options: PublisherAppColorCatalogOption[],
   catalogVersion: number,
 ): PublisherAppPaletteOverridePlan {
-  if (options.length < PUBLISHER_APP_AUTOMATIC_OVERRIDE_COUNT) {
+  const targetCount = publisherAppAutomaticOverrideTargetCount(options.length);
+  if (targetCount === 0) {
     throw new Error(
       "The color catalog is too small to build the palette plan.",
     );
@@ -476,13 +503,13 @@ export function createPublisherAppPaletteOverridePlan(
         right.score - left.score ||
         left.option.key.localeCompare(right.option.key),
     );
-  if (candidates.length < PUBLISHER_APP_AUTOMATIC_OVERRIDE_COUNT) {
+  if (candidates.length < targetCount) {
     throw new Error(
       "The color catalog does not contain enough meaningful chromatic roles.",
     );
   }
 
-  const selected = candidates.slice(0, PUBLISHER_APP_AUTOMATIC_OVERRIDE_COUNT);
+  const selected = candidates.slice(0, targetCount);
   const colorOverrides = Object.fromEntries(
     selected.map((candidate) => [candidate.option.key, candidate.override]),
   );

@@ -172,6 +172,7 @@ export type PublisherAppColorCatalogOption = {
   defaultDarkColor: string;
   group: string;
   platforms: Array<"ios" | "android">;
+  introducedInCatalogVersion?: number;
 };
 
 export type PublisherAppCustomizationCatalogPage<T> = {
@@ -188,6 +189,11 @@ export type PublisherAppPaletteOverridePlan = {
   selectedCount: number;
   colorOverrides: Record<string, PublisherAppColorOverride>;
 };
+
+export function publisherAppAutomaticOverrideTargetCount(sourceCount: number) {
+  if (!Number.isSafeInteger(sourceCount) || sourceCount < 2) return 0;
+  return Math.floor(sourceCount / 2);
+}
 
 export type PublisherAppConfigResponse = {
   config: PublisherAppConfig | null;

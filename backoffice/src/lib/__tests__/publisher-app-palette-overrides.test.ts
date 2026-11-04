@@ -1,8 +1,6 @@
 import { getPublisherAppColorCatalog } from "@/lib/publisher-app-customization-catalog-server";
-import {
-  createPublisherAppPaletteOverridePlan,
-  PUBLISHER_APP_AUTOMATIC_OVERRIDE_COUNT,
-} from "@/lib/publisher-app-palette-overrides";
+import { publisherAppAutomaticOverrideTargetCount } from "@/lib/publisher-app-config";
+import { createPublisherAppPaletteOverridePlan } from "@/lib/publisher-app-palette-overrides";
 
 function colorChannels(value: string) {
   return [1, 3, 5].map(
@@ -71,26 +69,41 @@ describe("publisher app automatic palette overrides", () => {
     tertiary: "#F58220",
   };
 
-  it("selects 167 meaningful chromatic roles after excluding neutral and semantic contracts", () => {
+  it("selects half of the expanded catalog after excluding neutral and semantic contracts", () => {
     const plan = createPublisherAppPaletteOverridePlan(
       colors,
       catalog.options,
       catalog.catalogVersion,
     );
 
-    expect(catalog.options).toHaveLength(334);
-    expect(plan.sourceCount).toBe(334);
-    expect(plan.selectedCount).toBe(PUBLISHER_APP_AUTOMATIC_OVERRIDE_COUNT);
-    expect(Object.keys(plan.colorOverrides)).toHaveLength(167);
-    expect(plan.colorOverrides).toEqual(
-      expect.objectContaining({
-        "app.accent": expect.any(Object),
-        "brand.primary": expect.any(Object),
-        "tabs.discover.start": expect.any(Object),
-        "discover.category.news.accent": expect.any(Object),
-        "community.quickActions.friends.start": expect.any(Object),
-      }),
+    expect(catalog.catalogVersion).toBe(3);
+    expect(catalog.options).toHaveLength(576);
+    expect(plan.sourceCount).toBe(576);
+    expect(plan.selectedCount).toBe(
+      publisherAppAutomaticOverrideTargetCount(catalog.options.length),
     );
+    expect(Object.keys(plan.colorOverrides)).toHaveLength(288);
+    const requiredKeys = [
+      "app.accent",
+      "brand.primary",
+      "tabs.discover.start",
+      "discover.category.news.accent",
+      "community.quickActions.friends.start",
+      "learn.level.bacteria.accent",
+      "learn.level.god.gradientEnd",
+      "learn.background.stop1",
+      "learn.chapter.accent",
+      "learn.quiz.wordAvailableText",
+      "discover.suggestion.pocketGuideInitialOverview.accent",
+      "discover.suggestion.gene1.gradientEnd",
+      "discover.suggestion.lesson.accent",
+      "discover.feed.tint",
+      "discover.requestLauncher.ribbonStart",
+      "discover.variantFinder.metricVariants",
+    ];
+    expect(
+      requiredKeys.filter((key) => plan.colorOverrides[key] === undefined),
+    ).toEqual([]);
     for (const protectedKey of [
       "app.background",
       "app.surface",
@@ -101,6 +114,9 @@ describe("publisher app automatic palette overrides", () => {
       "app.primaryText",
       "app.success",
       "serviceStatus.failed",
+      "learn.header.foreground",
+      "learn.levelBox.shadow",
+      "discover.feed.fill",
     ]) {
       expect(plan.colorOverrides[protectedKey]).toBeUndefined();
     }

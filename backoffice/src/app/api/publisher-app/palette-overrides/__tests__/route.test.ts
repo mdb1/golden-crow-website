@@ -46,7 +46,7 @@ describe("custom app palette override route", () => {
     expect(response.status).toBe(400);
   });
 
-  it("returns a private plan with exactly 167 coordinated roles", async () => {
+  it("returns a private plan covering half of the current color catalog", async () => {
     jest.mocked(getServerSession).mockResolvedValue({
       user: { email: "admin@example.org" },
       expires: "2099-01-01T00:00:00.000Z",
@@ -68,10 +68,19 @@ describe("custom app palette override route", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(body).toMatchObject({
-      catalogVersion: 2,
-      sourceCount: 334,
-      selectedCount: 167,
+      catalogVersion: 3,
+      sourceCount: 576,
+      selectedCount: 288,
     });
-    expect(Object.keys(body.colorOverrides)).toHaveLength(167);
+    expect(Object.keys(body.colorOverrides)).toHaveLength(288);
+    expect(body.colorOverrides).toEqual(
+      expect.objectContaining({
+        "learn.level.bacteria.accent": expect.any(Object),
+        "discover.suggestion.pocketGuideInitialOverview.accent":
+          expect.any(Object),
+        "discover.requestLauncher.ribbonStart": expect.any(Object),
+        "discover.variantFinder.metricVariants": expect.any(Object),
+      }),
+    );
   });
 });

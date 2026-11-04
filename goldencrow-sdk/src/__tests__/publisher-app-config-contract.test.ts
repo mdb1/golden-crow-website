@@ -241,6 +241,32 @@ const advancedConfigurationBody = {
       light: "#E04A5E",
       dark: "#E04A5E",
     },
+    "learn.level.bacteria.accent": {
+      light: "#00A88A",
+      dark: "#00A88A",
+    },
+    "learn.background.stop1": {
+      light: "#F2F8F7",
+      dark: "#070B1F",
+    },
+    "learn.chapter.accent": { light: "#F51568", dark: "#F51568" },
+    "learn.quiz.wordAvailableText": {
+      light: "#0088FF",
+      dark: "#0091FF",
+    },
+    "discover.suggestion.pocketGuideInitialOverview.accent": {
+      light: "#E04A5E",
+      dark: "#E04A5E",
+    },
+    "discover.feed.tint": { light: "#E04A5E17", dark: "#E04A5E14" },
+    "discover.requestLauncher.ribbonStart": {
+      light: "#FF174D",
+      dark: "#FF174D",
+    },
+    "discover.variantFinder.metricVariants": {
+      light: "#F59E0B",
+      dark: "#F59E0B",
+    },
   },
   catalogEnabled: false,
   feedEnabled: true,

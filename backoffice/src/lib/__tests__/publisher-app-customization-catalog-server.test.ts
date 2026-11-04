@@ -11,7 +11,7 @@ describe("publisher app customization catalogs", () => {
       limit: 20,
     });
 
-    expect(page.catalogVersion).toBe(2);
+    expect(page.catalogVersion).toBe(3);
     expect(page.items).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ key: "brand.primary", group: "Brand" }),
@@ -33,7 +33,7 @@ describe("publisher app customization catalogs", () => {
       limit: 20,
     });
 
-    expect(discoverPage.catalogVersion).toBe(2);
+    expect(discoverPage.catalogVersion).toBe(3);
     expect(discoverPage.items).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -50,6 +50,66 @@ describe("publisher app customization catalogs", () => {
         }),
       ]),
     );
+  });
+
+  it("exposes every version 3 Learn and Discover component color", () => {
+    const page = searchPublisherAppColorCatalog({
+      cursor: 0,
+      limit: 20,
+    });
+    const learnLevel = searchPublisherAppColorCatalog({
+      query: "learn level bacteria accent",
+      cursor: 0,
+      limit: 20,
+    });
+    const requestLauncher = searchPublisherAppColorCatalog({
+      query: "request launcher ribbon start",
+      cursor: 0,
+      limit: 20,
+    });
+    const variantFinder = searchPublisherAppColorCatalog({
+      query: "variant finder metric variants",
+      cursor: 0,
+      limit: 20,
+    });
+
+    expect(page.catalogVersion).toBe(3);
+    expect(page.totalCount).toBe(576);
+    expect(page.groups).toEqual(
+      expect.arrayContaining([
+        "Learn levels",
+        "Learn background",
+        "Discover suggestions",
+        "Discover feed cards",
+        "Discover request launcher",
+        "Variant finder",
+      ]),
+    );
+    expect(learnLevel.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: "learn.level.bacteria.accent" }),
+      ]),
+    );
+    expect(requestLauncher.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "discover.requestLauncher.ribbonStart",
+        }),
+      ]),
+    );
+    expect(variantFinder.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "discover.variantFinder.metricVariants",
+        }),
+      ]),
+    );
+
+    const versionThreeOptions = searchPublisherAppColorCatalog({
+      cursor: 0,
+      limit: 1_000,
+    }).items.filter((option) => option.introducedInCatalogVersion === 3);
+    expect(versionThreeOptions).toHaveLength(242);
   });
 
   it("searches exact bilingual wording without returning the full catalog", () => {
