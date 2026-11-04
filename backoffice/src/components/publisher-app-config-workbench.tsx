@@ -75,6 +75,7 @@ import {
   DEFAULT_PUBLISHER_APP_COLOR,
   isCurrentPublisherAppIdentifier,
   normalizePublisherAppColor,
+  publisherAppColorsWithCounterpoints,
   publisherAppDefaultAdvancedConfiguration,
   publisherAppDefaultColors,
   publisherAppPaletteSuggestions,
@@ -116,6 +117,8 @@ type PublisherAppConfigWorkbenchProps = {
 
 type WizardStep = "platform" | "features" | "colors" | "icon" | "review";
 type ColorKey = keyof PublisherAppColors;
+type EditableColorKey = "primary" | "secondary" | "tertiary";
+type DerivedColorKey = Exclude<ColorKey, EditableColorKey>;
 type PaletteOverrideCalculation =
   | { status: "idle" }
   | { status: "loading"; paletteName: string }
@@ -184,25 +187,55 @@ const REVIEW_STEP = {
   icon: FileCheck2,
 } satisfies (typeof WIZARD_STEPS)[number];
 
-const COLOR_FIELDS: Array<{
-  key: ColorKey;
-  label: string;
-  description: string;
-}> = [
+type ColorField =
+  | {
+      key: EditableColorKey;
+      label: string;
+      description: string;
+      editable: true;
+    }
+  | {
+      key: DerivedColorKey;
+      label: string;
+      description: string;
+      editable: false;
+      hueShift: "+60°" | "−60°";
+    };
+
+const COLOR_FIELDS: ColorField[] = [
   {
     key: "primary",
     label: "Color principal",
     description: "Botones, navegación y elementos protagonistas.",
+    editable: true,
   },
   {
     key: "secondary",
     label: "Color secundario",
     description: "Fondos suaves, tarjetas y detalles de apoyo.",
+    editable: true,
   },
   {
     key: "tertiary",
     label: "Color terciario",
     description: "Acentos, novedades y llamados especiales.",
+    editable: true,
+  },
+  {
+    key: "counterpointClockwise",
+    label: "Color de contrapunto horario",
+    description:
+      "Acento accesorio para composiciones puntuales con varios colores.",
+    editable: false,
+    hueShift: "+60°",
+  },
+  {
+    key: "counterpointAnticlockwise",
+    label: "Color de contrapunto antihorario",
+    description:
+      "Acento accesorio opuesto para separar elementos excepcionales.",
+    editable: false,
+    hueShift: "−60°",
   },
 ];
 
@@ -226,8 +259,8 @@ const PALETTE_SUGGESTION_COPY = [
 ] as const;
 
 function samePalette(left: PublisherAppColors, right: PublisherAppColors) {
-  return (Object.keys(left) as ColorKey[]).every(
-    (key) =>
+  return COLOR_FIELDS.every(
+    ({ key }) =>
       normalizePublisherAppColor(left[key]) ===
       normalizePublisherAppColor(right[key]),
   );
@@ -310,7 +343,7 @@ function initialState(
       connectEnabled: config.connectEnabled,
       profileEnabled: config.profileEnabled,
       learnCustomizationEnabled: config.learnCustomizationEnabled,
-      colors: { ...config.colors },
+      colors: publisherAppColorsWithCounterpoints(config.colors),
       iconSource: config.iconSource,
       iconImageUrl: config.iconImageUrl,
       iconImageUploadDataUrl: config.iconImageUploadDataUrl,
@@ -341,7 +374,7 @@ function normalizedPayload(state: PublisherAppConfigInput) {
     iconImageUrl: misplacedUploadDataUrl ? null : normalizedIconImageUrl,
     iconImageUploadDataUrl:
       state.iconImageUploadDataUrl?.trim() || misplacedUploadDataUrl || null,
-    colors: {
+    colors: publisherAppColorsWithCounterpoints({
       primary:
         normalizePublisherAppColor(state.colors.primary) ??
         state.colors.primary,
@@ -351,7 +384,7 @@ function normalizedPayload(state: PublisherAppConfigInput) {
       tertiary:
         normalizePublisherAppColor(state.colors.tertiary) ??
         state.colors.tertiary,
-    },
+    }),
   } satisfies PublisherAppConfigInput;
 }
 
@@ -803,7 +836,7 @@ function PublisherAppReviewDocument({
           </ReviewSection>
 
           <ReviewSection title="Paleta visual">
-            <dl className="grid gap-4 sm:grid-cols-3">
+            <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
               {COLOR_FIELDS.map((field) => (
                 <div key={field.key} className="border border-black/15 p-3">
                   <dt className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-black/55">
@@ -1175,7 +1208,7 @@ function PublisherAppEditSheet({
   deletePending: boolean;
   hasPersistedConfig: boolean;
   onUpdateState: (patch: Partial<PublisherAppConfigInput>) => void;
-  onUpdateColor: (key: ColorKey, value: string) => void;
+  onUpdateColor: (key: EditableColorKey, value: string) => void;
   onApplyPalette: (colors: PublisherAppColors, paletteName: string) => void;
   onChooseIconSource: (source: "publisher" | "custom") => void;
   onIconUpload: (event: ChangeEvent<HTMLInputElement>) => void;
@@ -1224,7 +1257,7 @@ function PublisherAppEditSheet({
     colors: {
       title: "Editar identidad visual",
       description:
-        "Elegí una paleta completa o ajustá cada color con el selector visual.",
+        "Elegí los tres colores base; los dos contrapuntos se derivan del principal.",
     },
     icon: {
       title: "Editar icono de la app",
@@ -1544,11 +1577,11 @@ function PublisherAppEditSheet({
               testId="publisher-app-edit-colors"
               icon={<Palette className="size-5" />}
               title="Identidad visual"
-              description="Paleta principal aplicada a navegación, superficies y acentos."
+              description="Tres colores base y dos contrapuntos accesorios derivados del principal."
               actionLabel="Editar paleta"
               onAction={() => setActiveDialog("colors")}
             >
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                 {COLOR_FIELDS.map((field) => (
                   <div
                     key={field.key}
@@ -2053,11 +2086,33 @@ function PublisherAppEditSheet({
                   />
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {COLOR_FIELDS.map((field) => {
                     const normalized =
                       normalizePublisherAppColor(state.colors[field.key]) ??
                       DEFAULT_PUBLISHER_APP_COLOR;
+                    if (!field.editable) {
+                      return (
+                        <div
+                          key={field.key}
+                          className="flex min-h-52 flex-col items-center rounded-[22px] border border-dashed border-violet-200 bg-violet-50/55 p-4 text-center dark:border-violet-400/24 dark:bg-violet-500/8"
+                        >
+                          <span
+                            className="mt-2 size-24 rounded-[28px] border-4 border-white shadow-[0_20px_36px_-20px_rgba(15,23,42,0.8)] ring-1 ring-black/8"
+                            style={{ backgroundColor: normalized }}
+                          />
+                          <span className="mt-4 font-semibold text-foreground">
+                            {field.label}
+                          </span>
+                          <span className="mt-1 text-xs leading-5 text-muted-foreground">
+                            {field.description}
+                          </span>
+                          <span className="mt-auto rounded-full bg-violet-100 px-3 py-1 text-[10px] font-bold text-violet-800 dark:bg-violet-400/15 dark:text-violet-100">
+                            Derivado del principal · {field.hueShift}
+                          </span>
+                        </div>
+                      );
+                    }
                     return (
                       <label
                         key={field.key}
@@ -2452,7 +2507,7 @@ export function PublisherAppConfigWorkbench({
   const paletteCalculationBlocking =
     paletteOverrideCalculation.status === "loading" ||
     paletteOverrideCalculation.status === "error";
-  const previewColors = {
+  const previewColors = publisherAppColorsWithCounterpoints({
     primary:
       normalizePublisherAppColor(state.colors.primary) ??
       DEFAULT_PUBLISHER_APP_COLOR,
@@ -2462,7 +2517,7 @@ export function PublisherAppConfigWorkbench({
     tertiary:
       normalizePublisherAppColor(state.colors.tertiary) ??
       DEFAULT_PUBLISHER_APP_COLOR,
-  };
+  });
   const resolvedIconSource =
     state.iconSource === "publisher"
       ? (publisherImageUrl ??
@@ -2487,8 +2542,12 @@ export function PublisherAppConfigWorkbench({
     setTermsAccepted(false);
     setState((current) => ({ ...current, ...patch }));
   }
-  function updateColor(key: ColorKey, value: string) {
-    const nextColors = { ...state.colors, [key]: value };
+  function updateColor(key: EditableColorKey, value: string) {
+    const nextColors = publisherAppColorsWithCounterpoints({
+      primary: key === "primary" ? value : state.colors.primary,
+      secondary: key === "secondary" ? value : state.colors.secondary,
+      tertiary: key === "tertiary" ? value : state.colors.tertiary,
+    });
     if (paletteOverrideCalculation.status === "idle") {
       setTermsAccepted(false);
       setState((current) => ({ ...current, colors: nextColors }));
@@ -2514,11 +2573,11 @@ export function PublisherAppConfigWorkbench({
       });
       return;
     }
-    const nextColors: PublisherAppColors = {
+    const nextColors = publisherAppColorsWithCounterpoints({
       primary: normalizedColors.primary,
       secondary: normalizedColors.secondary,
       tertiary: normalizedColors.tertiary,
-    };
+    });
     const resolvedPublisherKind = initialConfig?.publisherKind ?? publisherKind;
     const resolvedPublisherId = initialConfig?.publisherId ?? publisherId;
     if (
@@ -3342,18 +3401,49 @@ export function PublisherAppConfigWorkbench({
                 <div className="rounded-[24px] border border-border/80 bg-background/60 p-4 sm:p-5">
                   <div className="mb-4">
                     <p className="text-base font-semibold text-foreground">
-                      Ajustá cada color
+                      Ajustá los tres colores base
                     </p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Tocá una muestra para abrir el selector completo. La vista
-                      previa cambia al instante.
+                      Los dos contrapuntos se calculan automáticamente a ±60°
+                      del color principal y se reservan para acentos puntuales.
                     </p>
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {COLOR_FIELDS.map((field) => {
-                      const normalized = normalizePublisherAppColor(
-                        state.colors[field.key],
-                      );
+                      const normalized =
+                        normalizePublisherAppColor(state.colors[field.key]) ??
+                        DEFAULT_PUBLISHER_APP_COLOR;
+                      if (!field.editable) {
+                        return (
+                          <div
+                            key={field.key}
+                            className="flex min-h-56 flex-col items-center overflow-hidden rounded-[22px] border border-dashed border-violet-200 bg-violet-50/55 p-4 text-center dark:border-violet-400/24 dark:bg-violet-500/8"
+                          >
+                            <span className="relative flex size-24 items-center justify-center">
+                              <span
+                                className="absolute inset-1 rounded-full border border-dashed border-violet-300"
+                                aria-hidden="true"
+                              />
+                              <span
+                                className="relative flex size-[68px] items-center justify-center overflow-hidden rounded-[23px] border-4 border-white text-white shadow-[0_18px_32px_-18px_rgba(15,23,42,0.8)]"
+                                style={{ backgroundColor: normalized }}
+                              >
+                                <span className="absolute inset-x-2 top-1.5 h-1/3 rounded-full bg-white/25 blur-sm" />
+                                <Palette className="relative size-6 drop-shadow" />
+                              </span>
+                            </span>
+                            <span className="mt-2 text-sm font-semibold text-foreground">
+                              {field.label}
+                            </span>
+                            <span className="mt-1 text-xs leading-5 text-muted-foreground">
+                              {field.description}
+                            </span>
+                            <span className="mt-auto rounded-full bg-violet-100 px-3 py-1 text-[10px] font-bold text-violet-800 dark:bg-violet-400/15 dark:text-violet-100">
+                              Derivado del principal · {field.hueShift}
+                            </span>
+                          </div>
+                        );
+                      }
                       return (
                         <label
                           key={field.key}
@@ -3362,7 +3452,7 @@ export function PublisherAppConfigWorkbench({
                           <input
                             type="color"
                             aria-label={`Elegir ${field.label.toLowerCase()}`}
-                            value={normalized ?? DEFAULT_PUBLISHER_APP_COLOR}
+                            value={normalized}
                             disabled={
                               paletteOverrideCalculation.status === "loading"
                             }
@@ -3382,8 +3472,7 @@ export function PublisherAppConfigWorkbench({
                             <span
                               className="relative flex size-[68px] items-center justify-center overflow-hidden rounded-[23px] border-4 border-white text-white shadow-[0_18px_32px_-18px_rgba(15,23,42,0.8)]"
                               style={{
-                                backgroundColor:
-                                  normalized ?? DEFAULT_PUBLISHER_APP_COLOR,
+                                backgroundColor: normalized,
                               }}
                             >
                               <span className="absolute inset-x-2 top-1.5 h-1/3 rounded-full bg-white/25 blur-sm" />

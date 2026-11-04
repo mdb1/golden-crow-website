@@ -45,6 +45,8 @@ function app(
       primary: "#6D28D9",
       secondary: "#8B5CF6",
       tertiary: "#F97316",
+      counterpointClockwise: "#EC1598",
+      counterpointAnticlockwise: "#1598EC",
     },
     iconSource: "publisher",
     iconImageUrl: null,

@@ -1,5 +1,8 @@
 import { getPublisherAppColorCatalog } from "@/lib/publisher-app-customization-catalog-server";
-import type { PublisherAppColorCatalogOption } from "@/lib/publisher-app-config";
+import {
+  publisherAppColorsWithCounterpoints,
+  type PublisherAppColorCatalogOption,
+} from "@/lib/publisher-app-config";
 import { createPublisherAppPaletteOverridePlan } from "@/lib/publisher-app-palette-overrides";
 
 function colorChannels(value: string) {
@@ -63,11 +66,11 @@ describe("publisher app automatic palette overrides", () => {
   const optionByKey = new Map(
     catalog.options.map((option) => [option.key, option]),
   );
-  const colors = {
+  const colors = publisherAppColorsWithCounterpoints({
     primary: "#FF5500",
     secondary: "#FFB21F",
     tertiary: "#F58220",
-  };
+  });
 
   it("selects every branding-susceptible chromatic role without a quota", () => {
     const plan = createPublisherAppPaletteOverridePlan(
@@ -173,11 +176,11 @@ describe("publisher app automatic palette overrides", () => {
   it("lifts a dark or washed primary into a vivid level-one accent on the same hue", () => {
     for (const mutedPrimary of ["#5A443C", "#D8C7C0"]) {
       const plan = createPublisherAppPaletteOverridePlan(
-        {
+        publisherAppColorsWithCounterpoints({
           primary: mutedPrimary,
           secondary: "#FFB21F",
           tertiary: "#F58220",
-        },
+        }),
         catalog.options,
         catalog.catalogVersion,
       );
@@ -198,6 +201,49 @@ describe("publisher app automatic palette overrides", () => {
         perceptualLightness(bacteria.light!),
       );
     }
+  });
+
+  it("uses counterpoints only for the two accessory tiles in the four-item community row", () => {
+    const plan = createPublisherAppPaletteOverridePlan(
+      colors,
+      catalog.options,
+      catalog.catalogVersion,
+    );
+    const clockwiseHue = colorHue(colors.counterpointClockwise);
+    const anticlockwiseHue = colorHue(colors.counterpointAnticlockwise);
+
+    for (const stop of ["start", "middle", "end", "bezel"]) {
+      expect(
+        hueDistance(
+          colorHue(
+            plan.colorOverrides[`community.quickActions.circles.${stop}`]
+              .light!,
+          ),
+          clockwiseHue,
+        ),
+      ).toBeLessThan(18);
+      expect(
+        hueDistance(
+          colorHue(
+            plan.colorOverrides[`community.quickActions.search.${stop}`].light!,
+          ),
+          anticlockwiseHue,
+        ),
+      ).toBeLessThan(18);
+    }
+
+    expect(plan.colorOverrides["brand.primary"].light).toBe(colors.primary);
+    expect(plan.colorOverrides["learn.level.bacteria.accent"].light).toBe(
+      colors.primary,
+    );
+    expect(
+      hueDistance(
+        colorHue(
+          plan.colorOverrides["community.quickActions.friends.start"].light!,
+        ),
+        clockwiseHue,
+      ),
+    ).toBeGreaterThan(18);
   });
 
   it("keeps extreme variants exact and retains every catalog alpha channel", () => {
@@ -256,8 +302,11 @@ describe("publisher app automatic palette overrides", () => {
       ).toBeLessThan(0.012);
     }
 
-    const chromaticOutputs = Object.values(plan.colorOverrides)
-      .flatMap((override) => [override.light!, override.dark!])
+    const chromaticOutputs = Object.entries(plan.colorOverrides)
+      .filter(
+        ([key]) => !/^community\.quickActions\.(?:circles|search)\./.test(key),
+      )
+      .flatMap(([, override]) => [override.light!, override.dark!])
       .filter(
         (color) =>
           colorSaturation(color) >= 30 &&

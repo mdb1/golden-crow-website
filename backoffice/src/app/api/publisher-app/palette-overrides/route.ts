@@ -1,6 +1,9 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { normalizePublisherAppColor } from "@/lib/publisher-app-config";
+import {
+  normalizePublisherAppColor,
+  publisherAppColorsWithCounterpoints,
+} from "@/lib/publisher-app-config";
 import { getPublisherAppColorCatalog } from "@/lib/publisher-app-customization-catalog-server";
 import { createPublisherAppPaletteOverridePlan } from "@/lib/publisher-app-palette-overrides";
 
@@ -36,7 +39,7 @@ export async function POST(request: Request) {
 
   const catalog = getPublisherAppColorCatalog();
   const plan = createPublisherAppPaletteOverridePlan(
-    { primary, secondary, tertiary },
+    publisherAppColorsWithCounterpoints({ primary, secondary, tertiary }),
     catalog.options,
     catalog.catalogVersion,
   );

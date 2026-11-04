@@ -25,6 +25,8 @@ type PaletteRolePolicy =
   | "vividPrimary"
   | "secondary"
   | "tertiary"
+  | "counterpointClockwise"
+  | "counterpointAnticlockwise"
   | "analogous";
 
 type ThemePalette = {
@@ -33,6 +35,8 @@ type ThemePalette = {
   centerHue: number;
   sourceBrandHue: number;
   baseChroma: number;
+  counterpointClockwiseHue: number;
+  counterpointAnticlockwiseHue: number;
 };
 
 type PaletteCandidate = {
@@ -51,11 +55,15 @@ type PaletteCandidate = {
  * 3. Brand seeds map to the three colors selected by the operator.
  *    Learn level 1 is anchored to the primary seed; a muted or dark primary is
  *    lifted along the same hue into a vivid, readable level accent.
- * 4. Every other chromatic role keeps its perceptual lightness and its original
+ * 4. Counterpoints are accessory hues, not new defaults. They are used only
+ *    where a compact multi-accent layout genuinely benefits from two extra
+ *    identities. Today that exception is the four-tile Connect quick-access
+ *    row; navigation, surfaces, text and semantic states never inherit them.
+ * 5. Every other chromatic role keeps its perceptual lightness and its original
  *    hue relationship. The source hue wheel is compressed into a broad
  *    analogous family instead of being collapsed onto three near-identical
  *    anchors.
- * 5. There is no target count or quota. Every branding-susceptible chromatic
+ * 6. There is no target count or quota. Every branding-susceptible chromatic
  *    role is transformed; every unchanged or protected role is omitted.
  */
 
@@ -71,6 +79,20 @@ const DIRECT_ROLE_POLICY: Record<string, PaletteRolePolicy> = {
   "android.material.secondary": "secondary",
   "android.material.tertiary": "tertiary",
 };
+
+const ACCESSORY_COUNTERPOINT_POLICY: Array<{
+  pattern: RegExp;
+  policy: PaletteRolePolicy;
+}> = [
+  {
+    pattern: /^community\.quickActions\.circles\.(?:start|middle|end|bezel)$/,
+    policy: "counterpointClockwise",
+  },
+  {
+    pattern: /^community\.quickActions\.search\.(?:start|middle|end|bezel)$/,
+    policy: "counterpointAnticlockwise",
+  },
+];
 
 // Seven related hues give an orange identity red-orange, orange, amber,
 // yellow and lime-yellow expressions without drifting into pink or turning
@@ -242,6 +264,10 @@ function shouldPreserveOption(option: PublisherAppColorCatalogOption) {
 
 function rolePolicy(option: PublisherAppColorCatalogOption): PaletteRolePolicy {
   if (shouldPreserveOption(option)) return "preserve";
+  const accessoryPolicy = ACCESSORY_COUNTERPOINT_POLICY.find(({ pattern }) =>
+    pattern.test(option.key),
+  );
+  if (accessoryPolicy) return accessoryPolicy.policy;
   return DIRECT_ROLE_POLICY[option.key] ?? "analogous";
 }
 
@@ -292,6 +318,15 @@ function buildThemePalette(
   options: PublisherAppColorCatalogOption[],
 ): ThemePalette {
   const seedHex = normalizedPalette(colors);
+  const counterpointClockwise = normalizePublisherAppColor(
+    colors.counterpointClockwise,
+  );
+  const counterpointAnticlockwise = normalizePublisherAppColor(
+    colors.counterpointAnticlockwise,
+  );
+  if (!counterpointClockwise || !counterpointAnticlockwise) {
+    throw new Error("The selected palette has invalid counterpoint colors.");
+  }
   const seeds = seedHex.map((value) => rgbToOklch(parseColor(value))) as [
     OklchColor,
     OklchColor,
@@ -323,6 +358,10 @@ function buildThemePalette(
         ? sourceBrandColor.hue
         : 350,
     baseChroma: clamp(averageChroma, 0.16, 0.28),
+    counterpointClockwiseHue: rgbToOklch(parseColor(counterpointClockwise)).hue,
+    counterpointAnticlockwiseHue: rgbToOklch(
+      parseColor(counterpointAnticlockwise),
+    ).hue,
   };
 }
 
@@ -402,6 +441,13 @@ function coordinatedColor(
     return `${palette.seedHex[directIndex]}${rgb.alpha}`;
   }
 
+  const counterpointHue =
+    policy === "counterpointClockwise"
+      ? palette.counterpointClockwiseHue
+      : policy === "counterpointAnticlockwise"
+        ? palette.counterpointAnticlockwiseHue
+        : null;
+
   const strength = chromaStrength(option);
   const targetChroma = clamp(
     original.chroma + (palette.baseChroma - original.chroma) * strength,
@@ -412,7 +458,7 @@ function coordinatedColor(
     {
       lightness: original.lightness,
       chroma: targetChroma,
-      hue: analogousHue(original.hue, palette),
+      hue: counterpointHue ?? analogousHue(original.hue, palette),
     },
     rgb.alpha,
   );

@@ -22,6 +22,7 @@ import type {
 } from "../types/sdk.types.js";
 import { buildPublisherAppRuntimeConfig } from "../lib/publisher-app-runtime-config.js";
 import { normalizePublisherAppAdvancedConfiguration } from "../lib/publisher-app-advanced-config.js";
+import { derivePublisherAppCounterpointColors } from "../lib/publisher-app-color-identity.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 import {
   getProfileSetupState,
@@ -133,10 +134,12 @@ function normalizeColor(value: unknown, label: string) {
 }
 
 function normalizeColors(colors: PublisherAppConfigColors) {
+  const primary = normalizeColor(colors.primary, "Primary color");
   return {
-    primary: normalizeColor(colors.primary, "Primary color"),
+    primary,
     secondary: normalizeColor(colors.secondary, "Secondary color"),
     tertiary: normalizeColor(colors.tertiary, "Tertiary color"),
+    ...derivePublisherAppCounterpointColors(primary),
   };
 }
 
@@ -426,10 +429,12 @@ function storedColors(value: unknown): PublisherAppConfigColors {
   }
 
   const colors = value as Record<string, unknown>;
+  const primary = normalizeColor(colors.primary, "Primary color");
   return {
-    primary: normalizeColor(colors.primary, "Primary color"),
+    primary,
     secondary: normalizeColor(colors.secondary, "Secondary color"),
     tertiary: normalizeColor(colors.tertiary, "Tertiary color"),
+    ...derivePublisherAppCounterpointColors(primary),
   };
 }
 

@@ -491,6 +491,8 @@ describe("publisher app config contract", () => {
         primary: "#AABBCC",
         secondary: "#123456",
         tertiary: "#FEDCBA",
+        counterpointClockwise: "#9439EF",
+        counterpointAnticlockwise: "#39EF94",
       },
       iconSource: "publisher",
       iconImageUrl: "https://example.org/canonical-icon.png",
@@ -564,6 +566,8 @@ describe("publisher app config contract", () => {
           primary: "#AABBCC",
           secondary: "#123456",
           tertiary: "#FEDCBA",
+          counterpointClockwise: "#9439EF",
+          counterpointAnticlockwise: "#39EF94",
         },
         status: "pending_revision",
         catalogEnabled: true,
@@ -577,6 +581,41 @@ describe("publisher app config contract", () => {
     expect(
       mockSendPublisherAppCreationNotificationEmails,
     ).toHaveBeenCalledTimes(1);
+  });
+
+  it("derives counterpoints when reading a historical config without the new fields", async () => {
+    const createResponse = await fastify.inject({
+      method: "POST",
+      url: "/publisher-app/config",
+      payload: validBody,
+    });
+    expect(createResponse.statusCode).toBe(201);
+
+    const id = "organization_shared-publisher-id";
+    const stored = collectionStore("app_configs").get(id);
+    if (!stored) throw new Error("Expected the historical app config fixture.");
+    collectionStore("app_configs").set(id, {
+      ...stored,
+      colors: {
+        primary: "#AABBCC",
+        secondary: "#123456",
+        tertiary: "#FEDCBA",
+      },
+    });
+
+    const response = await fastify.inject({
+      method: "GET",
+      url: "/publisher-app/config",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().config.colors).toEqual({
+      primary: "#AABBCC",
+      secondary: "#123456",
+      tertiary: "#FEDCBA",
+      counterpointClockwise: "#9439EF",
+      counterpointAnticlockwise: "#39EF94",
+    });
   });
 
   it("requires explicit terms acceptance before creating an app config", async () => {
@@ -663,6 +702,8 @@ describe("publisher app config contract", () => {
           primary: "#AABBCC",
           secondary: "#123456",
           accent: "#FEDCBA",
+          counterpointClockwise: "#9439EF",
+          counterpointAnticlockwise: "#39EF94",
           primaryStrong: expect.stringMatching(/^#[0-9A-F]{6}$/),
           primaryDeep: expect.stringMatching(/^#[0-9A-F]{6}$/),
           primarySoft: expect.stringMatching(/^#[0-9A-F]{6}$/),
@@ -747,7 +788,11 @@ describe("publisher app config contract", () => {
         displayName: "Advanced Experience",
         logoURL: null,
         logoUploadDataUrl: "data:image/png;base64,QUJDRA==",
-        colors: advancedConfigurationBody.semanticColors,
+        colors: expect.objectContaining({
+          ...advancedConfigurationBody.semanticColors,
+          counterpointClockwise: "#9439EF",
+          counterpointAnticlockwise: "#39EF94",
+        }),
         colorOverrides: advancedConfigurationBody.colorOverrides,
       },
       features: {
@@ -1176,6 +1221,8 @@ describe("publisher app config contract", () => {
         primary: "#010203",
         secondary: "#040506",
         tertiary: "#070809",
+        counterpointClockwise: "#7A12E2",
+        counterpointAnticlockwise: "#12E27A",
       },
       createdByUserId: "org-user-1",
       updatedByUserId: "org-user-2",

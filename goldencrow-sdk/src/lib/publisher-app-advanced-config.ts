@@ -55,7 +55,7 @@ function mixHex(left: string, right: string, rightWeight: number) {
 }
 
 export function derivePublisherAppSemanticColors(
-  colors: PublisherAppConfigColors,
+  colors: Pick<PublisherAppConfigColors, "primary" | "secondary" | "tertiary">,
 ): PublisherAppSemanticColors {
   const primary = colors.primary.toUpperCase();
   const secondary = colors.secondary.toUpperCase();

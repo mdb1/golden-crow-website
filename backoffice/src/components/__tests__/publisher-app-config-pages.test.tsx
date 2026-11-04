@@ -45,6 +45,8 @@ const config: PublisherAppConfig = {
     primary: "#123ABC",
     secondary: "#456DEF",
     tertiary: "#FEDCBA",
+    counterpointClockwise: "#B112E2",
+    counterpointAnticlockwise: "#12E2B1",
   },
   iconSource: "publisher",
   iconImageUrl: null,

@@ -1,8 +1,11 @@
 import {
   isCurrentPublisherAppIdentifier,
+  publisherAppCounterpointColors,
   publisherAppDefaultColors,
   publisherAppPaletteSuggestions,
 } from "@/lib/publisher-app-config";
+
+const BASE_COLOR_KEYS = ["primary", "secondary", "tertiary"] as const;
 
 function hslFromHex(value: string) {
   const channels = [1, 3, 5].map(
@@ -22,9 +25,7 @@ function hslFromHex(value: string) {
   return {
     hue: hue < 0 ? hue + 360 : hue,
     saturation:
-      delta === 0
-        ? 0
-        : (delta / (1 - Math.abs(2 * lightness - 1))) * 100,
+      delta === 0 ? 0 : (delta / (1 - Math.abs(2 * lightness - 1))) * 100,
     lightness: lightness * 100,
   };
 }
@@ -69,7 +70,31 @@ describe("publisher app color palettes", () => {
       primary: "#FF5500",
       secondary: "#EFBA2A",
       tertiary: "#F4852A",
+      counterpointClockwise: "#AAFF00",
+      counterpointAnticlockwise: "#FF00AA",
     });
+  });
+
+  it("derives vivid clockwise and anticlockwise counterpoints at sixty degrees", () => {
+    expect(publisherAppCounterpointColors("#FFFF00")).toEqual({
+      counterpointClockwise: "#00FF00",
+      counterpointAnticlockwise: "#FF0000",
+    });
+
+    const primaryHue = hslFromHex("#FF5500").hue;
+    const counterpoints = publisherAppCounterpointColors("#FF5500");
+    expect(
+      circularHueDistance(
+        hslFromHex(counterpoints.counterpointClockwise).hue,
+        primaryHue + 60,
+      ),
+    ).toBeLessThan(1);
+    expect(
+      circularHueDistance(
+        hslFromHex(counterpoints.counterpointAnticlockwise).hue,
+        primaryHue - 60,
+      ),
+    ).toBeLessThan(1);
   });
 
   it.each(["#795548", "#F3E7DF", "#526D49"])(
@@ -79,15 +104,15 @@ describe("publisher app color palettes", () => {
       const suggestions = publisherAppPaletteSuggestions(source);
 
       for (const color of suggestions.flatMap((palette) =>
-        Object.values(palette),
+        BASE_COLOR_KEYS.map((key) => palette[key]),
       )) {
         const generated = hslFromHex(color);
         expect(generated.saturation).toBeGreaterThanOrEqual(84);
         expect(generated.lightness).toBeGreaterThanOrEqual(49);
         expect(generated.lightness).toBeLessThanOrEqual(57);
-        expect(circularHueDistance(generated.hue, sourceHue)).toBeLessThanOrEqual(
-          35,
-        );
+        expect(
+          circularHueDistance(generated.hue, sourceHue),
+        ).toBeLessThanOrEqual(35);
       }
     },
   );
@@ -98,18 +123,21 @@ describe("publisher app color palettes", () => {
 
     expect(suggestions).toHaveLength(4);
     expect(suggestions[0]).toEqual(publisherAppDefaultColors("#526D49"));
-    expect(new Set(suggestions.map((palette) => JSON.stringify(palette))).size).toBe(4);
+    expect(
+      new Set(suggestions.map((palette) => JSON.stringify(palette))).size,
+    ).toBe(4);
 
     for (const palette of alternatives) {
       expect(
-        (Object.keys(base!) as Array<keyof typeof base>).filter(
-          (key) => base![key] !== palette[key],
-        ),
+        BASE_COLOR_KEYS.filter((key) => base![key] !== palette[key]),
       ).toHaveLength(1);
       expect(palette.primary).toMatch(/^#[0-9A-F]{6}$/);
       expect(palette.secondary).toMatch(/^#[0-9A-F]{6}$/);
       expect(palette.tertiary).toMatch(/^#[0-9A-F]{6}$/);
-      expect(new Set(Object.values(palette)).size).toBe(3);
+      expect(new Set(BASE_COLOR_KEYS.map((key) => palette[key])).size).toBe(3);
+      expect(palette).toMatchObject(
+        publisherAppCounterpointColors(palette.primary),
+      );
     }
   });
 });

@@ -22,7 +22,19 @@ export type PublisherAppColors = {
   primary: string;
   secondary: string;
   tertiary: string;
+  counterpointClockwise: string;
+  counterpointAnticlockwise: string;
 };
+
+export type PublisherAppBaseColors = Pick<
+  PublisherAppColors,
+  "primary" | "secondary" | "tertiary"
+>;
+
+export type PublisherAppCounterpointColors = Pick<
+  PublisherAppColors,
+  "counterpointClockwise" | "counterpointAnticlockwise"
+>;
 
 export type PublisherAppSemanticColors = {
   primary: string;
@@ -420,6 +432,36 @@ function hslToHex(hue: number, saturation: number, lightness: number) {
   );
 }
 
+/**
+ * Counterpoints are accessory colors on either side of the primary hue. They
+ * deliberately stay out of the three-color core palette and are reserved for
+ * exceptional multi-accent layouts that need more separation.
+ */
+export function publisherAppCounterpointColors(
+  primary: string,
+): PublisherAppCounterpointColors {
+  const normalizedPrimary =
+    normalizePublisherAppColor(primary) ?? DEFAULT_PUBLISHER_APP_COLOR;
+  const source = rgbToHsl(hexToRgb(normalizedPrimary));
+  const fallback = rgbToHsl(hexToRgb(DEFAULT_PUBLISHER_APP_COLOR));
+  const hue = source.saturation < 1 ? fallback.hue : source.hue;
+  const saturation = Math.max(85, source.saturation);
+  const lightness = Math.min(58, Math.max(48, source.lightness));
+  return {
+    counterpointClockwise: hslToHex(hue + 60, saturation, lightness),
+    counterpointAnticlockwise: hslToHex(hue - 60, saturation, lightness),
+  };
+}
+
+export function publisherAppColorsWithCounterpoints(
+  colors: PublisherAppBaseColors,
+): PublisherAppColors {
+  return {
+    ...colors,
+    ...publisherAppCounterpointColors(colors.primary),
+  };
+}
+
 export function publisherAppPaletteSuggestions(
   tint?: string,
 ): PublisherAppColors[] {
@@ -431,35 +473,39 @@ export function publisherAppPaletteSuggestions(
   // including washed or brownish colors, keeps its hue but is rebuilt as a
   // bright saturated color instead of being reused as-is.
   const hue = sourceHsl.saturation < 1 ? fallbackHue : sourceHsl.hue;
-  const basePalette: PublisherAppColors = {
+  const basePalette = publisherAppColorsWithCounterpoints({
     primary: hslToHex(hue, 100, 50),
     secondary: hslToHex(hue + 24, 86, 55),
     tertiary: hslToHex(hue + 7, 90, 56),
-  };
+  });
 
   return [
     basePalette,
-    {
-      ...basePalette,
+    publisherAppColorsWithCounterpoints({
+      primary: basePalette.primary,
       secondary: hslToHex(hue + 34, 92, 54),
-    },
-    {
-      ...basePalette,
+      tertiary: basePalette.tertiary,
+    }),
+    publisherAppColorsWithCounterpoints({
+      primary: basePalette.primary,
+      secondary: basePalette.secondary,
       tertiary: hslToHex(hue - 12, 94, 55),
-    },
-    {
-      ...basePalette,
+    }),
+    publisherAppColorsWithCounterpoints({
       primary: hslToHex(hue + 10, 100, 50),
-    },
+      secondary: basePalette.secondary,
+      tertiary: basePalette.tertiary,
+    }),
   ];
 }
 
 export function publisherAppDefaultColors(tint?: string): PublisherAppColors {
   return (
-    publisherAppPaletteSuggestions(tint)[0] ?? {
+    publisherAppPaletteSuggestions(tint)[0] ??
+    publisherAppColorsWithCounterpoints({
       primary: "#4D1A9E",
       secondary: "#BF35E3",
       tertiary: "#35C0E9",
-    }
+    })
   );
 }

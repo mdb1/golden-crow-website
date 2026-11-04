@@ -18,6 +18,7 @@ import {
   updatePublisherAppConfigById,
 } from "../repositories/publisher-app-config.repository.js";
 import { sendPublisherAppCreationNotificationEmails } from "../lib/publisher-app-creation-notification-email.js";
+import { derivePublisherAppCounterpointColors } from "../lib/publisher-app-color-identity.js";
 
 const APP_ICON_DATA_URL_PATTERN =
   /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
@@ -189,8 +190,16 @@ const PublisherAppConfigBodyShape = {
       primary: HexColorSchema,
       secondary: HexColorSchema,
       tertiary: HexColorSchema,
+      counterpointClockwise: HexColorSchema.optional(),
+      counterpointAnticlockwise: HexColorSchema.optional(),
     })
-    .strict(),
+    .strict()
+    .transform(({ primary, secondary, tertiary }) => ({
+      primary,
+      secondary,
+      tertiary,
+      ...derivePublisherAppCounterpointColors(primary),
+    })),
   iconSource: z.enum(["publisher", "custom"]).default("publisher"),
   iconImageUrl: z.string().trim().url().max(2_048).nullable().default(null),
   iconImageUploadDataUrl: z

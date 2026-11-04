@@ -119,6 +119,8 @@ function mockPublisherHomeData(
                 primary: "#123ABC",
                 secondary: "#456DEF",
                 tertiary: "#FEDCBA",
+                counterpointClockwise: "#B112E2",
+                counterpointAnticlockwise: "#12E2B1",
               },
               schemaVersion: 1,
               createdAt: "2026-10-30T12:00:00.000Z",

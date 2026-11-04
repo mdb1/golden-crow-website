@@ -190,6 +190,8 @@ export function buildReportingOpenApiDocument(
                   accentTextLight: "#B34E10",
                   accentTextDark: "#FBA66F",
                   accentSurfaceLight: "#FEF1E8",
+                  counterpointClockwise: "#9CF916",
+                  counterpointAnticlockwise: "#F9169C",
                 },
               },
               features: {

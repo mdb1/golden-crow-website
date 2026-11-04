@@ -11,7 +11,10 @@ import {
 } from "@testing-library/react";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { PublisherAppConfigWorkbench } from "@/components/publisher-app-config-workbench";
-import type { PublisherAppConfig } from "@/lib/publisher-app-config";
+import {
+  publisherAppCounterpointColors,
+  type PublisherAppConfig,
+} from "@/lib/publisher-app-config";
 import {
   PUBLISHER_PORTAL_APP_EDIT_ROUTE,
   PUBLISHER_PORTAL_HOME_ROUTE,
@@ -64,6 +67,8 @@ const savedConfig: PublisherAppConfig = {
     primary: "#123ABC",
     secondary: "#456DEF",
     tertiary: "#FEDCBA",
+    counterpointClockwise: "#B112E2",
+    counterpointAnticlockwise: "#12E2B1",
   },
   iconSource: "publisher",
   iconImageUrl: "https://example.org/icon.png",
@@ -412,7 +417,10 @@ describe("PublisherAppConfigWorkbench", () => {
       connectEnabled: false,
       profileEnabled: false,
       learnCustomizationEnabled: false,
-      colors: { primary: "#112233" },
+      colors: {
+        primary: "#112233",
+        ...publisherAppCounterpointColors("#112233"),
+      },
       iconSource: "publisher",
       termsAccepted: true,
     });
@@ -1325,6 +1333,15 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(primaryPicker.type).toBe("color");
     expect(
       screen.queryByRole("textbox", { name: /color principal/i }),
+    ).toBeNull();
+    expect(screen.getByText("Color de contrapunto horario")).toBeTruthy();
+    expect(screen.getByText("Color de contrapunto antihorario")).toBeTruthy();
+    expect(screen.getAllByText(/Derivado del principal ·/)).toHaveLength(2);
+    expect(
+      screen.queryByLabelText("Elegir color de contrapunto horario"),
+    ).toBeNull();
+    expect(
+      screen.queryByLabelText("Elegir color de contrapunto antihorario"),
     ).toBeNull();
     expect(screen.queryByText(/^#[0-9A-F]{6}$/)).toBeNull();
 
