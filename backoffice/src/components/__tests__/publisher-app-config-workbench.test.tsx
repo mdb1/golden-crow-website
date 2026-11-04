@@ -1020,7 +1020,7 @@ describe("PublisherAppConfigWorkbench", () => {
     ).toBeTruthy();
 
     fireEvent.click(
-      within(advancedModal).getByRole("button", { name: "Crear tema" }),
+      within(advancedModal).getByRole("button", { name: /Crear tema/i }),
     );
     expect(
       within(advancedModal).getByTestId("learn-subject-detail"),
@@ -1040,12 +1040,23 @@ describe("PublisherAppConfigWorkbench", () => {
     fireEvent.change(within(advancedModal).getByLabelText("Nombre del tema"), {
       target: { value: "Fundamentos MedicGen" },
     });
-
-    fireEvent.click(
-      within(advancedModal).getByRole("button", {
-        name: "Crear capítulo",
+    let hierarchyBar = within(advancedModal).getByTestId("learn-hierarchy-bar");
+    expect(
+      within(hierarchyBar).getByRole("button", {
+        name: "Tema: Fundamentos MedicGen",
       }),
-    );
+    ).toHaveAttribute("aria-current", "page");
+    expect(
+      within(hierarchyBar).getByRole("button", {
+        name: "Capítulo: Sin seleccionar",
+      }),
+    ).toBeDisabled();
+
+    const createChapter = within(advancedModal).getByRole("button", {
+      name: /Crear capítulo/i,
+    });
+    expect(createChapter).toHaveClass("border-dashed");
+    fireEvent.click(createChapter);
     expect(
       within(advancedModal).getByTestId("learn-chapter-detail"),
     ).toBeTruthy();
@@ -1053,10 +1064,18 @@ describe("PublisherAppConfigWorkbench", () => {
       within(advancedModal).getByLabelText("Nombre del capítulo"),
       { target: { value: "El origen de tu ADN" } },
     );
+    hierarchyBar = within(advancedModal).getByTestId("learn-hierarchy-bar");
+    expect(
+      within(hierarchyBar).getByRole("button", {
+        name: "Capítulo: El origen de tu ADN",
+      }),
+    ).toHaveAttribute("aria-current", "page");
 
-    fireEvent.click(
-      within(advancedModal).getByRole("button", { name: "Crear lección" }),
-    );
+    const createLesson = within(advancedModal).getByRole("button", {
+      name: /Crear lección/i,
+    });
+    expect(createLesson).toHaveClass("border-dashed");
+    fireEvent.click(createLesson);
     expect(
       within(advancedModal).getByTestId("learn-lesson-detail"),
     ).toBeTruthy();
@@ -1076,6 +1095,12 @@ describe("PublisherAppConfigWorkbench", () => {
       within(advancedModal).getByLabelText("Nombre de la lección"),
       { target: { value: "Descubrí tu ADN" } },
     );
+    hierarchyBar = within(advancedModal).getByTestId("learn-hierarchy-bar");
+    expect(
+      within(hierarchyBar).getByRole("button", {
+        name: "Lección: Descubrí tu ADN",
+      }),
+    ).toHaveAttribute("aria-current", "page");
     fireEvent.change(
       within(advancedModal).getByLabelText("Imagen HTTPS (opcional)"),
       { target: { value: "https://example.org/medicgen-start.png" } },
@@ -1101,9 +1126,11 @@ describe("PublisherAppConfigWorkbench", () => {
       }),
     );
 
-    fireEvent.click(
-      within(advancedModal).getByRole("button", { name: "Crear párrafo" }),
-    );
+    const createParagraph = within(advancedModal).getByRole("button", {
+      name: /Crear párrafo/i,
+    });
+    expect(createParagraph).toHaveClass("border-dashed");
+    fireEvent.click(createParagraph);
     expect(
       within(advancedModal).getByTestId("learn-paragraph-detail"),
     ).toBeTruthy();
@@ -1119,25 +1146,46 @@ describe("PublisherAppConfigWorkbench", () => {
         value: "Una introducción personalizada al recorrido de MedicGen.",
       },
     });
+    hierarchyBar = within(advancedModal).getByTestId("learn-hierarchy-bar");
+    expect(
+      within(hierarchyBar).getByRole("button", {
+        name: "Tema: Fundamentos MedicGen",
+      }),
+    ).toBeEnabled();
+    expect(
+      within(hierarchyBar).getByRole("button", {
+        name: "Capítulo: El origen de tu ADN",
+      }),
+    ).toBeEnabled();
+    expect(
+      within(hierarchyBar).getByRole("button", {
+        name: "Lección: Descubrí tu ADN",
+      }),
+    ).toBeEnabled();
+    expect(
+      within(hierarchyBar).getByRole("button", {
+        name: "Párrafo: Tu primera coordenada",
+      }),
+    ).toHaveAttribute("aria-current", "page");
 
     fireEvent.click(
       within(advancedModal).getByRole("button", {
-        name: "Volver a Descubrí tu ADN",
+        name: "Guardar párrafo",
       }),
     );
     fireEvent.click(
       within(advancedModal).getByRole("button", {
-        name: "Volver a El origen de tu ADN",
+        name: "Guardar lección",
       }),
     );
     fireEvent.click(
       within(advancedModal).getByRole("button", {
-        name: "Volver a Fundamentos MedicGen",
+        name: "Guardar capítulo",
       }),
     );
     fireEvent.click(
       within(advancedModal).getByRole("button", {
-        name: "Volver al currículo",
+        name: "Guardar tema",
       }),
     );
 

@@ -20,14 +20,18 @@ import {
   Check,
   CircleCheck,
   Globe2,
+  GraduationCap,
   Languages,
+  Layers3,
   LoaderCircle,
   Link2,
   Mail,
   Moon,
   Palette,
+  Pilcrow,
   Plus,
   Rocket,
+  Save,
   Search,
   Sun,
   Trash2,
@@ -1663,6 +1667,232 @@ function LearnBuilder({
     setScreen({ kind: "chapter", subjectIndex, chapterIndex });
   };
 
+  const hierarchyNavigation = (
+    currentScreen: Extract<
+      LearnScreen,
+      { kind: "subject" | "chapter" | "lesson" | "paragraph" }
+    >,
+  ) => {
+    const subject = curriculum.subjects[currentScreen.subjectIndex];
+    const chapterIndex =
+      "chapterIndex" in currentScreen ? currentScreen.chapterIndex : undefined;
+    const lessonIndex =
+      "lessonIndex" in currentScreen ? currentScreen.lessonIndex : undefined;
+    const chapter =
+      chapterIndex !== undefined ? subject?.chapters[chapterIndex] : undefined;
+    const lesson =
+      lessonIndex !== undefined ? chapter?.lessons[lessonIndex] : undefined;
+    const paragraph =
+      "paragraphIndex" in currentScreen
+        ? lesson?.paragraphs[currentScreen.paragraphIndex]
+        : undefined;
+    const activeIndex = {
+      subject: 0,
+      chapter: 1,
+      lesson: 2,
+      paragraph: 3,
+    }[currentScreen.kind];
+    const levels: Array<{
+      label: string;
+      name: string;
+      icon: typeof BookOpen;
+      iconClassName: string;
+      target?: LearnScreen;
+    }> = [
+      {
+        label: "Tema",
+        name: subject?.subjectTitle || "Tema sin nombre",
+        icon: BookOpen,
+        iconClassName: "rounded-xl bg-primary text-primary-foreground",
+        target: subject
+          ? { kind: "subject", subjectIndex: currentScreen.subjectIndex }
+          : undefined,
+      },
+      {
+        label: "Capítulo",
+        name: chapter?.chapterTitle || "Sin seleccionar",
+        icon: Layers3,
+        iconClassName: "rounded-lg bg-primary/15 text-primary",
+        target: chapter
+          ? {
+              kind: "chapter",
+              subjectIndex: currentScreen.subjectIndex,
+              chapterIndex: chapterIndex!,
+            }
+          : undefined,
+      },
+      {
+        label: "Lección",
+        name: lesson?.lessonTitle || "Sin seleccionar",
+        icon: GraduationCap,
+        iconClassName: "rounded-full bg-primary/12 text-primary",
+        target: lesson
+          ? {
+              kind: "lesson",
+              subjectIndex: currentScreen.subjectIndex,
+              chapterIndex: chapterIndex!,
+              lessonIndex: lessonIndex!,
+            }
+          : undefined,
+      },
+      {
+        label: "Párrafo",
+        name: paragraph?.paragraphTitle || "Sin seleccionar",
+        icon: Pilcrow,
+        iconClassName:
+          "rounded-md border border-primary/25 bg-background text-primary",
+        target: paragraph ? currentScreen : undefined,
+      },
+    ];
+
+    return (
+      <nav
+        aria-label="Ubicación en el currículo"
+        data-testid="learn-hierarchy-bar"
+        className="overflow-x-auto rounded-2xl border bg-muted/15 p-1.5"
+      >
+        <ol className="flex min-w-max items-stretch">
+          {levels.map((level, index) => {
+            const Icon = level.icon;
+            const active = index === activeIndex;
+            return (
+              <li key={level.label} className="flex items-center">
+                <button
+                  type="button"
+                  aria-label={`${level.label}: ${level.name}`}
+                  aria-current={active ? "page" : undefined}
+                  disabled={!level.target}
+                  onClick={() => level.target && setScreen(level.target)}
+                  className={`flex min-w-40 items-center gap-3 rounded-xl px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                    active
+                      ? "bg-background shadow-sm ring-1 ring-primary/15"
+                      : level.target
+                        ? "hover:bg-background/70"
+                        : "cursor-default opacity-45"
+                  }`}
+                >
+                  <span
+                    className={`flex size-9 shrink-0 items-center justify-center ${level.iconClassName}`}
+                  >
+                    <Icon className="size-4" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                      {level.label}
+                    </span>
+                    <span className="block max-w-36 truncate text-sm font-semibold text-foreground">
+                      {level.name}
+                    </span>
+                  </span>
+                </button>
+                {index < levels.length - 1 ? (
+                  <ArrowRight className="mx-1 size-4 shrink-0 text-muted-foreground/55" />
+                ) : null}
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
+    );
+  };
+
+  const addSubject = () => {
+    const subjectIndex = curriculum.subjects.length;
+    const subjectIdentifier = uniqueIdentifier(
+      `SUBJECT_${subjectIndex + 1}`,
+      new Set(curriculum.subjects.map((subject) => subject.subjectIdentifier)),
+    );
+    const lesson = createLesson(
+      curriculum,
+      subjectIdentifier,
+      lessonIds(curriculum).size + 1,
+    );
+    const chapterTitle = uniqueLabel(
+      `Capítulo ${subjectIndex + 1}`,
+      chapterTitles(curriculum),
+    );
+    onChange({
+      ...curriculum,
+      subjects: [
+        ...curriculum.subjects,
+        {
+          subjectIdentifier,
+          subjectTitle: `Nuevo tema ${subjectIndex + 1}`,
+          chapters: [{ chapterTitle, lessons: [lesson] }],
+        },
+      ],
+    });
+    setScreen({ kind: "subject", subjectIndex });
+  };
+
+  const addChapter = (subjectIndex: number) => {
+    const subject = curriculum.subjects[subjectIndex];
+    if (!subject) return;
+    const chapterIndex = subject.chapters.length;
+    const nextLesson = createLesson(
+      curriculum,
+      subject.subjectIdentifier,
+      lessonIds(curriculum).size + 1,
+    );
+    const chapterTitle = uniqueLabel(
+      `Nuevo capítulo ${chapterIndex + 1}`,
+      chapterTitles(curriculum),
+    );
+    updateSubject(subjectIndex, (current) => ({
+      ...current,
+      chapters: [...current.chapters, { chapterTitle, lessons: [nextLesson] }],
+    }));
+    setScreen({ kind: "chapter", subjectIndex, chapterIndex });
+  };
+
+  const addLesson = (subjectIndex: number, chapterIndex: number) => {
+    const subject = curriculum.subjects[subjectIndex];
+    const chapter = subject?.chapters[chapterIndex];
+    if (!subject || !chapter) return;
+    const lessonIndex = chapter.lessons.length;
+    const nextLesson = createLesson(
+      curriculum,
+      subject.subjectIdentifier,
+      lessonIds(curriculum).size + 1,
+    );
+    updateChapter(subjectIndex, chapterIndex, (current) => ({
+      ...current,
+      lessons: [...current.lessons, nextLesson],
+    }));
+    setScreen({ kind: "lesson", subjectIndex, chapterIndex, lessonIndex });
+  };
+
+  const addParagraph = (
+    subjectIndex: number,
+    chapterIndex: number,
+    lessonIndex: number,
+  ) => {
+    const lesson =
+      curriculum.subjects[subjectIndex]?.chapters[chapterIndex]?.lessons[
+        lessonIndex
+      ];
+    if (!lesson) return;
+    const paragraphIndex = lesson.paragraphs.length;
+    updateLesson(subjectIndex, chapterIndex, lessonIndex, (current) => ({
+      ...current,
+      paragraphs: [
+        ...current.paragraphs,
+        {
+          paragraphTitle: `Nuevo apartado ${paragraphIndex + 1}`,
+          icon: "book",
+          contentText: "Nuevo contenido",
+        },
+      ],
+    }));
+    setScreen({
+      kind: "paragraph",
+      subjectIndex,
+      chapterIndex,
+      lessonIndex,
+      paragraphIndex,
+    });
+  };
+
   const metadata = showMetadata ? (
     <div className="grid gap-4 rounded-3xl border bg-muted/15 p-5 md:grid-cols-3">
       <div>
@@ -1763,56 +1993,11 @@ function LearnBuilder({
         </div>
 
         <section className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h4 className="text-lg font-semibold">Temas del currículo</h4>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Cada tema contiene capítulos y cada capítulo contiene lecciones.
-              </p>
-            </div>
-            <Button
-              type="button"
-              onClick={() => {
-                const subjectIndex = curriculum.subjects.length;
-                const usedSubjectIds = new Set(
-                  curriculum.subjects.map(
-                    (subject) => subject.subjectIdentifier,
-                  ),
-                );
-                const subjectIdentifier = uniqueIdentifier(
-                  `SUBJECT_${subjectIndex + 1}`,
-                  usedSubjectIds,
-                );
-                const lesson = createLesson(
-                  curriculum,
-                  subjectIdentifier,
-                  lessonIds(curriculum).size + 1,
-                );
-                const chapterTitle = uniqueLabel(
-                  `Capítulo ${subjectIndex + 1}`,
-                  chapterTitles(curriculum),
-                );
-                onChange({
-                  ...curriculum,
-                  subjects: [
-                    ...curriculum.subjects,
-                    {
-                      subjectIdentifier,
-                      subjectTitle: `Nuevo tema ${subjectIndex + 1}`,
-                      chapters: [
-                        {
-                          chapterTitle,
-                          lessons: [lesson],
-                        },
-                      ],
-                    },
-                  ],
-                });
-                setScreen({ kind: "subject", subjectIndex });
-              }}
-            >
-              <Plus className="size-4" /> Crear tema
-            </Button>
+          <div>
+            <h4 className="text-lg font-semibold">Temas del currículo</h4>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Cada tema contiene capítulos y cada capítulo contiene lecciones.
+            </p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             {curriculum.subjects.map((subject, subjectIndex) => {
@@ -1896,6 +2081,22 @@ function LearnBuilder({
               );
             })}
           </div>
+          <button
+            type="button"
+            aria-label="Crear tema"
+            onClick={addSubject}
+            className="flex w-full items-center gap-4 rounded-3xl border-2 border-dashed border-primary/30 bg-primary/[0.025] p-5 text-left text-primary transition hover:border-primary/55 hover:bg-primary/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-primary/25 bg-background">
+              <Plus className="size-5" />
+            </span>
+            <span>
+              <span className="block font-semibold">Crear tema</span>
+              <span className="mt-0.5 block text-sm text-muted-foreground">
+                Agregar un nuevo tema al final del currículo
+              </span>
+            </span>
+          </button>
         </section>
 
         <section className="rounded-3xl border bg-background p-6">
@@ -1964,9 +2165,10 @@ function LearnBuilder({
       : null;
     return (
       <div className="space-y-7" data-testid="learn-subject-detail">
+        {hierarchyNavigation(screen)}
         {navigationHeader(
           subject.subjectTitle || "Tema sin nombre",
-          "Editá el nombre y el ID del tema, y administrá sus capítulos.",
+          "Editá los datos del tema y sus capítulos.",
           "Volver al currículo",
           () => setScreen({ kind: "home" }),
         )}
@@ -2016,45 +2218,11 @@ function LearnBuilder({
         </div>
 
         <section className="space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h4 className="text-lg font-semibold">Capítulos</h4>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Ordená las grandes etapas de este tema.
-              </p>
-            </div>
-            <Button
-              type="button"
-              onClick={() => {
-                const chapterIndex = subject.chapters.length;
-                const nextLesson = createLesson(
-                  curriculum,
-                  subject.subjectIdentifier,
-                  lessonIds(curriculum).size + 1,
-                );
-                const chapterTitle = uniqueLabel(
-                  `Nuevo capítulo ${chapterIndex + 1}`,
-                  chapterTitles(curriculum),
-                );
-                updateSubject(screen.subjectIndex, (current) => ({
-                  ...current,
-                  chapters: [
-                    ...current.chapters,
-                    {
-                      chapterTitle,
-                      lessons: [nextLesson],
-                    },
-                  ],
-                }));
-                setScreen({
-                  kind: "chapter",
-                  subjectIndex: screen.subjectIndex,
-                  chapterIndex,
-                });
-              }}
-            >
-              <Plus className="size-4" /> Crear capítulo
-            </Button>
+          <div>
+            <h4 className="text-lg font-semibold">Capítulos</h4>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Ordená las grandes etapas de este tema.
+            </p>
           </div>
           <div className="space-y-3">
             {subject.chapters.map((chapter, chapterIndex) => (
@@ -2064,7 +2232,7 @@ function LearnBuilder({
               >
                 <button
                   type="button"
-                  className="group min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="group flex min-w-0 flex-1 items-center gap-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   aria-label={`Abrir capítulo ${chapter.chapterTitle}`}
                   onClick={() =>
                     setScreen({
@@ -2074,13 +2242,21 @@ function LearnBuilder({
                     })
                   }
                 >
-                  <p className="font-semibold">
-                    {chapter.chapterTitle || "Capítulo sin nombre"}
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {chapter.lessons.length}{" "}
-                    {chapter.lessons.length === 1 ? "lección" : "lecciones"}
-                  </p>
+                  <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                    <Layers3 className="size-5" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                      Capítulo {chapterIndex + 1}
+                    </span>
+                    <span className="block truncate font-semibold">
+                      {chapter.chapterTitle || "Capítulo sin nombre"}
+                    </span>
+                    <span className="mt-1 block text-sm text-muted-foreground">
+                      {chapter.lessons.length}{" "}
+                      {chapter.lessons.length === 1 ? "lección" : "lecciones"}
+                    </span>
+                  </span>
                 </button>
                 <div className="flex gap-1">
                   <Button
@@ -2139,10 +2315,26 @@ function LearnBuilder({
                 </div>
               </div>
             ))}
+            <button
+              type="button"
+              aria-label="Crear capítulo"
+              onClick={() => addChapter(screen.subjectIndex)}
+              className="flex w-full items-center gap-4 rounded-2xl border-2 border-dashed border-primary/30 bg-primary/[0.025] p-4 text-left text-primary transition hover:border-primary/55 hover:bg-primary/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-background">
+                <Plus className="size-5" />
+              </span>
+              <span>
+                <span className="block font-semibold">Crear capítulo</span>
+                <span className="mt-0.5 block text-sm text-muted-foreground">
+                  Agregarlo debajo del último capítulo
+                </span>
+              </span>
+            </button>
           </div>
         </section>
 
-        <div className="border-t pt-6">
+        <div className="flex flex-col-reverse gap-3 border-t pt-6 sm:flex-row sm:items-center sm:justify-between">
           <Button
             type="button"
             variant="outline"
@@ -2150,6 +2342,13 @@ function LearnBuilder({
             onClick={() => removeSubject(screen.subjectIndex)}
           >
             <Trash2 className="size-4" /> Eliminar tema
+          </Button>
+          <Button
+            type="button"
+            disabled={Boolean(subjectIdProblem)}
+            onClick={() => setScreen({ kind: "home" })}
+          >
+            <Save className="size-4" /> Guardar tema
           </Button>
         </div>
       </div>
@@ -2168,9 +2367,10 @@ function LearnBuilder({
     }
     return (
       <div className="space-y-7" data-testid="learn-chapter-detail">
+        {hierarchyNavigation(screen)}
         {navigationHeader(
           chapter.chapterTitle || "Capítulo sin nombre",
-          `Tema: ${subject.subjectTitle}. Editá el capítulo y administrá sus lecciones.`,
+          "Editá el capítulo y sus lecciones.",
           `Volver a ${subject.subjectTitle}`,
           () =>
             setScreen({ kind: "subject", subjectIndex: screen.subjectIndex }),
@@ -2195,41 +2395,12 @@ function LearnBuilder({
         </div>
 
         <section className="space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h4 className="text-lg font-semibold">Lecciones</h4>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Cada lección puede tener su propia imagen, color, contenido y
-                relaciones.
-              </p>
-            </div>
-            <Button
-              type="button"
-              onClick={() => {
-                const lessonIndex = chapter.lessons.length;
-                const nextLesson = createLesson(
-                  curriculum,
-                  subject.subjectIdentifier,
-                  lessonIds(curriculum).size + 1,
-                );
-                updateChapter(
-                  screen.subjectIndex,
-                  screen.chapterIndex,
-                  (current) => ({
-                    ...current,
-                    lessons: [...current.lessons, nextLesson],
-                  }),
-                );
-                setScreen({
-                  kind: "lesson",
-                  subjectIndex: screen.subjectIndex,
-                  chapterIndex: screen.chapterIndex,
-                  lessonIndex,
-                });
-              }}
-            >
-              <Plus className="size-4" /> Crear lección
-            </Button>
+          <div>
+            <h4 className="text-lg font-semibold">Lecciones</h4>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Cada lección puede tener su propia imagen, color, contenido y
+              relaciones.
+            </p>
           </div>
           <div className="space-y-3">
             {chapter.lessons.map((lesson, lessonIndex) => (
@@ -2250,12 +2421,18 @@ function LearnBuilder({
                     })
                   }
                 >
-                  <span
-                    className="size-11 shrink-0 rounded-2xl border shadow-sm"
-                    style={{ backgroundColor: lesson.lessonColor }}
-                    aria-hidden="true"
-                  />
+                  <span className="relative flex size-11 shrink-0 items-center justify-center rounded-full bg-primary/12 text-primary">
+                    <GraduationCap className="size-5" />
+                    <span
+                      className="absolute -bottom-0.5 -right-0.5 size-4 rounded-full border-2 border-background shadow-sm"
+                      style={{ backgroundColor: lesson.lessonColor }}
+                      aria-hidden="true"
+                    />
+                  </span>
                   <span className="min-w-0">
+                    <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                      Lección {lessonIndex + 1}
+                    </span>
                     <span className="block font-semibold">
                       {lesson.lessonTitle || "Lección sin nombre"}
                     </span>
@@ -2334,10 +2511,28 @@ function LearnBuilder({
                 </div>
               </div>
             ))}
+            <button
+              type="button"
+              aria-label="Crear lección"
+              onClick={() =>
+                addLesson(screen.subjectIndex, screen.chapterIndex)
+              }
+              className="flex w-full items-center gap-4 rounded-2xl border-2 border-dashed border-primary/30 bg-primary/[0.025] p-4 text-left text-primary transition hover:border-primary/55 hover:bg-primary/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-full border border-primary/25 bg-background">
+                <Plus className="size-5" />
+              </span>
+              <span>
+                <span className="block font-semibold">Crear lección</span>
+                <span className="mt-0.5 block text-sm text-muted-foreground">
+                  Agregarla debajo de la última lección
+                </span>
+              </span>
+            </button>
           </div>
         </section>
 
-        <div className="border-t pt-6">
+        <div className="flex flex-col-reverse gap-3 border-t pt-6 sm:flex-row sm:items-center sm:justify-between">
           <Button
             type="button"
             variant="outline"
@@ -2347,6 +2542,17 @@ function LearnBuilder({
             }
           >
             <Trash2 className="size-4" /> Eliminar capítulo
+          </Button>
+          <Button
+            type="button"
+            onClick={() =>
+              setScreen({
+                kind: "subject",
+                subjectIndex: screen.subjectIndex,
+              })
+            }
+          >
+            <Save className="size-4" /> Guardar capítulo
           </Button>
         </div>
       </div>
@@ -2392,9 +2598,10 @@ function LearnBuilder({
     );
     return (
       <div className="space-y-8" data-testid="learn-lesson-detail">
+        {hierarchyNavigation(screen)}
         {navigationHeader(
           lesson.lessonTitle || "Lección sin nombre",
-          `Estás dentro de ${chapter.chapterTitle}. Todo lo que sigue pertenece únicamente a esta lección.`,
+          "Editá los datos, contenido y relaciones de la lección.",
           `Volver a ${chapter.chapterTitle}`,
           () =>
             setScreen({
@@ -2493,38 +2700,11 @@ function LearnBuilder({
         </section>
 
         <section className="space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h4 className="text-lg font-semibold">Contenido de la lección</h4>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Agregá y editá los párrafos que componen esta lección.
-              </p>
-            </div>
-            <Button
-              type="button"
-              onClick={() => {
-                const paragraphIndex = lesson.paragraphs.length;
-                updateLesson(
-                  screen.subjectIndex,
-                  screen.chapterIndex,
-                  screen.lessonIndex,
-                  (current) => ({
-                    ...current,
-                    paragraphs: [
-                      ...current.paragraphs,
-                      {
-                        paragraphTitle: `Nuevo apartado ${paragraphIndex + 1}`,
-                        icon: "book",
-                        contentText: "Nuevo contenido",
-                      },
-                    ],
-                  }),
-                );
-                setScreen({ ...screen, kind: "paragraph", paragraphIndex });
-              }}
-            >
-              <Plus className="size-4" /> Crear párrafo
-            </Button>
+          <div>
+            <h4 className="text-lg font-semibold">Contenido de la lección</h4>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Agregá y editá los párrafos que componen esta lección.
+            </p>
           </div>
           <div className="space-y-3">
             {lesson.paragraphs.map((paragraph, paragraphIndex) => (
@@ -2541,10 +2721,14 @@ function LearnBuilder({
                   }
                 >
                   <div className="flex items-center gap-3">
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted font-mono text-xs">
-                      {paragraph.icon || "Aa"}
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-md border border-primary/25 bg-background text-primary">
+                      <Pilcrow className="size-4" />
                     </span>
                     <span className="min-w-0">
+                      <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                        Párrafo {paragraphIndex + 1}
+                        {paragraph.icon ? ` · ${paragraph.icon}` : ""}
+                      </span>
                       <span className="block font-semibold">
                         {paragraph.paragraphTitle || "Párrafo sin nombre"}
                       </span>
@@ -2621,6 +2805,28 @@ function LearnBuilder({
                 </div>
               </div>
             ))}
+            <button
+              type="button"
+              aria-label="Crear párrafo"
+              onClick={() =>
+                addParagraph(
+                  screen.subjectIndex,
+                  screen.chapterIndex,
+                  screen.lessonIndex,
+                )
+              }
+              className="flex w-full items-center gap-4 rounded-2xl border-2 border-dashed border-primary/30 bg-primary/[0.025] p-4 text-left text-primary transition hover:border-primary/55 hover:bg-primary/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-md border border-primary/25 bg-background">
+                <Plus className="size-5" />
+              </span>
+              <span>
+                <span className="block font-semibold">Crear párrafo</span>
+                <span className="mt-0.5 block text-sm text-muted-foreground">
+                  Agregarlo debajo del último párrafo
+                </span>
+              </span>
+            </button>
           </div>
         </section>
 
@@ -2770,7 +2976,7 @@ function LearnBuilder({
           )}
         </section>
 
-        <div className="border-t pt-6">
+        <div className="flex flex-col-reverse gap-3 border-t pt-6 sm:flex-row sm:items-center sm:justify-between">
           <Button
             type="button"
             variant="outline"
@@ -2784,6 +2990,19 @@ function LearnBuilder({
             }
           >
             <Trash2 className="size-4" /> Eliminar lección
+          </Button>
+          <Button
+            type="button"
+            disabled={Boolean(lessonIdProblem)}
+            onClick={() =>
+              setScreen({
+                kind: "chapter",
+                subjectIndex: screen.subjectIndex,
+                chapterIndex: screen.chapterIndex,
+              })
+            }
+          >
+            <Save className="size-4" /> Guardar lección
           </Button>
         </div>
       </div>
@@ -2820,9 +3039,10 @@ function LearnBuilder({
       );
     return (
       <div className="space-y-7" data-testid="learn-paragraph-detail">
+        {hierarchyNavigation(screen)}
         {navigationHeader(
           paragraph.paragraphTitle || "Párrafo sin nombre",
-          `Este apartado forma parte de ${lesson.lessonTitle}. Trabajalo como una escena independiente dentro de la lección.`,
+          "Editá el título, símbolo y contenido del párrafo.",
           `Volver a ${lesson.lessonTitle}`,
           () =>
             setScreen({
@@ -2879,7 +3099,7 @@ function LearnBuilder({
             />
           </div>
         </div>
-        <div className="border-t pt-6">
+        <div className="flex flex-col-reverse gap-3 border-t pt-6 sm:flex-row sm:items-center sm:justify-between">
           <Button
             type="button"
             variant="outline"
@@ -2905,6 +3125,19 @@ function LearnBuilder({
             }}
           >
             <Trash2 className="size-4" /> Eliminar párrafo
+          </Button>
+          <Button
+            type="button"
+            onClick={() =>
+              setScreen({
+                kind: "lesson",
+                subjectIndex: screen.subjectIndex,
+                chapterIndex: screen.chapterIndex,
+                lessonIndex: screen.lessonIndex,
+              })
+            }
+          >
+            <Save className="size-4" /> Guardar párrafo
           </Button>
         </div>
       </div>
