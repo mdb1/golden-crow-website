@@ -43,6 +43,7 @@ import {
 } from "@/lib/gc-fitness/auth-helpers";
 import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
+import { clientInScopePredicate } from "@/lib/gc-fitness/coach-ownership";
 import { listEngineeringUsers } from "@/lib/gc-fitness/engineering-actions";
 import { EngineeringAccessCard } from "./_components/EngineeringAccessCard";
 
@@ -99,6 +100,9 @@ async function fetchRecentTrainerActivity(
   ]);
 
   const rows: ActivityRow[] = [];
+  // #1503 — habits / assignments keep trainerId == me after a client swaps
+  // coach; only surface those of clients the trainer STILL coaches.
+  const inScope = await clientInScopePredicate(db, trainer.uid);
 
   if (templates) {
     for (const doc of templates.docs) {
@@ -132,6 +136,7 @@ async function fetchRecentTrainerActivity(
   if (habits) {
     for (const doc of habits.docs) {
       const data = doc.data();
+      if (!inScope(data)) continue;
       rows.push({
         collection: "habits",
         docId: doc.id,
@@ -143,6 +148,7 @@ async function fetchRecentTrainerActivity(
   if (workoutLogs) {
     for (const doc of workoutLogs.docs) {
       const data = doc.data();
+      if (!inScope(data)) continue;
       rows.push({
         collection: "workout_assignments",
         docId: doc.id,

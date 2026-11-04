@@ -69,6 +69,9 @@ const mockQueryGet = jest.fn();
 // the assign actions check `users/{clientId}.coachId` (#451).
 const mockClientCoach = { uid: "trainer-uid-1" };
 const mockUsersCollection = {
+  // #1503 — the coach's CURRENT roster (`users where coachId == me`), which the
+  // listing actions load once to drop a former client's inherited docs.
+  where: jest.fn(() => ({ get: jest.fn(async () => ({ docs: [] })) })),
   doc: jest.fn(() => ({
     get: jest.fn(async () => ({
       exists: true,

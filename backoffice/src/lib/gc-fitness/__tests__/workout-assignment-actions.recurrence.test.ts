@@ -28,11 +28,28 @@ const mockDoc = jest.fn((id?: string) => ({
 const mockWhere = jest.fn();
 const mockQueryGet = jest.fn();
 
-const mockCollection = jest.fn(() => ({
-  doc: mockDoc,
-  where: mockWhere,
-  get: mockQueryGet,
-}));
+// #1503 — users/{clientId}.coachId: the client is the signed-in trainer's
+// unless a test moves them to another coach.
+const mockClientCoach = { uid: "trainer-uid-1" };
+const mockUsersCollection = {
+  doc: jest.fn(() => ({
+    get: jest.fn(async () => ({
+      exists: true,
+      get: (field: string) => (field === "coachId" ? mockClientCoach.uid : undefined),
+      data: () => ({ coachId: mockClientCoach.uid }),
+    })),
+  })),
+};
+
+const mockCollection = jest.fn((name?: string) =>
+  name === "users"
+    ? mockUsersCollection
+    : {
+        doc: mockDoc,
+        where: mockWhere,
+        get: mockQueryGet,
+      },
+);
 
 mockWhere.mockImplementation(() => ({
   where: mockWhere,
@@ -139,6 +156,7 @@ function monWedFriSeriesDocs() {
 beforeEach(() => {
   jest.clearAllMocks();
   process.env.GC_FITNESS_TEAM_ALLOWLIST = ALLOWED_EMAIL;
+  mockClientCoach.uid = ALLOWED_UID;
   process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_API_KEY = "fake-api-key";
   process.env.GC_FITNESS_COOKIE_SIGNATURE_KEY = "fake-cookie-sig";
   process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_PROJECT_ID = "gcfitness-3476b";
@@ -269,6 +287,19 @@ describe("editAssignmentRecurrence", () => {
     for (const id of createdIds) {
       expect(id).toMatch(/^asg-client-uid-1-2026061[59]-/);
     }
+  });
+
+  it("#1503 — refuses a former coach: the client moved to another coach (Not your client.)", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens());
+    mockGet.mockResolvedValue(anchorSnap());
+    mockClientCoach.uid = OTHER_TRAINER_UID;
+
+    await expect(
+      editAssignmentRecurrence("asg-1", { recurrence: { kind: "daily" } }),
+    ).rejects.toThrow("Not your client.");
+    expect(mockQueryGet).not.toHaveBeenCalled();
+    expect(mockBatchSet).not.toHaveBeenCalled();
+    expect(mockBatchDelete).not.toHaveBeenCalled();
   });
 
   it("rejects a non-recurring (single) assignment — nothing to reschedule", async () => {

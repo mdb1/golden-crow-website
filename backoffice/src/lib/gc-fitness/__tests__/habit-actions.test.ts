@@ -61,9 +61,16 @@ const queryChain: {
   },
   get: () => mockQueryGet(),
 };
-const mockCollection = jest.fn(() => ({
+// #1503 — the coach's CURRENT roster (`users where coachId == me`), loaded once
+// by the listings to drop a former client's inherited habits. Default: the
+// fixture client `uid-client-abc` is still the signed-in coach's.
+const mockRoster: { uids: string[] } = { uids: ["uid-client-abc"] };
+const mockCollection = jest.fn((name?: string) => ({
   doc: mockDoc,
-  where: queryChain.where,
+  where:
+    name === "users"
+      ? () => ({ get: async () => ({ docs: mockRoster.uids.map((id) => ({ id })) }) })
+      : queryChain.where,
   orderBy: queryChain.orderBy,
   limit: queryChain.limit,
   get: () => mockQueryGet(),
@@ -611,6 +618,21 @@ describe("listHabitsForTrainer", () => {
     expect(mockLimit).toHaveBeenCalledWith(200);
   });
 
+  it("#1503 — drops a former client's inherited habits (trainerId still me, client moved on)", async () => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockQueryGet.mockResolvedValue(
+      fakeQuerySnapshot([
+        { id: "hab-current", trainerId: ALLOWED_UID, clientId: "uid-client-abc" },
+        { id: "hab-left", trainerId: ALLOWED_UID, clientId: "uid-left" },
+        { id: "hab-self", trainerId: ALLOWED_UID, clientId: ALLOWED_UID },
+      ]),
+    );
+
+    const result = await listHabitsForTrainer();
+
+    expect(result.map((r) => r.id)).toEqual(["hab-current", "hab-self"]);
+  });
+
   // T12 — projects ISO-stringified timestamps
   it("T12 — projects rows with ISO-stringified timestamps", async () => {
     mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
@@ -709,7 +731,9 @@ describe("listHabitsForClient", () => {
     expect(mockLimit).toHaveBeenCalledWith(500);
   });
 
-  it("T14b — non-owned client: returns only own-authored rows", async () => {
+  // #1503 — authorship no longer admits: a client who left is not the former
+  // coach's to see, not even the habits that coach authored.
+  it("T14b — non-owned client (e.g. one who moved to another coach): returns NOTHING, own-authored rows included", async () => {
     mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
     mockQueryGet.mockResolvedValue(
       fakeQuerySnapshot([
@@ -728,7 +752,7 @@ describe("listHabitsForClient", () => {
 
     const result = await listHabitsForClient("uid-X");
 
-    expect(result.map((r) => r.id)).toEqual(["hab-mine"]);
+    expect(result.map((r) => r.id)).toEqual([]);
     expect(mockWhere).not.toHaveBeenCalledWith("deleted", "==", false);
   });
 });

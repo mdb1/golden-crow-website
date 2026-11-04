@@ -140,6 +140,9 @@ class MockTxn {
 const ASSIGNMENT_ID = "asg-1";
 
 function seedAssignment(db: MockDb, status = "scheduled") {
+  // #1503 — the live-workout actions require c1 to be t1's CURRENT client.
+  db.collection("users");
+  db.collections.get("users")!.set("c1", { coachId: "t1" });
   db.collection("workout_assignments");
   db.collections.get("workout_assignments")!.set(ASSIGNMENT_ID, {
     trainerId: "t1",

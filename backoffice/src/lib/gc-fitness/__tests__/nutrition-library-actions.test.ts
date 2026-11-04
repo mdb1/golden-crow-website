@@ -39,6 +39,8 @@ const mockCollection = jest.fn((name: string) => {
     where: () => ({
       where: () => ({ limit: () => ({ get: async () => snapshotFor(name) }) }),
       limit: () => ({ get: async () => snapshotFor(name) }),
+      // #1503 — the roster read (`users where coachId == me`) has no limit.
+      get: async () => snapshotFor(name),
     }),
   };
 });
@@ -313,5 +315,19 @@ describe("countNutritionLibraryUsage", () => {
     expect(usage.mealsInTemplates).toEqual({ m1: 1, m2: 1 });
     expect(usage.mealsInPlans).toEqual({ m1: 2, m3: 1 });
     expect(usage.templatesInPlans).toEqual({ t1: 2 });
+  });
+
+  it("#1503 — a former client's inherited plan does not count; current, self and pending ones do", async () => {
+    queryResults.users = [{ id: "c-current", data: { coachId: TRAINER } }];
+    queryResults.nutrition_plans = [
+      { id: "p-current", data: { clientId: "c-current", templateId: "t1", meals: [{ mealId: "m1" }] } },
+      { id: "p-left", data: { clientId: "c-left", templateId: "t1", meals: [{ mealId: "m9" }] } },
+      { id: "p-self", data: { clientId: TRAINER, templateId: null, meals: [{ mealId: "m2" }] } },
+    ];
+
+    const usage = await countNutritionLibraryUsage();
+
+    expect(usage.mealsInPlans).toEqual({ m1: 1, m2: 1 });
+    expect(usage.templatesInPlans).toEqual({ t1: 1 });
   });
 });

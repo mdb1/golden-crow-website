@@ -436,7 +436,9 @@ describe("mintHabitPhotoUploadUrl", () => {
 });
 
 describe("habit lists", () => {
-  it("listHabitsForTrainer queries by the session uid only", async () => {
+  // #1503 — h-stale is coach-a's habit on x1, who now belongs to another coach:
+  // authorship alone no longer lists it.
+  it("listHabitsForTrainer queries by the session uid only, and drops a former client's habits", async () => {
     for (const id of ["h-own", "h-foreign", "h-stale"]) {
       db.seed(`habits/${id}`, { ...db.doc(`habits/${id}`), updatedAt: new Date("2026-06-10T00:00:00Z") });
     }
@@ -446,12 +448,12 @@ describe("habit lists", () => {
       { field: "deleted", op: "==", value: false },
     ]);
     expect(db.queries[0].limit).toBe(200);
-    expect(rows.map((r) => r.id).sort()).toEqual(["h-own", "h-stale"]);
+    expect(rows.map((r) => r.id).sort()).toEqual(["h-own"]);
   });
 
-  it("listHabitsForClient: foreign client → only own-authored rows; my client → all live rows", async () => {
+  it("listHabitsForClient: foreign client → nothing, not even own-authored rows (#1503); my client → all live rows", async () => {
     const foreign = await listHabitsForClient("x1");
-    expect(foreign.map((r) => r.id)).toEqual(["h-stale"]);
+    expect(foreign.map((r) => r.id)).toEqual([]);
     const mine = await listHabitsForClient("c1");
     expect(mine.map((r) => r.id).sort()).toEqual(["h-own", "h-self"]);
   });

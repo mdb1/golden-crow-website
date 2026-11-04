@@ -23,6 +23,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 
 import { getCurrentAdmin, getCurrentTrainer } from "./auth-helpers";
+import { assertOwnsAndCoaches, coachesClientNow, NOT_YOUR_CLIENT } from "./coach-ownership";
 import { adminCanViewClientUnderCoach } from "./coachless-user-model";
 import { FirestoreCollections } from "./collections";
 import { civilDateFormat } from "./civil-date";
@@ -418,6 +419,14 @@ export async function getAssignmentDetail(id: string): Promise<AssignmentDetail>
       allowed = clientSnap.exists && clientSnap.get("coachId") === trainer.uid;
     }
     if (!allowed) throw new Error("Not your assignment.");
+  } else if (
+    // #1503 — authored by me, but the client moved to another coach: not mine
+    // to open any more (the month view never lists it — this is a direct id).
+    typeof data.clientId === "string" &&
+    data.clientId.length > 0 &&
+    !(await coachesClientNow(db, trainer.uid, data.clientId))
+  ) {
+    throw new Error(NOT_YOUR_CLIENT);
   }
 
   const clientId = typeof data.clientId === "string" ? data.clientId : "";
@@ -1096,11 +1105,13 @@ export async function moveAssignment(input: {
   if (!snap.exists) throw new Error("Not found");
   const existing = snap.data() as {
     trainerId?: string;
+    clientId?: string | null;
     scheduledFor?: string;
     seriesId?: string | null;
     status?: string;
   };
-  if (existing.trainerId !== trainer.uid) throw new Error("Not your assignment.");
+  // #1503 — the author, AND only while the client is still theirs.
+  await assertOwnsAndCoaches(existing, trainer.uid, db, "Not your assignment.");
   const originDate =
     typeof existing.scheduledFor === "string" ? existing.scheduledFor : "";
   if (!originDate) throw new Error("Origin date missing.");

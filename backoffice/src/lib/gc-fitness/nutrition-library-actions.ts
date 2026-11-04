@@ -33,6 +33,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 
 import { getCurrentTrainer } from "./auth-helpers";
+import { clientInScopePredicate } from "./coach-ownership";
 import { FirestoreCollections } from "./collections";
 import { nutritionLibraryEvent, recordCoachActivityEvent } from "./coach-activity-log";
 import {
@@ -146,7 +147,10 @@ export async function countNutritionLibraryUsage(): Promise<NutritionLibraryUsag
     deleted: doc.get("deleted") === true,
     meals: (doc.get("meals") ?? []) as Array<{ mealId?: string | null }>,
   }));
-  const plans = plansSnap.docs.map((doc) => ({
+  // #1503 — a former client's inherited plans keep trainerId == me; they are not
+  // this coach's usage any more.
+  const inScope = await clientInScopePredicate(db, trainer.uid);
+  const plans = plansSnap.docs.filter((doc) => inScope(doc.data())).map((doc) => ({
     id: doc.id,
     deleted: doc.get("deleted") === true,
     templateId: (doc.get("templateId") ?? null) as string | null,

@@ -26,6 +26,11 @@ import { z } from "zod";
 import { gcFitnessFirestore, gcFitnessStorage } from "@/lib/firebase/gc-fitness-admin";
 
 import { getCurrentTrainer } from "./auth-helpers";
+import {
+  coachesClientNow,
+  NOT_YOUR_CLIENT,
+  clientInScopePredicate,
+} from "./coach-ownership";
 import { FirestoreCollections } from "./collections";
 import { civilDateFormat } from "./civil-date";
 import { exerciseIdentityKey } from "./exercise-identity-match";
@@ -491,6 +496,8 @@ async function ownedAssignment(assignmentId: string, trainerUid: string) {
   if (!snap.exists) throw new Error("Assignment not found.");
   const data = snap.data() as Record<string, unknown>;
   if (data.trainerId !== trainerUid) throw new Error("Not your assignment.");
+  // #1503 — authored by me is not enough: the client must still be mine.
+  await assertClientStillMine(db, trainerUid, data);
   return { ref, data };
 }
 
@@ -501,7 +508,23 @@ async function ownedActiveLog(logId: string, trainerUid: string) {
   if (!snap.exists) throw new Error("Session not found.");
   const data = snap.data() as Record<string, unknown>;
   if (data.trainerId !== trainerUid) throw new Error("Not your session.");
+  // #1503 — a log copies its assignment's trainerId, so after a coach swap the
+  // ex-client's NEW sessions still carry the former coach's uid.
+  await assertClientStillMine(db, trainerUid, data);
   return { ref, data };
+}
+
+/** #1503 — the doc's client is the caller, or currently coached by the caller. */
+async function assertClientStillMine(
+  db: FirebaseFirestore.Firestore,
+  trainerUid: string,
+  data: Record<string, unknown>,
+): Promise<void> {
+  const clientId = typeof data.clientId === "string" ? data.clientId : "";
+  if (!clientId) return;
+  if (!(await coachesClientNow(db, trainerUid, clientId))) {
+    throw new Error(NOT_YOUR_CLIENT);
+  }
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -957,6 +980,14 @@ export async function getFutureRecurrenceInfo(
   if (!snap.exists) return { count: 0, nextDates: [] };
   const current = snap.data() as Record<string, unknown>;
   if (current.trainerId !== trainer.uid) return { count: 0, nextDates: [] };
+  // #1503 — nor a former client's series.
+  if (
+    typeof current.clientId === "string" &&
+    current.clientId.length > 0 &&
+    !(await coachesClientNow(db, trainer.uid, current.clientId))
+  ) {
+    return { count: 0, nextDates: [] };
+  }
   const seriesId =
     typeof current.seriesId === "string" ? current.seriesId : null;
   if (!seriesId) return { count: 0, nextDates: [] };
@@ -995,6 +1026,9 @@ export async function getPreviousSessionForClient(
 ): Promise<PreviousSessionMap> {
   const trainer = await getCurrentTrainer();
   const db = gcFitnessFirestore();
+  // #1503 — a former client's logs (incl. the ones written after the swap,
+  // which still carry my trainerId) are not mine to read.
+  if (!(await coachesClientNow(db, trainer.uid, clientId))) return {};
 
   // Most-recent completed logs for this client (bounded). Ordered by
   // `startedAt` (NOT completedAt) to reuse the EXISTING composite index
@@ -1160,10 +1194,13 @@ export async function listUpcomingScheduledWorkouts(): Promise<UpcomingWorkout[]
 
   const now = Date.now();
   const WINDOW_MS = 12 * 60 * 60 * 1000;
+  // #1503 — no countdown alerts for a former client's inherited workouts.
+  const inScope = await clientInScopePredicate(db, trainer.uid);
   const rows: Array<Omit<UpcomingWorkout, "clientName">> = [];
   for (const doc of snap.docs) {
     const data = doc.data() as Record<string, unknown>;
     if (data.trainerId !== trainer.uid) continue;
+    if (!inScope(data)) continue;
     if (data.status !== "scheduled" && data.status !== "started") continue;
     const scheduledTime =
       typeof data.scheduledTime === "string" ? data.scheduledTime : null;
