@@ -123,6 +123,10 @@ describe("publisher app automatic palette overrides", () => {
       light: colors.primary,
       dark: colors.primary,
     });
+    expect(plan.colorOverrides["learn.level.bacteria.accent"]).toEqual({
+      light: colors.primary,
+      dark: colors.primary,
+    });
 
     for (const [key, override] of Object.entries(plan.colorOverrides)) {
       const original = optionByKey.get(key)!;
@@ -164,6 +168,36 @@ describe("publisher app automatic palette overrides", () => {
     expect(plan.sourceCount).toBe(8);
     expect(plan.selectedCount).toBe(3);
     expect(Object.keys(plan.colorOverrides)).toEqual(tonalKeys);
+  });
+
+  it("lifts a dark or washed primary into a vivid level-one accent on the same hue", () => {
+    for (const mutedPrimary of ["#5A443C", "#D8C7C0"]) {
+      const plan = createPublisherAppPaletteOverridePlan(
+        {
+          primary: mutedPrimary,
+          secondary: "#FFB21F",
+          tertiary: "#F58220",
+        },
+        catalog.options,
+        catalog.catalogVersion,
+      );
+      const bacteria = plan.colorOverrides["learn.level.bacteria.accent"];
+      const gradientEnd =
+        plan.colorOverrides["learn.level.bacteria.gradientEnd"];
+
+      expect(bacteria.light).toBe(bacteria.dark);
+      expect(bacteria.light).not.toBe(mutedPrimary);
+      expect(
+        hueDistance(colorHue(bacteria.light!), colorHue(mutedPrimary)),
+      ).toBeLessThan(12);
+      expect(colorSaturation(bacteria.light!)).toBeGreaterThan(
+        colorSaturation(mutedPrimary) + 25,
+      );
+      expect(colorLightness(bacteria.light!)).toBeGreaterThan(50);
+      expect(perceptualLightness(gradientEnd.light!)).toBeLessThan(
+        perceptualLightness(bacteria.light!),
+      );
+    }
   });
 
   it("keeps extreme variants exact and retains every catalog alpha channel", () => {

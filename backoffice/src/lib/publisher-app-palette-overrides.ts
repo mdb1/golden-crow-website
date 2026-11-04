@@ -20,10 +20,16 @@ type OklchColor = {
 };
 
 type PaletteRolePolicy =
-  "preserve" | "primary" | "secondary" | "tertiary" | "analogous";
+  | "preserve"
+  | "primary"
+  | "vividPrimary"
+  | "secondary"
+  | "tertiary"
+  | "analogous";
 
 type ThemePalette = {
   seedHex: [string, string, string];
+  vividPrimaryHex: string;
   centerHue: number;
   sourceBrandHue: number;
   baseChroma: number;
@@ -43,6 +49,8 @@ type PaletteCandidate = {
  * 2. Each light/dark appearance is evaluated independently, so a neutral mode
  *    stays untouched even when the other appearance of the same role is themed.
  * 3. Brand seeds map to the three colors selected by the operator.
+ *    Learn level 1 is anchored to the primary seed; a muted or dark primary is
+ *    lifted along the same hue into a vivid, readable level accent.
  * 4. Every other chromatic role keeps its perceptual lightness and its original
  *    hue relationship. The source hue wheel is compressed into a broad
  *    analogous family instead of being collapsed onto three near-identical
@@ -56,6 +64,7 @@ const SEMANTIC_STATUS_PATTERN =
 
 const DIRECT_ROLE_POLICY: Record<string, PaletteRolePolicy> = {
   "brand.primary": "primary",
+  "learn.level.bacteria.accent": "vividPrimary",
   "brand.secondary": "secondary",
   "brand.accent": "tertiary",
   "android.material.primary": "primary",
@@ -70,6 +79,11 @@ const ANALOGOUS_HUE_OFFSETS = [-22, -12, 0, 14, 30, 48, 68] as const;
 const SOURCE_HUE_COMPRESSION = 0.44;
 const ACHROMATIC_CHROMA = 0.012;
 const QUIET_NEUTRAL_CHROMA = 0.04;
+const VIVID_PRIMARY_MIN_CHROMA = 0.19;
+const VIVID_PRIMARY_READY_CHROMA = 0.12;
+const VIVID_PRIMARY_MIN_LIGHTNESS = 0.72;
+const VIVID_PRIMARY_MAX_LIGHTNESS = 0.86;
+const VIVID_PRIMARY_READY_LIGHTNESS = 0.55;
 
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(maximum, Math.max(minimum, value));
@@ -241,6 +255,38 @@ function normalizedPalette(colors: PublisherAppColors) {
   ) as [string, string, string];
 }
 
+function vividPrimaryColor(
+  primaryHex: string,
+  primary: OklchColor,
+  chromaticFallback: OklchColor,
+) {
+  if (
+    primary.chroma >= VIVID_PRIMARY_READY_CHROMA &&
+    primary.lightness >= VIVID_PRIMARY_READY_LIGHTNESS
+  ) {
+    return primaryHex;
+  }
+
+  const hueSource =
+    primary.chroma > ACHROMATIC_CHROMA ? primary : chromaticFallback;
+  return oklchToHex(
+    {
+      lightness: clamp(
+        primary.lightness,
+        VIVID_PRIMARY_MIN_LIGHTNESS,
+        VIVID_PRIMARY_MAX_LIGHTNESS,
+      ),
+      chroma: clamp(
+        Math.max(primary.chroma * 1.2, VIVID_PRIMARY_MIN_CHROMA),
+        VIVID_PRIMARY_MIN_CHROMA,
+        0.3,
+      ),
+      hue: hueSource.hue,
+    },
+    "",
+  );
+}
+
 function buildThemePalette(
   colors: PublisherAppColors,
   options: PublisherAppColorCatalogOption[],
@@ -270,6 +316,7 @@ function buildThemePalette(
     chromaticSeeds.length;
   return {
     seedHex,
+    vividPrimaryHex: vividPrimaryColor(seedHex[0], seeds[0], primarySeed),
     centerHue: primarySeed.hue,
     sourceBrandHue:
       sourceBrandColor && sourceBrandColor.chroma > ACHROMATIC_CHROMA
@@ -337,6 +384,10 @@ function coordinatedColor(
     original.lightness >= 0.99
   ) {
     return normalizedOriginal;
+  }
+
+  if (policy === "vividPrimary") {
+    return `${palette.vividPrimaryHex}${rgb.alpha}`;
   }
 
   const directIndex =
