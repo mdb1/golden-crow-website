@@ -46,7 +46,7 @@ describe("custom app palette override route", () => {
     expect(response.status).toBe(400);
   });
 
-  it("returns a private plan covering half of the current color catalog", async () => {
+  it("returns a private plan containing only branding-susceptible colors", async () => {
     jest.mocked(getServerSession).mockResolvedValue({
       user: { email: "admin@example.org" },
       expires: "2099-01-01T00:00:00.000Z",
@@ -70,9 +70,10 @@ describe("custom app palette override route", () => {
     expect(body).toMatchObject({
       catalogVersion: 3,
       sourceCount: 576,
-      selectedCount: 288,
     });
-    expect(Object.keys(body.colorOverrides)).toHaveLength(288);
+    expect(body.selectedCount).toBe(Object.keys(body.colorOverrides).length);
+    expect(body.selectedCount).toBeGreaterThan(0);
+    expect(body.selectedCount).toBeLessThan(body.sourceCount);
     expect(body.colorOverrides).toEqual(
       expect.objectContaining({
         "learn.level.bacteria.accent": expect.any(Object),

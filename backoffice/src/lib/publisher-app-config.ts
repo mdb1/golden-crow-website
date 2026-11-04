@@ -190,11 +190,6 @@ export type PublisherAppPaletteOverridePlan = {
   colorOverrides: Record<string, PublisherAppColorOverride>;
 };
 
-export function publisherAppAutomaticOverrideTargetCount(sourceCount: number) {
-  if (!Number.isSafeInteger(sourceCount) || sourceCount < 2) return 0;
-  return Math.floor(sourceCount / 2);
-}
-
 export type PublisherAppConfigResponse = {
   config: PublisherAppConfig | null;
 };

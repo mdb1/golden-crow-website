@@ -1332,7 +1332,7 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(primaryPicker).toHaveValue("#445566");
   });
 
-  it("calculates and stores half of the current color catalog when a palette is selected", async () => {
+  it("stores only the branding-susceptible colors returned by palette analysis", async () => {
     let resolvePlan:
       | ((value: {
           catalogVersion: number;
@@ -1366,13 +1366,15 @@ describe("PublisherAppConfigWorkbench", () => {
       expect.any(AbortSignal),
     );
     expect(
-      await screen.findByText(/Ajustando los colores a Destello vecino/i),
+      await screen.findByText(
+        /Analizando qué colores adaptar a Destello vecino/i,
+      ),
     ).toBeTruthy();
     expect(saveButton).toBeDisabled();
     expect(screen.getByRole("button", { name: "Listo" })).toBeDisabled();
 
     const colorOverrides = Object.fromEntries(
-      Array.from({ length: 288 }, (_, index) => [
+      Array.from({ length: 3 }, (_, index) => [
         `role.${index}`,
         { light: "#FFF7F2", dark: "#160B05" },
       ]),
@@ -1380,12 +1382,14 @@ describe("PublisherAppConfigWorkbench", () => {
     resolvePlan!({
       catalogVersion: 3,
       sourceCount: 576,
-      selectedCount: 288,
+      selectedCount: 3,
       colorOverrides,
     });
 
     expect(
-      await screen.findByText(/288 de 576 colores quedaron coordinados/i),
+      await screen.findByText(
+        /3 colores sensibles a la marca quedaron coordinados.*573 conservaron/i,
+      ),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Listo" })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "Listo" }));
@@ -1403,7 +1407,7 @@ describe("PublisherAppConfigWorkbench", () => {
     );
     expect(
       Object.keys(payload.advancedConfiguration.colorOverrides),
-    ).toHaveLength(288);
+    ).toHaveLength(3);
     expect(payload.advancedConfiguration.semanticColors.primary).toBe(
       payload.colors.primary,
     );

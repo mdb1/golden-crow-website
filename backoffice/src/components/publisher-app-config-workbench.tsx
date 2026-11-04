@@ -77,7 +77,6 @@ import {
   normalizePublisherAppColor,
   publisherAppDefaultAdvancedConfiguration,
   publisherAppDefaultColors,
-  publisherAppAutomaticOverrideTargetCount,
   publisherAppPaletteSuggestions,
   publisherAppSemanticColors,
   publisherAppStatusLabel,
@@ -252,10 +251,11 @@ function PaletteOverrideCalculationStatus({
         </span>
         <span className="min-w-0">
           <span className="block text-sm font-semibold">
-            Ajustando los colores a {calculation.paletteName}…
+            Analizando qué colores adaptar a {calculation.paletteName}…
           </span>
           <span className="block text-xs text-violet-700 dark:text-violet-200/80">
-            Conservamos contraste, claridad, oscuridad y transparencias.
+            Evaluamos neutralidad, función semántica, contraste y
+            transparencias.
           </span>
         </span>
       </div>
@@ -281,8 +281,10 @@ function PaletteOverrideCalculationStatus({
       className="mt-3 flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-900 dark:border-emerald-400/24 dark:bg-emerald-500/10 dark:text-emerald-100"
     >
       <CheckCircle2 className="size-4" />
-      {calculation.selectedCount} de {calculation.sourceCount} colores quedaron
-      coordinados con {calculation.paletteName}.
+      {calculation.selectedCount} colores sensibles a la marca quedaron
+      coordinados con {calculation.paletteName};{" "}
+      {calculation.sourceCount - calculation.selectedCount} conservaron su
+      función neutral o semántica.
     </div>
   );
 }
@@ -2550,13 +2552,11 @@ export function PublisherAppConfigWorkbench({
           return;
         }
         const overrideCount = Object.keys(plan.colorOverrides).length;
-        const expectedCount = publisherAppAutomaticOverrideTargetCount(
-          plan.sourceCount,
-        );
         if (
-          expectedCount === 0 ||
-          plan.selectedCount !== expectedCount ||
-          overrideCount !== expectedCount
+          plan.sourceCount < 1 ||
+          plan.selectedCount < 1 ||
+          plan.selectedCount > plan.sourceCount ||
+          overrideCount !== plan.selectedCount
         ) {
           throw new Error(
             "La coordinación de colores devolvió una cobertura incompleta.",

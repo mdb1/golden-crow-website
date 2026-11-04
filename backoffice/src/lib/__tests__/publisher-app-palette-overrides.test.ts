@@ -1,5 +1,5 @@
 import { getPublisherAppColorCatalog } from "@/lib/publisher-app-customization-catalog-server";
-import { publisherAppAutomaticOverrideTargetCount } from "@/lib/publisher-app-config";
+import type { PublisherAppColorCatalogOption } from "@/lib/publisher-app-config";
 import { createPublisherAppPaletteOverridePlan } from "@/lib/publisher-app-palette-overrides";
 
 function colorChannels(value: string) {
@@ -69,7 +69,7 @@ describe("publisher app automatic palette overrides", () => {
     tertiary: "#F58220",
   };
 
-  it("selects half of the expanded catalog after excluding neutral and semantic contracts", () => {
+  it("selects every branding-susceptible chromatic role without a quota", () => {
     const plan = createPublisherAppPaletteOverridePlan(
       colors,
       catalog.options,
@@ -79,10 +79,9 @@ describe("publisher app automatic palette overrides", () => {
     expect(catalog.catalogVersion).toBe(3);
     expect(catalog.options).toHaveLength(576);
     expect(plan.sourceCount).toBe(576);
-    expect(plan.selectedCount).toBe(
-      publisherAppAutomaticOverrideTargetCount(catalog.options.length),
-    );
-    expect(Object.keys(plan.colorOverrides)).toHaveLength(288);
+    expect(plan.selectedCount).toBe(Object.keys(plan.colorOverrides).length);
+    expect(plan.selectedCount).toBeGreaterThan(0);
+    expect(plan.selectedCount).toBeLessThan(plan.sourceCount);
     const requiredKeys = [
       "app.accent",
       "brand.primary",
@@ -132,6 +131,39 @@ describe("publisher app automatic palette overrides", () => {
           override.dark !== original.defaultDarkColor,
       ).toBe(true);
     }
+  });
+
+  it("preserves neutral and semantic colors while adapting every tonal role", () => {
+    const option = (
+      key: string,
+      color: string,
+      title = key,
+    ): PublisherAppColorCatalogOption => ({
+      key,
+      title,
+      usageDescription: title,
+      defaultLightColor: color,
+      defaultDarkColor: color,
+      group: "General interface",
+      platforms: ["ios", "android"],
+    });
+    const tonalKeys = ["feature.blue", "feature.pink", "feature.teal"];
+    const options = [
+      option("neutral.white", "#FFFFFF"),
+      option("neutral.black", "#000000"),
+      option("neutral.gray", "#777777"),
+      option("neutral.quiet", "#F3F1EF"),
+      option("feedback.success", "#16A34A", "Success status"),
+      option(tonalKeys[0], "#2563EB", "Feature blue accent"),
+      option(tonalKeys[1], "#E3196A", "Feature pink accent"),
+      option(tonalKeys[2], "#14B8A6", "Feature teal accent"),
+    ];
+
+    const plan = createPublisherAppPaletteOverridePlan(colors, options, 99);
+
+    expect(plan.sourceCount).toBe(8);
+    expect(plan.selectedCount).toBe(3);
+    expect(Object.keys(plan.colorOverrides)).toEqual(tonalKeys);
   });
 
   it("keeps extreme variants exact and retains every catalog alpha channel", () => {

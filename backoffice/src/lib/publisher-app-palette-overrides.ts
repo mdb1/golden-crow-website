@@ -4,10 +4,7 @@ import type {
   PublisherAppColors,
   PublisherAppPaletteOverridePlan,
 } from "@/lib/publisher-app-config";
-import {
-  normalizePublisherAppColor,
-  publisherAppAutomaticOverrideTargetCount,
-} from "@/lib/publisher-app-config";
+import { normalizePublisherAppColor } from "@/lib/publisher-app-config";
 
 type RgbColor = {
   red: number;
@@ -35,100 +32,27 @@ type ThemePalette = {
 type PaletteCandidate = {
   option: PublisherAppColorCatalogOption;
   override: PublisherAppColorOverride;
-  score: number;
 };
 
 /*
  * Automatic palette treaty
  * -------------------------
- * 1. Structural neutrals and semantic statuses are contracts, not branding
- *    opportunities. They remain exactly as supplied by the base catalog.
- * 2. Exact and effectively achromatic black/white/gray variants never receive
- *    a brand hue, even when the other appearance of the same role is themed.
+ * 1. Neutrals and semantic statuses are contracts, not branding opportunities.
+ *    Black, white, gray and quiet near-neutral colors remain exactly as supplied
+ *    by the base catalog.
+ * 2. Each light/dark appearance is evaluated independently, so a neutral mode
+ *    stays untouched even when the other appearance of the same role is themed.
  * 3. Brand seeds map to the three colors selected by the operator.
  * 4. Every other chromatic role keeps its perceptual lightness and its original
  *    hue relationship. The source hue wheel is compressed into a broad
  *    analogous family instead of being collapsed onto three near-identical
  *    anchors.
- * 5. Selection happens after preservation and transformation. An unchanged
- *    neutral cannot consume one of the high-impact override positions. The
- *    target stays at half of the installed catalog so coverage grows when the
- *    native apps expose new named roles.
+ * 5. There is no target count or quota. Every branding-susceptible chromatic
+ *    role is transformed; every unchanged or protected role is omitted.
  */
-
-const GROUP_IMPACT: Record<string, number> = {
-  Brand: 220,
-  "Brand details": 208,
-  "Learn levels": 206,
-  "Bottom navigation": 202,
-  "Brand and community gradient details": 198,
-  "Discover suggestions": 218,
-  "Learn background": 196,
-  "Discover categories": 194,
-  "Discover gene suggestions": 219,
-  "Discover lesson suggestions": 217,
-  "Discover request launcher": 216,
-  "Variant finder": 215,
-  "Discover publishers": 188,
-  "Discover feed cards": 213,
-  "Connect quick access": 184,
-  "Learn chapter cells": 212,
-  "Learn quiz words": 230,
-  "Learn chapter game": 211,
-  "Learn chapter modal": 210,
-  "Screen surfaces and atmosphere": 178,
-  "Learn header": 209,
-  "Learn progress box": 208,
-  "Learn glass panels": 207,
-  Discover: 174,
-  Community: 168,
-  "Community reference cards": 164,
-  "Discover articles": 160,
-  "Discover event details": 158,
-  "General interface": 154,
-  "Report entry": 150,
-  Services: 146,
-  "Services and native controls": 144,
-  "Service information": 140,
-  "Scientific decorative palette": 136,
-  "Study category picker": 132,
-  "File creation wizard": 126,
-  "Android Material controls": 122,
-  "General feedback": -400,
-  "Service request status": -500,
-};
-
-const HIGH_IMPACT_TERMS = [
-  "navigation",
-  "tab",
-  "header",
-  "button",
-  "control",
-  "action",
-  "primary",
-  "brand",
-  "accent",
-  "gradient",
-  "card",
-  "selected",
-  "highlight",
-  "category",
-  "publisher",
-  "quick access",
-];
-
-const CORE_PALETTE_KEYS = new Set([
-  "app.accent",
-  "app.accentShadow",
-  "app.accentSubtleBackground",
-  "app.accentSubtleBorder",
-]);
 
 const SEMANTIC_STATUS_PATTERN =
   /\b(error|success|warning|failure|failed|rejected|cancelled|canceled|destructive|danger|requested|received|validating|accepted|queued|running|awaiting|delivered|status|unsupported|unavailable|disabled)\b/i;
-
-const STRUCTURAL_NEUTRAL_PATTERN =
-  /\b(canvas|background|surface|container|fill|border|separator|divider|stroke|shadow|scrim|overlay|text|caption|metadata|helper|placeholder|neutral|inactive)\b/i;
 
 const DIRECT_ROLE_POLICY: Record<string, PaletteRolePolicy> = {
   "brand.primary": "primary",
@@ -299,33 +223,12 @@ function shouldPreserveOption(option: PublisherAppColorCatalogOption) {
   }
 
   const colors = optionColors(option);
-  const structurallyNeutral = colors.every(
-    (color) => color.chroma <= QUIET_NEUTRAL_CHROMA,
-  );
-  return structurallyNeutral && STRUCTURAL_NEUTRAL_PATTERN.test(text);
+  return colors.every((color) => color.chroma <= QUIET_NEUTRAL_CHROMA);
 }
 
 function rolePolicy(option: PublisherAppColorCatalogOption): PaletteRolePolicy {
   if (shouldPreserveOption(option)) return "preserve";
   return DIRECT_ROLE_POLICY[option.key] ?? "analogous";
-}
-
-function optionImpact(option: PublisherAppColorCatalogOption) {
-  const text = optionSearchText(option);
-  const colors = optionColors(option);
-  const strongestChroma = Math.max(...colors.map((color) => color.chroma));
-  let score = GROUP_IMPACT[option.group] ?? 110;
-  if (CORE_PALETTE_KEYS.has(option.key)) score += 100;
-  for (const term of HIGH_IMPACT_TERMS) {
-    if (text.toLocaleLowerCase("en").includes(term)) score += 6;
-  }
-  if (/\b(main|shared|broadest|prominent|global|screen)\b/i.test(text)) {
-    score += 12;
-  }
-  if (/\b(category|gradient|brand|accent)\b/i.test(text)) score += 14;
-  if (/\b(text|caption|metadata|helper|placeholder)\b/i.test(text)) score -= 10;
-  score += Math.round(clamp(strongestChroma, 0, 0.3) * 130);
-  return score;
 }
 
 function normalizedPalette(colors: PublisherAppColors) {
@@ -480,7 +383,7 @@ function candidateForOption(
   ) {
     return null;
   }
-  return { option, override, score: optionImpact(option) };
+  return { option, override };
 }
 
 export function createPublisherAppPaletteOverridePlan(
@@ -488,8 +391,7 @@ export function createPublisherAppPaletteOverridePlan(
   options: PublisherAppColorCatalogOption[],
   catalogVersion: number,
 ): PublisherAppPaletteOverridePlan {
-  const targetCount = publisherAppAutomaticOverrideTargetCount(options.length);
-  if (targetCount === 0) {
+  if (options.length === 0) {
     throw new Error(
       "The color catalog is too small to build the palette plan.",
     );
@@ -498,25 +400,20 @@ export function createPublisherAppPaletteOverridePlan(
   const candidates = options
     .map((option) => candidateForOption(option, palette))
     .filter((candidate): candidate is PaletteCandidate => candidate !== null)
-    .sort(
-      (left, right) =>
-        right.score - left.score ||
-        left.option.key.localeCompare(right.option.key),
-    );
-  if (candidates.length < targetCount) {
+    .sort((left, right) => left.option.key.localeCompare(right.option.key));
+  if (candidates.length === 0) {
     throw new Error(
       "The color catalog does not contain enough meaningful chromatic roles.",
     );
   }
 
-  const selected = candidates.slice(0, targetCount);
   const colorOverrides = Object.fromEntries(
-    selected.map((candidate) => [candidate.option.key, candidate.override]),
+    candidates.map((candidate) => [candidate.option.key, candidate.override]),
   );
   return {
     catalogVersion,
     sourceCount: options.length,
-    selectedCount: selected.length,
+    selectedCount: candidates.length,
     colorOverrides,
   };
 }
