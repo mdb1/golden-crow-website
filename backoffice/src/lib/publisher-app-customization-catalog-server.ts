@@ -20,22 +20,26 @@ type ColorCatalog = {
 let textCatalog: TextCatalog | undefined;
 let colorCatalog: ColorCatalog | undefined;
 
-function readCompressedCatalog<T>(fileName: string): T {
-  const catalogUrl = new URL(`../../catalogs/${fileName}`, import.meta.url);
+const TEXT_CATALOG_URL = new URL(
+  "../../catalogs/custom-app-texts.json.gz",
+  import.meta.url,
+);
+const COLOR_CATALOG_URL = new URL(
+  "../../catalogs/custom-app-colors.json.gz",
+  import.meta.url,
+);
+
+function readCompressedCatalog<T>(catalogUrl: URL): T {
   return JSON.parse(gunzipSync(readFileSync(catalogUrl)).toString("utf8")) as T;
 }
 
 function getTextCatalog() {
-  textCatalog ??= readCompressedCatalog<TextCatalog>(
-    "custom-app-texts.json.gz",
-  );
+  textCatalog ??= readCompressedCatalog<TextCatalog>(TEXT_CATALOG_URL);
   return textCatalog;
 }
 
 function getColorCatalog() {
-  colorCatalog ??= readCompressedCatalog<ColorCatalog>(
-    "custom-app-colors.json.gz",
-  );
+  colorCatalog ??= readCompressedCatalog<ColorCatalog>(COLOR_CATALOG_URL);
   return colorCatalog;
 }
 
