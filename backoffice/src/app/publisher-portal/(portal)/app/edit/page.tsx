@@ -25,6 +25,8 @@ export default async function EditPublisherAppPage() {
         <PublisherAppConfigWorkbench
           mode="edit"
           initialConfig={data.config}
+          publisherKind={data.publisherKind}
+          publisherId={data.publisherId}
           publisherName={data.publisherName}
           publisherTint={data.publisherTint}
           publisherImageUrl={data.publisherImageUrl}

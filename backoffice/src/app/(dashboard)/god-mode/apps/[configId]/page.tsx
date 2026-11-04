@@ -49,6 +49,8 @@ export default async function GodModeAppDetailPage({
         <PublisherAppConfigWorkbench
           mode="edit"
           initialConfig={config}
+          publisherKind={config.publisherKind}
+          publisherId={config.publisherId}
           publisherName={config.publisherName}
           publisherTint={config.colors.primary}
           publisherImageUrl={publisherImageUrl}

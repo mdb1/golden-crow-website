@@ -17,6 +17,7 @@ import {
   PUBLISHER_PORTAL_HOME_ROUTE,
 } from "@/lib/publisher-portal-routes";
 import { fetchPublisherAppCustomizationCatalog } from "@/lib/publisher-app-customization-catalog-client";
+import { fetchPublisherAppPaletteOverrides } from "@/lib/publisher-app-palette-overrides-client";
 import { sdkFetch } from "@/lib/sdk-client";
 
 const mockRouterReplace = jest.fn();
@@ -39,6 +40,10 @@ jest.mock("@/lib/sdk-client", () => {
 
 jest.mock("@/lib/publisher-app-customization-catalog-client", () => ({
   fetchPublisherAppCustomizationCatalog: jest.fn(),
+}));
+
+jest.mock("@/lib/publisher-app-palette-overrides-client", () => ({
+  fetchPublisherAppPaletteOverrides: jest.fn(),
 }));
 
 const savedConfig: PublisherAppConfig = {
@@ -1291,6 +1296,83 @@ describe("PublisherAppConfigWorkbench", () => {
 
     fireEvent.change(primaryPicker, { target: { value: "#445566" } });
     expect(primaryPicker).toHaveValue("#445566");
+  });
+
+  it("calculates and stores 167 coordinated color overrides when a palette is selected", async () => {
+    let resolvePlan:
+      | ((value: {
+          catalogVersion: number;
+          sourceCount: number;
+          selectedCount: number;
+          colorOverrides: Record<string, { light: string; dark: string }>;
+        }) => void)
+      | null = null;
+    const planPromise = new Promise<{
+      catalogVersion: number;
+      sourceCount: number;
+      selectedCount: number;
+      colorOverrides: Record<string, { light: string; dark: string }>;
+    }>((resolve) => {
+      resolvePlan = resolve;
+    });
+    jest.mocked(fetchPublisherAppPaletteOverrides).mockReturnValue(planPromise);
+    jest.mocked(sdkFetch).mockResolvedValue({ config: savedConfig });
+    renderWorkbench({ mode: "edit", initialConfig: savedConfig });
+
+    const saveButton = screen.getByRole("button", { name: "Guardar cambios" });
+    fireEvent.click(screen.getByRole("button", { name: "Editar paleta" }));
+    fireEvent.click(screen.getByRole("button", { name: /Destello vecino/i }));
+
+    expect(fetchPublisherAppPaletteOverrides).toHaveBeenCalledWith(
+      expect.objectContaining({
+        primary: expect.stringMatching(/^#[0-9A-F]{6}$/),
+        secondary: expect.stringMatching(/^#[0-9A-F]{6}$/),
+        tertiary: expect.stringMatching(/^#[0-9A-F]{6}$/),
+      }),
+      expect.any(AbortSignal),
+    );
+    expect(
+      await screen.findByText(/Ajustando 167 colores a Destello vecino/i),
+    ).toBeTruthy();
+    expect(saveButton).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Listo" })).toBeDisabled();
+
+    const colorOverrides = Object.fromEntries(
+      Array.from({ length: 167 }, (_, index) => [
+        `role.${index}`,
+        { light: "#FFF7F2", dark: "#160B05" },
+      ]),
+    );
+    resolvePlan!({
+      catalogVersion: 2,
+      sourceCount: 334,
+      selectedCount: 167,
+      colorOverrides,
+    });
+
+    expect(
+      await screen.findByText(/167 de 334 colores quedaron coordinados/i),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Listo" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Listo" }));
+    expect(saveButton).toBeEnabled();
+    fireEvent.click(saveButton);
+
+    await waitFor(() =>
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/publisher-app/config",
+        expect.objectContaining({ method: "PUT" }),
+      ),
+    );
+    const payload = JSON.parse(
+      String(jest.mocked(sdkFetch).mock.calls[0][1]?.body),
+    );
+    expect(
+      Object.keys(payload.advancedConfiguration.colorOverrides),
+    ).toHaveLength(167);
+    expect(payload.advancedConfiguration.semanticColors.primary).toBe(
+      payload.colors.primary,
+    );
   });
 
   it("always renders the publisher identity icon on a white background", () => {

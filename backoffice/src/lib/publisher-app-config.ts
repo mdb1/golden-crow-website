@@ -182,6 +182,13 @@ export type PublisherAppCustomizationCatalogPage<T> = {
   nextCursor: string | null;
 };
 
+export type PublisherAppPaletteOverridePlan = {
+  catalogVersion: number;
+  sourceCount: number;
+  selectedCount: number;
+  colorOverrides: Record<string, PublisherAppColorOverride>;
+};
+
 export type PublisherAppConfigResponse = {
   config: PublisherAppConfig | null;
 };
@@ -271,6 +278,58 @@ export function publisherAppSemanticColors(
     accentTextLight: mixPublisherAppHex(accent, "#000000", 0.28),
     accentTextDark: mixPublisherAppHex(accent, "#FFFFFF", 0.38),
     accentSurfaceLight: mixPublisherAppHex(accent, "#FFFFFF", 0.9),
+  };
+}
+
+export function publisherAppDefaultAdvancedConfiguration(identity: {
+  name: string;
+  kind: "organization" | "individual";
+  id: string;
+}): PublisherAppAdvancedConfiguration {
+  return {
+    displayName: identity.name,
+    semanticColors: null,
+    colorOverrides: {},
+    catalogEnabled: true,
+    feedEnabled: true,
+    discoverScope:
+      identity.kind === "organization"
+        ? {
+            mode: "organization",
+            publisherOrganizationId: identity.id,
+          }
+        : { mode: "all" },
+    serviceScope: {
+      mode: "provider",
+      providerId: identity.id,
+      providerKind: identity.kind,
+    },
+    localization: {
+      defaultLanguage: "es",
+      availableLanguages: ["en", "es"],
+    },
+    textOverrides: [
+      {
+        key: "Only on Pocket Genes",
+        en: `Only on ${identity.name}`,
+        es: `Solo en ${identity.name}`,
+      },
+      {
+        key: "Contact Pocket Genes",
+        en: `Contact ${identity.name}`,
+        es: `Contactá a ${identity.name}`,
+      },
+    ],
+    learn: { mode: "base" },
+    links: {
+      joinUs: {
+        en: "https://goldencrowvs.com/en/pocket-genes/join-us/",
+        es: "https://goldencrowvs.com/pocket-genes/join-us/",
+      },
+      supportEmail: "support@goldencrowvs.com",
+      privacyUrl: "https://goldencrowvs.com/privacy/",
+      termsUrl: "https://goldencrowvs.com/terms/",
+    },
   };
 }
 

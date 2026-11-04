@@ -24,6 +24,8 @@ export default async function NewPublisherAppPage() {
       >
         <PublisherAppConfigWorkbench
           mode="create"
+          publisherKind={data.publisherKind}
+          publisherId={data.publisherId}
           publisherName={data.publisherName}
           publisherTint={data.publisherTint}
           publisherImageUrl={data.publisherImageUrl}

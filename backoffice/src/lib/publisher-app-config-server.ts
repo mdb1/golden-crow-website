@@ -13,6 +13,8 @@ import { sdkFetchServer } from "@/lib/sdk-server";
 
 export type PublisherAppPageData = {
   config: PublisherAppConfig | null;
+  publisherKind?: "organization" | "individual";
+  publisherId?: string;
   publisherName: string;
   publisherTint?: string;
   publisherEmail: string;
@@ -44,6 +46,8 @@ export async function loadPublisherAppPageData(): Promise<PublisherAppPageData> 
 
       return {
         config,
+        publisherKind: "organization",
+        publisherId: organizationId,
         publisherName: config?.publisherName ?? organization.name,
         publisherTint: config?.colors.primary ?? organization.colorHex,
         publisherEmail: config?.publisherEmail ?? publisherEmail,
@@ -60,6 +64,8 @@ export async function loadPublisherAppPageData(): Promise<PublisherAppPageData> 
 
       return {
         config,
+        publisherKind: "individual",
+        publisherId: individualId,
         publisherName: config?.publisherName ?? individual.name,
         publisherTint: config?.colors.primary ?? individual.colorHex,
         publisherEmail: config?.publisherEmail ?? publisherEmail,
@@ -75,6 +81,8 @@ export async function loadPublisherAppPageData(): Promise<PublisherAppPageData> 
   if (config) {
     return {
       config,
+      publisherKind: config.publisherKind,
+      publisherId: config.publisherId,
       publisherName: config.publisherName,
       publisherTint: config.colors.primary,
       publisherEmail: config.publisherEmail,
@@ -88,6 +96,18 @@ export async function loadPublisherAppPageData(): Promise<PublisherAppPageData> 
 
   return {
     config: null,
+    publisherKind:
+      account.context.role === "organization_publisher"
+        ? "organization"
+        : account.context.role === "individual_publisher"
+          ? "individual"
+          : undefined,
+    publisherId:
+      account.context.role === "organization_publisher"
+        ? organizationId
+        : account.context.role === "individual_publisher"
+          ? individualId
+          : undefined,
     publisherName: fallbackName,
     publisherEmail,
     publisherUsername,

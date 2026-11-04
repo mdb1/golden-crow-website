@@ -38,7 +38,7 @@ function getTextCatalog() {
   return textCatalog;
 }
 
-function getColorCatalog() {
+export function getPublisherAppColorCatalog() {
   colorCatalog ??= readCompressedCatalog<ColorCatalog>(COLOR_CATALOG_URL);
   return colorCatalog;
 }
@@ -115,7 +115,7 @@ export function searchPublisherAppColorCatalog(input: {
   cursor: number;
   limit: number;
 }) {
-  const catalog = getColorCatalog();
+  const catalog = getPublisherAppColorCatalog();
   const query = normalizedSearch(input.query);
   const group = input.group?.trim();
   const groups = [
