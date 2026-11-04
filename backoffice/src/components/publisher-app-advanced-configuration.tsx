@@ -30,7 +30,6 @@ import {
   Rocket,
   Search,
   ShieldCheck,
-  SlidersHorizontal,
   Sun,
   Trash2,
 } from "lucide-react";
@@ -504,7 +503,7 @@ function ColorOverridesEditor({
               <div>
                 <p className="font-semibold">{label}</p>
                 <p className="text-xs text-muted-foreground">
-                  {enabled ? "Override activo" : "Usando el color base"}
+                  {enabled ? "Color personalizado" : "Usando el color base"}
                 </p>
               </div>
             </div>
@@ -609,7 +608,7 @@ function ColorOverridesEditor({
                 setScreen("loaded");
               }}
             >
-              <Trash2 className="size-4" /> Quitar override
+              <Trash2 className="size-4" /> Quitar personalización
             </Button>
             <Button
               type="button"
@@ -721,10 +720,10 @@ function ColorOverridesEditor({
             size="sm"
             onClick={() => setScreen("loaded")}
           >
-            <ArrowLeft className="size-4" /> Overrides cargados
+            <ArrowLeft className="size-4" /> Colores personalizados
           </Button>
           <p className="text-sm text-muted-foreground">
-            Elegí un rol; después configurarás light y dark.
+            Elegí qué color de la interfaz querés personalizar.
           </p>
         </div>
         <CatalogSearchControls
@@ -811,13 +810,13 @@ function ColorOverridesEditor({
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h4 className="text-lg font-semibold">Overrides cargados</h4>
+          <h4 className="text-lg font-semibold">Colores personalizados</h4>
           <p className="mt-1 text-sm text-muted-foreground">
-            Sólo aparecen los roles que ya elegiste personalizar.
+            Colores que reemplazan la paleta general en componentes específicos.
           </p>
         </div>
         <Button type="button" onClick={() => setScreen("browse")}>
-          <Plus className="size-4" /> Add new
+          <Plus className="size-4" /> Agregar color
         </Button>
       </div>
       {entries.length ? (
@@ -858,8 +857,8 @@ function ColorOverridesEditor({
             Todavía no hay colores específicos
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            La paleta general sigue resolviendo toda la app. Agregá sólo los
-            roles que necesiten una excepción.
+            La app usa la paleta general. Agregá un color sólo si un componente
+            necesita un valor diferente.
           </p>
         </div>
       )}
@@ -939,7 +938,7 @@ function TextOverridesEditor({
             ))}
           </div>
           <p className="mt-5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            Clave canónica · sólo lectura
+            Identificador técnico · solo lectura
           </p>
           <code className="mt-2 block whitespace-pre-wrap text-sm font-semibold text-foreground">
             {selected.key}
@@ -960,7 +959,7 @@ function TextOverridesEditor({
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="rounded-3xl border p-5">
             <Label htmlFor="catalog-override-en" className="text-base">
-              Nueva voz · English
+              Texto en inglés
             </Label>
             <p className="mt-1 text-xs text-muted-foreground">
               Original: {selected.defaultEnglishText}
@@ -974,7 +973,7 @@ function TextOverridesEditor({
           </div>
           <div className="rounded-3xl border p-5">
             <Label htmlFor="catalog-override-es" className="text-base">
-              Nueva voz · Español
+              Texto en español
             </Label>
             <p className="mt-1 text-xs text-muted-foreground">
               Original: {selected.defaultSpanishText}
@@ -990,7 +989,7 @@ function TextOverridesEditor({
         {unchanged ? (
           <p className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-100">
             Cambiá al menos uno de los idiomas. Los textos iguales al original
-            no se publican como override.
+            no se guardan como personalización.
           </p>
         ) : null}
         <div className="flex flex-wrap justify-between gap-3">
@@ -1003,7 +1002,7 @@ function TextOverridesEditor({
               setScreen("loaded");
             }}
           >
-            <Trash2 className="size-4" /> Quitar override
+            <Trash2 className="size-4" /> Quitar personalización
           </Button>
           <Button
             type="button"
@@ -1037,10 +1036,10 @@ function TextOverridesEditor({
             size="sm"
             onClick={() => setScreen("loaded")}
           >
-            <ArrowLeft className="size-4" /> Overrides cargados
+            <ArrowLeft className="size-4" /> Textos personalizados
           </Button>
           <p className="text-sm text-muted-foreground">
-            La clave inglesa exacta conecta todas sus apariciones.
+            Elegí el texto de la app que querés reemplazar.
           </p>
         </div>
         <CatalogSearchControls
@@ -1123,13 +1122,13 @@ function TextOverridesEditor({
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h4 className="text-lg font-semibold">Overrides cargados</h4>
+          <h4 className="text-lg font-semibold">Textos personalizados</h4>
           <p className="mt-1 text-sm text-muted-foreground">
-            Cada tarjeta es una clave canónica elegida desde el catálogo.
+            Textos que reemplazan el contenido predeterminado de la app.
           </p>
         </div>
         <Button type="button" onClick={() => setScreen("browse")}>
-          <Plus className="size-4" /> Add new
+          <Plus className="size-4" /> Agregar texto
         </Button>
       </div>
       {value.length ? (
@@ -1168,8 +1167,7 @@ function TextOverridesEditor({
             La app usa todos los textos instalados
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Elegí Add new para buscar una frase concreta entre las opciones
-            disponibles.
+            Elegí “Agregar texto” para buscar el contenido que querés cambiar.
           </p>
         </div>
       )}
@@ -1370,8 +1368,8 @@ function LearnBuilder({
           Currículo Pocket Genes
         </p>
         <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
-          Conservá la biblioteca instalada o creá desde cero tus propios temas,
-          capítulos, lecciones y contenidos.
+          La app usa el currículo predeterminado. También podés crear temas,
+          capítulos y lecciones propios.
         </p>
         <Button
           type="button"
@@ -1744,12 +1742,11 @@ function LearnBuilder({
             <div>
               <Badge variant="secondary">Currículo completamente propio</Badge>
               <h3 className="mt-4 text-2xl font-semibold tracking-tight">
-                Tu mapa de conocimiento
+                Estructura del currículo
               </h3>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                Creá cualquier tema desde cero y entrá en cada nivel para
-                construir capítulos, lecciones y párrafos sin depender de la
-                biblioteca instalada.
+                Creá y organizá temas, capítulos, lecciones y párrafos para esta
+                app.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -1771,7 +1768,7 @@ function LearnBuilder({
             <div>
               <h4 className="text-lg font-semibold">Temas del currículo</h4>
               <p className="mt-1 text-sm text-muted-foreground">
-                Cada tema abre su propio árbol de capítulos y lecciones.
+                Cada tema contiene capítulos y cada capítulo contiene lecciones.
               </p>
             </div>
             <Button
@@ -1970,7 +1967,7 @@ function LearnBuilder({
       <div className="space-y-7" data-testid="learn-subject-detail">
         {navigationHeader(
           subject.subjectTitle || "Tema sin nombre",
-          "Definí su identidad y entrá a cada capítulo para diseñar el recorrido.",
+          "Editá el nombre y el ID del tema, y administrá sus capítulos.",
           "Volver al currículo",
           () => setScreen({ kind: "home" }),
         )}
@@ -2174,7 +2171,7 @@ function LearnBuilder({
       <div className="space-y-7" data-testid="learn-chapter-detail">
         {navigationHeader(
           chapter.chapterTitle || "Capítulo sin nombre",
-          `Estás dentro de ${subject.subjectTitle}. Abrí una lección para trabajar su historia y sus conexiones.`,
+          `Tema: ${subject.subjectTitle}. Editá el capítulo y administrá sus lecciones.`,
           `Volver a ${subject.subjectTitle}`,
           () =>
             setScreen({ kind: "subject", subjectIndex: screen.subjectIndex }),
@@ -2499,10 +2496,9 @@ function LearnBuilder({
         <section className="space-y-4">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h4 className="text-lg font-semibold">Historia de la lección</h4>
+              <h4 className="text-lg font-semibold">Contenido de la lección</h4>
               <p className="mt-1 text-sm text-muted-foreground">
-                Cada párrafo se edita en su propia pantalla, con espacio para
-                escribir y revisar.
+                Agregá y editá los párrafos que componen esta lección.
               </p>
             </div>
             <Button
@@ -3126,37 +3122,37 @@ function LearnBuilder({
 const ADVANCED_SEGMENTS = [
   {
     id: "identity",
-    title: "Identidad y disponibilidad",
+    title: "Nombre, funciones y colores",
     description:
-      "Dale una voz visual a la experiencia y decidí qué puertas están abiertas.",
+      "Configurá el nombre visible, las funciones disponibles y los colores de la app.",
     icon: Palette,
   },
   {
     id: "scope",
-    title: "Alcance de Discover y servicios",
+    title: "Contenido y servicios vinculados",
     description:
-      "Entendé de dónde llegan el contenido y los servicios de esta app.",
+      "Consultá qué organización aporta contenido de Discover y qué proveedor ofrece servicios. Solo lectura.",
     icon: Globe2,
   },
   {
     id: "wording",
-    title: "Textos e idiomas",
+    title: "Idiomas y textos",
     description:
-      "Construí la voz bilingüe que acompaña a las personas en cada pantalla.",
+      "Elegí los idiomas disponibles y reemplazá textos específicos de la app.",
     icon: Languages,
   },
   {
     id: "learn",
-    title: "Currículo Learn",
+    title: "Contenido educativo",
     description:
-      "Diseñá un camino educativo con temas, capítulos y lecciones conectadas.",
+      "Usá el currículo de Pocket Genes o creá temas, capítulos y lecciones propios.",
     icon: BookOpen,
   },
   {
     id: "links",
     title: "Enlaces y contacto",
     description:
-      "Conectá cada llamada a la acción con un destino claro y confiable.",
+      "Configurá los enlaces de Join Us, soporte, privacidad y términos.",
     icon: Link2,
   },
 ] as const;
@@ -3180,75 +3176,77 @@ const SEGMENT_SECTIONS: Record<
 > = {
   identity: [
     {
-      title: "La primera impresión",
-      story: "Elegí el nombre con el que la experiencia se presenta.",
+      title: "Nombre visible en la app",
+      story: "Cambiá el nombre que se muestra dentro de la app.",
     },
     {
-      title: "Las puertas de entrada",
-      story: "Decidí qué recorridos estarán disponibles para las personas.",
+      title: "Funciones disponibles",
+      story: "Activá o desactivá el catálogo y el contenido de Discover.",
     },
     {
-      title: "El universo de color",
-      story: "Afiná cómo vive la marca en superficies, textos y acentos.",
+      title: "Paleta y colores personalizados",
+      story:
+        "Consultá la paleta y configurá colores específicos para componentes.",
     },
   ],
   scope: [
     {
-      title: "Una identidad conectada",
-      story: "El alcance nace del publicador y del proveedor vinculados.",
-    },
-    {
-      title: "El mapa de alcance",
-      story: "Recorré exactamente qué contenido y servicios verá la app.",
-    },
-    {
-      title: "Una fuente segura",
+      title: "Organización y proveedor vinculados",
       story:
-        "Estos vínculos se protegen para que el catálogo nunca pierda su origen.",
+        "Consultá los IDs que definen el origen del contenido y los servicios.",
+    },
+    {
+      title: "Contenido y servicios incluidos",
+      story:
+        "Consultá qué contenido de Discover y qué servicios recibirá la app.",
+    },
+    {
+      title: "Cómo modificar estos datos",
+      story:
+        "Estos valores se editan desde la organización o el proveedor vinculados.",
     },
   ],
   wording: [
     {
-      title: "Elegí la voz principal",
-      story: "Definí el idioma inicial y las voces disponibles.",
+      title: "Idiomas de la app",
+      story: "Elegí qué idiomas soporta la app y cuál se usa por defecto.",
     },
     {
-      title: "Momentos que merecen otra frase",
-      story: "Personalizá sólo los textos que necesitan sonar propios.",
+      title: "Textos personalizados",
+      story: "Reemplazá textos específicos en español e inglés.",
     },
     {
-      title: "Escuchá cómo suena",
-      story: "Revisá el tono antes de incorporarlo a la configuración.",
+      title: "Vista previa de textos",
+      story: "Revisá los textos personalizados antes de guardar.",
     },
   ],
   learn: [
     {
-      title: "Elegí el camino",
-      story: "Partí del currículo Pocket Genes o comenzá una aventura propia.",
+      title: "Fuente del contenido educativo",
+      story: "Elegí entre el currículo de Pocket Genes y un currículo propio.",
     },
     {
-      title: "Dale identidad al recorrido",
-      story: "Nombrá y versioná el universo educativo que vas a publicar.",
+      title: "Datos del currículo",
+      story: "Configurá el ID, la revisión y el idioma del currículo propio.",
     },
     {
-      title: "Construí la expedición",
-      story:
-        "Conectá temas, capítulos, lecciones y categorías en un solo mapa.",
+      title: "Temas, capítulos y lecciones",
+      story: "Creá y editá la estructura y el contenido del currículo.",
     },
   ],
   links: [
     {
-      title: "La invitación",
-      story: "Definí adónde llega Join Us en cada idioma.",
+      title: "Enlaces de Join Us",
+      story: "Configurá el enlace de Join Us para cada idioma.",
     },
     {
-      title: "La red de confianza",
+      title: "Soporte y documentos legales",
       story:
-        "Conectá soporte, privacidad y términos con destinos verificables.",
+        "Configurá el email de soporte y los enlaces de privacidad y términos.",
     },
     {
-      title: "Probá el recorrido",
-      story: "Revisá todos los destinos como los verá una persona usuaria.",
+      title: "Verificar enlaces",
+      story: "Revisá todos los enlaces antes de guardar.",
     },
   ],
 };
@@ -3267,25 +3265,6 @@ function learnTotals(learn: PublisherAppLearnConfiguration) {
         ),
     }),
     { subjects: 0, chapters: 0, lessons: 0 },
-  );
-}
-
-function FlowIntro({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-3xl border bg-muted/20 p-6">
-      <h3 className="text-2xl font-semibold tracking-tight text-foreground">
-        {title}
-      </h3>
-      <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-        {children}
-      </p>
-    </div>
   );
 }
 
@@ -3349,7 +3328,7 @@ export function PublisherAppAdvancedConfigurationEditor({
       return `${configuration.displayName} · ${configuration.semanticColors ? "9 tonos propios" : "Paleta automática"}`;
     if (segment === "scope")
       return configuration.discoverScope.mode === "all"
-        ? "Discover global · alcance protegido"
+        ? "Discover global · solo lectura"
         : `Discover · ${configuration.discoverScope.publisherOrganizationId}`;
     if (segment === "wording")
       return `${configuration.localization.availableLanguages.length} idiomas · ${configuration.textOverrides.length} textos propios`;
@@ -3367,15 +3346,15 @@ export function PublisherAppAdvancedConfigurationEditor({
       if (index === 0) return working.displayName;
       if (index === 1)
         return `${working.catalogEnabled ? "Catálogo activo" : "Catálogo inactivo"} · ${working.feedEnabled ? "Discover activo" : "Discover inactivo"}`;
-      return `${Object.keys(working.colorOverrides).length} overrides específicos`;
+      return `${Object.keys(working.colorOverrides).length} colores personalizados`;
     }
     if (segment === "scope") {
-      if (index === 0) return "Origen vinculado y protegido";
+      if (index === 0) return "IDs vinculados · solo lectura";
       if (index === 1)
         return working.discoverScope.mode === "all"
           ? "Discover global · todos los proveedores"
           : `Discover · ${working.discoverScope.publisherOrganizationId}`;
-      return "Configuración de sólo lectura";
+      return "Configuración de solo lectura";
     }
     if (segment === "wording") {
       if (index === 0)
@@ -3395,10 +3374,10 @@ export function PublisherAppAdvancedConfigurationEditor({
           ? "Sin metadatos propios"
           : `${working.learn.curriculumId} · revisión ${working.learn.curriculumRevision}`;
       return working.learn.mode === "base"
-        ? "Recorrido instalado"
+        ? "Contenido predeterminado"
         : `${totals.subjects} temas · ${totals.chapters} capítulos · ${totals.lessons} lecciones`;
     }
-    if (index === 0) return "Invitación bilingüe";
+    if (index === 0) return "Enlaces en español e inglés";
     if (index === 1)
       return working.links.supportEmail || "Contacto todavía sin completar";
     return "Revisión de destinos";
@@ -3407,15 +3386,11 @@ export function PublisherAppAdvancedConfigurationEditor({
   const renderIdentitySection = () => {
     if (sectionIndex === 0)
       return (
-        <div className="space-y-7">
-          <FlowIntro title="¿Cómo se presenta esta experiencia?">
-            El nombre aparece dentro de la app. Podés probarlo acá sin modificar
-            el nombre instalado ni el store listing.
-          </FlowIntro>
+        <div>
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
             <div className="rounded-3xl border bg-background p-6 shadow-sm">
               <Label htmlFor="advanced-display-name" className="text-base">
-                Nombre de la experiencia
+                Nombre
               </Label>
               <Input
                 id="advanced-display-name"
@@ -3426,8 +3401,8 @@ export function PublisherAppAdvancedConfigurationEditor({
                 }
               />
               <p className="mt-3 text-sm text-muted-foreground">
-                Buscá un nombre breve, reconocible y fácil de leer en
-                navegación.
+                Este nombre aparece dentro de la app. No cambia el nombre de la
+                app en App Store o Google Play.
               </p>
             </div>
             <div className="overflow-hidden rounded-3xl border bg-slate-950 p-5 text-white shadow-xl">
@@ -3436,9 +3411,9 @@ export function PublisherAppAdvancedConfigurationEditor({
                 LA APP
               </div>
               <div className="mt-12 rounded-2xl bg-white/10 p-4 backdrop-blur">
-                <p className="text-xs text-white/60">Tu experiencia</p>
+                <p className="text-xs text-white/60">Nombre visible</p>
                 <p className="mt-1 text-xl font-semibold">
-                  {working.displayName || "Nombre de la experiencia"}
+                  {working.displayName || "Nombre de la app"}
                 </p>
               </div>
             </div>
@@ -3447,47 +3422,52 @@ export function PublisherAppAdvancedConfigurationEditor({
       );
     if (sectionIndex === 1)
       return (
-        <div className="space-y-7">
-          <FlowIntro title="Abrí las puertas correctas">
-            Cada puerta activa un recorrido completo. El estado se refleja en
-            tiempo real en el mapa de experiencia.
-          </FlowIntro>
+        <div>
           <div className="grid gap-4 md:grid-cols-2">
             {(["catalogEnabled", "feedEnabled"] as const).map((key, index) => {
               const enabled = working[key];
+              const title =
+                key === "catalogEnabled"
+                  ? "Catálogo y solicitudes"
+                  : "Contenido Discover";
               return (
-                <button
+                <label
                   key={key}
-                  type="button"
-                  className={`group relative overflow-hidden rounded-3xl border p-6 text-left transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg ${enabled ? "border-primary/45 bg-primary/10" : "bg-background"}`}
-                  onClick={() => updateDraft({ [key]: !enabled })}
+                  className={`group cursor-pointer rounded-3xl border p-6 transition focus-within:outline-none focus-within:ring-2 focus-within:ring-ring ${enabled ? "border-primary/45 bg-primary/10" : "bg-background hover:border-primary/30"}`}
                 >
-                  <span
-                    className={`flex size-11 items-center justify-center rounded-2xl ${enabled ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
-                  >
-                    {index === 0 ? (
-                      <Boxes className="size-5" />
-                    ) : (
-                      <Globe2 className="size-5" />
-                    )}
+                  <span className="flex items-start gap-4">
+                    <span
+                      className={`flex size-11 shrink-0 items-center justify-center rounded-2xl ${enabled ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
+                    >
+                      {index === 0 ? (
+                        <Boxes className="size-5" />
+                      ) : (
+                        <Globe2 className="size-5" />
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-lg font-semibold">
+                        {title}
+                      </span>
+                      <span className="mt-1 block text-sm leading-6 text-muted-foreground">
+                        {key === "catalogEnabled"
+                          ? "Muestra el catálogo y permite iniciar solicitudes."
+                          : "Muestra las publicaciones de Discover."}
+                      </span>
+                    </span>
+                    <Checkbox
+                      aria-label={`${title}: ${enabled ? "activada" : "desactivada"}`}
+                      checked={enabled}
+                      className="mt-1 size-6 shrink-0 rounded-md border-2"
+                      onCheckedChange={(checked) =>
+                        updateDraft({ [key]: checked === true })
+                      }
+                    />
                   </span>
-                  <span className="mt-5 block text-lg font-semibold">
-                    {key === "catalogEnabled"
-                      ? "Catálogo y solicitudes"
-                      : "Contenido Discover"}
+                  <span className="mt-5 block text-sm font-semibold">
+                    {enabled ? "Activada" : "Desactivada"}
                   </span>
-                  <span className="mt-2 block text-sm leading-6 text-muted-foreground">
-                    {key === "catalogEnabled"
-                      ? "Permite explorar opciones y comenzar solicitudes."
-                      : "Abre novedades, publicaciones y contenido curado."}
-                  </span>
-                  <span
-                    className={`mt-5 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold ${enabled ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200" : "bg-muted text-muted-foreground"}`}
-                  >
-                    {enabled ? <CircleCheck className="size-3.5" /> : null}
-                    {enabled ? "Disponible" : "No disponible"}
-                  </span>
-                </button>
+                </label>
               );
             })}
           </div>
@@ -3495,17 +3475,13 @@ export function PublisherAppAdvancedConfigurationEditor({
       );
     return (
       <div className="space-y-7">
-        <FlowIntro title="Construí un universo cromático">
-          La paleta general da coherencia a toda la app. Agregá excepciones por
-          clave únicamente cuando una superficie necesite un tratamiento
-          específico.
-        </FlowIntro>
         <div className="rounded-3xl border bg-muted/20 p-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-lg font-semibold">Base de la experiencia</p>
+              <p className="text-lg font-semibold">Paleta de la app</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Nueve tonos derivados de los tres colores principales.
+                Colores derivados automáticamente de los tres colores
+                principales.
               </p>
             </div>
             <Badge variant="outline" className="rounded-full">
@@ -3534,11 +3510,7 @@ export function PublisherAppAdvancedConfigurationEditor({
   const renderScopeSection = () => {
     if (sectionIndex === 0)
       return (
-        <div className="space-y-7">
-          <FlowIntro title="Todo comienza con una identidad confiable">
-            Discover sigue al publicador vinculado y Servicios sigue al
-            proveedor. Esa relación mantiene coherente el catálogo.
-          </FlowIntro>
+        <div>
           <div className="grid gap-4 md:grid-cols-3">
             {[
               {
@@ -3579,11 +3551,7 @@ export function PublisherAppAdvancedConfigurationEditor({
       );
     if (sectionIndex === 1)
       return (
-        <div className="space-y-7">
-          <FlowIntro title="Este es el mapa que recibe la app">
-            Podés auditar el origen de cada experiencia. La edición vive en la
-            identidad del publicador o proveedor correspondiente.
-          </FlowIntro>
+        <div>
           <div
             data-testid="publisher-app-scope-readonly"
             className="grid gap-5 md:grid-cols-2"
@@ -3663,14 +3631,13 @@ export function PublisherAppAdvancedConfigurationEditor({
           <span className="mx-auto flex size-20 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200">
             <ShieldCheck className="size-9" />
           </span>
-          <h3 className="mt-6 text-2xl font-semibold">Alcance verificado</h3>
+          <h3 className="mt-6 text-2xl font-semibold">Datos de solo lectura</h3>
           <p className="mt-3 text-base leading-7 text-muted-foreground">
-            La app mantiene una ruta segura hacia su contenido y sus servicios.
-            Para cambiar esos vínculos, actualizá la identidad de origen en su
-            pantalla correspondiente.
+            La organización y el proveedor vinculados determinan este alcance.
+            Para cambiarlo, editá esos registros desde sus pantallas.
           </p>
           <Badge variant="outline" className="mt-5 rounded-full">
-            Configuración protegida · sólo lectura
+            Solo lectura
           </Badge>
         </div>
       </div>
@@ -3680,11 +3647,7 @@ export function PublisherAppAdvancedConfigurationEditor({
   const renderWordingSection = () => {
     if (sectionIndex === 0)
       return (
-        <div className="space-y-7">
-          <FlowIntro title="¿En qué idioma comienza la conversación?">
-            El idioma predeterminado abre la experiencia; las demás voces quedan
-            disponibles para elegir.
-          </FlowIntro>
+        <div>
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="rounded-3xl border p-6">
               <Label className="text-base">Idioma predeterminado</Label>
@@ -3718,58 +3681,65 @@ export function PublisherAppAdvancedConfigurationEditor({
               </Select>
             </div>
             <div className="rounded-3xl border p-6">
-              <Label className="text-base">Voces disponibles</Label>
+              <Label className="text-base">Idiomas disponibles</Label>
               <div className="mt-4 grid gap-3">
-                {(["es", "en"] as const).map((language) => (
-                  <label
-                    key={language}
-                    className="flex cursor-pointer items-center justify-between rounded-2xl border p-4"
-                  >
-                    <span>
-                      <span className="block font-semibold">
-                        {language === "es" ? "Español" : "English"}
+                {(["es", "en"] as const).map((language) => {
+                  const languageName =
+                    language === "es" ? "Español" : "English";
+                  const enabled =
+                    working.localization.availableLanguages.includes(language);
+                  return (
+                    <label
+                      key={language}
+                      className={`flex cursor-pointer items-center justify-between gap-4 rounded-2xl border p-4 transition focus-within:ring-2 focus-within:ring-ring ${enabled ? "border-primary/45 bg-primary/10" : "hover:border-primary/30"}`}
+                    >
+                      <span>
+                        <span className="block font-semibold">
+                          {languageName}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {language === working.localization.defaultLanguage
+                            ? "Idioma predeterminado"
+                            : "Idioma adicional"}
+                        </span>
                       </span>
-                      <span className="text-xs text-muted-foreground">
-                        {language === working.localization.defaultLanguage
-                          ? "Voz de bienvenida"
-                          : "Voz alternativa"}
-                      </span>
-                    </span>
-                    <Checkbox
-                      aria-label={`Activar ${language === "es" ? "Español" : "English"}`}
-                      checked={working.localization.availableLanguages.includes(
-                        language,
-                      )}
-                      disabled={
-                        working.localization.availableLanguages.length === 1 &&
-                        working.localization.availableLanguages[0] === language
-                      }
-                      onCheckedChange={(checked) => {
-                        const availableLanguages = checked
-                          ? [
-                              ...new Set([
-                                ...working.localization.availableLanguages,
-                                language,
-                              ]),
-                            ]
-                          : working.localization.availableLanguages.filter(
-                              (item) => item !== language,
-                            );
-                        updateDraft({
-                          localization: {
-                            ...working.localization,
-                            availableLanguages,
-                            defaultLanguage: availableLanguages.includes(
-                              working.localization.defaultLanguage,
-                            )
-                              ? working.localization.defaultLanguage
-                              : availableLanguages[0]!,
-                          },
-                        });
-                      }}
-                    />
-                  </label>
-                ))}
+                      <Checkbox
+                        aria-label={`Activar ${languageName}`}
+                        checked={enabled}
+                        className="size-6 shrink-0 rounded-md border-2"
+                        disabled={
+                          working.localization.availableLanguages.length ===
+                            1 &&
+                          working.localization.availableLanguages[0] ===
+                            language
+                        }
+                        onCheckedChange={(checked) => {
+                          const availableLanguages = checked
+                            ? [
+                                ...new Set([
+                                  ...working.localization.availableLanguages,
+                                  language,
+                                ]),
+                              ]
+                            : working.localization.availableLanguages.filter(
+                                (item) => item !== language,
+                              );
+                          updateDraft({
+                            localization: {
+                              ...working.localization,
+                              availableLanguages,
+                              defaultLanguage: availableLanguages.includes(
+                                working.localization.defaultLanguage,
+                              )
+                                ? working.localization.defaultLanguage
+                                : availableLanguages[0]!,
+                            },
+                          });
+                        }}
+                      />
+                    </label>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -3777,11 +3747,7 @@ export function PublisherAppAdvancedConfigurationEditor({
       );
     if (sectionIndex === 1)
       return (
-        <div className="space-y-7">
-          <FlowIntro title="Personalizá momentos, no pantallas enteras">
-            Empezá por los overrides ya cargados. Add new abre el catálogo
-            completo con búsqueda, grupos y resultados paginados.
-          </FlowIntro>
+        <div>
           <TextOverridesEditor
             value={working.textOverrides}
             onChange={(textOverrides) => updateDraft({ textOverrides })}
@@ -3791,10 +3757,6 @@ export function PublisherAppAdvancedConfigurationEditor({
     const firstOverride = working.textOverrides[0];
     return (
       <div className="space-y-7">
-        <FlowIntro title="La voz ya tiene forma">
-          Revisá un ejemplo de cómo conviven las traducciones y verificá que los
-          marcadores especiales permanezcan intactos.
-        </FlowIntro>
         <div className="grid gap-5 md:grid-cols-2">
           {(["es", "en"] as const).map((language) => (
             <div key={language} className="rounded-3xl border bg-muted/20 p-6">
@@ -3814,8 +3776,8 @@ export function PublisherAppAdvancedConfigurationEditor({
         </div>
         <div className="flex items-center gap-3 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-100">
           <CircleCheck className="size-5 shrink-0" />{" "}
-          {working.textOverrides.length} momentos personalizados listos para
-          aplicar.
+          {working.textOverrides.length} textos personalizados listos para
+          guardar.
         </div>
       </div>
     );
@@ -3824,31 +3786,35 @@ export function PublisherAppAdvancedConfigurationEditor({
   const renderLearnSection = () => {
     if (sectionIndex === 0)
       return (
-        <div className="space-y-7">
-          <FlowIntro title="Elegí qué aventura educativa contar">
-            Podés conservar el recorrido probado de Pocket Genes o crear uno
-            exclusivo para esta app.
-          </FlowIntro>
+        <div>
           <div className="grid gap-5 md:grid-cols-2">
             <button
               type="button"
+              aria-pressed={working.learn.mode === "base"}
               className={`rounded-3xl border p-6 text-left transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg ${working.learn.mode === "base" ? "border-primary/45 bg-primary/10" : "bg-background"}`}
               onClick={() => updateDraft({ learn: { mode: "base" } })}
             >
-              <BookOpen className="size-8 text-primary" />
+              <div className="flex items-start justify-between gap-4">
+                <BookOpen className="size-8 text-primary" />
+                {working.learn.mode === "base" ? (
+                  <CircleCheck className="size-6 text-primary" />
+                ) : (
+                  <span className="size-6 rounded-full border-2 border-muted-foreground/40" />
+                )}
+              </div>
               <p className="mt-8 text-xl font-semibold">
                 Currículo Pocket Genes
               </p>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Conserva todas las lecciones instaladas y su navegación
-                habitual.
+                Usa los temas, capítulos y lecciones predeterminados.
               </p>
               {working.learn.mode === "base" ? (
-                <Badge className="mt-5">Camino elegido</Badge>
+                <Badge className="mt-5">Seleccionado</Badge>
               ) : null}
             </button>
             <button
               type="button"
+              aria-pressed={working.learn.mode === "replace"}
               className={`rounded-3xl border p-6 text-left transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg ${working.learn.mode === "replace" ? "border-primary/45 bg-primary/10" : "bg-background"}`}
               onClick={() =>
                 updateDraft({
@@ -3859,14 +3825,21 @@ export function PublisherAppAdvancedConfigurationEditor({
                 })
               }
             >
-              <Rocket className="size-8 text-primary" />
+              <div className="flex items-start justify-between gap-4">
+                <Rocket className="size-8 text-primary" />
+                {working.learn.mode === "replace" ? (
+                  <CircleCheck className="size-6 text-primary" />
+                ) : (
+                  <span className="size-6 rounded-full border-2 border-muted-foreground/40" />
+                )}
+              </div>
               <p className="mt-8 text-xl font-semibold">Currículo propio</p>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Reemplaza el recorrido con temas, capítulos y lecciones
-                diseñados por vos.
+                Reemplaza el contenido predeterminado con temas, capítulos y
+                lecciones propios.
               </p>
               {working.learn.mode === "replace" ? (
-                <Badge className="mt-5">Camino elegido</Badge>
+                <Badge className="mt-5">Seleccionado</Badge>
               ) : null}
             </button>
           </div>
@@ -3879,21 +3852,17 @@ export function PublisherAppAdvancedConfigurationEditor({
             <div>
               <BookOpen className="mx-auto size-12 text-emerald-600" />
               <h3 className="mt-5 text-2xl font-semibold">
-                La biblioteca instalada está lista
+                Currículo Pocket Genes seleccionado
               </h3>
               <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-                No hace falta identificar ni versionar un currículo
-                personalizado. Continuá para revisar el mapa base.
+                El ID, la revisión y el idioma sólo se configuran para un
+                currículo propio.
               </p>
             </div>
           </div>
         );
       return (
-        <div className="space-y-7">
-          <FlowIntro title="Dale una identidad duradera al recorrido">
-            El ID mantiene unido el currículo; la revisión permite reconocer
-            cada evolución publicada.
-          </FlowIntro>
+        <div>
           <div className="grid gap-4 rounded-3xl border p-6 md:grid-cols-3">
             <div>
               <Label htmlFor="advanced-curriculum-id">ID del currículo</Label>
@@ -3972,7 +3941,8 @@ export function PublisherAppAdvancedConfigurationEditor({
               Currículo Pocket Genes
             </h3>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              El recorrido completo seguirá disponible sin reemplazos.
+              La app usará todos los temas, capítulos y lecciones
+              predeterminados.
             </p>
           </div>
         </div>
@@ -3989,11 +3959,7 @@ export function PublisherAppAdvancedConfigurationEditor({
   const renderLinksSection = () => {
     if (sectionIndex === 0)
       return (
-        <div className="space-y-7">
-          <FlowIntro title="¿Adónde lleva la invitación?">
-            Join Us puede abrir una puerta distinta según el idioma. Usá
-            destinos HTTPS claros y específicos.
-          </FlowIntro>
+        <div>
           <div className="grid gap-5 md:grid-cols-2">
             {(["en", "es"] as const).map((language) => (
               <div key={language} className="rounded-3xl border p-6">
@@ -4034,11 +4000,7 @@ export function PublisherAppAdvancedConfigurationEditor({
       );
     if (sectionIndex === 1)
       return (
-        <div className="space-y-7">
-          <FlowIntro title="Construí una red de confianza">
-            Soporte acompaña a la persona; privacidad y términos explican las
-            reglas de la experiencia.
-          </FlowIntro>
+        <div>
           <div className="grid gap-5 md:grid-cols-2">
             <div className="rounded-3xl border p-6 md:col-span-2">
               <Label
@@ -4104,10 +4066,6 @@ export function PublisherAppAdvancedConfigurationEditor({
     ];
     return (
       <div className="space-y-7">
-        <FlowIntro title="La ruta completa, de un vistazo">
-          Comprobá que cada destino tenga sentido antes de incorporarlo. La
-          validación final se realiza al guardar la app.
-        </FlowIntro>
         <div className="grid gap-3">
           {destinations.map((item) => (
             <div
@@ -4141,31 +4099,24 @@ export function PublisherAppAdvancedConfigurationEditor({
     return (
       <div
         data-testid="publisher-app-section-index"
-        className="mx-auto max-w-5xl space-y-6"
+        className="mx-auto max-w-5xl space-y-5"
       >
-        <div>
-          <h3 className="text-2xl font-semibold tracking-tight">
-            Configuración disponible
-          </h3>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-            Entrá a una sección para consultar o editar sus detalles. Podés
-            volver a este índice en cualquier momento sin perder el borrador.
-          </p>
-        </div>
+        <h3 className="text-xl font-semibold tracking-tight">
+          Elegí qué configurar
+        </h3>
         <div className="grid gap-4 md:grid-cols-2">
           {sections.map((section, index) => (
             <button
               key={section.title}
               type="button"
               onClick={() => setActiveSectionIndex(index)}
-              className="group flex min-h-44 flex-col rounded-3xl border bg-background p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="group flex min-h-36 flex-col rounded-3xl border bg-background p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <div className="flex items-start justify-between gap-4">
-                <Badge variant="secondary">Sección</Badge>
+                <h4 className="text-lg font-semibold">{section.title}</h4>
                 <ArrowRight className="size-5 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
               </div>
-              <h4 className="mt-6 text-lg font-semibold">{section.title}</h4>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
                 {section.story}
               </p>
               <p className="mt-auto pt-5 text-xs font-medium text-foreground/75">
@@ -4202,21 +4153,26 @@ export function PublisherAppAdvancedConfigurationEditor({
                 key={segment.id}
                 type="button"
                 onClick={() => openSegment(segment.id)}
-                className="group min-h-64 rounded-3xl border bg-background p-6 text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="group min-h-52 rounded-3xl border bg-background p-6 text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <div className="flex h-full flex-col">
                   <div className="flex items-start justify-between">
                     <span className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                       <Icon className="size-5" />
                     </span>
+                    {segment.id === "scope" ? (
+                      <Badge variant="outline" className="rounded-full">
+                        Solo lectura
+                      </Badge>
+                    ) : null}
                   </div>
-                  <h3 className="mt-7 text-lg font-semibold text-foreground">
+                  <h3 className="mt-5 text-lg font-semibold text-foreground">
                     {segment.title}
                   </h3>
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">
                     {segment.description}
                   </p>
-                  <div className="mt-auto flex items-end justify-between gap-3 pt-6">
+                  <div className="mt-auto flex items-end justify-between gap-3 pt-4">
                     <span className="line-clamp-2 text-xs font-medium text-foreground/75">
                       {segmentSummary(segment.id)}
                     </span>
@@ -4224,27 +4180,10 @@ export function PublisherAppAdvancedConfigurationEditor({
                       <ArrowRight className="size-4" />
                     </span>
                   </div>
-                  {segment.id === "scope" ? (
-                    <Badge
-                      variant="outline"
-                      className="absolute right-0 top-10 rounded-full"
-                    >
-                      Sólo lectura
-                    </Badge>
-                  ) : null}
                 </div>
               </button>
             );
           })}
-        </div>
-
-        <div className="flex items-center gap-2 rounded-xl border bg-muted/25 p-3 text-xs text-muted-foreground">
-          <SlidersHorizontal className="size-4 shrink-0" />
-          Cada modal tiene un índice de secciones. El borrador se conserva al
-          entrar, volver y consultar otros detalles.
-          <Badge variant="outline" className="ml-auto shrink-0">
-            Configuración v2
-          </Badge>
         </div>
 
         <Dialog
@@ -4277,7 +4216,7 @@ export function PublisherAppAdvancedConfigurationEditor({
                         </DialogTitle>
                         {activeSegment === "scope" ? (
                           <Badge variant="outline" className="rounded-full">
-                            Sólo lectura
+                            Solo lectura
                           </Badge>
                         ) : null}
                       </div>

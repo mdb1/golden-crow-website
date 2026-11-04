@@ -1570,11 +1570,11 @@ function PublisherAppEditSheet({
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block font-heading text-base font-semibold text-foreground">
-                  Advanced configuration
+                  Configuración avanzada
                 </span>
                 <span className="mt-0.5 block text-xs text-muted-foreground">
-                  Fine-tune branding, content scope, wording, Learn, resources
-                  and links
+                  Configurá idiomas, textos, contenido educativo, colores y
+                  enlaces de la app.
                 </span>
               </span>
               <span className="hidden text-xs font-semibold text-muted-foreground sm:inline">
