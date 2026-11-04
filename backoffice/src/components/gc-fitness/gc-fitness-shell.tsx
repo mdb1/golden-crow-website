@@ -13,6 +13,7 @@ import {
   MessagesSquare,
   Settings,
   Shield,
+  Trophy,
   Users,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -88,6 +89,8 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { labelKey: "clients", href: "/gc-fitness/clients", icon: Users },
       { labelKey: "chat", href: "/gc-fitness/chat", icon: MessagesSquare },
+      // gc-fitness #1475 (S6) — desafíos del coach para todo su equipo.
+      { labelKey: "challenges", href: "/gc-fitness/challenges", icon: Trophy },
     ],
   },
   {

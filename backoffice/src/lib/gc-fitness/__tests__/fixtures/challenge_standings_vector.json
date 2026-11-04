@@ -1,0 +1,129 @@
+{
+  "_comment": "SV2-9 (#1189) shared vector for the challenge standings (I-7) — functions test/social/socialChallenges.test.ts (rankChallengeStandings) + the iOS and Android twins. members mirrors social_challenges/{id}.members with every timestamp as epoch milliseconds (null = absent). Rules: only status == 'joined' rows (invited / declined / left and unknown statuses are dropped); a non-numeric or missing progress is 0. Order: progress DESC, then completedAt ASC (null last), then joinedAt ASC (null last), then uid ascending by UTF-16 code units. rank is competition ranking '1, 2, 2, 4': a row shares the previous row's rank only if BOTH progress and completedAt are equal (null == null counts as equal); joinedAt and uid only break the ORDER, never the rank. expected is the full ordered list. The ended push says 'won' when rank == 1 && progress > 0. SV2-10 (#1208, J-4): weekly challenges carry members.{uid}.weeks ([value week 1, ...]) and progress = weeks met. After progress DESC comes weeksTotal DESC (the sum of weeks; missing / non-array weeks is 0, so total-cadence challenges are unaffected); a row shares the previous row's rank only if progress, weeksTotal AND completedAt are all equal. 'won' = rank == 1 && (progress > 0 || weeksTotal > 0).",
+  "cases": [
+    {
+      "name": "mixed: ties, earliest completion wins, missing completedAt last, non-joined filtered out",
+      "members": {
+        "ana":  { "status": "joined",   "progress": 4, "completedAt": 1790000001000, "joinedAt": 1790000000100 },
+        "bea":  { "status": "joined",   "progress": 4, "completedAt": 1790000001000, "joinedAt": 1790000000050 },
+        "caro": { "status": "joined",   "progress": 4, "completedAt": 1790000000900, "joinedAt": 1790000000300 },
+        "dani": { "status": "joined",   "progress": 3, "completedAt": null,          "joinedAt": 1790000000010 },
+        "eli":  { "status": "joined",   "progress": 3, "completedAt": null,          "joinedAt": 1790000000010 },
+        "fede": { "status": "joined",   "progress": 3, "completedAt": null,          "joinedAt": null },
+        "gabi": { "status": "invited",  "progress": 0, "completedAt": null,          "joinedAt": null },
+        "hugo": { "status": "left",     "progress": 9, "completedAt": 1790000000001, "joinedAt": 1790000000000 },
+        "ines": { "status": "declined", "progress": 0, "completedAt": null,          "joinedAt": null },
+        "juan": { "status": "joined",   "progress": 0, "completedAt": null,          "joinedAt": 1790000000200 }
+      },
+      "expected": [
+        { "uid": "caro", "rank": 1 },
+        { "uid": "bea",  "rank": 2 },
+        { "uid": "ana",  "rank": 2 },
+        { "uid": "dani", "rank": 4 },
+        { "uid": "eli",  "rank": 4 },
+        { "uid": "fede", "rank": 4 },
+        { "uid": "juan", "rank": 7 }
+      ]
+    },
+    {
+      "name": "volume kg (doubles): higher progress beats an earlier completion",
+      "members": {
+        "a1": { "status": "joined", "progress": 10000,  "completedAt": 1790000005000, "joinedAt": 1790000000000 },
+        "b2": { "status": "joined", "progress": 12500.5, "completedAt": 1790000009000, "joinedAt": 1790000000000 },
+        "c3": { "status": "joined", "progress": 7499.75, "completedAt": null,         "joinedAt": 1790000000000 },
+        "d4": { "status": "joined", "progress": 10000,  "completedAt": 1790000004000, "joinedAt": 1790000000500 }
+      },
+      "expected": [
+        { "uid": "b2", "rank": 1 },
+        { "uid": "d4", "rank": 2 },
+        { "uid": "a1", "rank": 3 },
+        { "uid": "c3", "rank": 4 }
+      ]
+    },
+    {
+      "name": "nobody moved: everyone shares rank 1 (and nobody 'won': progress is 0)",
+      "members": {
+        "zed":   { "status": "joined", "progress": 0, "completedAt": null, "joinedAt": 1790000000000 },
+        "amy":   { "status": "joined", "progress": 0, "completedAt": null, "joinedAt": 1790000000000 },
+        "Bruno": { "status": "joined", "progress": 0, "completedAt": null, "joinedAt": 1790000000000 }
+      },
+      "expected": [
+        { "uid": "Bruno", "rank": 1 },
+        { "uid": "amy",   "rank": 1 },
+        { "uid": "zed",   "rank": 1 }
+      ]
+    },
+    {
+      "name": "same progress, one completed and one not: the one with completedAt goes first and they do NOT share rank",
+      "members": {
+        "p": { "status": "joined", "progress": 4, "completedAt": null,          "joinedAt": 1790000000000 },
+        "q": { "status": "joined", "progress": 4, "completedAt": 1790000002000, "joinedAt": 1790000001000 }
+      },
+      "expected": [
+        { "uid": "q", "rank": 1 },
+        { "uid": "p", "rank": 2 }
+      ]
+    },
+    {
+      "name": "forgiving decode: missing progress is 0, unknown status is dropped",
+      "members": {
+        "m1": { "status": "joined",  "completedAt": null, "joinedAt": 1790000000000 },
+        "m2": { "status": "joined",  "progress": 1, "completedAt": null, "joinedAt": 1790000000000 },
+        "m3": { "status": "kicked",  "progress": 5, "completedAt": null, "joinedAt": 1790000000000 }
+      },
+      "expected": [
+        { "uid": "m2", "rank": 1 },
+        { "uid": "m1", "rank": 2 }
+      ]
+    },
+    {
+      "name": "only invitations: empty standings",
+      "members": {
+        "x": { "status": "invited", "progress": 0, "completedAt": null, "joinedAt": null }
+      },
+      "expected": []
+    },
+    {
+      "name": "weekly (SV2-10): weeks met first, then the sum of weeks breaks the tie",
+      "members": {
+        "ana":  { "status": "joined",  "progress": 2, "weeks": [12, 13, 0],  "completedAt": null,          "joinedAt": 1790000000000 },
+        "bea":  { "status": "joined",  "progress": 2, "weeks": [20, 30, 1],  "completedAt": null,          "joinedAt": 1790000000500 },
+        "caro": { "status": "joined",  "progress": 1, "weeks": [40, 0, 0],   "completedAt": null,          "joinedAt": 1790000000000 },
+        "dani": { "status": "joined",  "progress": 3, "weeks": [12, 12, 12], "completedAt": 1791000000000, "joinedAt": 1790000009000 },
+        "eli":  { "status": "invited", "progress": 0, "weeks": [0, 0, 0],    "completedAt": null,          "joinedAt": null }
+      },
+      "expected": [
+        { "uid": "dani", "rank": 1 },
+        { "uid": "bea",  "rank": 2 },
+        { "uid": "ana",  "rank": 3 },
+        { "uid": "caro", "rank": 4 }
+      ]
+    },
+    {
+      "name": "weekly (SV2-10): same weeks met AND same sum share the rank; joinedAt only orders",
+      "members": {
+        "p": { "status": "joined", "progress": 1, "weeks": [6.5, 2], "completedAt": null, "joinedAt": 1790000000900 },
+        "q": { "status": "joined", "progress": 1, "weeks": [2, 6.5], "completedAt": null, "joinedAt": 1790000000100 },
+        "r": { "status": "joined", "progress": 0, "weeks": [0, 0],   "completedAt": null, "joinedAt": 1790000000000 }
+      },
+      "expected": [
+        { "uid": "q", "rank": 1 },
+        { "uid": "p", "rank": 1 },
+        { "uid": "r", "rank": 3 }
+      ]
+    },
+    {
+      "name": "weekly (SV2-10): nobody met a week — the sum decides (that 1st 'won'); non-array weeks is 0",
+      "members": {
+        "x": { "status": "joined", "progress": 0, "weeks": [3, 1],    "completedAt": null, "joinedAt": 1790000000000 },
+        "y": { "status": "joined", "progress": 0, "weeks": [0, 0],    "completedAt": null, "joinedAt": 1790000000000 },
+        "z": { "status": "joined", "progress": 0, "weeks": "garbage", "completedAt": null, "joinedAt": 1790000000000 }
+      },
+      "expected": [
+        { "uid": "x", "rank": 1 },
+        { "uid": "y", "rank": 2 },
+        { "uid": "z", "rank": 2 }
+      ]
+    }
+  ]
+}
