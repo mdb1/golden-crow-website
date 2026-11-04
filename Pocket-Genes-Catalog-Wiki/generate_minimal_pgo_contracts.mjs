@@ -1131,6 +1131,7 @@ const migrateService = (service) => {
   }
   migrated.isHighlightedOffer ??= false;
   migrated.isProfessionalOffer ??= true;
+  migrated.isStudentOffer ??= false;
   if (serviceMoreInformationByServiceId[migrated.serviceId]) {
     migrated.moreInformation = structuredClone(serviceMoreInformationByServiceId[migrated.serviceId]);
   } else {
@@ -1864,6 +1865,7 @@ serviceOfferConvention.examples = [
   "isHiddenFromSearch",
   "isHighlightedOffer",
   "isProfessionalOffer",
+  "isStudentOffer",
   "promotionalBannerImageUrl",
   "promotionalBannerImageUploadDataUrl",
   "inputSlots",

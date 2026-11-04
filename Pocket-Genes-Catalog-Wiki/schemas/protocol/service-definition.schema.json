@@ -583,6 +583,10 @@
           "type": "boolean",
           "description": "True places an otherwise visible active offer in the For professionals marketplace segment."
         },
+        "isStudentOffer": {
+          "type": "boolean",
+          "description": "True places an otherwise visible active offer in the For students marketplace segment. At most one marketplace segment flag may be true."
+        },
         "promotionalBannerImageUrl": {
           "type": "string",
           "format": "uri",
@@ -684,6 +688,7 @@
         "isHiddenFromSearch",
         "isHighlightedOffer",
         "isProfessionalOffer",
+        "isStudentOffer",
         "description",
         "shortContract",
         "providerWork",
@@ -692,6 +697,34 @@
       ],
       "additionalProperties": false,
       "allOf": [
+        {
+          "x-pocket-genes-rule": "mutually-exclusive-offer-segment",
+          "not": {
+            "anyOf": [
+              {
+                "properties": {
+                  "isHighlightedOffer": { "const": true },
+                  "isProfessionalOffer": { "const": true }
+                },
+                "required": ["isHighlightedOffer", "isProfessionalOffer"]
+              },
+              {
+                "properties": {
+                  "isHighlightedOffer": { "const": true },
+                  "isStudentOffer": { "const": true }
+                },
+                "required": ["isHighlightedOffer", "isStudentOffer"]
+              },
+              {
+                "properties": {
+                  "isProfessionalOffer": { "const": true },
+                  "isStudentOffer": { "const": true }
+                },
+                "required": ["isProfessionalOffer", "isStudentOffer"]
+              }
+            ]
+          }
+        },
         {
           "x-pocket-genes-rule": "complete-service-offer-stages",
           "if": {

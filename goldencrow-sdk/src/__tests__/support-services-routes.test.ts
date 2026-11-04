@@ -259,6 +259,7 @@ const validOfferPayload = {
   isHiddenFromSearch: false,
   isHighlightedOffer: false,
   isProfessionalOffer: true,
+  isStudentOffer: false,
   promotionalBannerImageUrl: null,
   description:
     "Combine the complete test order with the interactive genomic result into a final PDF.",
@@ -876,6 +877,7 @@ describe("support service admin routes", () => {
         stages: ["bioinformatics"],
         isHighlightedOffer: false,
         isProfessionalOffer: true,
+        isStudentOffer: false,
         promotionalBannerImageUrl: null,
       }),
     );
@@ -1410,7 +1412,12 @@ describe("support service admin routes", () => {
   it("requires canonical offer flags and rejects snake case and the retired paused status", async () => {
     const fastify = await buildTestServer();
     const missingResponses = await Promise.all(
-      ["isHiddenFromSearch", "isHighlightedOffer", "isProfessionalOffer"].map(
+      [
+        "isHiddenFromSearch",
+        "isHighlightedOffer",
+        "isProfessionalOffer",
+        "isStudentOffer",
+      ].map(
         async (key) => {
           const payload: Record<string, unknown> = { ...validOfferPayload };
           delete payload[key];
@@ -1422,14 +1429,15 @@ describe("support service admin routes", () => {
         },
       ),
     );
-    const snakeCaseResponse = await fastify.inject({
-      method: "POST",
-      url: "/admin/support-services/offers",
-      payload: {
-        ...validOfferPayload,
-        is_highlighted_offer: false,
-      },
-    });
+    const snakeCaseResponses = await Promise.all(
+      ["is_highlighted_offer", "is_student_offer"].map((key) =>
+        fastify.inject({
+          method: "POST",
+          url: "/admin/support-services/offers",
+          payload: { ...validOfferPayload, [key]: false },
+        }),
+      ),
+    );
     const pausedResponse = await fastify.inject({
       method: "POST",
       url: "/admin/support-services/offers",
@@ -1437,10 +1445,30 @@ describe("support service admin routes", () => {
     });
 
     expect(missingResponses.map((response) => response.statusCode)).toEqual([
-      400, 400, 400,
+      400, 400, 400, 400,
     ]);
-    expect(snakeCaseResponse.statusCode).toBe(400);
+    expect(snakeCaseResponses.map((response) => response.statusCode)).toEqual([
+      400, 400,
+    ]);
     expect(pausedResponse.statusCode).toBe(400);
+    expect(mockCreateSupportServiceOffer).not.toHaveBeenCalled();
+  });
+
+  it("rejects service offers assigned to more than one audience segment", async () => {
+    const fastify = await buildTestServer();
+
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/support-services/offers",
+      payload: {
+        ...validOfferPayload,
+        isHighlightedOffer: true,
+        isProfessionalOffer: true,
+        isStudentOffer: false,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
     expect(mockCreateSupportServiceOffer).not.toHaveBeenCalled();
   });
 

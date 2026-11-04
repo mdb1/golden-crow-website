@@ -9,6 +9,7 @@ Combine the consent record, candidate genes and patient/request context into the
 **Stages:** test_planning<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
+**For students:** No<br>
 **Promotional banner:** Not set
 
 ## Provider work

@@ -9,6 +9,7 @@ Move an already biologically collected physical specimen from origin to destinat
 **Stages:** wet_lab<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
+**For students:** No<br>
 **Promotional banner:** Not set
 
 ## Provider work

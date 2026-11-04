@@ -245,6 +245,7 @@ type OfferFormState = {
   isHiddenFromSearch: boolean;
   isHighlightedOffer: boolean;
   isProfessionalOffer: boolean;
+  isStudentOffer: boolean;
   promotionalBannerImageUrl: string;
   promotionalBannerImageUploadDataUrl: string;
   promotionalBannerImageUploadName: string;
@@ -1271,6 +1272,7 @@ function defaultOfferForm(): OfferFormState {
     isHiddenFromSearch: false,
     isHighlightedOffer: false,
     isProfessionalOffer: true,
+    isStudentOffer: false,
     promotionalBannerImageUrl: "",
     promotionalBannerImageUploadDataUrl: "",
     promotionalBannerImageUploadName: "",
@@ -1662,6 +1664,7 @@ function isRestorableOfferForm(value: unknown): value is OfferFormState {
     "isHiddenFromSearch",
     "isHighlightedOffer",
     "isProfessionalOffer",
+    "isStudentOffer",
     "supportsFormShape",
     "showsEstimatedTurnaround",
   ] as const;
@@ -1669,6 +1672,10 @@ function isRestorableOfferForm(value: unknown): value is OfferFormState {
   return (
     stringFields.every((field) => typeof value[field] === "string") &&
     booleanFields.every((field) => typeof value[field] === "boolean") &&
+    Number(value.isHighlightedOffer) +
+      Number(value.isProfessionalOffer) +
+      Number(value.isStudentOffer) <=
+      1 &&
     (value.providerKind === "organization" ||
       value.providerKind === "individual") &&
     SUPPORT_SERVICE_OFFER_STATUSES.some(
@@ -1858,6 +1865,7 @@ function offerFormFromCatalog(
     isHiddenFromSearch: catalogOffer.isHiddenFromSearch,
     isHighlightedOffer: catalogOffer.isHighlightedOffer,
     isProfessionalOffer: catalogOffer.isProfessionalOffer,
+    isStudentOffer: catalogOffer.isStudentOffer,
     promotionalBannerImageUrl:
       catalogOffer.promotionalBannerImageUrl ?? "",
     promotionalBannerImageUploadDataUrl:
@@ -1905,6 +1913,13 @@ function offerFormFromRecord(
   const recordInputSlots = (record.inputSlots ?? []).map((slot) =>
     singleInputSlot({ ...slot }),
   );
+  const isHighlightedOffer = record.isHighlightedOffer ?? false;
+  const isProfessionalOffer =
+    !isHighlightedOffer && (record.isProfessionalOffer ?? true);
+  const isStudentOffer =
+    !isHighlightedOffer &&
+    !isProfessionalOffer &&
+    (record.isStudentOffer ?? false);
   return {
     serviceId: record.serviceId,
     serviceVersion: record.serviceVersion,
@@ -1918,8 +1933,9 @@ function offerFormFromRecord(
     stages: record.stages.length ? record.stages : ["test_planning"],
     status: record.status,
     isHiddenFromSearch: record.isHiddenFromSearch,
-    isHighlightedOffer: record.isHighlightedOffer ?? false,
-    isProfessionalOffer: record.isProfessionalOffer ?? true,
+    isHighlightedOffer,
+    isProfessionalOffer,
+    isStudentOffer,
     promotionalBannerImageUrl: record.promotionalBannerImageUrl ?? "",
     promotionalBannerImageUploadDataUrl:
       record.promotionalBannerImageUploadDataUrl ?? "",
@@ -2247,6 +2263,7 @@ function offerSnapshotFromOffer(
     isHiddenFromSearch: offer.isHiddenFromSearch,
     isHighlightedOffer: offer.isHighlightedOffer,
     isProfessionalOffer: offer.isProfessionalOffer,
+    isStudentOffer: offer.isStudentOffer,
     promotionalBannerImageUrl: offer.promotionalBannerImageUrl,
     promotionalBannerImageUploadDataUrl: offer.promotionalBannerImageUrl?.trim()
       ? null
@@ -2683,6 +2700,16 @@ function offerPayloadFromForm(form: OfferFormState): SupportServiceOfferInput {
     serviceCategory,
     form.stages,
   );
+  if (
+    Number(form.isHighlightedOffer) +
+      Number(form.isProfessionalOffer) +
+      Number(form.isStudentOffer) >
+    1
+  ) {
+    throw new Error(
+      "Only one of highlighted, professional, or student offer may be selected.",
+    );
+  }
 
   return {
     serviceId,
@@ -2697,6 +2724,7 @@ function offerPayloadFromForm(form: OfferFormState): SupportServiceOfferInput {
     isHiddenFromSearch: form.isHiddenFromSearch,
     isHighlightedOffer: form.isHighlightedOffer,
     isProfessionalOffer: form.isProfessionalOffer,
+    isStudentOffer: form.isStudentOffer,
     promotionalBannerImageUrl:
       form.promotionalBannerImageUrl.trim() || null,
     promotionalBannerImageUploadDataUrl:
@@ -4213,6 +4241,11 @@ export function SupportServicesBrowser({
                             {t("Professional offer")}
                           </Badge>
                         ) : null}
+                        {offer.isStudentOffer ? (
+                          <Badge variant="secondary">
+                            {t("Student offer")}
+                          </Badge>
+                        ) : null}
                       </div>
                     </TableCell>
                     {!publisherPresentation ? (
@@ -4436,6 +4469,9 @@ function PublisherSupportServiceRows({
                     ) : null}
                     {offer.isProfessionalOffer ? (
                       <Badge variant="secondary">{t("Professional offer")}</Badge>
+                    ) : null}
+                    {offer.isStudentOffer ? (
+                      <Badge variant="secondary">{t("Student offer")}</Badge>
                     ) : null}
                     {(offer.complianceWarnings?.length ?? 0) > 0 ? (
                       <Badge variant="warning">
@@ -6882,7 +6918,7 @@ export function SupportServiceOfferWorkbench({
                   <Section title="Offer visibility">
                     <div
                       data-testid="service-offer-wizard-visibility-options"
-                      className="grid gap-4 lg:grid-cols-2"
+                      className="grid gap-4 lg:grid-cols-3"
                     >
                       <Field label="Highlighted offer">
                         <div className="flex min-h-28 items-start gap-3 rounded-lg border border-violet-100 bg-white/78 px-4 py-4 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
@@ -6898,6 +6934,9 @@ export function SupportServiceOfferWorkbench({
                                   isProfessionalOffer: isHighlightedOffer
                                     ? false
                                     : current.isProfessionalOffer,
+                                  isStudentOffer: isHighlightedOffer
+                                    ? false
+                                    : current.isStudentOffer,
                                 };
                               })
                             }
@@ -6928,6 +6967,9 @@ export function SupportServiceOfferWorkbench({
                                   isHighlightedOffer: isProfessionalOffer
                                     ? false
                                     : current.isHighlightedOffer,
+                                  isStudentOffer: isProfessionalOffer
+                                    ? false
+                                    : current.isStudentOffer,
                                 };
                               })
                             }
@@ -6939,6 +6981,39 @@ export function SupportServiceOfferWorkbench({
                             <p className="text-xs leading-5 text-muted-foreground">
                               {t(
                                 "Genomic services for bioinformaticians or audiences with advanced subject-matter knowledge.",
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      </Field>
+                      <Field label="Student offer">
+                        <div className="flex min-h-28 items-start gap-3 rounded-lg border border-violet-100 bg-white/78 px-4 py-4 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
+                          <Checkbox
+                            id="service-offer-wizard-student"
+                            checked={form.isStudentOffer}
+                            onCheckedChange={(checked) =>
+                              setForm((current) => {
+                                const isStudentOffer = checked === true;
+                                return {
+                                  ...current,
+                                  isStudentOffer,
+                                  isHighlightedOffer: isStudentOffer
+                                    ? false
+                                    : current.isHighlightedOffer,
+                                  isProfessionalOffer: isStudentOffer
+                                    ? false
+                                    : current.isProfessionalOffer,
+                                };
+                              })
+                            }
+                          />
+                          <div className="grid gap-1">
+                            <Label htmlFor="service-offer-wizard-student">
+                              {t("Show as a student offer")}
+                            </Label>
+                            <p className="text-xs leading-5 text-muted-foreground">
+                              {t(
+                                "Services designed for students and people beginning their learning journey.",
                               )}
                             </p>
                           </div>
@@ -7523,7 +7598,7 @@ export function SupportServiceOfferWorkbench({
             </div>
             <div
               data-testid="service-offer-audience-row"
-              className="grid gap-4 md:grid-cols-2 lg:col-span-2"
+              className="grid gap-4 md:grid-cols-3 lg:col-span-2"
             >
               <Field label="Highlighted offer">
                 <div className="flex min-h-11 items-start gap-3 rounded-xl border border-violet-100 bg-white/78 px-4 py-3 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
@@ -7539,6 +7614,9 @@ export function SupportServiceOfferWorkbench({
                           isProfessionalOffer: isHighlightedOffer
                             ? false
                             : current.isProfessionalOffer,
+                          isStudentOffer: isHighlightedOffer
+                            ? false
+                            : current.isStudentOffer,
                         };
                       })
                     }
@@ -7569,6 +7647,9 @@ export function SupportServiceOfferWorkbench({
                           isHighlightedOffer: isProfessionalOffer
                             ? false
                             : current.isHighlightedOffer,
+                          isStudentOffer: isProfessionalOffer
+                            ? false
+                            : current.isStudentOffer,
                         };
                       })
                     }
@@ -7580,6 +7661,39 @@ export function SupportServiceOfferWorkbench({
                     <p className="text-xs leading-5 text-muted-foreground">
                       {t(
                         "Places this offer in the services for professionals segment of the native experience.",
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </Field>
+              <Field label="Student offer">
+                <div className="flex min-h-11 items-start gap-3 rounded-xl border border-violet-100 bg-white/78 px-4 py-3 shadow-sm dark:border-violet-400/16 dark:bg-slate-950/42">
+                  <Checkbox
+                    id="service-offer-student"
+                    checked={form.isStudentOffer}
+                    onCheckedChange={(checked) =>
+                      setForm((current) => {
+                        const isStudentOffer = checked === true;
+                        return {
+                          ...current,
+                          isStudentOffer,
+                          isHighlightedOffer: isStudentOffer
+                            ? false
+                            : current.isHighlightedOffer,
+                          isProfessionalOffer: isStudentOffer
+                            ? false
+                            : current.isProfessionalOffer,
+                        };
+                      })
+                    }
+                  />
+                  <div className="grid gap-1">
+                    <Label htmlFor="service-offer-student">
+                      {t("Show as a student offer")}
+                    </Label>
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      {t(
+                        "Places this offer in the services for students segment of the native experience.",
                       )}
                     </p>
                   </div>
@@ -8118,6 +8232,7 @@ function WizardOfferReview({
   const offerProfile = [
     form.isHighlightedOffer ? t("Highlighted offer") : "",
     form.isProfessionalOffer ? t("Professional offer") : "",
+    form.isStudentOffer ? t("Student offer") : "",
   ]
     .filter(Boolean)
     .join(" / ");

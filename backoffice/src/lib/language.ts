@@ -6269,16 +6269,22 @@ const SPANISH_TEXT: Record<string, string> = {
   "Native discovery": "Descubrimiento nativo",
   "Highlighted offer": "Oferta destacada",
   "Professional offer": "Oferta profesional",
+  "Student offer": "Oferta para estudiantes",
   "Show as a highlighted offer": "Mostrar como oferta destacada",
   "Show as a professional offer": "Mostrar como oferta profesional",
+  "Show as a student offer": "Mostrar como oferta para estudiantes",
   "End-to-end services for patients or physicians who want to request a study.":
     "Servicios end-to-end para pacientes o médicos que quieren solicitar un estudio.",
   "Genomic services for bioinformaticians or audiences with advanced subject-matter knowledge.":
     "Servicios genómicos dirigidos a bioinformáticos o a un público con mayor conocimiento del tema.",
+  "Services designed for students and people beginning their learning journey.":
+    "Servicios pensados para estudiantes y personas que están comenzando su recorrido de aprendizaje.",
   "Places this offer in the highlighted services segment of the native experience.":
     "Ubica esta oferta en el segmento de servicios destacados de la experiencia nativa.",
   "Places this offer in the services for professionals segment of the native experience.":
     "Ubica esta oferta en el segmento de servicios para profesionales de la experiencia nativa.",
+  "Places this offer in the services for students segment of the native experience.":
+    "Ubica esta oferta en el segmento de servicios para estudiantes de la experiencia nativa.",
   "Promotional banner image": "Imagen de banner promocional",
   "Use a wide 1024 x 500 image URL or upload a PNG, JPG, or WebP file.":
     "Usá una URL de imagen horizontal de 1024 x 500 o subí un archivo PNG, JPG o WebP.",

@@ -9,6 +9,7 @@ Align accepted FASTQ reads to the order reference and return an aligned-read obj
 **Stages:** bioinformatics<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
+**For students:** No<br>
 **Promotional banner:** Not set
 
 ## Provider work

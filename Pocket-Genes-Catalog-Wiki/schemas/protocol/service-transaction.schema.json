@@ -418,6 +418,9 @@
         "isProfessionalOffer": {
           "type": "boolean"
         },
+        "isStudentOffer": {
+          "type": "boolean"
+        },
         "providerId": {
           "type": "string",
           "minLength": 1
@@ -566,6 +569,7 @@
         "isHiddenFromSearch",
         "isHighlightedOffer",
         "isProfessionalOffer",
+        "isStudentOffer",
         "providerId",
         "providerName",
         "providerKind",
@@ -588,6 +592,34 @@
         ]
       },
       "allOf": [
+        {
+          "x-pocket-genes-rule": "mutually-exclusive-offer-segment",
+          "not": {
+            "anyOf": [
+              {
+                "properties": {
+                  "isHighlightedOffer": { "const": true },
+                  "isProfessionalOffer": { "const": true }
+                },
+                "required": ["isHighlightedOffer", "isProfessionalOffer"]
+              },
+              {
+                "properties": {
+                  "isHighlightedOffer": { "const": true },
+                  "isStudentOffer": { "const": true }
+                },
+                "required": ["isHighlightedOffer", "isStudentOffer"]
+              },
+              {
+                "properties": {
+                  "isProfessionalOffer": { "const": true },
+                  "isStudentOffer": { "const": true }
+                },
+                "required": ["isProfessionalOffer", "isStudentOffer"]
+              }
+            ]
+          }
+        },
         {
           "x-pocket-genes-rule": "complete-service-offer-stages",
           "if": {

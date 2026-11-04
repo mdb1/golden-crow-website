@@ -523,6 +523,7 @@ const OfferBodySchema = z.object({
   isHiddenFromSearch: z.boolean(),
   isHighlightedOffer: z.boolean(),
   isProfessionalOffer: z.boolean(),
+  isStudentOffer: z.boolean(),
   promotionalBannerImageUrl: OptionalPromotionalBannerImageUrlSchema,
   promotionalBannerImageUploadDataUrl:
     PromotionalBannerImageUploadDataUrlSchema,
@@ -543,8 +544,14 @@ const OfferBodySchema = z.object({
   commercialTerms: CommercialTermsSchema.optional(),
   moreInformation: MoreInformationSchema.nullable().optional(),
 }).strict();
-function refineOfferCategoryStages(
-  offer: { serviceCategory: string; stages?: string[] },
+function refineOfferContract(
+  offer: {
+    serviceCategory: string;
+    stages?: string[];
+    isHighlightedOffer: boolean;
+    isProfessionalOffer: boolean;
+    isStudentOffer: boolean;
+  },
   ctx: z.RefinementCtx,
 ) {
   const issue = supportServiceCategoryStageContractIssue(
@@ -554,13 +561,26 @@ function refineOfferCategoryStages(
   if (issue) {
     ctx.addIssue({ code: "custom", message: issue, path: ["stages"] });
   }
+  if (
+    Number(offer.isHighlightedOffer) +
+      Number(offer.isProfessionalOffer) +
+      Number(offer.isStudentOffer) >
+    1
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      message:
+        "Only one of isHighlightedOffer, isProfessionalOffer, or isStudentOffer may be true.",
+      path: ["isStudentOffer"],
+    });
+  }
 }
 const CreateOfferBodySchema = OfferBodySchema.extend({
   serviceId: GeneratedServiceIdSchema,
-}).superRefine(refineOfferCategoryStages);
+}).superRefine(refineOfferContract);
 const UpdateOfferBodySchema = OfferBodySchema.extend({
   acknowledgesExistingTransactionContracts: z.literal(true),
-}).superRefine(refineOfferCategoryStages);
+}).superRefine(refineOfferContract);
 const TransactionBodySchema = z.object({
   customTransactionName: z.string().trim().min(1).nullable().optional(),
   requestId: RequestIdSchema,

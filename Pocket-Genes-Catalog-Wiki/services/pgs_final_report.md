@@ -9,6 +9,7 @@ Combine the complete test order with a registered PGI payload into a final PDF f
 **Stages:** bioinformatics<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
+**For students:** No<br>
 **Promotional banner:** Not set
 
 ## Provider work

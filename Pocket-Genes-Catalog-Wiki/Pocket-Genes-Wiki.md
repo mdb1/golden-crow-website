@@ -56,9 +56,9 @@ Entries in `catalog/services.json.services[]` and every `services/*.json` file a
 
 ### Offers
 
-A service offer is an untimed, provider-owned published template. It selects a real Discover organization or professional individual, declares zero or more required input slots, zero or more output slots, integer contract versions, work description, optional commercial terms, and at least one stage. Offers start as draft and become selectable only through publish/active state. `isHiddenFromSearch` always removes an offer from discovery without hiding transactions already created from it. Otherwise, `isHighlightedOffer` places it under Highlighted and `isProfessionalOffer` places it under For professionals; an offer may appear in both segments, and one with both flags false appears in neither.
+A service offer is an untimed, provider-owned published template. It selects a real Discover organization or professional individual, declares zero or more required input slots, zero or more output slots, integer contract versions, work description, optional commercial terms, and at least one stage. Offers start as draft and become selectable only through publish/active state. `isHiddenFromSearch` always removes an offer from discovery without hiding transactions already created from it. Otherwise, the mutually exclusive flags `isHighlightedOffer`, `isProfessionalOffer`, and `isStudentOffer` place it under Highlighted, For professionals, or For students. At most one may be true; all false means the offer belongs to none of those segments.
 
-The full highlighted card requires both conditions: `isHighlightedOffer` is true and a normalized `promotionalBannerImageUrl` or, when no URL is present, `promotionalBannerImageUploadDataUrl` is available. An offer with a banner but `isHighlightedOffer` false uses the regular service cell with the complete banner as its top section. If both image properties are absent, null or empty, the regular cell reserves no banner box, even when `isHighlightedOffer` is true. Both banner presentations use a 1024:500 frame and aspect-fit rendering so the entire image remains visible without cropping. Segment flags continue to determine whether the offer is listed under Highlighted, For professionals, or both.
+The full highlighted card requires both conditions: `isHighlightedOffer` is true and a normalized `promotionalBannerImageUrl` or, when no URL is present, `promotionalBannerImageUploadDataUrl` is available. An offer with a banner but `isHighlightedOffer` false uses the regular service cell with the complete banner as its top section. If both image properties are absent, null or empty, the regular cell reserves no banner box, even when `isHighlightedOffer` is true. Both banner presentations use a 1024:500 frame and aspect-fit rendering so the entire image remains visible without cropping. The single active segment flag determines whether the offer is listed under Highlighted, For professionals, or For students.
 
 `inputSlots` and `outputSlots` are explicit arrays, but each may be empty independently and both may be empty simultaneously. A service may therefore require no form or input object, may finish without producing an object, or may represent provider work with neither object inputs nor object outputs. Empty arrays never create placeholder slots, synthetic objects, or hidden requirements. The calculated `shortContract` uses `none` for each empty side: `none -> report:pdf_report`, `form:form -> none`, or `none -> none`. Native contract and transaction screens show intentional empty states for those sides instead of fabricated rows.
 
@@ -2003,6 +2003,7 @@ Turn the submitted observations into a reusable symptom bundle. A professional o
 **Stages:** test_planning<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
+**For students:** No<br>
 **Promotional banner:** Not set
 
 ## Provider work
@@ -2080,6 +2081,7 @@ Use a symptom bundle to return a ranked or selected bundle of candidate genes fo
 **Stages:** test_planning<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
+**For students:** No<br>
 **Promotional banner:** Not set
 
 ## Provider work
@@ -2176,6 +2178,7 @@ Receive the completed consent-specific form and produce an informed-consent reco
 **Stages:** test_planning<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
+**For students:** No<br>
 **Promotional banner:** Not set
 
 ## Provider work
@@ -2308,6 +2311,7 @@ Combine the consent record, candidate genes and patient/request context into the
 **Stages:** test_planning<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
+**For students:** No<br>
 **Promotional banner:** Not set
 
 ## Provider work
@@ -2599,6 +2603,7 @@ Create a request for a qualified collector or laboratory to obtain a real biolog
 **Stages:** wet_lab<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
+**For students:** No<br>
 **Promotional banner:** Not set
 
 ## Provider work
@@ -2942,6 +2947,7 @@ Move an already biologically collected physical specimen from origin to destinat
 **Stages:** wet_lab<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
+**For students:** No<br>
 **Promotional banner:** Not set
 
 ## Provider work
@@ -3032,6 +3038,7 @@ Produce an identified DNA sample from one compatible blood, tissue or embryo-bio
 **Stages:** wet_lab<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
+**For students:** No<br>
 **Promotional banner:** Not set
 
 ## Provider work
@@ -3188,6 +3195,7 @@ Process an accepted DNA sample and deliver FASTQ reads supporting the contracted
 **Stages:** wet_lab<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
+**For students:** No<br>
 **Promotional banner:** Not set
 
 ## Provider work
@@ -3276,6 +3284,7 @@ Align accepted FASTQ reads to the order reference and return an aligned-read obj
 **Stages:** bioinformatics<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
+**For students:** No<br>
 **Promotional banner:** Not set
 
 ## Provider work
@@ -3360,6 +3369,7 @@ Derive an unannotated VCF from aligned reads for the contracted genes, regions a
 **Stages:** bioinformatics<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
+**For students:** No<br>
 **Promotional banner:** Not set
 
 ## Provider work
@@ -3444,6 +3454,7 @@ Add the agreed variant annotations while preserving input identity, native varia
 **Stages:** bioinformatics<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
+**For students:** No<br>
 **Promotional banner:** Not set
 
 ## Provider work
@@ -3529,6 +3540,7 @@ Convert an annotated VCF into a registered Pocket Genes interactive report backe
 **Stages:** bioinformatics<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
+**For students:** No<br>
 **Promotional banner:** Not set
 
 ## Provider work
@@ -3614,6 +3626,7 @@ Combine the complete test order with a registered PGI payload into a final PDF f
 **Stages:** bioinformatics<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
+**For students:** No<br>
 **Promotional banner:** Not set
 
 ## Provider work
@@ -3731,6 +3744,7 @@ Review a compatible bundle of metaphase images and return a structured karyotype
 **Stages:** bioinformatics<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
+**For students:** No<br>
 **Promotional banner:** Not set
 
 ## Provider work
@@ -3825,6 +3839,7 @@ Create a standalone professional summary from the submitted form, demonstrating 
 **Stages:** test_planning<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
+**For students:** No<br>
 **Promotional banner:** Not set
 
 ## Provider work

@@ -9,6 +9,7 @@ Produce an identified DNA sample from one compatible blood, tissue or embryo-bio
 **Stages:** wet_lab<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
+**For students:** No<br>
 **Promotional banner:** Not set
 
 ## Provider work

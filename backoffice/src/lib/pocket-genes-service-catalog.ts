@@ -497,6 +497,11 @@ export const POCKET_GENES_SERVICE_OPTIONS = rawServices.map((service) => {
       true,
       "isProfessionalOffer",
     ),
+    isStudentOffer: booleanWithDefault(
+      service.isStudentOffer,
+      false,
+      "isStudentOffer",
+    ),
     promotionalBannerImageUrl:
       cleanString(service.promotionalBannerImageUrl) || null,
     promotionalBannerImageUploadDataUrl:

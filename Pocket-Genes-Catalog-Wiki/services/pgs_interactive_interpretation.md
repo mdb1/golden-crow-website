@@ -9,6 +9,7 @@ Convert an annotated VCF into a registered Pocket Genes interactive report backe
 **Stages:** bioinformatics<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
+**For students:** No<br>
 **Promotional banner:** Not set
 
 ## Provider work

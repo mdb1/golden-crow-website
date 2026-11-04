@@ -114,6 +114,7 @@ const hiddenOffer: SupportServiceOfferRecord = {
   isHiddenFromSearch: true,
   isHighlightedOffer: false,
   isProfessionalOffer: true,
+  isStudentOffer: false,
   description: "Requester-facing description.",
   shortContract: "form:Form -> report:PDF report",
   providerWork: "Provider-side work.",
@@ -3726,6 +3727,7 @@ describe("support services workbenches", () => {
       );
       expect(offer.isHighlightedOffer).toBe(false);
       expect(offer.isProfessionalOffer).toBe(true);
+      expect(offer.isStudentOffer).toBe(false);
       expect(offer.promotionalBannerImageUrl).toBeNull();
       expect(offer.promotionalBannerImageUploadDataUrl).toBeNull();
     }
@@ -3805,7 +3807,7 @@ describe("support services workbenches", () => {
     expect(
       screen
         .getByTestId("service-offer-audience-row")
-        .classList.contains("md:grid-cols-2"),
+        .classList.contains("md:grid-cols-3"),
     ).toBe(true);
     expect(
       screen
@@ -3823,6 +3825,8 @@ describe("support services workbenches", () => {
         "Places this offer in the highlighted services segment of the native experience.",
       ),
     ).toBeTruthy();
+    expect(screen.getByText("Show as a student offer")).toBeTruthy();
+    expect(document.getElementById("service-offer-student")).toBeTruthy();
     expect(
       screen.queryByText(
         "End-to-end services for patients or physicians who want to request a study.",
@@ -4331,32 +4335,42 @@ describe("support services workbenches", () => {
     const professionalCheckbox = document.getElementById(
       "service-offer-professional",
     );
+    const studentCheckbox = document.getElementById("service-offer-student");
     expect(highlightedCheckbox?.getAttribute("data-state")).toBe("unchecked");
     expect(professionalCheckbox?.getAttribute("data-state")).toBe("checked");
+    expect(studentCheckbox?.getAttribute("data-state")).toBe("unchecked");
     expect(
       highlightedCheckbox!.compareDocumentPosition(professionalCheckbox!) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    expect(
+      professionalCheckbox!.compareDocumentPosition(studentCheckbox!) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).not.toBe(0);
 
     fireEvent.click(highlightedCheckbox!);
     expect(highlightedCheckbox?.getAttribute("data-state")).toBe("checked");
     expect(professionalCheckbox?.getAttribute("data-state")).toBe("unchecked");
+    expect(studentCheckbox?.getAttribute("data-state")).toBe("unchecked");
+
+    fireEvent.click(studentCheckbox!);
+    expect(highlightedCheckbox?.getAttribute("data-state")).toBe("unchecked");
+    expect(professionalCheckbox?.getAttribute("data-state")).toBe("unchecked");
+    expect(studentCheckbox?.getAttribute("data-state")).toBe("checked");
 
     fireEvent.click(professionalCheckbox!);
     expect(highlightedCheckbox?.getAttribute("data-state")).toBe("unchecked");
     expect(professionalCheckbox?.getAttribute("data-state")).toBe("checked");
+    expect(studentCheckbox?.getAttribute("data-state")).toBe("unchecked");
 
     fireEvent.click(highlightedCheckbox!);
     expect(highlightedCheckbox?.getAttribute("data-state")).toBe("checked");
     expect(professionalCheckbox?.getAttribute("data-state")).toBe("unchecked");
 
-    fireEvent.click(highlightedCheckbox!);
+    fireEvent.click(studentCheckbox!);
     expect(highlightedCheckbox?.getAttribute("data-state")).toBe("unchecked");
     expect(professionalCheckbox?.getAttribute("data-state")).toBe("unchecked");
-
-    fireEvent.click(highlightedCheckbox!);
-    expect(highlightedCheckbox?.getAttribute("data-state")).toBe("checked");
-    expect(professionalCheckbox?.getAttribute("data-state")).toBe("unchecked");
+    expect(studentCheckbox?.getAttribute("data-state")).toBe("checked");
 
     const bannerUrlInput = screen.getByLabelText("Banner image URL");
     const bannerUrlGroup = bannerUrlInput.closest('[data-slot="input-group"]');
@@ -4382,14 +4396,16 @@ describe("support services workbenches", () => {
       );
       expect(putCall).toBeTruthy();
       const payload = JSON.parse(String(putCall?.[1]?.body));
-      expect(payload.isHighlightedOffer).toBe(true);
+      expect(payload.isHighlightedOffer).toBe(false);
       expect(payload.isProfessionalOffer).toBe(false);
+      expect(payload.isStudentOffer).toBe(true);
       expect(payload.promotionalBannerImageUrl).toBe(
         "https://example.org/service-banner.png",
       );
       expect(payload.promotionalBannerImageUploadDataUrl).toBeNull();
       expect(payload).not.toHaveProperty("is_highlighted_offer");
       expect(payload).not.toHaveProperty("is_professional_offer");
+      expect(payload).not.toHaveProperty("is_student_offer");
       expect(payload).not.toHaveProperty("promotional_banner_image_url");
       expect(payload).not.toHaveProperty(
         "promotional_banner_image_upload_data_url",

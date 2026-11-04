@@ -127,6 +127,7 @@
   "isHiddenFromSearch": false,
   "isHighlightedOffer": false,
   "isProfessionalOffer": true,
+  "isStudentOffer": false,
   "moreInformation": {
     "frequentQuestions": [
       {

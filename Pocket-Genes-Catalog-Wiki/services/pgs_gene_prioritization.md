@@ -9,6 +9,7 @@ Use a symptom bundle to return a ranked or selected bundle of candidate genes fo
 **Stages:** test_planning<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
+**For students:** No<br>
 **Promotional banner:** Not set
 
 ## Provider work

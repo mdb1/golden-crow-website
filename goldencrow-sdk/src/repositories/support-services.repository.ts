@@ -608,6 +608,7 @@ export interface SupportServiceOfferInput {
   isHiddenFromSearch?: boolean;
   isHighlightedOffer?: boolean;
   isProfessionalOffer?: boolean;
+  isStudentOffer?: boolean;
   promotionalBannerImageUrl?: string | null;
   promotionalBannerImageUploadDataUrl?: string | null;
   description?: string;
@@ -648,6 +649,7 @@ export interface SupportServiceOfferRecord {
   isHiddenFromSearch: boolean;
   isHighlightedOffer: boolean;
   isProfessionalOffer: boolean;
+  isStudentOffer: boolean;
   promotionalBannerImageUrl?: string;
   promotionalBannerImageUploadDataUrl?: string;
   description: string;
@@ -1109,6 +1111,7 @@ const FORBIDDEN_OFFER_ROOT_KEYS = [
   "is_hidden_from_search",
   "is_highlighted_offer",
   "is_professional_offer",
+  "is_student_offer",
   "promotional_banner_image_url",
   "promotional_banner_image_upload_data_url",
   "short_contract",
@@ -2867,6 +2870,7 @@ function offerDocument(
       input.isProfessionalOffer,
       "isProfessionalOffer",
     ),
+    isStudentOffer: booleanValue(input.isStudentOffer, "isStudentOffer"),
     ...promotionalBannerImageDocumentFields(input),
     description: cleanString(input.description),
     shortContract: supportServiceShortContract({ inputSlots, outputSlots }),
@@ -3054,6 +3058,7 @@ const CHANGE_LOG_FIELD_LABELS: Record<
     isHiddenFromSearch: "Hidden from native search",
     isHighlightedOffer: "Highlighted offer",
     isProfessionalOffer: "Professional offer",
+    isStudentOffer: "Student offer",
     promotionalBannerImageUrl: "Promotional banner URL",
     promotionalBannerImageUploadDataUrl: "Uploaded promotional banner",
     description: "Description",
@@ -3122,6 +3127,7 @@ const CHANGE_LOG_FIELD_LABELS: Record<
     isHiddenFromSearch: "Oculta en la búsqueda nativa",
     isHighlightedOffer: "Oferta destacada",
     isProfessionalOffer: "Oferta profesional",
+    isStudentOffer: "Oferta para estudiantes",
     promotionalBannerImageUrl: "URL del banner promocional",
     promotionalBannerImageUploadDataUrl: "Banner promocional cargado",
     description: "Descripción",
@@ -3193,6 +3199,7 @@ function offerChangeLogModel(document: SupportServiceOfferDocument) {
     isHiddenFromSearch: document.isHiddenFromSearch,
     isHighlightedOffer: document.isHighlightedOffer,
     isProfessionalOffer: document.isProfessionalOffer,
+    isStudentOffer: document.isStudentOffer,
     promotionalBannerImageUrl: document.promotionalBannerImageUrl,
     promotionalBannerImageUploadDataUrl:
       document.promotionalBannerImageUploadDataUrl,
@@ -3503,6 +3510,7 @@ function offerSnapshotForTransaction(
     isHiddenFromSearch: offer.isHiddenFromSearch,
     isHighlightedOffer: offer.isHighlightedOffer,
     isProfessionalOffer: offer.isProfessionalOffer,
+    isStudentOffer: offer.isStudentOffer,
     promotionalBannerImageUrl: offer.promotionalBannerImageUrl,
     promotionalBannerImageUploadDataUrl:
       offer.promotionalBannerImageUploadDataUrl,
@@ -3666,6 +3674,12 @@ function offerFromFrozenTransaction(
       typeof snapshot.isHighlightedOffer !== "boolean") ||
     (snapshot.isProfessionalOffer !== undefined &&
       typeof snapshot.isProfessionalOffer !== "boolean") ||
+    (snapshot.isStudentOffer !== undefined &&
+      typeof snapshot.isStudentOffer !== "boolean") ||
+    Number(snapshot.isHighlightedOffer === true) +
+      Number(snapshot.isProfessionalOffer === true) +
+      Number(snapshot.isStudentOffer === true) >
+      1 ||
     !PROVIDER_KIND_SET.has(cleanString(snapshot.providerKind)) ||
     !cleanString(snapshot.serviceId) ||
     !cleanString(snapshot.providerId) ||
@@ -3718,6 +3732,17 @@ function validateOfferDocument(
     allowHistoricalServiceId?: boolean;
   } = {},
 ) {
+  if (
+    Number(document.isHighlightedOffer) +
+      Number(document.isProfessionalOffer) +
+      Number(document.isStudentOffer) >
+    1
+  ) {
+    throw new AdminRepositoryError(
+      "Only one of isHighlightedOffer, isProfessionalOffer, or isStudentOffer may be true.",
+      400,
+    );
+  }
   if (!document.name) {
     throw new AdminRepositoryError("Service offer name is required.", 400);
   }
@@ -5747,10 +5772,11 @@ function toOfferRecord(
   if (
     options.requirePresentationFlags &&
     (typeof data.isHighlightedOffer !== "boolean" ||
-      typeof data.isProfessionalOffer !== "boolean")
+      typeof data.isProfessionalOffer !== "boolean" ||
+      typeof data.isStudentOffer !== "boolean")
   ) {
     throw new AdminRepositoryError(
-      "Selected service offer must define boolean isHighlightedOffer and isProfessionalOffer fields before it can receive new transactions.",
+      "Selected service offer must define boolean isHighlightedOffer, isProfessionalOffer, and isStudentOffer fields before it can receive new transactions.",
       400,
     );
   }
@@ -5809,6 +5835,11 @@ function toOfferRecord(
       data.isProfessionalOffer,
       "isProfessionalOffer",
       true,
+    ),
+    isStudentOffer: booleanValue(
+      data.isStudentOffer,
+      "isStudentOffer",
+      false,
     ),
     ...promotionalBannerImageDocumentFields({
       promotionalBannerImageUrl: data.promotionalBannerImageUrl as
@@ -6014,6 +6045,23 @@ function toOfferAdminRecord(
       "isProfessionalOffer is missing or invalid; it is shown as true.",
     );
   }
+  if (typeof data.isStudentOffer !== "boolean") {
+    pushComplianceWarning(
+      complianceWarnings,
+      "isStudentOffer is missing or invalid; it is shown as false.",
+    );
+  }
+  if (
+    Number(data.isHighlightedOffer === true) +
+      Number(data.isProfessionalOffer === true) +
+      Number(data.isStudentOffer === true) >
+    1
+  ) {
+    pushComplianceWarning(
+      complianceWarnings,
+      "Only one presentation segment flag may be true; save the offer to normalize it.",
+    );
+  }
 
   const canonicalStages = Array.isArray(data.stages)
     ? data.stages.map(normalizeStage).filter(Boolean)
@@ -6182,6 +6230,8 @@ function toOfferAdminRecord(
       typeof data.isProfessionalOffer === "boolean"
         ? data.isProfessionalOffer
         : true,
+    isStudentOffer:
+      typeof data.isStudentOffer === "boolean" ? data.isStudentOffer : false,
     ...promotionalBannerImage,
     description: cleanString(data.description),
     shortContract: supportServiceShortContract({ inputSlots, outputSlots }),
@@ -10791,6 +10841,7 @@ function twoPQOfferUpdateInput(
     isHiddenFromSearch: offer.isHiddenFromSearch,
     isHighlightedOffer: offer.isHighlightedOffer,
     isProfessionalOffer: offer.isProfessionalOffer,
+    isStudentOffer: offer.isStudentOffer,
     promotionalBannerImageUrl: offer.promotionalBannerImageUrl,
     promotionalBannerImageUploadDataUrl:
       offer.promotionalBannerImageUploadDataUrl,

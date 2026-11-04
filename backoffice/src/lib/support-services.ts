@@ -248,6 +248,7 @@ export interface SupportServiceOfferInput {
   isHiddenFromSearch: boolean;
   isHighlightedOffer?: boolean;
   isProfessionalOffer?: boolean;
+  isStudentOffer?: boolean;
   promotionalBannerImageUrl?: string | null;
   promotionalBannerImageUploadDataUrl?: string | null;
   description?: string;
@@ -413,6 +414,7 @@ export interface SupportServiceOfferSnapshot extends Record<string, unknown> {
   isHiddenFromSearch?: boolean;
   isHighlightedOffer?: boolean;
   isProfessionalOffer?: boolean;
+  isStudentOffer?: boolean;
   promotionalBannerImageUrl?: string | null;
   promotionalBannerImageUploadDataUrl?: string | null;
   serviceCategory?: string;

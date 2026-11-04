@@ -9,6 +9,7 @@ Create a request for a qualified collector or laboratory to obtain a real biolog
 **Stages:** wet_lab<br>
 **Highlighted:** No<br>
 **For professionals:** Yes<br>
+**For students:** No<br>
 **Promotional banner:** Not set
 
 ## Provider work

@@ -2725,6 +2725,7 @@ Required root fields:
     isHiddenFromSearch: boolean
     isHighlightedOffer: boolean
     isProfessionalOffer: boolean
+    isStudentOffer: boolean
     providerId: real Discover publisher ID
     providerKind: "organization" | "individual"
     providerName: non-empty publisher snapshot
@@ -2757,11 +2758,13 @@ transaction-visibility field. Authorized backoffice workflows may still create
 a transaction manually from a hidden active offer. Native requires the key and
 rejects missing or non-boolean values.
 
-isHighlightedOffer and isProfessionalOffer are required booleans on new writes.
-An eligible offer appears in Destacado when isHighlightedOffer is true and in
-Para profesionales when isProfessionalOffer is true. It may appear in both. If
-both values are false, native does not list it. isHiddenFromSearch overrides both
-segment flags and always hides the offer from the native marketplace.
+isHighlightedOffer, isProfessionalOffer, and isStudentOffer are required
+booleans on new writes. An eligible offer appears in Destacado when
+isHighlightedOffer is true, in Para profesionales when isProfessionalOffer is
+true, or in Para estudiantes when isStudentOffer is true. The three flags are
+mutually exclusive; at most one may be true. If all values are false, native
+does not list it. isHiddenFromSearch overrides every segment flag and always
+hides the offer from the native marketplace.
 
 Optional service offer fields:
 

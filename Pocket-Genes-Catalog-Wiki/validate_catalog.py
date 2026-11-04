@@ -847,8 +847,14 @@ def validate_service_forms_and_slots():
             require(fixture_field not in service, f"Protocol fixture embedded in service offer {service_id}: {fixture_field}")
         require(type(service.get("isHighlightedOffer")) is bool, f"Invalid isHighlightedOffer for {service_id}")
         require(type(service.get("isProfessionalOffer")) is bool, f"Invalid isProfessionalOffer for {service_id}")
+        require(type(service.get("isStudentOffer")) is bool, f"Invalid isStudentOffer for {service_id}")
+        require(
+            sum(bool(service[field]) for field in ("isHighlightedOffer", "isProfessionalOffer", "isStudentOffer")) <= 1,
+            f"Multiple marketplace segments selected for {service_id}",
+        )
         require("is_highlighted_offer" not in service, f"Snake-case highlighted alias in {service_id}")
         require("is_professional_offer" not in service, f"Snake-case professional alias in {service_id}")
+        require("is_student_offer" not in service, f"Snake-case student alias in {service_id}")
         require("promotional_banner_image_url" not in service, f"Snake-case promotional banner alias in {service_id}")
         require("promotional_banner_image_upload_data_url" not in service, f"Snake-case promotional upload alias in {service_id}")
         form_slots = [slot for slot in service["inputSlots"] if slot["objectType"] == "pgo_form"]
@@ -1465,6 +1471,7 @@ def validate_service_offer_stage_contract():
         "isHiddenFromSearch": base_offer["isHiddenFromSearch"],
         "isHighlightedOffer": base_offer["isHighlightedOffer"],
         "isProfessionalOffer": base_offer["isProfessionalOffer"],
+        "isStudentOffer": base_offer["isStudentOffer"],
         "providerId": base_offer["providerId"],
         "providerName": base_offer["providerName"],
         "providerKind": base_offer["providerKind"],
@@ -1562,9 +1569,18 @@ def validate_empty_service_slot_policy():
     require("outputSlots" in service_schema["required"], "outputSlots must remain an explicit contract array")
     require("isHighlightedOffer" in service_schema["required"], "isHighlightedOffer must be required")
     require("isProfessionalOffer" in service_schema["required"], "isProfessionalOffer must be required")
+    require("isStudentOffer" in service_schema["required"], "isStudentOffer must be required")
 
     validator = schema_validator(schema)
     original = SERVICES[0]
+    invalid_segments = copy.deepcopy(original)
+    invalid_segments["isHighlightedOffer"] = True
+    invalid_segments["isProfessionalOffer"] = True
+    invalid_segments["isStudentOffer"] = False
+    reject(
+        lambda: validator.validate(invalid_segments),
+        "service_offers accepted multiple marketplace segments",
+    )
 
     no_outputs = copy.deepcopy(original)
     no_outputs["outputSlots"] = []
@@ -1642,6 +1658,7 @@ def validate_strict_service_boundary_casing():
         "isHiddenFromSearch": offer["isHiddenFromSearch"],
         "isHighlightedOffer": offer["isHighlightedOffer"],
         "isProfessionalOffer": offer["isProfessionalOffer"],
+        "isStudentOffer": offer["isStudentOffer"],
         "providerId": offer["providerId"],
         "providerName": offer["providerName"],
         "providerKind": offer["providerKind"],

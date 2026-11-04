@@ -104,7 +104,7 @@
 
 | Collection | Field-key convention | Canonical examples |
 | --- | --- | --- |
-| `service_offers` | lower camel case | `serviceId`, `isHiddenFromSearch`, `isHighlightedOffer`, `isProfessionalOffer`, `promotionalBannerImageUrl`, `promotionalBannerImageUploadDataUrl`, `changeLogHistoryByVersion`, `changeLogFormShapeByVersion`, `outputSlots` |
+| `service_offers` | lower camel case | `serviceId`, `isHiddenFromSearch`, `isHighlightedOffer`, `isProfessionalOffer`, `isStudentOffer`, `promotionalBannerImageUrl`, `promotionalBannerImageUploadDataUrl`, `changeLogHistoryByVersion`, `changeLogFormShapeByVersion`, `outputSlots` |
 | `service_transactions` | lower camel case | `outputObjects`, `outputReports`, `objectType`, `objectCode`, `reportCode` |
 | `deferred_service_transactions` | snake case | `email`, `deferred_transaction_ids` |
 | `uploaded_objects` | snake case | `object_type`, `object_code`, `object_owner_id`, `upload_version_count` |

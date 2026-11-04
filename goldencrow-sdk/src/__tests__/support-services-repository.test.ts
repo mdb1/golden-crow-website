@@ -456,6 +456,7 @@ const baseOffer = {
   isHiddenFromSearch: false,
   isHighlightedOffer: false,
   isProfessionalOffer: true,
+  isStudentOffer: false,
   promotionalBannerImageUrl: null,
   description: "Create a report.",
   shortContract: "form:form -> report:pdf_report",
@@ -597,6 +598,7 @@ function seedLegacyTwoPQOffer() {
     isHiddenFromSearch: true,
     isHighlightedOffer: false,
     isProfessionalOffer: false,
+    isStudentOffer: false,
     description: "Solicitud gestionada a traves del sistema 2pq sync.",
     shortContract: "none -> pdf_report:pdf_report",
     providerWork: "Procesar la muestra biologica y generar un informe de PGT.",
@@ -715,6 +717,7 @@ describe("support service repository versions", () => {
           isHiddenFromSearch: false,
           isHighlightedOffer: false,
           isProfessionalOffer: true,
+          isStudentOffer: false,
           description: "Generate a genomic report.",
           providerWork: "Assemble the validated result.",
           inputSlots: [],
@@ -757,6 +760,7 @@ describe("support service repository versions", () => {
       isHiddenFromSearch: false,
       isHighlightedOffer: false,
       isProfessionalOffer: true,
+      isStudentOffer: false,
       description: "Exercise ordered category persistence.",
       providerWork: "Preserve the selected category order.",
       inputSlots: [],
@@ -796,6 +800,7 @@ describe("support service repository versions", () => {
       isHiddenFromSearch: false,
       isHighlightedOffer: false,
       isProfessionalOffer: true,
+      isStudentOffer: false,
       description: "Exercise the complete registered category scalar.",
       providerWork: "Provide the selected service work.",
       inputSlots: [],
@@ -1284,6 +1289,7 @@ describe("support service repository versions", () => {
       isHiddenFromSearch: false,
       isHighlightedOffer: false,
       isProfessionalOffer: true,
+      isStudentOffer: false,
       description:
         "Este servicio sirve para obtener consentimientos informados de pacientes.",
       shortContract: "form:Form -> informed_consent:Informed consent",
@@ -1477,6 +1483,7 @@ describe("support service repository versions", () => {
       ...existingOfferContractAcknowledgement,
       description: "Create a reviewed report.",
       isHighlightedOffer: true,
+      isProfessionalOffer: false,
       acceptedConditions: ["The order must identify the subject."],
       scopeRules: ["The service does not include clinical follow-up."],
     });
@@ -1517,6 +1524,7 @@ describe("support service repository versions", () => {
       ...existingOfferContractAcknowledgement,
       description: "Create a reviewed report.",
       isHighlightedOffer: true,
+      isProfessionalOffer: false,
       acceptedConditions: ["The order must identify the subject."],
       scopeRules: ["The service does not include clinical follow-up."],
     });
@@ -1831,6 +1839,7 @@ describe("support service repository versions", () => {
       ...existingOfferContractAcknowledgement,
       isHighlightedOffer: true,
       isProfessionalOffer: false,
+      isStudentOffer: false,
       promotionalBannerImageUrl: "https://example.org/promo.webp",
       promotionalBannerImageUploadDataUrl: "data:image/png;base64,AAAA",
     });
@@ -1840,6 +1849,7 @@ describe("support service repository versions", () => {
         serviceVersion: 4,
         isHighlightedOffer: true,
         isProfessionalOffer: false,
+        isStudentOffer: false,
         promotionalBannerImageUrl: "https://example.org/promo.webp",
       }),
     );
@@ -1849,6 +1859,7 @@ describe("support service repository versions", () => {
         serviceVersion: 4,
         isHighlightedOffer: true,
         isProfessionalOffer: false,
+        isStudentOffer: false,
         promotionalBannerImageUrl: "https://example.org/promo.webp",
       }),
     );
@@ -2012,6 +2023,7 @@ describe("support service repository versions", () => {
     expect(legacy.status).toBe("draft");
     expect(legacy.isHighlightedOffer).toBe(false);
     expect(legacy.isProfessionalOffer).toBe(true);
+    expect(legacy.isStudentOffer).toBe(false);
     expect(legacy.outputSlots).toEqual([]);
     expect(legacy.complianceWarnings).toEqual(
       expect.arrayContaining([
@@ -2019,6 +2031,7 @@ describe("support service repository versions", () => {
         expect.stringContaining("status paused"),
         expect.stringContaining("isHighlightedOffer is missing or invalid"),
         expect.stringContaining("isProfessionalOffer is missing or invalid"),
+        expect.stringContaining("isStudentOffer is missing or invalid"),
         expect.stringContaining("Promotional banner:"),
         expect.stringContaining("updatedAt is missing or invalid"),
       ]),
@@ -2085,6 +2098,7 @@ describe("support service repository versions", () => {
     const { isHiddenFromSearch: _, ...missingVisibility } = baseOffer;
     const { isHighlightedOffer: __, ...missingHighlight } = baseOffer;
     const { isProfessionalOffer: ___, ...missingProfessional } = baseOffer;
+    const { isStudentOffer: ____, ...missingStudent } = baseOffer;
 
     await expect(
       updateSupportServiceOffer(context, "offer-1", {
@@ -2106,11 +2120,42 @@ describe("support service repository versions", () => {
     ).rejects.toThrow("isProfessionalOffer must be a boolean.");
     await expect(
       updateSupportServiceOffer(context, "offer-1", {
+        ...missingStudent,
+        ...existingOfferContractAcknowledgement,
+      }),
+    ).rejects.toThrow("isStudentOffer must be a boolean.");
+    await expect(
+      updateSupportServiceOffer(context, "offer-1", {
         ...baseOffer,
         ...existingOfferContractAcknowledgement,
         is_highlighted_offer: false,
       } as typeof baseOffer),
     ).rejects.toThrow("Service offer uses forbidden snake-case field: is_highlighted_offer.");
+    await expect(
+      updateSupportServiceOffer(context, "offer-1", {
+        ...baseOffer,
+        ...existingOfferContractAcknowledgement,
+        is_student_offer: false,
+      } as typeof baseOffer),
+    ).rejects.toThrow("Service offer uses forbidden snake-case field: is_student_offer.");
+  });
+
+  it("rejects service offers assigned to more than one audience segment", async () => {
+    const { updateSupportServiceOffer } = await import(
+      "../repositories/support-services.repository.js"
+    );
+
+    await expect(
+      updateSupportServiceOffer(context, "offer-1", {
+        ...baseOffer,
+        ...existingOfferContractAcknowledgement,
+        isHighlightedOffer: true,
+        isProfessionalOffer: false,
+        isStudentOffer: true,
+      }),
+    ).rejects.toThrow(
+      "Only one of isHighlightedOffer, isProfessionalOffer, or isStudentOffer may be true.",
+    );
   });
 
   it("preserves calculated-after-submission price summaries", async () => {
@@ -3964,6 +4009,7 @@ describe("support service delivered transactions", () => {
       isHiddenFromSearch: true,
       isHighlightedOffer: false,
       isProfessionalOffer: false,
+      isStudentOffer: false,
       description: "Solicitud gestionada por 2pq.",
       providerWork: "Procesar la muestra y generar el informe.",
       formShape: undefined,
@@ -4950,6 +4996,7 @@ describe("support service delivered transactions", () => {
     const legacyOfferSnapshot = clone(transaction.offerSnapshot) as MockData;
     delete legacyOfferSnapshot.isHighlightedOffer;
     delete legacyOfferSnapshot.isProfessionalOffer;
+    delete legacyOfferSnapshot.isStudentOffer;
     seedDoc("service_transactions", "transaction-1", {
       ...transaction,
       offerSnapshot: legacyOfferSnapshot,
@@ -4967,6 +5014,7 @@ describe("support service delivered transactions", () => {
     expect(updated.issues).toEqual([{ reason: "Legacy review" }]);
     expect(updated.offerSnapshot).not.toHaveProperty("isHighlightedOffer");
     expect(updated.offerSnapshot).not.toHaveProperty("isProfessionalOffer");
+    expect(updated.offerSnapshot).not.toHaveProperty("isStudentOffer");
   });
 
   it("attaches and delivers outputs without rewriting a legacy frozen input snapshot", async () => {
@@ -7966,7 +8014,7 @@ describe("support service canonical transaction creation", () => {
     ).resolves.toBeNull();
   });
 
-  it.each(["isHighlightedOffer", "isProfessionalOffer"])(
+  it.each(["isHighlightedOffer", "isProfessionalOffer", "isStudentOffer"])(
     "rejects a new transaction when the live offer is missing %s",
     async (missingField) => {
       const incompleteOffer = clone(baseOffer) as MockData;
@@ -7979,7 +8027,7 @@ describe("support service canonical transaction creation", () => {
       await expect(
         createSupportServiceTransaction(context, creationInput()),
       ).rejects.toThrow(
-        "must define boolean isHighlightedOffer and isProfessionalOffer",
+        "must define boolean isHighlightedOffer, isProfessionalOffer, and isStudentOffer",
       );
       expect(
         collectionStore("service_transactions").has("pgr_new_report_1"),
@@ -8109,6 +8157,7 @@ describe("support service canonical transaction creation", () => {
       serviceVersion: baseOffer.serviceVersion,
       isHighlightedOffer: false,
       isProfessionalOffer: true,
+      isStudentOffer: false,
       moreInformation: completeMoreInformation,
     });
     expect(created.offerSnapshot).not.toHaveProperty(
