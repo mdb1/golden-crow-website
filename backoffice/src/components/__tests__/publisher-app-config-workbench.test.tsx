@@ -748,7 +748,9 @@ describe("PublisherAppConfigWorkbench", () => {
       "#0F1728",
     );
     expect(screen.getByText("Nombre, funciones y colores")).toBeTruthy();
-    expect(screen.getByText("Contenido y servicios vinculados")).toBeTruthy();
+    expect(
+      screen.queryByText("Contenido y servicios vinculados"),
+    ).toBeNull();
     expect(screen.getByText("Idiomas y textos")).toBeTruthy();
     expect(screen.getByText("Contenido educativo")).toBeTruthy();
     expect(screen.getByText("Enlaces y contacto")).toBeTruthy();
@@ -758,11 +760,7 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(identitySegment.querySelector(".bg-primary")).toBeTruthy();
     expect(identitySegment.querySelector(".bg-foreground")).toBeNull();
 
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: /Contenido y servicios vinculados/i,
-      }),
-    );
+    fireEvent.click(identitySegment);
     const advancedModal = screen.getByTestId("publisher-app-advanced-modal");
     expect(advancedModal.style.getPropertyValue("--primary")).toBe("#FF5500");
     expect(advancedModal.style.getPropertyValue("--primary-foreground")).toBe(
@@ -780,18 +778,6 @@ describe("PublisherAppConfigWorkbench", () => {
         name: "Volver a secciones",
       }),
     ).toBeNull();
-    const scope = screen.getByTestId("publisher-app-scope-readonly");
-    expect(within(scope).queryAllByRole("combobox")).toHaveLength(0);
-    expect(within(scope).queryAllByRole("textbox")).toHaveLength(0);
-    expect(within(scope).getAllByText("org-1")).toHaveLength(2);
-    expect(within(scope).getAllByText("Solo lectura")).toHaveLength(2);
-    fireEvent.click(
-      within(advancedModal).getByRole("button", { name: "Cerrar" }),
-    );
-
-    fireEvent.click(
-      screen.getByRole("button", { name: /Nombre, funciones y colores/i }),
-    );
     fireEvent.change(screen.getByLabelText("Nombre"), {
       target: { value: "Cambio descartado" },
     });

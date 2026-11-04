@@ -3360,13 +3360,6 @@ const ADVANCED_SEGMENTS = [
     icon: Palette,
   },
   {
-    id: "scope",
-    title: "Contenido y servicios vinculados",
-    description:
-      "Consultá qué organización aporta contenido de Discover y qué proveedor ofrece servicios. Solo lectura.",
-    icon: Globe2,
-  },
-  {
     id: "wording",
     title: "Idiomas y textos",
     description:
@@ -3497,10 +3490,6 @@ export function PublisherAppAdvancedConfigurationEditor({
   const segmentSummary = (segment: AdvancedSegmentId) => {
     if (segment === "identity")
       return `${configuration.displayName} · ${configuration.semanticColors ? "9 tonos propios" : "Paleta automática"}`;
-    if (segment === "scope")
-      return configuration.discoverScope.mode === "all"
-        ? "Discover global · solo lectura"
-        : `Discover · ${configuration.discoverScope.publisherOrganizationId}`;
     if (segment === "wording")
       return `${configuration.localization.availableLanguages.length} idiomas · ${configuration.textOverrides.length} textos propios`;
     if (segment === "learn") {
@@ -3621,93 +3610,6 @@ export function PublisherAppAdvancedConfigurationEditor({
             value={working.colorOverrides}
             onChange={(colorOverrides) => updateDraft({ colorOverrides })}
           />
-        </div>
-      </AdvancedEditSection>
-    </div>
-  );
-
-  const renderScopeSection = () => (
-    <div
-      data-testid="publisher-app-scope-readonly"
-      className="mx-auto max-w-6xl"
-    >
-      <AdvancedEditSection
-        title="Contenido de Discover"
-        description="Publicaciones disponibles en esta app."
-      >
-        <div className="rounded-2xl border bg-muted/15 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <Globe2 className="size-5" />
-              </span>
-              <div>
-                <p className="font-medium text-foreground">Discover</p>
-                <p className="text-sm text-muted-foreground">
-                  {working.discoverScope.mode === "all"
-                    ? "Todo el contenido"
-                    : "Contenido de una organización"}
-                </p>
-              </div>
-            </div>
-            <Badge variant="outline">Solo lectura</Badge>
-          </div>
-          {working.discoverScope.mode === "organization" ? (
-            <dl className="mt-5 border-t pt-4">
-              <dt className="text-xs font-medium text-muted-foreground">
-                ID de organización
-              </dt>
-              <dd className="mt-1 break-all font-mono text-sm text-foreground">
-                {working.discoverScope.publisherOrganizationId}
-              </dd>
-            </dl>
-          ) : null}
-        </div>
-      </AdvancedEditSection>
-
-      <AdvancedEditSection
-        title="Servicios"
-        description="Proveedores disponibles en esta app."
-      >
-        <div className="rounded-2xl border bg-muted/15 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <Boxes className="size-5" />
-              </span>
-              <div>
-                <p className="font-medium text-foreground">Servicios</p>
-                <p className="text-sm text-muted-foreground">
-                  {working.serviceScope.mode === "all"
-                    ? "Todos los proveedores"
-                    : "Un proveedor"}
-                </p>
-              </div>
-            </div>
-            <Badge variant="outline">Solo lectura</Badge>
-          </div>
-          {working.serviceScope.mode === "provider" ? (
-            <dl className="mt-5 grid gap-4 border-t pt-4 sm:grid-cols-2">
-              <div>
-                <dt className="text-xs font-medium text-muted-foreground">
-                  Tipo de proveedor
-                </dt>
-                <dd className="mt-1 font-medium text-foreground">
-                  {working.serviceScope.providerKind === "organization"
-                    ? "Organización"
-                    : "Profesional individual"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium text-muted-foreground">
-                  ID del proveedor
-                </dt>
-                <dd className="mt-1 break-all font-mono text-sm text-foreground">
-                  {working.serviceScope.providerId}
-                </dd>
-              </div>
-            </dl>
-          ) : null}
         </div>
       </AdvancedEditSection>
     </div>
@@ -4075,7 +3977,6 @@ export function PublisherAppAdvancedConfigurationEditor({
   const renderCurrentSegment = () => {
     if (!activeSegment) return null;
     if (activeSegment === "identity") return renderIdentitySection();
-    if (activeSegment === "scope") return renderScopeSection();
     if (activeSegment === "wording") return renderWordingSection();
     if (activeSegment === "learn") return renderLearnSection();
     return renderLinksSection();
@@ -4088,7 +3989,7 @@ export function PublisherAppAdvancedConfigurationEditor({
         className="space-y-5"
         style={brandThemeStyle}
       >
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           {ADVANCED_SEGMENTS.map((segment) => {
             const Icon = segment.icon;
             return (
@@ -4103,11 +4004,6 @@ export function PublisherAppAdvancedConfigurationEditor({
                     <span className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                       <Icon className="size-5" />
                     </span>
-                    {segment.id === "scope" ? (
-                      <Badge variant="outline" className="rounded-full">
-                        Solo lectura
-                      </Badge>
-                    ) : null}
                   </div>
                   <h3 className="mt-5 text-lg font-semibold text-foreground">
                     {segment.title}
@@ -4148,16 +4044,9 @@ export function PublisherAppAdvancedConfigurationEditor({
                       <activeDefinition.icon className="size-5" />
                     </span>
                     <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <DialogTitle className="text-xl sm:text-2xl">
-                          {activeDefinition.title}
-                        </DialogTitle>
-                        {activeSegment === "scope" ? (
-                          <Badge variant="outline" className="rounded-full">
-                            Solo lectura
-                          </Badge>
-                        ) : null}
-                      </div>
+                      <DialogTitle className="text-xl sm:text-2xl">
+                        {activeDefinition.title}
+                      </DialogTitle>
                       <DialogDescription className="mt-1 max-w-3xl text-sm sm:text-base">
                         {activeDefinition.description}
                       </DialogDescription>
@@ -4184,18 +4073,11 @@ export function PublisherAppAdvancedConfigurationEditor({
 
                 <DialogFooter className="m-0 shrink-0 rounded-none px-6 py-4 sm:px-8">
                   <Button type="button" variant="ghost" onClick={closeSegment}>
-                    {activeSegment === "scope" ? "Cerrar" : "Cancelar"}
+                    Cancelar
                   </Button>
-                  {activeSegment === "scope" ? (
-                    <Button type="button" onClick={closeSegment}>
-                      <Check className="size-4" /> Listo
-                    </Button>
-                  ) : (
-                    <Button type="button" onClick={applySegment}>
-                      <Check className="size-4" /> Guardar configuración
-                      avanzada
-                    </Button>
-                  )}
+                  <Button type="button" onClick={applySegment}>
+                    <Check className="size-4" /> Guardar configuración avanzada
+                  </Button>
                 </DialogFooter>
               </>
             ) : null}
