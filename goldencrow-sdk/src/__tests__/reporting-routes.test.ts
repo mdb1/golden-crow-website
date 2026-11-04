@@ -42,7 +42,7 @@ function protectedRequests() {
     {
       name: "GET app runtime config",
       method: "GET" as const,
-      url: "/internal/openapi/apps/config?app-provider-identifier=app_org_medicgen_48217&platform=ios&runtime-version=2&base-content-version=pg-core-v1",
+      url: "/internal/openapi/apps/config?app-provider-identifier=app_org_medicgen_48217&platform=ios&runtime-version=3&base-content-version=pg-core-v1",
     },
     {
       name: "GET patients (query)",
@@ -320,7 +320,7 @@ describe("reporting Open API routes", () => {
 
   describe("GET /internal/openapi/apps/config", () => {
     const runtimeConfig = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       appProviderIdentifier: "app_org_medicgen_48217",
       revision: 1,
       status: "published",
@@ -331,7 +331,7 @@ describe("reporting Open API routes", () => {
       mockGetActivePublisherAppRuntimeConfig.mockResolvedValue(runtimeConfig);
       const response = await fastify.inject({
         method: "GET",
-        url: "/internal/openapi/apps/config?app-provider-identifier=app_org_medicgen_48217&platform=ios&runtime-version=2&base-content-version=pg-core-v1",
+        url: "/internal/openapi/apps/config?app-provider-identifier=app_org_medicgen_48217&platform=ios&runtime-version=3&base-content-version=pg-core-v1",
         headers: { authorization: `Bearer ${TOKEN}` },
       });
 
@@ -339,6 +339,8 @@ describe("reporting Open API routes", () => {
       expect(response.json()).toEqual(runtimeConfig);
       expect(response.headers.etag).toMatch(/^"[a-f0-9]{64}"$/);
       expect(response.headers["cache-control"]).toBe("public, max-age=300");
+      expect(response.headers["x-pocket-genes-text-catalog-version"]).toBe("1");
+      expect(response.headers["x-pocket-genes-color-catalog-version"]).toBe("1");
       expect(mockVerifyReportingAccessToken).toHaveBeenCalledWith(
         TOKEN,
         "/open-api/apps/config",
@@ -353,12 +355,12 @@ describe("reporting Open API routes", () => {
       mockGetActivePublisherAppRuntimeConfig.mockResolvedValue(runtimeConfig);
       const first = await fastify.inject({
         method: "GET",
-        url: "/internal/openapi/apps/config?app-provider-identifier=app_org_medicgen_48217&platform=ios&runtime-version=2&base-content-version=pg-core-v1",
+        url: "/internal/openapi/apps/config?app-provider-identifier=app_org_medicgen_48217&platform=ios&runtime-version=3&base-content-version=pg-core-v1",
         headers: { authorization: `Bearer ${TOKEN}` },
       });
       const response = await fastify.inject({
         method: "GET",
-        url: "/internal/openapi/apps/config?app-provider-identifier=app_org_medicgen_48217&platform=ios&runtime-version=2&base-content-version=pg-core-v1",
+        url: "/internal/openapi/apps/config?app-provider-identifier=app_org_medicgen_48217&platform=ios&runtime-version=3&base-content-version=pg-core-v1",
         headers: {
           authorization: `Bearer ${TOKEN}`,
           "if-none-match": String(first.headers.etag),

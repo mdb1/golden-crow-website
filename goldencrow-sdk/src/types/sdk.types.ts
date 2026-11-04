@@ -963,11 +963,7 @@ export interface DiscoverIndividualRecord {
 export type PublisherAppPlatformOption = "ios" | "ios_android";
 export type PublisherAppPublisherKind = "organization" | "individual";
 export type PublisherAppStatus =
-  | "pending_revision"
-  | "active"
-  | "approved"
-  | "changes_requested"
-  | "rejected";
+  "pending_revision" | "active" | "approved" | "changes_requested" | "rejected";
 export type PublisherAppIconSource = "publisher" | "custom";
 
 export interface PublisherAppConfigColors {
@@ -989,8 +985,7 @@ export interface PublisherAppSemanticColors {
 }
 
 export type PublisherAppDiscoverScope =
-  | { mode: "all" }
-  | { mode: "organization"; publisherOrganizationId: string };
+  { mode: "all" } | { mode: "organization"; publisherOrganizationId: string };
 
 export type PublisherAppServiceScope =
   | { mode: "all" }
@@ -1038,17 +1033,21 @@ export type PublisherAppLearnConfiguration =
       topics: Record<string, string[]>;
     };
 
-export type PublisherAppSpanishResourceKey =
-  | "SpanishInternalContent.json"
-  | "SpanishLearnContent.json"
-  | "SpanishObjectAdminContent.json"
-  | "SpanishPGOExploreContent.json"
-  | "SpanishPGOSchema1Content.json"
-  | "SpanishServicesContent.json";
+export interface PublisherAppColorOverride {
+  light?: string;
+  dark?: string;
+}
+
+export interface PublisherAppTextOverride {
+  key: string;
+  en: string;
+  es: string;
+}
 
 export interface PublisherAppAdvancedConfiguration {
   displayName: string;
   semanticColors: PublisherAppSemanticColors | null;
+  colorOverrides: Record<string, PublisherAppColorOverride>;
   catalogEnabled: boolean;
   feedEnabled: boolean;
   discoverScope: PublisherAppDiscoverScope;
@@ -1056,21 +1055,9 @@ export interface PublisherAppAdvancedConfiguration {
   localization: {
     defaultLanguage: "en" | "es";
     availableLanguages: Array<"en" | "es">;
-    copyOverrides: {
-      en: Record<string, string>;
-      es: Record<string, string>;
-    };
   };
+  textOverrides: PublisherAppTextOverride[];
   learn: PublisherAppLearnConfiguration;
-  resourceOverrides: {
-    discoverBannerTitles?: {
-      lessonTitles: Record<string, string>;
-      specialItemTitles: Record<string, string>;
-    };
-    spanishResources: Partial<
-      Record<PublisherAppSpanishResourceKey, Record<string, string>>
-    >;
-  };
   links: {
     joinUs: { en: string; es: string };
     supportEmail: string;
@@ -1155,7 +1142,7 @@ export interface PublisherAppCatalogSnapshot {
 }
 
 export interface PublisherAppRuntimeConfig {
-  schemaVersion: 2;
+  schemaVersion: 3;
   appProviderIdentifier: string;
   revision: number;
   status: "published";
@@ -1170,6 +1157,7 @@ export interface PublisherAppRuntimeConfig {
     logoURL: string | null;
     logoUploadDataUrl?: string | null;
     colors: PublisherAppSemanticColors;
+    colorOverrides?: Record<string, PublisherAppColorOverride>;
   };
   features: {
     catalogEnabled: boolean;
@@ -1183,10 +1171,6 @@ export interface PublisherAppRuntimeConfig {
   localization: {
     defaultLanguage: "en" | "es";
     availableLanguages: Array<"en" | "es">;
-    copyOverrides: {
-      en: Record<string, string>;
-      es: Record<string, string>;
-    };
   };
   learn:
     | { mode: "base" }
@@ -1224,7 +1208,7 @@ export interface PublisherAppRuntimeConfig {
         >;
         topics: Record<string, string[]>;
       };
-  resourceOverrides: Record<string, unknown>;
+  textOverrides: PublisherAppTextOverride[];
   links: {
     joinUs: { en: string; es: string };
     supportEmail: string;

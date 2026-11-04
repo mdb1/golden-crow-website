@@ -1,11 +1,7 @@
 export type PublisherAppPlatformOption = "ios" | "ios_android";
 export type PublisherAppIconSource = "publisher" | "custom";
 export type PublisherAppStatus =
-  | "pending_revision"
-  | "active"
-  | "approved"
-  | "changes_requested"
-  | "rejected";
+  "pending_revision" | "active" | "approved" | "changes_requested" | "rejected";
 
 export function publisherAppStatusLabel(status: PublisherAppStatus) {
   switch (status) {
@@ -38,6 +34,17 @@ export type PublisherAppSemanticColors = {
   accentTextLight: string;
   accentTextDark: string;
   accentSurfaceLight: string;
+};
+
+export type PublisherAppColorOverride = {
+  light?: string;
+  dark?: string;
+};
+
+export type PublisherAppTextOverride = {
+  key: string;
+  en: string;
+  es: string;
 };
 
 export type PublisherAppLearnLesson = {
@@ -74,22 +81,14 @@ export type PublisherAppLearnConfiguration =
       topics: Record<string, string[]>;
     };
 
-export type PublisherAppSpanishResourceKey =
-  | "SpanishInternalContent.json"
-  | "SpanishLearnContent.json"
-  | "SpanishObjectAdminContent.json"
-  | "SpanishPGOExploreContent.json"
-  | "SpanishPGOSchema1Content.json"
-  | "SpanishServicesContent.json";
-
 export type PublisherAppAdvancedConfiguration = {
   displayName: string;
   semanticColors: PublisherAppSemanticColors | null;
+  colorOverrides: Record<string, PublisherAppColorOverride>;
   catalogEnabled: boolean;
   feedEnabled: boolean;
   discoverScope:
-    | { mode: "all" }
-    | { mode: "organization"; publisherOrganizationId: string };
+    { mode: "all" } | { mode: "organization"; publisherOrganizationId: string };
   serviceScope:
     | { mode: "all" }
     | {
@@ -100,21 +99,9 @@ export type PublisherAppAdvancedConfiguration = {
   localization: {
     defaultLanguage: "en" | "es";
     availableLanguages: Array<"en" | "es">;
-    copyOverrides: {
-      en: Record<string, string>;
-      es: Record<string, string>;
-    };
   };
+  textOverrides: PublisherAppTextOverride[];
   learn: PublisherAppLearnConfiguration;
-  resourceOverrides: {
-    discoverBannerTitles?: {
-      lessonTitles: Record<string, string>;
-      specialItemTitles: Record<string, string>;
-    };
-    spanishResources: Partial<
-      Record<PublisherAppSpanishResourceKey, Record<string, string>>
-    >;
-  };
   links: {
     joinUs: { en: string; es: string };
     supportEmail: string;
@@ -160,12 +147,39 @@ export type PublisherAppConfig = PublisherAppConfigInput & {
 };
 
 export type PublisherAppRuntimeConfig = {
-  schemaVersion: 2;
+  schemaVersion: 3;
   appProviderIdentifier: string;
   revision: number;
   status: "published";
   baseContentVersion: "pg-core-v1";
   [key: string]: unknown;
+};
+
+export type PublisherAppTextCatalogOption = {
+  key: string;
+  defaultEnglishText: string;
+  defaultSpanishText: string;
+  groups: string[];
+  platforms: Array<"ios" | "android">;
+  formatArguments: string[];
+};
+
+export type PublisherAppColorCatalogOption = {
+  key: string;
+  title: string;
+  usageDescription: string;
+  defaultLightColor: string;
+  defaultDarkColor: string;
+  group: string;
+  platforms: Array<"ios" | "android">;
+};
+
+export type PublisherAppCustomizationCatalogPage<T> = {
+  catalogVersion: number;
+  items: T[];
+  groups: string[];
+  totalCount: number;
+  nextCursor: string | null;
 };
 
 export type PublisherAppConfigResponse = {
@@ -214,9 +228,9 @@ export function isCurrentPublisherAppIdentifier(
   publisherKind: "organization" | "individual",
 ) {
   const kind = publisherKind === "organization" ? "org" : "ind";
-  return new RegExp(
-    `^app_${kind}_[a-z0-9]+(?:_[a-z0-9]+){0,2}_[0-9]{5}$`,
-  ).test(value ?? "");
+  return new RegExp(`^app_${kind}_[a-z0-9]+(?:_[a-z0-9]+){0,2}_[0-9]{5}$`).test(
+    value ?? "",
+  );
 }
 
 export const DEFAULT_PUBLISHER_APP_COLOR = "#6D28D9";
@@ -229,11 +243,7 @@ export function normalizePublisherAppColor(value?: string) {
     : undefined;
 }
 
-function mixPublisherAppHex(
-  left: string,
-  right: string,
-  rightWeight: number,
-) {
+function mixPublisherAppHex(left: string, right: string, rightWeight: number) {
   const weight = Math.min(1, Math.max(0, rightWeight));
   const channel = (offset: number) => {
     const from = Number.parseInt(left.slice(offset, offset + 2), 16);

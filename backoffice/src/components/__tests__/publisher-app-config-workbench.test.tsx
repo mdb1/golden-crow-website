@@ -61,6 +61,7 @@ const savedConfig: PublisherAppConfig = {
   advancedConfiguration: {
     displayName: "Pocket Genes Lab",
     semanticColors: null,
+    colorOverrides: {},
     catalogEnabled: true,
     feedEnabled: true,
     discoverScope: {
@@ -75,13 +76,15 @@ const savedConfig: PublisherAppConfig = {
     localization: {
       defaultLanguage: "es",
       availableLanguages: ["en", "es"],
-      copyOverrides: {
-        en: { "Contact Pocket Genes": "Contact Pocket Genes Lab" },
-        es: { "Contact Pocket Genes": "Contactá a Pocket Genes Lab" },
-      },
     },
+    textOverrides: [
+      {
+        key: "Contact Pocket Genes",
+        en: "Contact Pocket Genes Lab",
+        es: "Contactá a Pocket Genes Lab",
+      },
+    ],
     learn: { mode: "base" },
-    resourceOverrides: { spanishResources: {} },
     links: {
       joinUs: {
         en: "https://example.org/en/contact",
@@ -659,7 +662,46 @@ describe("PublisherAppConfigWorkbench", () => {
   });
 
   it("expands the advanced configuration blocks and persists fine-tuning", async () => {
-    jest.mocked(sdkFetch).mockResolvedValue({ config: savedConfig });
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      if (path.startsWith("/publisher-app/customization-catalog/colors")) {
+        return {
+          catalogVersion: 1,
+          groups: ["Brand"],
+          totalCount: 1,
+          nextCursor: null,
+          items: [
+            {
+              key: "brand.primary",
+              title: "Primary",
+              usageDescription: "Main brand color across the experience.",
+              defaultLightColor: "#F61C72",
+              defaultDarkColor: "#F61C72",
+              group: "Brand",
+              platforms: ["ios", "android"],
+            },
+          ],
+        };
+      }
+      if (path.startsWith("/publisher-app/customization-catalog/texts")) {
+        return {
+          catalogVersion: 1,
+          groups: ["General interface"],
+          totalCount: 1,
+          nextCursor: null,
+          items: [
+            {
+              key: "Services",
+              defaultEnglishText: "Services",
+              defaultSpanishText: "Servicios",
+              groups: ["General interface"],
+              platforms: ["ios", "android"],
+              formatArguments: [],
+            },
+          ],
+        };
+      }
+      return { config: savedConfig };
+    });
     renderWorkbench({ mode: "edit", initialConfig: savedConfig });
 
     const advancedToggle = screen.getByTestId("publisher-app-advanced-toggle");
@@ -673,7 +715,6 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(screen.getByText("Alcance de Discover y servicios")).toBeTruthy();
     expect(screen.getByText("Textos e idiomas")).toBeTruthy();
     expect(screen.getByText("Currículo Learn")).toBeTruthy();
-    expect(screen.getByText("Recursos y títulos de Discover")).toBeTruthy();
     expect(screen.getByText("Enlaces y contacto")).toBeTruthy();
 
     fireEvent.click(
@@ -719,13 +760,45 @@ describe("PublisherAppConfigWorkbench", () => {
       screen.getByRole("button", { name: /Catálogo y solicitudes/i }),
     );
     fireEvent.click(screen.getByRole("button", { name: /Siguiente/i }));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Personalizar 9 tonos" }),
+    fireEvent.click(screen.getByRole("button", { name: "Add new" }));
+    fireEvent.change(screen.getByLabelText("Buscar opciones disponibles"), {
+      target: { value: "brand primary" },
+    });
+    await waitFor(() =>
+      expect(sdkFetch).toHaveBeenCalledWith(
+        expect.stringContaining("q=brand+primary"),
+      ),
     );
+    const colorOption = await screen.findByRole("button", {
+      name: /Primary.*brand\.primary/i,
+    });
+    fireEvent.click(colorOption);
+    expect(screen.getByText("brand.primary")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Guardar este color" }));
     fireEvent.click(
       screen.getByRole("button", { name: "Aplicar configuración" }),
     );
     expect(screen.queryByTestId("publisher-app-advanced-modal")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /Textos e idiomas/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Siguiente/i }));
+    expect(screen.getByText("Contact Pocket Genes")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Add new" }));
+    const textOption = await screen.findByRole("button", {
+      name: /Services.*Servicios/i,
+    });
+    fireEvent.click(textOption);
+    fireEvent.change(screen.getByLabelText("Nueva voz · English"), {
+      target: { value: "Studies" },
+    });
+    fireEvent.change(screen.getByLabelText("Nueva voz · Español"), {
+      target: { value: "Estudios" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar este texto" }));
+    fireEvent.click(screen.getByRole("button", { name: /Siguiente/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Aplicar configuración" }),
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
     await waitFor(() =>
@@ -734,17 +807,22 @@ describe("PublisherAppConfigWorkbench", () => {
         expect.objectContaining({ method: "PUT" }),
       ),
     );
-    const payload = JSON.parse(
-      String(jest.mocked(sdkFetch).mock.calls[0][1]?.body),
-    );
+    const saveCall = jest
+      .mocked(sdkFetch)
+      .mock.calls.find(
+        ([path, init]) =>
+          path === "/publisher-app/config" && init?.method === "PUT",
+      );
+    const payload = JSON.parse(String(saveCall?.[1]?.body));
     expect(payload.advancedConfiguration).toMatchObject({
       displayName: "Pocket Genes Advanced",
       catalogEnabled: false,
-      semanticColors: expect.objectContaining({
-        primary: "#123ABC",
-        secondary: "#456DEF",
-        accent: "#FEDCBA",
-      }),
+      colorOverrides: {
+        "brand.primary": { light: "#F61C72" },
+      },
+      textOverrides: expect.arrayContaining([
+        { key: "Services", en: "Studies", es: "Estudios" },
+      ]),
       discoverScope: {
         mode: "organization",
         publisherOrganizationId: "org-1",
@@ -844,9 +922,9 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(previewIcon).toHaveStyle({ background: "#FFFFFF" });
   });
 
-  it("downloads the published runtime v2 config instead of the administrative record", async () => {
+  it("downloads the published runtime v3 config instead of the administrative record", async () => {
     const runtimeConfig = {
-      schemaVersion: 2 as const,
+      schemaVersion: 3 as const,
       appProviderIdentifier: "app_org_pocket_genes_lab_48217",
       revision: 1,
       status: "published" as const,

@@ -235,6 +235,9 @@ const advancedConfigurationBody = {
     accentTextDark: "#808080",
     accentSurfaceLight: "#F0F0F0",
   },
+  colorOverrides: {
+    "brand.primary": { light: "#FF5500", dark: "#FF7700CC" },
+  },
   catalogEnabled: false,
   feedEnabled: true,
   discoverScope: { mode: "all" as const },
@@ -246,11 +249,14 @@ const advancedConfigurationBody = {
   localization: {
     defaultLanguage: "en" as const,
     availableLanguages: ["en", "es"] as Array<"en" | "es">,
-    copyOverrides: {
-      en: { "Contact Pocket Genes": "Contact Advanced Experience" },
-      es: { "Contact Pocket Genes": "Contactá a Advanced Experience" },
-    },
   },
+  textOverrides: [
+    {
+      key: "Contact Pocket Genes",
+      en: "Contact Advanced Experience",
+      es: "Contactá a Advanced Experience",
+    },
+  ],
   learn: {
     mode: "replace" as const,
     curriculumId: "advanced-curriculum",
@@ -285,17 +291,6 @@ const advancedConfigurationBody = {
       },
     ],
     topics: { personalized_medicine: ["ADV"] },
-  },
-  resourceOverrides: {
-    discoverBannerTitles: {
-      lessonTitles: { "ADV.1": "Advanced card" },
-      specialItemTitles: {},
-    },
-    spanishResources: {
-      "SpanishServicesContent.json": {
-        Services: "Servicios avanzados",
-      },
-    },
   },
   links: {
     joinUs: {
@@ -399,6 +394,37 @@ describe("publisher app config contract", () => {
       expect(mockCollection).not.toHaveBeenCalled();
     },
   );
+
+  it("searches the canonical customization catalogs in bounded pages", async () => {
+    const colors = await fastify.inject({
+      method: "GET",
+      url: "/publisher-app/customization-catalog/colors?q=brand.primary&limit=20",
+    });
+    expect(colors.statusCode).toBe(200);
+    expect(colors.json()).toMatchObject({
+      catalogVersion: 1,
+      items: expect.arrayContaining([
+        expect.objectContaining({ key: "brand.primary", group: "Brand" }),
+      ]),
+    });
+    expect(colors.json().items.length).toBeLessThanOrEqual(20);
+
+    const texts = await fastify.inject({
+      method: "GET",
+      url: "/publisher-app/customization-catalog/texts?q=Contact%20Pocket%20Genes&limit=20",
+    });
+    expect(texts.statusCode).toBe(200);
+    expect(texts.json()).toMatchObject({
+      catalogVersion: 1,
+      items: expect.arrayContaining([
+        expect.objectContaining({
+          key: "Contact Pocket Genes",
+          defaultSpanishText: "Contactá a Pocket Genes",
+        }),
+      ]),
+    });
+    expect(texts.json().items.length).toBeLessThanOrEqual(20);
+  });
 
   it.each([
     {
@@ -621,7 +647,7 @@ describe("publisher app config contract", () => {
     });
     expect(runtimeResponse.statusCode).toBe(200);
     expect(runtimeResponse.json()).toEqual({
-      schemaVersion: 2,
+      schemaVersion: 3,
       appProviderIdentifier,
       revision: 1,
       status: "published",
@@ -665,19 +691,20 @@ describe("publisher app config contract", () => {
       localization: {
         defaultLanguage: "es",
         availableLanguages: ["en", "es"],
-        copyOverrides: {
-          en: {
-            "Only on Pocket Genes": "Only on Canonical Organization",
-            "Contact Pocket Genes": "Contact Canonical Organization",
-          },
-          es: {
-            "Only on Pocket Genes": "Solo en Canonical Organization",
-            "Contact Pocket Genes": "Contactá a Canonical Organization",
-          },
-        },
       },
       learn: { mode: "base" },
-      resourceOverrides: {},
+      textOverrides: [
+        {
+          key: "Only on Pocket Genes",
+          en: "Only on Canonical Organization",
+          es: "Solo en Canonical Organization",
+        },
+        {
+          key: "Contact Pocket Genes",
+          en: "Contact Canonical Organization",
+          es: "Contactá a Canonical Organization",
+        },
+      ],
       links: {
         joinUs: {
           en: "https://goldencrowvs.com/en/pocket-genes/join-us/",
@@ -716,11 +743,13 @@ describe("publisher app config contract", () => {
     });
     expect(runtimeResponse.statusCode).toBe(200);
     expect(runtimeResponse.json()).toMatchObject({
+      schemaVersion: 3,
       branding: {
         displayName: "Advanced Experience",
         logoURL: null,
         logoUploadDataUrl: "data:image/png;base64,QUJDRA==",
         colors: advancedConfigurationBody.semanticColors,
+        colorOverrides: advancedConfigurationBody.colorOverrides,
       },
       features: {
         catalogEnabled: false,
@@ -733,6 +762,7 @@ describe("publisher app config contract", () => {
         providerKind: "individual",
       },
       localization: advancedConfigurationBody.localization,
+      textOverrides: advancedConfigurationBody.textOverrides,
       learn: {
         mode: "replace",
         curriculumId: "advanced-curriculum",
@@ -773,17 +803,6 @@ describe("publisher app config contract", () => {
         },
         topics: { personalized_medicine: ["ADV"] },
       },
-      resourceOverrides: {
-        "DiscoverBannerTitles.json": {
-          lessonTitles: { "ADV.1": "Advanced card" },
-          specialItemTitles: {},
-        },
-        "SpanishServicesContent.json": {
-          version: 1,
-          locale: "es",
-          strings: { Services: "Servicios avanzados" },
-        },
-      },
       links: {
         joinUs: advancedConfigurationBody.links.joinUs,
         supportEmail: "help@example.org",
@@ -795,18 +814,23 @@ describe("publisher app config contract", () => {
 
   it.each([
     {
-      label: "mismatched bilingual wording keys",
+      label: "an unknown wording key",
       mutate: (advanced: PublisherAppAdvancedConfiguration) => {
-        advanced.localization.copyOverrides.es = {};
+        advanced.textOverrides[0]!.key = "Unknown private localization key";
+      },
+    },
+    {
+      label: "an unknown color role",
+      mutate: (advanced: PublisherAppAdvancedConfiguration) => {
+        advanced.colorOverrides = { "unknown.color": { light: "#FFFFFF" } };
       },
     },
     {
       label: "an unknown related lesson",
       mutate: (advanced: PublisherAppAdvancedConfiguration) => {
         if (advanced.learn.mode === "replace") {
-          advanced.learn.subjects[0]!.chapters[0]!.lessons[0]!.relatedLessons = [
-            "UNKNOWN.1",
-          ];
+          advanced.learn.subjects[0]!.chapters[0]!.lessons[0]!.relatedLessons =
+            ["UNKNOWN.1"];
         }
       },
     },
@@ -911,9 +935,9 @@ describe("publisher app config contract", () => {
         /^app_org_canonical_organization_[0-9]{5}$/,
       ),
     });
-    expect(
-      reactivationResponse.json().config.appProviderIdentifier,
-    ).not.toBe(appProviderIdentifier);
+    expect(reactivationResponse.json().config.appProviderIdentifier).not.toBe(
+      appProviderIdentifier,
+    );
     expect(collectionStore("app_config_identifiers").size).toBe(2);
   });
 
@@ -1310,16 +1334,11 @@ describe("publisher app config contract", () => {
       payload: validBody,
     });
     expect(organizationCreate.statusCode).toBe(201);
-    collectionStore("app_configs").set(
-      "organization_shared-publisher-id",
-      {
-        ...collectionStore("app_configs").get(
-          "organization_shared-publisher-id",
-        ),
-        status: "active",
-        appProviderIdentifier: "app_org_canonical_12345",
-      },
-    );
+    collectionStore("app_configs").set("organization_shared-publisher-id", {
+      ...collectionStore("app_configs").get("organization_shared-publisher-id"),
+      status: "active",
+      appProviderIdentifier: "app_org_canonical_12345",
+    });
 
     context = individualContext();
     seedPublisher("individual", "shared-publisher-id", {
@@ -1466,9 +1485,11 @@ describe("publisher app config contract", () => {
     });
     expect(displayNameUpdate.statusCode).toBe(200);
     expect(
-      (collectionStore("custom_apps_snapshot").get("simple")?.apps as Array<
-        Record<string, unknown>
-      >)[0],
+      (
+        collectionStore("custom_apps_snapshot").get("simple")?.apps as Array<
+          Record<string, unknown>
+        >
+      )[0],
     ).toMatchObject({ name: "Custom Catalog Name" });
 
     const iconUpdate = await fastify.inject({
@@ -1485,9 +1506,11 @@ describe("publisher app config contract", () => {
     });
     expect(iconUpdate.statusCode).toBe(200);
     expect(
-      (collectionStore("custom_apps_snapshot").get("simple")?.apps as Array<
-        Record<string, unknown>
-      >)[0],
+      (
+        collectionStore("custom_apps_snapshot").get("simple")?.apps as Array<
+          Record<string, unknown>
+        >
+      )[0],
     ).toMatchObject({
       id: "organization_shared-publisher-id",
       image: "data:image/png;base64,QUJD",
@@ -1502,17 +1525,19 @@ describe("publisher app config contract", () => {
     });
     expect(activation.statusCode).toBe(200);
     expect(
-      (collectionStore("custom_apps_snapshot").get("simple")?.apps as Array<
-        Record<string, unknown>
-      >)[0],
+      (
+        collectionStore("custom_apps_snapshot").get("simple")?.apps as Array<
+          Record<string, unknown>
+        >
+      )[0],
     ).toMatchObject({
       appProviderIdentifier: activation.json().config.appProviderIdentifier,
       status: "active",
       isActive: true,
     });
-    expect(
-      collectionStore("custom_apps_snapshot").get("simple"),
-    ).toMatchObject({ activeCount: 1, inactiveCount: 0, totalCount: 1 });
+    expect(collectionStore("custom_apps_snapshot").get("simple")).toMatchObject(
+      { activeCount: 1, inactiveCount: 0, totalCount: 1 },
+    );
 
     const deactivation = await fastify.inject({
       method: "DELETE",
@@ -1520,9 +1545,11 @@ describe("publisher app config contract", () => {
     });
     expect(deactivation.statusCode).toBe(200);
     expect(
-      (collectionStore("custom_apps_snapshot").get("simple")?.apps as Array<
-        Record<string, unknown>
-      >)[0],
+      (
+        collectionStore("custom_apps_snapshot").get("simple")?.apps as Array<
+          Record<string, unknown>
+        >
+      )[0],
     ).toMatchObject({
       appProviderIdentifier: null,
       status: "pending_revision",
@@ -1534,14 +1561,14 @@ describe("publisher app config contract", () => {
       url: "/publisher-app/config",
     });
     expect(deletion.statusCode).toBe(200);
-    expect(
-      collectionStore("custom_apps_snapshot").get("simple"),
-    ).toMatchObject({
-      totalCount: 0,
-      activeCount: 0,
-      inactiveCount: 0,
-      apps: [],
-    });
+    expect(collectionStore("custom_apps_snapshot").get("simple")).toMatchObject(
+      {
+        totalCount: 0,
+        activeCount: 0,
+        inactiveCount: 0,
+        apps: [],
+      },
+    );
 
     context = individualContext();
     seedPublisher("individual", "shared-publisher-id", {
@@ -1556,9 +1583,11 @@ describe("publisher app config contract", () => {
     });
     expect(incrementalCreation.statusCode).toBe(201);
     expect(
-      (collectionStore("custom_apps_snapshot").get("simple")?.apps as Array<
-        Record<string, unknown>
-      >)[0],
+      (
+        collectionStore("custom_apps_snapshot").get("simple")?.apps as Array<
+          Record<string, unknown>
+        >
+      )[0],
     ).toMatchObject({
       id: "individual_shared-publisher-id",
       name: "New Individual App",
@@ -1578,9 +1607,11 @@ describe("publisher app config contract", () => {
     });
     expect(publisherUpdate.statusCode).toBe(200);
     expect(
-      (collectionStore("custom_apps_snapshot").get("simple")?.apps as Array<
-        Record<string, unknown>
-      >)[0],
+      (
+        collectionStore("custom_apps_snapshot").get("simple")?.apps as Array<
+          Record<string, unknown>
+        >
+      )[0],
     ).toMatchObject({
       name: "Renamed Individual App",
       image: "https://example.org/renamed-app.png",

@@ -5,9 +5,12 @@ import type {
   PublisherAppLearnLesson,
   PublisherAppPublisherKind,
   PublisherAppSemanticColors,
-  PublisherAppSpanishResourceKey,
 } from "../types/sdk.types.js";
 import { AdminRepositoryError } from "../repositories/admin-errors.js";
+import {
+  getPublisherAppColorCatalogOption,
+  getPublisherAppTextCatalogOption,
+} from "./publisher-app-customization-catalog.js";
 
 export const PUBLISHER_APP_TOPIC_IDS = [
   "genetics_and_genomics",
@@ -22,19 +25,11 @@ export const PUBLISHER_APP_TOPIC_IDS = [
   "pocket_genes_files_services",
 ] as const;
 
-export const PUBLISHER_APP_SPANISH_RESOURCE_KEYS = [
-  "SpanishInternalContent.json",
-  "SpanishLearnContent.json",
-  "SpanishObjectAdminContent.json",
-  "SpanishPGOExploreContent.json",
-  "SpanishPGOSchema1Content.json",
-  "SpanishServicesContent.json",
-] as const satisfies readonly PublisherAppSpanishResourceKey[];
-
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 const LESSON_IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const LANGUAGE_TAG_PATTERN = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
 const HEX_COLOR_PATTERN = /^#[0-9A-F]{6}$/;
+const OVERRIDE_HEX_COLOR_PATTERN = /^#[0-9A-F]{6}(?:[0-9A-F]{2})?$/;
 const DEFAULT_JOIN_US_EN = "https://goldencrowvs.com/en/pocket-genes/join-us/";
 const DEFAULT_JOIN_US_ES = "https://goldencrowvs.com/pocket-genes/join-us/";
 const DEFAULT_SUPPORT_EMAIL = "support@goldencrowvs.com";
@@ -84,6 +79,7 @@ export function defaultPublisherAppAdvancedConfiguration(
   return {
     displayName: identity.name,
     semanticColors: null,
+    colorOverrides: {},
     catalogEnabled: true,
     feedEnabled: true,
     discoverScope:
@@ -101,19 +97,20 @@ export function defaultPublisherAppAdvancedConfiguration(
     localization: {
       defaultLanguage: "es",
       availableLanguages: ["en", "es"],
-      copyOverrides: {
-        en: {
-          "Only on Pocket Genes": `Only on ${identity.name}`,
-          "Contact Pocket Genes": `Contact ${identity.name}`,
-        },
-        es: {
-          "Only on Pocket Genes": `Solo en ${identity.name}`,
-          "Contact Pocket Genes": `Contactá a ${identity.name}`,
-        },
-      },
     },
+    textOverrides: [
+      {
+        key: "Only on Pocket Genes",
+        en: `Only on ${identity.name}`,
+        es: `Solo en ${identity.name}`,
+      },
+      {
+        key: "Contact Pocket Genes",
+        en: `Contact ${identity.name}`,
+        es: `Contactá a ${identity.name}`,
+      },
+    ],
     learn: { mode: "base" },
-    resourceOverrides: { spanishResources: {} },
     links: {
       joinUs: { en: DEFAULT_JOIN_US_EN, es: DEFAULT_JOIN_US_ES },
       supportEmail: DEFAULT_SUPPORT_EMAIL,
@@ -127,11 +124,7 @@ function invalid(message: string, statusCode: number): never {
   throw new AdminRepositoryError(message, statusCode);
 }
 
-function normalizedText(
-  value: unknown,
-  label: string,
-  statusCode: number,
-) {
+function normalizedText(value: unknown, label: string, statusCode: number) {
   if (typeof value !== "string" || !value.trim()) {
     invalid(`${label} is required.`, statusCode);
   }
@@ -173,45 +166,130 @@ function normalizedHttps(value: unknown, label: string, statusCode: number) {
   return parsed.toString();
 }
 
-function normalizedStringMap(
+function normalizedOverrideColor(
   value: unknown,
   label: string,
   statusCode: number,
 ) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    invalid(`${label} must be a wording map.`, statusCode);
+  const normalized = normalizedText(value, label, statusCode).toUpperCase();
+  if (!OVERRIDE_HEX_COLOR_PATTERN.test(normalized)) {
+    invalid(`${label} must use #RRGGBB or #RRGGBBAA.`, statusCode);
   }
-  const result: Record<string, string> = {};
-  for (const [key, entry] of Object.entries(value)) {
-    const normalizedKey = normalizedText(key, `${label} key`, statusCode);
-    result[normalizedKey] = normalizedText(
-      entry,
-      `${label} value for ${normalizedKey}`,
-      statusCode,
-    );
+  return normalized;
+}
+
+function normalizedColorOverrides(value: unknown, statusCode: number) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    invalid("Color overrides must be a keyed object.", statusCode);
+  }
+  const result: PublisherAppAdvancedConfiguration["colorOverrides"] = {};
+  for (const [key, modes] of Object.entries(value)) {
+    if (!getPublisherAppColorCatalogOption(key)) {
+      invalid(`Color override key “${key}” is not in catalog 1.`, statusCode);
+    }
+    if (!modes || typeof modes !== "object" || Array.isArray(modes)) {
+      invalid(`Color override “${key}” must define light or dark.`, statusCode);
+    }
+    const rawModes = modes as { light?: unknown; dark?: unknown };
+    const normalizedModes: { light?: string; dark?: string } = {};
+    if (rawModes.light !== undefined) {
+      normalizedModes.light = normalizedOverrideColor(
+        rawModes.light,
+        `Light color for ${key}`,
+        statusCode,
+      );
+    }
+    if (rawModes.dark !== undefined) {
+      normalizedModes.dark = normalizedOverrideColor(
+        rawModes.dark,
+        `Dark color for ${key}`,
+        statusCode,
+      );
+    }
+    if (!normalizedModes.light && !normalizedModes.dark) {
+      invalid(`Color override “${key}” must define light or dark.`, statusCode);
+    }
+    result[key] = normalizedModes;
   }
   return result;
 }
 
-function placeholders(value: string) {
-  return value.match(/%(?:\d+\$)?[@df]/g) ?? [];
+function formattingArguments(value: string) {
+  return value.match(/%(?:\d+\$)?(?:\.\d+)?[@df]/g) ?? [];
 }
 
-function validateCopyOverridePlaceholders(
-  map: Record<string, string>,
-  label: string,
+function escapedPercentCount(value: string) {
+  return value.match(/%%/g)?.length ?? 0;
+}
+
+function normalizedTextOverrides(
+  value: unknown,
+  legacyCopyOverrides: unknown,
   statusCode: number,
 ) {
-  for (const [key, value] of Object.entries(map)) {
-    const expected = placeholders(key).sort().join("|");
-    const received = placeholders(value).sort().join("|");
-    if (expected !== received) {
-      invalid(
-        `${label} must preserve formatting placeholders for “${key}”.`,
-        statusCode,
-      );
-    }
+  let rows: unknown[];
+  if (Array.isArray(value)) {
+    rows = value;
+  } else {
+    const legacy = legacyCopyOverrides as
+      | { en?: Record<string, unknown>; es?: Record<string, unknown> }
+      | undefined;
+    const english = legacy?.en ?? {};
+    const spanish = legacy?.es ?? {};
+    rows = Object.keys(english).map((key) => ({
+      key,
+      en: english[key],
+      es: spanish[key],
+    }));
   }
+
+  const seen = new Set<string>();
+  return rows.map((row, index) => {
+    if (!row || typeof row !== "object" || Array.isArray(row)) {
+      invalid(`Text override ${index + 1} must be an object.`, statusCode);
+    }
+    const candidate = row as { key?: unknown; en?: unknown; es?: unknown };
+    const key = normalizedText(
+      candidate.key,
+      `Text override ${index + 1} key`,
+      statusCode,
+    );
+    if (seen.has(key)) {
+      invalid(`Text override key “${key}” is duplicated.`, statusCode);
+    }
+    seen.add(key);
+    const option = getPublisherAppTextCatalogOption(key);
+    if (!option) {
+      invalid(`Text override key “${key}” is not in catalog 1.`, statusCode);
+    }
+    const en = normalizedText(
+      candidate.en,
+      `English text for ${key}`,
+      statusCode,
+    );
+    const es = normalizedText(
+      candidate.es,
+      `Spanish text for ${key}`,
+      statusCode,
+    );
+    for (const [language, replacement] of [
+      ["English", en],
+      ["Spanish", es],
+    ] as const) {
+      if (
+        formattingArguments(replacement).join("\u0000") !==
+          option.formatArguments.join("\u0000") ||
+        escapedPercentCount(replacement) !==
+          escapedPercentCount(option.defaultEnglishText)
+      ) {
+        invalid(
+          `${language} text for “${key}” must preserve its formatting arguments.`,
+          statusCode,
+        );
+      }
+    }
+    return { key, en, es };
+  });
 }
 
 function normalizedLearnConfiguration(
@@ -297,11 +375,20 @@ function normalizedLearnConfiguration(
               statusCode,
             );
             if (lessonIds.has(lessonIdentifier)) {
-              invalid(`Lesson ID “${lessonIdentifier}” is duplicated.`, statusCode);
+              invalid(
+                `Lesson ID “${lessonIdentifier}” is duplicated.`,
+                statusCode,
+              );
             }
             lessonIds.add(lessonIdentifier);
-            if (!Array.isArray(lesson.paragraphs) || lesson.paragraphs.length === 0) {
-              invalid(`Lesson “${lessonIdentifier}” needs a paragraph.`, statusCode);
+            if (
+              !Array.isArray(lesson.paragraphs) ||
+              lesson.paragraphs.length === 0
+            ) {
+              invalid(
+                `Lesson “${lessonIdentifier}” needs a paragraph.`,
+                statusCode,
+              );
             }
             const normalizedLesson: PublisherAppLearnLesson = {
               lessonIdentifier,
@@ -322,23 +409,25 @@ function normalizedLearnConfiguration(
                 `Lesson ${lessonIdentifier} color`,
                 statusCode,
               ),
-              paragraphs: lesson.paragraphs.map((paragraph, paragraphIndex) => ({
-                paragraphTitle: normalizedText(
-                  paragraph.paragraphTitle,
-                  `Paragraph ${paragraphIndex + 1} title`,
-                  statusCode,
-                ),
-                icon: normalizedText(
-                  paragraph.icon,
-                  `Paragraph ${paragraphIndex + 1} icon`,
-                  statusCode,
-                ),
-                contentText: normalizedText(
-                  paragraph.contentText,
-                  `Paragraph ${paragraphIndex + 1} content`,
-                  statusCode,
-                ),
-              })),
+              paragraphs: lesson.paragraphs.map(
+                (paragraph, paragraphIndex) => ({
+                  paragraphTitle: normalizedText(
+                    paragraph.paragraphTitle,
+                    `Paragraph ${paragraphIndex + 1} title`,
+                    statusCode,
+                  ),
+                  icon: normalizedText(
+                    paragraph.icon,
+                    `Paragraph ${paragraphIndex + 1} icon`,
+                    statusCode,
+                  ),
+                  contentText: normalizedText(
+                    paragraph.contentText,
+                    `Paragraph ${paragraphIndex + 1} content`,
+                    statusCode,
+                  ),
+                }),
+              ),
               usefulLinks: (lesson.usefulLinks ?? []).map((link, linkIndex) =>
                 normalizedHttps(
                   link,
@@ -382,12 +471,23 @@ function normalizedLearnConfiguration(
     if (!Array.isArray(assignments)) {
       invalid(`Learn topic “${topic}” must contain subject IDs.`, statusCode);
     }
-    topics[topic] = [...new Set(assignments.map((assignment) =>
-      normalizedText(assignment, `Subject assignment for ${topic}`, statusCode),
-    ))];
+    topics[topic] = [
+      ...new Set(
+        assignments.map((assignment) =>
+          normalizedText(
+            assignment,
+            `Subject assignment for ${topic}`,
+            statusCode,
+          ),
+        ),
+      ),
+    ];
     for (const subjectId of topics[topic]) {
       if (!subjectIds.has(subjectId)) {
-        invalid(`Learn topic “${topic}” references unknown subject “${subjectId}”.`, statusCode);
+        invalid(
+          `Learn topic “${topic}” references unknown subject “${subjectId}”.`,
+          statusCode,
+        );
       }
     }
   }
@@ -409,22 +509,74 @@ export function normalizePublisherAppAdvancedConfiguration(
 ): PublisherAppAdvancedConfiguration {
   if (!value) return defaultPublisherAppAdvancedConfiguration(identity);
 
+  const legacyValue = value as PublisherAppAdvancedConfiguration & {
+    localization?: PublisherAppAdvancedConfiguration["localization"] & {
+      copyOverrides?: unknown;
+    };
+  };
+
   const semanticColors = value.semanticColors
     ? {
-        primary: normalizedColor(value.semanticColors.primary, "Primary color", statusCode),
-        primaryStrong: normalizedColor(value.semanticColors.primaryStrong, "Strong primary color", statusCode),
-        primaryDeep: normalizedColor(value.semanticColors.primaryDeep, "Deep primary color", statusCode),
-        primarySoft: normalizedColor(value.semanticColors.primarySoft, "Soft primary color", statusCode),
-        secondary: normalizedColor(value.semanticColors.secondary, "Secondary color", statusCode),
-        accent: normalizedColor(value.semanticColors.accent, "Accent color", statusCode),
-        accentTextLight: normalizedColor(value.semanticColors.accentTextLight, "Light accent text color", statusCode),
-        accentTextDark: normalizedColor(value.semanticColors.accentTextDark, "Dark accent text color", statusCode),
-        accentSurfaceLight: normalizedColor(value.semanticColors.accentSurfaceLight, "Light accent surface color", statusCode),
+        primary: normalizedColor(
+          value.semanticColors.primary,
+          "Primary color",
+          statusCode,
+        ),
+        primaryStrong: normalizedColor(
+          value.semanticColors.primaryStrong,
+          "Strong primary color",
+          statusCode,
+        ),
+        primaryDeep: normalizedColor(
+          value.semanticColors.primaryDeep,
+          "Deep primary color",
+          statusCode,
+        ),
+        primarySoft: normalizedColor(
+          value.semanticColors.primarySoft,
+          "Soft primary color",
+          statusCode,
+        ),
+        secondary: normalizedColor(
+          value.semanticColors.secondary,
+          "Secondary color",
+          statusCode,
+        ),
+        accent: normalizedColor(
+          value.semanticColors.accent,
+          "Accent color",
+          statusCode,
+        ),
+        accentTextLight: normalizedColor(
+          value.semanticColors.accentTextLight,
+          "Light accent text color",
+          statusCode,
+        ),
+        accentTextDark: normalizedColor(
+          value.semanticColors.accentTextDark,
+          "Dark accent text color",
+          statusCode,
+        ),
+        accentSurfaceLight: normalizedColor(
+          value.semanticColors.accentSurfaceLight,
+          "Light accent surface color",
+          statusCode,
+        ),
       }
     : null;
+  const colorOverrides = normalizedColorOverrides(
+    value.colorOverrides ?? {},
+    statusCode,
+  );
 
-  if (typeof value.catalogEnabled !== "boolean" || typeof value.feedEnabled !== "boolean") {
-    invalid("Catalog and Discover availability must be true or false.", statusCode);
+  if (
+    typeof value.catalogEnabled !== "boolean" ||
+    typeof value.feedEnabled !== "boolean"
+  ) {
+    invalid(
+      "Catalog and Discover availability must be true or false.",
+      statusCode,
+    );
   }
 
   const discoverScope =
@@ -460,60 +612,24 @@ export function normalizePublisherAppAdvancedConfiguration(
 
   const availableLanguages = [
     ...new Set(value.localization?.availableLanguages ?? []),
-  ].filter((language): language is "en" | "es" => language === "en" || language === "es");
+  ].filter(
+    (language): language is "en" | "es" =>
+      language === "en" || language === "es",
+  );
   if (
     availableLanguages.length === 0 ||
     !availableLanguages.includes(value.localization?.defaultLanguage)
   ) {
-    invalid("The default language must be one of the available languages.", statusCode);
-  }
-  const copyOverrides = {
-    en: normalizedStringMap(
-      value.localization?.copyOverrides?.en ?? {},
-      "English wording overrides",
+    invalid(
+      "The default language must be one of the available languages.",
       statusCode,
-    ),
-    es: normalizedStringMap(
-      value.localization?.copyOverrides?.es ?? {},
-      "Spanish wording overrides",
-      statusCode,
-    ),
-  };
-  const englishKeys = Object.keys(copyOverrides.en).sort();
-  const spanishKeys = Object.keys(copyOverrides.es).sort();
-  if (englishKeys.join("\u0000") !== spanishKeys.join("\u0000")) {
-    invalid("English and Spanish wording overrides must use the same keys.", statusCode);
+    );
   }
-  validateCopyOverridePlaceholders(copyOverrides.en, "English wording", statusCode);
-  validateCopyOverridePlaceholders(copyOverrides.es, "Spanish wording", statusCode);
-
-  const resourceOverrides: PublisherAppAdvancedConfiguration["resourceOverrides"] = {
-    spanishResources: {},
-  };
-  if (value.resourceOverrides?.discoverBannerTitles) {
-    resourceOverrides.discoverBannerTitles = {
-      lessonTitles: normalizedStringMap(
-        value.resourceOverrides.discoverBannerTitles.lessonTitles,
-        "Discover lesson titles",
-        statusCode,
-      ),
-      specialItemTitles: normalizedStringMap(
-        value.resourceOverrides.discoverBannerTitles.specialItemTitles,
-        "Discover special item titles",
-        statusCode,
-      ),
-    };
-  }
-  for (const [resource, strings] of Object.entries(
-    value.resourceOverrides?.spanishResources ?? {},
-  )) {
-    if (!(PUBLISHER_APP_SPANISH_RESOURCE_KEYS as readonly string[]).includes(resource)) {
-      invalid(`Translation resource “${resource}” is not supported.`, statusCode);
-    }
-    resourceOverrides.spanishResources[
-      resource as PublisherAppSpanishResourceKey
-    ] = normalizedStringMap(strings, resource, statusCode);
-  }
+  const textOverrides = normalizedTextOverrides(
+    value.textOverrides,
+    legacyValue.localization?.copyOverrides,
+    statusCode,
+  );
 
   const supportEmail = normalizedText(
     value.links?.supportEmail,
@@ -525,8 +641,13 @@ export function normalizePublisherAppAdvancedConfiguration(
   }
 
   return {
-    displayName: normalizedText(value.displayName, "Experience name", statusCode),
+    displayName: normalizedText(
+      value.displayName,
+      "Experience name",
+      statusCode,
+    ),
     semanticColors,
+    colorOverrides,
     catalogEnabled: value.catalogEnabled,
     feedEnabled: value.feedEnabled,
     discoverScope,
@@ -534,17 +655,28 @@ export function normalizePublisherAppAdvancedConfiguration(
     localization: {
       defaultLanguage: value.localization.defaultLanguage,
       availableLanguages,
-      copyOverrides,
     },
+    textOverrides,
     learn: normalizedLearnConfiguration(value.learn, statusCode),
-    resourceOverrides,
     links: {
       joinUs: {
-        en: normalizedHttps(value.links?.joinUs?.en, "English Join Us URL", statusCode),
-        es: normalizedHttps(value.links?.joinUs?.es, "Spanish Join Us URL", statusCode),
+        en: normalizedHttps(
+          value.links?.joinUs?.en,
+          "English Join Us URL",
+          statusCode,
+        ),
+        es: normalizedHttps(
+          value.links?.joinUs?.es,
+          "Spanish Join Us URL",
+          statusCode,
+        ),
       },
       supportEmail,
-      privacyUrl: normalizedHttps(value.links?.privacyUrl, "Privacy URL", statusCode),
+      privacyUrl: normalizedHttps(
+        value.links?.privacyUrl,
+        "Privacy URL",
+        statusCode,
+      ),
       termsUrl: normalizedHttps(value.links?.termsUrl, "Terms URL", statusCode),
     },
   };

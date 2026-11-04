@@ -18,6 +18,10 @@ import {
   updatePublisherAppConfigById,
 } from "../repositories/publisher-app-config.repository.js";
 import { sendPublisherAppCreationNotificationEmails } from "../lib/publisher-app-creation-notification-email.js";
+import {
+  searchPublisherAppColorCatalog,
+  searchPublisherAppTextCatalog,
+} from "../lib/publisher-app-customization-catalog.js";
 
 const APP_ICON_DATA_URL_PATTERN =
   /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
@@ -27,6 +31,14 @@ const HexColorSchema = z
   .string()
   .trim()
   .regex(/^#[0-9a-fA-F]{6}$/, "Use the #RRGGBB hex color format.")
+  .transform((value) => value.toUpperCase());
+const OverrideHexColorSchema = z
+  .string()
+  .trim()
+  .regex(
+    /^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$/,
+    "Use the #RRGGBB or #RRGGBBAA hex color format.",
+  )
   .transform((value) => value.toUpperCase());
 
 const NonBlankTextSchema = z.string().trim().min(1);
@@ -42,12 +54,8 @@ const HttpsUrlSchema = z
   .url()
   .refine((value) => {
     const parsed = new URL(value);
-    return (
-      parsed.protocol === "https:" && !parsed.username && !parsed.password
-    );
+    return parsed.protocol === "https:" && !parsed.username && !parsed.password;
   }, "Use a credential-free HTTPS URL.");
-const StringMapSchema = z.record(NonBlankTextSchema, NonBlankTextSchema);
-
 const SemanticColorsSchema = z
   .object({
     primary: HexColorSchema,
@@ -109,14 +117,21 @@ const LearnConfigurationSchema = z.discriminatedUnion("mode", [
     .strict(),
 ]);
 
-const SpanishResourcesSchema = z
+const ColorOverrideSchema = z
   .object({
-    "SpanishInternalContent.json": StringMapSchema.optional(),
-    "SpanishLearnContent.json": StringMapSchema.optional(),
-    "SpanishObjectAdminContent.json": StringMapSchema.optional(),
-    "SpanishPGOExploreContent.json": StringMapSchema.optional(),
-    "SpanishPGOSchema1Content.json": StringMapSchema.optional(),
-    "SpanishServicesContent.json": StringMapSchema.optional(),
+    light: OverrideHexColorSchema.optional(),
+    dark: OverrideHexColorSchema.optional(),
+  })
+  .strict()
+  .refine((value) => value.light || value.dark, {
+    message: "Choose at least one appearance mode.",
+  });
+
+const TextOverrideSchema = z
+  .object({
+    key: NonBlankTextSchema,
+    en: NonBlankTextSchema,
+    es: NonBlankTextSchema,
   })
   .strict();
 
@@ -124,6 +139,7 @@ const PublisherAppAdvancedConfigurationSchema = z
   .object({
     displayName: NonBlankTextSchema,
     semanticColors: SemanticColorsSchema.nullable(),
+    colorOverrides: z.record(NonBlankTextSchema, ColorOverrideSchema),
     catalogEnabled: z.boolean(),
     feedEnabled: z.boolean(),
     discoverScope: z.discriminatedUnion("mode", [
@@ -152,24 +168,10 @@ const PublisherAppAdvancedConfigurationSchema = z
           .array(z.enum(["en", "es"]))
           .min(1)
           .max(2),
-        copyOverrides: z
-          .object({ en: StringMapSchema, es: StringMapSchema })
-          .strict(),
       })
       .strict(),
+    textOverrides: z.array(TextOverrideSchema),
     learn: LearnConfigurationSchema,
-    resourceOverrides: z
-      .object({
-        discoverBannerTitles: z
-          .object({
-            lessonTitles: StringMapSchema,
-            specialItemTitles: StringMapSchema,
-          })
-          .strict()
-          .optional(),
-        spanishResources: SpanishResourcesSchema,
-      })
-      .strict(),
     links: z
       .object({
         joinUs: z.object({ en: HttpsUrlSchema, es: HttpsUrlSchema }).strict(),
@@ -264,6 +266,13 @@ const PublisherAppConfigAdminListQuerySchema = z.object({
   cursor: z.string().trim().min(1).max(300).optional(),
 });
 
+const PublisherAppCustomizationCatalogQuerySchema = z.object({
+  q: z.string().trim().max(500).optional(),
+  group: z.string().trim().max(200).optional(),
+  cursor: z.coerce.number().int().min(0).default(0),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+
 function sendRepositoryError(reply: FastifyReply, error: unknown) {
   if (isAdminRepositoryError(error)) {
     return reply.status(error.statusCode).send({ error: error.message });
@@ -276,6 +285,48 @@ export async function publisherAppConfigRoutes(
   fastify: FastifyInstance,
 ): Promise<void> {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
+
+  f.get(
+    "/publisher-app/customization-catalog/texts",
+    { schema: { querystring: PublisherAppCustomizationCatalogQuerySchema } },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
+      }
+      reply.header("Cache-Control", "private, max-age=300");
+      return reply.send(
+        searchPublisherAppTextCatalog({
+          query: request.query.q,
+          group: request.query.group,
+          cursor: request.query.cursor,
+          limit: request.query.limit,
+        }),
+      );
+    },
+  );
+
+  f.get(
+    "/publisher-app/customization-catalog/colors",
+    { schema: { querystring: PublisherAppCustomizationCatalogQuerySchema } },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply
+          .status(401)
+          .send({ error: "No authenticated admin context" });
+      }
+      reply.header("Cache-Control", "private, max-age=300");
+      return reply.send(
+        searchPublisherAppColorCatalog({
+          query: request.query.q,
+          group: request.query.group,
+          cursor: request.query.cursor,
+          limit: request.query.limit,
+        }),
+      );
+    },
+  );
 
   f.get(
     "/admin/publisher-app-configs",
@@ -303,53 +354,47 @@ export async function publisherAppConfigRoutes(
     },
   );
 
-  f.get(
-    "/admin/publisher-app-configs/snapshot",
-    async (request, reply) => {
-      if (!request.adminContext) {
-        return reply
-          .status(401)
-          .send({ error: "No authenticated admin context" });
-      }
-      if (!request.adminContext.isBootstrap) {
-        return reply.status(403).send({ error: "GOD MODE access required" });
-      }
+  f.get("/admin/publisher-app-configs/snapshot", async (request, reply) => {
+    if (!request.adminContext) {
+      return reply
+        .status(401)
+        .send({ error: "No authenticated admin context" });
+    }
+    if (!request.adminContext.isBootstrap) {
+      return reply.status(403).send({ error: "GOD MODE access required" });
+    }
 
-      try {
-        reply.header("Cache-Control", "private, no-store");
-        return reply.send({
-          snapshot: await getPublisherAppCatalogSnapshot(),
-        });
-      } catch (error) {
-        return sendRepositoryError(reply, error);
-      }
-    },
-  );
+    try {
+      reply.header("Cache-Control", "private, no-store");
+      return reply.send({
+        snapshot: await getPublisherAppCatalogSnapshot(),
+      });
+    } catch (error) {
+      return sendRepositoryError(reply, error);
+    }
+  });
 
-  f.put(
-    "/admin/publisher-app-configs/snapshot",
-    async (request, reply) => {
-      if (!request.adminContext) {
-        return reply
-          .status(401)
-          .send({ error: "No authenticated admin context" });
-      }
-      if (!request.adminContext.isBootstrap) {
-        return reply.status(403).send({ error: "GOD MODE access required" });
-      }
+  f.put("/admin/publisher-app-configs/snapshot", async (request, reply) => {
+    if (!request.adminContext) {
+      return reply
+        .status(401)
+        .send({ error: "No authenticated admin context" });
+    }
+    if (!request.adminContext.isBootstrap) {
+      return reply.status(403).send({ error: "GOD MODE access required" });
+    }
 
-      try {
-        reply.header("Cache-Control", "private, no-store");
-        return reply.send({
-          snapshot: await refreshPublisherAppCatalogSnapshot(
-            request.adminContext,
-          ),
-        });
-      } catch (error) {
-        return sendRepositoryError(reply, error);
-      }
-    },
-  );
+    try {
+      reply.header("Cache-Control", "private, no-store");
+      return reply.send({
+        snapshot: await refreshPublisherAppCatalogSnapshot(
+          request.adminContext,
+        ),
+      });
+    } catch (error) {
+      return sendRepositoryError(reply, error);
+    }
+  });
 
   f.get(
     "/admin/publisher-app-configs/:configId",

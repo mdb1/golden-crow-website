@@ -80,19 +80,8 @@ export function buildPublisherAppRuntimeConfig(
           ),
           topics: advanced.learn.topics,
         };
-  const resourceOverrides: Record<string, unknown> = {};
-  if (advanced.resourceOverrides.discoverBannerTitles) {
-    resourceOverrides["DiscoverBannerTitles.json"] =
-      advanced.resourceOverrides.discoverBannerTitles;
-  }
-  for (const [resource, strings] of Object.entries(
-    advanced.resourceOverrides.spanishResources,
-  )) {
-    resourceOverrides[resource] = { version: 1, locale: "es", strings };
-  }
-
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     appProviderIdentifier: identifier,
     revision: config.runtimeRevision ?? 1,
     status: "published",
@@ -115,6 +104,9 @@ export function buildPublisherAppRuntimeConfig(
           secondary: config.colors.secondary,
           tertiary: config.colors.tertiary,
         }),
+      ...(Object.keys(advanced.colorOverrides).length > 0
+        ? { colorOverrides: advanced.colorOverrides }
+        : {}),
     },
     features: {
       catalogEnabled: advanced.catalogEnabled,
@@ -130,10 +122,9 @@ export function buildPublisherAppRuntimeConfig(
     localization: {
       defaultLanguage: advanced.localization.defaultLanguage,
       availableLanguages: advanced.localization.availableLanguages,
-      copyOverrides: advanced.localization.copyOverrides,
     },
     learn,
-    resourceOverrides,
+    textOverrides: advanced.textOverrides,
     links: {
       joinUs: advanced.links.joinUs,
       supportEmail: advanced.links.supportEmail,

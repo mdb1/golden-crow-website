@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -11,14 +11,18 @@ import {
   ExternalLink,
   Globe2,
   Languages,
+  LoaderCircle,
   Link2,
   Mail,
+  Moon,
   Palette,
   Plus,
   Rocket,
+  Search,
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
+  Sun,
   Trash2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -45,14 +49,17 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import type {
   PublisherAppAdvancedConfiguration,
+  PublisherAppColorCatalogOption,
   PublisherAppColors,
+  PublisherAppCustomizationCatalogPage,
   PublisherAppLearnConfiguration,
   PublisherAppLearnLesson,
   PublisherAppLearnSubject,
   PublisherAppSemanticColors,
-  PublisherAppSpanishResourceKey,
+  PublisherAppTextCatalogOption,
 } from "@/lib/publisher-app-config";
 import { publisherAppSemanticColors } from "@/lib/publisher-app-config";
+import { sdkFetch } from "@/lib/sdk-client";
 
 const SEMANTIC_COLOR_FIELDS: Array<{
   key: keyof PublisherAppSemanticColors;
@@ -111,189 +118,739 @@ const TOPICS = [
   ["pocket_genes_files_services", "Archivos y servicios Pocket Genes"],
 ] as const;
 
-const SPANISH_RESOURCES: Array<{
-  key: PublisherAppSpanishResourceKey;
-  label: string;
-}> = [
-  { key: "SpanishInternalContent.json", label: "Contenido interno" },
-  { key: "SpanishLearnContent.json", label: "Contenido de Learn" },
-  { key: "SpanishObjectAdminContent.json", label: "Administración de objetos" },
-  { key: "SpanishPGOExploreContent.json", label: "Exploración PGO" },
-  { key: "SpanishPGOSchema1Content.json", label: "Esquema PGO" },
-  { key: "SpanishServicesContent.json", label: "Servicios" },
-];
+type CatalogKind = "colors" | "texts";
 
-function uniqueKey(map: Record<string, string>, base: string) {
-  let candidate = base;
-  let index = 2;
-  while (candidate in map) {
-    candidate = `${base} ${index}`;
-    index += 1;
-  }
-  return candidate;
+function useCustomizationCatalog<T>(kind: CatalogKind, enabled: boolean) {
+  const [query, setQuery] = useState("");
+  const [group, setGroup] = useState("");
+  const [items, setItems] = useState<T[]>([]);
+  const [groups, setGroups] = useState<string[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchPage = async (cursor: string | null, append: boolean) => {
+    setLoading(true);
+    setError(null);
+    const params = new URLSearchParams({ limit: "20" });
+    if (query.trim()) params.set("q", query.trim());
+    if (group) params.set("group", group);
+    if (cursor) params.set("cursor", cursor);
+    try {
+      const page = await sdkFetch<PublisherAppCustomizationCatalogPage<T>>(
+        `/publisher-app/customization-catalog/${kind}?${params.toString()}`,
+      );
+      setItems((current) =>
+        append ? [...current, ...page.items] : page.items,
+      );
+      setGroups(page.groups);
+      setTotalCount(page.totalCount);
+      setNextCursor(page.nextCursor);
+    } catch (catalogError) {
+      setError(
+        catalogError instanceof Error
+          ? catalogError.message
+          : "No se pudo cargar el catálogo.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!enabled) return;
+    const timeout = window.setTimeout(() => void fetchPage(null, false), 250);
+    return () => window.clearTimeout(timeout);
+    // fetchPage intentionally follows the current search controls.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, group, kind, query]);
+
+  return {
+    query,
+    setQuery,
+    group,
+    setGroup,
+    items,
+    groups,
+    totalCount,
+    nextCursor,
+    loading,
+    error,
+    loadMore: () => fetchPage(nextCursor, true),
+  };
 }
 
-function MapEditor({
-  value,
-  onChange,
-  keyPlaceholder,
-  valuePlaceholder,
+function CatalogSearchControls({
+  query,
+  onQueryChange,
+  group,
+  onGroupChange,
+  groups,
+  totalCount,
 }: {
-  value: Record<string, string>;
-  onChange: (value: Record<string, string>) => void;
-  keyPlaceholder: string;
-  valuePlaceholder: string;
+  query: string;
+  onQueryChange: (value: string) => void;
+  group: string;
+  onGroupChange: (value: string) => void;
+  groups: string[];
+  totalCount: number;
 }) {
-  const entries = Object.entries(value);
   return (
-    <div className="space-y-3">
-      {entries.map(([key, entryValue], index) => (
-        <div
-          key={`${key}-${index}`}
-          className="grid gap-2 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)_auto]"
+    <div className="sticky top-0 z-10 -mx-1 rounded-2xl border bg-background/95 p-3 shadow-sm backdrop-blur">
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_18rem_auto] md:items-center">
+        <label className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            aria-label="Buscar opciones disponibles"
+            className="h-11 pl-10"
+            value={query}
+            placeholder="Buscar por clave, texto, uso o grupo…"
+            onChange={(event) => onQueryChange(event.target.value)}
+          />
+        </label>
+        <Select
+          value={group || "__all__"}
+          onValueChange={(value) =>
+            onGroupChange(value === "__all__" ? "" : value)
+          }
         >
-          <Input
-            aria-label={`${keyPlaceholder} ${index + 1}`}
-            value={key}
-            placeholder={keyPlaceholder}
-            onChange={(event) => {
-              const next = { ...value };
-              delete next[key];
-              next[event.target.value] = entryValue;
-              onChange(next);
-            }}
-          />
-          <Input
-            aria-label={`${valuePlaceholder} ${index + 1}`}
-            value={entryValue}
-            placeholder={valuePlaceholder}
-            onChange={(event) =>
-              onChange({ ...value, [key]: event.target.value })
-            }
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            aria-label={`Eliminar ${key}`}
-            onClick={() => {
-              const next = { ...value };
-              delete next[key];
-              onChange(next);
-            }}
-          >
-            <Trash2 className="size-4" />
-          </Button>
-        </div>
-      ))}
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => {
-          const key = uniqueKey(value, "Nueva clave");
-          onChange({ ...value, [key]: "Nuevo texto" });
-        }}
-      >
-        <Plus className="size-4" /> Agregar texto
-      </Button>
+          <SelectTrigger className="h-11" aria-label="Filtrar por grupo">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">Todos los grupos</SelectItem>
+            {groups.map((item) => (
+              <SelectItem key={item} value={item}>
+                {item}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Badge
+          variant="secondary"
+          className="justify-center rounded-full px-3 py-1.5"
+        >
+          {totalCount.toLocaleString("es-AR")} opciones
+        </Badge>
+      </div>
     </div>
   );
 }
 
-function CopyOverridesEditor({
+function CatalogLoadingState() {
+  return (
+    <div className="flex min-h-36 items-center justify-center gap-3 text-sm text-muted-foreground">
+      <LoaderCircle className="size-5 animate-spin" /> Buscando en el catálogo…
+    </div>
+  );
+}
+
+function ColorOverridesEditor({
   value,
   onChange,
 }: {
-  value: PublisherAppAdvancedConfiguration["localization"]["copyOverrides"];
+  value: PublisherAppAdvancedConfiguration["colorOverrides"];
   onChange: (
-    value: PublisherAppAdvancedConfiguration["localization"]["copyOverrides"],
+    value: PublisherAppAdvancedConfiguration["colorOverrides"],
   ) => void;
 }) {
-  const keys = Object.keys(value.en);
-  return (
-    <div className="space-y-3">
-      {keys.map((key, index) => (
+  const [screen, setScreen] = useState<"loaded" | "browse" | "edit">("loaded");
+  const [selected, setSelected] =
+    useState<PublisherAppColorCatalogOption | null>(null);
+  const [editing, setEditing] = useState<{ light?: string; dark?: string }>({});
+  const catalog = useCustomizationCatalog<PublisherAppColorCatalogOption>(
+    "colors",
+    screen === "browse",
+  );
+
+  const choose = (option: PublisherAppColorCatalogOption) => {
+    setSelected(option);
+    setEditing(value[option.key] ?? { light: option.defaultLightColor });
+    setScreen("edit");
+  };
+
+  const editLoaded = async (key: string) => {
+    const params = new URLSearchParams({ q: key, limit: "50" });
+    const page = await sdkFetch<
+      PublisherAppCustomizationCatalogPage<PublisherAppColorCatalogOption>
+    >(`/publisher-app/customization-catalog/colors?${params.toString()}`);
+    const option = page.items.find((item) => item.key === key);
+    if (option) choose(option);
+  };
+
+  if (screen === "edit" && selected) {
+    const modeCard = (
+      mode: "light" | "dark",
+      label: string,
+      fallback: string,
+    ) => {
+      const enabled = Boolean(editing[mode]);
+      const Icon = mode === "light" ? Sun : Moon;
+      return (
         <div
-          key={`${key}-${index}`}
-          className="rounded-xl border border-violet-100 bg-background/75 p-3 dark:border-violet-400/15"
+          className={`rounded-3xl border p-5 transition ${enabled ? "border-violet-300 bg-violet-50/55 dark:bg-violet-500/8" : "bg-muted/25"}`}
         >
-          <div className="grid gap-2 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
-            <Input
-              aria-label={`Clave canónica ${index + 1}`}
-              value={key}
-              placeholder="Clave canónica exacta"
-              onChange={(event) => {
-                const nextKey = event.target.value;
-                const en = { ...value.en };
-                const es = { ...value.es };
-                const enValue = en[key] ?? "";
-                const esValue = es[key] ?? "";
-                delete en[key];
-                delete es[key];
-                en[nextKey] = enValue;
-                es[nextKey] = esValue;
-                onChange({ en, es });
-              }}
-            />
-            <Input
-              aria-label={`Texto inglés ${index + 1}`}
-              value={value.en[key] ?? ""}
-              placeholder="Wording in English"
-              onChange={(event) =>
-                onChange({
-                  en: { ...value.en, [key]: event.target.value },
-                  es: value.es,
-                })
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="flex size-10 items-center justify-center rounded-2xl bg-background shadow-sm">
+                <Icon className="size-5" />
+              </span>
+              <div>
+                <p className="font-semibold">{label}</p>
+                <p className="text-xs text-muted-foreground">Base {fallback}</p>
+              </div>
+            </div>
+            <Checkbox
+              aria-label={`Personalizar modo ${label.toLowerCase()}`}
+              checked={enabled}
+              onCheckedChange={(checked) =>
+                setEditing((current) =>
+                  checked
+                    ? { ...current, [mode]: fallback }
+                    : Object.fromEntries(
+                        Object.entries(current).filter(([key]) => key !== mode),
+                      ),
+                )
               }
             />
-            <Input
-              aria-label={`Texto español ${index + 1}`}
-              value={value.es[key] ?? ""}
-              placeholder="Texto en español"
-              onChange={(event) =>
-                onChange({
-                  en: value.en,
-                  es: { ...value.es, [key]: event.target.value },
-                })
-              }
-            />
+          </div>
+          {enabled ? (
+            <div className="mt-5 flex gap-3">
+              <Input
+                aria-label={`Selector ${label}`}
+                type="color"
+                className="h-11 w-16 p-1"
+                value={(editing[mode] ?? fallback).slice(0, 7)}
+                onChange={(event) =>
+                  setEditing((current) => ({
+                    ...current,
+                    [mode]: event.target.value.toUpperCase(),
+                  }))
+                }
+              />
+              <Input
+                aria-label={`Color ${label}`}
+                value={editing[mode] ?? ""}
+                placeholder="#RRGGBB o #RRGGBBAA"
+                onChange={(event) =>
+                  setEditing((current) => ({
+                    ...current,
+                    [mode]: event.target.value.toUpperCase(),
+                  }))
+                }
+              />
+            </div>
+          ) : null}
+        </div>
+      );
+    };
+    return (
+      <div className="space-y-6">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setScreen("loaded")}
+        >
+          <ArrowLeft className="size-4" /> Volver a overrides cargados
+        </Button>
+        <div className="rounded-3xl border bg-gradient-to-br from-background to-violet-50/50 p-6 dark:to-violet-500/5">
+          <Badge variant="outline">{selected.group}</Badge>
+          <h4 className="mt-4 text-2xl font-semibold">{selected.title}</h4>
+          <code className="mt-2 block text-xs text-violet-700 dark:text-violet-300">
+            {selected.key}
+          </code>
+          <p className="mt-4 max-w-3xl text-sm leading-6 text-muted-foreground">
+            {selected.usageDescription}
+          </p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          {modeCard("light", "Claro", selected.defaultLightColor)}
+          {modeCard("dark", "Oscuro", selected.defaultDarkColor)}
+        </div>
+        <div className="flex flex-wrap justify-between gap-3">
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={!value[selected.key]}
+            onClick={() => {
+              const next = { ...value };
+              delete next[selected.key];
+              onChange(next);
+              setScreen("loaded");
+            }}
+          >
+            <Trash2 className="size-4" /> Quitar override
+          </Button>
+          <Button
+            type="button"
+            disabled={!editing.light && !editing.dark}
+            onClick={() => {
+              onChange({ ...value, [selected.key]: editing });
+              setScreen("loaded");
+            }}
+          >
+            <Check className="size-4" /> Guardar este color
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === "browse") {
+    return (
+      <div className="space-y-5">
+        <div className="flex items-center justify-between gap-3">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setScreen("loaded")}
+          >
+            <ArrowLeft className="size-4" /> Overrides cargados
+          </Button>
+          <p className="text-sm text-muted-foreground">
+            Elegí un rol; después configurarás light y dark.
+          </p>
+        </div>
+        <CatalogSearchControls
+          query={catalog.query}
+          onQueryChange={catalog.setQuery}
+          group={catalog.group}
+          onGroupChange={catalog.setGroup}
+          groups={catalog.groups}
+          totalCount={catalog.totalCount}
+        />
+        {catalog.loading && catalog.items.length === 0 ? (
+          <CatalogLoadingState />
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2">
+            {catalog.items.map((option) => {
+              const loaded = Boolean(value[option.key]);
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  className="group rounded-2xl border bg-background p-4 text-left transition hover:border-violet-300 hover:shadow-md"
+                  onClick={() => choose(option)}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="flex overflow-hidden rounded-xl border shadow-sm">
+                      <span
+                        className="size-8"
+                        style={{ backgroundColor: option.defaultLightColor }}
+                      />
+                      <span
+                        className="size-8"
+                        style={{ backgroundColor: option.defaultDarkColor }}
+                      />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2">
+                        <span className="font-semibold">{option.title}</span>
+                        {loaded ? (
+                          <Badge variant="secondary">Agregado</Badge>
+                        ) : null}
+                      </span>
+                      <code className="mt-1 block truncate text-[11px] text-muted-foreground">
+                        {option.key}
+                      </code>
+                      <span className="mt-2 line-clamp-2 block text-xs leading-5 text-muted-foreground">
+                        {option.usageDescription}
+                      </span>
+                    </span>
+                    <ArrowRight className="size-4 text-muted-foreground transition group-hover:translate-x-1" />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {catalog.error ? (
+          <p className="rounded-xl bg-destructive/10 p-3 text-sm text-destructive">
+            {catalog.error}
+          </p>
+        ) : null}
+        {catalog.nextCursor ? (
+          <div className="text-center">
             <Button
               type="button"
               variant="outline"
-              size="icon"
-              aria-label={`Eliminar texto ${key}`}
-              onClick={() => {
-                const en = { ...value.en };
-                const es = { ...value.es };
-                delete en[key];
-                delete es[key];
-                onChange({ en, es });
-              }}
+              disabled={catalog.loading}
+              onClick={catalog.loadMore}
             >
-              <Trash2 className="size-4" />
+              {catalog.loading ? (
+                <LoaderCircle className="size-4 animate-spin" />
+              ) : (
+                <Plus className="size-4" />
+              )}{" "}
+              Cargar más
             </Button>
           </div>
-          <p className="mt-2 text-[11px] text-muted-foreground">
-            Conservá marcadores como <code>%@</code> exactamente iguales en
-            ambos textos.
+        ) : null}
+      </div>
+    );
+  }
+
+  const entries = Object.entries(value);
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h4 className="text-lg font-semibold">Overrides cargados</h4>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Sólo aparecen los roles que ya elegiste personalizar.
           </p>
         </div>
-      ))}
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => {
-          const key = uniqueKey(value.en, "Nueva clave de localización");
-          onChange({
-            en: { ...value.en, [key]: "New wording" },
-            es: { ...value.es, [key]: "Nuevo texto" },
-          });
-        }}
-      >
-        <Plus className="size-4" /> Agregar wording bilingüe
-      </Button>
+        <Button type="button" onClick={() => setScreen("browse")}>
+          <Plus className="size-4" /> Add new
+        </Button>
+      </div>
+      {entries.length ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          {entries.map(([key, modes]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => void editLoaded(key)}
+              className="rounded-2xl border bg-background p-4 text-left transition hover:border-violet-300 hover:shadow-md"
+            >
+              <code className="text-xs font-semibold text-violet-700 dark:text-violet-300">
+                {key}
+              </code>
+              <div className="mt-4 flex gap-4">
+                {(["light", "dark"] as const).map((mode) =>
+                  modes[mode] ? (
+                    <span
+                      key={mode}
+                      className="flex items-center gap-2 text-xs"
+                    >
+                      <span
+                        className="size-7 rounded-lg border shadow-sm"
+                        style={{ backgroundColor: modes[mode] }}
+                      />
+                      {mode === "light" ? "Claro" : "Oscuro"}
+                    </span>
+                  ) : null,
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-3xl border border-dashed p-10 text-center">
+          <Palette className="mx-auto size-10 text-muted-foreground" />
+          <p className="mt-4 font-semibold">
+            Todavía no hay colores específicos
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            La paleta general sigue resolviendo toda la app. Agregá sólo los
+            roles que necesiten una excepción.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TextOverridesEditor({
+  value,
+  onChange,
+}: {
+  value: PublisherAppAdvancedConfiguration["textOverrides"];
+  onChange: (value: PublisherAppAdvancedConfiguration["textOverrides"]) => void;
+}) {
+  const [screen, setScreen] = useState<"loaded" | "browse" | "edit">("loaded");
+  const [selected, setSelected] =
+    useState<PublisherAppTextCatalogOption | null>(null);
+  const [english, setEnglish] = useState("");
+  const [spanish, setSpanish] = useState("");
+  const catalog = useCustomizationCatalog<PublisherAppTextCatalogOption>(
+    "texts",
+    screen === "browse",
+  );
+
+  const choose = (option: PublisherAppTextCatalogOption) => {
+    const loaded = value.find((row) => row.key === option.key);
+    setSelected(option);
+    setEnglish(loaded?.en ?? option.defaultEnglishText);
+    setSpanish(loaded?.es ?? option.defaultSpanishText);
+    setScreen("edit");
+  };
+
+  const editLoaded = async (key: string) => {
+    const params = new URLSearchParams({ q: key, limit: "50" });
+    const page = await sdkFetch<
+      PublisherAppCustomizationCatalogPage<PublisherAppTextCatalogOption>
+    >(`/publisher-app/customization-catalog/texts?${params.toString()}`);
+    const option = page.items.find((item) => item.key === key);
+    if (option) choose(option);
+  };
+
+  if (screen === "edit" && selected) {
+    const existing = value.some((row) => row.key === selected.key);
+    const unchanged =
+      english === selected.defaultEnglishText &&
+      spanish === selected.defaultSpanishText;
+    return (
+      <div className="space-y-6">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setScreen("loaded")}
+        >
+          <ArrowLeft className="size-4" /> Volver a overrides cargados
+        </Button>
+        <div className="rounded-3xl border bg-gradient-to-br from-background to-emerald-50/50 p-6 dark:to-emerald-500/5">
+          <div className="flex flex-wrap gap-2">
+            {selected.groups.map((group) => (
+              <Badge key={group} variant="outline">
+                {group}
+              </Badge>
+            ))}
+            {selected.platforms.map((platform) => (
+              <Badge key={platform} variant="secondary">
+                {platform}
+              </Badge>
+            ))}
+          </div>
+          <p className="mt-5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Clave canónica · sólo lectura
+          </p>
+          <code className="mt-2 block whitespace-pre-wrap text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+            {selected.key}
+          </code>
+          {selected.formatArguments.length ? (
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                Marcadores obligatorios:
+              </span>
+              {selected.formatArguments.map((argument, index) => (
+                <Badge key={`${argument}-${index}`} variant="outline">
+                  <code>{argument}</code>
+                </Badge>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-3xl border p-5">
+            <Label htmlFor="catalog-override-en" className="text-base">
+              Nueva voz · English
+            </Label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Original: {selected.defaultEnglishText}
+            </p>
+            <Textarea
+              id="catalog-override-en"
+              className="mt-4 min-h-40"
+              value={english}
+              onChange={(event) => setEnglish(event.target.value)}
+            />
+          </div>
+          <div className="rounded-3xl border p-5">
+            <Label htmlFor="catalog-override-es" className="text-base">
+              Nueva voz · Español
+            </Label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Original: {selected.defaultSpanishText}
+            </p>
+            <Textarea
+              id="catalog-override-es"
+              className="mt-4 min-h-40"
+              value={spanish}
+              onChange={(event) => setSpanish(event.target.value)}
+            />
+          </div>
+        </div>
+        {unchanged ? (
+          <p className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-100">
+            Cambiá al menos uno de los idiomas. Los textos iguales al original
+            no se publican como override.
+          </p>
+        ) : null}
+        <div className="flex flex-wrap justify-between gap-3">
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={!existing}
+            onClick={() => {
+              onChange(value.filter((row) => row.key !== selected.key));
+              setScreen("loaded");
+            }}
+          >
+            <Trash2 className="size-4" /> Quitar override
+          </Button>
+          <Button
+            type="button"
+            disabled={!english.trim() || !spanish.trim() || unchanged}
+            onClick={() => {
+              const row = { key: selected.key, en: english, es: spanish };
+              onChange(
+                existing
+                  ? value.map((item) =>
+                      item.key === selected.key ? row : item,
+                    )
+                  : [...value, row],
+              );
+              setScreen("loaded");
+            }}
+          >
+            <Check className="size-4" /> Guardar este texto
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === "browse") {
+    return (
+      <div className="space-y-5">
+        <div className="flex items-center justify-between gap-3">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setScreen("loaded")}
+          >
+            <ArrowLeft className="size-4" /> Overrides cargados
+          </Button>
+          <p className="text-sm text-muted-foreground">
+            La clave inglesa exacta conecta todas sus apariciones.
+          </p>
+        </div>
+        <CatalogSearchControls
+          query={catalog.query}
+          onQueryChange={catalog.setQuery}
+          group={catalog.group}
+          onGroupChange={catalog.setGroup}
+          groups={catalog.groups}
+          totalCount={catalog.totalCount}
+        />
+        {catalog.loading && catalog.items.length === 0 ? (
+          <CatalogLoadingState />
+        ) : (
+          <div className="space-y-3">
+            {catalog.items.map((option) => {
+              const loaded = value.some((row) => row.key === option.key);
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  className="group w-full rounded-2xl border bg-background p-4 text-left transition hover:border-emerald-300 hover:shadow-md"
+                  onClick={() => choose(option)}
+                >
+                  <div className="flex items-start gap-4">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-sm font-bold text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200">
+                      Aa
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <code className="text-xs font-semibold text-foreground">
+                          {option.key}
+                        </code>
+                        {loaded ? (
+                          <Badge variant="secondary">Agregado</Badge>
+                        ) : null}
+                      </span>
+                      <span className="mt-2 grid gap-1 text-xs leading-5 text-muted-foreground md:grid-cols-2">
+                        <span>
+                          <b>EN</b> · {option.defaultEnglishText}
+                        </span>
+                        <span>
+                          <b>ES</b> · {option.defaultSpanishText}
+                        </span>
+                      </span>
+                    </span>
+                    <ArrowRight className="size-4 text-muted-foreground transition group-hover:translate-x-1" />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {catalog.error ? (
+          <p className="rounded-xl bg-destructive/10 p-3 text-sm text-destructive">
+            {catalog.error}
+          </p>
+        ) : null}
+        {catalog.nextCursor ? (
+          <div className="text-center">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={catalog.loading}
+              onClick={catalog.loadMore}
+            >
+              {catalog.loading ? (
+                <LoaderCircle className="size-4 animate-spin" />
+              ) : (
+                <Plus className="size-4" />
+              )}{" "}
+              Cargar más
+            </Button>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h4 className="text-lg font-semibold">Overrides cargados</h4>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Cada tarjeta es una clave canónica elegida desde el catálogo.
+          </p>
+        </div>
+        <Button type="button" onClick={() => setScreen("browse")}>
+          <Plus className="size-4" /> Add new
+        </Button>
+      </div>
+      {value.length ? (
+        <div className="space-y-3">
+          {value.map((row) => (
+            <button
+              key={row.key}
+              type="button"
+              onClick={() => void editLoaded(row.key)}
+              className="group w-full rounded-2xl border bg-background p-4 text-left transition hover:border-emerald-300 hover:shadow-md"
+            >
+              <div className="flex items-start gap-4">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-sm font-bold text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200">
+                  Aa
+                </span>
+                <span className="min-w-0 flex-1">
+                  <code className="text-xs font-semibold">{row.key}</code>
+                  <span className="mt-2 grid gap-1 text-xs text-muted-foreground md:grid-cols-2">
+                    <span className="truncate">
+                      <b>EN</b> · {row.en}
+                    </span>
+                    <span className="truncate">
+                      <b>ES</b> · {row.es}
+                    </span>
+                  </span>
+                </span>
+                <ArrowRight className="size-4 text-muted-foreground transition group-hover:translate-x-1" />
+              </div>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-3xl border border-dashed p-10 text-center">
+          <Languages className="mx-auto size-10 text-muted-foreground" />
+          <p className="mt-4 font-semibold">
+            La app usa todos los textos instalados
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Elegí Add new para buscar una frase concreta entre las opciones
+            disponibles.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -935,14 +1492,6 @@ const ADVANCED_SEGMENTS = [
     accent: "from-amber-500/18 via-orange-500/10 to-transparent",
   },
   {
-    id: "resources",
-    title: "Recursos y títulos de Discover",
-    description:
-      "Curá los títulos y recursos que hacen reconocible cada contenido.",
-    icon: Boxes,
-    accent: "from-rose-500/18 via-pink-500/10 to-transparent",
-  },
-  {
     id: "links",
     title: "Enlaces y contacto",
     description:
@@ -1025,23 +1574,6 @@ const SEGMENT_STEPS: Record<
       title: "Construí la expedición",
       story:
         "Conectá temas, capítulos, lecciones y categorías en un solo mapa.",
-    },
-  ],
-  resources: [
-    {
-      title: "La vidriera de Discover",
-      story:
-        "Renombrá tarjetas puntuales sin alterar el resto de la experiencia.",
-    },
-    {
-      title: "Elegí los mundos a reescribir",
-      story:
-        "Activá únicamente los recursos completos que realmente vas a curar.",
-    },
-    {
-      title: "Curá cada palabra",
-      story:
-        "Completá las claves instaladas de los recursos que elegiste reemplazar.",
     },
   ],
   links: [
@@ -1160,18 +1692,12 @@ export function PublisherAppAdvancedConfigurationEditor({
         ? "Discover global · alcance protegido"
         : `Discover · ${configuration.discoverScope.publisherOrganizationId}`;
     if (segment === "wording")
-      return `${configuration.localization.availableLanguages.length} idiomas · ${Object.keys(configuration.localization.copyOverrides.en).length} textos propios`;
+      return `${configuration.localization.availableLanguages.length} idiomas · ${configuration.textOverrides.length} textos propios`;
     if (segment === "learn") {
       const totals = learnTotals(configuration.learn);
       return configuration.learn.mode === "base"
         ? "Currículo Pocket Genes"
         : `${totals.subjects} temas · ${totals.lessons} lecciones`;
-    }
-    if (segment === "resources") {
-      const count = Object.keys(
-        configuration.resourceOverrides.spanishResources,
-      ).length;
-      return `${configuration.resourceOverrides.discoverBannerTitles ? "Títulos propios" : "Títulos instalados"} · ${count} recursos`;
     }
     return configuration.links.supportEmail || "Destinos todavía sin completar";
   };
@@ -1271,32 +1797,21 @@ export function PublisherAppAdvancedConfigurationEditor({
     return (
       <div className="space-y-7">
         <FlowIntro eyebrow="Capítulo 3" title="Construí un universo cromático">
-          Los tonos automáticos parten de la paleta principal. Personalizalos
-          sólo cuando necesites controlar cada papel visual.
+          La paleta general da coherencia a toda la app. Agregá excepciones por
+          clave únicamente cuando una superficie necesite un tratamiento
+          específico.
         </FlowIntro>
         <div className="rounded-3xl border bg-gradient-to-br from-background to-violet-50/60 p-5 dark:to-violet-500/5">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-lg font-semibold">Paleta semántica</p>
+              <p className="text-lg font-semibold">Base de la experiencia</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Nueve roles conectados, una sola identidad.
+                Nueve tonos derivados de los tres colores principales.
               </p>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                updateDraft({
-                  semanticColors: working.semanticColors
-                    ? null
-                    : publisherAppSemanticColors(baseColors),
-                })
-              }
-            >
-              {working.semanticColors
-                ? "Usar tonos automáticos"
-                : "Personalizar 9 tonos"}
-            </Button>
+            <Badge variant="outline" className="rounded-full">
+              {working.semanticColors ? "Paleta guardada" : "Paleta automática"}
+            </Badge>
           </div>
           <div className="mt-6 flex h-20 overflow-hidden rounded-2xl shadow-inner">
             {SEMANTIC_COLOR_FIELDS.map((field) => (
@@ -1308,41 +1823,11 @@ export function PublisherAppAdvancedConfigurationEditor({
               />
             ))}
           </div>
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {SEMANTIC_COLOR_FIELDS.map((field) => (
-              <label
-                key={field.key}
-                className="rounded-2xl border bg-background/85 p-3 transition hover:shadow-sm"
-              >
-                <span className="text-sm font-semibold">{field.label}</span>
-                <span className="block text-xs text-muted-foreground">
-                  {field.description}
-                </span>
-                <span className="mt-3 flex items-center gap-2">
-                  <Input
-                    aria-label={`Color ${field.label}`}
-                    type="color"
-                    disabled={!working.semanticColors}
-                    value={effectiveSemanticColors[field.key]}
-                    className="h-10 w-14 p-1"
-                    onChange={(event) =>
-                      working.semanticColors &&
-                      updateDraft({
-                        semanticColors: {
-                          ...working.semanticColors,
-                          [field.key]: event.target.value.toUpperCase(),
-                        },
-                      })
-                    }
-                  />
-                  <code className="text-xs">
-                    {effectiveSemanticColors[field.key]}
-                  </code>
-                </span>
-              </label>
-            ))}
-          </div>
         </div>
+        <ColorOverridesEditor
+          value={working.colorOverrides}
+          onChange={(colorOverrides) => updateDraft({ colorOverrides })}
+        />
       </div>
     );
   };
@@ -1607,22 +2092,16 @@ export function PublisherAppAdvancedConfigurationEditor({
             eyebrow="Capítulo 2"
             title="Personalizá momentos, no pantallas enteras"
           >
-            Cada clave representa un momento concreto. Escribí las dos voces
-            juntas para mantener la experiencia alineada.
+            Empezá por los overrides ya cargados. Add new abre el catálogo
+            completo con búsqueda, grupos y resultados paginados.
           </FlowIntro>
-          <div className="rounded-3xl border bg-background p-5">
-            <CopyOverridesEditor
-              value={working.localization.copyOverrides}
-              onChange={(copyOverrides) =>
-                updateDraft({
-                  localization: { ...working.localization, copyOverrides },
-                })
-              }
-            />
-          </div>
+          <TextOverridesEditor
+            value={working.textOverrides}
+            onChange={(textOverrides) => updateDraft({ textOverrides })}
+          />
         </div>
       );
-    const firstKey = Object.keys(working.localization.copyOverrides.en)[0];
+    const firstOverride = working.textOverrides[0];
     return (
       <div className="space-y-7">
         <FlowIntro eyebrow="Capítulo 3" title="La voz ya tiene forma">
@@ -1639,11 +2118,11 @@ export function PublisherAppAdvancedConfigurationEditor({
                 {language === "es" ? "Español" : "English"}
               </Badge>
               <p className="mt-8 text-xs uppercase tracking-wider text-muted-foreground">
-                {firstKey || "Texto de muestra"}
+                {firstOverride?.key || "Texto de muestra"}
               </p>
               <p className="mt-3 text-xl font-semibold">
-                {firstKey
-                  ? working.localization.copyOverrides[language][firstKey]
+                {firstOverride
+                  ? firstOverride[language]
                   : "Todavía no hay textos personalizados"}
               </p>
             </div>
@@ -1651,8 +2130,8 @@ export function PublisherAppAdvancedConfigurationEditor({
         </div>
         <div className="flex items-center gap-3 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-100">
           <CircleCheck className="size-5 shrink-0" />{" "}
-          {Object.keys(working.localization.copyOverrides.en).length} momentos
-          personalizados listos para aplicar.
+          {working.textOverrides.length} momentos personalizados listos para
+          aplicar.
         </div>
       </div>
     );
@@ -1851,213 +2330,6 @@ export function PublisherAppAdvancedConfigurationEditor({
     );
   };
 
-  const renderResourcesStep = () => {
-    if (stepIndex === 0)
-      return (
-        <div className="space-y-7">
-          <FlowIntro
-            eyebrow="Capítulo 1"
-            title="Dale nombre a las piezas destacadas"
-          >
-            Estas superposiciones son livianas: sólo cambia lo que agregás y
-            todo lo demás conserva el título instalado.
-          </FlowIntro>
-          <div className="rounded-3xl border p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-lg font-semibold">
-                  Títulos de tarjetas Discover
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Lecciones e ítems especiales, con su ID como ancla.
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  updateDraft({
-                    resourceOverrides: {
-                      ...working.resourceOverrides,
-                      discoverBannerTitles: working.resourceOverrides
-                        .discoverBannerTitles
-                        ? undefined
-                        : { lessonTitles: {}, specialItemTitles: {} },
-                    },
-                  })
-                }
-              >
-                {working.resourceOverrides.discoverBannerTitles
-                  ? "Volver a títulos instalados"
-                  : "Crear títulos propios"}
-              </Button>
-            </div>
-            {working.resourceOverrides.discoverBannerTitles ? (
-              <div className="mt-6 grid gap-6 lg:grid-cols-2">
-                <div className="rounded-2xl bg-muted/35 p-4">
-                  <p className="mb-3 font-semibold">Lecciones</p>
-                  <MapEditor
-                    value={
-                      working.resourceOverrides.discoverBannerTitles
-                        .lessonTitles
-                    }
-                    onChange={(lessonTitles) =>
-                      updateDraft({
-                        resourceOverrides: {
-                          ...working.resourceOverrides,
-                          discoverBannerTitles: {
-                            ...working.resourceOverrides.discoverBannerTitles!,
-                            lessonTitles,
-                          },
-                        },
-                      })
-                    }
-                    keyPlaceholder="ID de lección"
-                    valuePlaceholder="Título"
-                  />
-                </div>
-                <div className="rounded-2xl bg-muted/35 p-4">
-                  <p className="mb-3 font-semibold">Ítems especiales</p>
-                  <MapEditor
-                    value={
-                      working.resourceOverrides.discoverBannerTitles
-                        .specialItemTitles
-                    }
-                    onChange={(specialItemTitles) =>
-                      updateDraft({
-                        resourceOverrides: {
-                          ...working.resourceOverrides,
-                          discoverBannerTitles: {
-                            ...working.resourceOverrides.discoverBannerTitles!,
-                            specialItemTitles,
-                          },
-                        },
-                      })
-                    }
-                    keyPlaceholder="ID del ítem"
-                    valuePlaceholder="Título"
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="mt-8 rounded-2xl bg-muted/35 p-8 text-center text-sm text-muted-foreground">
-                Discover conserva todos los títulos instalados.
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    if (stepIndex === 1)
-      return (
-        <div className="space-y-7">
-          <FlowIntro
-            eyebrow="Capítulo 2"
-            title="Elegí sólo los mundos que vas a curar"
-          >
-            Un recurso activo reemplaza su archivo español completo. Activá
-            únicamente aquello que vas a completar de punta a punta.
-          </FlowIntro>
-          <div className="grid gap-3 md:grid-cols-2">
-            {SPANISH_RESOURCES.map(({ key, label }) => {
-              const active = Boolean(
-                working.resourceOverrides.spanishResources[key],
-              );
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  className={`flex items-center gap-4 rounded-2xl border p-4 text-left transition-all ${active ? "border-rose-300 bg-rose-50/60 dark:bg-rose-500/8" : "bg-background"}`}
-                  onClick={() => {
-                    const spanishResources = {
-                      ...working.resourceOverrides.spanishResources,
-                    };
-                    if (active) delete spanishResources[key];
-                    else spanishResources[key] = {};
-                    updateDraft({
-                      resourceOverrides: {
-                        ...working.resourceOverrides,
-                        spanishResources,
-                      },
-                    });
-                  }}
-                >
-                  <span
-                    className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${active ? "bg-rose-500 text-white" : "bg-muted text-muted-foreground"}`}
-                  >
-                    {active ? (
-                      <Check className="size-5" />
-                    ) : (
-                      <Boxes className="size-5" />
-                    )}
-                  </span>
-                  <span>
-                    <span className="block font-semibold">{label}</span>
-                    <span className="block font-mono text-[11px] text-muted-foreground">
-                      {key}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-500/8 dark:text-amber-100">
-            <ShieldCheck className="mr-2 inline size-4" />
-            Cada recurso seleccionado es un reemplazo completo, no un parche
-            parcial.
-          </div>
-        </div>
-      );
-    const activeResources = SPANISH_RESOURCES.filter(({ key }) =>
-      Boolean(working.resourceOverrides.spanishResources[key]),
-    );
-    return (
-      <div className="space-y-7">
-        <FlowIntro eyebrow="Capítulo 3" title="Curá las palabras del recurso">
-          Usá exactamente la clave instalada y escribí el texto español que debe
-          ocupar su lugar.
-        </FlowIntro>
-        {activeResources.length ? (
-          <div className="space-y-4">
-            {activeResources.map(({ key, label }) => (
-              <div key={key} className="rounded-3xl border p-5">
-                <div className="mb-4">
-                  <p className="font-semibold">{label}</p>
-                  <p className="font-mono text-[11px] text-muted-foreground">
-                    {key}
-                  </p>
-                </div>
-                <MapEditor
-                  value={working.resourceOverrides.spanishResources[key] ?? {}}
-                  onChange={(nextStrings) =>
-                    updateDraft({
-                      resourceOverrides: {
-                        ...working.resourceOverrides,
-                        spanishResources: {
-                          ...working.resourceOverrides.spanishResources,
-                          [key]: nextStrings,
-                        },
-                      },
-                    })
-                  }
-                  keyPlaceholder="Clave instalada"
-                  valuePlaceholder="Texto español"
-                />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-3xl border border-dashed p-12 text-center">
-            <Boxes className="mx-auto size-10 text-muted-foreground" />
-            <p className="mt-4 font-semibold">No elegiste recursos completos</p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Perfecto: la app conservará todos los archivos instalados.
-            </p>
-          </div>
-        )}
-      </div>
-    );
-  };
-
   const renderLinksStep = () => {
     if (stepIndex === 0)
       return (
@@ -2214,7 +2486,6 @@ export function PublisherAppAdvancedConfigurationEditor({
     if (activeSegment === "scope") return renderScopeStep();
     if (activeSegment === "wording") return renderWordingStep();
     if (activeSegment === "learn") return renderLearnStep();
-    if (activeSegment === "resources") return renderResourcesStep();
     return renderLinksStep();
   };
 

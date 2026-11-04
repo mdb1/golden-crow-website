@@ -5,7 +5,10 @@
       "main": true
     }
   },
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/api" }
-  ]
+  "functions": {
+    "api/index.ts": {
+      "includeFiles": "catalogs/**"
+    }
+  },
+  "rewrites": [{ "source": "/(.*)", "destination": "/api" }]
 }

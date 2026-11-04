@@ -138,7 +138,7 @@ export function buildReportingOpenApiDocument(
           tags: ["Apps"],
           summary: "Fetch a published PocketGenes custom-app runtime config.",
           description:
-            "Requires a bearer token obtained from /open-api/oauth/token with any valid integration client and secret. Access is intentionally not restricted to the app publisher or organization. The response follows custom-app-config schema v2 and supports ETag revalidation.",
+            "Requires a bearer token obtained from /open-api/oauth/token with any valid integration client and secret. Access is intentionally not restricted to the app publisher or organization. The response follows custom-app-config schema v3 and supports ETag revalidation.",
           parameters: [
             {
               name: "app-provider-identifier",
@@ -156,7 +156,7 @@ export function buildReportingOpenApiDocument(
               name: "runtime-version",
               in: "query",
               required: true,
-              description: "PocketGenes runtime contract version. Send 2.",
+              description: "PocketGenes runtime contract version. Send 3.",
             },
             {
               name: "base-content-version",
@@ -167,7 +167,7 @@ export function buildReportingOpenApiDocument(
           ],
           responses: {
             "200": jsonResponse("Published custom-app runtime config.", {
-              schemaVersion: 2,
+              schemaVersion: 3,
               appProviderIdentifier: "app_org_medicgen_48217",
               revision: 1,
               status: "published",
@@ -211,10 +211,9 @@ export function buildReportingOpenApiDocument(
               localization: {
                 defaultLanguage: "es",
                 availableLanguages: ["en", "es"],
-                copyOverrides: { en: {}, es: {} },
               },
               learn: { mode: "base" },
-              resourceOverrides: {},
+              textOverrides: [],
               links: {
                 joinUs: {
                   en: "https://goldencrowvs.com/en/pocket-genes/join-us/",
@@ -235,15 +234,18 @@ export function buildReportingOpenApiDocument(
             "409": jsonResponse("The platform or contract is incompatible.", {
               error: "This app config is not compatible with Android.",
             }),
-            "426": jsonResponse("The runtime contract version is unsupported.", {
-              error: "Unsupported custom-app runtime version.",
-            }),
+            "426": jsonResponse(
+              "The runtime contract version is unsupported.",
+              {
+                error: "Unsupported custom-app runtime version.",
+              },
+            ),
             ...errorResponses(),
           },
           "x-codeSamples": [
             {
               lang: "curl",
-              source: `curl -X GET "${serverUrl}/open-api/apps/config?app-provider-identifier=app_org_medicgen_48217&platform=ios&runtime-version=2&base-content-version=pg-core-v1" \\
+              source: `curl -X GET "${serverUrl}/open-api/apps/config?app-provider-identifier=app_org_medicgen_48217&platform=ios&runtime-version=3&base-content-version=pg-core-v1" \\
   -H "Authorization: Bearer <access_token>"`,
             },
           ],

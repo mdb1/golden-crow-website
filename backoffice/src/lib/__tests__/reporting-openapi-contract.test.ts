@@ -29,13 +29,13 @@ describe("reporting OpenAPI contract", () => {
       "base-content-version",
     ]);
     expect(example).toMatchObject({
-      schemaVersion: 2,
+      schemaVersion: 3,
       appProviderIdentifier: "app_org_medicgen_48217",
       revision: 1,
       status: "published",
       baseContentVersion: "pg-core-v1",
       learn: { mode: "base" },
-      resourceOverrides: {},
+      textOverrides: [],
     });
   });
 

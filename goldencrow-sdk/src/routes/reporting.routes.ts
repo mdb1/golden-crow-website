@@ -231,7 +231,7 @@ export async function reportingRoutes(fastify: FastifyInstance): Promise<void> {
       }
 
       try {
-        if (request.query["runtime-version"] !== "2") {
+        if (request.query["runtime-version"] !== "3") {
           return reply.status(426).send({
             error: "Unsupported custom-app runtime version.",
           });
@@ -251,6 +251,8 @@ export async function reportingRoutes(fastify: FastifyInstance): Promise<void> {
           .digest("hex")}"`;
         reply.header("ETag", etag);
         reply.header("Cache-Control", "public, max-age=300");
+        reply.header("X-Pocket-Genes-Text-Catalog-Version", "1");
+        reply.header("X-Pocket-Genes-Color-Catalog-Version", "1");
         if (request.headers["if-none-match"] === etag) {
           return reply.status(304).send();
         }

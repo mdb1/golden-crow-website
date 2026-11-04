@@ -419,11 +419,11 @@ describe("/internal/openapi/* — public to the hook, but Bearer-protected", () 
   const BEARER_ROUTES: Array<{ method: string; url: string; payload?: object }> = [
     {
       method: "GET",
-      url: "/internal/openapi/apps/config?app-provider-identifier=app_org_medicgen_48217&platform=ios&runtime-version=2&base-content-version=pg-core-v1",
+      url: "/internal/openapi/apps/config?app-provider-identifier=app_org_medicgen_48217&platform=ios&runtime-version=3&base-content-version=pg-core-v1",
     },
     {
       method: "HEAD",
-      url: "/internal/openapi/apps/config?app-provider-identifier=app_org_medicgen_48217&platform=ios&runtime-version=2&base-content-version=pg-core-v1",
+      url: "/internal/openapi/apps/config?app-provider-identifier=app_org_medicgen_48217&platform=ios&runtime-version=3&base-content-version=pg-core-v1",
     },
     { method: "GET", url: "/internal/openapi/reporting/patients?patientId=p1" },
     { method: "HEAD", url: "/internal/openapi/reporting/patients?patientId=p1" },

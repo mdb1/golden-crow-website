@@ -411,7 +411,13 @@ export async function handleAppRuntimeConfig(request: Request) {
     cache: "no-store",
   });
   const outgoingHeaders = new Headers();
-  for (const headerName of ["content-type", "etag", "cache-control"]) {
+  for (const headerName of [
+    "content-type",
+    "etag",
+    "cache-control",
+    "x-pocket-genes-text-catalog-version",
+    "x-pocket-genes-color-catalog-version",
+  ]) {
     const value = response.headers.get(headerName);
     if (value) outgoingHeaders.set(headerName, value);
   }
