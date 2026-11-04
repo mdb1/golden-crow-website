@@ -47,6 +47,8 @@ function app(
       tertiary: "#F97316",
       counterpointClockwise: "#EC15CE",
       counterpointAnticlockwise: "#1562EC",
+      counterpointFarClockwise: "#EC1562",
+      counterpointFarAnticlockwise: "#15CEEC",
     },
     iconSource: "publisher",
     iconImageUrl: null,

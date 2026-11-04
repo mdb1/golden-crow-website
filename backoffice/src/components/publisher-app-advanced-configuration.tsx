@@ -59,6 +59,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import type {
   PublisherAppAdvancedConfiguration,
+  PublisherAppAlternativeTonalFlow,
   PublisherAppColorCatalogOption,
   PublisherAppColors,
   PublisherAppLearnConfiguration,
@@ -69,6 +70,7 @@ import type {
 } from "@/lib/publisher-app-config";
 import {
   normalizePublisherAppColor,
+  PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTER_KEYS,
   publisherAppSemanticColors,
 } from "@/lib/publisher-app-config";
 import { fetchPublisherAppCustomizationCatalog } from "@/lib/publisher-app-customization-catalog-client";
@@ -186,6 +188,9 @@ function useCustomizationCatalog<T>(kind: CatalogKind, enabled: boolean) {
   const [group, setGroup] = useState("");
   const [items, setItems] = useState<T[]>([]);
   const [groups, setGroups] = useState<string[]>([]);
+  const [alternativeTonalFlows, setAlternativeTonalFlows] = useState<
+    PublisherAppAlternativeTonalFlow[]
+  >([]);
   const [totalCount, setTotalCount] = useState(0);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -204,6 +209,7 @@ function useCustomizationCatalog<T>(kind: CatalogKind, enabled: boolean) {
         append ? [...current, ...page.items] : page.items,
       );
       setGroups(page.groups);
+      setAlternativeTonalFlows(page.alternativeTonalFlows ?? []);
       setTotalCount(page.totalCount);
       setNextCursor(page.nextCursor);
     } catch (catalogError) {
@@ -232,6 +238,7 @@ function useCustomizationCatalog<T>(kind: CatalogKind, enabled: boolean) {
     setGroup,
     items,
     groups,
+    alternativeTonalFlows,
     totalCount,
     nextCursor,
     loading,
@@ -444,9 +451,11 @@ function ColorValueControl({
 
 function ColorOverridesEditor({
   value,
+  baseColors,
   onChange,
 }: {
   value: PublisherAppAdvancedConfiguration["colorOverrides"];
+  baseColors: PublisherAppColors;
   onChange: (
     value: PublisherAppAdvancedConfiguration["colorOverrides"],
   ) => void;
@@ -732,6 +741,71 @@ function ColorOverridesEditor({
             Elegí qué color de la interfaz querés personalizar.
           </p>
         </div>
+        {catalog.alternativeTonalFlows.length > 0 &&
+        !catalog.query &&
+        !catalog.group ? (
+          <section className="rounded-3xl border bg-muted/15 p-5">
+            <h4 className="font-semibold">Flujos tonales alternativos</h4>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Estas experiencias usan una familia local coordinada alrededor de
+              uno de los cuatro contrapuntos. Los valores se guardan como
+              overrides independientes, no como colores globales de la app.
+            </p>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              {catalog.alternativeTonalFlows.map((flow) => {
+                const centerKey =
+                  PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTER_KEYS[
+                    flow.id as keyof typeof PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTER_KEYS
+                  ];
+                const centerColor = centerKey
+                  ? baseColors[centerKey]
+                  : undefined;
+                const centerLabel =
+                  centerKey === "counterpointClockwise"
+                    ? "Contrapunto horario"
+                    : centerKey === "counterpointAnticlockwise"
+                      ? "Contrapunto antihorario"
+                      : centerKey === "counterpointFarClockwise"
+                        ? "Contrapunto lejano horario"
+                        : centerKey === "counterpointFarAnticlockwise"
+                          ? "Contrapunto lejano antihorario"
+                          : "Centro tonal";
+                return (
+                  <article
+                    key={flow.id}
+                    className="rounded-2xl border bg-background p-4"
+                  >
+                    <div className="flex items-start gap-3">
+                      <span
+                        className="size-10 shrink-0 rounded-full border-4 border-background shadow-sm ring-1 ring-border"
+                        style={{ backgroundColor: centerColor }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h5 className="font-semibold">{flow.title}</h5>
+                          <Badge variant="secondary" className="rounded-full">
+                            {flow.roleKeys.length} roles
+                          </Badge>
+                        </div>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          {flow.description}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between gap-3 border-t pt-3 text-xs">
+                      <span className="font-medium text-muted-foreground">
+                        {centerLabel}
+                      </span>
+                      {centerColor ? (
+                        <code className="font-semibold">{centerColor}</code>
+                      ) : null}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
         <CatalogSearchControls
           query={catalog.query}
           onQueryChange={catalog.setQuery}
@@ -3619,6 +3693,7 @@ export function PublisherAppAdvancedConfigurationEditor({
           </div>
           <ColorOverridesEditor
             value={working.colorOverrides}
+            baseColors={baseColors}
             onChange={(colorOverrides) => updateDraft({ colorOverrides })}
           />
         </div>

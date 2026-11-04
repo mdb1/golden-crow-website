@@ -11,7 +11,7 @@ describe("publisher app customization catalogs", () => {
       limit: 20,
     });
 
-    expect(page.catalogVersion).toBe(3);
+    expect(page.catalogVersion).toBe(5);
     expect(page.items).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ key: "brand.primary", group: "Brand" }),
@@ -33,7 +33,7 @@ describe("publisher app customization catalogs", () => {
       limit: 20,
     });
 
-    expect(discoverPage.catalogVersion).toBe(3);
+    expect(discoverPage.catalogVersion).toBe(5);
     expect(discoverPage.items).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -73,8 +73,8 @@ describe("publisher app customization catalogs", () => {
       limit: 20,
     });
 
-    expect(page.catalogVersion).toBe(3);
-    expect(page.totalCount).toBe(576);
+    expect(page.catalogVersion).toBe(5);
+    expect(page.totalCount).toBe(620);
     expect(page.groups).toEqual(
       expect.arrayContaining([
         "Learn levels",
@@ -110,6 +110,34 @@ describe("publisher app customization catalogs", () => {
       limit: 1_000,
     }).items.filter((option) => option.introducedInCatalogVersion === 3);
     expect(versionThreeOptions).toHaveLength(242);
+  });
+
+  it("exposes alternative tonal-flow documentation and every referenced role", () => {
+    const page = searchPublisherAppColorCatalog({
+      cursor: 0,
+      limit: 20,
+    });
+    const allRoles = new Set(
+      searchPublisherAppColorCatalog({ cursor: 0, limit: 1_000 }).items.map(
+        (option) => option.key,
+      ),
+    );
+
+    expect(page.alternativeTonalFlows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "rareCircles" }),
+        expect.objectContaining({ id: "communityComposer" }),
+        expect.objectContaining({ id: "communityGenes" }),
+        expect.objectContaining({ id: "savedContent" }),
+      ]),
+    );
+    expect(page.alternativeTonalFlows).toHaveLength(4);
+    for (const flow of page.alternativeTonalFlows) {
+      expect(flow.title).toBeTruthy();
+      expect(flow.description).toBeTruthy();
+      expect(flow.roleKeys.length).toBeGreaterThan(0);
+      expect(flow.roleKeys.every((key) => allRoles.has(key))).toBe(true);
+    }
   });
 
   it("searches exact bilingual wording without returning the full catalog", () => {

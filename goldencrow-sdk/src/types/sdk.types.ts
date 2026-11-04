@@ -972,6 +972,8 @@ export interface PublisherAppConfigColors {
   tertiary: string;
   counterpointClockwise: string;
   counterpointAnticlockwise: string;
+  counterpointFarClockwise: string;
+  counterpointFarAnticlockwise: string;
 }
 
 export interface PublisherAppSemanticColors {

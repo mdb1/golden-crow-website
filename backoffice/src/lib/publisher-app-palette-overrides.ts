@@ -1,10 +1,15 @@
 import type {
+  PublisherAppAlternativeTonalFlow,
   PublisherAppColorCatalogOption,
   PublisherAppColorOverride,
   PublisherAppColors,
+  PublisherAppCounterpointColors,
   PublisherAppPaletteOverridePlan,
 } from "@/lib/publisher-app-config";
-import { normalizePublisherAppColor } from "@/lib/publisher-app-config";
+import {
+  normalizePublisherAppColor,
+  PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTER_KEYS,
+} from "@/lib/publisher-app-config";
 
 type RgbColor = {
   red: number;
@@ -31,7 +36,15 @@ type PaletteRolePolicy =
   | "tertiary"
   | "counterpointClockwise"
   | "counterpointAnticlockwise"
+  | "alternativeTonalFlow"
   | "analogous";
+
+type AlternativeTonalFlowPalette = {
+  anchorKey: string;
+  centerHex: string;
+  centerHue: number;
+  sourceHue: number;
+};
 
 type ThemePalette = {
   seedHex: [string, string, string];
@@ -43,6 +56,7 @@ type ThemePalette = {
   counterpointAnticlockwiseHex: string;
   counterpointClockwiseHue: number;
   counterpointAnticlockwiseHue: number;
+  alternativeTonalFlowByRoleKey: Map<string, AlternativeTonalFlowPalette>;
 };
 
 type PaletteCandidate = {
@@ -79,11 +93,15 @@ type LearnBackgroundTone = {
  *    identities. Today that exception is the four-tile Connect quick-access
  *    row, the central Discover tab and selected Learn atmospheric effects.
  *    General navigation, surfaces, text and semantic states never inherit them.
- * 6. Every other chromatic role keeps its perceptual lightness and its original
+ * 6. Alternative tonal flows each receive one of the four counterpoint centers.
+ *    Their roles retain internal hue, lightness and alpha differences around
+ *    that local center; neutral foregrounds, semantic states and deep dark-mode
+ *    foundations remain untouched.
+ * 7. Every other chromatic role keeps its perceptual lightness and its original
  *    hue relationship. The source hue wheel is compressed into a broad
  *    analogous family instead of being collapsed onto three near-identical
  *    anchors.
- * 7. There is no target count or quota. Every branding-susceptible chromatic
+ * 8. There is no target count or quota. Every branding-susceptible chromatic
  *    role is transformed; every unchanged or protected role is omitted.
  */
 
@@ -144,6 +162,15 @@ const DEEP_ATMOSPHERIC_EFFECT_PATTERN =
   /\b(accent|glow|orb|halo|highlight|ribbon|particle|star|sheen|border|outline|text|ink|icon)\b/i;
 const DEEP_BACKGROUND_GRADIENT_PATTERN =
   /\bgradient\s*(top|middle|bottom|fade|stop\s*\d*)\b/i;
+const ALTERNATIVE_FLOW_HUE_COMPRESSION = 0.07;
+const ALTERNATIVE_FLOW_MAX_HUE_DISTANCE = 6;
+
+const ALTERNATIVE_TONAL_FLOW_ANCHOR_KEYS = {
+  rareCircles: "scientific.rhizoPinkBase",
+  communityComposer: "community.newPost.headerAccent",
+  communityGenes: "community.genes.primary",
+  savedContent: "savedContent.headerStart",
+} as const;
 
 const LEARN_BACKGROUND_SECONDARY_TONES: Record<
   string,
@@ -377,7 +404,72 @@ function isDeepDarkStructure(
   );
 }
 
-function rolePolicy(option: PublisherAppColorCatalogOption): PaletteRolePolicy {
+function alternativeTonalFlowCenterKey(id: string) {
+  if (!(id in PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTER_KEYS)) {
+    return undefined;
+  }
+  return PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTER_KEYS[
+    id as keyof typeof PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTER_KEYS
+  ];
+}
+
+function buildAlternativeTonalFlowRoleMap(
+  flows: PublisherAppAlternativeTonalFlow[],
+  options: PublisherAppColorCatalogOption[],
+  counterpoints: PublisherAppCounterpointColors,
+) {
+  const optionByKey = new Map(options.map((option) => [option.key, option]));
+  const roleMap = new Map<string, AlternativeTonalFlowPalette>();
+
+  for (const flow of flows) {
+    const centerKey = alternativeTonalFlowCenterKey(flow.id);
+    const anchorKey =
+      ALTERNATIVE_TONAL_FLOW_ANCHOR_KEYS[
+        flow.id as keyof typeof ALTERNATIVE_TONAL_FLOW_ANCHOR_KEYS
+      ];
+    if (!centerKey || !anchorKey) continue;
+    const anchor = optionByKey.get(anchorKey);
+    if (!anchor || !flow.roleKeys.includes(anchorKey)) {
+      throw new Error(
+        `Alternative tonal flow ${flow.id} is missing its anchor ${anchorKey}.`,
+      );
+    }
+    const sourceAnchor = rgbToOklch(parseColor(anchor.defaultLightColor));
+    if (sourceAnchor.chroma <= ACHROMATIC_CHROMA) {
+      throw new Error(
+        `Alternative tonal flow ${flow.id} needs a chromatic anchor.`,
+      );
+    }
+    const centerHex = counterpoints[centerKey];
+    const flowPalette: AlternativeTonalFlowPalette = {
+      anchorKey,
+      centerHex,
+      centerHue: rgbToOklch(parseColor(centerHex)).hue,
+      sourceHue: sourceAnchor.hue,
+    };
+
+    for (const roleKey of flow.roleKeys) {
+      if (!optionByKey.has(roleKey)) {
+        throw new Error(
+          `Alternative tonal flow ${flow.id} references unknown role ${roleKey}.`,
+        );
+      }
+      if (roleMap.has(roleKey)) {
+        throw new Error(
+          `Alternative tonal flow role ${roleKey} belongs to multiple flows.`,
+        );
+      }
+      roleMap.set(roleKey, flowPalette);
+    }
+  }
+
+  return roleMap;
+}
+
+function rolePolicy(
+  option: PublisherAppColorCatalogOption,
+  palette: ThemePalette,
+): PaletteRolePolicy {
   const directPolicy = DIRECT_ROLE_POLICY[option.key];
   if (directPolicy) return directPolicy;
   if (
@@ -387,6 +479,9 @@ function rolePolicy(option: PublisherAppColorCatalogOption): PaletteRolePolicy {
     return "learnBackground";
   }
   if (shouldPreserveOption(option)) return "preserve";
+  if (palette.alternativeTonalFlowByRoleKey.has(option.key)) {
+    return "alternativeTonalFlow";
+  }
   const accessoryPolicy = ACCESSORY_COUNTERPOINT_POLICY.find(({ pattern }) =>
     pattern.test(option.key),
   );
@@ -493,6 +588,7 @@ function learnBackgroundColor(
 function buildThemePalette(
   colors: PublisherAppColors,
   options: PublisherAppColorCatalogOption[],
+  alternativeTonalFlows: PublisherAppAlternativeTonalFlow[],
 ): ThemePalette {
   const seedHex = normalizedPalette(colors);
   const counterpointClockwise = normalizePublisherAppColor(
@@ -501,9 +597,26 @@ function buildThemePalette(
   const counterpointAnticlockwise = normalizePublisherAppColor(
     colors.counterpointAnticlockwise,
   );
-  if (!counterpointClockwise || !counterpointAnticlockwise) {
+  const counterpointFarClockwise = normalizePublisherAppColor(
+    colors.counterpointFarClockwise,
+  );
+  const counterpointFarAnticlockwise = normalizePublisherAppColor(
+    colors.counterpointFarAnticlockwise,
+  );
+  if (
+    !counterpointClockwise ||
+    !counterpointAnticlockwise ||
+    !counterpointFarClockwise ||
+    !counterpointFarAnticlockwise
+  ) {
     throw new Error("The selected palette has invalid counterpoint colors.");
   }
+  const counterpoints: PublisherAppCounterpointColors = {
+    counterpointClockwise,
+    counterpointAnticlockwise,
+    counterpointFarClockwise,
+    counterpointFarAnticlockwise,
+  };
   const seeds = seedHex.map((value) => rgbToOklch(parseColor(value))) as [
     OklchColor,
     OklchColor,
@@ -541,6 +654,11 @@ function buildThemePalette(
     counterpointAnticlockwiseHue: rgbToOklch(
       parseColor(counterpointAnticlockwise),
     ).hue,
+    alternativeTonalFlowByRoleKey: buildAlternativeTonalFlowRoleMap(
+      alternativeTonalFlows,
+      options,
+      counterpoints,
+    ),
   };
 }
 
@@ -564,6 +682,41 @@ function analogousHue(originalHue: number, palette: ThemePalette) {
   );
   return normalizeHue(
     palette.centerHue + nearestAnalogousOffset(compressedDifference),
+  );
+}
+
+function alternativeTonalFlowColor(
+  original: OklchColor,
+  alpha: string,
+  palette: ThemePalette,
+  option: PublisherAppColorCatalogOption,
+) {
+  const flow = palette.alternativeTonalFlowByRoleKey.get(option.key);
+  if (!flow) {
+    throw new Error(`Missing alternative tonal flow for ${option.key}.`);
+  }
+  if (option.key === flow.anchorKey) {
+    return `${flow.centerHex}${alpha}`;
+  }
+
+  const sourceDifference = signedHueDifference(original.hue, flow.sourceHue);
+  const localDifference = clamp(
+    sourceDifference * ALTERNATIVE_FLOW_HUE_COMPRESSION,
+    -ALTERNATIVE_FLOW_MAX_HUE_DISTANCE,
+    ALTERNATIVE_FLOW_MAX_HUE_DISTANCE,
+  );
+  const targetChroma = clamp(
+    original.chroma + (palette.baseChroma - original.chroma) * 0.72,
+    Math.min(original.chroma, 0.08),
+    0.3,
+  );
+  return oklchToHex(
+    {
+      lightness: original.lightness,
+      chroma: targetChroma,
+      hue: normalizeHue(flow.centerHue + localDifference),
+    },
+    alpha,
   );
 }
 
@@ -617,6 +770,10 @@ function coordinatedColor(
     return normalizedOriginal;
   }
 
+  if (policy === "alternativeTonalFlow") {
+    return alternativeTonalFlowColor(original, rgb.alpha, palette, option);
+  }
+
   if (policy === "vividPrimary") {
     return `${palette.vividPrimaryHex}${rgb.alpha}`;
   }
@@ -663,7 +820,7 @@ function candidateForOption(
   option: PublisherAppColorCatalogOption,
   palette: ThemePalette,
 ): PaletteCandidate | null {
-  const policy = rolePolicy(option);
+  const policy = rolePolicy(option, palette);
   if (policy === "preserve") return null;
   const override = {
     light: coordinatedColor(
@@ -694,13 +851,14 @@ export function createPublisherAppPaletteOverridePlan(
   colors: PublisherAppColors,
   options: PublisherAppColorCatalogOption[],
   catalogVersion: number,
+  alternativeTonalFlows: PublisherAppAlternativeTonalFlow[] = [],
 ): PublisherAppPaletteOverridePlan {
   if (options.length === 0) {
     throw new Error(
       "The color catalog is too small to build the palette plan.",
     );
   }
-  const palette = buildThemePalette(colors, options);
+  const palette = buildThemePalette(colors, options, alternativeTonalFlows);
   const candidates = options
     .map((option) => candidateForOption(option, palette))
     .filter((candidate): candidate is PaletteCandidate => candidate !== null)

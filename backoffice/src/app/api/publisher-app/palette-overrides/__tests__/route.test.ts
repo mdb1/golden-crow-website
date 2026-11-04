@@ -68,8 +68,8 @@ describe("custom app palette override route", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(body).toMatchObject({
-      catalogVersion: 3,
-      sourceCount: 576,
+      catalogVersion: 5,
+      sourceCount: 620,
     });
     expect(body.selectedCount).toBe(Object.keys(body.colorOverrides).length);
     expect(body.selectedCount).toBeGreaterThan(0);
@@ -81,6 +81,9 @@ describe("custom app palette override route", () => {
           expect.any(Object),
         "discover.requestLauncher.ribbonStart": expect.any(Object),
         "discover.variantFinder.metricVariants": expect.any(Object),
+        "community.newPost.headerAccent": expect.any(Object),
+        "community.genes.primary": expect.any(Object),
+        "savedContent.headerStart": expect.any(Object),
       }),
     );
   });

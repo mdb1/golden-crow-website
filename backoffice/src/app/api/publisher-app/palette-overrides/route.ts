@@ -42,6 +42,7 @@ export async function POST(request: Request) {
     publisherAppColorsWithCounterpoints({ primary, secondary, tertiary }),
     catalog.options,
     catalog.catalogVersion,
+    catalog.alternativeTonalFlows,
   );
   return Response.json(plan, {
     headers: { "Cache-Control": "private, no-store" },

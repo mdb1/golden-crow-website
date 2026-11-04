@@ -2,6 +2,7 @@ import "server-only";
 import { readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import type {
+  PublisherAppAlternativeTonalFlow,
   PublisherAppColorCatalogOption,
   PublisherAppCustomizationCatalogPage,
   PublisherAppTextCatalogOption,
@@ -14,6 +15,7 @@ type TextCatalog = {
 
 type ColorCatalog = {
   catalogVersion: number;
+  alternativeTonalFlows: PublisherAppAlternativeTonalFlow[];
   options: PublisherAppColorCatalogOption[];
 };
 
@@ -122,18 +124,21 @@ export function searchPublisherAppColorCatalog(input: {
     ...new Set(catalog.options.map((option) => option.group)),
   ].sort((left, right) => left.localeCompare(right));
 
-  return pageCatalog(
-    catalog.options,
-    catalog.catalogVersion,
-    groups,
-    (option) => {
-      if (group && option.group !== group) return false;
-      return matchesSearch(
-        [option.key, option.title, option.usageDescription, option.group],
-        query,
-      );
-    },
-    input.cursor,
-    input.limit,
-  );
+  return {
+    ...pageCatalog(
+      catalog.options,
+      catalog.catalogVersion,
+      groups,
+      (option) => {
+        if (group && option.group !== group) return false;
+        return matchesSearch(
+          [option.key, option.title, option.usageDescription, option.group],
+          query,
+        );
+      },
+      input.cursor,
+      input.limit,
+    ),
+    alternativeTonalFlows: catalog.alternativeTonalFlows,
+  };
 }

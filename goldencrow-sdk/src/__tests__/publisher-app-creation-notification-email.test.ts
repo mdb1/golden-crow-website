@@ -33,6 +33,8 @@ const config: PublisherAppConfigRecord = {
     tertiary: "#F59E0B",
     counterpointClockwise: "#EC15CE",
     counterpointAnticlockwise: "#1562EC",
+    counterpointFarClockwise: "#EC1562",
+    counterpointFarAnticlockwise: "#15CEEC",
   },
   iconSource: "publisher",
   iconImageUrl: "https://example.org/icon.png",

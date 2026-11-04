@@ -192,6 +192,8 @@ const PublisherAppConfigBodyShape = {
       tertiary: HexColorSchema,
       counterpointClockwise: HexColorSchema.optional(),
       counterpointAnticlockwise: HexColorSchema.optional(),
+      counterpointFarClockwise: HexColorSchema.optional(),
+      counterpointFarAnticlockwise: HexColorSchema.optional(),
     })
     .strict()
     .transform(({ primary, secondary, tertiary }) => ({

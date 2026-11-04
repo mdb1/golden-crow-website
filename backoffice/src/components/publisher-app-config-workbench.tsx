@@ -199,7 +199,7 @@ type ColorField =
       label: string;
       description: string;
       editable: false;
-      hueShift: "+45°" | "−45°";
+      hueShift: "+45°" | "−45°" | "+75°" | "−75°";
     };
 
 const COLOR_FIELDS: ColorField[] = [
@@ -236,6 +236,22 @@ const COLOR_FIELDS: ColorField[] = [
       "Acento accesorio opuesto para separar elementos excepcionales.",
     editable: false,
     hueShift: "−45°",
+  },
+  {
+    key: "counterpointFarClockwise",
+    label: "Color de contrapunto lejano horario",
+    description:
+      "Centro tonal alternativo para experiencias locales que necesitan mayor separación.",
+    editable: false,
+    hueShift: "+75°",
+  },
+  {
+    key: "counterpointFarAnticlockwise",
+    label: "Color de contrapunto lejano antihorario",
+    description:
+      "Centro tonal alternativo opuesto para una cuarta familia expresiva.",
+    editable: false,
+    hueShift: "−75°",
   },
 ];
 
@@ -1257,7 +1273,7 @@ function PublisherAppEditSheet({
     colors: {
       title: "Editar identidad visual",
       description:
-        "Elegí los tres colores base; los dos contrapuntos se derivan del principal.",
+        "Elegí los tres colores base; los cuatro contrapuntos se derivan del principal.",
     },
     icon: {
       title: "Editar icono de la app",
@@ -1577,7 +1593,7 @@ function PublisherAppEditSheet({
               testId="publisher-app-edit-colors"
               icon={<Palette className="size-5" />}
               title="Identidad visual"
-              description="Tres colores base y dos contrapuntos accesorios derivados del principal."
+              description="Tres colores base y cuatro contrapuntos accesorios derivados del principal."
               actionLabel="Editar paleta"
               onAction={() => setActiveDialog("colors")}
             >
@@ -3404,8 +3420,9 @@ export function PublisherAppConfigWorkbench({
                       Ajustá los tres colores base
                     </p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Los dos contrapuntos se calculan automáticamente a ±45°
-                      del color principal y se reservan para acentos puntuales.
+                      Los cuatro contrapuntos se calculan automáticamente a
+                      ±45° y ±75° del color principal. Funcionan como centros
+                      para acentos puntuales y flujos tonales alternativos.
                     </p>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

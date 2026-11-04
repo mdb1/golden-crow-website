@@ -47,6 +47,8 @@ const config: PublisherAppConfig = {
     tertiary: "#FEDCBA",
     counterpointClockwise: "#7D12E2",
     counterpointAnticlockwise: "#12DFE2",
+    counterpointFarClockwise: "#E212DF",
+    counterpointFarAnticlockwise: "#12E27D",
   },
   iconSource: "publisher",
   iconImageUrl: null,

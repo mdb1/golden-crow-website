@@ -66,22 +66,31 @@ describe("publisher app automatic palette overrides", () => {
   const optionByKey = new Map(
     catalog.options.map((option) => [option.key, option]),
   );
+  const alternativeTonalRoleKeys = new Set(
+    catalog.alternativeTonalFlows.flatMap((flow) => flow.roleKeys),
+  );
   const colors = publisherAppColorsWithCounterpoints({
     primary: "#FF5500",
     secondary: "#FFB21F",
     tertiary: "#F58220",
   });
-
-  it("selects every branding-susceptible chromatic role without a quota", () => {
-    const plan = createPublisherAppPaletteOverridePlan(
-      colors,
-      catalog.options,
+  const createCatalogPlan = (
+    palette = colors,
+    options = catalog.options,
+  ) =>
+    createPublisherAppPaletteOverridePlan(
+      palette,
+      options,
       catalog.catalogVersion,
+      catalog.alternativeTonalFlows,
     );
 
-    expect(catalog.catalogVersion).toBe(3);
-    expect(catalog.options).toHaveLength(576);
-    expect(plan.sourceCount).toBe(576);
+  it("selects every branding-susceptible chromatic role without a quota", () => {
+    const plan = createCatalogPlan();
+
+    expect(catalog.catalogVersion).toBe(5);
+    expect(catalog.options).toHaveLength(620);
+    expect(plan.sourceCount).toBe(620);
     expect(plan.selectedCount).toBe(Object.keys(plan.colorOverrides).length);
     expect(plan.selectedCount).toBeGreaterThan(0);
     expect(plan.selectedCount).toBeLessThan(plan.sourceCount);
@@ -108,6 +117,10 @@ describe("publisher app automatic palette overrides", () => {
       "discover.feed.tint",
       "discover.requestLauncher.ribbonStart",
       "discover.variantFinder.metricVariants",
+      "community.newPost.headerAccent",
+      "community.genes.primary",
+      "savedContent.headerStart",
+      "illustration.primaryTone",
     ];
     expect(
       requiredKeys.filter((key) => plan.colorOverrides[key] === undefined),
@@ -159,12 +172,65 @@ describe("publisher app automatic palette overrides", () => {
     }
   });
 
+  it("gives each alternative tonal flow its own counterpoint center without mutating protected roles", () => {
+    const plan = createCatalogPlan();
+    const centers = {
+      rareCircles: {
+        anchor: "scientific.rhizoPinkBase",
+        color: colors.counterpointAnticlockwise,
+      },
+      communityComposer: {
+        anchor: "community.newPost.headerAccent",
+        color: colors.counterpointFarAnticlockwise,
+      },
+      communityGenes: {
+        anchor: "community.genes.primary",
+        color: colors.counterpointFarClockwise,
+      },
+      savedContent: {
+        anchor: "savedContent.headerStart",
+        color: colors.counterpointClockwise,
+      },
+    } as const;
+
+    for (const [flowId, center] of Object.entries(centers)) {
+      expect(
+        catalog.alternativeTonalFlows.find((flow) => flow.id === flowId),
+      ).toBeDefined();
+      expect(plan.colorOverrides[center.anchor]).toEqual({
+        light: center.color,
+        dark: center.color,
+      });
+    }
+
+    for (const protectedKey of [
+      "community.newPost.completion",
+      "community.newPost.selectedForeground",
+      "community.genes.actionForeground",
+      "savedContent.errorAccent",
+      "savedContent.retryForeground",
+      "savedContent.backgroundBase",
+    ]) {
+      expect(plan.colorOverrides[protectedKey]).toBeUndefined();
+    }
+
+    for (const flow of catalog.alternativeTonalFlows) {
+      const center = centers[flow.id as keyof typeof centers];
+      expect(center).toBeDefined();
+      const centerHue = colorHue(center.color);
+      const transformed = flow.roleKeys
+        .map((key) => plan.colorOverrides[key]?.light)
+        .filter((color): color is string => Boolean(color))
+        .filter((color) => colorSaturation(color) >= 20);
+      expect(transformed.length).toBeGreaterThan(0);
+      for (const color of transformed) {
+        expect(hueDistance(colorHue(color), centerHue)).toBeLessThanOrEqual(42);
+      }
+    }
+  });
+
   it("composes Learn from the secondary color with sparse clockwise effects and explicit tab roles", () => {
-    const plan = createPublisherAppPaletteOverridePlan(
-      colors,
-      catalog.options,
-      catalog.catalogVersion,
-    );
+    const plan = createCatalogPlan();
 
     for (const key of ["tabs.learn.start", "tabs.learn.end"]) {
       expect(plan.colorOverrides[key]).toEqual({
@@ -243,11 +309,7 @@ describe("publisher app automatic palette overrides", () => {
   });
 
   it("protects deep dark structures while allowing atmospheric accents above them to adapt", () => {
-    const plan = createPublisherAppPaletteOverridePlan(
-      colors,
-      catalog.options,
-      catalog.catalogVersion,
-    );
+    const plan = createCatalogPlan();
     const protectedNightKeys = [
       "discover.background.standard1",
       "discover.background.standard2",
@@ -323,14 +385,12 @@ describe("publisher app automatic palette overrides", () => {
 
   it("lifts a dark or washed primary into a vivid level-one accent on the same hue", () => {
     for (const mutedPrimary of ["#5A443C", "#D8C7C0"]) {
-      const plan = createPublisherAppPaletteOverridePlan(
+      const plan = createCatalogPlan(
         publisherAppColorsWithCounterpoints({
           primary: mutedPrimary,
           secondary: "#FFB21F",
           tertiary: "#F58220",
         }),
-        catalog.options,
-        catalog.catalogVersion,
       );
       const bacteria = plan.colorOverrides["learn.level.bacteria.accent"];
       const gradientEnd =
@@ -363,11 +423,7 @@ describe("publisher app automatic palette overrides", () => {
         secondary: "#FFB21F",
         tertiary: "#F58220",
       });
-      const plan = createPublisherAppPaletteOverridePlan(
-        palette,
-        catalog.options,
-        catalog.catalogVersion,
-      );
+      const plan = createCatalogPlan(palette);
       const accent = plan.colorOverrides["learn.level.bacteria.accent"].light!;
       const gradientEnd =
         plan.colorOverrides["learn.level.bacteria.gradientEnd"].light!;
@@ -395,12 +451,8 @@ describe("publisher app automatic palette overrides", () => {
     },
   );
 
-  it("uses counterpoints only for the two accessory tiles in the four-item community row", () => {
-    const plan = createPublisherAppPaletteOverridePlan(
-      colors,
-      catalog.options,
-      catalog.catalogVersion,
-    );
+  it("uses the near counterpoints for the assigned accessory community tiles", () => {
+    const plan = createCatalogPlan();
     const clockwiseHue = colorHue(colors.counterpointClockwise);
     const anticlockwiseHue = colorHue(colors.counterpointAnticlockwise);
 
@@ -439,11 +491,7 @@ describe("publisher app automatic palette overrides", () => {
   });
 
   it("keeps extreme variants exact and retains every catalog alpha channel", () => {
-    const plan = createPublisherAppPaletteOverridePlan(
-      colors,
-      catalog.options,
-      catalog.catalogVersion,
-    );
+    const plan = createCatalogPlan();
 
     for (const [key, override] of Object.entries(plan.colorOverrides)) {
       const original = optionByKey.get(key)!;
@@ -469,11 +517,7 @@ describe("publisher app automatic palette overrides", () => {
   });
 
   it("maps red, blue and green families to distinct related hues", () => {
-    const plan = createPublisherAppPaletteOverridePlan(
-      colors,
-      catalog.options,
-      catalog.catalogVersion,
-    );
+    const plan = createCatalogPlan();
     const keys = [
       "discover.category.news.accent",
       "discover.category.researchUpdate.accent",
@@ -502,7 +546,8 @@ describe("publisher app automatic palette overrides", () => {
       .filter(
         ([key]) =>
           !/^community\.quickActions\.(?:circles|search)\./.test(key) &&
-          !/^tabs\.discover\./.test(key),
+          !/^tabs\.discover\./.test(key) &&
+          !alternativeTonalRoleKeys.has(key),
       )
       .flatMap(([key, override]) => {
         const original = optionByKey.get(key)!;
@@ -536,16 +581,8 @@ describe("publisher app automatic palette overrides", () => {
   });
 
   it("returns the same coordinated catalog for the same palette", () => {
-    const first = createPublisherAppPaletteOverridePlan(
-      colors,
-      catalog.options,
-      catalog.catalogVersion,
-    );
-    const second = createPublisherAppPaletteOverridePlan(
-      colors,
-      [...catalog.options].reverse(),
-      catalog.catalogVersion,
-    );
+    const first = createCatalogPlan();
+    const second = createCatalogPlan(colors, [...catalog.options].reverse());
 
     expect(second).toEqual(first);
   });

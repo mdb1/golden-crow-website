@@ -69,6 +69,8 @@ const savedConfig: PublisherAppConfig = {
     tertiary: "#FEDCBA",
     counterpointClockwise: "#7D12E2",
     counterpointAnticlockwise: "#12DFE2",
+    counterpointFarClockwise: "#E212DF",
+    counterpointFarAnticlockwise: "#12E27D",
   },
   iconSource: "publisher",
   iconImageUrl: "https://example.org/icon.png",
@@ -690,6 +692,14 @@ describe("PublisherAppConfigWorkbench", () => {
             groups: ["Brand"],
             totalCount: 1,
             nextCursor: null,
+            alternativeTonalFlows: [
+              {
+                id: "savedContent",
+                title: "Saved Content",
+                description: "A coordinated local palette.",
+                roleKeys: ["brand.primary"],
+              },
+            ],
             items: [
               {
                 key: "brand.primary",
@@ -802,6 +812,9 @@ describe("PublisherAppConfigWorkbench", () => {
     fireEvent.click(catalogCheckbox);
     expect(catalogCheckbox).toHaveAttribute("aria-checked", "false");
     fireEvent.click(screen.getByRole("button", { name: "Agregar color" }));
+    expect(await screen.findByText("Flujos tonales alternativos")).toBeTruthy();
+    expect(screen.getByText("Saved Content")).toBeTruthy();
+    expect(screen.getByText("Contrapunto horario")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Buscar opciones disponibles"), {
       target: { value: "brand primary" },
     });
@@ -812,12 +825,15 @@ describe("PublisherAppConfigWorkbench", () => {
       ),
     );
     expect(await screen.findByText("1 color disponible")).toBeTruthy();
-    expect(
-      jest
-        .mocked(fetchPublisherAppCustomizationCatalog)
-        .mock.calls.at(-1)?.[1]
-        .toString(),
-    ).toContain("q=brand+primary");
+    await waitFor(() =>
+      expect(
+        jest
+          .mocked(fetchPublisherAppCustomizationCatalog)
+          .mock.calls.some(([, params]) =>
+            params.toString().includes("q=brand+primary"),
+          ),
+      ).toBe(true),
+    );
     const colorOption = await screen.findByRole("button", {
       name: /Primary.*brand\.primary/i,
     });
@@ -1336,7 +1352,13 @@ describe("PublisherAppConfigWorkbench", () => {
     ).toBeNull();
     expect(screen.getByText("Color de contrapunto horario")).toBeTruthy();
     expect(screen.getByText("Color de contrapunto antihorario")).toBeTruthy();
-    expect(screen.getAllByText(/Derivado del principal ·/)).toHaveLength(2);
+    expect(
+      screen.getByText("Color de contrapunto lejano horario"),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("Color de contrapunto lejano antihorario"),
+    ).toBeTruthy();
+    expect(screen.getAllByText(/Derivado del principal ·/)).toHaveLength(4);
     expect(
       screen.queryByLabelText("Elegir color de contrapunto horario"),
     ).toBeNull();
@@ -1379,6 +1401,8 @@ describe("PublisherAppConfigWorkbench", () => {
         primary: expect.stringMatching(/^#[0-9A-F]{6}$/),
         secondary: expect.stringMatching(/^#[0-9A-F]{6}$/),
         tertiary: expect.stringMatching(/^#[0-9A-F]{6}$/),
+        counterpointFarClockwise: expect.stringMatching(/^#[0-9A-F]{6}$/),
+        counterpointFarAnticlockwise: expect.stringMatching(/^#[0-9A-F]{6}$/),
       }),
       expect.any(AbortSignal),
     );
@@ -1397,15 +1421,15 @@ describe("PublisherAppConfigWorkbench", () => {
       ]),
     );
     resolvePlan!({
-      catalogVersion: 3,
-      sourceCount: 576,
+      catalogVersion: 5,
+      sourceCount: 620,
       selectedCount: 3,
       colorOverrides,
     });
 
     expect(
       await screen.findByText(
-        /3 colores sensibles a la marca quedaron coordinados.*573 conservaron/i,
+        /3 colores sensibles a la marca quedaron coordinados.*617 conservaron/i,
       ),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Listo" })).toBeEnabled();

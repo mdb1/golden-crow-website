@@ -121,6 +121,8 @@ function mockPublisherHomeData(
                 tertiary: "#FEDCBA",
                 counterpointClockwise: "#7D12E2",
                 counterpointAnticlockwise: "#12DFE2",
+                counterpointFarClockwise: "#E212DF",
+                counterpointFarAnticlockwise: "#12E27D",
               },
               schemaVersion: 1,
               createdAt: "2026-10-30T12:00:00.000Z",

@@ -99,8 +99,13 @@ export function derivePublisherAppCounterpointColors(primary: string) {
   return {
     counterpointClockwise: hslToHex(hue + 45, saturation, lightness),
     counterpointAnticlockwise: hslToHex(hue - 45, saturation, lightness),
+    counterpointFarClockwise: hslToHex(hue + 75, saturation, lightness),
+    counterpointFarAnticlockwise: hslToHex(hue - 75, saturation, lightness),
   } satisfies Pick<
     PublisherAppConfigColors,
-    "counterpointClockwise" | "counterpointAnticlockwise"
+    | "counterpointClockwise"
+    | "counterpointAnticlockwise"
+    | "counterpointFarClockwise"
+    | "counterpointFarAnticlockwise"
   >;
 }

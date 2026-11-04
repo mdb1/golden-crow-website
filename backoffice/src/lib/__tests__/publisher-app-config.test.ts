@@ -72,13 +72,17 @@ describe("publisher app color palettes", () => {
       tertiary: "#F4852A",
       counterpointClockwise: "#EAFF00",
       counterpointAnticlockwise: "#FF006A",
+      counterpointFarClockwise: "#6AFF00",
+      counterpointFarAnticlockwise: "#FF00EA",
     });
   });
 
-  it("derives vivid clockwise and anticlockwise counterpoints at forty-five degrees", () => {
+  it("derives vivid near and far counterpoints at forty-five and seventy-five degrees", () => {
     expect(publisherAppCounterpointColors("#FFFF00")).toEqual({
       counterpointClockwise: "#40FF00",
       counterpointAnticlockwise: "#FF4000",
+      counterpointFarClockwise: "#00FF40",
+      counterpointFarAnticlockwise: "#FF0040",
     });
 
     const primaryHue = hslFromHex("#FF5500").hue;
@@ -93,6 +97,18 @@ describe("publisher app color palettes", () => {
       circularHueDistance(
         hslFromHex(counterpoints.counterpointAnticlockwise).hue,
         primaryHue - 45,
+      ),
+    ).toBeLessThan(1);
+    expect(
+      circularHueDistance(
+        hslFromHex(counterpoints.counterpointFarClockwise).hue,
+        primaryHue + 75,
+      ),
+    ).toBeLessThan(1);
+    expect(
+      circularHueDistance(
+        hslFromHex(counterpoints.counterpointFarAnticlockwise).hue,
+        primaryHue - 75,
       ),
     ).toBeLessThan(1);
   });

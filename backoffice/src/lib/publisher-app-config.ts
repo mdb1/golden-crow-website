@@ -24,6 +24,8 @@ export type PublisherAppColors = {
   tertiary: string;
   counterpointClockwise: string;
   counterpointAnticlockwise: string;
+  counterpointFarClockwise: string;
+  counterpointFarAnticlockwise: string;
 };
 
 export type PublisherAppBaseColors = Pick<
@@ -33,8 +35,27 @@ export type PublisherAppBaseColors = Pick<
 
 export type PublisherAppCounterpointColors = Pick<
   PublisherAppColors,
-  "counterpointClockwise" | "counterpointAnticlockwise"
+  | "counterpointClockwise"
+  | "counterpointAnticlockwise"
+  | "counterpointFarClockwise"
+  | "counterpointFarAnticlockwise"
 >;
+
+export type PublisherAppAlternativeTonalFlow = {
+  id: string;
+  title: string;
+  description: string;
+  roleKeys: string[];
+};
+
+// Discovery metadata stays in the catalog; only the resulting exact role keys
+// and light/dark values are persisted under branding.colorOverrides.
+export const PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTER_KEYS = {
+  rareCircles: "counterpointAnticlockwise",
+  communityComposer: "counterpointFarAnticlockwise",
+  communityGenes: "counterpointFarClockwise",
+  savedContent: "counterpointClockwise",
+} as const satisfies Record<string, keyof PublisherAppCounterpointColors>;
 
 export type PublisherAppSemanticColors = {
   primary: string;
@@ -193,6 +214,7 @@ export type PublisherAppCustomizationCatalogPage<T> = {
   groups: string[];
   totalCount: number;
   nextCursor: string | null;
+  alternativeTonalFlows?: PublisherAppAlternativeTonalFlow[];
 };
 
 export type PublisherAppPaletteOverridePlan = {
@@ -433,9 +455,10 @@ function hslToHex(hue: number, saturation: number, lightness: number) {
 }
 
 /**
- * Counterpoints are accessory colors on either side of the primary hue. They
- * deliberately stay out of the three-color core palette and are reserved for
- * exceptional multi-accent layouts that need more separation.
+ * Counterpoints are accessory colors on either side of the primary hue. The
+ * near pair stays at 45 degrees and the far pair at 75 degrees. They remain
+ * outside the three-color runtime palette: the backoffice uses them as centers
+ * for coordinated colorOverrides and exceptional multi-accent layouts.
  */
 export function publisherAppCounterpointColors(
   primary: string,
@@ -450,6 +473,8 @@ export function publisherAppCounterpointColors(
   return {
     counterpointClockwise: hslToHex(hue + 45, saturation, lightness),
     counterpointAnticlockwise: hslToHex(hue - 45, saturation, lightness),
+    counterpointFarClockwise: hslToHex(hue + 75, saturation, lightness),
+    counterpointFarAnticlockwise: hslToHex(hue - 75, saturation, lightness),
   };
 }
 
