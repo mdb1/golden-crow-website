@@ -21,7 +21,6 @@ import {
   Search,
   ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
   Sun,
   Trash2,
 } from "lucide-react";
@@ -38,7 +37,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -243,6 +241,134 @@ function CatalogLoadingState() {
   );
 }
 
+function splitHexColor(value: string) {
+  const normalized = value.toUpperCase();
+  const color = /^#[0-9A-F]{6}/.test(normalized)
+    ? normalized.slice(0, 7)
+    : "#000000";
+  const opacity = /^#[0-9A-F]{8}$/.test(normalized)
+    ? Math.round((Number.parseInt(normalized.slice(7), 16) / 255) * 100)
+    : 100;
+  return { color, opacity };
+}
+
+function hexColorWithOpacity(color: string, opacity: number) {
+  if (opacity >= 100) return color.toUpperCase();
+  const alpha = Math.round((Math.max(0, opacity) / 100) * 255)
+    .toString(16)
+    .padStart(2, "0")
+    .toUpperCase();
+  return `${color.toUpperCase()}${alpha}`;
+}
+
+function ColorValueControl({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const initialColor = splitHexColor(value);
+  const [draft, setDraft] = useState(initialColor.color);
+  const [opacity, setOpacity] = useState(initialColor.opacity);
+  const draftValue = hexColorWithOpacity(draft, opacity);
+
+  const openPicker = () => {
+    const current = splitHexColor(value);
+    setDraft(current.color);
+    setOpacity(current.opacity);
+    setOpen(true);
+  };
+
+  return (
+    <>
+      <div className="rounded-2xl border bg-muted/25 p-4">
+        <p className="text-sm font-medium">{label}</p>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <span
+            aria-hidden="true"
+            className="size-11 rounded-full border-4 border-background shadow-sm ring-1 ring-border"
+            style={{ backgroundColor: value }}
+          />
+          <code className="min-w-0 flex-1 text-sm font-semibold">{value}</code>
+          <Button type="button" variant="outline" onClick={openPicker}>
+            Cambiar color
+          </Button>
+        </div>
+      </div>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cambiar color</DialogTitle>
+            <DialogDescription>
+              Elegí un nuevo valor para {label.toLowerCase()}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5 py-2">
+            <label className="relative flex cursor-pointer flex-col items-center justify-center rounded-3xl border bg-muted/25 p-8 text-center transition hover:bg-muted/45">
+              <span
+                className="size-32 rounded-full border-8 border-background shadow-lg ring-1 ring-border"
+                style={{ backgroundColor: draftValue }}
+              />
+              <span className="mt-5 font-semibold">Elegir otro color</span>
+              <span className="mt-1 text-sm text-muted-foreground">
+                Se abrirá el selector de color del sistema.
+              </span>
+              <input
+                aria-label={`Elegir ${label.toLowerCase()}`}
+                type="color"
+                className="absolute inset-0 cursor-pointer opacity-0"
+                value={draft}
+                onChange={(event) => setDraft(event.target.value.toUpperCase())}
+              />
+            </label>
+            <div className="flex items-center justify-between rounded-2xl border px-4 py-3">
+              <span className="text-sm text-muted-foreground">Hexadecimal</span>
+              <code className="font-semibold">{draftValue}</code>
+            </div>
+            <div className="rounded-2xl border px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium">Opacidad</span>
+                <span className="text-sm font-semibold">{opacity}%</span>
+              </div>
+              <input
+                aria-label={`Opacidad de ${label.toLowerCase()}`}
+                type="range"
+                min={0}
+                max={100}
+                value={opacity}
+                className="mt-3 w-full accent-foreground"
+                onChange={(event) => setOpacity(Number(event.target.value))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                onChange(draftValue);
+                setOpen(false);
+              }}
+            >
+              <Check className="size-4" /> Usar este color
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 function ColorOverridesEditor({
   value,
   onChange,
@@ -253,17 +379,30 @@ function ColorOverridesEditor({
   ) => void;
 }) {
   const [screen, setScreen] = useState<"loaded" | "browse" | "edit">("loaded");
+  const [returnScreen, setReturnScreen] = useState<"loaded" | "browse">(
+    "loaded",
+  );
   const [selected, setSelected] =
     useState<PublisherAppColorCatalogOption | null>(null);
   const [editing, setEditing] = useState<{ light?: string; dark?: string }>({});
+  const [colorPicker, setColorPicker] = useState<{
+    mode: "light" | "dark";
+    label: string;
+  } | null>(null);
+  const [pickerValue, setPickerValue] = useState("#000000");
+  const [pickerOpacity, setPickerOpacity] = useState(100);
   const catalog = useCustomizationCatalog<PublisherAppColorCatalogOption>(
     "colors",
     screen === "browse",
   );
 
-  const choose = (option: PublisherAppColorCatalogOption) => {
+  const choose = (
+    option: PublisherAppColorCatalogOption,
+    origin: "loaded" | "browse",
+  ) => {
     setSelected(option);
     setEditing(value[option.key] ?? { light: option.defaultLightColor });
+    setReturnScreen(origin);
     setScreen("edit");
   };
 
@@ -275,7 +414,7 @@ function ColorOverridesEditor({
         params,
       );
     const option = page.items.find((item) => item.key === key);
-    if (option) choose(option);
+    if (option) choose(option, "loaded");
   };
 
   if (screen === "edit" && selected) {
@@ -284,116 +423,223 @@ function ColorOverridesEditor({
       label: string,
       fallback: string,
     ) => {
-      const enabled = Boolean(editing[mode]);
+      const currentColor = editing[mode];
+      const enabled = Boolean(currentColor);
       const Icon = mode === "light" ? Sun : Moon;
       return (
-        <div
-          className={`rounded-3xl border p-5 transition ${enabled ? "border-violet-300 bg-violet-50/55 dark:bg-violet-500/8" : "bg-muted/25"}`}
-        >
+        <div className="rounded-3xl border bg-background p-5 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <span className="flex size-10 items-center justify-center rounded-2xl bg-background shadow-sm">
+              <span className="flex size-10 items-center justify-center rounded-2xl bg-muted">
                 <Icon className="size-5" />
               </span>
               <div>
                 <p className="font-semibold">{label}</p>
-                <p className="text-xs text-muted-foreground">Base {fallback}</p>
+                <p className="text-xs text-muted-foreground">
+                  {enabled ? "Override activo" : "Usando el color base"}
+                </p>
               </div>
             </div>
-            <Checkbox
-              aria-label={`Personalizar modo ${label.toLowerCase()}`}
-              checked={enabled}
-              onCheckedChange={(checked) =>
-                setEditing((current) =>
-                  checked
-                    ? { ...current, [mode]: fallback }
-                    : Object.fromEntries(
-                        Object.entries(current).filter(([key]) => key !== mode),
-                      ),
-                )
-              }
+            <Badge variant={enabled ? "default" : "secondary"}>
+              {enabled ? "Personalizado" : "Base"}
+            </Badge>
+          </div>
+          <div className="mt-5 flex flex-wrap items-center gap-4 rounded-2xl bg-muted/35 p-4">
+            <span
+              aria-hidden="true"
+              className="size-12 shrink-0 rounded-full border-4 border-background shadow-sm ring-1 ring-border"
+              style={{ backgroundColor: currentColor ?? fallback }}
             />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-muted-foreground">
+                Hexadecimal
+              </p>
+              <code className="mt-1 block text-sm font-semibold">
+                {currentColor ?? fallback}
+              </code>
+            </div>
+            {enabled ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  const current = splitHexColor(currentColor ?? fallback);
+                  setPickerValue(current.color);
+                  setPickerOpacity(current.opacity);
+                  setColorPicker({ mode, label });
+                }}
+              >
+                Cambiar color
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  setEditing((current) => ({ ...current, [mode]: fallback }))
+                }
+              >
+                Personalizar
+              </Button>
+            )}
           </div>
           {enabled ? (
-            <div className="mt-5 flex gap-3">
-              <Input
-                aria-label={`Selector ${label}`}
-                type="color"
-                className="h-11 w-16 p-1"
-                value={(editing[mode] ?? fallback).slice(0, 7)}
-                onChange={(event) =>
-                  setEditing((current) => ({
-                    ...current,
-                    [mode]: event.target.value.toUpperCase(),
-                  }))
-                }
-              />
-              <Input
-                aria-label={`Color ${label}`}
-                value={editing[mode] ?? ""}
-                placeholder="#RRGGBB o #RRGGBBAA"
-                onChange={(event) =>
-                  setEditing((current) => ({
-                    ...current,
-                    [mode]: event.target.value.toUpperCase(),
-                  }))
-                }
-              />
-            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="mt-3 text-muted-foreground"
+              onClick={() =>
+                setEditing((current) => {
+                  const next = { ...current };
+                  delete next[mode];
+                  return next;
+                })
+              }
+            >
+              Usar color base
+            </Button>
           ) : null}
         </div>
       );
     };
+    const pickerColorValue = hexColorWithOpacity(pickerValue, pickerOpacity);
     return (
-      <div className="space-y-6">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => setScreen("loaded")}
+      <>
+        <div className="space-y-6">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setScreen(returnScreen)}
+          >
+            <ArrowLeft className="size-4" /> Volver
+          </Button>
+          <div className="rounded-3xl border bg-muted/20 p-6">
+            <Badge variant="outline">{selected.group}</Badge>
+            <h4 className="mt-4 text-2xl font-semibold">{selected.title}</h4>
+            <code className="mt-2 block text-xs text-muted-foreground">
+              {selected.key}
+            </code>
+            <p className="mt-4 max-w-3xl text-sm leading-6 text-muted-foreground">
+              {selected.usageDescription}
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {modeCard("light", "Modo claro", selected.defaultLightColor)}
+            {modeCard("dark", "Modo oscuro", selected.defaultDarkColor)}
+          </div>
+          <div className="flex flex-wrap justify-between gap-3">
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={!value[selected.key]}
+              onClick={() => {
+                const next = { ...value };
+                delete next[selected.key];
+                onChange(next);
+                setScreen("loaded");
+              }}
+            >
+              <Trash2 className="size-4" /> Quitar override
+            </Button>
+            <Button
+              type="button"
+              disabled={!editing.light && !editing.dark}
+              onClick={() => {
+                onChange({ ...value, [selected.key]: editing });
+                setScreen("loaded");
+              }}
+            >
+              <Check className="size-4" /> Guardar este color
+            </Button>
+          </div>
+        </div>
+        <Dialog
+          open={Boolean(colorPicker)}
+          onOpenChange={(open) => {
+            if (!open) setColorPicker(null);
+          }}
         >
-          <ArrowLeft className="size-4" /> Volver a overrides cargados
-        </Button>
-        <div className="rounded-3xl border bg-gradient-to-br from-background to-violet-50/50 p-6 dark:to-violet-500/5">
-          <Badge variant="outline">{selected.group}</Badge>
-          <h4 className="mt-4 text-2xl font-semibold">{selected.title}</h4>
-          <code className="mt-2 block text-xs text-violet-700 dark:text-violet-300">
-            {selected.key}
-          </code>
-          <p className="mt-4 max-w-3xl text-sm leading-6 text-muted-foreground">
-            {selected.usageDescription}
-          </p>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          {modeCard("light", "Claro", selected.defaultLightColor)}
-          {modeCard("dark", "Oscuro", selected.defaultDarkColor)}
-        </div>
-        <div className="flex flex-wrap justify-between gap-3">
-          <Button
-            type="button"
-            variant="destructive"
-            disabled={!value[selected.key]}
-            onClick={() => {
-              const next = { ...value };
-              delete next[selected.key];
-              onChange(next);
-              setScreen("loaded");
-            }}
-          >
-            <Trash2 className="size-4" /> Quitar override
-          </Button>
-          <Button
-            type="button"
-            disabled={!editing.light && !editing.dark}
-            onClick={() => {
-              onChange({ ...value, [selected.key]: editing });
-              setScreen("loaded");
-            }}
-          >
-            <Check className="size-4" /> Guardar este color
-          </Button>
-        </div>
-      </div>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Cambiar color</DialogTitle>
+              <DialogDescription>
+                Elegí el color para {colorPicker?.label.toLowerCase()}. Esta
+                ventana modifica únicamente ese valor.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-5 py-2">
+              <label className="relative flex cursor-pointer flex-col items-center justify-center rounded-3xl border bg-muted/25 p-8 text-center transition hover:bg-muted/45">
+                <span
+                  className="size-32 rounded-full border-8 border-background shadow-lg ring-1 ring-border"
+                  style={{ backgroundColor: pickerColorValue }}
+                />
+                <span className="mt-5 font-semibold">Elegir otro color</span>
+                <span className="mt-1 text-sm text-muted-foreground">
+                  Se abrirá el selector de color del sistema.
+                </span>
+                <input
+                  aria-label={`Elegir color para ${colorPicker?.label ?? "modo"}`}
+                  type="color"
+                  className="absolute inset-0 cursor-pointer opacity-0"
+                  value={pickerValue.slice(0, 7)}
+                  onChange={(event) =>
+                    setPickerValue(event.target.value.toUpperCase())
+                  }
+                />
+              </label>
+              <div className="flex items-center justify-between rounded-2xl border px-4 py-3">
+                <span className="text-sm text-muted-foreground">
+                  Hexadecimal
+                </span>
+                <code className="font-semibold">{pickerColorValue}</code>
+              </div>
+              <div className="rounded-2xl border px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-medium">Opacidad</span>
+                  <span className="text-sm font-semibold">
+                    {pickerOpacity}%
+                  </span>
+                </div>
+                <input
+                  aria-label={`Opacidad para ${colorPicker?.label ?? "modo"}`}
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={pickerOpacity}
+                  className="mt-3 w-full accent-foreground"
+                  onChange={(event) =>
+                    setPickerOpacity(Number(event.target.value))
+                  }
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setColorPicker(null)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  if (!colorPicker) return;
+                  setEditing((current) => ({
+                    ...current,
+                    [colorPicker.mode]: pickerColorValue,
+                  }));
+                  setColorPicker(null);
+                }}
+              >
+                <Check className="size-4" /> Usar este color
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
     );
   }
 
@@ -431,8 +677,8 @@ function ColorOverridesEditor({
                 <button
                   key={option.key}
                   type="button"
-                  className="group rounded-2xl border bg-background p-4 text-left transition hover:border-violet-300 hover:shadow-md"
-                  onClick={() => choose(option)}
+                  className="group rounded-2xl border bg-background p-4 text-left transition hover:border-foreground/30 hover:shadow-md"
+                  onClick={() => choose(option, "browse")}
                 >
                   <div className="flex items-start gap-3">
                     <span className="flex overflow-hidden rounded-xl border shadow-sm">
@@ -513,9 +759,9 @@ function ColorOverridesEditor({
               key={key}
               type="button"
               onClick={() => void editLoaded(key)}
-              className="rounded-2xl border bg-background p-4 text-left transition hover:border-violet-300 hover:shadow-md"
+              className="rounded-2xl border bg-background p-4 text-left transition hover:border-foreground/30 hover:shadow-md"
             >
-              <code className="text-xs font-semibold text-violet-700 dark:text-violet-300">
+              <code className="text-xs font-semibold text-muted-foreground">
                 {key}
               </code>
               <div className="mt-4 flex gap-4">
@@ -561,6 +807,9 @@ function TextOverridesEditor({
   onChange: (value: PublisherAppAdvancedConfiguration["textOverrides"]) => void;
 }) {
   const [screen, setScreen] = useState<"loaded" | "browse" | "edit">("loaded");
+  const [returnScreen, setReturnScreen] = useState<"loaded" | "browse">(
+    "loaded",
+  );
   const [selected, setSelected] =
     useState<PublisherAppTextCatalogOption | null>(null);
   const [english, setEnglish] = useState("");
@@ -570,11 +819,15 @@ function TextOverridesEditor({
     screen === "browse",
   );
 
-  const choose = (option: PublisherAppTextCatalogOption) => {
+  const choose = (
+    option: PublisherAppTextCatalogOption,
+    origin: "loaded" | "browse",
+  ) => {
     const loaded = value.find((row) => row.key === option.key);
     setSelected(option);
     setEnglish(loaded?.en ?? option.defaultEnglishText);
     setSpanish(loaded?.es ?? option.defaultSpanishText);
+    setReturnScreen(origin);
     setScreen("edit");
   };
 
@@ -586,7 +839,7 @@ function TextOverridesEditor({
         params,
       );
     const option = page.items.find((item) => item.key === key);
-    if (option) choose(option);
+    if (option) choose(option, "loaded");
   };
 
   if (screen === "edit" && selected) {
@@ -600,11 +853,11 @@ function TextOverridesEditor({
           type="button"
           variant="ghost"
           size="sm"
-          onClick={() => setScreen("loaded")}
+          onClick={() => setScreen(returnScreen)}
         >
-          <ArrowLeft className="size-4" /> Volver a overrides cargados
+          <ArrowLeft className="size-4" /> Volver
         </Button>
-        <div className="rounded-3xl border bg-gradient-to-br from-background to-emerald-50/50 p-6 dark:to-emerald-500/5">
+        <div className="rounded-3xl border bg-muted/20 p-6">
           <div className="flex flex-wrap gap-2">
             {selected.groups.map((group) => (
               <Badge key={group} variant="outline">
@@ -620,7 +873,7 @@ function TextOverridesEditor({
           <p className="mt-5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
             Clave canónica · sólo lectura
           </p>
-          <code className="mt-2 block whitespace-pre-wrap text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+          <code className="mt-2 block whitespace-pre-wrap text-sm font-semibold text-foreground">
             {selected.key}
           </code>
           {selected.formatArguments.length ? (
@@ -740,11 +993,11 @@ function TextOverridesEditor({
                 <button
                   key={option.key}
                   type="button"
-                  className="group w-full rounded-2xl border bg-background p-4 text-left transition hover:border-emerald-300 hover:shadow-md"
-                  onClick={() => choose(option)}
+                  className="group w-full rounded-2xl border bg-background p-4 text-left transition hover:border-foreground/30 hover:shadow-md"
+                  onClick={() => choose(option, "browse")}
                 >
                   <div className="flex items-start gap-4">
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-sm font-bold text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted text-sm font-bold text-foreground">
                       Aa
                     </span>
                     <span className="min-w-0 flex-1">
@@ -818,10 +1071,10 @@ function TextOverridesEditor({
               key={row.key}
               type="button"
               onClick={() => void editLoaded(row.key)}
-              className="group w-full rounded-2xl border bg-background p-4 text-left transition hover:border-emerald-300 hover:shadow-md"
+              className="group w-full rounded-2xl border bg-background p-4 text-left transition hover:border-foreground/30 hover:shadow-md"
             >
               <div className="flex items-start gap-4">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-sm font-bold text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted text-sm font-bold text-foreground">
                   Aa
                 </span>
                 <span className="min-w-0 flex-1">
@@ -910,7 +1163,7 @@ function LearnBuilder({
 }) {
   if (value.mode === "base") {
     return (
-      <div className="rounded-2xl border border-emerald-200 bg-emerald-50/65 p-5 dark:border-emerald-400/20 dark:bg-emerald-500/8">
+      <div className="rounded-2xl border bg-muted/20 p-5">
         <p className="font-semibold text-foreground">Currículo Pocket Genes</p>
         <p className="mt-1 text-sm text-muted-foreground">
           La app conserva todas las lecciones instaladas y su recorrido normal.
@@ -988,7 +1241,7 @@ function LearnBuilder({
       {value.subjects.map((subject, subjectIndex) => (
         <div
           key={`${subject.subjectIdentifier}-${subjectIndex}`}
-          className="rounded-2xl border border-violet-200 bg-violet-50/35 p-4 dark:border-violet-400/20 dark:bg-violet-500/6"
+          className="rounded-2xl border bg-muted/20 p-4"
         >
           <div className="flex flex-col gap-3 md:flex-row md:items-end">
             <div className="grid flex-1 gap-3 sm:grid-cols-2">
@@ -1038,7 +1291,7 @@ function LearnBuilder({
             {subject.chapters.map((chapter, chapterIndex) => (
               <div
                 key={`${chapter.chapterTitle}-${chapterIndex}`}
-                className="rounded-xl border border-violet-100 bg-background/85 p-4 dark:border-violet-400/15"
+                className="rounded-xl border bg-background/85 p-4"
               >
                 <div className="flex gap-2">
                   <Input
@@ -1097,7 +1350,7 @@ function LearnBuilder({
                     return (
                       <details
                         key={`${lesson.lessonIdentifier}-${lessonIndex}`}
-                        className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 open:bg-white dark:border-slate-700 dark:bg-slate-900/40 dark:open:bg-slate-950/55"
+                        className="rounded-xl border bg-muted/30 p-3 open:bg-background"
                       >
                         <summary className="cursor-pointer font-semibold text-foreground">
                           {lesson.lessonTitle || `Lección ${lessonIndex + 1}`}
@@ -1144,32 +1397,13 @@ function LearnBuilder({
                                 }
                               />
                             </div>
-                            <div>
-                              <Label>Color</Label>
-                              <div className="flex gap-2">
-                                <Input
-                                  type="color"
-                                  value={lesson.lessonColor}
-                                  className="w-16 p-1"
-                                  onChange={(event) =>
-                                    updateLesson({
-                                      ...lesson,
-                                      lessonColor:
-                                        event.target.value.toUpperCase(),
-                                    })
-                                  }
-                                />
-                                <Input
-                                  value={lesson.lessonColor}
-                                  onChange={(event) =>
-                                    updateLesson({
-                                      ...lesson,
-                                      lessonColor: event.target.value,
-                                    })
-                                  }
-                                />
-                              </div>
-                            </div>
+                            <ColorValueControl
+                              label="Color de la lección"
+                              value={lesson.lessonColor}
+                              onChange={(lessonColor) =>
+                                updateLesson({ ...lesson, lessonColor })
+                              }
+                            />
                           </div>
 
                           <div className="space-y-3">
@@ -1418,7 +1652,7 @@ function LearnBuilder({
         <Plus className="size-4" /> Agregar tema
       </Button>
 
-      <div className="rounded-2xl border border-violet-100 p-4 dark:border-violet-400/15">
+      <div className="rounded-2xl border p-4">
         <p className="font-semibold text-foreground">Categorías temáticas</p>
         <p className="mt-1 text-xs text-muted-foreground">
           Ingresá los IDs de temas separados por coma.
@@ -1466,7 +1700,6 @@ const ADVANCED_SEGMENTS = [
     description:
       "Dale una voz visual a la experiencia y decidí qué puertas están abiertas.",
     icon: Palette,
-    accent: "from-fuchsia-500/18 via-violet-500/10 to-transparent",
   },
   {
     id: "scope",
@@ -1474,7 +1707,6 @@ const ADVANCED_SEGMENTS = [
     description:
       "Entendé de dónde llegan el contenido y los servicios de esta app.",
     icon: Globe2,
-    accent: "from-sky-500/18 via-cyan-500/10 to-transparent",
   },
   {
     id: "wording",
@@ -1482,7 +1714,6 @@ const ADVANCED_SEGMENTS = [
     description:
       "Construí la voz bilingüe que acompaña a las personas en cada pantalla.",
     icon: Languages,
-    accent: "from-emerald-500/18 via-teal-500/10 to-transparent",
   },
   {
     id: "learn",
@@ -1490,7 +1721,6 @@ const ADVANCED_SEGMENTS = [
     description:
       "Diseñá un camino educativo con temas, capítulos y lecciones conectadas.",
     icon: BookOpen,
-    accent: "from-amber-500/18 via-orange-500/10 to-transparent",
   },
   {
     id: "links",
@@ -1498,7 +1728,6 @@ const ADVANCED_SEGMENTS = [
     description:
       "Conectá cada llamada a la acción con un destino claro y confiable.",
     icon: Link2,
-    accent: "from-indigo-500/18 via-blue-500/10 to-transparent",
   },
 ] as const;
 
@@ -1515,7 +1744,7 @@ function cloneAdvancedConfiguration(
   ) as PublisherAppAdvancedConfiguration;
 }
 
-const SEGMENT_STEPS: Record<
+const SEGMENT_SECTIONS: Record<
   AdvancedSegmentId,
   Array<{ title: string; story: string }>
 > = {
@@ -1612,28 +1841,20 @@ function learnTotals(learn: PublisherAppLearnConfiguration) {
 }
 
 function FlowIntro({
-  eyebrow,
   title,
   children,
 }: {
-  eyebrow: string;
   title: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
-      <div>
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-violet-600 dark:text-violet-300">
-          {eyebrow}
-        </p>
-        <h3 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-          {title}
-        </h3>
-      </div>
-      <div className="rounded-2xl border border-violet-200/70 bg-violet-50/65 p-4 text-sm leading-6 text-violet-950 dark:border-violet-400/20 dark:bg-violet-500/10 dark:text-violet-100">
-        <Sparkles className="mb-2 size-5 text-violet-600 dark:text-violet-300" />
+    <div className="rounded-3xl border bg-muted/20 p-6">
+      <h3 className="text-2xl font-semibold tracking-tight text-foreground">
+        {title}
+      </h3>
+      <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
         {children}
-      </div>
+      </p>
     </div>
   );
 }
@@ -1650,7 +1871,9 @@ export function PublisherAppAdvancedConfigurationEditor({
   const [activeSegment, setActiveSegment] = useState<AdvancedSegmentId | null>(
     null,
   );
-  const [stepIndex, setStepIndex] = useState(0);
+  const [activeSectionIndex, setActiveSectionIndex] = useState<number | null>(
+    null,
+  );
   const [draft, setDraft] = useState<PublisherAppAdvancedConfiguration | null>(
     null,
   );
@@ -1662,22 +1885,24 @@ export function PublisherAppAdvancedConfigurationEditor({
   const activeDefinition = ADVANCED_SEGMENTS.find(
     (segment) => segment.id === activeSegment,
   );
-  const steps = activeSegment ? SEGMENT_STEPS[activeSegment] : [];
-  const currentStep = steps[stepIndex];
+  const sections = activeSegment ? SEGMENT_SECTIONS[activeSegment] : [];
+  const activeSection =
+    activeSectionIndex === null ? null : sections[activeSectionIndex];
+  const sectionIndex = activeSectionIndex ?? 0;
 
   const updateDraft = (patch: Partial<PublisherAppAdvancedConfiguration>) =>
     setDraft((current) => (current ? { ...current, ...patch } : current));
 
   const openSegment = (segment: AdvancedSegmentId) => {
     setDraft(cloneAdvancedConfiguration(configuration));
-    setStepIndex(0);
+    setActiveSectionIndex(null);
     setActiveSegment(segment);
   };
 
   const closeSegment = () => {
     setActiveSegment(null);
     setDraft(null);
-    setStepIndex(0);
+    setActiveSectionIndex(null);
   };
 
   const applySegment = () => {
@@ -1703,14 +1928,53 @@ export function PublisherAppAdvancedConfigurationEditor({
     return configuration.links.supportEmail || "Destinos todavía sin completar";
   };
 
-  const renderIdentityStep = () => {
-    if (stepIndex === 0)
+  const sectionSummary = (segment: AdvancedSegmentId, index: number) => {
+    if (segment === "identity") {
+      if (index === 0) return working.displayName;
+      if (index === 1)
+        return `${working.catalogEnabled ? "Catálogo activo" : "Catálogo inactivo"} · ${working.feedEnabled ? "Discover activo" : "Discover inactivo"}`;
+      return `${Object.keys(working.colorOverrides).length} overrides específicos`;
+    }
+    if (segment === "scope") {
+      if (index === 0) return "Origen vinculado y protegido";
+      if (index === 1)
+        return working.discoverScope.mode === "all"
+          ? "Discover global · todos los proveedores"
+          : `Discover · ${working.discoverScope.publisherOrganizationId}`;
+      return "Configuración de sólo lectura";
+    }
+    if (segment === "wording") {
+      if (index === 0)
+        return `${working.localization.availableLanguages.length} idiomas disponibles`;
+      if (index === 1)
+        return `${working.textOverrides.length} textos personalizados`;
+      return "Vista previa bilingüe";
+    }
+    if (segment === "learn") {
+      const totals = learnTotals(working.learn);
+      if (index === 0)
+        return working.learn.mode === "base"
+          ? "Currículo Pocket Genes"
+          : "Currículo propio";
+      if (index === 1)
+        return working.learn.mode === "base"
+          ? "Sin metadatos propios"
+          : `${working.learn.curriculumId} · revisión ${working.learn.curriculumRevision}`;
+      return working.learn.mode === "base"
+        ? "Recorrido instalado"
+        : `${totals.subjects} temas · ${totals.chapters} capítulos · ${totals.lessons} lecciones`;
+    }
+    if (index === 0) return "Invitación bilingüe";
+    if (index === 1)
+      return working.links.supportEmail || "Contacto todavía sin completar";
+    return "Revisión de destinos";
+  };
+
+  const renderIdentitySection = () => {
+    if (sectionIndex === 0)
       return (
         <div className="space-y-7">
-          <FlowIntro
-            eyebrow="Capítulo 1"
-            title="¿Cómo se presenta esta experiencia?"
-          >
+          <FlowIntro title="¿Cómo se presenta esta experiencia?">
             El nombre aparece dentro de la app. Podés probarlo acá sin modificar
             el nombre instalado ni el store listing.
           </FlowIntro>
@@ -1747,10 +2011,10 @@ export function PublisherAppAdvancedConfigurationEditor({
           </div>
         </div>
       );
-    if (stepIndex === 1)
+    if (sectionIndex === 1)
       return (
         <div className="space-y-7">
-          <FlowIntro eyebrow="Capítulo 2" title="Abrí las puertas correctas">
+          <FlowIntro title="Abrí las puertas correctas">
             Cada puerta activa un recorrido completo. El estado se refleja en
             tiempo real en el mapa de experiencia.
           </FlowIntro>
@@ -1761,11 +2025,11 @@ export function PublisherAppAdvancedConfigurationEditor({
                 <button
                   key={key}
                   type="button"
-                  className={`group relative overflow-hidden rounded-3xl border p-6 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${enabled ? "border-violet-400 bg-violet-50/70 dark:bg-violet-500/10" : "bg-muted/35"}`}
+                  className={`group relative overflow-hidden rounded-3xl border p-6 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${enabled ? "border-foreground/35 bg-muted/35" : "bg-background"}`}
                   onClick={() => updateDraft({ [key]: !enabled })}
                 >
                   <span
-                    className={`flex size-11 items-center justify-center rounded-2xl ${enabled ? "bg-violet-600 text-white" : "bg-muted text-muted-foreground"}`}
+                    className={`flex size-11 items-center justify-center rounded-2xl ${enabled ? "bg-foreground text-background" : "bg-muted text-muted-foreground"}`}
                   >
                     {index === 0 ? (
                       <Boxes className="size-5" />
@@ -1797,12 +2061,12 @@ export function PublisherAppAdvancedConfigurationEditor({
       );
     return (
       <div className="space-y-7">
-        <FlowIntro eyebrow="Capítulo 3" title="Construí un universo cromático">
+        <FlowIntro title="Construí un universo cromático">
           La paleta general da coherencia a toda la app. Agregá excepciones por
           clave únicamente cuando una superficie necesite un tratamiento
           específico.
         </FlowIntro>
-        <div className="rounded-3xl border bg-gradient-to-br from-background to-violet-50/60 p-5 dark:to-violet-500/5">
+        <div className="rounded-3xl border bg-muted/20 p-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-lg font-semibold">Base de la experiencia</p>
@@ -1833,14 +2097,11 @@ export function PublisherAppAdvancedConfigurationEditor({
     );
   };
 
-  const renderScopeStep = () => {
-    if (stepIndex === 0)
+  const renderScopeSection = () => {
+    if (sectionIndex === 0)
       return (
         <div className="space-y-7">
-          <FlowIntro
-            eyebrow="Capítulo 1 · Sólo lectura"
-            title="Todo comienza con una identidad confiable"
-          >
+          <FlowIntro title="Todo comienza con una identidad confiable">
             Discover sigue al publicador vinculado y Servicios sigue al
             proveedor. Esa relación mantiene coherente el catálogo.
           </FlowIntro>
@@ -1872,7 +2133,7 @@ export function PublisherAppAdvancedConfigurationEditor({
                 key={item.label}
                 className="rounded-3xl border bg-background p-6"
               >
-                <item.icon className="size-6 text-sky-600" />
+                <item.icon className="size-6 text-foreground" />
                 <p className="mt-6 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   {item.label}
                 </p>
@@ -1882,13 +2143,10 @@ export function PublisherAppAdvancedConfigurationEditor({
           </div>
         </div>
       );
-    if (stepIndex === 1)
+    if (sectionIndex === 1)
       return (
         <div className="space-y-7">
-          <FlowIntro
-            eyebrow="Capítulo 2 · Sólo lectura"
-            title="Este es el mapa que recibe la app"
-          >
+          <FlowIntro title="Este es el mapa que recibe la app">
             Podés auditar el origen de cada experiencia. La edición vive en la
             identidad del publicador o proveedor correspondiente.
           </FlowIntro>
@@ -1896,10 +2154,10 @@ export function PublisherAppAdvancedConfigurationEditor({
             data-testid="publisher-app-scope-readonly"
             className="grid gap-5 md:grid-cols-2"
           >
-            <div className="space-y-5 rounded-3xl border border-sky-200 bg-sky-50/60 p-6 dark:border-sky-400/20 dark:bg-sky-500/8">
+            <div className="space-y-5 rounded-3xl border bg-muted/20 p-6">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <Globe2 className="size-5 text-sky-600" />
+                  <Globe2 className="size-5 text-foreground" />
                   <p className="font-semibold">Discover</p>
                 </div>
                 <Badge variant="secondary">
@@ -1923,10 +2181,10 @@ export function PublisherAppAdvancedConfigurationEditor({
                 se puede editar aquí.
               </p>
             </div>
-            <div className="space-y-5 rounded-3xl border border-cyan-200 bg-cyan-50/60 p-6 dark:border-cyan-400/20 dark:bg-cyan-500/8">
+            <div className="space-y-5 rounded-3xl border bg-muted/20 p-6">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <Boxes className="size-5 text-cyan-600" />
+                  <Boxes className="size-5 text-foreground" />
                   <p className="font-semibold">Servicios</p>
                 </div>
                 <Badge variant="secondary">
@@ -1985,14 +2243,11 @@ export function PublisherAppAdvancedConfigurationEditor({
     );
   };
 
-  const renderWordingStep = () => {
-    if (stepIndex === 0)
+  const renderWordingSection = () => {
+    if (sectionIndex === 0)
       return (
         <div className="space-y-7">
-          <FlowIntro
-            eyebrow="Capítulo 1"
-            title="¿En qué idioma comienza la conversación?"
-          >
+          <FlowIntro title="¿En qué idioma comienza la conversación?">
             El idioma predeterminado abre la experiencia; las demás voces quedan
             disponibles para elegir.
           </FlowIntro>
@@ -2086,13 +2341,10 @@ export function PublisherAppAdvancedConfigurationEditor({
           </div>
         </div>
       );
-    if (stepIndex === 1)
+    if (sectionIndex === 1)
       return (
         <div className="space-y-7">
-          <FlowIntro
-            eyebrow="Capítulo 2"
-            title="Personalizá momentos, no pantallas enteras"
-          >
+          <FlowIntro title="Personalizá momentos, no pantallas enteras">
             Empezá por los overrides ya cargados. Add new abre el catálogo
             completo con búsqueda, grupos y resultados paginados.
           </FlowIntro>
@@ -2105,16 +2357,13 @@ export function PublisherAppAdvancedConfigurationEditor({
     const firstOverride = working.textOverrides[0];
     return (
       <div className="space-y-7">
-        <FlowIntro eyebrow="Capítulo 3" title="La voz ya tiene forma">
+        <FlowIntro title="La voz ya tiene forma">
           Revisá un ejemplo de cómo conviven las traducciones y verificá que los
           marcadores especiales permanezcan intactos.
         </FlowIntro>
         <div className="grid gap-5 md:grid-cols-2">
           {(["es", "en"] as const).map((language) => (
-            <div
-              key={language}
-              className="rounded-3xl border bg-gradient-to-br from-background to-emerald-50/60 p-6 dark:to-emerald-500/5"
-            >
+            <div key={language} className="rounded-3xl border bg-muted/20 p-6">
               <Badge variant="outline">
                 {language === "es" ? "Español" : "English"}
               </Badge>
@@ -2138,24 +2387,21 @@ export function PublisherAppAdvancedConfigurationEditor({
     );
   };
 
-  const renderLearnStep = () => {
-    if (stepIndex === 0)
+  const renderLearnSection = () => {
+    if (sectionIndex === 0)
       return (
         <div className="space-y-7">
-          <FlowIntro
-            eyebrow="Capítulo 1"
-            title="Elegí qué aventura educativa contar"
-          >
+          <FlowIntro title="Elegí qué aventura educativa contar">
             Podés conservar el recorrido probado de Pocket Genes o crear uno
             exclusivo para esta app.
           </FlowIntro>
           <div className="grid gap-5 md:grid-cols-2">
             <button
               type="button"
-              className={`rounded-3xl border p-6 text-left transition-all hover:-translate-y-1 hover:shadow-lg ${working.learn.mode === "base" ? "border-emerald-400 bg-emerald-50/65 dark:bg-emerald-500/10" : "bg-background"}`}
+              className={`rounded-3xl border p-6 text-left transition-all hover:-translate-y-1 hover:shadow-lg ${working.learn.mode === "base" ? "border-foreground/40 bg-muted/35" : "bg-background"}`}
               onClick={() => updateDraft({ learn: { mode: "base" } })}
             >
-              <BookOpen className="size-8 text-emerald-600" />
+              <BookOpen className="size-8 text-foreground" />
               <p className="mt-8 text-xl font-semibold">
                 Currículo Pocket Genes
               </p>
@@ -2169,7 +2415,7 @@ export function PublisherAppAdvancedConfigurationEditor({
             </button>
             <button
               type="button"
-              className={`rounded-3xl border p-6 text-left transition-all hover:-translate-y-1 hover:shadow-lg ${working.learn.mode === "replace" ? "border-amber-400 bg-amber-50/65 dark:bg-amber-500/10" : "bg-background"}`}
+              className={`rounded-3xl border p-6 text-left transition-all hover:-translate-y-1 hover:shadow-lg ${working.learn.mode === "replace" ? "border-foreground/40 bg-muted/35" : "bg-background"}`}
               onClick={() =>
                 updateDraft({
                   learn:
@@ -2179,7 +2425,7 @@ export function PublisherAppAdvancedConfigurationEditor({
                 })
               }
             >
-              <Rocket className="size-8 text-amber-600" />
+              <Rocket className="size-8 text-foreground" />
               <p className="mt-8 text-xl font-semibold">Currículo propio</p>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 Reemplaza el recorrido con temas, capítulos y lecciones
@@ -2192,7 +2438,7 @@ export function PublisherAppAdvancedConfigurationEditor({
           </div>
         </div>
       );
-    if (stepIndex === 1) {
+    if (sectionIndex === 1) {
       if (working.learn.mode === "base")
         return (
           <div className="flex min-h-80 items-center justify-center text-center">
@@ -2210,10 +2456,7 @@ export function PublisherAppAdvancedConfigurationEditor({
         );
       return (
         <div className="space-y-7">
-          <FlowIntro
-            eyebrow="Capítulo 2"
-            title="Dale una identidad duradera al recorrido"
-          >
+          <FlowIntro title="Dale una identidad duradera al recorrido">
             El ID mantiene unido el currículo; la revisión permite reconocer
             cada evolución publicada.
           </FlowIntro>
@@ -2303,7 +2546,7 @@ export function PublisherAppAdvancedConfigurationEditor({
     const totals = learnTotals(working.learn);
     return (
       <div className="space-y-7">
-        <FlowIntro eyebrow="Capítulo 3" title="Armá el mapa de conocimiento">
+        <FlowIntro title="Armá el mapa de conocimiento">
           Pensá cada tema como una región, cada capítulo como una etapa y cada
           lección como una experiencia concreta.
         </FlowIntro>
@@ -2331,11 +2574,11 @@ export function PublisherAppAdvancedConfigurationEditor({
     );
   };
 
-  const renderLinksStep = () => {
-    if (stepIndex === 0)
+  const renderLinksSection = () => {
+    if (sectionIndex === 0)
       return (
         <div className="space-y-7">
-          <FlowIntro eyebrow="Capítulo 1" title="¿Adónde lleva la invitación?">
+          <FlowIntro title="¿Adónde lleva la invitación?">
             Join Us puede abrir una puerta distinta según el idioma. Usá
             destinos HTTPS claros y específicos.
           </FlowIntro>
@@ -2343,7 +2586,7 @@ export function PublisherAppAdvancedConfigurationEditor({
             {(["en", "es"] as const).map((language) => (
               <div key={language} className="rounded-3xl border p-6">
                 <div className="flex items-center gap-3">
-                  <span className="flex size-10 items-center justify-center rounded-full bg-indigo-100 font-bold text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200">
+                  <span className="flex size-10 items-center justify-center rounded-full bg-muted font-bold text-foreground">
                     {language.toUpperCase()}
                   </span>
                   <div>
@@ -2377,10 +2620,10 @@ export function PublisherAppAdvancedConfigurationEditor({
           </div>
         </div>
       );
-    if (stepIndex === 1)
+    if (sectionIndex === 1)
       return (
         <div className="space-y-7">
-          <FlowIntro eyebrow="Capítulo 2" title="Construí una red de confianza">
+          <FlowIntro title="Construí una red de confianza">
             Soporte acompaña a la persona; privacidad y términos explican las
             reglas de la experiencia.
           </FlowIntro>
@@ -2390,7 +2633,7 @@ export function PublisherAppAdvancedConfigurationEditor({
                 htmlFor="advanced-support-email"
                 className="flex items-center gap-2 text-base"
               >
-                <Mail className="size-4 text-indigo-600" /> Email de soporte
+                <Mail className="size-4 text-foreground" /> Email de soporte
               </Label>
               <Input
                 id="advanced-support-email"
@@ -2449,7 +2692,7 @@ export function PublisherAppAdvancedConfigurationEditor({
     ];
     return (
       <div className="space-y-7">
-        <FlowIntro eyebrow="Capítulo 3" title="La ruta completa, de un vistazo">
+        <FlowIntro title="La ruta completa, de un vistazo">
           Comprobá que cada destino tenga sentido antes de incorporarlo. La
           validación final se realiza al guardar la app.
         </FlowIntro>
@@ -2481,37 +2724,73 @@ export function PublisherAppAdvancedConfigurationEditor({
     );
   };
 
-  const renderCurrentStep = () => {
+  const renderSegmentHome = () => {
+    if (!activeSegment || !activeDefinition) return null;
+    return (
+      <div
+        data-testid="publisher-app-section-index"
+        className="mx-auto max-w-5xl space-y-6"
+      >
+        <div>
+          <h3 className="text-2xl font-semibold tracking-tight">
+            Configuración disponible
+          </h3>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+            Entrá a una sección para consultar o editar sus detalles. Podés
+            volver a este índice en cualquier momento sin perder el borrador.
+          </p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          {sections.map((section, index) => (
+            <button
+              key={section.title}
+              type="button"
+              onClick={() => setActiveSectionIndex(index)}
+              className="group flex min-h-44 flex-col rounded-3xl border bg-background p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-foreground/30 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <Badge variant="secondary">Sección</Badge>
+                <ArrowRight className="size-5 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-foreground" />
+              </div>
+              <h4 className="mt-6 text-lg font-semibold">{section.title}</h4>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {section.story}
+              </p>
+              <p className="mt-auto pt-5 text-xs font-medium text-foreground/75">
+                {sectionSummary(activeSegment, index)}
+              </p>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderCurrentSection = () => {
     if (!activeSegment) return null;
-    if (activeSegment === "identity") return renderIdentityStep();
-    if (activeSegment === "scope") return renderScopeStep();
-    if (activeSegment === "wording") return renderWordingStep();
-    if (activeSegment === "learn") return renderLearnStep();
-    return renderLinksStep();
+    if (activeSegment === "identity") return renderIdentitySection();
+    if (activeSegment === "scope") return renderScopeSection();
+    if (activeSegment === "wording") return renderWordingSection();
+    if (activeSegment === "learn") return renderLearnSection();
+    return renderLinksSection();
   };
 
   return (
     <div className="space-y-5">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {ADVANCED_SEGMENTS.map((segment, index) => {
+        {ADVANCED_SEGMENTS.map((segment) => {
           const Icon = segment.icon;
           return (
             <button
               key={segment.id}
               type="button"
               onClick={() => openSegment(segment.id)}
-              className="group relative min-h-64 overflow-hidden rounded-3xl border border-violet-100 bg-background p-6 text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-violet-300 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-violet-400/15"
+              className="group min-h-64 rounded-3xl border bg-background p-6 text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-foreground/25 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <div
-                className={`absolute inset-0 bg-gradient-to-br ${segment.accent} opacity-80 transition duration-300 group-hover:opacity-100`}
-              />
-              <div className="relative flex h-full flex-col">
+              <div className="flex h-full flex-col">
                 <div className="flex items-start justify-between">
-                  <span className="flex size-12 items-center justify-center rounded-2xl border border-white/70 bg-white/85 text-violet-700 shadow-sm dark:border-white/10 dark:bg-slate-950/70 dark:text-violet-300">
+                  <span className="flex size-12 items-center justify-center rounded-2xl bg-muted text-foreground">
                     <Icon className="size-5" />
-                  </span>
-                  <span className="text-xs font-bold text-muted-foreground">
-                    0{index + 1}
                   </span>
                 </div>
                 <h3 className="mt-7 text-lg font-semibold text-foreground">
@@ -2542,10 +2821,10 @@ export function PublisherAppAdvancedConfigurationEditor({
         })}
       </div>
 
-      <div className="flex items-center gap-2 rounded-xl border border-violet-100 bg-violet-50/45 p-3 text-xs text-violet-900 dark:border-violet-400/15 dark:bg-violet-500/8 dark:text-violet-100">
+      <div className="flex items-center gap-2 rounded-xl border bg-muted/25 p-3 text-xs text-muted-foreground">
         <SlidersHorizontal className="size-4 shrink-0" />
-        Cada experiencia conserva un borrador propio hasta que completás su
-        recorrido. La app se actualiza al guardar los cambios generales.
+        Cada modal tiene un índice de secciones. El borrador se conserva al
+        entrar, volver y consultar otros detalles.
         <Badge variant="outline" className="ml-auto shrink-0">
           Configuración v2
         </Badge>
@@ -2562,20 +2841,22 @@ export function PublisherAppAdvancedConfigurationEditor({
           className="h-[min(92vh,56rem)] w-[min(96vw,90rem)] gap-0 overflow-hidden p-0 sm:max-w-[90rem]"
           showCloseButton={false}
         >
-          {activeDefinition && currentStep ? (
+          {activeDefinition ? (
             <>
-              <DialogHeader
-                className={`relative overflow-hidden border-b bg-gradient-to-r ${activeDefinition.accent} px-6 py-5 pr-16 sm:px-8`}
-              >
-                <div className="absolute -right-12 -top-20 size-52 rounded-full border-[32px] border-white/25 dark:border-white/5" />
-                <div className="relative flex items-start gap-4">
-                  <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-foreground text-background">
+              <DialogHeader className="relative border-b bg-background px-6 py-5 pr-16 sm:px-8">
+                <div className="flex items-start gap-4">
+                  <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-muted text-foreground">
                     <activeDefinition.icon className="size-5" />
                   </span>
                   <div>
+                    {activeSection ? (
+                      <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                        {activeDefinition.title}
+                      </p>
+                    ) : null}
                     <div className="flex flex-wrap items-center gap-2">
                       <DialogTitle className="text-xl sm:text-2xl">
-                        {activeDefinition.title}
+                        {activeSection?.title ?? activeDefinition.title}
                       </DialogTitle>
                       {activeSegment === "scope" ? (
                         <Badge variant="outline" className="rounded-full">
@@ -2584,7 +2865,7 @@ export function PublisherAppAdvancedConfigurationEditor({
                       ) : null}
                     </div>
                     <DialogDescription className="mt-1 max-w-3xl text-sm sm:text-base">
-                      {activeDefinition.description}
+                      {activeSection?.story ?? activeDefinition.description}
                     </DialogDescription>
                   </div>
                 </div>
@@ -2600,81 +2881,39 @@ export function PublisherAppAdvancedConfigurationEditor({
                 </Button>
               </DialogHeader>
 
-              <div className="border-b bg-muted/25 px-6 py-4 sm:px-8">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
-                      Etapa {stepIndex + 1} de {steps.length}
-                    </p>
-                    <p className="mt-1 font-semibold">{currentStep.title}</p>
-                  </div>
-                  <p className="hidden max-w-lg text-right text-sm text-muted-foreground md:block">
-                    {currentStep.story}
-                  </p>
+              {activeSection ? (
+                <div className="border-b bg-muted/20 px-6 py-3 sm:px-8">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setActiveSectionIndex(null)}
+                  >
+                    <ArrowLeft className="size-4" /> Volver a secciones
+                  </Button>
                 </div>
-                <Progress
-                  value={((stepIndex + 1) / steps.length) * 100}
-                  className="mt-3 h-1.5"
-                />
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  {steps.map((item, index) => (
-                    <button
-                      key={item.title}
-                      type="button"
-                      onClick={() => setStepIndex(index)}
-                      className={`rounded-xl px-2 py-2 text-left text-xs transition ${index === stepIndex ? "bg-foreground font-semibold text-background" : index < stepIndex ? "bg-emerald-100 font-medium text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200" : "text-muted-foreground hover:bg-muted"}`}
-                    >
-                      <span className="mr-1.5 inline-flex size-5 items-center justify-center rounded-full border border-current/20">
-                        {index < stepIndex ? (
-                          <Check className="size-3" />
-                        ) : (
-                          index + 1
-                        )}
-                      </span>
-                      <span className="hidden sm:inline">{item.title}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+              ) : null}
 
               <div
-                key={`${activeSegment}-${stepIndex}`}
-                className="min-h-0 flex-1 overflow-y-auto px-6 py-7 animate-in fade-in slide-in-from-right-4 duration-300 sm:px-8 sm:py-8"
+                key={`${activeSegment}-${activeSectionIndex ?? "index"}`}
+                className="min-h-0 flex-1 overflow-y-auto px-6 py-7 animate-in fade-in duration-200 sm:px-8 sm:py-8"
               >
-                {renderCurrentStep()}
+                {activeSection ? renderCurrentSection() : renderSegmentHome()}
               </div>
 
               <DialogFooter className="m-0 shrink-0 rounded-none px-6 py-4 sm:px-8">
                 <Button type="button" variant="ghost" onClick={closeSegment}>
                   {activeSegment === "scope" ? "Cerrar" : "Cancelar"}
                 </Button>
-                <div className="flex flex-1 items-center justify-end gap-2">
-                  {stepIndex > 0 ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setStepIndex((current) => current - 1)}
-                    >
-                      <ArrowLeft className="size-4" /> Atrás
-                    </Button>
-                  ) : null}
-                  {stepIndex < steps.length - 1 ? (
-                    <Button
-                      type="button"
-                      onClick={() => setStepIndex((current) => current + 1)}
-                    >
-                      Siguiente <ArrowRight className="size-4" />
-                    </Button>
-                  ) : activeSegment === "scope" ? (
-                    <Button type="button" onClick={closeSegment}>
-                      <Check className="size-4" /> Listo
-                    </Button>
-                  ) : (
-                    <Button type="button" onClick={applySegment}>
-                      <Sparkles className="size-4" /> Aplicar configuración
-                    </Button>
-                  )}
-                </div>
+                {activeSegment === "scope" ? (
+                  <Button type="button" onClick={closeSegment}>
+                    <Check className="size-4" /> Listo
+                  </Button>
+                ) : (
+                  <Button type="button" onClick={applySegment}>
+                    <Check className="size-4" /> Guardar configuración avanzada
+                  </Button>
+                )}
               </DialogFooter>
             </>
           ) : null}

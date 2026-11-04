@@ -732,9 +732,16 @@ describe("PublisherAppConfigWorkbench", () => {
     );
     const advancedModal = screen.getByTestId("publisher-app-advanced-modal");
     expect(advancedModal).toHaveClass("sm:max-w-[90rem]");
-    expect(within(advancedModal).getByText("Etapa 1 de 3")).toBeTruthy();
+    expect(
+      within(advancedModal).getByTestId("publisher-app-section-index"),
+    ).toBeTruthy();
+    expect(
+      within(advancedModal).queryByRole("button", { name: /Siguiente/i }),
+    ).toBeNull();
     fireEvent.click(
-      within(advancedModal).getByRole("button", { name: /Siguiente/i }),
+      within(advancedModal).getByRole("button", {
+        name: /El mapa de alcance/i,
+      }),
     );
     const scope = screen.getByTestId("publisher-app-scope-readonly");
     expect(within(scope).queryAllByRole("combobox")).toHaveLength(0);
@@ -750,6 +757,9 @@ describe("PublisherAppConfigWorkbench", () => {
     fireEvent.click(
       screen.getByRole("button", { name: /Identidad y disponibilidad/i }),
     );
+    fireEvent.click(
+      screen.getByRole("button", { name: /La primera impresión/i }),
+    );
     fireEvent.change(screen.getByLabelText("Nombre de la experiencia"), {
       target: { value: "Cambio descartado" },
     });
@@ -757,17 +767,26 @@ describe("PublisherAppConfigWorkbench", () => {
     fireEvent.click(
       screen.getByRole("button", { name: /Identidad y disponibilidad/i }),
     );
+    fireEvent.click(
+      screen.getByRole("button", { name: /La primera impresión/i }),
+    );
     expect(screen.getByLabelText("Nombre de la experiencia")).toHaveValue(
       "Pocket Genes Lab",
     );
     fireEvent.change(screen.getByLabelText("Nombre de la experiencia"), {
       target: { value: "Pocket Genes Advanced" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /Siguiente/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Volver a secciones" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Las puertas de entrada/i }),
+    );
     fireEvent.click(
       screen.getByRole("button", { name: /Catálogo y solicitudes/i }),
     );
-    fireEvent.click(screen.getByRole("button", { name: /Siguiente/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Volver a secciones" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /El universo de color/i }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Add new" }));
     fireEvent.change(screen.getByLabelText("Buscar opciones disponibles"), {
       target: { value: "brand primary" },
@@ -789,14 +808,36 @@ describe("PublisherAppConfigWorkbench", () => {
     });
     fireEvent.click(colorOption);
     expect(screen.getByText("brand.primary")).toBeTruthy();
+    expect(screen.getAllByText("#F61C72").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("textbox", { name: /Color Claro/i })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar color" }));
+    const colorDialog = screen.getByRole("dialog", { name: "Cambiar color" });
+    fireEvent.change(
+      within(colorDialog).getByLabelText("Elegir color para Modo claro"),
+      { target: { value: "#112233" } },
+    );
+    fireEvent.change(
+      within(colorDialog).getByLabelText("Opacidad para Modo claro"),
+      { target: { value: "50" } },
+    );
+    fireEvent.click(
+      within(colorDialog).getByRole("button", { name: "Usar este color" }),
+    );
+    expect(screen.getByText("#11223380")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Guardar este color" }));
     fireEvent.click(
-      screen.getByRole("button", { name: "Aplicar configuración" }),
+      screen.getByRole("button", {
+        name: "Guardar configuración avanzada",
+      }),
     );
     expect(screen.queryByTestId("publisher-app-advanced-modal")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: /Textos e idiomas/i }));
-    fireEvent.click(screen.getByRole("button", { name: /Siguiente/i }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /Momentos que merecen otra frase/i,
+      }),
+    );
     expect(screen.getByText("Contact Pocket Genes")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Add new" }));
     const textOption = await screen.findByRole("button", {
@@ -810,9 +851,15 @@ describe("PublisherAppConfigWorkbench", () => {
       target: { value: "Estudios" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Guardar este texto" }));
-    fireEvent.click(screen.getByRole("button", { name: /Siguiente/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Volver a secciones" }));
     fireEvent.click(
-      screen.getByRole("button", { name: "Aplicar configuración" }),
+      screen.getByRole("button", { name: /Escuchá cómo suena/i }),
+    );
+    expect(screen.getByText("La voz ya tiene forma")).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Guardar configuración avanzada",
+      }),
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
@@ -833,7 +880,7 @@ describe("PublisherAppConfigWorkbench", () => {
       displayName: "Pocket Genes Advanced",
       catalogEnabled: false,
       colorOverrides: {
-        "brand.primary": { light: "#F61C72" },
+        "brand.primary": { light: "#11223380" },
       },
       textOverrides: expect.arrayContaining([
         { key: "Services", en: "Studies", es: "Estudios" },
