@@ -4,17 +4,28 @@ import {
   PUBLISHER_APP_AUTOMATIC_OVERRIDE_COUNT,
 } from "@/lib/publisher-app-palette-overrides";
 
-function colorLightness(value: string) {
-  const channels = [1, 3, 5].map(
+function colorChannels(value: string) {
+  return [1, 3, 5].map(
     (offset) => Number.parseInt(value.slice(offset, offset + 2), 16) / 255,
   );
+}
+
+function colorLightness(value: string) {
+  const channels = colorChannels(value);
   return ((Math.max(...channels) + Math.min(...channels)) / 2) * 100;
 }
 
+function colorSaturation(value: string) {
+  const channels = colorChannels(value);
+  const maximum = Math.max(...channels);
+  const minimum = Math.min(...channels);
+  const delta = maximum - minimum;
+  const lightness = (maximum + minimum) / 2;
+  return delta === 0 ? 0 : (delta / (1 - Math.abs(2 * lightness - 1))) * 100;
+}
+
 function colorHue(value: string) {
-  const [red, green, blue] = [1, 3, 5].map(
-    (offset) => Number.parseInt(value.slice(offset, offset + 2), 16) / 255,
-  );
+  const [red, green, blue] = colorChannels(value);
   const maximum = Math.max(red, green, blue);
   const minimum = Math.min(red, green, blue);
   const delta = maximum - minimum;
@@ -33,15 +44,34 @@ function hueDistance(left: number, right: number) {
   return Math.min(distance, 360 - distance);
 }
 
+function perceptualLightness(value: string) {
+  const [red, green, blue] = colorChannels(value).map((channel) =>
+    channel <= 0.04045
+      ? channel / 12.92
+      : Math.pow((channel + 0.055) / 1.055, 2.4),
+  );
+  const l = 0.4122214708 * red + 0.5363325363 * green + 0.0514459929 * blue;
+  const m = 0.2119034982 * red + 0.6806995451 * green + 0.1073969566 * blue;
+  const s = 0.0883024619 * red + 0.2817188376 * green + 0.6299787005 * blue;
+  return (
+    0.2104542553 * Math.cbrt(l) +
+    0.793617785 * Math.cbrt(m) -
+    0.0040720468 * Math.cbrt(s)
+  );
+}
+
 describe("publisher app automatic palette overrides", () => {
   const catalog = getPublisherAppColorCatalog();
+  const optionByKey = new Map(
+    catalog.options.map((option) => [option.key, option]),
+  );
   const colors = {
     primary: "#FF5500",
     secondary: "#FFB21F",
     tertiary: "#F58220",
   };
 
-  it("selects exactly the 167 highest-impact visual roles", () => {
+  it("selects 167 meaningful chromatic roles after excluding neutral and semantic contracts", () => {
     const plan = createPublisherAppPaletteOverridePlan(
       colors,
       catalog.options,
@@ -54,36 +84,112 @@ describe("publisher app automatic palette overrides", () => {
     expect(Object.keys(plan.colorOverrides)).toHaveLength(167);
     expect(plan.colorOverrides).toEqual(
       expect.objectContaining({
-        "app.background": expect.any(Object),
+        "app.accent": expect.any(Object),
         "brand.primary": expect.any(Object),
         "tabs.discover.start": expect.any(Object),
         "discover.category.news.accent": expect.any(Object),
         "community.quickActions.friends.start": expect.any(Object),
       }),
     );
-    expect(plan.colorOverrides["serviceStatus.failed"]).toBeUndefined();
+    for (const protectedKey of [
+      "app.background",
+      "app.surface",
+      "app.groupedBackground",
+      "app.cardFill",
+      "app.frostedSurface",
+      "app.tint",
+      "app.primaryText",
+      "app.success",
+      "serviceStatus.failed",
+    ]) {
+      expect(plan.colorOverrides[protectedKey]).toBeUndefined();
+    }
+    expect(plan.colorOverrides["brand.primary"]).toEqual({
+      light: colors.primary,
+      dark: colors.primary,
+    });
+
+    for (const [key, override] of Object.entries(plan.colorOverrides)) {
+      const original = optionByKey.get(key)!;
+      expect(
+        override.light !== original.defaultLightColor ||
+          override.dark !== original.defaultDarkColor,
+      ).toBe(true);
+    }
   });
 
-  it("preserves light, dark and transparent roles while moving color hue", () => {
+  it("keeps extreme variants exact and retains every catalog alpha channel", () => {
     const plan = createPublisherAppPaletteOverridePlan(
       colors,
       catalog.options,
       catalog.catalogVersion,
     );
-    const background = plan.colorOverrides["app.background"];
-    const frostedSurface = plan.colorOverrides["app.frostedSurface"];
-    const brandPrimary = plan.colorOverrides["brand.primary"];
 
-    expect(colorLightness(background.light!)).toBeGreaterThan(96);
-    expect(colorLightness(background.dark!)).toBeLessThan(12);
-    expect(frostedSurface.light).toMatch(/80$/);
-    expect(frostedSurface.dark).toMatch(/99$/);
-    expect(
-      [colors.primary, colors.secondary, colors.tertiary].some(
+    for (const [key, override] of Object.entries(plan.colorOverrides)) {
+      const original = optionByKey.get(key)!;
+      for (const [appearance, source] of [
+        ["light", original.defaultLightColor],
+        ["dark", original.defaultDarkColor],
+      ] as const) {
+        const generated = override[appearance]!;
+        const sourceRgb = source.slice(0, 7).toUpperCase();
+        if (sourceRgb === "#FFFFFF" || sourceRgb === "#000000") {
+          expect(generated).toBe(source.toUpperCase());
+        }
+        expect(generated.slice(7)).toBe(source.slice(7).toUpperCase());
+      }
+    }
+
+    const translucentAccent = plan.colorOverrides["app.accentSubtleBackground"];
+    expect(translucentAccent.light).toMatch(/1A$/);
+  });
+
+  it("maps red, blue and green families to distinct related hues", () => {
+    const plan = createPublisherAppPaletteOverridePlan(
+      colors,
+      catalog.options,
+      catalog.catalogVersion,
+    );
+    const keys = [
+      "discover.category.news.accent",
+      "discover.category.researchUpdate.accent",
+      "discover.category.supportService.accent",
+    ];
+    const generated = keys.map((key) => plan.colorOverrides[key].light!);
+
+    expect(new Set(generated).size).toBe(3);
+    for (let left = 0; left < generated.length; left += 1) {
+      for (let right = left + 1; right < generated.length; right += 1) {
+        expect(
+          hueDistance(colorHue(generated[left]), colorHue(generated[right])),
+        ).toBeGreaterThan(10);
+      }
+    }
+    for (const [index, key] of keys.entries()) {
+      expect(
+        Math.abs(
+          perceptualLightness(generated[index]) -
+            perceptualLightness(optionByKey.get(key)!.defaultLightColor),
+        ),
+      ).toBeLessThan(0.012);
+    }
+
+    const chromaticOutputs = Object.values(plan.colorOverrides)
+      .flatMap((override) => [override.light!, override.dark!])
+      .filter(
         (color) =>
-          hueDistance(colorHue(brandPrimary.light!), colorHue(color)) < 3,
-      ),
-    ).toBe(true);
+          colorSaturation(color) >= 30 &&
+          colorLightness(color) > 8 &&
+          colorLightness(color) < 92,
+      );
+    const hueBuckets = new Set(
+      chromaticOutputs.map((color) => Math.round(colorHue(color) / 12)),
+    );
+    expect(hueBuckets.size).toBeGreaterThanOrEqual(5);
+    for (const color of chromaticOutputs) {
+      const hue = colorHue(color);
+      expect(hue <= 95 || hue >= 340).toBe(true);
+    }
   });
 
   it("returns the same coordinated catalog for the same palette", () => {
