@@ -24,13 +24,15 @@
 // Nothing in this file throws. A mail failure must never turn a completed
 // client-add into an error for the coach (see client-invite.ts).
 //
-// ⚠️ NODEMAILER IS PINNED TO ^7 AND CANNOT MOVE TO 8+ WHILE next-auth 4 IS
-// INSTALLED. `next-auth@4.24.15` declares `peerOptional nodemailer@^7.0.7`, so a
-// root `nodemailer@9` makes `npm install` fail outright with ERESOLVE — which is
-// a FAILED PRODUCTION BUILD, because `main` auto-deploys and this repo runs no
-// PR checks on purpose. That is exactly how PR #350 (a Dependabot 7.0.13 -> 9.0.1
-// bump) took the deploy down. Nothing in this file needs anything newer than 7;
-// if a nodemailer major is ever genuinely wanted, next-auth has to go first.
+// ⚠️ NODEMAILER 10 + next-auth 4 NEED THE `overrides` ENTRY IN package.json.
+// `next-auth@4.24.15` (latest 4.x) declares `peerOptional nodemailer@^7.0.7`;
+// without `"overrides": { "next-auth": { "nodemailer": "$nodemailer" } }` a root
+// nodemailer 8+ makes `npm install`/`npm ci` fail with ERESOLVE — a FAILED
+// PRODUCTION BUILD, because `main` auto-deploys (that is how #350, the
+// 2026-09-09 bump and #395 took the deploy down). next-auth only touches
+// nodemailer from EmailProvider, which this app does not use (Credentials
+// only). Do not remove the override while next-auth 4 is installed; see
+// backoffice/README.md → "Dependency overrides".
 
 import "server-only";
 
