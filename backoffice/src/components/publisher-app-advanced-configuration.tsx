@@ -8,6 +8,7 @@ import {
   useState,
   type ComponentProps,
   type CSSProperties,
+  type ReactNode,
 } from "react";
 import {
   ArrowDown,
@@ -18,7 +19,6 @@ import {
   Boxes,
   Check,
   CircleCheck,
-  ExternalLink,
   Globe2,
   Languages,
   LoaderCircle,
@@ -29,7 +29,6 @@ import {
   Plus,
   Rocket,
   Search,
-  ShieldCheck,
   Sun,
   Trash2,
 } from "lucide-react";
@@ -3170,86 +3169,34 @@ function cloneAdvancedConfiguration(
   ) as PublisherAppAdvancedConfiguration;
 }
 
-const SEGMENT_SECTIONS: Record<
-  AdvancedSegmentId,
-  Array<{ title: string; story: string }>
-> = {
-  identity: [
-    {
-      title: "Nombre visible en la app",
-      story: "Cambiá el nombre que se muestra dentro de la app.",
-    },
-    {
-      title: "Funciones disponibles",
-      story: "Activá o desactivá el catálogo y el contenido de Discover.",
-    },
-    {
-      title: "Paleta y colores personalizados",
-      story:
-        "Consultá la paleta y configurá colores específicos para componentes.",
-    },
-  ],
-  scope: [
-    {
-      title: "Organización y proveedor vinculados",
-      story:
-        "Consultá los IDs que definen el origen del contenido y los servicios.",
-    },
-    {
-      title: "Contenido y servicios incluidos",
-      story:
-        "Consultá qué contenido de Discover y qué servicios recibirá la app.",
-    },
-    {
-      title: "Cómo modificar estos datos",
-      story:
-        "Estos valores se editan desde la organización o el proveedor vinculados.",
-    },
-  ],
-  wording: [
-    {
-      title: "Idiomas de la app",
-      story: "Elegí qué idiomas soporta la app y cuál se usa por defecto.",
-    },
-    {
-      title: "Textos personalizados",
-      story: "Reemplazá textos específicos en español e inglés.",
-    },
-    {
-      title: "Vista previa de textos",
-      story: "Revisá los textos personalizados antes de guardar.",
-    },
-  ],
-  learn: [
-    {
-      title: "Fuente del contenido educativo",
-      story: "Elegí entre el currículo de Pocket Genes y un currículo propio.",
-    },
-    {
-      title: "Datos del currículo",
-      story: "Configurá el ID, la revisión y el idioma del currículo propio.",
-    },
-    {
-      title: "Temas, capítulos y lecciones",
-      story: "Creá y editá la estructura y el contenido del currículo.",
-    },
-  ],
-  links: [
-    {
-      title: "Enlaces de Join Us",
-      story: "Configurá el enlace de Join Us para cada idioma.",
-    },
-    {
-      title: "Soporte y documentos legales",
-      story:
-        "Configurá el email de soporte y los enlaces de privacidad y términos.",
-    },
-    {
-      title: "Verificar enlaces",
-      story: "Revisá todos los enlaces antes de guardar.",
-    },
-  ],
-};
+function AdvancedEditSection({
+  title,
+  description,
+  children,
+  testId,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+  testId?: string;
+}) {
+  return (
+    <section
+      data-testid={testId}
+      className="grid gap-5 border-b border-border/70 py-7 first:pt-0 last:border-b-0 last:pb-0 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-8"
+    >
+      <div>
+        <h3 className="text-base font-semibold text-foreground">{title}</h3>
+        {description ? (
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            {description}
+          </p>
+        ) : null}
+      </div>
+      <div className="min-w-0">{children}</div>
+    </section>
+  );
+}
 
 function learnTotals(learn: PublisherAppLearnConfiguration) {
   if (learn.mode === "base") return { subjects: 0, chapters: 0, lessons: 0 };
@@ -3280,9 +3227,6 @@ export function PublisherAppAdvancedConfigurationEditor({
   const [activeSegment, setActiveSegment] = useState<AdvancedSegmentId | null>(
     null,
   );
-  const [activeSectionIndex, setActiveSectionIndex] = useState<number | null>(
-    null,
-  );
   const [draft, setDraft] = useState<PublisherAppAdvancedConfiguration | null>(
     null,
   );
@@ -3298,24 +3242,18 @@ export function PublisherAppAdvancedConfigurationEditor({
   const activeDefinition = ADVANCED_SEGMENTS.find(
     (segment) => segment.id === activeSegment,
   );
-  const sections = activeSegment ? SEGMENT_SECTIONS[activeSegment] : [];
-  const activeSection =
-    activeSectionIndex === null ? null : sections[activeSectionIndex];
-  const sectionIndex = activeSectionIndex ?? 0;
 
   const updateDraft = (patch: Partial<PublisherAppAdvancedConfiguration>) =>
     setDraft((current) => (current ? { ...current, ...patch } : current));
 
   const openSegment = (segment: AdvancedSegmentId) => {
     setDraft(cloneAdvancedConfiguration(configuration));
-    setActiveSectionIndex(null);
     setActiveSegment(segment);
   };
 
   const closeSegment = () => {
     setActiveSegment(null);
     setDraft(null);
-    setActiveSectionIndex(null);
   };
 
   const applySegment = () => {
@@ -3341,795 +3279,567 @@ export function PublisherAppAdvancedConfigurationEditor({
     return configuration.links.supportEmail || "Destinos todavía sin completar";
   };
 
-  const sectionSummary = (segment: AdvancedSegmentId, index: number) => {
-    if (segment === "identity") {
-      if (index === 0) return working.displayName;
-      if (index === 1)
-        return `${working.catalogEnabled ? "Catálogo activo" : "Catálogo inactivo"} · ${working.feedEnabled ? "Discover activo" : "Discover inactivo"}`;
-      return `${Object.keys(working.colorOverrides).length} colores personalizados`;
-    }
-    if (segment === "scope") {
-      if (index === 0) return "IDs vinculados · solo lectura";
-      if (index === 1)
-        return working.discoverScope.mode === "all"
-          ? "Discover global · todos los proveedores"
-          : `Discover · ${working.discoverScope.publisherOrganizationId}`;
-      return "Configuración de solo lectura";
-    }
-    if (segment === "wording") {
-      if (index === 0)
-        return `${working.localization.availableLanguages.length} idiomas disponibles`;
-      if (index === 1)
-        return `${working.textOverrides.length} textos personalizados`;
-      return "Vista previa bilingüe";
-    }
-    if (segment === "learn") {
-      const totals = learnTotals(working.learn);
-      if (index === 0)
-        return working.learn.mode === "base"
-          ? "Currículo Pocket Genes"
-          : "Currículo propio";
-      if (index === 1)
-        return working.learn.mode === "base"
-          ? "Sin metadatos propios"
-          : `${working.learn.curriculumId} · revisión ${working.learn.curriculumRevision}`;
-      return working.learn.mode === "base"
-        ? "Contenido predeterminado"
-        : `${totals.subjects} temas · ${totals.chapters} capítulos · ${totals.lessons} lecciones`;
-    }
-    if (index === 0) return "Enlaces en español e inglés";
-    if (index === 1)
-      return working.links.supportEmail || "Contacto todavía sin completar";
-    return "Revisión de destinos";
-  };
-
-  const renderIdentitySection = () => {
-    if (sectionIndex === 0)
-      return (
-        <div>
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
-            <div className="rounded-3xl border bg-background p-6 shadow-sm">
-              <Label htmlFor="advanced-display-name" className="text-base">
-                Nombre
-              </Label>
-              <Input
-                id="advanced-display-name"
-                className="mt-3 h-12 text-lg"
-                value={working.displayName}
-                onChange={(event) =>
-                  updateDraft({ displayName: event.target.value })
-                }
-              />
-              <p className="mt-3 text-sm text-muted-foreground">
-                Este nombre aparece dentro de la app. No cambia el nombre de la
-                app en App Store o Google Play.
-              </p>
-            </div>
-            <div className="overflow-hidden rounded-3xl border bg-slate-950 p-5 text-white shadow-xl">
-              <div className="flex items-center gap-2 text-xs text-white/60">
-                <span className="size-2 rounded-full bg-emerald-400" /> VISTA EN
-                LA APP
-              </div>
-              <div className="mt-12 rounded-2xl bg-white/10 p-4 backdrop-blur">
-                <p className="text-xs text-white/60">Nombre visible</p>
-                <p className="mt-1 text-xl font-semibold">
-                  {working.displayName || "Nombre de la app"}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    if (sectionIndex === 1)
-      return (
-        <div>
-          <div className="grid gap-4 md:grid-cols-2">
-            {(["catalogEnabled", "feedEnabled"] as const).map((key, index) => {
-              const enabled = working[key];
-              const title =
-                key === "catalogEnabled"
-                  ? "Catálogo y solicitudes"
-                  : "Contenido Discover";
-              return (
-                <label
-                  key={key}
-                  className={`group cursor-pointer rounded-3xl border p-6 transition focus-within:outline-none focus-within:ring-2 focus-within:ring-ring ${enabled ? "border-primary/45 bg-primary/10" : "bg-background hover:border-primary/30"}`}
-                >
-                  <span className="flex items-start gap-4">
-                    <span
-                      className={`flex size-11 shrink-0 items-center justify-center rounded-2xl ${enabled ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
-                    >
-                      {index === 0 ? (
-                        <Boxes className="size-5" />
-                      ) : (
-                        <Globe2 className="size-5" />
-                      )}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-lg font-semibold">
-                        {title}
-                      </span>
-                      <span className="mt-1 block text-sm leading-6 text-muted-foreground">
-                        {key === "catalogEnabled"
-                          ? "Muestra el catálogo y permite iniciar solicitudes."
-                          : "Muestra las publicaciones de Discover."}
-                      </span>
-                    </span>
-                    <Checkbox
-                      aria-label={`${title}: ${enabled ? "activada" : "desactivada"}`}
-                      checked={enabled}
-                      className="mt-1 size-6 shrink-0 rounded-md border-2"
-                      onCheckedChange={(checked) =>
-                        updateDraft({ [key]: checked === true })
-                      }
-                    />
-                  </span>
-                  <span className="mt-5 block text-sm font-semibold">
-                    {enabled ? "Activada" : "Desactivada"}
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-        </div>
-      );
-    return (
-      <div className="space-y-7">
-        <div className="rounded-3xl border bg-muted/20 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-lg font-semibold">Paleta de la app</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Colores derivados automáticamente de los tres colores
-                principales.
-              </p>
-            </div>
-            <Badge variant="outline" className="rounded-full">
-              {working.semanticColors ? "Paleta guardada" : "Paleta automática"}
-            </Badge>
-          </div>
-          <div className="mt-6 flex h-20 overflow-hidden rounded-2xl shadow-inner">
-            {SEMANTIC_COLOR_FIELDS.map((field) => (
-              <div
-                key={field.key}
-                className="flex-1 transition-all duration-300 hover:flex-[1.6]"
-                style={{ backgroundColor: effectiveSemanticColors[field.key] }}
-                title={`${field.label}: ${effectiveSemanticColors[field.key]}`}
-              />
-            ))}
-          </div>
-        </div>
-        <ColorOverridesEditor
-          value={working.colorOverrides}
-          onChange={(colorOverrides) => updateDraft({ colorOverrides })}
-        />
-      </div>
-    );
-  };
-
-  const renderScopeSection = () => {
-    if (sectionIndex === 0)
-      return (
-        <div>
-          <div className="grid gap-4 md:grid-cols-3">
-            {[
-              {
-                label: "Publicador",
-                value:
-                  working.discoverScope.mode === "organization"
-                    ? working.discoverScope.publisherOrganizationId
-                    : "Alcance global",
-                icon: Globe2,
-              },
-              {
-                label: "Proveedor",
-                value:
-                  working.serviceScope.mode === "provider"
-                    ? working.serviceScope.providerId
-                    : "Todos los proveedores",
-                icon: Boxes,
-              },
-              {
-                label: "Protección",
-                value: "Vínculos administrados",
-                icon: ShieldCheck,
-              },
-            ].map((item) => (
-              <div
-                key={item.label}
-                className="rounded-3xl border bg-background p-6"
-              >
-                <item.icon className="size-6 text-foreground" />
-                <p className="mt-6 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  {item.label}
-                </p>
-                <p className="mt-2 break-all font-semibold">{item.value}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    if (sectionIndex === 1)
-      return (
-        <div>
-          <div
-            data-testid="publisher-app-scope-readonly"
-            className="grid gap-5 md:grid-cols-2"
-          >
-            <div className="space-y-5 rounded-3xl border bg-muted/20 p-6">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <Globe2 className="size-5 text-foreground" />
-                  <p className="font-semibold">Discover</p>
-                </div>
-                <Badge variant="secondary">
-                  {working.discoverScope.mode === "all"
-                    ? "Todo el contenido"
-                    : "Una organización"}
-                </Badge>
-              </div>
-              {working.discoverScope.mode === "organization" ? (
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground">
-                    ID de organización
-                  </p>
-                  <p className="mt-2 break-all font-mono text-sm">
-                    {working.discoverScope.publisherOrganizationId}
-                  </p>
-                </div>
-              ) : null}
-              <p className="text-sm leading-6 text-muted-foreground">
-                Este alcance se resuelve desde la identidad del publicador y no
-                se puede editar aquí.
-              </p>
-            </div>
-            <div className="space-y-5 rounded-3xl border bg-muted/20 p-6">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <Boxes className="size-5 text-foreground" />
-                  <p className="font-semibold">Servicios</p>
-                </div>
-                <Badge variant="secondary">
-                  {working.serviceScope.mode === "all"
-                    ? "Todos los proveedores"
-                    : "Un proveedor"}
-                </Badge>
-              </div>
-              {working.serviceScope.mode === "provider" ? (
-                <dl className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <dt className="text-xs font-semibold text-muted-foreground">
-                      Tipo
-                    </dt>
-                    <dd className="mt-2 font-medium">
-                      {working.serviceScope.providerKind === "organization"
-                        ? "Organización"
-                        : "Profesional individual"}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs font-semibold text-muted-foreground">
-                      ID del proveedor
-                    </dt>
-                    <dd className="mt-2 break-all font-mono text-sm">
-                      {working.serviceScope.providerId}
-                    </dd>
-                  </div>
-                </dl>
-              ) : null}
-              <p className="text-sm leading-6 text-muted-foreground">
-                Este alcance se resuelve desde el proveedor vinculado y no se
-                puede editar aquí.
-              </p>
-            </div>
-          </div>
-        </div>
-      );
-    return (
-      <div className="flex min-h-80 items-center justify-center">
-        <div className="max-w-xl text-center">
-          <span className="mx-auto flex size-20 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200">
-            <ShieldCheck className="size-9" />
-          </span>
-          <h3 className="mt-6 text-2xl font-semibold">Datos de solo lectura</h3>
-          <p className="mt-3 text-base leading-7 text-muted-foreground">
-            La organización y el proveedor vinculados determinan este alcance.
-            Para cambiarlo, editá esos registros desde sus pantallas.
-          </p>
-          <Badge variant="outline" className="mt-5 rounded-full">
-            Solo lectura
-          </Badge>
-        </div>
-      </div>
-    );
-  };
-
-  const renderWordingSection = () => {
-    if (sectionIndex === 0)
-      return (
-        <div>
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="rounded-3xl border p-6">
-              <Label className="text-base">Idioma predeterminado</Label>
-              <Select
-                value={working.localization.defaultLanguage}
-                onValueChange={(defaultLanguage: "en" | "es") =>
-                  updateDraft({
-                    localization: {
-                      ...working.localization,
-                      defaultLanguage,
-                      availableLanguages:
-                        working.localization.availableLanguages.includes(
-                          defaultLanguage,
-                        )
-                          ? working.localization.availableLanguages
-                          : [
-                              ...working.localization.availableLanguages,
-                              defaultLanguage,
-                            ],
-                    },
-                  })
-                }
-              >
-                <SelectTrigger className="mt-3 h-12">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="es">Español</SelectItem>
-                  <SelectItem value="en">English</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="rounded-3xl border p-6">
-              <Label className="text-base">Idiomas disponibles</Label>
-              <div className="mt-4 grid gap-3">
-                {(["es", "en"] as const).map((language) => {
-                  const languageName =
-                    language === "es" ? "Español" : "English";
-                  const enabled =
-                    working.localization.availableLanguages.includes(language);
-                  return (
-                    <label
-                      key={language}
-                      className={`flex cursor-pointer items-center justify-between gap-4 rounded-2xl border p-4 transition focus-within:ring-2 focus-within:ring-ring ${enabled ? "border-primary/45 bg-primary/10" : "hover:border-primary/30"}`}
-                    >
-                      <span>
-                        <span className="block font-semibold">
-                          {languageName}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {language === working.localization.defaultLanguage
-                            ? "Idioma predeterminado"
-                            : "Idioma adicional"}
-                        </span>
-                      </span>
-                      <Checkbox
-                        aria-label={`Activar ${languageName}`}
-                        checked={enabled}
-                        className="size-6 shrink-0 rounded-md border-2"
-                        disabled={
-                          working.localization.availableLanguages.length ===
-                            1 &&
-                          working.localization.availableLanguages[0] ===
-                            language
-                        }
-                        onCheckedChange={(checked) => {
-                          const availableLanguages = checked
-                            ? [
-                                ...new Set([
-                                  ...working.localization.availableLanguages,
-                                  language,
-                                ]),
-                              ]
-                            : working.localization.availableLanguages.filter(
-                                (item) => item !== language,
-                              );
-                          updateDraft({
-                            localization: {
-                              ...working.localization,
-                              availableLanguages,
-                              defaultLanguage: availableLanguages.includes(
-                                working.localization.defaultLanguage,
-                              )
-                                ? working.localization.defaultLanguage
-                                : availableLanguages[0]!,
-                            },
-                          });
-                        }}
-                      />
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    if (sectionIndex === 1)
-      return (
-        <div>
-          <TextOverridesEditor
-            value={working.textOverrides}
-            onChange={(textOverrides) => updateDraft({ textOverrides })}
-          />
-        </div>
-      );
-    const firstOverride = working.textOverrides[0];
-    return (
-      <div className="space-y-7">
-        <div className="grid gap-5 md:grid-cols-2">
-          {(["es", "en"] as const).map((language) => (
-            <div key={language} className="rounded-3xl border bg-muted/20 p-6">
-              <Badge variant="outline">
-                {language === "es" ? "Español" : "English"}
-              </Badge>
-              <p className="mt-8 text-xs uppercase tracking-wider text-muted-foreground">
-                {firstOverride?.key || "Texto de muestra"}
-              </p>
-              <p className="mt-3 text-xl font-semibold">
-                {firstOverride
-                  ? firstOverride[language]
-                  : "Todavía no hay textos personalizados"}
-              </p>
-            </div>
-          ))}
-        </div>
-        <div className="flex items-center gap-3 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-100">
-          <CircleCheck className="size-5 shrink-0" />{" "}
-          {working.textOverrides.length} textos personalizados listos para
-          guardar.
-        </div>
-      </div>
-    );
-  };
-
-  const renderLearnSection = () => {
-    if (sectionIndex === 0)
-      return (
-        <div>
-          <div className="grid gap-5 md:grid-cols-2">
-            <button
-              type="button"
-              aria-pressed={working.learn.mode === "base"}
-              className={`rounded-3xl border p-6 text-left transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg ${working.learn.mode === "base" ? "border-primary/45 bg-primary/10" : "bg-background"}`}
-              onClick={() => updateDraft({ learn: { mode: "base" } })}
-            >
-              <div className="flex items-start justify-between gap-4">
-                <BookOpen className="size-8 text-primary" />
-                {working.learn.mode === "base" ? (
-                  <CircleCheck className="size-6 text-primary" />
-                ) : (
-                  <span className="size-6 rounded-full border-2 border-muted-foreground/40" />
-                )}
-              </div>
-              <p className="mt-8 text-xl font-semibold">
-                Currículo Pocket Genes
-              </p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Usa los temas, capítulos y lecciones predeterminados.
-              </p>
-              {working.learn.mode === "base" ? (
-                <Badge className="mt-5">Seleccionado</Badge>
-              ) : null}
-            </button>
-            <button
-              type="button"
-              aria-pressed={working.learn.mode === "replace"}
-              className={`rounded-3xl border p-6 text-left transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg ${working.learn.mode === "replace" ? "border-primary/45 bg-primary/10" : "bg-background"}`}
-              onClick={() =>
-                updateDraft({
-                  learn:
-                    working.learn.mode === "replace"
-                      ? working.learn
-                      : starterCurriculum(),
-                })
+  const renderIdentitySection = () => (
+    <div className="mx-auto max-w-6xl">
+      <AdvancedEditSection
+        title="Nombre visible"
+        description="Nombre que aparece dentro de la app."
+      >
+        <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_16rem]">
+          <div>
+            <Label htmlFor="advanced-display-name">Nombre</Label>
+            <Input
+              id="advanced-display-name"
+              className="mt-2 h-11"
+              value={working.displayName}
+              onChange={(event) =>
+                updateDraft({ displayName: event.target.value })
               }
-            >
-              <div className="flex items-start justify-between gap-4">
-                <Rocket className="size-8 text-primary" />
-                {working.learn.mode === "replace" ? (
-                  <CircleCheck className="size-6 text-primary" />
-                ) : (
-                  <span className="size-6 rounded-full border-2 border-muted-foreground/40" />
-                )}
-              </div>
-              <p className="mt-8 text-xl font-semibold">Currículo propio</p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Reemplaza el contenido predeterminado con temas, capítulos y
-                lecciones propios.
-              </p>
-              {working.learn.mode === "replace" ? (
-                <Badge className="mt-5">Seleccionado</Badge>
-              ) : null}
-            </button>
+            />
           </div>
-        </div>
-      );
-    if (sectionIndex === 1) {
-      if (working.learn.mode === "base")
-        return (
-          <div className="flex min-h-80 items-center justify-center text-center">
-            <div>
-              <BookOpen className="mx-auto size-12 text-emerald-600" />
-              <h3 className="mt-5 text-2xl font-semibold">
-                Currículo Pocket Genes seleccionado
-              </h3>
-              <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-                El ID, la revisión y el idioma sólo se configuran para un
-                currículo propio.
-              </p>
-            </div>
-          </div>
-        );
-      return (
-        <div>
-          <div className="grid gap-4 rounded-3xl border p-6 md:grid-cols-3">
-            <div>
-              <Label htmlFor="advanced-curriculum-id">ID del currículo</Label>
-              <Input
-                id="advanced-curriculum-id"
-                className="mt-2"
-                value={working.learn.curriculumId}
-                onChange={(event) =>
-                  updateDraft({
-                    learn: {
-                      ...(working.learn as Extract<
-                        PublisherAppLearnConfiguration,
-                        { mode: "replace" }
-                      >),
-                      curriculumId: event.target.value,
-                    },
-                  })
-                }
-              />
-            </div>
-            <div>
-              <Label htmlFor="advanced-curriculum-revision">Revisión</Label>
-              <Input
-                id="advanced-curriculum-revision"
-                className="mt-2"
-                type="number"
-                min={1}
-                value={working.learn.curriculumRevision}
-                onChange={(event) =>
-                  updateDraft({
-                    learn: {
-                      ...(working.learn as Extract<
-                        PublisherAppLearnConfiguration,
-                        { mode: "replace" }
-                      >),
-                      curriculumRevision: Math.max(
-                        1,
-                        Number(event.target.value) || 1,
-                      ),
-                    },
-                  })
-                }
-              />
-            </div>
-            <div>
-              <Label htmlFor="advanced-curriculum-language">
-                Idioma del contenido
-              </Label>
-              <Input
-                id="advanced-curriculum-language"
-                className="mt-2"
-                value={working.learn.defaultLanguage}
-                onChange={(event) =>
-                  updateDraft({
-                    learn: {
-                      ...(working.learn as Extract<
-                        PublisherAppLearnConfiguration,
-                        { mode: "replace" }
-                      >),
-                      defaultLanguage: event.target.value,
-                    },
-                  })
-                }
-              />
-            </div>
-          </div>
-        </div>
-      );
-    }
-    if (working.learn.mode === "base")
-      return (
-        <div className="flex min-h-80 items-center justify-center">
-          <div className="max-w-lg rounded-3xl border border-emerald-200 bg-emerald-50/65 p-8 text-center dark:border-emerald-400/20 dark:bg-emerald-500/8">
-            <CircleCheck className="mx-auto size-11 text-emerald-600" />
-            <h3 className="mt-5 text-xl font-semibold">
-              Currículo Pocket Genes
-            </h3>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              La app usará todos los temas, capítulos y lecciones
-              predeterminados.
+          <div className="rounded-2xl border border-primary/25 bg-primary/8 p-4">
+            <p className="text-xs font-medium text-muted-foreground">
+              Vista previa
+            </p>
+            <p className="mt-2 text-lg font-semibold text-foreground">
+              {working.displayName || "Nombre de la app"}
             </p>
           </div>
         </div>
-      );
-    return (
-      <LearnBuilder
-        value={working.learn}
-        showMetadata={false}
-        onChange={(learn) => updateDraft({ learn })}
-      />
-    );
-  };
+      </AdvancedEditSection>
 
-  const renderLinksSection = () => {
-    if (sectionIndex === 0)
-      return (
-        <div>
-          <div className="grid gap-5 md:grid-cols-2">
-            {(["en", "es"] as const).map((language) => (
-              <div key={language} className="rounded-3xl border p-6">
-                <div className="flex items-center gap-3">
-                  <span className="flex size-10 items-center justify-center rounded-full bg-muted font-bold text-foreground">
-                    {language.toUpperCase()}
+      <AdvancedEditSection
+        title="Funciones disponibles"
+        description="Activá las secciones que tendrá la app."
+      >
+        <div className="overflow-hidden rounded-2xl border bg-background">
+          {(["catalogEnabled", "feedEnabled"] as const).map((key, index) => {
+            const enabled = working[key];
+            const title =
+              key === "catalogEnabled"
+                ? "Catálogo y solicitudes"
+                : "Contenido Discover";
+            const Icon = index === 0 ? Boxes : Globe2;
+            return (
+              <label
+                key={key}
+                className="flex cursor-pointer items-center gap-4 border-b p-4 last:border-b-0 hover:bg-muted/30 focus-within:bg-muted/30 focus-within:outline-none focus-within:ring-2 focus-within:ring-inset focus-within:ring-ring"
+              >
+                <span
+                  className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${enabled ? "bg-primary/12 text-primary" : "bg-muted text-muted-foreground"}`}
+                >
+                  <Icon className="size-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium text-foreground">
+                    {title}
                   </span>
-                  <div>
-                    <p className="font-semibold">
-                      Join Us · {language === "en" ? "English" : "Español"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Destino de la llamada a la acción
-                    </p>
-                  </div>
-                </div>
+                  <span className="mt-0.5 block text-sm text-muted-foreground">
+                    {key === "catalogEnabled"
+                      ? "Muestra el catálogo y permite iniciar solicitudes."
+                      : "Muestra las publicaciones de Discover."}
+                  </span>
+                </span>
+                <span className="text-sm font-medium text-muted-foreground">
+                  {enabled ? "Activa" : "Inactiva"}
+                </span>
+                <Checkbox
+                  aria-label={`${title}: ${enabled ? "activada" : "desactivada"}`}
+                  checked={enabled}
+                  className="size-5 shrink-0 rounded-md border-2"
+                  onCheckedChange={(checked) =>
+                    updateDraft({ [key]: checked === true })
+                  }
+                />
+              </label>
+            );
+          })}
+        </div>
+      </AdvancedEditSection>
+
+      <AdvancedEditSection
+        title="Paleta y colores"
+        description="Revisá la paleta y cambiá colores específicos cuando sea necesario."
+      >
+        <div className="space-y-5">
+          <div className="rounded-2xl border bg-muted/15 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="font-medium text-foreground">Paleta de la app</p>
+              <Badge variant="outline" className="rounded-full">
+                {working.semanticColors
+                  ? "Paleta guardada"
+                  : "Paleta automática"}
+              </Badge>
+            </div>
+            <div className="mt-4 flex h-16 overflow-hidden rounded-xl border bg-background">
+              {SEMANTIC_COLOR_FIELDS.map((field) => (
+                <div
+                  key={field.key}
+                  className="flex-1 transition-all duration-300 hover:flex-[1.6]"
+                  style={{
+                    backgroundColor: effectiveSemanticColors[field.key],
+                  }}
+                  title={`${field.label}: ${effectiveSemanticColors[field.key]}`}
+                />
+              ))}
+            </div>
+          </div>
+          <ColorOverridesEditor
+            value={working.colorOverrides}
+            onChange={(colorOverrides) => updateDraft({ colorOverrides })}
+          />
+        </div>
+      </AdvancedEditSection>
+    </div>
+  );
+
+  const renderScopeSection = () => (
+    <div
+      data-testid="publisher-app-scope-readonly"
+      className="mx-auto max-w-6xl"
+    >
+      <AdvancedEditSection
+        title="Contenido de Discover"
+        description="Publicaciones disponibles en esta app."
+      >
+        <div className="rounded-2xl border bg-muted/15 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Globe2 className="size-5" />
+              </span>
+              <div>
+                <p className="font-medium text-foreground">Discover</p>
+                <p className="text-sm text-muted-foreground">
+                  {working.discoverScope.mode === "all"
+                    ? "Todo el contenido"
+                    : "Contenido de una organización"}
+                </p>
+              </div>
+            </div>
+            <Badge variant="outline">Solo lectura</Badge>
+          </div>
+          {working.discoverScope.mode === "organization" ? (
+            <dl className="mt-5 border-t pt-4">
+              <dt className="text-xs font-medium text-muted-foreground">
+                ID de organización
+              </dt>
+              <dd className="mt-1 break-all font-mono text-sm text-foreground">
+                {working.discoverScope.publisherOrganizationId}
+              </dd>
+            </dl>
+          ) : null}
+        </div>
+      </AdvancedEditSection>
+
+      <AdvancedEditSection
+        title="Servicios"
+        description="Proveedores disponibles en esta app."
+      >
+        <div className="rounded-2xl border bg-muted/15 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Boxes className="size-5" />
+              </span>
+              <div>
+                <p className="font-medium text-foreground">Servicios</p>
+                <p className="text-sm text-muted-foreground">
+                  {working.serviceScope.mode === "all"
+                    ? "Todos los proveedores"
+                    : "Un proveedor"}
+                </p>
+              </div>
+            </div>
+            <Badge variant="outline">Solo lectura</Badge>
+          </div>
+          {working.serviceScope.mode === "provider" ? (
+            <dl className="mt-5 grid gap-4 border-t pt-4 sm:grid-cols-2">
+              <div>
+                <dt className="text-xs font-medium text-muted-foreground">
+                  Tipo de proveedor
+                </dt>
+                <dd className="mt-1 font-medium text-foreground">
+                  {working.serviceScope.providerKind === "organization"
+                    ? "Organización"
+                    : "Profesional individual"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium text-muted-foreground">
+                  ID del proveedor
+                </dt>
+                <dd className="mt-1 break-all font-mono text-sm text-foreground">
+                  {working.serviceScope.providerId}
+                </dd>
+              </div>
+            </dl>
+          ) : null}
+        </div>
+      </AdvancedEditSection>
+    </div>
+  );
+
+  const renderWordingSection = () => (
+    <div className="mx-auto max-w-6xl">
+      <AdvancedEditSection
+        title="Idiomas de la app"
+        description="Elegí los idiomas disponibles y el predeterminado."
+      >
+        <div className="grid gap-5 md:grid-cols-[minmax(12rem,0.8fr)_minmax(0,1.2fr)]">
+          <div>
+            <Label>Idioma predeterminado</Label>
+            <Select
+              value={working.localization.defaultLanguage}
+              onValueChange={(defaultLanguage: "en" | "es") =>
+                updateDraft({
+                  localization: {
+                    ...working.localization,
+                    defaultLanguage,
+                    availableLanguages:
+                      working.localization.availableLanguages.includes(
+                        defaultLanguage,
+                      )
+                        ? working.localization.availableLanguages
+                        : [
+                            ...working.localization.availableLanguages,
+                            defaultLanguage,
+                          ],
+                  },
+                })
+              }
+            >
+              <SelectTrigger className="mt-2 h-11">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="es">Español</SelectItem>
+                <SelectItem value="en">English</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Idiomas disponibles</Label>
+            <div className="mt-2 overflow-hidden rounded-2xl border">
+              {(["es", "en"] as const).map((language) => {
+                const languageName = language === "es" ? "Español" : "English";
+                const enabled =
+                  working.localization.availableLanguages.includes(language);
+                return (
+                  <label
+                    key={language}
+                    className="flex cursor-pointer items-center justify-between gap-4 border-b p-4 last:border-b-0 hover:bg-muted/30 focus-within:bg-muted/30"
+                  >
+                    <span>
+                      <span className="block font-medium text-foreground">
+                        {languageName}
+                      </span>
+                      {language === working.localization.defaultLanguage ? (
+                        <span className="text-xs text-muted-foreground">
+                          Predeterminado
+                        </span>
+                      ) : null}
+                    </span>
+                    <Checkbox
+                      aria-label={`Activar ${languageName}`}
+                      checked={enabled}
+                      className="size-5 shrink-0 rounded-md border-2"
+                      disabled={
+                        working.localization.availableLanguages.length === 1 &&
+                        working.localization.availableLanguages[0] === language
+                      }
+                      onCheckedChange={(checked) => {
+                        const availableLanguages = checked
+                          ? [
+                              ...new Set([
+                                ...working.localization.availableLanguages,
+                                language,
+                              ]),
+                            ]
+                          : working.localization.availableLanguages.filter(
+                              (item) => item !== language,
+                            );
+                        updateDraft({
+                          localization: {
+                            ...working.localization,
+                            availableLanguages,
+                            defaultLanguage: availableLanguages.includes(
+                              working.localization.defaultLanguage,
+                            )
+                              ? working.localization.defaultLanguage
+                              : availableLanguages[0]!,
+                          },
+                        });
+                      }}
+                    />
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </AdvancedEditSection>
+
+      <AdvancedEditSection
+        title="Textos personalizados"
+        description="Buscá un texto y agregá sólo los reemplazos necesarios."
+      >
+        <TextOverridesEditor
+          value={working.textOverrides}
+          onChange={(textOverrides) => updateDraft({ textOverrides })}
+        />
+      </AdvancedEditSection>
+    </div>
+  );
+
+  const renderLearnSection = () => (
+    <div className="mx-auto max-w-6xl">
+      <AdvancedEditSection
+        title="Contenido de Learn"
+        description="Elegí el currículo que verá la app."
+      >
+        <div className="overflow-hidden rounded-2xl border bg-background">
+          {[
+            {
+              mode: "base" as const,
+              title: "Currículo Pocket Genes",
+              description: "Usa los temas, capítulos y lecciones incluidos.",
+              icon: BookOpen,
+            },
+            {
+              mode: "replace" as const,
+              title: "Currículo propio",
+              description: "Usa temas, capítulos y lecciones personalizados.",
+              icon: Rocket,
+            },
+          ].map((option) => {
+            const selected = working.learn.mode === option.mode;
+            return (
+              <button
+                key={option.mode}
+                type="button"
+                aria-pressed={selected}
+                className={`flex w-full items-center gap-4 border-b p-4 text-left last:border-b-0 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${selected ? "bg-primary/8" : ""}`}
+                onClick={() =>
+                  updateDraft({
+                    learn:
+                      option.mode === "base"
+                        ? { mode: "base" }
+                        : working.learn.mode === "replace"
+                          ? working.learn
+                          : starterCurriculum(),
+                  })
+                }
+              >
+                <span
+                  className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${selected ? "bg-primary/12 text-primary" : "bg-muted text-muted-foreground"}`}
+                >
+                  <option.icon className="size-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium text-foreground">
+                    {option.title}
+                  </span>
+                  <span className="mt-0.5 block text-sm text-muted-foreground">
+                    {option.description}
+                  </span>
+                </span>
+                {selected ? (
+                  <CircleCheck className="size-5 shrink-0 text-primary" />
+                ) : (
+                  <span className="size-5 shrink-0 rounded-full border-2 border-muted-foreground/35" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </AdvancedEditSection>
+
+      {working.learn.mode === "replace" ? (
+        <>
+          <AdvancedEditSection
+            title="Datos del currículo"
+            description="Identificación e idioma del contenido personalizado."
+          >
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <Label htmlFor="advanced-curriculum-id">ID del currículo</Label>
                 <Input
-                  aria-label={`Join Us · ${language === "en" ? "English" : "Español"}`}
-                  className="mt-6"
-                  type="url"
-                  value={working.links.joinUs[language]}
+                  id="advanced-curriculum-id"
+                  className="mt-2"
+                  value={working.learn.curriculumId}
                   onChange={(event) =>
                     updateDraft({
-                      links: {
-                        ...working.links,
-                        joinUs: {
-                          ...working.links.joinUs,
-                          [language]: event.target.value,
-                        },
+                      learn: {
+                        ...(working.learn as Extract<
+                          PublisherAppLearnConfiguration,
+                          { mode: "replace" }
+                        >),
+                        curriculumId: event.target.value,
                       },
                     })
                   }
                 />
               </div>
-            ))}
-          </div>
-        </div>
-      );
-    if (sectionIndex === 1)
-      return (
-        <div>
-          <div className="grid gap-5 md:grid-cols-2">
-            <div className="rounded-3xl border p-6 md:col-span-2">
+              <div>
+                <Label htmlFor="advanced-curriculum-revision">Revisión</Label>
+                <Input
+                  id="advanced-curriculum-revision"
+                  className="mt-2"
+                  type="number"
+                  min={1}
+                  value={working.learn.curriculumRevision}
+                  onChange={(event) =>
+                    updateDraft({
+                      learn: {
+                        ...(working.learn as Extract<
+                          PublisherAppLearnConfiguration,
+                          { mode: "replace" }
+                        >),
+                        curriculumRevision: Math.max(
+                          1,
+                          Number(event.target.value) || 1,
+                        ),
+                      },
+                    })
+                  }
+                />
+              </div>
+              <div>
+                <Label htmlFor="advanced-curriculum-language">
+                  Idioma del contenido
+                </Label>
+                <Input
+                  id="advanced-curriculum-language"
+                  className="mt-2"
+                  value={working.learn.defaultLanguage}
+                  onChange={(event) =>
+                    updateDraft({
+                      learn: {
+                        ...(working.learn as Extract<
+                          PublisherAppLearnConfiguration,
+                          { mode: "replace" }
+                        >),
+                        defaultLanguage: event.target.value,
+                      },
+                    })
+                  }
+                />
+              </div>
+            </div>
+          </AdvancedEditSection>
+
+          <AdvancedEditSection
+            title="Temas, capítulos y lecciones"
+            description="Abrí cada elemento para editar su contenido."
+          >
+            <LearnBuilder
+              value={working.learn}
+              showMetadata={false}
+              onChange={(learn) => updateDraft({ learn })}
+            />
+          </AdvancedEditSection>
+        </>
+      ) : null}
+    </div>
+  );
+
+  const renderLinksSection = () => (
+    <div className="mx-auto max-w-6xl">
+      <AdvancedEditSection
+        title="Enlaces de Join Us"
+        description="Destino del botón Join Us en cada idioma."
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          {(["en", "es"] as const).map((language) => (
+            <div key={language}>
               <Label
-                htmlFor="advanced-support-email"
-                className="flex items-center gap-2 text-base"
-              >
-                <Mail className="size-4 text-foreground" /> Email de soporte
-              </Label>
+                htmlFor={`advanced-join-us-${language}`}
+              >{`Join Us · ${language === "en" ? "English" : "Español"}`}</Label>
               <Input
-                id="advanced-support-email"
-                className="mt-3"
-                type="email"
-                value={working.links.supportEmail}
+                id={`advanced-join-us-${language}`}
+                aria-label={`Join Us · ${language === "en" ? "English" : "Español"}`}
+                className="mt-2"
+                type="url"
+                value={working.links.joinUs[language]}
                 onChange={(event) =>
                   updateDraft({
                     links: {
                       ...working.links,
-                      supportEmail: event.target.value,
+                      joinUs: {
+                        ...working.links.joinUs,
+                        [language]: event.target.value,
+                      },
                     },
                   })
                 }
               />
             </div>
-            <div className="rounded-3xl border p-6">
-              <Label htmlFor="advanced-privacy-url">
-                Política de privacidad
-              </Label>
-              <Input
-                id="advanced-privacy-url"
-                className="mt-3"
-                type="url"
-                value={working.links.privacyUrl}
-                onChange={(event) =>
-                  updateDraft({
-                    links: { ...working.links, privacyUrl: event.target.value },
-                  })
-                }
-              />
-            </div>
-            <div className="rounded-3xl border p-6">
-              <Label htmlFor="advanced-terms-url">Términos y condiciones</Label>
-              <Input
-                id="advanced-terms-url"
-                className="mt-3"
-                type="url"
-                value={working.links.termsUrl}
-                onChange={(event) =>
-                  updateDraft({
-                    links: { ...working.links, termsUrl: event.target.value },
-                  })
-                }
-              />
-            </div>
+          ))}
+        </div>
+      </AdvancedEditSection>
+
+      <AdvancedEditSection
+        title="Soporte y documentos legales"
+        description="Contacto y enlaces legales de la app."
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="md:col-span-2">
+            <Label
+              htmlFor="advanced-support-email"
+              className="flex items-center gap-2"
+            >
+              <Mail className="size-4 text-muted-foreground" /> Email de soporte
+            </Label>
+            <Input
+              id="advanced-support-email"
+              className="mt-2"
+              type="email"
+              value={working.links.supportEmail}
+              onChange={(event) =>
+                updateDraft({
+                  links: {
+                    ...working.links,
+                    supportEmail: event.target.value,
+                  },
+                })
+              }
+            />
+          </div>
+          <div>
+            <Label htmlFor="advanced-privacy-url">Política de privacidad</Label>
+            <Input
+              id="advanced-privacy-url"
+              className="mt-2"
+              type="url"
+              value={working.links.privacyUrl}
+              onChange={(event) =>
+                updateDraft({
+                  links: { ...working.links, privacyUrl: event.target.value },
+                })
+              }
+            />
+          </div>
+          <div>
+            <Label htmlFor="advanced-terms-url">Términos y condiciones</Label>
+            <Input
+              id="advanced-terms-url"
+              className="mt-2"
+              type="url"
+              value={working.links.termsUrl}
+              onChange={(event) =>
+                updateDraft({
+                  links: { ...working.links, termsUrl: event.target.value },
+                })
+              }
+            />
           </div>
         </div>
-      );
-    const destinations = [
-      { label: "Join Us · English", value: working.links.joinUs.en },
-      { label: "Join Us · Español", value: working.links.joinUs.es },
-      { label: "Soporte", value: working.links.supportEmail },
-      { label: "Privacidad", value: working.links.privacyUrl },
-      { label: "Términos", value: working.links.termsUrl },
-    ];
-    return (
-      <div className="space-y-7">
-        <div className="grid gap-3">
-          {destinations.map((item) => (
-            <div
-              key={item.label}
-              className="flex items-center gap-4 rounded-2xl border bg-background p-4"
-            >
-              <span
-                className={`flex size-9 shrink-0 items-center justify-center rounded-full ${item.value ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200" : "bg-amber-100 text-amber-700"}`}
-              >
-                {item.value ? (
-                  <Check className="size-4" />
-                ) : (
-                  <ExternalLink className="size-4" />
-                )}
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold">{item.label}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {item.value || "Destino pendiente"}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
+      </AdvancedEditSection>
+    </div>
+  );
 
-  const renderSegmentHome = () => {
-    if (!activeSegment || !activeDefinition) return null;
-    return (
-      <div
-        data-testid="publisher-app-section-index"
-        className="mx-auto max-w-5xl space-y-5"
-      >
-        <h3 className="text-xl font-semibold tracking-tight">
-          Elegí qué configurar
-        </h3>
-        <div className="grid gap-4 md:grid-cols-2">
-          {sections.map((section, index) => (
-            <button
-              key={section.title}
-              type="button"
-              onClick={() => setActiveSectionIndex(index)}
-              className="group flex min-h-36 flex-col rounded-3xl border bg-background p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <h4 className="text-lg font-semibold">{section.title}</h4>
-                <ArrowRight className="size-5 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
-              </div>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                {section.story}
-              </p>
-              <p className="mt-auto pt-5 text-xs font-medium text-foreground/75">
-                {sectionSummary(activeSegment, index)}
-              </p>
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  const renderCurrentSection = () => {
+  const renderCurrentSegment = () => {
     if (!activeSegment) return null;
     if (activeSegment === "identity") return renderIdentitySection();
     if (activeSegment === "scope") return renderScopeSection();
@@ -4205,14 +3915,9 @@ export function PublisherAppAdvancedConfigurationEditor({
                       <activeDefinition.icon className="size-5" />
                     </span>
                     <div>
-                      {activeSection ? (
-                        <p className="mb-1 text-xs font-semibold text-muted-foreground">
-                          {activeDefinition.title}
-                        </p>
-                      ) : null}
                       <div className="flex flex-wrap items-center gap-2">
                         <DialogTitle className="text-xl sm:text-2xl">
-                          {activeSection?.title ?? activeDefinition.title}
+                          {activeDefinition.title}
                         </DialogTitle>
                         {activeSegment === "scope" ? (
                           <Badge variant="outline" className="rounded-full">
@@ -4221,7 +3926,7 @@ export function PublisherAppAdvancedConfigurationEditor({
                         ) : null}
                       </div>
                       <DialogDescription className="mt-1 max-w-3xl text-sm sm:text-base">
-                        {activeSection?.story ?? activeDefinition.description}
+                        {activeDefinition.description}
                       </DialogDescription>
                     </div>
                   </div>
@@ -4237,24 +3942,11 @@ export function PublisherAppAdvancedConfigurationEditor({
                   </Button>
                 </DialogHeader>
 
-                {activeSection ? (
-                  <div className="border-b bg-muted/20 px-6 py-3 sm:px-8">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setActiveSectionIndex(null)}
-                    >
-                      <ArrowLeft className="size-4" /> Volver a secciones
-                    </Button>
-                  </div>
-                ) : null}
-
                 <div
-                  key={`${activeSegment}-${activeSectionIndex ?? "index"}`}
+                  key={activeSegment}
                   className="min-h-0 flex-1 overflow-y-auto px-6 py-7 animate-in fade-in duration-200 sm:px-8 sm:py-8"
                 >
-                  {activeSection ? renderCurrentSection() : renderSegmentHome()}
+                  {renderCurrentSegment()}
                 </div>
 
                 <DialogFooter className="m-0 shrink-0 rounded-none px-6 py-4 sm:px-8">

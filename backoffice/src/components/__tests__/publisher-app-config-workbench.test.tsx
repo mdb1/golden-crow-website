@@ -765,32 +765,27 @@ describe("PublisherAppConfigWorkbench", () => {
     );
     expect(advancedModal).toHaveClass("sm:max-w-[90rem]");
     expect(
-      within(advancedModal).getByTestId("publisher-app-section-index"),
-    ).toBeTruthy();
+      within(advancedModal).queryByTestId("publisher-app-section-index"),
+    ).toBeNull();
     expect(
       within(advancedModal).queryByRole("button", { name: /Siguiente/i }),
     ).toBeNull();
-    fireEvent.click(
-      within(advancedModal).getByRole("button", {
-        name: /Contenido y servicios incluidos/i,
+    expect(
+      within(advancedModal).queryByRole("button", {
+        name: "Volver a secciones",
       }),
-    );
+    ).toBeNull();
     const scope = screen.getByTestId("publisher-app-scope-readonly");
     expect(within(scope).queryAllByRole("combobox")).toHaveLength(0);
     expect(within(scope).queryAllByRole("textbox")).toHaveLength(0);
     expect(within(scope).getAllByText("org-1")).toHaveLength(2);
-    expect(within(scope).getAllByText(/no se puede editar aquí/i)).toHaveLength(
-      2,
-    );
+    expect(within(scope).getAllByText("Solo lectura")).toHaveLength(2);
     fireEvent.click(
       within(advancedModal).getByRole("button", { name: "Cerrar" }),
     );
 
     fireEvent.click(
       screen.getByRole("button", { name: /Nombre, funciones y colores/i }),
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: /Nombre visible en la app/i }),
     );
     fireEvent.change(screen.getByLabelText("Nombre"), {
       target: { value: "Cambio descartado" },
@@ -799,27 +794,16 @@ describe("PublisherAppConfigWorkbench", () => {
     fireEvent.click(
       screen.getByRole("button", { name: /Nombre, funciones y colores/i }),
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: /Nombre visible en la app/i }),
-    );
     expect(screen.getByLabelText("Nombre")).toHaveValue("Pocket Genes Lab");
     fireEvent.change(screen.getByLabelText("Nombre"), {
       target: { value: "Pocket Genes Advanced" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Volver a secciones" }));
-    fireEvent.click(
-      screen.getByRole("button", { name: /Funciones disponibles/i }),
-    );
     const catalogCheckbox = screen.getByRole("checkbox", {
       name: /Catálogo y solicitudes/i,
     });
     expect(catalogCheckbox).toHaveAttribute("aria-checked", "true");
     fireEvent.click(catalogCheckbox);
     expect(catalogCheckbox).toHaveAttribute("aria-checked", "false");
-    fireEvent.click(screen.getByRole("button", { name: "Volver a secciones" }));
-    fireEvent.click(
-      screen.getByRole("button", { name: /Paleta y colores personalizados/i }),
-    );
     fireEvent.click(screen.getByRole("button", { name: "Agregar color" }));
     fireEvent.change(screen.getByLabelText("Buscar opciones disponibles"), {
       target: { value: "brand primary" },
@@ -870,11 +854,6 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(screen.queryByTestId("publisher-app-advanced-modal")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: /Idiomas y textos/i }));
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: /^Textos personalizados/i,
-      }),
-    );
     expect(screen.getByText("Contact Pocket Genes")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Agregar texto" }));
     const textOption = await screen.findByRole("button", {
@@ -888,11 +867,7 @@ describe("PublisherAppConfigWorkbench", () => {
       target: { value: "Estudios" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Guardar este texto" }));
-    fireEvent.click(screen.getByRole("button", { name: "Volver a secciones" }));
-    fireEvent.click(
-      screen.getByRole("button", { name: /Vista previa de textos/i }),
-    );
-    expect(screen.getByText("Vista previa de textos")).toBeTruthy();
+    expect(screen.getByText(/Estudios/)).toBeTruthy();
     fireEvent.click(
       screen.getByRole("button", {
         name: "Guardar configuración avanzada",
@@ -955,11 +930,14 @@ describe("PublisherAppConfigWorkbench", () => {
       }),
     );
     const advancedModal = screen.getByTestId("publisher-app-advanced-modal");
-    fireEvent.click(
-      within(advancedModal).getByRole("button", {
-        name: /^Funciones disponibles/i,
+    expect(
+      within(advancedModal).queryByTestId("publisher-app-section-index"),
+    ).toBeNull();
+    expect(
+      within(advancedModal).queryByRole("button", {
+        name: "Volver a secciones",
       }),
-    );
+    ).toBeNull();
     expect(
       within(advancedModal).getByRole("checkbox", {
         name: /Catálogo y solicitudes: activada/i,
@@ -977,12 +955,6 @@ describe("PublisherAppConfigWorkbench", () => {
     fireEvent.click(
       within(editor).getByRole("button", { name: /Idiomas y textos/i }),
     );
-    fireEvent.click(
-      within(screen.getByTestId("publisher-app-advanced-modal")).getByRole(
-        "button",
-        { name: /^Idiomas de la app/i },
-      ),
-    );
     expect(screen.getByText("Idiomas disponibles")).toBeTruthy();
     expect(screen.queryByText(/conversación|voces disponibles/i)).toBeNull();
     expect(
@@ -991,6 +963,25 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(
       screen.getByRole("checkbox", { name: "Activar English" }),
     ).toBeTruthy();
+    fireEvent.click(
+      within(screen.getByTestId("publisher-app-advanced-modal")).getByRole(
+        "button",
+        { name: "Cancelar" },
+      ),
+    );
+
+    fireEvent.click(
+      within(editor).getByRole("button", { name: /Enlaces y contacto/i }),
+    );
+    const linksModal = screen.getByTestId("publisher-app-advanced-modal");
+    expect(within(linksModal).getByLabelText("Join Us · English")).toBeTruthy();
+    expect(within(linksModal).getByLabelText("Join Us · Español")).toBeTruthy();
+    expect(within(linksModal).getByLabelText("Email de soporte")).toBeTruthy();
+    expect(
+      within(linksModal).queryByRole("button", {
+        name: "Volver a secciones",
+      }),
+    ).toBeNull();
   });
 
   it("builds a custom Learn curriculum through hierarchical detail screens", async () => {
@@ -1007,22 +998,7 @@ describe("PublisherAppConfigWorkbench", () => {
     const advancedModal = screen.getByTestId("publisher-app-advanced-modal");
     fireEvent.click(
       within(advancedModal).getByRole("button", {
-        name: /Fuente del contenido educativo/i,
-      }),
-    );
-    fireEvent.click(
-      within(advancedModal).getByRole("button", {
         name: /Currículo propio/i,
-      }),
-    );
-    fireEvent.click(
-      within(advancedModal).getByRole("button", {
-        name: "Volver a secciones",
-      }),
-    );
-    fireEvent.click(
-      within(advancedModal).getByRole("button", {
-        name: /Temas, capítulos y lecciones/i,
       }),
     );
 
