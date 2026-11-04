@@ -24,6 +24,9 @@ type PaletteRolePolicy =
   | "primary"
   | "vividPrimary"
   | "vividPrimaryGradientEnd"
+  | "learnBackground"
+  | "learnTabPrimary"
+  | "centerTabAnticlockwise"
   | "secondary"
   | "tertiary"
   | "counterpointClockwise"
@@ -36,6 +39,8 @@ type ThemePalette = {
   centerHue: number;
   sourceBrandHue: number;
   baseChroma: number;
+  counterpointClockwiseHex: string;
+  counterpointAnticlockwiseHex: string;
   counterpointClockwiseHue: number;
   counterpointAnticlockwiseHue: number;
 };
@@ -43,6 +48,13 @@ type ThemePalette = {
 type PaletteCandidate = {
   option: PublisherAppColorCatalogOption;
   override: PublisherAppColorOverride;
+};
+
+type ColorAppearance = "light" | "dark";
+
+type LearnBackgroundTone = {
+  lightness: number;
+  chroma: number;
 };
 
 /*
@@ -61,7 +73,8 @@ type PaletteCandidate = {
  * 4. Counterpoints are accessory hues, not new defaults. They are used only
  *    where a compact multi-accent layout genuinely benefits from two extra
  *    identities. Today that exception is the four-tile Connect quick-access
- *    row; navigation, surfaces, text and semantic states never inherit them.
+ *    row, the central Discover tab and selected Learn atmospheric effects.
+ *    General navigation, surfaces, text and semantic states never inherit them.
  * 5. Every other chromatic role keeps its perceptual lightness and its original
  *    hue relationship. The source hue wheel is compressed into a broad
  *    analogous family instead of being collapsed onto three near-identical
@@ -77,6 +90,10 @@ const DIRECT_ROLE_POLICY: Record<string, PaletteRolePolicy> = {
   "brand.primary": "primary",
   "learn.level.bacteria.accent": "vividPrimary",
   "learn.level.bacteria.gradientEnd": "vividPrimaryGradientEnd",
+  "tabs.learn.start": "learnTabPrimary",
+  "tabs.learn.end": "learnTabPrimary",
+  "tabs.discover.start": "centerTabAnticlockwise",
+  "tabs.discover.end": "centerTabAnticlockwise",
   "brand.secondary": "secondary",
   "brand.accent": "tertiary",
   "android.material.primary": "primary",
@@ -115,6 +132,51 @@ const BACTERIA_GRADIENT_LIGHTNESS_DELTA = 0.1;
 const BACTERIA_GRADIENT_MIN_LIGHTNESS = 0.45;
 const BACTERIA_GRADIENT_MAX_LIGHTNESS = 0.78;
 const BACTERIA_GRADIENT_MIN_CHROMA = 0.18;
+
+const LEARN_BACKGROUND_SECONDARY_TONES: Record<
+  string,
+  Record<ColorAppearance, LearnBackgroundTone>
+> = {
+  "app.learnBackground": {
+    light: { lightness: 0.955, chroma: 0.04 },
+    dark: { lightness: 0.14, chroma: 0.035 },
+  },
+  "learn.background.stop1": {
+    light: { lightness: 0.985, chroma: 0.012 },
+    dark: { lightness: 0.12, chroma: 0.025 },
+  },
+  "learn.background.stop2": {
+    light: { lightness: 0.96, chroma: 0.035 },
+    dark: { lightness: 0.17, chroma: 0.045 },
+  },
+  "learn.background.stop3": {
+    light: { lightness: 0.925, chroma: 0.06 },
+    dark: { lightness: 0.23, chroma: 0.065 },
+  },
+  "learn.background.stop4": {
+    light: { lightness: 0.975, chroma: 0.02 },
+    dark: { lightness: 0.1, chroma: 0.02 },
+  },
+  "learn.background.trailingGlow": {
+    light: { lightness: 0.84, chroma: 0.12 },
+    dark: { lightness: 0.78, chroma: 0.17 },
+  },
+  "learn.background.trailingGlowEdge": {
+    light: { lightness: 0.78, chroma: 0.14 },
+    dark: { lightness: 0.68, chroma: 0.15 },
+  },
+  "learn.background.trailingOrb": {
+    light: { lightness: 0.88, chroma: 0.1 },
+    dark: { lightness: 0.76, chroma: 0.16 },
+  },
+};
+
+const LEARN_BACKGROUND_CLOCKWISE_EFFECT_KEYS = new Set([
+  "learn.background.leadingGlow",
+  "learn.background.leadingGlowEdge",
+  "learn.background.leadingOrb",
+  "learn.background.sheenEnd",
+]);
 
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(maximum, Math.max(minimum, value));
@@ -272,12 +334,20 @@ function shouldPreserveOption(option: PublisherAppColorCatalogOption) {
 }
 
 function rolePolicy(option: PublisherAppColorCatalogOption): PaletteRolePolicy {
+  const directPolicy = DIRECT_ROLE_POLICY[option.key];
+  if (directPolicy) return directPolicy;
+  if (
+    option.key === "app.learnBackground" ||
+    option.group === "Learn background"
+  ) {
+    return "learnBackground";
+  }
   if (shouldPreserveOption(option)) return "preserve";
   const accessoryPolicy = ACCESSORY_COUNTERPOINT_POLICY.find(({ pattern }) =>
     pattern.test(option.key),
   );
   if (accessoryPolicy) return accessoryPolicy.policy;
-  return DIRECT_ROLE_POLICY[option.key] ?? "analogous";
+  return "analogous";
 }
 
 function normalizedPalette(colors: PublisherAppColors) {
@@ -342,6 +412,34 @@ function vividPrimaryGradientEndColor(palette: ThemePalette, alpha: string) {
   );
 }
 
+function learnBackgroundColor(
+  originalValue: string,
+  palette: ThemePalette,
+  option: PublisherAppColorCatalogOption,
+  appearance: ColorAppearance,
+) {
+  const normalizedOriginal = normalizedCatalogColor(originalValue);
+  const alpha = parseColor(normalizedOriginal).alpha;
+  if (LEARN_BACKGROUND_CLOCKWISE_EFFECT_KEYS.has(option.key)) {
+    return `${palette.counterpointClockwiseHex}${alpha}`;
+  }
+
+  const tone = LEARN_BACKGROUND_SECONDARY_TONES[option.key]?.[appearance];
+  if (!tone) return normalizedOriginal;
+  const secondary = rgbToOklch(parseColor(palette.seedHex[1]));
+  return oklchToHex(
+    {
+      lightness: tone.lightness,
+      chroma: tone.chroma,
+      hue:
+        secondary.chroma > ACHROMATIC_CHROMA
+          ? secondary.hue
+          : palette.centerHue,
+    },
+    alpha,
+  );
+}
+
 function buildThemePalette(
   colors: PublisherAppColors,
   options: PublisherAppColorCatalogOption[],
@@ -387,6 +485,8 @@ function buildThemePalette(
         ? sourceBrandColor.hue
         : 350,
     baseChroma: clamp(averageChroma, 0.16, 0.28),
+    counterpointClockwiseHex: counterpointClockwise,
+    counterpointAnticlockwiseHex: counterpointAnticlockwise,
     counterpointClockwiseHue: rgbToOklch(parseColor(counterpointClockwise)).hue,
     counterpointAnticlockwiseHue: rgbToOklch(
       parseColor(counterpointAnticlockwise),
@@ -440,11 +540,21 @@ function coordinatedColor(
   palette: ThemePalette,
   option: PublisherAppColorCatalogOption,
   policy: PaletteRolePolicy,
+  appearance: ColorAppearance,
 ) {
   const normalizedOriginal = normalizedCatalogColor(originalValue);
   if (policy === "preserve") return normalizedOriginal;
 
   const rgb = parseColor(normalizedOriginal);
+  if (policy === "learnBackground") {
+    return learnBackgroundColor(originalValue, palette, option, appearance);
+  }
+  if (policy === "learnTabPrimary") {
+    return `${palette.vividPrimaryHex}${rgb.alpha}`;
+  }
+  if (policy === "centerTabAnticlockwise") {
+    return `${palette.counterpointAnticlockwiseHex}${rgb.alpha}`;
+  }
   const original = rgbToOklch(rgb);
   if (
     original.chroma <= ACHROMATIC_CHROMA ||
@@ -503,8 +613,20 @@ function candidateForOption(
   const policy = rolePolicy(option);
   if (policy === "preserve") return null;
   const override = {
-    light: coordinatedColor(option.defaultLightColor, palette, option, policy),
-    dark: coordinatedColor(option.defaultDarkColor, palette, option, policy),
+    light: coordinatedColor(
+      option.defaultLightColor,
+      palette,
+      option,
+      policy,
+      "light",
+    ),
+    dark: coordinatedColor(
+      option.defaultDarkColor,
+      palette,
+      option,
+      policy,
+      "dark",
+    ),
   };
   if (
     override.light === normalizedCatalogColor(option.defaultLightColor) &&

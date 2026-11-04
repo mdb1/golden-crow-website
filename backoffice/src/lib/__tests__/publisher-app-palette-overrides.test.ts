@@ -87,13 +87,19 @@ describe("publisher app automatic palette overrides", () => {
     expect(plan.selectedCount).toBeLessThan(plan.sourceCount);
     const requiredKeys = [
       "app.accent",
+      "app.learnBackground",
       "brand.primary",
+      "tabs.learn.start",
       "tabs.discover.start",
       "discover.category.news.accent",
       "community.quickActions.friends.start",
       "learn.level.bacteria.accent",
       "learn.level.god.gradientEnd",
       "learn.background.stop1",
+      "learn.background.leadingGlow",
+      "learn.background.trailingGlow",
+      "learn.background.leadingOrb",
+      "learn.background.sheenEnd",
       "learn.chapter.accent",
       "learn.quiz.wordAvailableText",
       "discover.suggestion.pocketGuideInitialOverview.accent",
@@ -118,6 +124,10 @@ describe("publisher app automatic palette overrides", () => {
       "serviceStatus.failed",
       "learn.header.foreground",
       "learn.levelBox.shadow",
+      "learn.background.topVeil",
+      "learn.background.bottomVeil",
+      "learn.background.sheenStart",
+      "learn.background.stars",
       "discover.feed.fill",
     ]) {
       expect(plan.colorOverrides[protectedKey]).toBeUndefined();
@@ -146,6 +156,84 @@ describe("publisher app automatic palette overrides", () => {
         override.light !== original.defaultLightColor ||
           override.dark !== original.defaultDarkColor,
       ).toBe(true);
+    }
+  });
+
+  it("composes Learn from the secondary color with sparse clockwise effects and explicit tab roles", () => {
+    const plan = createPublisherAppPaletteOverridePlan(
+      colors,
+      catalog.options,
+      catalog.catalogVersion,
+    );
+
+    for (const key of ["tabs.learn.start", "tabs.learn.end"]) {
+      expect(plan.colorOverrides[key]).toEqual({
+        light: colors.primary,
+        dark: colors.primary,
+      });
+    }
+    for (const key of ["tabs.discover.start", "tabs.discover.end"]) {
+      expect(plan.colorOverrides[key]).toEqual({
+        light: colors.counterpointAnticlockwise,
+        dark: colors.counterpointAnticlockwise,
+      });
+    }
+
+    const secondaryHue = colorHue(colors.secondary);
+    const fallback = plan.colorOverrides["app.learnBackground"];
+    expect(fallback).toBeDefined();
+    expect(colorLightness(fallback.light!)).toBeGreaterThan(90);
+    expect(colorLightness(fallback.dark!)).toBeLessThan(20);
+
+    const stopKeys = [1, 2, 3, 4].map(
+      (stop) => `learn.background.stop${stop}`,
+    );
+    const lightStops = stopKeys.map(
+      (key) => plan.colorOverrides[key].light!,
+    );
+    const darkStops = stopKeys.map((key) => plan.colorOverrides[key].dark!);
+    expect(new Set(lightStops).size).toBe(4);
+    expect(new Set(darkStops).size).toBe(4);
+    for (const color of [...lightStops, ...darkStops]) {
+      expect(hueDistance(colorHue(color), secondaryHue)).toBeLessThanOrEqual(
+        15,
+      );
+    }
+
+    for (const key of [
+      "learn.background.leadingGlow",
+      "learn.background.leadingGlowEdge",
+      "learn.background.leadingOrb",
+      "learn.background.sheenEnd",
+    ]) {
+      const source = optionByKey.get(key)!;
+      expect(plan.colorOverrides[key]).toEqual({
+        light: `${colors.counterpointClockwise}${source.defaultLightColor.slice(7)}`,
+        dark: `${colors.counterpointClockwise}${source.defaultDarkColor.slice(7)}`,
+      });
+    }
+
+    for (const key of [
+      "learn.background.trailingGlow",
+      "learn.background.trailingGlowEdge",
+      "learn.background.trailingOrb",
+    ]) {
+      const override = plan.colorOverrides[key];
+      expect(
+        hueDistance(colorHue(override.light!), secondaryHue),
+      ).toBeLessThanOrEqual(15);
+      expect(
+        hueDistance(colorHue(override.dark!), secondaryHue),
+      ).toBeLessThanOrEqual(15);
+    }
+
+    for (const neutralKey of [
+      "learn.background.topVeil",
+      "learn.background.bottomVeil",
+      "learn.background.sheenStart",
+      "learn.background.stars",
+    ]) {
+      expect(plan.colorOverrides[neutralKey]).toBeUndefined();
     }
   });
 
@@ -314,7 +402,11 @@ describe("publisher app automatic palette overrides", () => {
       ] as const) {
         const generated = override[appearance]!;
         const sourceRgb = source.slice(0, 7).toUpperCase();
-        if (sourceRgb === "#FFFFFF" || sourceRgb === "#000000") {
+        if (
+          (sourceRgb === "#FFFFFF" || sourceRgb === "#000000") &&
+          key !== "app.learnBackground" &&
+          key !== "learn.background.sheenEnd"
+        ) {
           expect(generated).toBe(source.toUpperCase());
         }
         expect(generated.slice(7)).toBe(source.slice(7).toUpperCase());
@@ -357,7 +449,9 @@ describe("publisher app automatic palette overrides", () => {
 
     const chromaticOutputs = Object.entries(plan.colorOverrides)
       .filter(
-        ([key]) => !/^community\.quickActions\.(?:circles|search)\./.test(key),
+        ([key]) =>
+          !/^community\.quickActions\.(?:circles|search)\./.test(key) &&
+          !/^tabs\.discover\./.test(key),
       )
       .flatMap(([, override]) => [override.light!, override.dark!])
       .filter(
