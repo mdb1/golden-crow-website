@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  ArrowDown,
   ArrowLeft,
   ArrowRight,
+  ArrowUp,
   BookOpen,
   Boxes,
   Check,
@@ -265,16 +267,20 @@ function ColorValueControl({
   label,
   value,
   onChange,
+  allowOpacity = true,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  allowOpacity?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const initialColor = splitHexColor(value);
   const [draft, setDraft] = useState(initialColor.color);
   const [opacity, setOpacity] = useState(initialColor.opacity);
-  const draftValue = hexColorWithOpacity(draft, opacity);
+  const draftValue = allowOpacity
+    ? hexColorWithOpacity(draft, opacity)
+    : draft.toUpperCase();
 
   const openPicker = () => {
     const current = splitHexColor(value);
@@ -329,21 +335,23 @@ function ColorValueControl({
               <span className="text-sm text-muted-foreground">Hexadecimal</span>
               <code className="font-semibold">{draftValue}</code>
             </div>
-            <div className="rounded-2xl border px-4 py-3">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-medium">Opacidad</span>
-                <span className="text-sm font-semibold">{opacity}%</span>
+            {allowOpacity ? (
+              <div className="rounded-2xl border px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-medium">Opacidad</span>
+                  <span className="text-sm font-semibold">{opacity}%</span>
+                </div>
+                <input
+                  aria-label={`Opacidad de ${label.toLowerCase()}`}
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={opacity}
+                  className="mt-3 w-full accent-foreground"
+                  onChange={(event) => setOpacity(Number(event.target.value))}
+                />
               </div>
-              <input
-                aria-label={`Opacidad de ${label.toLowerCase()}`}
-                type="range"
-                min={0}
-                max={100}
-                value={opacity}
-                className="mt-3 w-full accent-foreground"
-                onChange={(event) => setOpacity(Number(event.target.value))}
-              />
-            </div>
+            ) : null}
           </div>
           <DialogFooter>
             <Button
@@ -1152,6 +1160,123 @@ function starterCurriculum(): Extract<
   };
 }
 
+type ReplaceLearnConfiguration = Extract<
+  PublisherAppLearnConfiguration,
+  { mode: "replace" }
+>;
+
+type LearnScreen =
+  | { kind: "home" }
+  | { kind: "subject"; subjectIndex: number }
+  | { kind: "chapter"; subjectIndex: number; chapterIndex: number }
+  | {
+      kind: "lesson";
+      subjectIndex: number;
+      chapterIndex: number;
+      lessonIndex: number;
+    }
+  | {
+      kind: "paragraph";
+      subjectIndex: number;
+      chapterIndex: number;
+      lessonIndex: number;
+      paragraphIndex: number;
+    }
+  | { kind: "topics" }
+  | { kind: "topic-catalog" }
+  | { kind: "topic"; topicId: string };
+
+const LESSON_IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+
+function moveArrayItem<T>(items: T[], index: number, offset: -1 | 1) {
+  const targetIndex = index + offset;
+  if (targetIndex < 0 || targetIndex >= items.length) return items;
+  const next = [...items];
+  [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+  return next;
+}
+
+function uniqueIdentifier(base: string, used: Set<string>) {
+  let candidate = base;
+  let suffix = 2;
+  while (used.has(candidate)) {
+    candidate = `${base}_${suffix}`;
+    suffix += 1;
+  }
+  return candidate;
+}
+
+function uniqueLabel(base: string, used: Set<string>) {
+  if (!used.has(base)) return base;
+  let suffix = 2;
+  let candidate = `${base} ${suffix}`;
+  while (used.has(candidate)) {
+    suffix += 1;
+    candidate = `${base} ${suffix}`;
+  }
+  return candidate;
+}
+
+function identifierStem(value: string) {
+  const normalized = value
+    .trim()
+    .replace(/[^A-Za-z0-9._-]+/g, "_")
+    .replace(/^[^A-Za-z0-9]+/, "");
+  return normalized || "CUSTOM";
+}
+
+function lessonIds(configuration: ReplaceLearnConfiguration) {
+  return new Set(
+    configuration.subjects.flatMap((subject) =>
+      subject.chapters.flatMap((chapter) =>
+        chapter.lessons.map((lesson) => lesson.lessonIdentifier),
+      ),
+    ),
+  );
+}
+
+function chapterTitles(configuration: ReplaceLearnConfiguration) {
+  return new Set(
+    configuration.subjects.flatMap((subject) =>
+      subject.chapters.map((chapter) => chapter.chapterTitle),
+    ),
+  );
+}
+
+function createLesson(
+  configuration: ReplaceLearnConfiguration,
+  subjectIdentifier: string,
+  ordinal: number,
+) {
+  const next = starterLesson(ordinal);
+  return {
+    ...next,
+    lessonIdentifier: uniqueIdentifier(
+      `${identifierStem(subjectIdentifier)}.lesson_${ordinal}`,
+      lessonIds(configuration),
+    ),
+  };
+}
+
+function stripLessonReferences(
+  subjects: PublisherAppLearnSubject[],
+  removedLessonIds: Set<string>,
+) {
+  if (removedLessonIds.size === 0) return subjects;
+  return subjects.map((subject) => ({
+    ...subject,
+    chapters: subject.chapters.map((chapter) => ({
+      ...chapter,
+      lessons: chapter.lessons.map((lesson) => ({
+        ...lesson,
+        relatedLessons: lesson.relatedLessons.filter(
+          (id) => !removedLessonIds.has(id),
+        ),
+      })),
+    })),
+  }));
+}
+
 function LearnBuilder({
   value,
   onChange,
@@ -1161,17 +1286,40 @@ function LearnBuilder({
   onChange: (value: PublisherAppLearnConfiguration) => void;
   showMetadata?: boolean;
 }) {
+  const [screen, setScreen] = useState<LearnScreen>({ kind: "home" });
+  const [subjectIdentifierDrafts, setSubjectIdentifierDrafts] = useState<
+    Record<string, string>
+  >({});
+  const [lessonIdentifierDrafts, setLessonIdentifierDrafts] = useState<
+    Record<string, string>
+  >({});
+
+  useEffect(() => {
+    if (value.mode === "base") {
+      setScreen({ kind: "home" });
+      setSubjectIdentifierDrafts({});
+      setLessonIdentifierDrafts({});
+    }
+  }, [value.mode]);
+
   if (value.mode === "base") {
     return (
-      <div className="rounded-2xl border bg-muted/20 p-5">
-        <p className="font-semibold text-foreground">Currículo Pocket Genes</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          La app conserva todas las lecciones instaladas y su recorrido normal.
+      <div className="rounded-3xl border border-dashed bg-muted/15 p-8 text-center">
+        <BookOpen className="mx-auto size-11 text-muted-foreground" />
+        <p className="mt-4 text-lg font-semibold text-foreground">
+          Currículo Pocket Genes
+        </p>
+        <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+          Conservá la biblioteca instalada o creá desde cero tus propios temas,
+          capítulos, lecciones y contenidos.
         </p>
         <Button
           type="button"
-          className="mt-4"
-          onClick={() => onChange(starterCurriculum())}
+          className="mt-5"
+          onClick={() => {
+            onChange(starterCurriculum());
+            setScreen({ kind: "home" });
+          }}
         >
           <BookOpen className="size-4" /> Crear currículo propio
         </Button>
@@ -1179,516 +1327,1738 @@ function LearnBuilder({
     );
   }
 
+  const curriculum = value;
+
   const updateSubject = (
     subjectIndex: number,
     updater: (subject: PublisherAppLearnSubject) => PublisherAppLearnSubject,
-  ) =>
+  ) => {
     onChange({
-      ...value,
-      subjects: value.subjects.map((subject, index) =>
+      ...curriculum,
+      subjects: curriculum.subjects.map((subject, index) =>
         index === subjectIndex ? updater(subject) : subject,
       ),
     });
+  };
 
-  return (
+  const updateChapter = (
+    subjectIndex: number,
+    chapterIndex: number,
+    updater: (
+      chapter: PublisherAppLearnSubject["chapters"][number],
+    ) => PublisherAppLearnSubject["chapters"][number],
+  ) => {
+    updateSubject(subjectIndex, (subject) => ({
+      ...subject,
+      chapters: subject.chapters.map((chapter, index) =>
+        index === chapterIndex ? updater(chapter) : chapter,
+      ),
+    }));
+  };
+
+  const updateLesson = (
+    subjectIndex: number,
+    chapterIndex: number,
+    lessonIndex: number,
+    updater: (lesson: PublisherAppLearnLesson) => PublisherAppLearnLesson,
+  ) => {
+    updateChapter(subjectIndex, chapterIndex, (chapter) => ({
+      ...chapter,
+      lessons: chapter.lessons.map((lesson, index) =>
+        index === lessonIndex ? updater(lesson) : lesson,
+      ),
+    }));
+  };
+
+  const renameSubject = (subjectIndex: number, nextIdentifier: string) => {
+    const previousIdentifier =
+      curriculum.subjects[subjectIndex]?.subjectIdentifier;
+    if (previousIdentifier === undefined) return;
+    const topics = Object.fromEntries(
+      Object.entries(curriculum.topics).map(([topicId, identifiers]) => [
+        topicId,
+        Array.from(
+          new Set(
+            identifiers.map((identifier) =>
+              identifier === previousIdentifier ? nextIdentifier : identifier,
+            ),
+          ),
+        ),
+      ]),
+    );
+    onChange({
+      ...curriculum,
+      subjects: curriculum.subjects.map((subject, index) =>
+        index === subjectIndex
+          ? { ...subject, subjectIdentifier: nextIdentifier }
+          : subject,
+      ),
+      topics,
+    });
+  };
+
+  const renameLesson = (
+    subjectIndex: number,
+    chapterIndex: number,
+    lessonIndex: number,
+    nextIdentifier: string,
+  ) => {
+    const previousIdentifier =
+      curriculum.subjects[subjectIndex]?.chapters[chapterIndex]?.lessons[
+        lessonIndex
+      ]?.lessonIdentifier;
+    if (previousIdentifier === undefined) return;
+    onChange({
+      ...curriculum,
+      subjects: curriculum.subjects.map((subject, currentSubjectIndex) => ({
+        ...subject,
+        chapters: subject.chapters.map((chapter, currentChapterIndex) => ({
+          ...chapter,
+          lessons: chapter.lessons.map((lesson, currentLessonIndex) => ({
+            ...lesson,
+            lessonIdentifier:
+              currentSubjectIndex === subjectIndex &&
+              currentChapterIndex === chapterIndex &&
+              currentLessonIndex === lessonIndex
+                ? nextIdentifier
+                : lesson.lessonIdentifier,
+            relatedLessons: Array.from(
+              new Set(
+                lesson.relatedLessons.map((identifier) =>
+                  identifier === previousIdentifier
+                    ? nextIdentifier
+                    : identifier,
+                ),
+              ),
+            ),
+          })),
+        })),
+      })),
+    });
+  };
+
+  const subjectIdentifierProblem = (
+    subjectIndex: number,
+    candidate: string,
+  ) => {
+    const normalized = candidate.trim();
+    if (!normalized) return "El ID del tema no puede quedar vacío.";
+    if (
+      curriculum.subjects.some(
+        (subject, index) =>
+          index !== subjectIndex &&
+          subject.subjectIdentifier.trim() === normalized,
+      )
+    ) {
+      return "Ese ID ya pertenece a otro tema.";
+    }
+    return null;
+  };
+
+  const editSubjectIdentifier = (
+    subjectIndex: number,
+    nextIdentifier: string,
+  ) => {
+    const key = String(subjectIndex);
+    if (subjectIdentifierProblem(subjectIndex, nextIdentifier)) {
+      setSubjectIdentifierDrafts((current) => ({
+        ...current,
+        [key]: nextIdentifier,
+      }));
+      return;
+    }
+    setSubjectIdentifierDrafts((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+    renameSubject(subjectIndex, nextIdentifier);
+  };
+
+  const lessonIdentifierProblem = (
+    subjectIndex: number,
+    chapterIndex: number,
+    lessonIndex: number,
+    candidate: string,
+  ) => {
+    if (!LESSON_IDENTIFIER_PATTERN.test(candidate)) {
+      return "Usá letras o números al inicio y luego sólo letras, números, punto, guion o guion bajo.";
+    }
+    const duplicated = curriculum.subjects.some(
+      (subject, currentSubjectIndex) =>
+        subject.chapters.some((chapter, currentChapterIndex) =>
+          chapter.lessons.some(
+            (lesson, currentLessonIndex) =>
+              !(
+                currentSubjectIndex === subjectIndex &&
+                currentChapterIndex === chapterIndex &&
+                currentLessonIndex === lessonIndex
+              ) && lesson.lessonIdentifier === candidate,
+          ),
+        ),
+    );
+    return duplicated ? "Ese ID ya pertenece a otra lección." : null;
+  };
+
+  const editLessonIdentifier = (
+    subjectIndex: number,
+    chapterIndex: number,
+    lessonIndex: number,
+    nextIdentifier: string,
+  ) => {
+    const key = `${subjectIndex}:${chapterIndex}:${lessonIndex}`;
+    if (
+      lessonIdentifierProblem(
+        subjectIndex,
+        chapterIndex,
+        lessonIndex,
+        nextIdentifier,
+      )
+    ) {
+      setLessonIdentifierDrafts((current) => ({
+        ...current,
+        [key]: nextIdentifier,
+      }));
+      return;
+    }
+    setLessonIdentifierDrafts((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+    renameLesson(subjectIndex, chapterIndex, lessonIndex, nextIdentifier);
+  };
+
+  const removeSubject = (subjectIndex: number) => {
+    const subject = curriculum.subjects[subjectIndex];
+    if (!subject || curriculum.subjects.length === 1) return;
+    const removedIds = new Set(
+      subject.chapters.flatMap((chapter) =>
+        chapter.lessons.map((lesson) => lesson.lessonIdentifier),
+      ),
+    );
+    const subjects = stripLessonReferences(
+      curriculum.subjects.filter((_, index) => index !== subjectIndex),
+      removedIds,
+    );
+    const topics = Object.fromEntries(
+      Object.entries(curriculum.topics).map(([topicId, identifiers]) => [
+        topicId,
+        identifiers.filter(
+          (identifier) => identifier !== subject.subjectIdentifier,
+        ),
+      ]),
+    );
+    onChange({ ...curriculum, subjects, topics });
+    setScreen({ kind: "home" });
+  };
+
+  const removeChapter = (subjectIndex: number, chapterIndex: number) => {
+    const subject = curriculum.subjects[subjectIndex];
+    const chapter = subject?.chapters[chapterIndex];
+    if (!subject || !chapter || subject.chapters.length === 1) return;
+    const removedIds = new Set(
+      chapter.lessons.map((lesson) => lesson.lessonIdentifier),
+    );
+    const subjects = stripLessonReferences(
+      curriculum.subjects.map((item, index) =>
+        index === subjectIndex
+          ? {
+              ...item,
+              chapters: item.chapters.filter(
+                (_, currentIndex) => currentIndex !== chapterIndex,
+              ),
+            }
+          : item,
+      ),
+      removedIds,
+    );
+    onChange({ ...curriculum, subjects });
+    setScreen({ kind: "subject", subjectIndex });
+  };
+
+  const removeLesson = (
+    subjectIndex: number,
+    chapterIndex: number,
+    lessonIndex: number,
+  ) => {
+    const chapter = curriculum.subjects[subjectIndex]?.chapters[chapterIndex];
+    const lesson = chapter?.lessons[lessonIndex];
+    if (!chapter || !lesson || chapter.lessons.length === 1) return;
+    const subjects = stripLessonReferences(
+      curriculum.subjects.map((subject, currentSubjectIndex) => ({
+        ...subject,
+        chapters: subject.chapters.map((item, currentChapterIndex) =>
+          currentSubjectIndex === subjectIndex &&
+          currentChapterIndex === chapterIndex
+            ? {
+                ...item,
+                lessons: item.lessons.filter(
+                  (_, currentLessonIndex) => currentLessonIndex !== lessonIndex,
+                ),
+              }
+            : item,
+        ),
+      })),
+      new Set([lesson.lessonIdentifier]),
+    );
+    onChange({ ...curriculum, subjects });
+    setScreen({ kind: "chapter", subjectIndex, chapterIndex });
+  };
+
+  const metadata = showMetadata ? (
+    <div className="grid gap-4 rounded-3xl border bg-muted/15 p-5 md:grid-cols-3">
+      <div>
+        <Label htmlFor="advanced-curriculum-id">ID del currículo</Label>
+        <Input
+          id="advanced-curriculum-id"
+          className="mt-2"
+          value={curriculum.curriculumId}
+          onChange={(event) =>
+            onChange({ ...curriculum, curriculumId: event.target.value })
+          }
+        />
+      </div>
+      <div>
+        <Label htmlFor="advanced-curriculum-revision">Revisión</Label>
+        <Input
+          id="advanced-curriculum-revision"
+          className="mt-2"
+          type="number"
+          min={1}
+          value={curriculum.curriculumRevision}
+          onChange={(event) =>
+            onChange({
+              ...curriculum,
+              curriculumRevision: Math.max(1, Number(event.target.value) || 1),
+            })
+          }
+        />
+      </div>
+      <div>
+        <Label htmlFor="advanced-curriculum-language">
+          Idioma del contenido
+        </Label>
+        <Input
+          id="advanced-curriculum-language"
+          className="mt-2"
+          value={curriculum.defaultLanguage}
+          placeholder="es"
+          onChange={(event) =>
+            onChange({ ...curriculum, defaultLanguage: event.target.value })
+          }
+        />
+      </div>
+    </div>
+  ) : null;
+
+  const navigationHeader = (
+    title: string,
+    description: string,
+    backLabel: string,
+    onBack: () => void,
+  ) => (
     <div className="space-y-5">
-      {showMetadata ? (
-        <div className="grid gap-3 md:grid-cols-3">
-          <div>
-            <Label htmlFor="advanced-curriculum-id">ID del currículo</Label>
-            <Input
-              id="advanced-curriculum-id"
-              value={value.curriculumId}
-              onChange={(event) =>
-                onChange({ ...value, curriculumId: event.target.value })
-              }
-            />
-          </div>
-          <div>
-            <Label htmlFor="advanced-curriculum-revision">Revisión</Label>
-            <Input
-              id="advanced-curriculum-revision"
-              type="number"
-              min={1}
-              value={value.curriculumRevision}
-              onChange={(event) =>
-                onChange({
-                  ...value,
-                  curriculumRevision: Math.max(
-                    1,
-                    Number(event.target.value) || 1,
-                  ),
-                })
-              }
-            />
-          </div>
-          <div>
-            <Label htmlFor="advanced-curriculum-language">
-              Idioma del contenido
-            </Label>
-            <Input
-              id="advanced-curriculum-language"
-              value={value.defaultLanguage}
-              placeholder="es"
-              onChange={(event) =>
-                onChange({ ...value, defaultLanguage: event.target.value })
-              }
-            />
+      <Button type="button" variant="ghost" className="-ml-3" onClick={onBack}>
+        <ArrowLeft className="size-4" /> {backLabel}
+      </Button>
+      <div>
+        <h3 className="text-2xl font-semibold tracking-tight">{title}</h3>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+          {description}
+        </p>
+      </div>
+    </div>
+  );
+
+  if (screen.kind === "home") {
+    const totals = learnTotals(curriculum);
+    const activeTopicCount = TOPICS.filter(([topicId]) =>
+      Object.prototype.hasOwnProperty.call(curriculum.topics, topicId),
+    ).length;
+    return (
+      <div className="space-y-7" data-testid="learn-curriculum-home">
+        {metadata}
+        <div className="rounded-3xl border bg-muted/15 p-6">
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div>
+              <Badge variant="secondary">Currículo completamente propio</Badge>
+              <h3 className="mt-4 text-2xl font-semibold tracking-tight">
+                Tu mapa de conocimiento
+              </h3>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                Creá cualquier tema desde cero y entrá en cada nivel para
+                construir capítulos, lecciones y párrafos sin depender de la
+                biblioteca instalada.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {[
+                [totals.subjects, "temas"],
+                [totals.chapters, "capítulos"],
+                [totals.lessons, "lecciones"],
+              ].map(([count, label]) => (
+                <Badge key={label} variant="outline" className="px-3 py-1.5">
+                  {count} {label}
+                </Badge>
+              ))}
+            </div>
           </div>
         </div>
-      ) : null}
 
-      {value.subjects.map((subject, subjectIndex) => (
-        <div
-          key={`${subject.subjectIdentifier}-${subjectIndex}`}
-          className="rounded-2xl border bg-muted/20 p-4"
-        >
-          <div className="flex flex-col gap-3 md:flex-row md:items-end">
-            <div className="grid flex-1 gap-3 sm:grid-cols-2">
-              <div>
-                <Label>ID del tema</Label>
-                <Input
-                  value={subject.subjectIdentifier}
-                  onChange={(event) =>
-                    updateSubject(subjectIndex, (current) => ({
-                      ...current,
-                      subjectIdentifier: event.target.value,
-                    }))
-                  }
-                />
+        <section className="space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h4 className="text-lg font-semibold">Temas del currículo</h4>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Cada tema abre su propio árbol de capítulos y lecciones.
+              </p>
+            </div>
+            <Button
+              type="button"
+              onClick={() => {
+                const subjectIndex = curriculum.subjects.length;
+                const usedSubjectIds = new Set(
+                  curriculum.subjects.map(
+                    (subject) => subject.subjectIdentifier,
+                  ),
+                );
+                const subjectIdentifier = uniqueIdentifier(
+                  `SUBJECT_${subjectIndex + 1}`,
+                  usedSubjectIds,
+                );
+                const lesson = createLesson(
+                  curriculum,
+                  subjectIdentifier,
+                  lessonIds(curriculum).size + 1,
+                );
+                const chapterTitle = uniqueLabel(
+                  `Capítulo ${subjectIndex + 1}`,
+                  chapterTitles(curriculum),
+                );
+                onChange({
+                  ...curriculum,
+                  subjects: [
+                    ...curriculum.subjects,
+                    {
+                      subjectIdentifier,
+                      subjectTitle: `Nuevo tema ${subjectIndex + 1}`,
+                      chapters: [
+                        {
+                          chapterTitle,
+                          lessons: [lesson],
+                        },
+                      ],
+                    },
+                  ],
+                });
+                setScreen({ kind: "subject", subjectIndex });
+              }}
+            >
+              <Plus className="size-4" /> Crear tema
+            </Button>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {curriculum.subjects.map((subject, subjectIndex) => {
+              const chapterCount = subject.chapters.length;
+              const lessonCount = subject.chapters.reduce(
+                (count, chapter) => count + chapter.lessons.length,
+                0,
+              );
+              return (
+                <div
+                  key={`${subject.subjectIdentifier}-${subjectIndex}`}
+                  className="rounded-3xl border bg-background p-5 shadow-sm"
+                >
+                  <button
+                    type="button"
+                    className="group w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label={`Abrir tema ${subject.subjectTitle}`}
+                    onClick={() => setScreen({ kind: "subject", subjectIndex })}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <span className="flex size-11 items-center justify-center rounded-2xl bg-muted text-foreground">
+                        <BookOpen className="size-5" />
+                      </span>
+                      <ArrowRight className="size-5 text-muted-foreground transition group-hover:translate-x-1" />
+                    </div>
+                    <h5 className="mt-5 text-lg font-semibold">
+                      {subject.subjectTitle || "Tema sin nombre"}
+                    </h5>
+                    <code className="mt-1 block text-xs text-muted-foreground">
+                      {subject.subjectIdentifier || "ID pendiente"}
+                    </code>
+                    <p className="mt-4 text-sm text-muted-foreground">
+                      {chapterCount}{" "}
+                      {chapterCount === 1 ? "capítulo" : "capítulos"}
+                      {" · "}
+                      {lessonCount}{" "}
+                      {lessonCount === 1 ? "lección" : "lecciones"}
+                    </p>
+                  </button>
+                  <div className="mt-4 flex justify-end gap-1 border-t pt-3">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      aria-label={`Mover tema ${subject.subjectTitle} hacia arriba`}
+                      disabled={subjectIndex === 0}
+                      onClick={() =>
+                        onChange({
+                          ...curriculum,
+                          subjects: moveArrayItem(
+                            curriculum.subjects,
+                            subjectIndex,
+                            -1,
+                          ),
+                        })
+                      }
+                    >
+                      <ArrowUp className="size-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      aria-label={`Mover tema ${subject.subjectTitle} hacia abajo`}
+                      disabled={subjectIndex === curriculum.subjects.length - 1}
+                      onClick={() =>
+                        onChange({
+                          ...curriculum,
+                          subjects: moveArrayItem(
+                            curriculum.subjects,
+                            subjectIndex,
+                            1,
+                          ),
+                        })
+                      }
+                    >
+                      <ArrowDown className="size-4" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="rounded-3xl border bg-background p-6">
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="flex items-center gap-3">
+                <span className="flex size-10 items-center justify-center rounded-2xl bg-muted">
+                  <Boxes className="size-5" />
+                </span>
+                <div>
+                  <h4 className="font-semibold">
+                    Categorías de navegación (opcional)
+                  </h4>
+                  <p className="text-sm text-muted-foreground">
+                    {activeTopicCount === 0
+                      ? "Todavía no agregaste categorías."
+                      : `${activeTopicCount} ${activeTopicCount === 1 ? "categoría activa" : "categorías activas"}`}
+                  </p>
+                </div>
               </div>
-              <div>
-                <Label>Título del tema</Label>
-                <Input
-                  value={subject.subjectTitle}
-                  onChange={(event) =>
-                    updateSubject(subjectIndex, (current) => ({
-                      ...current,
-                      subjectTitle: event.target.value,
-                    }))
-                  }
-                />
-              </div>
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground">
+                Sirven para decidir dónde aparecen tus temas dentro de Learn. No
+                limitan qué temas, capítulos o lecciones podés crear.
+              </p>
             </div>
             <Button
               type="button"
               variant="outline"
-              disabled={value.subjects.length === 1}
-              onClick={() =>
-                onChange({
-                  ...value,
-                  subjects: value.subjects.filter(
-                    (_, index) => index !== subjectIndex,
-                  ),
-                })
-              }
+              onClick={() => setScreen({ kind: "topics" })}
             >
-              <Trash2 className="size-4" /> Quitar tema
+              Administrar categorías <ArrowRight className="size-4" />
             </Button>
           </div>
+        </section>
 
-          <div className="mt-4 space-y-4">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => onChange({ mode: "base" })}
+        >
+          <ArrowLeft className="size-4" /> Volver al currículo Pocket Genes
+        </Button>
+      </div>
+    );
+  }
+
+  if (screen.kind === "subject") {
+    const subject = curriculum.subjects[screen.subjectIndex];
+    if (!subject) {
+      return (
+        <Button type="button" onClick={() => setScreen({ kind: "home" })}>
+          <ArrowLeft className="size-4" /> Volver al currículo
+        </Button>
+      );
+    }
+    const subjectDraftKey = String(screen.subjectIndex);
+    const hasSubjectIdentifierDraft = Object.prototype.hasOwnProperty.call(
+      subjectIdentifierDrafts,
+      subjectDraftKey,
+    );
+    const subjectIdentifierValue = hasSubjectIdentifierDraft
+      ? subjectIdentifierDrafts[subjectDraftKey]
+      : subject.subjectIdentifier;
+    const subjectIdProblem = hasSubjectIdentifierDraft
+      ? subjectIdentifierProblem(screen.subjectIndex, subjectIdentifierValue)
+      : null;
+    return (
+      <div className="space-y-7" data-testid="learn-subject-detail">
+        {navigationHeader(
+          subject.subjectTitle || "Tema sin nombre",
+          "Definí su identidad y entrá a cada capítulo para diseñar el recorrido.",
+          "Volver al currículo",
+          () => setScreen({ kind: "home" }),
+        )}
+        <div className="grid gap-4 rounded-3xl border p-6 md:grid-cols-2">
+          <div>
+            <Label htmlFor="learn-subject-identifier">ID del tema</Label>
+            <Input
+              id="learn-subject-identifier"
+              className="mt-2 font-mono"
+              value={subjectIdentifierValue}
+              aria-invalid={Boolean(subjectIdProblem)}
+              aria-describedby={
+                subjectIdProblem ? "learn-subject-identifier-error" : undefined
+              }
+              onChange={(event) =>
+                editSubjectIdentifier(screen.subjectIndex, event.target.value)
+              }
+            />
+            {subjectIdProblem ? (
+              <p
+                id="learn-subject-identifier-error"
+                className="mt-2 text-xs font-medium text-destructive"
+              >
+                {subjectIdProblem}
+              </p>
+            ) : (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Las categorías que ya usan este tema se actualizan
+                automáticamente.
+              </p>
+            )}
+          </div>
+          <div>
+            <Label htmlFor="learn-subject-title">Nombre del tema</Label>
+            <Input
+              id="learn-subject-title"
+              className="mt-2"
+              value={subject.subjectTitle}
+              onChange={(event) =>
+                updateSubject(screen.subjectIndex, (current) => ({
+                  ...current,
+                  subjectTitle: event.target.value,
+                }))
+              }
+            />
+          </div>
+        </div>
+
+        <section className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h4 className="text-lg font-semibold">Capítulos</h4>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Ordená las grandes etapas de este tema.
+              </p>
+            </div>
+            <Button
+              type="button"
+              onClick={() => {
+                const chapterIndex = subject.chapters.length;
+                const nextLesson = createLesson(
+                  curriculum,
+                  subject.subjectIdentifier,
+                  lessonIds(curriculum).size + 1,
+                );
+                const chapterTitle = uniqueLabel(
+                  `Nuevo capítulo ${chapterIndex + 1}`,
+                  chapterTitles(curriculum),
+                );
+                updateSubject(screen.subjectIndex, (current) => ({
+                  ...current,
+                  chapters: [
+                    ...current.chapters,
+                    {
+                      chapterTitle,
+                      lessons: [nextLesson],
+                    },
+                  ],
+                }));
+                setScreen({
+                  kind: "chapter",
+                  subjectIndex: screen.subjectIndex,
+                  chapterIndex,
+                });
+              }}
+            >
+              <Plus className="size-4" /> Crear capítulo
+            </Button>
+          </div>
+          <div className="space-y-3">
             {subject.chapters.map((chapter, chapterIndex) => (
               <div
                 key={`${chapter.chapterTitle}-${chapterIndex}`}
-                className="rounded-xl border bg-background/85 p-4"
+                className="flex flex-col gap-3 rounded-2xl border bg-background p-4 sm:flex-row sm:items-center"
               >
-                <div className="flex gap-2">
-                  <Input
-                    aria-label={`Título del capítulo ${chapterIndex + 1}`}
-                    value={chapter.chapterTitle}
-                    onChange={(event) =>
-                      updateSubject(subjectIndex, (current) => ({
+                <button
+                  type="button"
+                  className="group min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={`Abrir capítulo ${chapter.chapterTitle}`}
+                  onClick={() =>
+                    setScreen({
+                      kind: "chapter",
+                      subjectIndex: screen.subjectIndex,
+                      chapterIndex,
+                    })
+                  }
+                >
+                  <p className="font-semibold">
+                    {chapter.chapterTitle || "Capítulo sin nombre"}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {chapter.lessons.length}{" "}
+                    {chapter.lessons.length === 1 ? "lección" : "lecciones"}
+                  </p>
+                </button>
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    aria-label={`Mover capítulo ${chapter.chapterTitle} hacia arriba`}
+                    disabled={chapterIndex === 0}
+                    onClick={() =>
+                      updateSubject(screen.subjectIndex, (current) => ({
                         ...current,
-                        chapters: current.chapters.map((item, index) =>
-                          index === chapterIndex
-                            ? { ...item, chapterTitle: event.target.value }
-                            : item,
+                        chapters: moveArrayItem(
+                          current.chapters,
+                          chapterIndex,
+                          -1,
                         ),
                       }))
+                    }
+                  >
+                    <ArrowUp className="size-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    aria-label={`Mover capítulo ${chapter.chapterTitle} hacia abajo`}
+                    disabled={chapterIndex === subject.chapters.length - 1}
+                    onClick={() =>
+                      updateSubject(screen.subjectIndex, (current) => ({
+                        ...current,
+                        chapters: moveArrayItem(
+                          current.chapters,
+                          chapterIndex,
+                          1,
+                        ),
+                      }))
+                    }
+                  >
+                    <ArrowDown className="size-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    aria-label={`Editar capítulo ${chapter.chapterTitle}`}
+                    onClick={() =>
+                      setScreen({
+                        kind: "chapter",
+                        subjectIndex: screen.subjectIndex,
+                        chapterIndex,
+                      })
+                    }
+                  >
+                    <ArrowRight className="size-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <div className="border-t pt-6">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={curriculum.subjects.length === 1}
+            onClick={() => removeSubject(screen.subjectIndex)}
+          >
+            <Trash2 className="size-4" /> Eliminar tema
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen.kind === "chapter") {
+    const subject = curriculum.subjects[screen.subjectIndex];
+    const chapter = subject?.chapters[screen.chapterIndex];
+    if (!subject || !chapter) {
+      return (
+        <Button type="button" onClick={() => setScreen({ kind: "home" })}>
+          <ArrowLeft className="size-4" /> Volver al currículo
+        </Button>
+      );
+    }
+    return (
+      <div className="space-y-7" data-testid="learn-chapter-detail">
+        {navigationHeader(
+          chapter.chapterTitle || "Capítulo sin nombre",
+          `Estás dentro de ${subject.subjectTitle}. Abrí una lección para trabajar su historia y sus conexiones.`,
+          `Volver a ${subject.subjectTitle}`,
+          () =>
+            setScreen({ kind: "subject", subjectIndex: screen.subjectIndex }),
+        )}
+        <div className="rounded-3xl border p-6">
+          <Label htmlFor="learn-chapter-title">Nombre del capítulo</Label>
+          <Input
+            id="learn-chapter-title"
+            className="mt-2"
+            value={chapter.chapterTitle}
+            onChange={(event) =>
+              updateChapter(
+                screen.subjectIndex,
+                screen.chapterIndex,
+                (current) => ({
+                  ...current,
+                  chapterTitle: event.target.value,
+                }),
+              )
+            }
+          />
+        </div>
+
+        <section className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h4 className="text-lg font-semibold">Lecciones</h4>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Cada lección puede tener su propia imagen, color, contenido y
+                relaciones.
+              </p>
+            </div>
+            <Button
+              type="button"
+              onClick={() => {
+                const lessonIndex = chapter.lessons.length;
+                const nextLesson = createLesson(
+                  curriculum,
+                  subject.subjectIdentifier,
+                  lessonIds(curriculum).size + 1,
+                );
+                updateChapter(
+                  screen.subjectIndex,
+                  screen.chapterIndex,
+                  (current) => ({
+                    ...current,
+                    lessons: [...current.lessons, nextLesson],
+                  }),
+                );
+                setScreen({
+                  kind: "lesson",
+                  subjectIndex: screen.subjectIndex,
+                  chapterIndex: screen.chapterIndex,
+                  lessonIndex,
+                });
+              }}
+            >
+              <Plus className="size-4" /> Crear lección
+            </Button>
+          </div>
+          <div className="space-y-3">
+            {chapter.lessons.map((lesson, lessonIndex) => (
+              <div
+                key={`${lesson.lessonIdentifier}-${lessonIndex}`}
+                className="flex flex-col gap-3 rounded-2xl border bg-background p-4 sm:flex-row sm:items-center"
+              >
+                <button
+                  type="button"
+                  className="group flex min-w-0 flex-1 items-center gap-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={`Abrir lección ${lesson.lessonTitle}`}
+                  onClick={() =>
+                    setScreen({
+                      kind: "lesson",
+                      subjectIndex: screen.subjectIndex,
+                      chapterIndex: screen.chapterIndex,
+                      lessonIndex,
+                    })
+                  }
+                >
+                  <span
+                    className="size-11 shrink-0 rounded-2xl border shadow-sm"
+                    style={{ backgroundColor: lesson.lessonColor }}
+                    aria-hidden="true"
+                  />
+                  <span className="min-w-0">
+                    <span className="block font-semibold">
+                      {lesson.lessonTitle || "Lección sin nombre"}
+                    </span>
+                    <code className="mt-1 block truncate text-xs text-muted-foreground">
+                      {lesson.lessonIdentifier || "ID pendiente"}
+                    </code>
+                    <span className="mt-1 block text-xs text-muted-foreground">
+                      {lesson.paragraphs.length}{" "}
+                      {lesson.paragraphs.length === 1 ? "párrafo" : "párrafos"}
+                    </span>
+                  </span>
+                </button>
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    aria-label={`Mover lección ${lesson.lessonTitle} hacia arriba`}
+                    disabled={lessonIndex === 0}
+                    onClick={() =>
+                      updateChapter(
+                        screen.subjectIndex,
+                        screen.chapterIndex,
+                        (current) => ({
+                          ...current,
+                          lessons: moveArrayItem(
+                            current.lessons,
+                            lessonIndex,
+                            -1,
+                          ),
+                        }),
+                      )
+                    }
+                  >
+                    <ArrowUp className="size-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    aria-label={`Mover lección ${lesson.lessonTitle} hacia abajo`}
+                    disabled={lessonIndex === chapter.lessons.length - 1}
+                    onClick={() =>
+                      updateChapter(
+                        screen.subjectIndex,
+                        screen.chapterIndex,
+                        (current) => ({
+                          ...current,
+                          lessons: moveArrayItem(
+                            current.lessons,
+                            lessonIndex,
+                            1,
+                          ),
+                        }),
+                      )
+                    }
+                  >
+                    <ArrowDown className="size-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    aria-label={`Editar lección ${lesson.lessonTitle}`}
+                    onClick={() =>
+                      setScreen({
+                        kind: "lesson",
+                        subjectIndex: screen.subjectIndex,
+                        chapterIndex: screen.chapterIndex,
+                        lessonIndex,
+                      })
+                    }
+                  >
+                    <ArrowRight className="size-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <div className="border-t pt-6">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={subject.chapters.length === 1}
+            onClick={() =>
+              removeChapter(screen.subjectIndex, screen.chapterIndex)
+            }
+          >
+            <Trash2 className="size-4" /> Eliminar capítulo
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen.kind === "lesson") {
+    const subject = curriculum.subjects[screen.subjectIndex];
+    const chapter = subject?.chapters[screen.chapterIndex];
+    const lesson = chapter?.lessons[screen.lessonIndex];
+    if (!subject || !chapter || !lesson) {
+      return (
+        <Button type="button" onClick={() => setScreen({ kind: "home" })}>
+          <ArrowLeft className="size-4" /> Volver al currículo
+        </Button>
+      );
+    }
+    const lessonDraftKey = `${screen.subjectIndex}:${screen.chapterIndex}:${screen.lessonIndex}`;
+    const hasLessonIdentifierDraft = Object.prototype.hasOwnProperty.call(
+      lessonIdentifierDrafts,
+      lessonDraftKey,
+    );
+    const lessonIdentifierValue = hasLessonIdentifierDraft
+      ? lessonIdentifierDrafts[lessonDraftKey]
+      : lesson.lessonIdentifier;
+    const lessonIdProblem = hasLessonIdentifierDraft
+      ? lessonIdentifierProblem(
+          screen.subjectIndex,
+          screen.chapterIndex,
+          screen.lessonIndex,
+          lessonIdentifierValue,
+        )
+      : null;
+    const otherLessons = curriculum.subjects.flatMap((candidateSubject) =>
+      candidateSubject.chapters.flatMap((candidateChapter) =>
+        candidateChapter.lessons
+          .filter((candidate) => candidate !== lesson)
+          .map((candidate) => ({
+            ...candidate,
+            subjectTitle: candidateSubject.subjectTitle,
+          })),
+      ),
+    );
+    return (
+      <div className="space-y-8" data-testid="learn-lesson-detail">
+        {navigationHeader(
+          lesson.lessonTitle || "Lección sin nombre",
+          `Estás dentro de ${chapter.chapterTitle}. Todo lo que sigue pertenece únicamente a esta lección.`,
+          `Volver a ${chapter.chapterTitle}`,
+          () =>
+            setScreen({
+              kind: "chapter",
+              subjectIndex: screen.subjectIndex,
+              chapterIndex: screen.chapterIndex,
+            }),
+        )}
+
+        <section className="grid gap-5 rounded-3xl border p-6 md:grid-cols-2">
+          <div>
+            <Label htmlFor="learn-lesson-identifier">ID de la lección</Label>
+            <Input
+              id="learn-lesson-identifier"
+              className="mt-2 font-mono"
+              value={lessonIdentifierValue}
+              aria-invalid={Boolean(lessonIdProblem)}
+              aria-describedby={
+                lessonIdProblem ? "learn-lesson-identifier-error" : undefined
+              }
+              onChange={(event) =>
+                editLessonIdentifier(
+                  screen.subjectIndex,
+                  screen.chapterIndex,
+                  screen.lessonIndex,
+                  event.target.value,
+                )
+              }
+            />
+            {lessonIdProblem ? (
+              <p
+                id="learn-lesson-identifier-error"
+                className="mt-2 text-xs font-medium text-destructive"
+              >
+                {lessonIdProblem}
+              </p>
+            ) : (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Si cambia, las relaciones que apuntan aquí también cambian.
+              </p>
+            )}
+          </div>
+          <div>
+            <Label htmlFor="learn-lesson-title">Nombre de la lección</Label>
+            <Input
+              id="learn-lesson-title"
+              className="mt-2"
+              value={lesson.lessonTitle}
+              onChange={(event) =>
+                updateLesson(
+                  screen.subjectIndex,
+                  screen.chapterIndex,
+                  screen.lessonIndex,
+                  (current) => ({
+                    ...current,
+                    lessonTitle: event.target.value,
+                  }),
+                )
+              }
+            />
+          </div>
+          <div>
+            <Label htmlFor="learn-lesson-image">Imagen HTTPS (opcional)</Label>
+            <Input
+              id="learn-lesson-image"
+              className="mt-2"
+              type="url"
+              placeholder="https://..."
+              value={lesson.imageUrl ?? ""}
+              onChange={(event) =>
+                updateLesson(
+                  screen.subjectIndex,
+                  screen.chapterIndex,
+                  screen.lessonIndex,
+                  (current) => ({
+                    ...current,
+                    imageUrl: event.target.value || null,
+                  }),
+                )
+              }
+            />
+          </div>
+          <ColorValueControl
+            label="Color de la lección"
+            value={lesson.lessonColor}
+            allowOpacity={false}
+            onChange={(lessonColor) =>
+              updateLesson(
+                screen.subjectIndex,
+                screen.chapterIndex,
+                screen.lessonIndex,
+                (current) => ({ ...current, lessonColor }),
+              )
+            }
+          />
+        </section>
+
+        <section className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h4 className="text-lg font-semibold">Historia de la lección</h4>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Cada párrafo se edita en su propia pantalla, con espacio para
+                escribir y revisar.
+              </p>
+            </div>
+            <Button
+              type="button"
+              onClick={() => {
+                const paragraphIndex = lesson.paragraphs.length;
+                updateLesson(
+                  screen.subjectIndex,
+                  screen.chapterIndex,
+                  screen.lessonIndex,
+                  (current) => ({
+                    ...current,
+                    paragraphs: [
+                      ...current.paragraphs,
+                      {
+                        paragraphTitle: `Nuevo apartado ${paragraphIndex + 1}`,
+                        icon: "book",
+                        contentText: "Nuevo contenido",
+                      },
+                    ],
+                  }),
+                );
+                setScreen({ ...screen, kind: "paragraph", paragraphIndex });
+              }}
+            >
+              <Plus className="size-4" /> Crear párrafo
+            </Button>
+          </div>
+          <div className="space-y-3">
+            {lesson.paragraphs.map((paragraph, paragraphIndex) => (
+              <div
+                key={paragraphIndex}
+                className="flex flex-col gap-3 rounded-2xl border bg-background p-4 sm:flex-row sm:items-center"
+              >
+                <button
+                  type="button"
+                  className="group min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={`Abrir párrafo ${paragraph.paragraphTitle}`}
+                  onClick={() =>
+                    setScreen({ ...screen, kind: "paragraph", paragraphIndex })
+                  }
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted font-mono text-xs">
+                      {paragraph.icon || "Aa"}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block font-semibold">
+                        {paragraph.paragraphTitle || "Párrafo sin nombre"}
+                      </span>
+                      <span className="mt-1 block truncate text-sm text-muted-foreground">
+                        {paragraph.contentText || "Contenido pendiente"}
+                      </span>
+                    </span>
+                  </div>
+                </button>
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    aria-label={`Mover párrafo ${paragraph.paragraphTitle} hacia arriba`}
+                    disabled={paragraphIndex === 0}
+                    onClick={() =>
+                      updateLesson(
+                        screen.subjectIndex,
+                        screen.chapterIndex,
+                        screen.lessonIndex,
+                        (current) => ({
+                          ...current,
+                          paragraphs: moveArrayItem(
+                            current.paragraphs,
+                            paragraphIndex,
+                            -1,
+                          ),
+                        }),
+                      )
+                    }
+                  >
+                    <ArrowUp className="size-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    aria-label={`Mover párrafo ${paragraph.paragraphTitle} hacia abajo`}
+                    disabled={paragraphIndex === lesson.paragraphs.length - 1}
+                    onClick={() =>
+                      updateLesson(
+                        screen.subjectIndex,
+                        screen.chapterIndex,
+                        screen.lessonIndex,
+                        (current) => ({
+                          ...current,
+                          paragraphs: moveArrayItem(
+                            current.paragraphs,
+                            paragraphIndex,
+                            1,
+                          ),
+                        }),
+                      )
+                    }
+                  >
+                    <ArrowDown className="size-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    aria-label={`Editar párrafo ${paragraph.paragraphTitle}`}
+                    onClick={() =>
+                      setScreen({
+                        ...screen,
+                        kind: "paragraph",
+                        paragraphIndex,
+                      })
+                    }
+                  >
+                    <ArrowRight className="size-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="space-y-4 rounded-3xl border p-6">
+          <div>
+            <h4 className="font-semibold">Enlaces útiles</h4>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Agregá recursos HTTPS de a uno; cada destino queda visible y
+              revisable.
+            </p>
+          </div>
+          {lesson.usefulLinks.length === 0 ? (
+            <div className="rounded-2xl border border-dashed p-5 text-sm text-muted-foreground">
+              Esta lección todavía no tiene enlaces externos.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {lesson.usefulLinks.map((link, linkIndex) => (
+                <div key={linkIndex} className="flex gap-2">
+                  <Input
+                    type="url"
+                    aria-label={`Enlace útil ${linkIndex + 1}`}
+                    value={link}
+                    placeholder="https://..."
+                    onChange={(event) =>
+                      updateLesson(
+                        screen.subjectIndex,
+                        screen.chapterIndex,
+                        screen.lessonIndex,
+                        (current) => ({
+                          ...current,
+                          usefulLinks: current.usefulLinks.map(
+                            (currentLink, currentIndex) =>
+                              currentIndex === linkIndex
+                                ? event.target.value
+                                : currentLink,
+                          ),
+                        }),
+                      )
                     }
                   />
                   <Button
                     type="button"
-                    variant="outline"
                     size="icon"
-                    disabled={subject.chapters.length === 1}
-                    aria-label="Quitar capítulo"
+                    variant="outline"
+                    aria-label={`Quitar enlace ${linkIndex + 1}`}
                     onClick={() =>
-                      updateSubject(subjectIndex, (current) => ({
-                        ...current,
-                        chapters: current.chapters.filter(
-                          (_, index) => index !== chapterIndex,
-                        ),
-                      }))
+                      updateLesson(
+                        screen.subjectIndex,
+                        screen.chapterIndex,
+                        screen.lessonIndex,
+                        (current) => ({
+                          ...current,
+                          usefulLinks: current.usefulLinks.filter(
+                            (_, currentIndex) => currentIndex !== linkIndex,
+                          ),
+                        }),
+                      )
                     }
                   >
                     <Trash2 className="size-4" />
                   </Button>
                 </div>
-
-                <div className="mt-3 space-y-3">
-                  {chapter.lessons.map((lesson, lessonIndex) => {
-                    const updateLesson = (next: PublisherAppLearnLesson) =>
-                      updateSubject(subjectIndex, (current) => ({
-                        ...current,
-                        chapters: current.chapters.map(
-                          (chapterItem, currentChapterIndex) =>
-                            currentChapterIndex === chapterIndex
-                              ? {
-                                  ...chapterItem,
-                                  lessons: chapterItem.lessons.map(
-                                    (lessonItem, currentLessonIndex) =>
-                                      currentLessonIndex === lessonIndex
-                                        ? next
-                                        : lessonItem,
-                                  ),
-                                }
-                              : chapterItem,
-                        ),
-                      }));
-                    return (
-                      <details
-                        key={`${lesson.lessonIdentifier}-${lessonIndex}`}
-                        className="rounded-xl border bg-muted/30 p-3 open:bg-background"
-                      >
-                        <summary className="cursor-pointer font-semibold text-foreground">
-                          {lesson.lessonTitle || `Lección ${lessonIndex + 1}`}
-                          <span className="ml-2 font-mono text-xs text-muted-foreground">
-                            {lesson.lessonIdentifier}
-                          </span>
-                        </summary>
-                        <div className="mt-4 space-y-4">
-                          <div className="grid gap-3 md:grid-cols-2">
-                            <div>
-                              <Label>ID de lección</Label>
-                              <Input
-                                value={lesson.lessonIdentifier}
-                                onChange={(event) =>
-                                  updateLesson({
-                                    ...lesson,
-                                    lessonIdentifier: event.target.value,
-                                  })
-                                }
-                              />
-                            </div>
-                            <div>
-                              <Label>Título</Label>
-                              <Input
-                                value={lesson.lessonTitle}
-                                onChange={(event) =>
-                                  updateLesson({
-                                    ...lesson,
-                                    lessonTitle: event.target.value,
-                                  })
-                                }
-                              />
-                            </div>
-                            <div>
-                              <Label>Imagen HTTPS (opcional)</Label>
-                              <Input
-                                type="url"
-                                value={lesson.imageUrl ?? ""}
-                                onChange={(event) =>
-                                  updateLesson({
-                                    ...lesson,
-                                    imageUrl: event.target.value || null,
-                                  })
-                                }
-                              />
-                            </div>
-                            <ColorValueControl
-                              label="Color de la lección"
-                              value={lesson.lessonColor}
-                              onChange={(lessonColor) =>
-                                updateLesson({ ...lesson, lessonColor })
-                              }
-                            />
-                          </div>
-
-                          <div className="space-y-3">
-                            <p className="text-sm font-semibold">Párrafos</p>
-                            {lesson.paragraphs.map(
-                              (paragraph, paragraphIndex) => (
-                                <div
-                                  key={paragraphIndex}
-                                  className="grid gap-2 rounded-xl border p-3 md:grid-cols-[1fr_0.65fr_auto]"
-                                >
-                                  <Input
-                                    value={paragraph.paragraphTitle}
-                                    placeholder="Título"
-                                    onChange={(event) =>
-                                      updateLesson({
-                                        ...lesson,
-                                        paragraphs: lesson.paragraphs.map(
-                                          (item, index) =>
-                                            index === paragraphIndex
-                                              ? {
-                                                  ...item,
-                                                  paragraphTitle:
-                                                    event.target.value,
-                                                }
-                                              : item,
-                                        ),
-                                      })
-                                    }
-                                  />
-                                  <Input
-                                    value={paragraph.icon}
-                                    placeholder="Símbolo nativo"
-                                    onChange={(event) =>
-                                      updateLesson({
-                                        ...lesson,
-                                        paragraphs: lesson.paragraphs.map(
-                                          (item, index) =>
-                                            index === paragraphIndex
-                                              ? {
-                                                  ...item,
-                                                  icon: event.target.value,
-                                                }
-                                              : item,
-                                        ),
-                                      })
-                                    }
-                                  />
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="icon"
-                                    disabled={lesson.paragraphs.length === 1}
-                                    aria-label="Quitar párrafo"
-                                    onClick={() =>
-                                      updateLesson({
-                                        ...lesson,
-                                        paragraphs: lesson.paragraphs.filter(
-                                          (_, index) =>
-                                            index !== paragraphIndex,
-                                        ),
-                                      })
-                                    }
-                                  >
-                                    <Trash2 className="size-4" />
-                                  </Button>
-                                  <Textarea
-                                    className="md:col-span-3"
-                                    value={paragraph.contentText}
-                                    placeholder="Contenido"
-                                    onChange={(event) =>
-                                      updateLesson({
-                                        ...lesson,
-                                        paragraphs: lesson.paragraphs.map(
-                                          (item, index) =>
-                                            index === paragraphIndex
-                                              ? {
-                                                  ...item,
-                                                  contentText:
-                                                    event.target.value,
-                                                }
-                                              : item,
-                                        ),
-                                      })
-                                    }
-                                  />
-                                </div>
-                              ),
-                            )}
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                updateLesson({
-                                  ...lesson,
-                                  paragraphs: [
-                                    ...lesson.paragraphs,
-                                    {
-                                      paragraphTitle: "Nuevo apartado",
-                                      icon: "book",
-                                      contentText: "Nuevo contenido",
-                                    },
-                                  ],
-                                })
-                              }
-                            >
-                              <Plus className="size-4" /> Agregar párrafo
-                            </Button>
-                          </div>
-
-                          <div className="grid gap-3 md:grid-cols-2">
-                            <div>
-                              <Label>Enlaces útiles</Label>
-                              <Textarea
-                                value={lesson.usefulLinks.join("\n")}
-                                placeholder="Una URL HTTPS por línea"
-                                onChange={(event) =>
-                                  updateLesson({
-                                    ...lesson,
-                                    usefulLinks: event.target.value
-                                      .split("\n")
-                                      .map((item) => item.trim())
-                                      .filter(Boolean),
-                                  })
-                                }
-                              />
-                            </div>
-                            <div>
-                              <Label>Lecciones relacionadas</Label>
-                              <Textarea
-                                value={lesson.relatedLessons.join("\n")}
-                                placeholder="Un ID de lección por línea"
-                                onChange={(event) =>
-                                  updateLesson({
-                                    ...lesson,
-                                    relatedLessons: event.target.value
-                                      .split("\n")
-                                      .map((item) => item.trim())
-                                      .filter(Boolean),
-                                  })
-                                }
-                              />
-                            </div>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            disabled={chapter.lessons.length === 1}
-                            onClick={() =>
-                              updateSubject(subjectIndex, (current) => ({
-                                ...current,
-                                chapters: current.chapters.map(
-                                  (chapterItem, currentChapterIndex) =>
-                                    currentChapterIndex === chapterIndex
-                                      ? {
-                                          ...chapterItem,
-                                          lessons: chapterItem.lessons.filter(
-                                            (_, index) => index !== lessonIndex,
-                                          ),
-                                        }
-                                      : chapterItem,
-                                ),
-                              }))
-                            }
-                          >
-                            <Trash2 className="size-4" /> Quitar lección
-                          </Button>
-                        </div>
-                      </details>
-                    );
-                  })}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      updateSubject(subjectIndex, (current) => ({
-                        ...current,
-                        chapters: current.chapters.map(
-                          (chapterItem, currentChapterIndex) =>
-                            currentChapterIndex === chapterIndex
-                              ? {
-                                  ...chapterItem,
-                                  lessons: [
-                                    ...chapterItem.lessons,
-                                    starterLesson(
-                                      chapterItem.lessons.length + 1,
-                                    ),
-                                  ],
-                                }
-                              : chapterItem,
-                        ),
-                      }))
-                    }
-                  >
-                    <Plus className="size-4" /> Agregar lección
-                  </Button>
-                </div>
-              </div>
-            ))}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                updateSubject(subjectIndex, (current) => ({
+              ))}
+            </div>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            className="w-fit"
+            onClick={() =>
+              updateLesson(
+                screen.subjectIndex,
+                screen.chapterIndex,
+                screen.lessonIndex,
+                (current) => ({
                   ...current,
-                  chapters: [
-                    ...current.chapters,
-                    {
-                      chapterTitle: `Nuevo capítulo ${current.chapters.length + 1}`,
-                      lessons: [starterLesson(1)],
-                    },
-                  ],
+                  usefulLinks: [...current.usefulLinks, "https://"],
+                }),
+              )
+            }
+          >
+            <Plus className="size-4" /> Agregar enlace
+          </Button>
+        </section>
+
+        <section className="space-y-4 rounded-3xl border p-6">
+          <div>
+            <h4 className="font-semibold">Lecciones relacionadas</h4>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Elegí visualmente qué otros contenidos sugerir al terminar esta
+              lección. Sus IDs se mantienen sincronizados al renombrarlos.
+            </p>
+          </div>
+          {otherLessons.length === 0 ? (
+            <div className="rounded-2xl border border-dashed p-5 text-sm text-muted-foreground">
+              Creá otra lección para poder conectarlas.
+            </div>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              {otherLessons.map((candidate) => {
+                const checked = lesson.relatedLessons.includes(
+                  candidate.lessonIdentifier,
+                );
+                return (
+                  <label
+                    key={candidate.lessonIdentifier}
+                    className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition ${checked ? "border-foreground/35 bg-muted/40" : "bg-background hover:border-foreground/20"}`}
+                  >
+                    <Checkbox
+                      aria-label={`Relacionar ${candidate.lessonTitle}`}
+                      checked={checked}
+                      onCheckedChange={(nextChecked) =>
+                        updateLesson(
+                          screen.subjectIndex,
+                          screen.chapterIndex,
+                          screen.lessonIndex,
+                          (current) => ({
+                            ...current,
+                            relatedLessons: nextChecked
+                              ? Array.from(
+                                  new Set([
+                                    ...current.relatedLessons,
+                                    candidate.lessonIdentifier,
+                                  ]),
+                                )
+                              : current.relatedLessons.filter(
+                                  (identifier) =>
+                                    identifier !== candidate.lessonIdentifier,
+                                ),
+                          }),
+                        )
+                      }
+                    />
+                    <span className="min-w-0">
+                      <span className="block font-medium">
+                        {candidate.lessonTitle}
+                      </span>
+                      <span className="mt-1 block text-xs text-muted-foreground">
+                        {candidate.subjectTitle} · {candidate.lessonIdentifier}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <div className="border-t pt-6">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={chapter.lessons.length === 1}
+            onClick={() =>
+              removeLesson(
+                screen.subjectIndex,
+                screen.chapterIndex,
+                screen.lessonIndex,
+              )
+            }
+          >
+            <Trash2 className="size-4" /> Eliminar lección
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen.kind === "paragraph") {
+    const subject = curriculum.subjects[screen.subjectIndex];
+    const chapter = subject?.chapters[screen.chapterIndex];
+    const lesson = chapter?.lessons[screen.lessonIndex];
+    const paragraph = lesson?.paragraphs[screen.paragraphIndex];
+    if (!subject || !chapter || !lesson || !paragraph) {
+      return (
+        <Button type="button" onClick={() => setScreen({ kind: "home" })}>
+          <ArrowLeft className="size-4" /> Volver al currículo
+        </Button>
+      );
+    }
+    const updateParagraph = (
+      updater: (
+        current: PublisherAppLearnLesson["paragraphs"][number],
+      ) => PublisherAppLearnLesson["paragraphs"][number],
+    ) =>
+      updateLesson(
+        screen.subjectIndex,
+        screen.chapterIndex,
+        screen.lessonIndex,
+        (current) => ({
+          ...current,
+          paragraphs: current.paragraphs.map((item, index) =>
+            index === screen.paragraphIndex ? updater(item) : item,
+          ),
+        }),
+      );
+    return (
+      <div className="space-y-7" data-testid="learn-paragraph-detail">
+        {navigationHeader(
+          paragraph.paragraphTitle || "Párrafo sin nombre",
+          `Este apartado forma parte de ${lesson.lessonTitle}. Trabajalo como una escena independiente dentro de la lección.`,
+          `Volver a ${lesson.lessonTitle}`,
+          () =>
+            setScreen({
+              kind: "lesson",
+              subjectIndex: screen.subjectIndex,
+              chapterIndex: screen.chapterIndex,
+              lessonIndex: screen.lessonIndex,
+            }),
+        )}
+        <div className="space-y-5 rounded-3xl border p-6">
+          <div className="grid gap-4 md:grid-cols-[1fr_0.55fr]">
+            <div>
+              <Label htmlFor="learn-paragraph-title">Título del párrafo</Label>
+              <Input
+                id="learn-paragraph-title"
+                className="mt-2"
+                value={paragraph.paragraphTitle}
+                onChange={(event) =>
+                  updateParagraph((current) => ({
+                    ...current,
+                    paragraphTitle: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div>
+              <Label htmlFor="learn-paragraph-icon">Símbolo nativo</Label>
+              <Input
+                id="learn-paragraph-icon"
+                className="mt-2"
+                value={paragraph.icon}
+                placeholder="book"
+                onChange={(event) =>
+                  updateParagraph((current) => ({
+                    ...current,
+                    icon: event.target.value,
+                  }))
+                }
+              />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="learn-paragraph-content">Contenido</Label>
+            <Textarea
+              id="learn-paragraph-content"
+              className="mt-2 min-h-72 resize-y text-base leading-7"
+              value={paragraph.contentText}
+              onChange={(event) =>
+                updateParagraph((current) => ({
+                  ...current,
+                  contentText: event.target.value,
                 }))
               }
-            >
-              <Plus className="size-4" /> Agregar capítulo
-            </Button>
+            />
           </div>
         </div>
-      ))}
+        <div className="border-t pt-6">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={lesson.paragraphs.length === 1}
+            onClick={() => {
+              updateLesson(
+                screen.subjectIndex,
+                screen.chapterIndex,
+                screen.lessonIndex,
+                (current) => ({
+                  ...current,
+                  paragraphs: current.paragraphs.filter(
+                    (_, index) => index !== screen.paragraphIndex,
+                  ),
+                }),
+              );
+              setScreen({
+                kind: "lesson",
+                subjectIndex: screen.subjectIndex,
+                chapterIndex: screen.chapterIndex,
+                lessonIndex: screen.lessonIndex,
+              });
+            }}
+          >
+            <Trash2 className="size-4" /> Eliminar párrafo
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() =>
-          onChange({
-            ...value,
-            subjects: [
-              ...value.subjects,
-              {
-                subjectIdentifier: `SUBJECT_${value.subjects.length + 1}`,
-                subjectTitle: `Nuevo tema ${value.subjects.length + 1}`,
-                chapters: [
-                  {
-                    chapterTitle: `Capítulo ${value.subjects.length + 1}`,
-                    lessons: [starterLesson(1)],
-                  },
-                ],
-              },
-            ],
-          })
-        }
-      >
-        <Plus className="size-4" /> Agregar tema
+  if (screen.kind === "topics") {
+    const activeTopics = TOPICS.filter(([topicId]) =>
+      Object.prototype.hasOwnProperty.call(curriculum.topics, topicId),
+    );
+    return (
+      <div className="space-y-7" data-testid="learn-topics-home">
+        {navigationHeader(
+          "Categorías de navegación",
+          "Son accesos nativos de Learn: organizan dónde aparecen tus temas, pero nunca definen cuáles podés crear.",
+          "Volver al currículo",
+          () => setScreen({ kind: "home" }),
+        )}
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h4 className="font-semibold">Categorías activas</h4>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Sólo aparecen las que decidiste usar en esta app.
+            </p>
+          </div>
+          <Button
+            type="button"
+            onClick={() => setScreen({ kind: "topic-catalog" })}
+            disabled={activeTopics.length === TOPICS.length}
+          >
+            <Plus className="size-4" /> Agregar categoría
+          </Button>
+        </div>
+        {activeTopics.length === 0 ? (
+          <div className="rounded-3xl border border-dashed p-10 text-center">
+            <Boxes className="mx-auto size-10 text-muted-foreground" />
+            <p className="mt-4 font-semibold">
+              Tu currículo no necesita categorías para funcionar
+            </p>
+            <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+              Todos los temas siguen disponibles. Agregá una categoría sólo si
+              querés ubicarlos en una entrada específica de Learn.
+            </p>
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            {activeTopics.map(([topicId, label]) => {
+              const assignments = curriculum.topics[topicId] ?? [];
+              return (
+                <button
+                  key={topicId}
+                  type="button"
+                  className="group rounded-3xl border bg-background p-5 text-left shadow-sm transition hover:border-foreground/25 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  onClick={() => setScreen({ kind: "topic", topicId })}
+                  aria-label={`Configurar categoría ${label}`}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <span className="flex size-10 items-center justify-center rounded-2xl bg-muted">
+                      <Boxes className="size-5" />
+                    </span>
+                    <ArrowRight className="size-5 text-muted-foreground transition group-hover:translate-x-1" />
+                  </div>
+                  <h5 className="mt-5 font-semibold">{label}</h5>
+                  <code className="mt-1 block text-xs text-muted-foreground">
+                    {topicId}
+                  </code>
+                  <p className="mt-4 text-sm text-muted-foreground">
+                    {assignments.length}{" "}
+                    {assignments.length === 1
+                      ? "tema asignado"
+                      : "temas asignados"}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (screen.kind === "topic-catalog") {
+    const availableTopics = TOPICS.filter(
+      ([topicId]) =>
+        !Object.prototype.hasOwnProperty.call(curriculum.topics, topicId),
+    );
+    return (
+      <div className="space-y-7" data-testid="learn-topic-catalog">
+        {navigationHeader(
+          "Elegí una categoría",
+          "Agregá únicamente las entradas nativas que tengan sentido para este currículo. Después vas a elegir qué temas propios aparecen allí.",
+          "Volver a categorías",
+          () => setScreen({ kind: "topics" }),
+        )}
+        <div className="grid gap-4 md:grid-cols-2">
+          {availableTopics.map(([topicId, label]) => (
+            <button
+              key={topicId}
+              type="button"
+              className="group rounded-3xl border bg-background p-5 text-left transition hover:border-foreground/30 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={`Agregar categoría ${label}`}
+              onClick={() => {
+                onChange({
+                  ...curriculum,
+                  topics: { ...curriculum.topics, [topicId]: [] },
+                });
+                setScreen({ kind: "topic", topicId });
+              }}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <span className="flex size-10 items-center justify-center rounded-2xl bg-muted">
+                  <Plus className="size-5" />
+                </span>
+                <ArrowRight className="size-5 text-muted-foreground transition group-hover:translate-x-1" />
+              </div>
+              <h4 className="mt-5 font-semibold">{label}</h4>
+              <code className="mt-1 block text-xs text-muted-foreground">
+                {topicId}
+              </code>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const topicDefinition = TOPICS.find(
+    ([topicId]) => topicId === screen.topicId,
+  );
+  if (!topicDefinition) {
+    return (
+      <Button type="button" onClick={() => setScreen({ kind: "topics" })}>
+        <ArrowLeft className="size-4" /> Volver a categorías
       </Button>
-
-      <div className="rounded-2xl border p-4">
-        <p className="font-semibold text-foreground">Categorías temáticas</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Ingresá los IDs de temas separados por coma.
+    );
+  }
+  const [topicId, topicLabel] = topicDefinition;
+  const assignedSubjects = curriculum.topics[topicId] ?? [];
+  return (
+    <div className="space-y-7" data-testid="learn-topic-detail">
+      {navigationHeader(
+        topicLabel,
+        "Elegí tus temas por nombre. El editor conserva sus IDs internamente y los actualiza si más adelante los renombrás.",
+        "Volver a categorías",
+        () => setScreen({ kind: "topics" }),
+      )}
+      <div>
+        <h4 className="font-semibold">Temas que aparecerán aquí</h4>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Podés seleccionar cualquier tema creado dentro de este currículo.
         </p>
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
-          {TOPICS.map(([topicId, label]) => (
-            <div key={topicId}>
-              <Label htmlFor={`topic-${topicId}`}>{label}</Label>
-              <Input
-                id={`topic-${topicId}`}
-                value={(value.topics[topicId] ?? []).join(", ")}
-                onChange={(event) =>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        {curriculum.subjects.map((subject) => {
+          const checked = assignedSubjects.includes(subject.subjectIdentifier);
+          return (
+            <label
+              key={subject.subjectIdentifier}
+              className={`flex cursor-pointer items-start gap-4 rounded-3xl border p-5 transition ${checked ? "border-foreground/35 bg-muted/40" : "bg-background hover:border-foreground/20"}`}
+            >
+              <Checkbox
+                aria-label={`Asignar tema ${subject.subjectTitle}`}
+                checked={checked}
+                onCheckedChange={(nextChecked) =>
                   onChange({
-                    ...value,
+                    ...curriculum,
                     topics: {
-                      ...value.topics,
-                      [topicId]: event.target.value
-                        .split(",")
-                        .map((item) => item.trim())
-                        .filter(Boolean),
+                      ...curriculum.topics,
+                      [topicId]: nextChecked
+                        ? Array.from(
+                            new Set([
+                              ...assignedSubjects,
+                              subject.subjectIdentifier,
+                            ]),
+                          )
+                        : assignedSubjects.filter(
+                            (identifier) =>
+                              identifier !== subject.subjectIdentifier,
+                          ),
                     },
                   })
                 }
               />
-            </div>
-          ))}
-        </div>
+              <span className="min-w-0">
+                <span className="block font-semibold">
+                  {subject.subjectTitle || "Tema sin nombre"}
+                </span>
+                <code className="mt-1 block truncate text-xs text-muted-foreground">
+                  {subject.subjectIdentifier || "ID pendiente"}
+                </code>
+              </span>
+            </label>
+          );
+        })}
       </div>
-
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() => onChange({ mode: "base" })}
-      >
-        Volver al currículo Pocket Genes
-      </Button>
+      <div className="border-t pt-6">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            const topics = { ...curriculum.topics };
+            delete topics[topicId];
+            onChange({ ...curriculum, topics });
+            setScreen({ kind: "topics" });
+          }}
+        >
+          <Trash2 className="size-4" /> Quitar categoría
+        </Button>
+      </div>
     </div>
   );
 }

@@ -893,6 +893,254 @@ describe("PublisherAppConfigWorkbench", () => {
     });
   });
 
+  it("builds a custom Learn curriculum through hierarchical detail screens", async () => {
+    jest.mocked(sdkFetch).mockResolvedValue({ config: savedConfig });
+    renderWorkbench({ mode: "edit", initialConfig: savedConfig });
+
+    fireEvent.click(screen.getByTestId("publisher-app-advanced-toggle"));
+    fireEvent.click(screen.getByRole("button", { name: /Currículo Learn/i }));
+
+    const advancedModal = screen.getByTestId("publisher-app-advanced-modal");
+    fireEvent.click(
+      within(advancedModal).getByRole("button", {
+        name: /Elegí el camino/i,
+      }),
+    );
+    fireEvent.click(
+      within(advancedModal).getByRole("button", {
+        name: /Currículo propio/i,
+      }),
+    );
+    fireEvent.click(
+      within(advancedModal).getByRole("button", {
+        name: "Volver a secciones",
+      }),
+    );
+    fireEvent.click(
+      within(advancedModal).getByRole("button", {
+        name: /Construí la expedición/i,
+      }),
+    );
+
+    expect(
+      within(advancedModal).getByTestId("learn-curriculum-home"),
+    ).toBeTruthy();
+    expect(
+      within(advancedModal).queryByText(
+        "Ingresá los IDs de temas separados por coma.",
+      ),
+    ).toBeNull();
+    expect(
+      within(advancedModal).getByText(/No limitan qué temas, capítulos/i),
+    ).toBeTruthy();
+
+    fireEvent.click(
+      within(advancedModal).getByRole("button", { name: "Crear tema" }),
+    );
+    expect(
+      within(advancedModal).getByTestId("learn-subject-detail"),
+    ).toBeTruthy();
+    fireEvent.change(within(advancedModal).getByLabelText("ID del tema"), {
+      target: { value: "CUSTOM" },
+    });
+    expect(
+      within(advancedModal).getByText("Ese ID ya pertenece a otro tema."),
+    ).toBeTruthy();
+    fireEvent.change(within(advancedModal).getByLabelText("ID del tema"), {
+      target: { value: "MEDICGEN_FOUNDATIONS" },
+    });
+    expect(
+      within(advancedModal).queryByText("Ese ID ya pertenece a otro tema."),
+    ).toBeNull();
+    fireEvent.change(within(advancedModal).getByLabelText("Nombre del tema"), {
+      target: { value: "Fundamentos MedicGen" },
+    });
+
+    fireEvent.click(
+      within(advancedModal).getByRole("button", {
+        name: "Crear capítulo",
+      }),
+    );
+    expect(
+      within(advancedModal).getByTestId("learn-chapter-detail"),
+    ).toBeTruthy();
+    fireEvent.change(
+      within(advancedModal).getByLabelText("Nombre del capítulo"),
+      { target: { value: "El origen de tu ADN" } },
+    );
+
+    fireEvent.click(
+      within(advancedModal).getByRole("button", { name: "Crear lección" }),
+    );
+    expect(
+      within(advancedModal).getByTestId("learn-lesson-detail"),
+    ).toBeTruthy();
+    fireEvent.change(within(advancedModal).getByLabelText("ID de la lección"), {
+      target: { value: "SUBJECT_2.lesson_2" },
+    });
+    expect(
+      within(advancedModal).getByText("Ese ID ya pertenece a otra lección."),
+    ).toBeTruthy();
+    fireEvent.change(within(advancedModal).getByLabelText("ID de la lección"), {
+      target: { value: "MEDICGEN.start" },
+    });
+    expect(
+      within(advancedModal).queryByText("Ese ID ya pertenece a otra lección."),
+    ).toBeNull();
+    fireEvent.change(
+      within(advancedModal).getByLabelText("Nombre de la lección"),
+      { target: { value: "Descubrí tu ADN" } },
+    );
+    fireEvent.change(
+      within(advancedModal).getByLabelText("Imagen HTTPS (opcional)"),
+      { target: { value: "https://example.org/medicgen-start.png" } },
+    );
+    fireEvent.click(
+      within(advancedModal).getByRole("button", { name: "Cambiar color" }),
+    );
+    const lessonColorDialog = screen.getByRole("dialog", {
+      name: "Cambiar color",
+    });
+    expect(
+      within(lessonColorDialog).queryByLabelText(
+        "Opacidad de color de la lección",
+      ),
+    ).toBeNull();
+    fireEvent.change(
+      within(lessonColorDialog).getByLabelText("Elegir color de la lección"),
+      { target: { value: "#f97316" } },
+    );
+    fireEvent.click(
+      within(lessonColorDialog).getByRole("button", {
+        name: "Usar este color",
+      }),
+    );
+
+    fireEvent.click(
+      within(advancedModal).getByRole("button", { name: "Crear párrafo" }),
+    );
+    expect(
+      within(advancedModal).getByTestId("learn-paragraph-detail"),
+    ).toBeTruthy();
+    fireEvent.change(
+      within(advancedModal).getByLabelText("Título del párrafo"),
+      { target: { value: "Tu primera coordenada" } },
+    );
+    fireEvent.change(within(advancedModal).getByLabelText("Símbolo nativo"), {
+      target: { value: "sparkles" },
+    });
+    fireEvent.change(within(advancedModal).getByLabelText("Contenido"), {
+      target: {
+        value: "Una introducción personalizada al recorrido de MedicGen.",
+      },
+    });
+
+    fireEvent.click(
+      within(advancedModal).getByRole("button", {
+        name: "Volver a Descubrí tu ADN",
+      }),
+    );
+    fireEvent.click(
+      within(advancedModal).getByRole("button", {
+        name: "Volver a El origen de tu ADN",
+      }),
+    );
+    fireEvent.click(
+      within(advancedModal).getByRole("button", {
+        name: "Volver a Fundamentos MedicGen",
+      }),
+    );
+    fireEvent.click(
+      within(advancedModal).getByRole("button", {
+        name: "Volver al currículo",
+      }),
+    );
+
+    fireEvent.click(
+      within(advancedModal).getByRole("button", {
+        name: /Administrar categorías/i,
+      }),
+    );
+    fireEvent.click(
+      within(advancedModal).getByRole("button", {
+        name: "Agregar categoría",
+      }),
+    );
+    fireEvent.click(
+      within(advancedModal).getByRole("button", {
+        name: "Agregar categoría Medicina personalizada",
+      }),
+    );
+    const subjectAssignment = within(advancedModal).getByRole("checkbox", {
+      name: "Asignar tema Fundamentos MedicGen",
+    });
+    expect(subjectAssignment).not.toBeChecked();
+    fireEvent.click(subjectAssignment);
+    expect(subjectAssignment).toBeChecked();
+
+    fireEvent.click(
+      within(advancedModal).getByRole("button", {
+        name: "Volver a categorías",
+      }),
+    );
+    fireEvent.click(
+      within(advancedModal).getByRole("button", {
+        name: "Volver al currículo",
+      }),
+    );
+    fireEvent.click(
+      within(advancedModal).getByRole("button", {
+        name: "Guardar configuración avanzada",
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+    await waitFor(() =>
+      expect(sdkFetch).toHaveBeenCalledWith(
+        "/publisher-app/config",
+        expect.objectContaining({ method: "PUT" }),
+      ),
+    );
+    const saveCall = jest
+      .mocked(sdkFetch)
+      .mock.calls.find(
+        ([path, init]) =>
+          path === "/publisher-app/config" && init?.method === "PUT",
+      );
+    const payload = JSON.parse(String(saveCall?.[1]?.body));
+    const learn = payload.advancedConfiguration.learn;
+    const medicGenSubject = learn.subjects.find(
+      (subject: { subjectIdentifier: string }) =>
+        subject.subjectIdentifier === "MEDICGEN_FOUNDATIONS",
+    );
+    const medicGenChapter = medicGenSubject.chapters.find(
+      (chapter: { chapterTitle: string }) =>
+        chapter.chapterTitle === "El origen de tu ADN",
+    );
+    const medicGenLesson = medicGenChapter.lessons.find(
+      (lesson: { lessonIdentifier: string }) =>
+        lesson.lessonIdentifier === "MEDICGEN.start",
+    );
+
+    expect(learn.mode).toBe("replace");
+    expect(medicGenLesson).toMatchObject({
+      lessonTitle: "Descubrí tu ADN",
+      imageUrl: "https://example.org/medicgen-start.png",
+      lessonColor: "#F97316",
+      paragraphs: expect.arrayContaining([
+        {
+          paragraphTitle: "Tu primera coordenada",
+          icon: "sparkles",
+          contentText:
+            "Una introducción personalizada al recorrido de MedicGen.",
+        },
+      ]),
+    });
+    expect(learn.topics).toEqual({
+      personalized_medicine: ["MEDICGEN_FOUNDATIONS"],
+    });
+  });
+
   it("supports a GOD MODE endpoint, status editing, and a safe admin layout", async () => {
     jest.mocked(sdkFetch).mockResolvedValue({
       config: { ...savedConfig, status: "approved" },
