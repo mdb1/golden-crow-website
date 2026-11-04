@@ -65,21 +65,25 @@ type LearnBackgroundTone = {
  *    by the base catalog.
  * 2. Each light/dark appearance is evaluated independently, so a neutral mode
  *    stays untouched even when the other appearance of the same role is themed.
- * 3. Brand seeds map to the three colors selected by the operator.
+ * 3. Deep dark-mode backgrounds, canvases and surfaces are environmental
+ *    foundations, not brand accents. Their original navy, charcoal or other
+ *    night hue is preserved exactly so layered content keeps depth and contrast.
+ *    Glows, orbs and highlights above them remain eligible for theming.
+ * 4. Brand seeds map to the three colors selected by the operator.
  *    Learn level 1 is anchored to the primary seed; a muted or dark primary is
  *    lifted along the same hue into a vivid, readable level accent. Bacteria's
  *    gradient end stays within 15 degrees of that accent and creates depth by
  *    darkening it, never by borrowing an accessory or counterpoint hue.
- * 4. Counterpoints are accessory hues, not new defaults. They are used only
+ * 5. Counterpoints are accessory hues, not new defaults. They are used only
  *    where a compact multi-accent layout genuinely benefits from two extra
  *    identities. Today that exception is the four-tile Connect quick-access
  *    row, the central Discover tab and selected Learn atmospheric effects.
  *    General navigation, surfaces, text and semantic states never inherit them.
- * 5. Every other chromatic role keeps its perceptual lightness and its original
+ * 6. Every other chromatic role keeps its perceptual lightness and its original
  *    hue relationship. The source hue wheel is compressed into a broad
  *    analogous family instead of being collapsed onto three near-identical
  *    anchors.
- * 6. There is no target count or quota. Every branding-susceptible chromatic
+ * 7. There is no target count or quota. Every branding-susceptible chromatic
  *    role is transformed; every unchanged or protected role is omitted.
  */
 
@@ -132,30 +136,33 @@ const BACTERIA_GRADIENT_LIGHTNESS_DELTA = 0.1;
 const BACTERIA_GRADIENT_MIN_LIGHTNESS = 0.45;
 const BACTERIA_GRADIENT_MAX_LIGHTNESS = 0.78;
 const BACTERIA_GRADIENT_MIN_CHROMA = 0.18;
+const DEEP_DARK_STRUCTURE_MAX_LIGHTNESS = 0.4;
+
+const DEEP_STRUCTURE_ROLE_PATTERN =
+  /\b(background|surface|canvas|backdrop|scrim|veil|fill)\b/i;
+const DEEP_ATMOSPHERIC_EFFECT_PATTERN =
+  /\b(accent|glow|orb|halo|highlight|ribbon|particle|star|sheen|border|outline|text|ink|icon)\b/i;
+const DEEP_BACKGROUND_GRADIENT_PATTERN =
+  /\bgradient\s*(top|middle|bottom|fade|stop\s*\d*)\b/i;
 
 const LEARN_BACKGROUND_SECONDARY_TONES: Record<
   string,
-  Record<ColorAppearance, LearnBackgroundTone>
+  Partial<Record<ColorAppearance, LearnBackgroundTone>>
 > = {
   "app.learnBackground": {
     light: { lightness: 0.955, chroma: 0.04 },
-    dark: { lightness: 0.14, chroma: 0.035 },
   },
   "learn.background.stop1": {
     light: { lightness: 0.985, chroma: 0.012 },
-    dark: { lightness: 0.12, chroma: 0.025 },
   },
   "learn.background.stop2": {
     light: { lightness: 0.96, chroma: 0.035 },
-    dark: { lightness: 0.17, chroma: 0.045 },
   },
   "learn.background.stop3": {
     light: { lightness: 0.925, chroma: 0.06 },
-    dark: { lightness: 0.23, chroma: 0.065 },
   },
   "learn.background.stop4": {
     light: { lightness: 0.975, chroma: 0.02 },
-    dark: { lightness: 0.1, chroma: 0.02 },
   },
   "learn.background.trailingGlow": {
     light: { lightness: 0.84, chroma: 0.12 },
@@ -176,6 +183,14 @@ const LEARN_BACKGROUND_CLOCKWISE_EFFECT_KEYS = new Set([
   "learn.background.leadingGlowEdge",
   "learn.background.leadingOrb",
   "learn.background.sheenEnd",
+]);
+
+const LEARN_DARK_NIGHT_FOUNDATION_KEYS = new Set([
+  "app.learnBackground",
+  "learn.background.stop1",
+  "learn.background.stop2",
+  "learn.background.stop3",
+  "learn.background.stop4",
 ]);
 
 function clamp(value: number, minimum: number, maximum: number) {
@@ -313,6 +328,12 @@ function optionSearchText(option: PublisherAppColorCatalogOption) {
     .replace(/[._/-]+/g, " ");
 }
 
+function optionIdentityText(option: PublisherAppColorCatalogOption) {
+  return `${option.key} ${option.title}`
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[._/-]+/g, " ");
+}
+
 function optionColors(option: PublisherAppColorCatalogOption) {
   return [option.defaultLightColor, option.defaultDarkColor].map((value) =>
     rgbToOklch(parseColor(value)),
@@ -331,6 +352,29 @@ function shouldPreserveOption(option: PublisherAppColorCatalogOption) {
 
   const colors = optionColors(option);
   return colors.every((color) => color.chroma <= QUIET_NEUTRAL_CHROMA);
+}
+
+function isDeepDarkStructure(
+  option: PublisherAppColorCatalogOption,
+  color: OklchColor,
+  appearance: ColorAppearance,
+) {
+  if (
+    appearance !== "dark" ||
+    color.lightness > DEEP_DARK_STRUCTURE_MAX_LIGHTNESS
+  ) {
+    return false;
+  }
+
+  const identity = optionIdentityText(option);
+  if (DEEP_ATMOSPHERIC_EFFECT_PATTERN.test(identity)) return false;
+  if (DEEP_STRUCTURE_ROLE_PATTERN.test(identity)) return true;
+
+  return (
+    option.group === "Screen surfaces and atmosphere" &&
+    DEEP_BACKGROUND_GRADIENT_PATTERN.test(identity) &&
+    /\b(background|canvas|backdrop|atmosphere)\b/i.test(option.usageDescription)
+  );
 }
 
 function rolePolicy(option: PublisherAppColorCatalogOption): PaletteRolePolicy {
@@ -420,6 +464,12 @@ function learnBackgroundColor(
 ) {
   const normalizedOriginal = normalizedCatalogColor(originalValue);
   const alpha = parseColor(normalizedOriginal).alpha;
+  if (
+    appearance === "dark" &&
+    LEARN_DARK_NIGHT_FOUNDATION_KEYS.has(option.key)
+  ) {
+    return normalizedOriginal;
+  }
   if (LEARN_BACKGROUND_CLOCKWISE_EFFECT_KEYS.has(option.key)) {
     return `${palette.counterpointClockwiseHex}${alpha}`;
   }
@@ -556,6 +606,9 @@ function coordinatedColor(
     return `${palette.counterpointAnticlockwiseHex}${rgb.alpha}`;
   }
   const original = rgbToOklch(rgb);
+  if (isDeepDarkStructure(option, original, appearance)) {
+    return normalizedOriginal;
+  }
   if (
     original.chroma <= ACHROMATIC_CHROMA ||
     original.lightness <= 0.01 ||

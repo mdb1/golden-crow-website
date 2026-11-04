@@ -183,7 +183,9 @@ describe("publisher app automatic palette overrides", () => {
     const fallback = plan.colorOverrides["app.learnBackground"];
     expect(fallback).toBeDefined();
     expect(colorLightness(fallback.light!)).toBeGreaterThan(90);
-    expect(colorLightness(fallback.dark!)).toBeLessThan(20);
+    expect(fallback.dark).toBe(
+      optionByKey.get("app.learnBackground")!.defaultDarkColor,
+    );
 
     const stopKeys = [1, 2, 3, 4].map(
       (stop) => `learn.background.stop${stop}`,
@@ -194,11 +196,14 @@ describe("publisher app automatic palette overrides", () => {
     const darkStops = stopKeys.map((key) => plan.colorOverrides[key].dark!);
     expect(new Set(lightStops).size).toBe(4);
     expect(new Set(darkStops).size).toBe(4);
-    for (const color of [...lightStops, ...darkStops]) {
+    for (const color of lightStops) {
       expect(hueDistance(colorHue(color), secondaryHue)).toBeLessThanOrEqual(
         15,
       );
     }
+    expect(darkStops).toEqual(
+      stopKeys.map((key) => optionByKey.get(key)!.defaultDarkColor),
+    );
 
     for (const key of [
       "learn.background.leadingGlow",
@@ -234,6 +239,52 @@ describe("publisher app automatic palette overrides", () => {
       "learn.background.stars",
     ]) {
       expect(plan.colorOverrides[neutralKey]).toBeUndefined();
+    }
+  });
+
+  it("protects deep dark structures while allowing atmospheric accents above them to adapt", () => {
+    const plan = createPublisherAppPaletteOverridePlan(
+      colors,
+      catalog.options,
+      catalog.catalogVersion,
+    );
+    const protectedNightKeys = [
+      "discover.background.standard1",
+      "discover.background.standard2",
+      "discover.background.standard3",
+      "discover.background.standard4",
+      "discover.background.organizations1",
+      "discover.background.organizations2",
+      "discover.background.organizations3",
+      "discover.background.organizations4",
+      "services.gradientTop",
+      "services.gradientMiddle",
+      "services.gradientBottom",
+      "services.gradientFade",
+      "brand.serviceSurface",
+      "serviceInfo.mintSurface",
+      "serviceInfo.lavenderSurface",
+    ];
+
+    for (const key of protectedNightKeys) {
+      const source = optionByKey.get(key)!;
+      const effectiveDark =
+        plan.colorOverrides[key]?.dark ?? source.defaultDarkColor;
+      expect(effectiveDark).toBe(source.defaultDarkColor);
+    }
+
+    const serviceBackground = plan.colorOverrides["services.gradientBottom"];
+    expect(serviceBackground.light).not.toBe(
+      optionByKey.get("services.gradientBottom")!.defaultLightColor,
+    );
+    expect(serviceBackground.dark).toBe(
+      optionByKey.get("services.gradientBottom")!.defaultDarkColor,
+    );
+
+    for (const effectKey of ["services.leadingGlow", "services.trailingGlow"]) {
+      expect(plan.colorOverrides[effectKey].dark).not.toBe(
+        optionByKey.get(effectKey)!.defaultDarkColor,
+      );
     }
   });
 
@@ -453,7 +504,21 @@ describe("publisher app automatic palette overrides", () => {
           !/^community\.quickActions\.(?:circles|search)\./.test(key) &&
           !/^tabs\.discover\./.test(key),
       )
-      .flatMap(([, override]) => [override.light!, override.dark!])
+      .flatMap(([key, override]) => {
+        const original = optionByKey.get(key)!;
+        return [
+          {
+            generated: override.light!,
+            source: original.defaultLightColor,
+          },
+          {
+            generated: override.dark!,
+            source: original.defaultDarkColor,
+          },
+        ]
+          .filter(({ generated, source }) => generated !== source.toUpperCase())
+          .map(({ generated }) => generated);
+      })
       .filter(
         (color) =>
           colorSaturation(color) >= 30 &&
