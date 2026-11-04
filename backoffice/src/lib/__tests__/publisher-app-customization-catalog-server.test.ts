@@ -11,7 +11,7 @@ describe("publisher app customization catalogs", () => {
       limit: 20,
     });
 
-    expect(page.catalogVersion).toBe(1);
+    expect(page.catalogVersion).toBe(2);
     expect(page.items).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ key: "brand.primary", group: "Brand" }),
@@ -19,6 +19,37 @@ describe("publisher app customization catalogs", () => {
     );
     expect(page.items.length).toBeLessThanOrEqual(20);
     expect(page.groups).toContain("General interface");
+  });
+
+  it("includes the version 2 Discover and Connect color roles", () => {
+    const discoverPage = searchPublisherAppColorCatalog({
+      query: "Discover News accent",
+      cursor: 0,
+      limit: 20,
+    });
+    const connectPage = searchPublisherAppColorCatalog({
+      query: "Connect friends gradient start",
+      cursor: 0,
+      limit: 20,
+    });
+
+    expect(discoverPage.catalogVersion).toBe(2);
+    expect(discoverPage.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "discover.category.news.accent",
+          group: "Discover categories",
+        }),
+      ]),
+    );
+    expect(connectPage.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "community.quickActions.friends.start",
+          group: "Connect quick access",
+        }),
+      ]),
+    );
   });
 
   it("searches exact bilingual wording without returning the full catalog", () => {

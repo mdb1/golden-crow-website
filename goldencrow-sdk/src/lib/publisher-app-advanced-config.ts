@@ -185,7 +185,10 @@ function normalizedColorOverrides(value: unknown, statusCode: number) {
   const result: PublisherAppAdvancedConfiguration["colorOverrides"] = {};
   for (const [key, modes] of Object.entries(value)) {
     if (!getPublisherAppColorCatalogOption(key)) {
-      invalid(`Color override key “${key}” is not in catalog 1.`, statusCode);
+      invalid(
+        `Color override key “${key}” is not in the current catalog.`,
+        statusCode,
+      );
     }
     if (!modes || typeof modes !== "object" || Array.isArray(modes)) {
       invalid(`Color override “${key}” must define light or dark.`, statusCode);

@@ -237,6 +237,10 @@ const advancedConfigurationBody = {
   },
   colorOverrides: {
     "brand.primary": { light: "#FF5500", dark: "#FF7700CC" },
+    "discover.category.news.accent": {
+      light: "#E04A5E",
+      dark: "#E04A5E",
+    },
   },
   catalogEnabled: false,
   feedEnabled: true,
