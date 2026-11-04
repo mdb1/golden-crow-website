@@ -3913,34 +3913,12 @@ export function PublisherAppAdvancedConfigurationEditor({
           </div>
         </div>
       );
-    const totals = learnTotals(working.learn);
     return (
-      <div className="space-y-7">
-        <FlowIntro title="Armá el mapa de conocimiento">
-          Pensá cada tema como una región, cada capítulo como una etapa y cada
-          lección como una experiencia concreta.
-        </FlowIntro>
-        <div className="flex flex-wrap gap-2">
-          {[
-            [totals.subjects, "temas"],
-            [totals.chapters, "capítulos"],
-            [totals.lessons, "lecciones"],
-          ].map(([value, label]) => (
-            <Badge
-              key={label}
-              variant="secondary"
-              className="rounded-full px-3 py-1"
-            >
-              {value} {label}
-            </Badge>
-          ))}
-        </div>
-        <LearnBuilder
-          value={working.learn}
-          showMetadata={false}
-          onChange={(learn) => updateDraft({ learn })}
-        />
-      </div>
+      <LearnBuilder
+        value={working.learn}
+        showMetadata={false}
+        onChange={(learn) => updateDraft({ learn })}
+      />
     );
   };
 
