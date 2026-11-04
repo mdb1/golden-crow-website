@@ -1158,11 +1158,7 @@ export interface PublisherAppRuntimeConfig {
     displayName: string;
     logoURL: string | null;
     logoUploadDataUrl?: string | null;
-    colors: PublisherAppSemanticColors &
-      Pick<
-        PublisherAppConfigColors,
-        "counterpointClockwise" | "counterpointAnticlockwise"
-      >;
+    colors: PublisherAppSemanticColors;
     colorOverrides?: Record<string, PublisherAppColorOverride>;
   };
   features: {

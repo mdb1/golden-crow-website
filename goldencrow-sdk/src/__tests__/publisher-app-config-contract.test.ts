@@ -698,19 +698,17 @@ describe("publisher app config contract", () => {
       branding: {
         displayName: "Canonical Organization",
         logoURL: "https://example.org/canonical-icon.png",
-        colors: expect.objectContaining({
+        colors: {
           primary: "#AABBCC",
           secondary: "#123456",
           accent: "#FEDCBA",
-          counterpointClockwise: "#9439EF",
-          counterpointAnticlockwise: "#39EF94",
           primaryStrong: expect.stringMatching(/^#[0-9A-F]{6}$/),
           primaryDeep: expect.stringMatching(/^#[0-9A-F]{6}$/),
           primarySoft: expect.stringMatching(/^#[0-9A-F]{6}$/),
           accentTextLight: expect.stringMatching(/^#[0-9A-F]{6}$/),
           accentTextDark: expect.stringMatching(/^#[0-9A-F]{6}$/),
           accentSurfaceLight: expect.stringMatching(/^#[0-9A-F]{6}$/),
-        }),
+        },
       },
       features: {
         catalogEnabled: true,
@@ -788,11 +786,7 @@ describe("publisher app config contract", () => {
         displayName: "Advanced Experience",
         logoURL: null,
         logoUploadDataUrl: "data:image/png;base64,QUJDRA==",
-        colors: expect.objectContaining({
-          ...advancedConfigurationBody.semanticColors,
-          counterpointClockwise: "#9439EF",
-          counterpointAnticlockwise: "#39EF94",
-        }),
+        colors: advancedConfigurationBody.semanticColors,
         colorOverrides: advancedConfigurationBody.colorOverrides,
       },
       features: {
@@ -854,6 +848,9 @@ describe("publisher app config contract", () => {
         termsURL: "https://example.org/terms",
       },
     });
+    expect(runtimeResponse.json().branding.colors).toEqual(
+      advancedConfigurationBody.semanticColors,
+    );
   });
 
   it.each([
