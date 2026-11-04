@@ -10,7 +10,10 @@
 #     down twice on 2026-10-15 (#439 backoffice, #442 SDK via a security PR).
 #     The uuid advisory that PR chased is closed with an npm override instead.
 #     scripts/check-server-deps.mjs now fails the build if this comes back.
-#   nodemailer >= 8 — next-auth 4 (latest) still peers nodemailer ^7.
+#
+# nodemailer is NOT ignored any more: next-auth 4's peerOptional nodemailer ^7
+# is satisfied by an npm override in backoffice/package.json (see
+# backoffice/README.md → "Dependency overrides").
 version: 2
 updates:
   - package-ecosystem: npm
@@ -27,5 +30,3 @@ updates:
     ignore:
       - dependency-name: firebase-admin
         versions: [">=14"]
-      - dependency-name: nodemailer
-        versions: [">=8"]

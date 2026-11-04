@@ -431,6 +431,27 @@ roughly what the mobile UI-test harness (#609) cost. Worth doing eventually; not
 worth blocking regression coverage on, since these tests run in the gate that
 already protects production.
 
+## Dependency overrides
+
+`package.json` → `"overrides"` (JSON has no comments, so the reasons live here):
+
+- **`"next-auth": { "nodemailer": "$nodemailer" }`** — `next-auth@4` (latest
+  4.24.15) declares `peerOptional nodemailer@"^7.0.7"`. Without this override a
+  root `nodemailer` 8+ makes `npm install` / `npm ci` die with ERESOLVE, and
+  since `main` auto-deploys that is a production outage (#350, 2026-09-09, #395).
+  The override makes next-auth accept the root version (10.x). next-auth only
+  uses nodemailer from `EmailProvider`, which we don't use (Credentials only).
+  **Do not remove it while `next-auth@4` is installed.** Any change to it (or
+  a nodemailer bump) is tested with: `rm -rf node_modules && npm ci` (no
+  `--legacy-peer-deps` / `--force` — Vercel uses neither) → `npm run build` →
+  `npm run check:deploy-skew`.
+- **`"@grpc/grpc-js": "^1.14.6"`** — `@firebase/firestore` (client SDK) pins
+  `~1.9.0`, which has no patched release for GHSA-m9gg-hp2v-232j /
+  GHSA-f596-whhp-79r4. Forcing the 1.14 line (same one firebase-admin already
+  uses) dedupes it. Drop it once `@firebase/firestore` moves past 1.9.
+- **`"uuid": "^11.1.1"`** — closes the uuid advisory without taking
+  firebase-admin 14 (see `.github/dependabot.yml`).
+
 ## Authentication
 
 Login is backend-controlled. Access is granted to emails in the SDK's `TEAM_ALLOWLIST` and to users with an active admin role assignment in Firebase (for example `full_admin`, `institution_admin`, or `institution_doctor`). Email account creation now checks that access first, creates the auth account only after approval, and then sends the authenticated user into a complete-profile flow that writes the required Firebase profile documents plus the matching `report_owners/{uid}` and `object_owners/{uid}` identities.
