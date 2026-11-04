@@ -448,8 +448,8 @@ export function publisherAppCounterpointColors(
   const saturation = Math.max(85, source.saturation);
   const lightness = Math.min(58, Math.max(48, source.lightness));
   return {
-    counterpointClockwise: hslToHex(hue + 60, saturation, lightness),
-    counterpointAnticlockwise: hslToHex(hue - 60, saturation, lightness),
+    counterpointClockwise: hslToHex(hue + 45, saturation, lightness),
+    counterpointAnticlockwise: hslToHex(hue - 45, saturation, lightness),
   };
 }
 

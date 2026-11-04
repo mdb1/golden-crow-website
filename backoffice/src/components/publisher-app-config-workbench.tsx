@@ -199,7 +199,7 @@ type ColorField =
       label: string;
       description: string;
       editable: false;
-      hueShift: "+60°" | "−60°";
+      hueShift: "+45°" | "−45°";
     };
 
 const COLOR_FIELDS: ColorField[] = [
@@ -227,7 +227,7 @@ const COLOR_FIELDS: ColorField[] = [
     description:
       "Acento accesorio para composiciones puntuales con varios colores.",
     editable: false,
-    hueShift: "+60°",
+    hueShift: "+45°",
   },
   {
     key: "counterpointAnticlockwise",
@@ -235,7 +235,7 @@ const COLOR_FIELDS: ColorField[] = [
     description:
       "Acento accesorio opuesto para separar elementos excepcionales.",
     editable: false,
-    hueShift: "−60°",
+    hueShift: "−45°",
   },
 ];
 
@@ -3404,7 +3404,7 @@ export function PublisherAppConfigWorkbench({
                       Ajustá los tres colores base
                     </p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Los dos contrapuntos se calculan automáticamente a ±60°
+                      Los dos contrapuntos se calculan automáticamente a ±45°
                       del color principal y se reservan para acentos puntuales.
                     </p>
                   </div>
