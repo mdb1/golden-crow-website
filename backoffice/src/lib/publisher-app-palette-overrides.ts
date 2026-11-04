@@ -23,6 +23,7 @@ type PaletteRolePolicy =
   | "preserve"
   | "primary"
   | "vividPrimary"
+  | "vividPrimaryGradientEnd"
   | "secondary"
   | "tertiary"
   | "counterpointClockwise"
@@ -54,7 +55,9 @@ type PaletteCandidate = {
  *    stays untouched even when the other appearance of the same role is themed.
  * 3. Brand seeds map to the three colors selected by the operator.
  *    Learn level 1 is anchored to the primary seed; a muted or dark primary is
- *    lifted along the same hue into a vivid, readable level accent.
+ *    lifted along the same hue into a vivid, readable level accent. Bacteria's
+ *    gradient end stays within 15 degrees of that accent and creates depth by
+ *    darkening it, never by borrowing an accessory or counterpoint hue.
  * 4. Counterpoints are accessory hues, not new defaults. They are used only
  *    where a compact multi-accent layout genuinely benefits from two extra
  *    identities. Today that exception is the four-tile Connect quick-access
@@ -73,6 +76,7 @@ const SEMANTIC_STATUS_PATTERN =
 const DIRECT_ROLE_POLICY: Record<string, PaletteRolePolicy> = {
   "brand.primary": "primary",
   "learn.level.bacteria.accent": "vividPrimary",
+  "learn.level.bacteria.gradientEnd": "vividPrimaryGradientEnd",
   "brand.secondary": "secondary",
   "brand.accent": "tertiary",
   "android.material.primary": "primary",
@@ -106,6 +110,11 @@ const VIVID_PRIMARY_READY_CHROMA = 0.12;
 const VIVID_PRIMARY_MIN_LIGHTNESS = 0.72;
 const VIVID_PRIMARY_MAX_LIGHTNESS = 0.86;
 const VIVID_PRIMARY_READY_LIGHTNESS = 0.55;
+const BACTERIA_GRADIENT_HUE_OFFSET = 6;
+const BACTERIA_GRADIENT_LIGHTNESS_DELTA = 0.1;
+const BACTERIA_GRADIENT_MIN_LIGHTNESS = 0.45;
+const BACTERIA_GRADIENT_MAX_LIGHTNESS = 0.78;
+const BACTERIA_GRADIENT_MIN_CHROMA = 0.18;
 
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(maximum, Math.max(minimum, value));
@@ -313,6 +322,26 @@ function vividPrimaryColor(
   );
 }
 
+function vividPrimaryGradientEndColor(palette: ThemePalette, alpha: string) {
+  const accent = rgbToOklch(parseColor(palette.vividPrimaryHex));
+  return oklchToHex(
+    {
+      lightness: clamp(
+        accent.lightness - BACTERIA_GRADIENT_LIGHTNESS_DELTA,
+        BACTERIA_GRADIENT_MIN_LIGHTNESS,
+        BACTERIA_GRADIENT_MAX_LIGHTNESS,
+      ),
+      chroma: clamp(
+        Math.max(accent.chroma * 0.94, BACTERIA_GRADIENT_MIN_CHROMA),
+        BACTERIA_GRADIENT_MIN_CHROMA,
+        0.3,
+      ),
+      hue: normalizeHue(accent.hue + BACTERIA_GRADIENT_HUE_OFFSET),
+    },
+    alpha,
+  );
+}
+
 function buildThemePalette(
   colors: PublisherAppColors,
   options: PublisherAppColorCatalogOption[],
@@ -427,6 +456,9 @@ function coordinatedColor(
 
   if (policy === "vividPrimary") {
     return `${palette.vividPrimaryHex}${rgb.alpha}`;
+  }
+  if (policy === "vividPrimaryGradientEnd") {
+    return vividPrimaryGradientEndColor(palette, rgb.alpha);
   }
 
   const directIndex =

@@ -130,6 +130,15 @@ describe("publisher app automatic palette overrides", () => {
       light: colors.primary,
       dark: colors.primary,
     });
+    const bacteriaGradientEnd =
+      plan.colorOverrides["learn.level.bacteria.gradientEnd"];
+    expect(
+      hueDistance(
+        colorHue(bacteriaGradientEnd.light!),
+        colorHue(colors.primary),
+      ),
+    ).toBeLessThanOrEqual(15);
+    expect(colorSaturation(bacteriaGradientEnd.light!)).toBeGreaterThan(75);
 
     for (const [key, override] of Object.entries(plan.colorOverrides)) {
       const original = optionByKey.get(key)!;
@@ -197,11 +206,55 @@ describe("publisher app automatic palette overrides", () => {
         colorSaturation(mutedPrimary) + 25,
       );
       expect(colorLightness(bacteria.light!)).toBeGreaterThan(50);
+      expect(
+        hueDistance(colorHue(gradientEnd.light!), colorHue(bacteria.light!)),
+      ).toBeLessThanOrEqual(15);
+      expect(colorSaturation(gradientEnd.light!)).toBeGreaterThan(75);
       expect(perceptualLightness(gradientEnd.light!)).toBeLessThan(
         perceptualLightness(bacteria.light!),
       );
     }
   });
+
+  it.each(["#FF5500", "#1D4ED8", "#16A34A", "#FFFF00"])(
+    "keeps the Bacteria gradient end vivid and within fifteen degrees of brand %s",
+    (primary) => {
+      const palette = publisherAppColorsWithCounterpoints({
+        primary,
+        secondary: "#FFB21F",
+        tertiary: "#F58220",
+      });
+      const plan = createPublisherAppPaletteOverridePlan(
+        palette,
+        catalog.options,
+        catalog.catalogVersion,
+      );
+      const accent = plan.colorOverrides["learn.level.bacteria.accent"].light!;
+      const gradientEnd =
+        plan.colorOverrides["learn.level.bacteria.gradientEnd"].light!;
+
+      expect(gradientEnd).not.toBe(accent);
+      expect(
+        hueDistance(colorHue(gradientEnd), colorHue(accent)),
+      ).toBeLessThanOrEqual(15);
+      expect(colorSaturation(gradientEnd)).toBeGreaterThan(75);
+      expect(perceptualLightness(gradientEnd)).toBeLessThan(
+        perceptualLightness(accent),
+      );
+      expect(
+        hueDistance(
+          colorHue(gradientEnd),
+          colorHue(palette.counterpointClockwise),
+        ),
+      ).toBeGreaterThan(30);
+      expect(
+        hueDistance(
+          colorHue(gradientEnd),
+          colorHue(palette.counterpointAnticlockwise),
+        ),
+      ).toBeGreaterThan(30);
+    },
+  );
 
   it("uses counterpoints only for the two accessory tiles in the four-item community row", () => {
     const plan = createPublisherAppPaletteOverridePlan(
