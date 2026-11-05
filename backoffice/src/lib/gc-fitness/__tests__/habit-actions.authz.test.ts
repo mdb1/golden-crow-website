@@ -317,7 +317,8 @@ describe("currentTrainerCanManageHabit — mutating habit actions", () => {
   // Transferred client: authorship (habit.trainerId === caller) no longer
   // admits the habit — the habit's CLIENT must currently be the caller's. The
   // previous coach can't edit / delete / skip (or read, see getHabit) habits
-  // living on the new coach's client; the new coach can.
+  // living on the new coach's client. The new coach can't either (#1504): it is
+  // inherited, so read-only; their way out is `endInheritedPlan`.
   describe.each(mutate)("%s on a habit whose client moved to another coach", (_name, run) => {
     it("rejects the PREVIOUS coach (the habit's author) and writes nothing", async () => {
       const before = db.doc("habits/h-stale");
@@ -326,10 +327,10 @@ describe("currentTrainerCanManageHabit — mutating habit actions", () => {
       expect(db.doc("habits/h-stale")).toEqual(before);
     });
 
-    it("admits the NEW coach", async () => {
+    it("refuses the NEW coach too: an inherited habit is read-only (#1504)", async () => {
       signInAs("coach-b", ["trainer"]);
-      await run("h-stale");
-      expect(dataWrites().map((w) => w.path)).toEqual(["habits/h-stale"]);
+      await expect(run("h-stale")).rejects.toThrow("Inherited habit is read-only.");
+      expect(db.writes).toEqual([]);
     });
   });
 

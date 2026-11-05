@@ -1,0 +1,40 @@
+{
+  "_comment": "#1504 — shared vector of assignedBy + the endable half of the inherited plan. Copied byte for byte to iOS (GCFitnessCoreTests/Fixtures), Android (core/src/test/resources) and the backoffice; each suite compares against this original when the monorepo is checked out.",
+  "assignedBy": [
+    { "name": "own doc, no coach", "trainerId": "C", "clientId": "C", "coachId": null, "expected": "self" },
+    { "name": "own doc, with a coach", "trainerId": "C", "clientId": "C", "coachId": "NEW", "expected": "self" },
+    { "name": "the current coach", "trainerId": "NEW", "clientId": "C", "coachId": "NEW", "expected": "current" },
+    { "name": "swap: authored by the old coach", "trainerId": "OLD", "clientId": "C", "coachId": "NEW", "expected": "former" },
+    { "name": "two swaps ago", "trainerId": "OLDER", "clientId": "C", "coachId": "NEW", "expected": "former" },
+    { "name": "unlinked: no coach now", "trainerId": "OLD", "clientId": "C", "coachId": null, "expected": "former" },
+    { "name": "unlinked: blank coachId", "trainerId": "OLD", "clientId": "C", "coachId": "", "expected": "former" },
+    { "name": "a coach who trains too", "trainerId": "NEW", "clientId": "NEW", "coachId": "BOSS", "expected": "self" },
+    { "name": "no authorship on the doc is never former", "trainerId": null, "clientId": "C", "coachId": "NEW", "expected": "self" },
+    { "name": "blank authorship is never former", "trainerId": "", "clientId": "C", "coachId": "NEW", "expected": "self" },
+    { "name": "pending doc belongs to its author", "trainerId": "OLD", "clientId": null, "coachId": null, "expected": "current" }
+  ],
+  "endableAssignment": [
+    { "name": "future scheduled, former", "trainerId": "OLD", "clientId": "C", "coachId": "NEW", "status": "scheduled", "scheduledFor": "2026-11-10", "selfAssigned": false, "today": "2026-11-05", "expected": true },
+    { "name": "today counts", "trainerId": "OLD", "clientId": "C", "coachId": "NEW", "status": "scheduled", "scheduledFor": "2026-11-05", "selfAssigned": false, "today": "2026-11-05", "expected": true },
+    { "name": "absent status counts", "trainerId": "OLD", "clientId": "C", "coachId": "NEW", "status": null, "scheduledFor": "2026-11-05", "selfAssigned": false, "today": "2026-11-05", "expected": true },
+    { "name": "overdue stays", "trainerId": "OLD", "clientId": "C", "coachId": "NEW", "status": "scheduled", "scheduledFor": "2026-11-04", "selfAssigned": false, "today": "2026-11-05", "expected": false },
+    { "name": "started stays", "trainerId": "OLD", "clientId": "C", "coachId": "NEW", "status": "started", "scheduledFor": "2026-11-10", "selfAssigned": false, "today": "2026-11-05", "expected": false },
+    { "name": "completed stays", "trainerId": "OLD", "clientId": "C", "coachId": "NEW", "status": "completed", "scheduledFor": "2026-11-10", "selfAssigned": false, "today": "2026-11-05", "expected": false },
+    { "name": "current coach is not inherited", "trainerId": "NEW", "clientId": "C", "coachId": "NEW", "status": "scheduled", "scheduledFor": "2026-11-10", "selfAssigned": false, "today": "2026-11-05", "expected": false },
+    { "name": "own routine is not inherited", "trainerId": "C", "clientId": "C", "coachId": "NEW", "status": "scheduled", "scheduledFor": "2026-11-10", "selfAssigned": true, "today": "2026-11-05", "expected": false },
+    { "name": "selfAssigned flag keeps it", "trainerId": "OLD", "clientId": "C", "coachId": "NEW", "status": "scheduled", "scheduledFor": "2026-11-10", "selfAssigned": true, "today": "2026-11-05", "expected": false },
+    { "name": "malformed date stays", "trainerId": "OLD", "clientId": "C", "coachId": "NEW", "status": "scheduled", "scheduledFor": "soon", "selfAssigned": false, "today": "2026-11-05", "expected": false }
+  ],
+  "endableHabit": [
+    { "name": "open-ended, former", "trainerId": "OLD", "clientId": "C", "coachId": "NEW", "clientOwned": false, "deleted": false, "scheduleType": "recurring", "startsOn": "2026-01-01", "endsOn": null, "today": "2026-11-05", "expected": true },
+    { "name": "no dates at all", "trainerId": "OLD", "clientId": "C", "coachId": "NEW", "clientOwned": false, "deleted": false, "scheduleType": null, "startsOn": null, "endsOn": null, "today": "2026-11-05", "expected": true },
+    { "name": "ends today still runs", "trainerId": "OLD", "clientId": "C", "coachId": "NEW", "clientOwned": false, "deleted": false, "scheduleType": "recurring", "startsOn": "2026-01-01", "endsOn": "2026-11-05", "today": "2026-11-05", "expected": true },
+    { "name": "starts in the future", "trainerId": "OLD", "clientId": "C", "coachId": "NEW", "clientOwned": false, "deleted": false, "scheduleType": "recurring", "startsOn": "2026-12-01", "endsOn": null, "today": "2026-11-05", "expected": true },
+    { "name": "already over", "trainerId": "OLD", "clientId": "C", "coachId": "NEW", "clientOwned": false, "deleted": false, "scheduleType": "recurring", "startsOn": "2026-01-01", "endsOn": "2026-11-04", "today": "2026-11-05", "expected": false },
+    { "name": "past one-off", "trainerId": "OLD", "clientId": "C", "coachId": "NEW", "clientOwned": false, "deleted": false, "scheduleType": "one-time", "startsOn": "2026-11-01", "endsOn": null, "today": "2026-11-05", "expected": false },
+    { "name": "soft-deleted", "trainerId": "OLD", "clientId": "C", "coachId": "NEW", "clientOwned": false, "deleted": true, "scheduleType": "recurring", "startsOn": "2026-01-01", "endsOn": null, "today": "2026-11-05", "expected": false },
+    { "name": "client-owned flag keeps it", "trainerId": "OLD", "clientId": "C", "coachId": "NEW", "clientOwned": true, "deleted": false, "scheduleType": "recurring", "startsOn": "2026-01-01", "endsOn": null, "today": "2026-11-05", "expected": false },
+    { "name": "current coach is not inherited", "trainerId": "NEW", "clientId": "C", "coachId": "NEW", "clientOwned": false, "deleted": false, "scheduleType": "recurring", "startsOn": "2026-01-01", "endsOn": null, "today": "2026-11-05", "expected": false },
+    { "name": "own habit is not inherited", "trainerId": "C", "clientId": "C", "coachId": "NEW", "clientOwned": true, "deleted": false, "scheduleType": "recurring", "startsOn": "2026-01-01", "endsOn": null, "today": "2026-11-05", "expected": false }
+  ]
+}

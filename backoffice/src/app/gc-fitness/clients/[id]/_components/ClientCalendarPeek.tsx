@@ -12,6 +12,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   Dumbbell,
+  History,
   Loader2,
   User,
   XCircle,
@@ -393,9 +394,10 @@ function PeekItemRow({
       // are NOT draggable: dropping would hit moveAssignment's ownership
       // throw (the coach must not move a client's own workout). Click and
       // drag coexist: a completed drag does not fire click.
-      draggable={!item.selfAssigned}
+      // gc-fitness#1504 — nor are a former coach's: read-only for the same reason.
+      draggable={!item.selfAssigned && !item.chip.inherited}
       onDragStart={(e) => {
-        if (item.selfAssigned) return;
+        if (item.selfAssigned || item.chip.inherited) return;
         e.dataTransfer.effectAllowed = "move";
         e.dataTransfer.setData("text/plain", item.assignmentId);
         onDragStart(item.chip);
@@ -403,7 +405,7 @@ function PeekItemRow({
       onClick={() => onOpenDetail(item.assignmentId)}
       className={cn(
         "flex w-full min-w-0 items-start gap-1.5 rounded-md border px-2 py-1.5 text-left text-[11px] transition-colors hover:border-primary/50 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        !item.selfAssigned && "cursor-grab active:cursor-grabbing",
+        !item.selfAssigned && !item.chip.inherited && "cursor-grab active:cursor-grabbing",
         itemClassName(item),
       )}
     >
@@ -419,6 +421,11 @@ function PeekItemRow({
                 className="size-3 shrink-0 opacity-70"
                 aria-label={t("clientCreated")}
               />
+            </span>
+          ) : null}
+          {item.chip.inherited ? (
+            <span title={t("inherited")} className="inline-flex shrink-0">
+              <History className="size-3 shrink-0 opacity-70" aria-label={t("inherited")} />
             </span>
           ) : null}
         </p>

@@ -4,6 +4,7 @@ import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 
 import { getCurrentTrainer } from "./auth-helpers";
 import { civilDateFormat, civilDateToday } from "./civil-date";
+import { assignedBy } from "./assigned-by";
 import { FirestoreCollections } from "./collections";
 import { listClients, type ClientRosterEntry } from "./client-roster";
 import { coerceLegacyHabitLogValue } from "./habit-compliance";
@@ -250,7 +251,10 @@ export async function getCoachPulse(): Promise<CoachPulse> {
     const client = activeClients[idx]!;
     habitsByClient.set(
       client.uid,
-      snap.docs.map((doc) => ({ ...(doc.data() as Record<string, unknown>), id: doc.id })),
+      // #1504 — a former coach's habits don't count toward this coach's pulse.
+      snap.docs
+        .map((doc) => ({ ...(doc.data() as Record<string, unknown>), id: doc.id }))
+        .filter((habit) => assignedBy(habit as Record<string, unknown>, { coachId: trainer.uid }) !== "former"),
     );
   });
 

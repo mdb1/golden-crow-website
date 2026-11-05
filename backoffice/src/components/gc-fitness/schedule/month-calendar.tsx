@@ -63,7 +63,7 @@ import {
 } from "@/components/ui/popover";
 
 import { AssignTemplateModal } from "./assign-template-modal";
-import { ClientOwnedBadge, HabitChip } from "./habit-chip";
+import { ClientOwnedBadge, HabitChip, InheritedBadge } from "./habit-chip";
 import { MoveAssignmentDialog } from "./move-assignment-dialog";
 import { NewHabitDialog } from "./new-habit-dialog";
 import { WorkoutDetailDialog } from "./workout-detail-dialog";
@@ -1340,9 +1340,9 @@ function DayCell({
                       // Issue #449 — self-assigned chips are NOT draggable:
                       // dropping would hit moveAssignment's ownership throw
                       // (the coach must not move a client's own workout).
-                      draggable={!w.selfAssigned}
+                      draggable={!w.selfAssigned && !w.inherited}
                       onDragStart={(e) => {
-                        if (w.selfAssigned) return;
+                        if (w.selfAssigned || w.inherited) return;
                         e.dataTransfer.effectAllowed = "move";
                         e.dataTransfer.setData("text/plain", w.id);
                         onDragStartChip(w);
@@ -1359,6 +1359,7 @@ function DayCell({
                         workoutSummaryLabel(w.logged, t),
                         movedFromLabel,
                         w.selfAssigned ? t("clientCreatedBadge") : null,
+                        w.inherited ? t("inheritedBadge") : null,
                       ]
                         .filter(Boolean)
                         .join(" — ")}
@@ -1373,6 +1374,7 @@ function DayCell({
                         ) : null}
                       </span>
                       {w.selfAssigned ? <ClientOwnedBadge /> : null}
+                      {w.inherited ? <InheritedBadge /> : null}
                       {movedFromLabel ? (
                         <ArrowRightLeft
                           className="size-3 shrink-0 opacity-70"
@@ -1487,9 +1489,9 @@ function ClientDayCell({
               // Issue #449 — self-assigned chips are NOT draggable: dropping
               // would hit moveAssignment's ownership throw (the coach must
               // not move a client's own workout).
-              draggable={!w.selfAssigned}
+              draggable={!w.selfAssigned && !w.inherited}
               onDragStart={(e) => {
-                if (w.selfAssigned) return;
+                if (w.selfAssigned || w.inherited) return;
                 e.dataTransfer.effectAllowed = "move";
                 e.dataTransfer.setData("text/plain", w.id);
                 onDragStartChip(w);
@@ -1509,6 +1511,7 @@ function ClientDayCell({
                 workoutSummaryLabel(w.logged, t),
                 movedFromLabel,
                 w.selfAssigned ? t("clientCreatedBadge") : null,
+                w.inherited ? t("inheritedBadge") : null,
               ]
                 .filter(Boolean)
                 .join(" — ")}
@@ -1523,6 +1526,7 @@ function ClientDayCell({
                 ) : null}
               </span>
               {w.selfAssigned ? <ClientOwnedBadge /> : null}
+              {w.inherited ? <InheritedBadge /> : null}
               {movedFromLabel ? (
                 <ArrowRightLeft
                   className="size-3 shrink-0 opacity-70"

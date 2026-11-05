@@ -119,6 +119,7 @@ function chip(overrides: Partial<MonthWorkoutChip> = {}): MonthWorkoutChip {
     seriesId: null,
     recurrenceKind: null,
     selfAssigned: false,
+    inherited: false,
     plannedExercises: 3,
     logged: null,
     ...overrides,

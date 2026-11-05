@@ -450,6 +450,7 @@
         "loadFailed": "No se pudo cargar esta semana.",
         "emptyDay": "Sin entrenamientos ni hábitos",
         "clientCreated": "Creado por el cliente",
+        "inherited": "Del coach anterior",
         "workoutStatus": {
           "scheduled": "programado",
           "started": "en curso",
@@ -571,6 +572,15 @@
         "ariaLabel": "Tendencia de peso corporal en {count} registros"
       },
       "summary": {
+        "inheritedPlan": {
+          "title": "Plan del coach anterior",
+          "counts": "{workouts, plural, one {# entreno futuro} other {# entrenos futuros}} · {habits, plural, one {# hábito activo} other {# hábitos activos}}. No cuentan en sus números.",
+          "end": "Terminar plan del coach anterior",
+          "confirmBody": "Se borran los entrenos futuros y se terminan los hábitos de ese plan. El historial del cliente no se toca.",
+          "confirm": "Terminar plan",
+          "cancel": "Cancelar",
+          "failed": "No pudimos terminar el plan. Probá de nuevo."
+        },
         "title": "Resumen",
         "subtitle": "Resumen de asignaciones activas del cliente.",
         "workouts": "Entrenamientos asignados",
@@ -1892,6 +1902,7 @@
       "habits": "Hábitos",
       "birthdayBadge": "Cumpleaños",
       "clientCreatedBadge": "Creado por el cliente",
+      "inheritedBadge": "Del coach anterior",
       "loggedExercises": "{count, plural, one {# ejercicio} other {# ejercicios}}",
       "loggedSets": "{count, plural, one {# serie} other {# series}}",
       "loggedMinutes": "{count} min",

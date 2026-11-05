@@ -796,7 +796,7 @@ export default async function CoachlessUserDetailPage({
           <CardTitle className="text-xl">Habit adherence</CardTitle>
         </CardHeader>
         <CardContent>
-          <HabitTrendsWidget clientId={uid} timezone={timezone} />
+          <HabitTrendsWidget clientId={uid} coachId={null} timezone={timezone} />
         </CardContent>
       </Card>
 

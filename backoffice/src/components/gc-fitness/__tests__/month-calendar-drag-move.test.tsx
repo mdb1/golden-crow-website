@@ -156,6 +156,7 @@ function chip(overrides: Partial<MonthWorkoutChip> = {}): MonthWorkoutChip {
     seriesId: null,
     recurrenceKind: null,
     selfAssigned: false,
+    inherited: false,
     plannedExercises: 3,
     logged: null,
     ...overrides,
@@ -345,6 +346,25 @@ describe("MonthCalendar — drags that must NOT write", () => {
     // A drop that never started as a drag (e.g. a file dragged in from the
     // desktop) reaches the same handler.
     fireEvent.drop(dayCell(22), { dataTransfer: dataTransfer() });
+
+    await settle();
+    expect(mockMoveAssignment).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("move-dialog")).not.toBeInTheDocument();
+  });
+});
+
+describe("MonthCalendar — gc-fitness#1504, a former coach's workout is marked and can't be dragged", () => {
+  it("does not mark the chip draggable, and says whose it is", () => {
+    renderCalendar([chip({ templateName: "Plan viejo", inherited: true })]);
+
+    expect(chipButton("Plan viejo")).toHaveAttribute("draggable", "false");
+    expect(chipButton("Plan viejo").getAttribute("title")).toContain("From the former coach");
+  });
+
+  it("stays inert even if a dragStart is delivered anyway", async () => {
+    renderCalendar([chip({ templateName: "Plan viejo", inherited: true })]);
+
+    dragChipToDay("Plan viejo", 22);
 
     await settle();
     expect(mockMoveAssignment).not.toHaveBeenCalled();
