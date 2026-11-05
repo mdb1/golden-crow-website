@@ -696,7 +696,7 @@ describe("PublisherAppConfigWorkbench", () => {
               {
                 id: "communityGenes",
                 title: "Genes",
-                description: "A fixed olive-green local palette.",
+                description: "A fixed aqua circuit-green local palette.",
                 roleKeys: ["community.genes.primary"],
               },
               {
@@ -820,8 +820,8 @@ describe("PublisherAppConfigWorkbench", () => {
     fireEvent.click(screen.getByRole("button", { name: "Agregar color" }));
     expect(await screen.findByText("Flujos tonales alternativos")).toBeTruthy();
     expect(screen.getByText("Genes")).toBeTruthy();
-    expect(screen.getByText("Verde oliva propio")).toBeTruthy();
-    expect(screen.getByText("#718A2F")).toBeTruthy();
+    expect(screen.getByText("Verde aqua tecnológico")).toBeTruthy();
+    expect(screen.getByText("#00A88A")).toBeTruthy();
     expect(screen.getByText("Saved Content")).toBeTruthy();
     expect(screen.getByText("Contrapunto horario")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Buscar opciones disponibles"), {

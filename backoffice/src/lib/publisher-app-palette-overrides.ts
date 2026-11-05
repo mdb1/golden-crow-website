@@ -102,9 +102,10 @@ type LearnBackgroundTone = {
  * 7. Alternative tonal flows retain internal hue, lightness and alpha
  *    differences around their local center. Rare Circles, Community Composer
  *    and Saved Content use sparse counterpoint centers. Genes is the deliberate
- *    exception: its center and chroma remain fixed in a green-olive family,
- *    independent of every app palette. Neutral foregrounds, semantic states
- *    and deep dark-mode foundations remain untouched in every flow.
+ *    exception: its center and chroma remain fixed in a saturated aqua-green
+ *    circuit family, independent of every app palette. Neutral foregrounds,
+ *    semantic states and deep dark-mode foundations remain untouched in every
+ *    flow.
  * 8. Every other chromatic role keeps its perceptual lightness and its original
  *    hue relationship. The source hue wheel is compressed into a broad
  *    analogous family instead of being collapsed onto three near-identical

@@ -271,7 +271,7 @@ describe("publisher app automatic palette overrides", () => {
     }
   });
 
-  it("keeps the Genes tonal flow green-olive and invariant across app palettes", () => {
+  it("keeps the Genes tonal flow aqua-green and invariant across app palettes", () => {
     const genesFlow = catalog.alternativeTonalFlows.find(
       (flow) => flow.id === "communityGenes",
     )!;
@@ -308,7 +308,7 @@ describe("publisher app automatic palette overrides", () => {
       dark: PUBLISHER_APP_GENES_TONAL_CENTER,
     });
 
-    const oliveHue = perceptualHue(PUBLISHER_APP_GENES_TONAL_CENTER);
+    const aquaGreenHue = perceptualHue(PUBLISHER_APP_GENES_TONAL_CENTER);
     const chromaticGeneTones = genesFlow.roleKeys
       .flatMap((roleKey) => {
         const override = plans[0].colorOverrides[roleKey];
@@ -319,7 +319,7 @@ describe("publisher app automatic palette overrides", () => {
     expect(chromaticGeneTones.length).toBeGreaterThan(0);
     for (const color of chromaticGeneTones) {
       expect(
-        hueDistance(perceptualHue(color), oliveHue),
+        hueDistance(perceptualHue(color), aquaGreenHue),
       ).toBeLessThanOrEqual(10);
     }
 

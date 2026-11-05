@@ -58,7 +58,7 @@ export type PublisherAppAlternativeTonalFlowCenter =
       color: string;
     };
 
-export const PUBLISHER_APP_GENES_TONAL_CENTER = "#718A2F";
+export const PUBLISHER_APP_GENES_TONAL_CENTER = "#00A88A";
 
 // Discovery metadata stays in the catalog; only the resulting exact role keys
 // and light/dark values are persisted under branding.colorOverrides.

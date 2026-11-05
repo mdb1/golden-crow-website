@@ -750,9 +750,9 @@ function ColorOverridesEditor({
             <p className="mt-1 text-sm text-muted-foreground">
               Estas experiencias usan una familia local coordinada. Rare
               Circles, Community Composer y Saved Content parten de
-              contrapuntos; Genes conserva su propio verde oliva sin depender
-              de la paleta de la app. Los valores se guardan como overrides
-              independientes, no como colores globales.
+              contrapuntos; Genes conserva su propio verde aqua tecnológico sin
+              depender de la paleta de la app. Los valores se guardan como
+              overrides independientes, no como colores globales.
             </p>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               {catalog.alternativeTonalFlows.map((flow) => {
@@ -772,7 +772,7 @@ function ColorOverridesEditor({
                       : undefined;
                 const centerLabel =
                   center?.kind === "fixed"
-                    ? "Verde oliva propio"
+                    ? "Verde aqua tecnológico"
                     : centerKey === "counterpointClockwise"
                       ? "Contrapunto horario"
                       : centerKey === "counterpointAnticlockwise"
