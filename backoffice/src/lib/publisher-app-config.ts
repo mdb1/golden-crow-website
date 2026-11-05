@@ -48,14 +48,41 @@ export type PublisherAppAlternativeTonalFlow = {
   roleKeys: string[];
 };
 
+export type PublisherAppAlternativeTonalFlowCenter =
+  | {
+      kind: "counterpoint";
+      key: keyof PublisherAppCounterpointColors;
+    }
+  | {
+      kind: "fixed";
+      color: string;
+    };
+
+export const PUBLISHER_APP_GENES_TONAL_CENTER = "#718A2F";
+
 // Discovery metadata stays in the catalog; only the resulting exact role keys
 // and light/dark values are persisted under branding.colorOverrides.
-export const PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTER_KEYS = {
-  rareCircles: "counterpointAnticlockwise",
-  communityComposer: "counterpointFarAnticlockwise",
-  communityGenes: "counterpointFarClockwise",
-  savedContent: "counterpointClockwise",
-} as const satisfies Record<string, keyof PublisherAppCounterpointColors>;
+export const PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTERS = {
+  rareCircles: {
+    kind: "counterpoint",
+    key: "counterpointAnticlockwise",
+  },
+  communityComposer: {
+    kind: "counterpoint",
+    key: "counterpointFarAnticlockwise",
+  },
+  communityGenes: {
+    kind: "fixed",
+    color: PUBLISHER_APP_GENES_TONAL_CENTER,
+  },
+  savedContent: {
+    kind: "counterpoint",
+    key: "counterpointClockwise",
+  },
+} as const satisfies Record<
+  string,
+  PublisherAppAlternativeTonalFlowCenter
+>;
 
 export type PublisherAppSemanticColors = {
   primary: string;

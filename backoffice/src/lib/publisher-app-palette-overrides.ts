@@ -1,4 +1,5 @@
 import type {
+  PublisherAppAlternativeTonalFlowCenter,
   PublisherAppAlternativeTonalFlow,
   PublisherAppColorCatalogOption,
   PublisherAppColorOverride,
@@ -8,7 +9,7 @@ import type {
 } from "@/lib/publisher-app-config";
 import {
   normalizePublisherAppColor,
-  PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTER_KEYS,
+  PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTERS,
 } from "@/lib/publisher-app-config";
 
 type RgbColor = {
@@ -43,6 +44,7 @@ type AlternativeTonalFlowPalette = {
   anchorKey: string;
   centerHex: string;
   centerHue: number;
+  fixedTargetChroma?: number;
   sourceHue: number;
 };
 
@@ -97,10 +99,12 @@ type LearnBackgroundTone = {
  *    identities, such as the four-tile Connect quick-access row and selected
  *    Learn atmospheric effects. General navigation, surfaces, text and
  *    semantic states never inherit them.
- * 7. Alternative tonal flows each receive one of the four counterpoint centers.
- *    Their roles retain internal hue, lightness and alpha differences around
- *    that local center; neutral foregrounds, semantic states and deep dark-mode
- *    foundations remain untouched.
+ * 7. Alternative tonal flows retain internal hue, lightness and alpha
+ *    differences around their local center. Rare Circles, Community Composer
+ *    and Saved Content use sparse counterpoint centers. Genes is the deliberate
+ *    exception: its center and chroma remain fixed in a green-olive family,
+ *    independent of every app palette. Neutral foregrounds, semantic states
+ *    and deep dark-mode foundations remain untouched in every flow.
  * 8. Every other chromatic role keeps its perceptual lightness and its original
  *    hue relationship. The source hue wheel is compressed into a broad
  *    analogous family instead of being collapsed onto three near-identical
@@ -415,13 +419,29 @@ function isDeepDarkStructure(
   );
 }
 
-function alternativeTonalFlowCenterKey(id: string) {
-  if (!(id in PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTER_KEYS)) {
-    return undefined;
+function alternativeTonalFlowCenter(
+  id: string,
+  counterpoints: PublisherAppCounterpointColors,
+) {
+  const definition = (
+    PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTERS as Record<
+      string,
+      PublisherAppAlternativeTonalFlowCenter
+    >
+  )[id];
+  if (!definition) return undefined;
+  const centerHex = normalizePublisherAppColor(
+    definition.kind === "fixed"
+      ? definition.color
+      : counterpoints[definition.key],
+  );
+  if (!centerHex) {
+    throw new Error(`Alternative tonal flow ${id} has an invalid center.`);
   }
-  return PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTER_KEYS[
-    id as keyof typeof PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTER_KEYS
-  ];
+  return {
+    centerHex,
+    fixed: definition.kind === "fixed",
+  };
 }
 
 function buildAlternativeTonalFlowRoleMap(
@@ -433,12 +453,12 @@ function buildAlternativeTonalFlowRoleMap(
   const roleMap = new Map<string, AlternativeTonalFlowPalette>();
 
   for (const flow of flows) {
-    const centerKey = alternativeTonalFlowCenterKey(flow.id);
+    const center = alternativeTonalFlowCenter(flow.id, counterpoints);
     const anchorKey =
       ALTERNATIVE_TONAL_FLOW_ANCHOR_KEYS[
         flow.id as keyof typeof ALTERNATIVE_TONAL_FLOW_ANCHOR_KEYS
       ];
-    if (!centerKey || !anchorKey) continue;
+    if (!center || !anchorKey) continue;
     const anchor = optionByKey.get(anchorKey);
     if (!anchor || !flow.roleKeys.includes(anchorKey)) {
       throw new Error(
@@ -451,11 +471,12 @@ function buildAlternativeTonalFlowRoleMap(
         `Alternative tonal flow ${flow.id} needs a chromatic anchor.`,
       );
     }
-    const centerHex = counterpoints[centerKey];
+    const centerColor = rgbToOklch(parseColor(center.centerHex));
     const flowPalette: AlternativeTonalFlowPalette = {
       anchorKey,
-      centerHex,
-      centerHue: rgbToOklch(parseColor(centerHex)).hue,
+      centerHex: center.centerHex,
+      centerHue: centerColor.hue,
+      fixedTargetChroma: center.fixed ? centerColor.chroma : undefined,
       sourceHue: sourceAnchor.hue,
     };
 
@@ -739,7 +760,8 @@ function alternativeTonalFlowColor(
     ALTERNATIVE_FLOW_MAX_HUE_DISTANCE,
   );
   const targetChroma = clamp(
-    original.chroma + (palette.baseChroma - original.chroma) * 0.72,
+    original.chroma +
+      ((flow.fixedTargetChroma ?? palette.baseChroma) - original.chroma) * 0.72,
     Math.min(original.chroma, 0.08),
     0.3,
   );

@@ -60,6 +60,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type {
   PublisherAppAdvancedConfiguration,
   PublisherAppAlternativeTonalFlow,
+  PublisherAppAlternativeTonalFlowCenter,
   PublisherAppColorCatalogOption,
   PublisherAppColors,
   PublisherAppLearnConfiguration,
@@ -70,7 +71,7 @@ import type {
 } from "@/lib/publisher-app-config";
 import {
   normalizePublisherAppColor,
-  PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTER_KEYS,
+  PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTERS,
   publisherAppSemanticColors,
 } from "@/lib/publisher-app-config";
 import { fetchPublisherAppCustomizationCatalog } from "@/lib/publisher-app-customization-catalog-client";
@@ -747,29 +748,40 @@ function ColorOverridesEditor({
           <section className="rounded-3xl border bg-muted/15 p-5">
             <h4 className="font-semibold">Flujos tonales alternativos</h4>
             <p className="mt-1 text-sm text-muted-foreground">
-              Estas experiencias usan una familia local coordinada alrededor de
-              uno de los cuatro contrapuntos. Los valores se guardan como
-              overrides independientes, no como colores globales de la app.
+              Estas experiencias usan una familia local coordinada. Rare
+              Circles, Community Composer y Saved Content parten de
+              contrapuntos; Genes conserva su propio verde oliva sin depender
+              de la paleta de la app. Los valores se guardan como overrides
+              independientes, no como colores globales.
             </p>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               {catalog.alternativeTonalFlows.map((flow) => {
+                const center = (
+                  PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTERS as Record<
+                    string,
+                    PublisherAppAlternativeTonalFlowCenter
+                  >
+                )[flow.id];
                 const centerKey =
-                  PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTER_KEYS[
-                    flow.id as keyof typeof PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTER_KEYS
-                  ];
-                const centerColor = centerKey
-                  ? baseColors[centerKey]
-                  : undefined;
+                  center?.kind === "counterpoint" ? center.key : undefined;
+                const centerColor =
+                  center?.kind === "fixed"
+                    ? center.color
+                    : centerKey
+                      ? baseColors[centerKey]
+                      : undefined;
                 const centerLabel =
-                  centerKey === "counterpointClockwise"
-                    ? "Contrapunto horario"
-                    : centerKey === "counterpointAnticlockwise"
-                      ? "Contrapunto antihorario"
-                      : centerKey === "counterpointFarClockwise"
-                        ? "Contrapunto lejano horario"
-                        : centerKey === "counterpointFarAnticlockwise"
-                          ? "Contrapunto lejano antihorario"
-                          : "Centro tonal";
+                  center?.kind === "fixed"
+                    ? "Verde oliva propio"
+                    : centerKey === "counterpointClockwise"
+                      ? "Contrapunto horario"
+                      : centerKey === "counterpointAnticlockwise"
+                        ? "Contrapunto antihorario"
+                        : centerKey === "counterpointFarClockwise"
+                          ? "Contrapunto lejano horario"
+                          : centerKey === "counterpointFarAnticlockwise"
+                            ? "Contrapunto lejano antihorario"
+                            : "Centro tonal";
                 return (
                   <article
                     key={flow.id}

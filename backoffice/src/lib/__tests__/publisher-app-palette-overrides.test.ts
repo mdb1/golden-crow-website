@@ -1,5 +1,6 @@
 import { getPublisherAppColorCatalog } from "@/lib/publisher-app-customization-catalog-server";
 import {
+  PUBLISHER_APP_GENES_TONAL_CENTER,
   publisherAppColorsWithCounterpoints,
   type PublisherAppColorCatalogOption,
 } from "@/lib/publisher-app-config";
@@ -213,7 +214,7 @@ describe("publisher app automatic palette overrides", () => {
     }
   });
 
-  it("gives each alternative tonal flow its own counterpoint center without mutating protected roles", () => {
+  it("gives each alternative tonal flow its designated center without mutating protected roles", () => {
     const plan = createCatalogPlan();
     const centers = {
       rareCircles: {
@@ -226,7 +227,7 @@ describe("publisher app automatic palette overrides", () => {
       },
       communityGenes: {
         anchor: "community.genes.primary",
-        color: colors.counterpointFarClockwise,
+        color: PUBLISHER_APP_GENES_TONAL_CENTER,
       },
       savedContent: {
         anchor: "savedContent.headerStart",
@@ -268,6 +269,68 @@ describe("publisher app automatic palette overrides", () => {
         expect(hueDistance(colorHue(color), centerHue)).toBeLessThanOrEqual(42);
       }
     }
+  });
+
+  it("keeps the Genes tonal flow green-olive and invariant across app palettes", () => {
+    const genesFlow = catalog.alternativeTonalFlows.find(
+      (flow) => flow.id === "communityGenes",
+    )!;
+    const palettes = [
+      publisherAppColorsWithCounterpoints({
+        primary: "#FF5500",
+        secondary: "#FFB21F",
+        tertiary: "#F58220",
+      }),
+      publisherAppColorsWithCounterpoints({
+        primary: "#1D4ED8",
+        secondary: "#EC4899",
+        tertiary: "#14B8A6",
+      }),
+      publisherAppColorsWithCounterpoints({
+        primary: "#7C3AED",
+        secondary: "#06B6D4",
+        tertiary: "#DC2626",
+      }),
+    ];
+    const plans = palettes.map((palette) => createCatalogPlan(palette));
+
+    for (const roleKey of genesFlow.roleKeys) {
+      expect(
+        new Set(
+          plans.map((plan) =>
+            JSON.stringify(plan.colorOverrides[roleKey] ?? null),
+          ),
+        ).size,
+      ).toBe(1);
+    }
+    expect(plans[0].colorOverrides["community.genes.primary"]).toEqual({
+      light: PUBLISHER_APP_GENES_TONAL_CENTER,
+      dark: PUBLISHER_APP_GENES_TONAL_CENTER,
+    });
+
+    const oliveHue = perceptualHue(PUBLISHER_APP_GENES_TONAL_CENTER);
+    const chromaticGeneTones = genesFlow.roleKeys
+      .flatMap((roleKey) => {
+        const override = plans[0].colorOverrides[roleKey];
+        return override ? [override.light, override.dark] : [];
+      })
+      .filter((color): color is string => Boolean(color))
+      .filter((color) => perceptualChroma(color) > 0.05);
+    expect(chromaticGeneTones.length).toBeGreaterThan(0);
+    for (const color of chromaticGeneTones) {
+      expect(
+        hueDistance(perceptualHue(color), oliveHue),
+      ).toBeLessThanOrEqual(10);
+    }
+
+    expect(
+      new Set(
+        plans.map(
+          (plan) =>
+            plan.colorOverrides["community.newPost.headerAccent"].light,
+        ),
+      ).size,
+    ).toBeGreaterThan(1);
   });
 
   it("composes Learn from the secondary color with sparse clockwise effects and explicit tab roles", () => {
