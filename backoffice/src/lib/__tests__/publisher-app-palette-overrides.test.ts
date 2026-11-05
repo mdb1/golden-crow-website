@@ -61,6 +61,47 @@ function perceptualLightness(value: string) {
   );
 }
 
+function perceptualChroma(value: string) {
+  const [red, green, blue] = colorChannels(value).map((channel) =>
+    channel <= 0.04045
+      ? channel / 12.92
+      : Math.pow((channel + 0.055) / 1.055, 2.4),
+  );
+  const l = Math.cbrt(
+    0.4122214708 * red + 0.5363325363 * green + 0.0514459929 * blue,
+  );
+  const m = Math.cbrt(
+    0.2119034982 * red + 0.6806995451 * green + 0.1073969566 * blue,
+  );
+  const s = Math.cbrt(
+    0.0883024619 * red + 0.2817188376 * green + 0.6299787005 * blue,
+  );
+  const a = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s;
+  const b = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
+  return Math.hypot(a, b);
+}
+
+function perceptualHue(value: string) {
+  const [red, green, blue] = colorChannels(value).map((channel) =>
+    channel <= 0.04045
+      ? channel / 12.92
+      : Math.pow((channel + 0.055) / 1.055, 2.4),
+  );
+  const l = Math.cbrt(
+    0.4122214708 * red + 0.5363325363 * green + 0.0514459929 * blue,
+  );
+  const m = Math.cbrt(
+    0.2119034982 * red + 0.6806995451 * green + 0.1073969566 * blue,
+  );
+  const s = Math.cbrt(
+    0.0883024619 * red + 0.2817188376 * green + 0.6299787005 * blue,
+  );
+  const a = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s;
+  const b = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
+  const hue = (Math.atan2(b, a) * 180) / Math.PI;
+  return hue < 0 ? hue + 360 : hue;
+}
+
 describe("publisher app automatic palette overrides", () => {
   const catalog = getPublisherAppColorCatalog();
   const optionByKey = new Map(
@@ -238,12 +279,27 @@ describe("publisher app automatic palette overrides", () => {
         dark: colors.primary,
       });
     }
-    for (const key of ["tabs.discover.start", "tabs.discover.end"]) {
-      expect(plan.colorOverrides[key]).toEqual({
-        light: colors.counterpointAnticlockwise,
-        dark: colors.counterpointAnticlockwise,
-      });
+    const centralTabStart = plan.colorOverrides["tabs.discover.start"];
+    const centralTabEnd = plan.colorOverrides["tabs.discover.end"];
+    expect(centralTabStart.light).toBe(centralTabStart.dark);
+    expect(centralTabEnd.light).toBe(centralTabEnd.dark);
+    expect(centralTabStart.light).not.toBe(centralTabEnd.light);
+    for (const color of [centralTabStart.light!, centralTabEnd.light!]) {
+      expect(
+        hueDistance(perceptualHue(color), perceptualHue(colors.primary)),
+      ).toBeLessThan(10);
+      expect(perceptualLightness(color)).toBeGreaterThan(0.88);
+      expect(perceptualChroma(color)).toBeLessThan(0.09);
+      expect(
+        hueDistance(colorHue(color), colorHue(colors.counterpointAnticlockwise)),
+      ).toBeGreaterThan(25);
     }
+    expect(perceptualLightness(centralTabEnd.light!)).toBeGreaterThan(
+      perceptualLightness(centralTabStart.light!),
+    );
+    expect(perceptualChroma(centralTabEnd.light!)).toBeLessThan(
+      perceptualChroma(centralTabStart.light!),
+    );
 
     const secondaryHue = colorHue(colors.secondary);
     const fallback = plan.colorOverrides["app.learnBackground"];
@@ -448,6 +504,36 @@ describe("publisher app automatic palette overrides", () => {
           colorHue(palette.counterpointAnticlockwise),
         ),
       ).toBeGreaterThan(30);
+    },
+  );
+
+  it.each(["#FF5500", "#1D4ED8", "#16A34A", "#FFFF00"])(
+    "keeps the selected central tab pale, washed and centered on brand %s",
+    (primary) => {
+      const palette = publisherAppColorsWithCounterpoints({
+        primary,
+        secondary: "#FFB21F",
+        tertiary: "#F58220",
+      });
+      const plan = createCatalogPlan(palette);
+      const start = plan.colorOverrides["tabs.discover.start"];
+      const end = plan.colorOverrides["tabs.discover.end"];
+
+      expect(start.light).toBe(start.dark);
+      expect(end.light).toBe(end.dark);
+      for (const color of [start.light!, end.light!]) {
+        expect(
+          hueDistance(perceptualHue(color), perceptualHue(primary)),
+        ).toBeLessThan(10);
+        expect(perceptualLightness(color)).toBeGreaterThan(0.88);
+        expect(perceptualChroma(color)).toBeLessThan(0.09);
+      }
+      expect(perceptualLightness(end.light!)).toBeGreaterThan(
+        perceptualLightness(start.light!),
+      );
+      expect(perceptualChroma(end.light!)).toBeLessThan(
+        perceptualChroma(start.light!),
+      );
     },
   );
 

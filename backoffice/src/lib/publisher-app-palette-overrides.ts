@@ -31,7 +31,7 @@ type PaletteRolePolicy =
   | "vividPrimaryGradientEnd"
   | "learnBackground"
   | "learnTabPrimary"
-  | "centerTabAnticlockwise"
+  | "centerTabWashedPrimary"
   | "secondary"
   | "tertiary"
   | "counterpointClockwise"
@@ -88,20 +88,24 @@ type LearnBackgroundTone = {
  *    lifted along the same hue into a vivid, readable level accent. Bacteria's
  *    gradient end stays within 15 degrees of that accent and creates depth by
  *    darkening it, never by borrowing an accessory or counterpoint hue.
- * 5. Counterpoints are accessory hues, not new defaults. They are used only
- *    where a compact multi-accent layout genuinely benefits from two extra
- *    identities. Today that exception is the four-tile Connect quick-access
- *    row, the central Discover tab and selected Learn atmospheric effects.
- *    General navigation, surfaces, text and semantic states never inherit them.
- * 6. Alternative tonal flows each receive one of the four counterpoint centers.
+ * 5. The selected central Discover tab stays tied to the primary brand hue,
+ *    but uses an intentionally very light, low-chroma gradient. Its start is
+ *    the slightly stronger washed tint used by the glow; its end is quieter
+ *    and closer to white. It never borrows a counterpoint hue.
+ * 6. Counterpoints are accessory hues, not new defaults. They are used only
+ *    where a compact multi-accent layout genuinely benefits from extra
+ *    identities, such as the four-tile Connect quick-access row and selected
+ *    Learn atmospheric effects. General navigation, surfaces, text and
+ *    semantic states never inherit them.
+ * 7. Alternative tonal flows each receive one of the four counterpoint centers.
  *    Their roles retain internal hue, lightness and alpha differences around
  *    that local center; neutral foregrounds, semantic states and deep dark-mode
  *    foundations remain untouched.
- * 7. Every other chromatic role keeps its perceptual lightness and its original
+ * 8. Every other chromatic role keeps its perceptual lightness and its original
  *    hue relationship. The source hue wheel is compressed into a broad
  *    analogous family instead of being collapsed onto three near-identical
  *    anchors.
- * 8. There is no target count or quota. Every branding-susceptible chromatic
+ * 9. There is no target count or quota. Every branding-susceptible chromatic
  *    role is transformed; every unchanged or protected role is omitted.
  */
 
@@ -114,8 +118,8 @@ const DIRECT_ROLE_POLICY: Record<string, PaletteRolePolicy> = {
   "learn.level.bacteria.gradientEnd": "vividPrimaryGradientEnd",
   "tabs.learn.start": "learnTabPrimary",
   "tabs.learn.end": "learnTabPrimary",
-  "tabs.discover.start": "centerTabAnticlockwise",
-  "tabs.discover.end": "centerTabAnticlockwise",
+  "tabs.discover.start": "centerTabWashedPrimary",
+  "tabs.discover.end": "centerTabWashedPrimary",
   "brand.secondary": "secondary",
   "brand.accent": "tertiary",
   "android.material.primary": "primary",
@@ -154,6 +158,13 @@ const BACTERIA_GRADIENT_LIGHTNESS_DELTA = 0.1;
 const BACTERIA_GRADIENT_MIN_LIGHTNESS = 0.45;
 const BACTERIA_GRADIENT_MAX_LIGHTNESS = 0.78;
 const BACTERIA_GRADIENT_MIN_CHROMA = 0.18;
+const CENTER_TAB_WASHED_PRIMARY_TONES: Record<
+  "tabs.discover.start" | "tabs.discover.end",
+  LearnBackgroundTone
+> = {
+  "tabs.discover.start": { lightness: 0.91, chroma: 0.075 },
+  "tabs.discover.end": { lightness: 0.95, chroma: 0.045 },
+};
 const DEEP_DARK_STRUCTURE_MAX_LIGHTNESS = 0.4;
 
 const DEEP_STRUCTURE_ROLE_PATTERN =
@@ -551,6 +562,28 @@ function vividPrimaryGradientEndColor(palette: ThemePalette, alpha: string) {
   );
 }
 
+function washedPrimaryCenterTabColor(
+  palette: ThemePalette,
+  option: PublisherAppColorCatalogOption,
+  alpha: string,
+) {
+  const tone =
+    CENTER_TAB_WASHED_PRIMARY_TONES[
+      option.key as keyof typeof CENTER_TAB_WASHED_PRIMARY_TONES
+    ];
+  if (!tone) {
+    throw new Error(`Missing washed central-tab tone for ${option.key}.`);
+  }
+  return oklchToHex(
+    {
+      lightness: tone.lightness,
+      chroma: tone.chroma,
+      hue: palette.centerHue,
+    },
+    alpha,
+  );
+}
+
 function learnBackgroundColor(
   originalValue: string,
   palette: ThemePalette,
@@ -755,8 +788,8 @@ function coordinatedColor(
   if (policy === "learnTabPrimary") {
     return `${palette.vividPrimaryHex}${rgb.alpha}`;
   }
-  if (policy === "centerTabAnticlockwise") {
-    return `${palette.counterpointAnticlockwiseHex}${rgb.alpha}`;
+  if (policy === "centerTabWashedPrimary") {
+    return washedPrimaryCenterTabColor(palette, option, rgb.alpha);
   }
   const original = rgbToOklch(rgb);
   if (isDeepDarkStructure(option, original, appearance)) {
