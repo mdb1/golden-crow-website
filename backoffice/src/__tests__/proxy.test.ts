@@ -366,6 +366,8 @@ describe("config.matcher", () => {
     "/botfarm",
     "/api/auth/session",
     "/api/sdk/admin/users",
+    "/api/publisher-app/palette-overrides",
+    "/api/publisher-app/customization-catalog/colors",
     "/open-api/x",
     "/_next/static/chunk.js",
     "/_next/image",
@@ -387,6 +389,14 @@ describe("config.matcher", () => {
     const reachable = (p: string) => catchAllRe.test(p) || rest.includes(p);
     expect(reachable("/api/gc-fitness/storage-image")).toBe(false);
     expect(reachable("/api/gc-fitness/login")).toBe(true);
+  });
+
+  it("/api/publisher-app/* never reaches the browser-surface redirect — handlers self-authenticate", () => {
+    const reachable = (p: string) => catchAllRe.test(p) || rest.includes(p);
+    expect(reachable("/api/publisher-app/palette-overrides")).toBe(false);
+    expect(
+      reachable("/api/publisher-app/customization-catalog/colors"),
+    ).toBe(false);
   });
 
   it("exclusions are PREFIX matches (e.g. /login-anything, /botfarmX skip the proxy)", () => {

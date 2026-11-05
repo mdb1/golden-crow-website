@@ -277,7 +277,11 @@ export const config = {
     // rama de NextAuth y terminan en /login: el link "no anda" y los Universal
     // Links fallan en silencio, porque un AASA que responde 302 es un AASA que no
     // existe.
-    "/((?!login|access-denied|botfarm|api/auth|api/sdk|open-api|_next/static|_next/image|favicon.ico|PocketGenesSDK_Terminos_y_Condiciones\\.pdf|gc-fitness|api/gc-fitness|patient-portal|pgflex|publisher-portal|f/|\\.well-known|__).*)",
+    // Publisher-app API handlers validate the NextAuth session themselves.
+    // Keep them outside this browser-surface gate: a publisher-portal token
+    // reaching the main callback is intentionally redirected to
+    // /publisher-portal/home, which turns an expected JSON response into HTML.
+    "/((?!login|access-denied|botfarm|api/auth|api/sdk|api/publisher-app|open-api|_next/static|_next/image|favicon.ico|PocketGenesSDK_Terminos_y_Condiciones\\.pdf|gc-fitness|api/gc-fitness|patient-portal|pgflex|publisher-portal|f/|\\.well-known|__).*)",
     "/patient-portal/:path*",
     "/pgflex/:path*",
     "/publisher-portal/:path*",

@@ -14,13 +14,27 @@ export async function fetchPublisherAppPaletteOverrides(
     body: JSON.stringify({ colors }),
     signal,
   });
+
+  const body = (await response.json().catch(() => null)) as
+    | (PublisherAppPaletteOverridePlan & { error?: string })
+    | { error?: string }
+    | null;
   if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as {
-      error?: string;
-    } | null;
     throw new Error(
       body?.error || "No se pudieron coordinar los colores de la app.",
     );
   }
-  return (await response.json()) as PublisherAppPaletteOverridePlan;
+  if (
+    !body ||
+    typeof (body as PublisherAppPaletteOverridePlan).sourceCount !== "number" ||
+    typeof (body as PublisherAppPaletteOverridePlan).selectedCount !==
+      "number" ||
+    typeof (body as PublisherAppPaletteOverridePlan).colorOverrides !==
+      "object"
+  ) {
+    throw new Error(
+      "La coordinación de colores recibió una respuesta inválida. Intentá nuevamente.",
+    );
+  }
+  return body as PublisherAppPaletteOverridePlan;
 }
