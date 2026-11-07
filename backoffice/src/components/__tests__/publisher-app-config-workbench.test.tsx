@@ -21,7 +21,7 @@ import {
 } from "@/lib/publisher-portal-routes";
 import { fetchPublisherAppCustomizationCatalog } from "@/lib/publisher-app-customization-catalog-client";
 import { fetchPublisherAppPaletteOverrides } from "@/lib/publisher-app-palette-overrides-client";
-import { sdkFetch } from "@/lib/sdk-client";
+import { sdkFetch, SdkRequestError } from "@/lib/sdk-client";
 
 const mockRouterReplace = jest.fn();
 const mockRouterRefresh = jest.fn();
@@ -488,6 +488,61 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(
       screen.getByTestId("publisher-app-automatic-activation"),
     ).toHaveTextContent("La app está activa para pruebas");
+  });
+
+  it("creates and automatically activates a god-mode app while keeping every exit in god mode", async () => {
+    const apiPath = "/admin/publisher-app-configs/organizations/org-1";
+    const editHref = "/god-mode/apps/organization_org-1";
+    jest.mocked(sdkFetch).mockImplementation(async (path) => ({
+      config: path.endsWith("/identifier")
+        ? { ...savedConfig, status: "active", appProviderIdentifier: "app_org_pocket_genes_lab_48217" }
+        : savedConfig,
+    }));
+    renderWorkbench({
+      apiPath,
+      editHref,
+      backHref: "/god-mode/apps",
+      backLabel: "Volver a Apps",
+      allowAutomaticActivation: true,
+      publisherKind: "organization",
+      publisherId: "org-1",
+    });
+    expect(screen.getByRole("link", { name: "Volver a Apps" })).toHaveAttribute("href", "/god-mode/apps");
+    expect(screen.getAllByRole("button", { name: /Paso \d/ })).toHaveLength(5);
+    fireEvent.click(screen.getByRole("button", { name: /Paso 5 Revisión/i }));
+    const submit = screen.getByRole("button", { name: "Aceptar condiciones y continuar" });
+    expect(submit).toBeDisabled();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Leí y acepto los términos y condiciones/i }));
+    fireEvent.click(submit);
+    await screen.findByTestId("publisher-app-success-overlay");
+    expect(sdkFetch).toHaveBeenCalledWith(apiPath, expect.objectContaining({ method: "POST" }));
+    expect(screen.getByRole("link", { name: /Ver y editar mi app/i })).toHaveAttribute("href", editHref);
+    expect(screen.getByRole("link", { name: "Volver a Apps" })).toHaveAttribute("href", "/god-mode/apps");
+    fireEvent.animationEnd(screen.getByTestId("publisher-app-success-circle"));
+    await screen.findByText("app_org_pocket_genes_lab_48217");
+    expect(sdkFetch).toHaveBeenCalledWith(`${apiPath}/identifier`, { method: "POST" });
+    expect(jest.mocked(sdkFetch).mock.calls.some(([path]) => path.startsWith("/publisher-app/"))).toBe(false);
+  });
+
+  it("resolves concurrent creation into the matching god-mode editor", async () => {
+    const apiPath = "/admin/publisher-app-configs/organizations/org-1";
+    jest.mocked(sdkFetch).mockRejectedValue(new SdkRequestError({
+      status: 409,
+      method: "POST",
+      path: apiPath,
+      message: "A publisher app config already exists.",
+      details: "",
+    }));
+    renderWorkbench({
+      apiPath,
+      editHref: "/god-mode/apps/organization_org-1",
+      backHref: "/god-mode/apps",
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Paso 5 Revisión/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Leí y acepto los términos y condiciones/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Aceptar condiciones y continuar" }));
+    await waitFor(() => expect(mockRouterReplace).toHaveBeenCalledWith("/god-mode/apps/organization_org-1"));
+    expect(mockRouterReplace).not.toHaveBeenCalledWith(PUBLISHER_PORTAL_APP_EDIT_ROUTE);
   });
 
   it("doubles subscription and store setup prices for iOS and Android", () => {

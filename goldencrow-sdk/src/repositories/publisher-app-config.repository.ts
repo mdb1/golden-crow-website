@@ -50,6 +50,7 @@ type PublisherScope = {
 
 type PublisherIdentity = PublisherScope & {
   name: string;
+  tint?: string;
   email: string;
   username: string;
   imageUrl: string | null;
@@ -318,6 +319,10 @@ async function publisherIdentity(
   return {
     ...scope,
     name,
+    tint:
+      typeof publisherData.colorHex === "string"
+        ? publisherData.colorHex
+        : undefined,
     email,
     username,
     imageUrl:
@@ -1225,6 +1230,69 @@ export async function getPublisherAppConfig(
     .get();
 
   return snapshot.exists ? toPublisherAppConfigRecord(snapshot) : null;
+}
+
+// Scope the operation to the selected publisher without impersonating an account:
+// the authenticated operator remains the identity and audit/terms actor.
+function organizationAppContext(
+  context: AdminContext,
+  organizationId: string,
+): AdminContext {
+  if (!context.isBootstrap) {
+    throw new AdminRepositoryError("GOD MODE access required", 403);
+  }
+  const id = organizationId.trim();
+  if (!id || id.includes("/") || id.length > 300) {
+    throw new AdminRepositoryError("A valid organization id is required.", 400);
+  }
+  return {
+    ...context,
+    role: "organization_publisher",
+    organizationId: id,
+    individualId: undefined,
+  };
+}
+
+export async function getOrganizationPublisherAppCreationData(
+  context: AdminContext,
+  organizationId: string,
+) {
+  const scopedContext = organizationAppContext(context, organizationId);
+  const [identity, config] = await Promise.all([
+    publisherIdentity(scopedContext, publisherScope(scopedContext)),
+    getPublisherAppConfig(scopedContext),
+  ]);
+  return {
+    config,
+    publisherKind: identity.kind,
+    publisherId: identity.id,
+    publisherName: identity.name,
+    publisherTint: identity.tint,
+    publisherImageUrl:
+      identity.imageUrl ?? identity.imageUploadDataUrl ?? undefined,
+    publisherEmail: identity.email,
+    publisherUsername: identity.username,
+  };
+}
+
+export async function createOrganizationPublisherAppConfig(
+  context: AdminContext,
+  organizationId: string,
+  input: PublisherAppConfigCreateInput,
+) {
+  return createPublisherAppConfig(
+    organizationAppContext(context, organizationId),
+    input,
+  );
+}
+
+export async function createOrganizationPublisherAppIdentifier(
+  context: AdminContext,
+  organizationId: string,
+) {
+  return createPublisherAppIdentifier(
+    organizationAppContext(context, organizationId),
+  );
 }
 
 export async function createPublisherAppConfig(

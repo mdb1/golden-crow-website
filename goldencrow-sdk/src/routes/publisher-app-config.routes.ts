@@ -3,11 +3,14 @@ import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
+  createOrganizationPublisherAppConfig,
+  createOrganizationPublisherAppIdentifier,
   createPublisherAppConfig,
   createPublisherAppIdentifier,
   deactivatePublisherAppIdentifier,
   deletePublisherAppConfig,
   getPublisherAppConfigById,
+  getOrganizationPublisherAppCreationData,
   getPublisherAppCatalogSnapshot,
   getPublisherAppConfig,
   getPublisherAppRuntimeConfig,
@@ -268,6 +271,10 @@ const PublisherAppConfigAdminParamsSchema = z.object({
   configId: z.string().trim().min(1).max(300),
 });
 
+const OrganizationAppParamsSchema = z.object({
+  organizationId: z.string().trim().min(1).max(300).regex(/^[^/]+$/),
+});
+
 const PublisherAppConfigAdminListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
   cursor: z.string().trim().min(1).max(300).optional(),
@@ -285,6 +292,88 @@ export async function publisherAppConfigRoutes(
   fastify: FastifyInstance,
 ): Promise<void> {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
+
+  f.get(
+    "/admin/publisher-app-configs/organizations/:organizationId",
+    { schema: { params: OrganizationAppParamsSchema } },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated admin context" });
+      }
+      if (!request.adminContext.isBootstrap) {
+        return reply.status(403).send({ error: "GOD MODE access required" });
+      }
+      try {
+        reply.header("Cache-Control", "private, no-store");
+        return reply.send(await getOrganizationPublisherAppCreationData(
+          request.adminContext,
+          request.params.organizationId,
+        ));
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.post(
+    "/admin/publisher-app-configs/organizations/:organizationId",
+    {
+      bodyLimit: CUSTOM_APP_CONFIG_BODY_LIMIT_BYTES,
+      schema: {
+        params: OrganizationAppParamsSchema,
+        body: PublisherAppConfigCreateBodySchema,
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated admin context" });
+      }
+      if (!request.adminContext.isBootstrap) {
+        return reply.status(403).send({ error: "GOD MODE access required" });
+      }
+      try {
+        const config = await createOrganizationPublisherAppConfig(
+          request.adminContext,
+          request.params.organizationId,
+          request.body,
+        );
+        try {
+          await sendPublisherAppCreationNotificationEmails(config);
+        } catch (error) {
+          request.log.error(
+            { err: error, appConfigId: config.id },
+            "Failed to send publisher app creation notification emails.",
+          );
+        }
+        return reply.status(201).send({ config });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.post(
+    "/admin/publisher-app-configs/organizations/:organizationId/identifier",
+    { schema: { params: OrganizationAppParamsSchema } },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated admin context" });
+      }
+      if (!request.adminContext.isBootstrap) {
+        return reply.status(403).send({ error: "GOD MODE access required" });
+      }
+      try {
+        return reply.send({
+          config: await createOrganizationPublisherAppIdentifier(
+            request.adminContext,
+            request.params.organizationId,
+          ),
+        });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
 
   f.get(
     "/admin/publisher-app-configs",

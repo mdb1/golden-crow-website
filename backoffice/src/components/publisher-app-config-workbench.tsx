@@ -111,6 +111,8 @@ type PublisherAppConfigWorkbenchProps = {
   apiPath?: string;
   backHref?: string;
   backLabel?: string;
+  editHref?: string;
+  allowAutomaticActivation?: boolean;
   allowStatusEditing?: boolean;
   showDangerZone?: boolean;
 };
@@ -2303,11 +2305,17 @@ type AutomaticActivationState =
 
 function SuccessCelebration({
   publisherName,
+  editHref,
+  backHref,
+  backLabel,
   automaticActivation,
   onExplosionComplete,
   onRetryActivation,
 }: {
   publisherName: string;
+  editHref: string;
+  backHref: string;
+  backLabel: string;
   automaticActivation: AutomaticActivationState;
   onExplosionComplete: () => void;
   onRetryActivation: () => void;
@@ -2406,7 +2414,7 @@ function SuccessCelebration({
 
         <div className="mt-9 flex flex-col flex-wrap justify-center gap-4 sm:flex-row">
           <Link
-            href={PUBLISHER_PORTAL_APP_EDIT_ROUTE}
+            href={editHref}
             className="inline-grid min-h-[68px] place-items-center gap-0.5 rounded-full bg-white px-8 py-3 text-emerald-700 shadow-[0_20px_45px_-22px_rgba(0,0,0,0.42)] transition hover:-translate-y-0.5 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/45 motion-reduce:transform-none"
           >
             <span className="text-xs font-semibold text-slate-500">
@@ -2417,10 +2425,10 @@ function SuccessCelebration({
             </strong>
           </Link>
           <Link
-            href={PUBLISHER_PORTAL_HOME_ROUTE}
+            href={backHref}
             className="inline-flex min-h-[68px] items-center justify-center gap-2 rounded-full border border-white/50 px-8 py-3 font-extrabold text-white transition hover:-translate-y-0.5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/35 motion-reduce:transform-none"
           >
-            <ArrowLeft className="size-4" /> Volver al inicio
+            <ArrowLeft className="size-4" /> {backLabel}
           </Link>
         </div>
       </div>
@@ -2441,6 +2449,8 @@ export function PublisherAppConfigWorkbench({
   apiPath = "/publisher-app/config",
   backHref = PUBLISHER_PORTAL_HOME_ROUTE,
   backLabel = "Volver al inicio",
+  editHref = PUBLISHER_PORTAL_APP_EDIT_ROUTE,
+  allowAutomaticActivation = apiPath === "/publisher-app/config",
   allowStatusEditing = false,
   showDangerZone = true,
 }: PublisherAppConfigWorkbenchProps) {
@@ -2802,7 +2812,7 @@ export function PublisherAppConfigWorkbench({
   async function activateCreatedAppForTesting() {
     if (
       mode !== "create" ||
-      apiPath !== "/publisher-app/config" ||
+      !allowAutomaticActivation ||
       automaticActivationStarted.current
     ) {
       return;
@@ -2967,7 +2977,7 @@ export function PublisherAppConfigWorkbench({
         error instanceof SdkRequestError &&
         error.status === 409
       ) {
-        router.replace(PUBLISHER_PORTAL_APP_EDIT_ROUTE);
+        router.replace(editHref);
         router.refresh();
         return;
       }
@@ -2991,6 +3001,9 @@ export function PublisherAppConfigWorkbench({
       <section className="pb-24">
         <SuccessCelebration
           publisherName={publisherName}
+          editHref={editHref}
+          backHref={backHref}
+          backLabel={backLabel}
           automaticActivation={automaticActivation}
           onExplosionComplete={() => void activateCreatedAppForTesting()}
           onRetryActivation={() => void activateCreatedAppForTesting()}
@@ -3091,9 +3104,9 @@ export function PublisherAppConfigWorkbench({
           </p>
         </div>
         <Button variant="outline" asChild className="h-10 rounded-xl">
-          <Link href={PUBLISHER_PORTAL_HOME_ROUTE}>
+          <Link href={backHref}>
             <ArrowLeft className="size-4" />
-            Volver al inicio
+            {backLabel}
           </Link>
         </Button>
       </div>

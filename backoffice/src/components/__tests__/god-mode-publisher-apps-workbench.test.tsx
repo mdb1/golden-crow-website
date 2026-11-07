@@ -97,6 +97,10 @@ describe("GodModePublisherAppsBrowser", () => {
 
     renderBrowser();
 
+    expect(screen.getByRole("link", { name: "Nueva app" })).toHaveAttribute(
+      "href", "/god-mode/apps/new",
+    );
+
     expect(
       await screen.findByRole("link", { name: "Editar app de Alpha Lab" }),
     ).toHaveAttribute("href", "/god-mode/apps/organization_alpha");

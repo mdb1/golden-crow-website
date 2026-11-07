@@ -15,6 +15,7 @@ import {
   FileJson2,
   ImageIcon,
   Loader2,
+  Plus,
   RefreshCw,
   Search,
   Smartphone,
@@ -477,6 +478,12 @@ export function GodModePublisherAppsBrowser() {
             </div>
           </div>
           <div className="flex w-full flex-col gap-2 sm:flex-row lg:max-w-2xl lg:justify-end">
+            <Button asChild className="h-11 shrink-0 rounded-xl">
+              <Link href="/god-mode/apps/new">
+                <Plus className="size-4" />
+                Nueva app
+              </Link>
+            </Button>
             <Button
               type="button"
               variant="outline"

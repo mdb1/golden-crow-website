@@ -1333,6 +1333,114 @@ describe("publisher app config contract", () => {
     }
   });
 
+  it.each([undefined, organizationContext(), makeAdminContext({ isBootstrap: false })])(
+    "protects organization app creation, preparation, and activation before any reads (%j)",
+    async (actor) => {
+      context = actor;
+      const base = "/admin/publisher-app-configs/organizations/shared-publisher-id";
+      for (const request of [
+        { method: "GET" as const, url: base },
+        { method: "POST" as const, url: base, payload: validBody },
+        { method: "POST" as const, url: `${base}/identifier` },
+      ]) {
+        const response = await fastify.inject(request);
+        expect(response.statusCode).toBe(actor ? 403 : 401);
+      }
+      expect(mockCollection).not.toHaveBeenCalled();
+      expect(mockSendPublisherAppCreationNotificationEmails).not.toHaveBeenCalled();
+    },
+  );
+
+  it("creates and activates the selected organization's app through the publisher workflow, auditing the real operator", async () => {
+    context = makeAdminContext({ isBootstrap: true });
+    const base = "/admin/publisher-app-configs/organizations/shared-publisher-id";
+    const snapshot = await fastify.inject({ method: "PUT", url: "/admin/publisher-app-configs/snapshot" });
+    expect(snapshot.statusCode).toBe(200);
+    seedPublisher("organization", "shared-publisher-id", {
+      name: "Canonical Organization",
+      colorHex: "#123ABC",
+      imageUrl: "https://example.org/canonical-icon.png",
+    });
+
+    const preparation = await fastify.inject({ method: "GET", url: base });
+    expect(preparation.statusCode).toBe(200);
+    expect(preparation.json()).toMatchObject({
+      config: null,
+      publisherKind: "organization",
+      publisherId: "shared-publisher-id",
+      publisherName: "Canonical Organization",
+      publisherTint: "#123ABC",
+      publisherImageUrl: "https://example.org/canonical-icon.png",
+      publisherEmail: context.email.toLowerCase(),
+      publisherUsername: "current-profile-user",
+    });
+    expect(collectionStore("app_configs").size).toBe(0);
+
+    const created = await fastify.inject({ method: "POST", url: base, payload: validBody });
+    expect(created.statusCode).toBe(201);
+    expect(created.json().config).toMatchObject({
+      id: "organization_shared-publisher-id",
+      publisherKind: "organization",
+      publisherId: "shared-publisher-id",
+      publisherName: "Canonical Organization",
+      publisherEmail: context.email.toLowerCase(),
+      publisherUsername: "current-profile-user",
+      iconImageUrl: "https://example.org/canonical-icon.png",
+      status: "pending_revision",
+      createdByUserId: context.uid,
+      termsAcceptedByUserId: context.uid,
+      advancedConfiguration: {
+        discoverScope: { mode: "organization", publisherOrganizationId: "shared-publisher-id" },
+        serviceScope: { mode: "provider", providerId: "shared-publisher-id", providerKind: "organization" },
+      },
+    });
+    expect(mockSendPublisherAppCreationNotificationEmails).toHaveBeenCalledWith(created.json().config);
+    expect(collectionStore("custom_apps_snapshot").get("simple")).toMatchObject({
+      totalCount: 1,
+      updatedByUserId: context.uid,
+    });
+
+    const duplicate = await fastify.inject({ method: "POST", url: base, payload: validBody });
+    expect(duplicate.statusCode).toBe(409);
+    expect(collectionStore("app_configs").size).toBe(1);
+    expect(mockSendPublisherAppCreationNotificationEmails).toHaveBeenCalledTimes(1);
+
+    const activated = await fastify.inject({ method: "POST", url: `${base}/identifier` });
+    expect(activated.statusCode).toBe(200);
+    expect(activated.json().config).toMatchObject({
+      status: "active",
+      activatedByUserId: context.uid,
+      appProviderIdentifier: expect.stringMatching(/^app_org_/),
+    });
+    const replay = await fastify.inject({ method: "POST", url: `${base}/identifier` });
+    expect(replay.json().config.appProviderIdentifier).toBe(activated.json().config.appProviderIdentifier);
+    const existing = await fastify.inject({ method: "GET", url: base });
+    expect(existing.json().config.id).toBe("organization_shared-publisher-id");
+  });
+
+  it("rejects missing organizations and client-authored publisher identities without creating an app", async () => {
+    context = makeAdminContext({ isBootstrap: true });
+    const missing = await fastify.inject({
+      method: "POST",
+      url: "/admin/publisher-app-configs/organizations/missing",
+      payload: validBody,
+    });
+    expect(missing.statusCode).toBe(404);
+    for (const payload of [
+      { ...validBody, publisherId: "other-org", publisherEmail: "fake@example.org" },
+      { ...validBody, termsAccepted: false },
+    ]) {
+      const rejected = await fastify.inject({
+        method: "POST",
+        url: "/admin/publisher-app-configs/organizations/shared-publisher-id",
+        payload,
+      });
+      expect(rejected.statusCode).toBe(400);
+    }
+    expect(collectionStore("app_configs").size).toBe(0);
+    expect(mockSendPublisherAppCreationNotificationEmails).not.toHaveBeenCalled();
+  });
+
   it("lists every app config for GOD MODE with a bounded cursor page", async () => {
     const firstCreate = await fastify.inject({
       method: "POST",

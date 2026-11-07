@@ -255,6 +255,16 @@ export type PublisherAppConfigResponse = {
   config: PublisherAppConfig | null;
 };
 
+export type OrganizationPublisherAppCreationData = PublisherAppConfigResponse & {
+  publisherKind: "organization";
+  publisherId: string;
+  publisherName: string;
+  publisherTint?: string;
+  publisherImageUrl?: string;
+  publisherEmail: string;
+  publisherUsername: string;
+};
+
 export type PublisherAppConfigsPage = {
   apps: PublisherAppConfig[];
   nextCursor: string | null;
