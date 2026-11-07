@@ -257,6 +257,8 @@ const COLOR_FIELDS: ColorField[] = [
   },
 ];
 
+const EDITABLE_COLOR_FIELDS = COLOR_FIELDS.filter((field) => field.editable);
+
 const PALETTE_SUGGESTION_COPY = [
   {
     name: "Tu marca, más viva",
@@ -854,8 +856,8 @@ function PublisherAppReviewDocument({
           </ReviewSection>
 
           <ReviewSection title="Paleta visual">
-            <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-              {COLOR_FIELDS.map((field) => (
+            <dl className="grid gap-4 sm:grid-cols-3">
+              {EDITABLE_COLOR_FIELDS.map((field) => (
                 <div key={field.key} className="border border-black/15 p-3">
                   <dt className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-black/55">
                     {field.label}
@@ -2477,7 +2479,6 @@ export function PublisherAppConfigWorkbench({
   const [paletteOverrideCalculation, setPaletteOverrideCalculation] =
     useState<PaletteOverrideCalculation>({ status: "idle" });
   const paletteOverrideRequest = useRef<{
-    sequence: number;
     controller: AbortController;
   } | null>(null);
   const [completed, setCompleted] = useState(false);
@@ -2574,14 +2575,13 @@ export function PublisherAppConfigWorkbench({
       secondary: key === "secondary" ? value : state.colors.secondary,
       tertiary: key === "tertiary" ? value : state.colors.tertiary,
     });
-    if (paletteOverrideCalculation.status === "idle") {
-      setTermsAccepted(false);
-      setState((current) => ({ ...current, colors: nextColors }));
-      return;
-    }
-    applyPalette(nextColors, "Paleta personalizada");
+    void applyPalette(nextColors, "Paleta personalizada");
   }
-  function applyPalette(colors: PublisherAppColors, paletteName: string) {
+  async function applyPalette(
+    colors: PublisherAppColors,
+    paletteName: string,
+    resetTerms = true,
+  ) {
     const normalizedColors = {
       primary: normalizePublisherAppColor(colors.primary),
       secondary: normalizePublisherAppColor(colors.secondary),
@@ -2597,7 +2597,7 @@ export function PublisherAppConfigWorkbench({
         paletteName,
         message: "La paleta contiene un color inválido.",
       });
-      return;
+      return null;
     }
     const nextColors = publisherAppColorsWithCounterpoints({
       primary: normalizedColors.primary,
@@ -2615,81 +2615,85 @@ export function PublisherAppConfigWorkbench({
         paletteName,
         message: "No pudimos identificar al publicador de esta app.",
       });
-      return;
+      return null;
     }
 
-    setTermsAccepted(false);
+    if (resetTerms) setTermsAccepted(false);
     setState((current) => ({ ...current, colors: nextColors }));
     paletteOverrideRequest.current?.controller.abort();
     const request = {
-      sequence: (paletteOverrideRequest.current?.sequence ?? 0) + 1,
       controller: new AbortController(),
     };
     paletteOverrideRequest.current = request;
     setPaletteOverrideCalculation({ status: "loading", paletteName });
 
-    void fetchPublisherAppPaletteOverrides(
-      nextColors,
-      request.controller.signal,
-    )
-      .then((plan) => {
-        if (paletteOverrideRequest.current?.sequence !== request.sequence) {
-          return;
-        }
-        const overrideCount = Object.keys(plan.colorOverrides).length;
-        if (
-          plan.sourceCount < 1 ||
-          plan.selectedCount < 1 ||
-          plan.selectedCount > plan.sourceCount ||
-          overrideCount !== plan.selectedCount
-        ) {
-          throw new Error(
-            "La coordinación de colores devolvió una cobertura incompleta.",
-          );
-        }
-        setState((current) => {
-          const advancedConfiguration =
-            current.advancedConfiguration ??
-            publisherAppDefaultAdvancedConfiguration({
-              name: publisherName,
-              kind: resolvedPublisherKind!,
-              id: resolvedPublisherId!,
-            });
-          return {
-            ...current,
-            colors: nextColors,
-            advancedConfiguration: {
-              ...advancedConfiguration,
-              semanticColors: publisherAppSemanticColors(nextColors),
-              colorOverrides: plan.colorOverrides,
-            },
-          };
-        });
-        setPaletteOverrideCalculation({
-          status: "ready",
-          paletteName,
-          selectedCount: plan.selectedCount,
-          sourceCount: plan.sourceCount,
-        });
-        paletteOverrideRequest.current = null;
-      })
-      .catch((error: unknown) => {
-        if (
-          paletteOverrideRequest.current?.sequence !== request.sequence ||
-          (error instanceof DOMException && error.name === "AbortError")
-        ) {
-          return;
-        }
-        setPaletteOverrideCalculation({
-          status: "error",
-          paletteName,
-          message:
-            error instanceof Error
-              ? error.message
-              : "No pudimos coordinar los colores de la app.",
-        });
-        paletteOverrideRequest.current = null;
+    try {
+      const plan = await fetchPublisherAppPaletteOverrides(
+        nextColors,
+        request.controller.signal,
+      );
+      if (
+        paletteOverrideRequest.current !== request ||
+        request.controller.signal.aborted
+      ) {
+        return null;
+      }
+      const overrideCount = Object.keys(plan.colorOverrides).length;
+      if (
+        plan.sourceCount < 1 ||
+        plan.selectedCount < 1 ||
+        plan.selectedCount > plan.sourceCount ||
+        overrideCount !== plan.selectedCount
+      ) {
+        throw new Error(
+          "La coordinación de colores devolvió una cobertura incompleta.",
+        );
+      }
+      const advancedConfiguration = {
+        ...(state.advancedConfiguration ??
+          publisherAppDefaultAdvancedConfiguration({
+            name: publisherName,
+            kind: resolvedPublisherKind!,
+            id: resolvedPublisherId!,
+          })),
+        semanticColors: publisherAppSemanticColors(nextColors),
+        colorOverrides: plan.colorOverrides,
+      };
+      setState((current) => ({
+        ...current,
+        colors: nextColors,
+        advancedConfiguration: {
+          ...(current.advancedConfiguration ?? advancedConfiguration),
+          semanticColors: advancedConfiguration.semanticColors,
+          colorOverrides: plan.colorOverrides,
+        },
+      }));
+      setPaletteOverrideCalculation({
+        status: "ready",
+        paletteName,
+        selectedCount: plan.selectedCount,
+        sourceCount: plan.sourceCount,
       });
+      paletteOverrideRequest.current = null;
+      return advancedConfiguration;
+    } catch (error: unknown) {
+      if (
+        paletteOverrideRequest.current !== request ||
+        (error instanceof DOMException && error.name === "AbortError")
+      ) {
+        return null;
+      }
+      setPaletteOverrideCalculation({
+        status: "error",
+        paletteName,
+        message:
+          error instanceof Error
+            ? error.message
+            : "No pudimos coordinar los colores de la app.",
+      });
+      paletteOverrideRequest.current = null;
+      return null;
+    }
   }
   function chooseIconSource(iconSource: "publisher" | "custom") {
     updateState(
@@ -2926,13 +2930,27 @@ export function PublisherAppConfigWorkbench({
     try {
       const shouldUsePublisherIconDefault =
         mode === "create" && !iconStepVisited;
-      const submissionState = shouldUsePublisherIconDefault
+      let submissionState = shouldUsePublisherIconDefault
         ? {
             ...state,
             iconSource: "publisher" as const,
             ...publisherIconFields(publisherImageUrl),
           }
         : state;
+      if (mode === "create" && paletteOverrideCalculation.status !== "ready") {
+        const paletteName =
+          suggestedPalettes.find((palette) =>
+            samePalette(submissionState.colors, palette.colors),
+          )?.name ??
+          "Paleta personalizada";
+        const advancedConfiguration = await applyPalette(
+          submissionState.colors,
+          paletteName,
+          false,
+        );
+        if (!advancedConfiguration) return;
+        submissionState = { ...submissionState, advancedConfiguration };
+      }
       const submissionPayload = normalizedPayload(submissionState);
       if (shouldUsePublisherIconDefault) {
         setState(submissionState);
@@ -3432,48 +3450,12 @@ export function PublisherAppConfigWorkbench({
                     <p className="text-base font-semibold text-foreground">
                       Ajustá los tres colores base
                     </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Los cuatro contrapuntos se calculan automáticamente a
-                      ±45° y ±75° del color principal. Funcionan como centros
-                      para acentos puntuales y flujos tonales alternativos.
-                    </p>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {COLOR_FIELDS.map((field) => {
+                    {EDITABLE_COLOR_FIELDS.map((field) => {
                       const normalized =
                         normalizePublisherAppColor(state.colors[field.key]) ??
                         DEFAULT_PUBLISHER_APP_COLOR;
-                      if (!field.editable) {
-                        return (
-                          <div
-                            key={field.key}
-                            className="flex min-h-56 flex-col items-center overflow-hidden rounded-[22px] border border-dashed border-violet-200 bg-violet-50/55 p-4 text-center dark:border-violet-400/24 dark:bg-violet-500/8"
-                          >
-                            <span className="relative flex size-24 items-center justify-center">
-                              <span
-                                className="absolute inset-1 rounded-full border border-dashed border-violet-300"
-                                aria-hidden="true"
-                              />
-                              <span
-                                className="relative flex size-[68px] items-center justify-center overflow-hidden rounded-[23px] border-4 border-white text-white shadow-[0_18px_32px_-18px_rgba(15,23,42,0.8)]"
-                                style={{ backgroundColor: normalized }}
-                              >
-                                <span className="absolute inset-x-2 top-1.5 h-1/3 rounded-full bg-white/25 blur-sm" />
-                                <Palette className="relative size-6 drop-shadow" />
-                              </span>
-                            </span>
-                            <span className="mt-2 text-sm font-semibold text-foreground">
-                              {field.label}
-                            </span>
-                            <span className="mt-1 text-xs leading-5 text-muted-foreground">
-                              {field.description}
-                            </span>
-                            <span className="mt-auto rounded-full bg-violet-100 px-3 py-1 text-[10px] font-bold text-violet-800 dark:bg-violet-400/15 dark:text-violet-100">
-                              Derivado del principal · {field.hueShift}
-                            </span>
-                          </div>
-                        );
-                      }
                       return (
                         <label
                           key={field.key}
@@ -3649,15 +3631,36 @@ export function PublisherAppConfigWorkbench({
             ) : null}
 
             {activeStep.id === "review" ? (
-              <PublisherAppReviewDocument
-                publisherName={publisherName}
-                publisherEmail={publisherEmail}
-                state={state}
-                colors={previewColors}
-                iconSource={resolvedIconSource}
-                termsAccepted={termsAccepted}
-                onTermsAcceptedChange={setTermsAccepted}
-              />
+              <div className="space-y-5">
+                <PaletteOverrideCalculationStatus
+                  calculation={paletteOverrideCalculation}
+                />
+                {paletteOverrideCalculation.status === "error" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={pending}
+                    onClick={() =>
+                      void applyPalette(
+                        state.colors,
+                        paletteOverrideCalculation.paletteName,
+                        false,
+                      )
+                    }
+                  >
+                    Reintentar coordinación
+                  </Button>
+                ) : null}
+                <PublisherAppReviewDocument
+                  publisherName={publisherName}
+                  publisherEmail={publisherEmail}
+                  state={state}
+                  colors={previewColors}
+                  iconSource={resolvedIconSource}
+                  termsAccepted={termsAccepted}
+                  onTermsAcceptedChange={setTermsAccepted}
+                />
+              </div>
             ) : null}
           </div>
 

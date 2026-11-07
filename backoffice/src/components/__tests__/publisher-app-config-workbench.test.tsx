@@ -13,7 +13,10 @@ import { AppLanguageProvider } from "@/components/app-language-provider";
 import { PublisherAppConfigWorkbench } from "@/components/publisher-app-config-workbench";
 import {
   publisherAppCounterpointColors,
+  publisherAppSemanticColors,
   type PublisherAppConfig,
+  type PublisherAppColors,
+  type PublisherAppPaletteOverridePlan,
 } from "@/lib/publisher-app-config";
 import {
   PUBLISHER_PORTAL_APP_EDIT_ROUTE,
@@ -21,6 +24,8 @@ import {
 } from "@/lib/publisher-portal-routes";
 import { fetchPublisherAppCustomizationCatalog } from "@/lib/publisher-app-customization-catalog-client";
 import { fetchPublisherAppPaletteOverrides } from "@/lib/publisher-app-palette-overrides-client";
+import { getPublisherAppColorCatalog } from "@/lib/publisher-app-customization-catalog-server";
+import { createPublisherAppPaletteOverridePlan } from "@/lib/publisher-app-palette-overrides";
 import { sdkFetch, SdkRequestError } from "@/lib/sdk-client";
 
 const mockRouterReplace = jest.fn();
@@ -126,6 +131,8 @@ function renderWorkbench(
     <AppLanguageProvider initialLanguage="es" forcedLanguage="es">
       <PublisherAppConfigWorkbench
         mode="create"
+        publisherKind="organization"
+        publisherId="org-1"
         publisherName="Pocket Genes Lab"
         publisherTint="#123ABC"
         publisherEmail="publisher@example.org"
@@ -144,9 +151,30 @@ function advanceToIcon() {
   fireEvent.click(screen.getByRole("button", { name: /Paso 4 Icono/i }));
 }
 
+function palettePlan(colors: PublisherAppColors) {
+  const catalog = getPublisherAppColorCatalog();
+  return createPublisherAppPaletteOverridePlan(
+    colors,
+    catalog.options,
+    catalog.catalogVersion,
+    catalog.alternativeTonalFlows,
+  );
+}
+
+function acceptCreationTerms() {
+  fireEvent.click(screen.getByRole("button", { name: /Paso 5 Revisión/i }));
+  fireEvent.click(screen.getByRole("checkbox", {
+    name: /Leí y acepto los términos y condiciones/i,
+  }));
+  fireEvent.click(screen.getByRole("button", {
+    name: "Aceptar condiciones y continuar",
+  }));
+}
+
 describe("PublisherAppConfigWorkbench", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(fetchPublisherAppPaletteOverrides).mockImplementation(async (colors) => palettePlan(colors));
   });
 
   it("reviews and accepts the five-step request before creating the app", async () => {
@@ -241,6 +269,7 @@ describe("PublisherAppConfigWorkbench", () => {
     fireEvent.change(screen.getByLabelText("Elegir color principal"), {
       target: { value: "#112233" },
     });
+    await screen.findByText(/colores sensibles a la marca quedaron coordinados/i);
     advanceToIcon();
     fireEvent.click(screen.getByRole("button", { name: "Revisar solicitud" }));
 
@@ -676,6 +705,7 @@ describe("PublisherAppConfigWorkbench", () => {
     fireEvent.change(screen.getByLabelText("Elegir color terciario"), {
       target: { value: "#AABBCC" },
     });
+    await screen.findByText(/colores sensibles a la marca quedaron coordinados/i);
     fireEvent.click(screen.getByRole("button", { name: "Listo" }));
     expect(saveButton).toBeEnabled();
     fireEvent.click(saveButton);
@@ -1386,7 +1416,7 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(payload.status).toBe("approved");
   });
 
-  it("uses branded palette suggestions and full visual pickers without editable hex fields", () => {
+  it("shows only the three editable colors throughout creation", async () => {
     renderWorkbench();
     advanceToColors();
 
@@ -1414,15 +1444,9 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(
       screen.queryByRole("textbox", { name: /color principal/i }),
     ).toBeNull();
-    expect(screen.getByText("Color de contrapunto horario")).toBeTruthy();
-    expect(screen.getByText("Color de contrapunto antihorario")).toBeTruthy();
-    expect(
-      screen.getByText("Color de contrapunto lejano horario"),
-    ).toBeTruthy();
-    expect(
-      screen.getByText("Color de contrapunto lejano antihorario"),
-    ).toBeTruthy();
-    expect(screen.getAllByText(/Derivado del principal ·/)).toHaveLength(4);
+    expect(screen.getAllByLabelText(/^Elegir color/)).toHaveLength(3);
+    expect(screen.queryByText(/contrapunto/i)).toBeNull();
+    expect(screen.queryByText(/Derivado del principal ·/)).toBeNull();
     expect(
       screen.queryByLabelText("Elegir color de contrapunto horario"),
     ).toBeNull();
@@ -1433,7 +1457,98 @@ describe("PublisherAppConfigWorkbench", () => {
 
     fireEvent.change(primaryPicker, { target: { value: "#445566" } });
     expect(primaryPicker).toHaveValue("#445566");
+    await screen.findByText(/colores sensibles a la marca quedaron coordinados/i);
+    fireEvent.click(screen.getByRole("button", { name: /Paso 5 Revisión/i }));
+    expect(screen.queryByText(/contrapunto/i)).toBeNull();
+    const palette = screen.getByText("Paleta visual").closest("section")!;
+    expect(within(palette).getAllByRole("term")).toHaveLength(3);
   });
+
+  it.each([
+    { surface: "publisher portal", apiPath: "/publisher-app/config" },
+    { surface: "god mode", apiPath: "/admin/publisher-app-configs/organizations/org-1" },
+  ].flatMap((surface) => ["default", "preset", "custom"].map((choice) => ({ ...surface, choice }))))(
+    "creates the complete override set in $surface with a $choice palette",
+    async ({ apiPath, choice }) => {
+      jest.mocked(sdkFetch).mockResolvedValue({ config: savedConfig });
+      renderWorkbench({ apiPath });
+      if (choice !== "default") {
+        advanceToColors();
+        if (choice === "preset") {
+          fireEvent.click(screen.getByRole("button", { name: /Acento cercano/i }));
+        } else {
+          fireEvent.change(screen.getByLabelText("Elegir color principal"), {
+            target: { value: "#445566" },
+          });
+        }
+        await screen.findByText(/colores sensibles a la marca quedaron coordinados/i);
+      }
+      acceptCreationTerms();
+      await screen.findByTestId("publisher-app-success-overlay");
+
+      expect(sdkFetch).toHaveBeenCalledWith(apiPath, expect.objectContaining({ method: "POST" }));
+      expect(fetchPublisherAppPaletteOverrides).toHaveBeenCalledTimes(1);
+      const payload = JSON.parse(String(jest.mocked(sdkFetch).mock.calls[0][1]?.body));
+      const plan = palettePlan(payload.colors);
+      expect(payload.advancedConfiguration.colorOverrides).toEqual(plan.colorOverrides);
+      expect(Object.keys(payload.advancedConfiguration.colorOverrides)).toHaveLength(plan.selectedCount);
+      expect(plan.selectedCount).toBeGreaterThan(400);
+      expect(plan.sourceCount).toBe(620);
+      expect(payload.advancedConfiguration.semanticColors).toEqual(publisherAppSemanticColors(payload.colors));
+      expect(payload.advancedConfiguration.discoverScope).toEqual({
+        mode: "organization",
+        publisherOrganizationId: "org-1",
+      });
+      expect(payload.colors).toMatchObject(publisherAppCounterpointColors(payload.colors.primary));
+    },
+  );
+
+  it("waits for the default palette's full override calculation before creating an app", async () => {
+    let resolvePlan!: (plan: PublisherAppPaletteOverridePlan) => void;
+    jest.mocked(fetchPublisherAppPaletteOverrides).mockReturnValueOnce(new Promise((resolve) => { resolvePlan = resolve; }));
+    jest.mocked(sdkFetch).mockResolvedValue({ config: savedConfig });
+    renderWorkbench();
+    acceptCreationTerms();
+    await screen.findByText(/Analizando qué colores adaptar a Tu marca, más viva/i);
+    expect(screen.getByRole("button", { name: "Guardando…" })).toBeDisabled();
+    expect(sdkFetch).not.toHaveBeenCalled();
+    const colors = jest.mocked(fetchPublisherAppPaletteOverrides).mock.calls[0][0];
+    resolvePlan(palettePlan(colors));
+    await screen.findByTestId("publisher-app-success-overlay");
+    const payload = JSON.parse(String(jest.mocked(sdkFetch).mock.calls[0][1]?.body));
+    expect(payload.advancedConfiguration.colorOverrides).toEqual(palettePlan(colors).colorOverrides);
+  });
+
+  it.each(["network failure", "incomplete plan"])(
+    "prevents creation on a palette %s and lets the operator retry",
+    async (failure) => {
+      if (failure === "network failure") {
+        jest.mocked(fetchPublisherAppPaletteOverrides).mockRejectedValueOnce(new Error("Palette service unavailable"));
+      } else {
+        jest.mocked(fetchPublisherAppPaletteOverrides).mockResolvedValueOnce({
+          catalogVersion: 5,
+          sourceCount: 620,
+          selectedCount: 445,
+          colorOverrides: {},
+        });
+      }
+      jest.mocked(sdkFetch).mockResolvedValue({ config: savedConfig });
+      renderWorkbench();
+      acceptCreationTerms();
+      await waitFor(() => expect(screen.getByRole("button", { name: "Reintentar coordinación" })).toBeEnabled());
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        failure === "network failure" ? "Palette service unavailable" : "cobertura incompleta",
+      );
+      expect(sdkFetch).not.toHaveBeenCalled();
+      expect(screen.getByRole("button", { name: "Aceptar condiciones y continuar" })).toBeDisabled();
+      fireEvent.click(screen.getByRole("button", { name: "Reintentar coordinación" }));
+      await screen.findByText(/colores sensibles a la marca quedaron coordinados/i);
+      expect(screen.getByRole("checkbox", { name: /Leí y acepto los términos y condiciones/i })).toBeChecked();
+      fireEvent.click(screen.getByRole("button", { name: "Aceptar condiciones y continuar" }));
+      await screen.findByTestId("publisher-app-success-overlay");
+      expect(sdkFetch).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it("stores only the branding-susceptible colors returned by palette analysis", async () => {
     let resolvePlan:
