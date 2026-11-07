@@ -77,7 +77,6 @@ describe("god-mode organization app creation", () => {
       editHref: "/god-mode/apps/organization_alpha",
       backHref: "/god-mode/apps",
       backLabel: "Volver a Apps",
-      allowAutomaticActivation: true,
     });
     expect(screen.queryByRole("group", { name: "Organizaciones" })).toBeNull();
   });

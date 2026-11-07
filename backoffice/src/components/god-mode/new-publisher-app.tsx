@@ -68,7 +68,6 @@ export function GodModeNewPublisherApp() {
         editHref={appEditHref(wizard.publisherId)}
         backHref="/god-mode/apps"
         backLabel="Volver a Apps"
-        allowAutomaticActivation
         showDangerZone={false}
       />
     );

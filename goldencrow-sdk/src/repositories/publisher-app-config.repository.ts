@@ -4,7 +4,7 @@ import {
   type DocumentSnapshot,
   type Transaction,
 } from "firebase-admin/firestore";
-import { randomInt } from "node:crypto";
+import { createHash, randomInt } from "node:crypto";
 import { adminDbFor } from "../config/firebase.js";
 import type {
   AdminContext,
@@ -35,6 +35,7 @@ const APP_CONFIGS_COLLECTION = "app_configs";
 const APP_CONFIG_IDENTIFIERS_COLLECTION = "app_config_identifiers";
 const CUSTOM_APPS_SNAPSHOT_COLLECTION = "custom_apps_snapshot";
 const CUSTOM_APPS_SNAPSHOT_DOCUMENT = "simple";
+const CUSTOM_APP_ICONS_COLLECTION = "custom_app_icons";
 const APP_CONFIG_SCHEMA_VERSION = 1 as const;
 const CUSTOM_APPS_SNAPSHOT_SCHEMA_VERSION = 1 as const;
 const APP_TERMS_VERSION = "2026-10-31";
@@ -863,6 +864,53 @@ function appConfigChangeAffectsCatalogSnapshot(
   return !catalogSnapshotItemsEqual(previousItem, next);
 }
 
+// The aggregate catalog stores URLs; each uploaded icon has its own bounded,
+// immutable document so image bytes cannot push the catalog over Firestore's limit.
+function compactCatalogImages(
+  apps: PublisherAppCatalogSnapshotItem[],
+  writeIcon: (hash: string, icon: { contentType: string; base64: string }) => void,
+) {
+  const written = new Set<string>();
+  return apps.map((app) => {
+    if (!app.image?.startsWith("data:")) return app;
+    const match = app.image.match(
+      /^data:(image\/(?:png|jpeg|webp|svg\+xml|x-icon|vnd\.microsoft\.icon));base64,([A-Za-z0-9+/]+={0,2})$/,
+    );
+    if (!match || app.image.length > 900_000) {
+      throw new AdminRepositoryError("Stored app catalog icon is invalid or too large.", 500);
+    }
+    const hash = createHash("sha256").update(app.image).digest("hex");
+    if (!written.has(hash)) {
+      writeIcon(hash, { contentType: match[1]!, base64: match[2]! });
+      written.add(hash);
+    }
+    return {
+      ...app,
+      image: `https://golden-crow-sdk.vercel.app/publisher-app/icon?hash=${hash}`,
+    };
+  });
+}
+
+export async function getPublisherAppCatalogIcon(hash: string) {
+  const snapshot = await adminDb.collection(CUSTOM_APP_ICONS_COLLECTION).doc(hash).get();
+  const data = snapshot.data();
+  if (!snapshot.exists || !data) {
+    throw new AdminRepositoryError("App icon not found.", 404);
+  }
+  const { contentType, base64 } = data;
+  if (
+    typeof contentType !== "string" || typeof base64 !== "string" ||
+    Object.keys(data).some((key) => key !== "contentType" && key !== "base64") ||
+    base64.length > 900_000 ||
+    !/^image\/(?:png|jpeg|webp|svg\+xml|x-icon|vnd\.microsoft\.icon)$/.test(contentType) ||
+    !/^[A-Za-z0-9+/]+={0,2}$/.test(base64) ||
+    createHash("sha256").update(`data:${contentType};base64,${base64}`).digest("hex") !== hash
+  ) {
+    throw new AdminRepositoryError("Stored app icon is invalid.", 500);
+  }
+  return { contentType, bytes: Buffer.from(base64, "base64") };
+}
+
 function catalogSnapshotIncrementalUpdate(
   snapshot: DocumentSnapshot,
   targetId: string,
@@ -876,10 +924,11 @@ function catalogSnapshotIncrementalUpdate(
   const previousItem =
     previousIndex >= 0 ? current.apps[previousIndex] ?? null : null;
   if (
-    (previousItem &&
+    !current.apps.some((app) => app.image?.startsWith("data:")) &&
+    ((previousItem &&
       nextItem &&
       catalogSnapshotItemsEqual(previousItem, nextItem)) ||
-    (!previousItem && !nextItem)
+      (!previousItem && !nextItem))
   ) {
     return null;
   }
@@ -948,7 +997,12 @@ function updateCatalogSnapshotInTransaction(
     nextItem,
     updatedByUserId,
   );
-  if (update) transaction.update(snapshot.ref, update);
+  if (update) {
+    update.apps = compactCatalogImages(update.apps, (hash, icon) => {
+      transaction.set(adminDb.collection(CUSTOM_APP_ICONS_COLLECTION).doc(hash), icon);
+    });
+    transaction.update(snapshot.ref, update);
+  }
 }
 
 function publisherAppSnapshotItemPreservingDescription(
@@ -1048,6 +1102,14 @@ export async function refreshPublisherAppCatalogSnapshot(
   const reference = adminDb
     .collection(CUSTOM_APPS_SNAPSHOT_COLLECTION)
     .doc(CUSTOM_APPS_SNAPSHOT_DOCUMENT);
+  const icons = new Map<string, { contentType: string; base64: string }>();
+  const compactApps = compactCatalogImages(apps, (hash, icon) => icons.set(hash, icon));
+  const iconEntries = [...icons.entries()];
+  for (let index = 0; index < iconEntries.length; index += APP_SNAPSHOT_PUBLISHER_READ_BATCH_SIZE) {
+    await Promise.all(iconEntries.slice(index, index + APP_SNAPSHOT_PUBLISHER_READ_BATCH_SIZE).map(
+      ([hash, icon]) => adminDb.collection(CUSTOM_APP_ICONS_COLLECTION).doc(hash).set(icon),
+    ));
+  }
   await reference.set({
     id: CUSTOM_APPS_SNAPSHOT_DOCUMENT,
     schemaVersion: CUSTOM_APPS_SNAPSHOT_SCHEMA_VERSION,
@@ -1055,7 +1117,7 @@ export async function refreshPublisherAppCatalogSnapshot(
     activeCount,
     inactiveCount: apps.length - activeCount,
     statusCounts,
-    apps,
+    apps: compactApps,
     sourceReadCount: configs.length * 2,
     updatedAt: FieldValue.serverTimestamp(),
     updatedByUserId: context.uid,
@@ -1293,6 +1355,14 @@ export async function createOrganizationPublisherAppIdentifier(
   return createPublisherAppIdentifier(
     organizationAppContext(context, organizationId),
   );
+}
+
+export async function updateOrganizationPublisherAppConfig(
+  context: AdminContext,
+  organizationId: string,
+  input: PublisherAppConfigInput,
+) {
+  return updatePublisherAppConfig(organizationAppContext(context, organizationId), input);
 }
 
 export async function createPublisherAppConfig(

@@ -70,6 +70,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   DEFAULT_PUBLISHER_APP_COLOR,
@@ -112,7 +113,6 @@ type PublisherAppConfigWorkbenchProps = {
   backHref?: string;
   backLabel?: string;
   editHref?: string;
-  allowAutomaticActivation?: boolean;
   allowStatusEditing?: boolean;
   showDangerZone?: boolean;
 };
@@ -2299,35 +2299,92 @@ function PublisherAppEditSheet({
   );
 }
 
-type AutomaticActivationState =
-  | { status: "waiting" }
-  | { status: "pending" }
-  | { status: "active"; appProviderIdentifier: string }
-  | { status: "error"; message: string };
+const APP_CREATION_STAGES = [
+  "Crear la app",
+  "Calcular los colores",
+  "Guardar los colores coordinados",
+  "Publicar el identificador",
+] as const;
+
+type AppCreationProgress = {
+  step: number;
+  status: "running" | "error";
+  message?: string;
+  details?: string;
+};
+
+function AppCreationProgressDialog({ progress, onRetry, editHref, backHref, backLabel, hasCreatedApp }: {
+  progress: AppCreationProgress | null;
+  onRetry: () => void;
+  editHref: string;
+  backHref: string;
+  backLabel: string;
+  hasCreatedApp: boolean;
+}) {
+  return (
+    <Dialog open={progress !== null}>
+      <DialogContent
+        showCloseButton={false}
+        className="sm:max-w-lg"
+        onEscapeKeyDown={(event) => event.preventDefault()}
+        onInteractOutside={(event) => event.preventDefault()}
+      >
+        <DialogHeader>
+          <DialogTitle>Creación de la app</DialogTitle>
+          <DialogDescription>
+            {progress?.status === "error" ? "El proceso se detuvo. Los pasos completados se conservaron." : "Estamos preparando tu app automáticamente."}
+          </DialogDescription>
+        </DialogHeader>
+        {progress ? (
+          <>
+            <Progress
+              aria-label="Progreso de creación de la app"
+              value={progress.step * 25}
+              aria-valuetext={`${progress.step} de ${APP_CREATION_STAGES.length} pasos completados`}
+              className="h-2"
+            />
+            <ol className="space-y-3" aria-live="polite">
+              {APP_CREATION_STAGES.map((label, index) => (
+                <li key={label} className="flex items-center gap-3" aria-current={index === progress.step ? "step" : undefined}>
+                  {index < progress.step ? <CheckCircle2 className="size-5 text-emerald-600" /> : index === progress.step && progress.status === "running" ? <LoaderCircle className="size-5 animate-spin text-violet-600" /> : <span className="size-5 rounded-full border" />}
+                  <span>{label}</span>
+                </li>
+              ))}
+            </ol>
+            {progress.status === "error" ? (
+              <>
+                <div role="alert" className="space-y-3 rounded-xl border border-destructive/30 p-4 text-sm">
+                  <p className="font-semibold">Falló el paso: {APP_CREATION_STAGES[progress.step]}</p>
+                  <p>{progress.message}</p>
+                  {progress.details ? <details><summary className="cursor-pointer">Detalles del error</summary><pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all text-xs">{progress.details}</pre></details> : null}
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" asChild><Link href={backHref}><ArrowLeft className="size-4" />{backLabel}</Link></Button>
+                  {hasCreatedApp ? <Button variant="outline" asChild><Link href={editHref}>Revisar app creada</Link></Button> : null}
+                  <Button onClick={onRetry}>Reintentar proceso</Button>
+                </DialogFooter>
+              </>
+            ) : null}
+          </>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function SuccessCelebration({
   publisherName,
   editHref,
   backHref,
   backLabel,
-  automaticActivation,
-  onExplosionComplete,
-  onRetryActivation,
+  appProviderIdentifier,
 }: {
   publisherName: string;
   editHref: string;
   backHref: string;
   backLabel: string;
-  automaticActivation: AutomaticActivationState;
-  onExplosionComplete: () => void;
-  onRetryActivation: () => void;
+  appProviderIdentifier: string;
 }) {
-  useEffect(() => {
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-      onExplosionComplete();
-    }
-  }, [onExplosionComplete]);
-
   return (
     <section
       role="status"
@@ -2339,7 +2396,6 @@ function SuccessCelebration({
         data-testid="publisher-app-success-circle"
         aria-hidden="true"
         className="publisher-app-success-circle pointer-events-none fixed left-1/2 top-1/2 size-9 rounded-full bg-[#16a34a]"
-        onAnimationEnd={onExplosionComplete}
       />
 
       <div
@@ -2372,46 +2428,10 @@ function SuccessCelebration({
           data-testid="publisher-app-automatic-activation"
           className="mx-auto mt-7 max-w-[720px] rounded-2xl border border-white/25 bg-white/12 px-5 py-4 text-sm text-white shadow-[0_18px_40px_-28px_rgba(0,0,0,0.5)] backdrop-blur-sm"
         >
-          {automaticActivation.status === "active" ? (
-            <div className="flex flex-col items-center justify-center gap-1 sm:flex-row sm:gap-2">
-              <CheckCircle2 className="size-5 shrink-0" />
-              <span>
-                La app está activa para pruebas con el identificador{" "}
-                <strong className="break-all font-mono">
-                  {automaticActivation.appProviderIdentifier}
-                </strong>
-                .
-              </span>
-            </div>
-          ) : automaticActivation.status === "error" ? (
-            <div className="space-y-3">
-              <p>
-                La app fue creada, pero no pudimos activarla para pruebas:{" "}
-                {automaticActivation.message}
-              </p>
-              <Button
-                type="button"
-                variant="secondary"
-                className="rounded-full bg-white text-emerald-800 hover:bg-emerald-50"
-                onClick={onRetryActivation}
-              >
-                Reintentar activación
-              </Button>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center gap-2">
-              {automaticActivation.status === "pending" ? (
-                <LoaderCircle className="size-5 animate-spin" />
-              ) : (
-                <KeyRound className="size-5" />
-              )}
-              <span>
-                {automaticActivation.status === "pending"
-                  ? "Creando el identificador y activando la app para pruebas…"
-                  : "La activación para pruebas comenzará al terminar la animación…"}
-              </span>
-            </div>
-          )}
+          <div className="flex flex-col items-center justify-center gap-1 sm:flex-row sm:gap-2">
+            <CheckCircle2 className="size-5 shrink-0" />
+            <span>La app está activa para pruebas con el identificador <strong className="break-all font-mono">{appProviderIdentifier}</strong>.</span>
+          </div>
         </div>
 
         <div className="mt-9 flex flex-col flex-wrap justify-center gap-4 sm:flex-row">
@@ -2452,7 +2472,6 @@ export function PublisherAppConfigWorkbench({
   backHref = PUBLISHER_PORTAL_HOME_ROUTE,
   backLabel = "Volver al inicio",
   editHref = PUBLISHER_PORTAL_APP_EDIT_ROUTE,
-  allowAutomaticActivation = apiPath === "/publisher-app/config",
   allowStatusEditing = false,
   showDangerZone = true,
 }: PublisherAppConfigWorkbenchProps) {
@@ -2482,9 +2501,14 @@ export function PublisherAppConfigWorkbench({
     controller: AbortController;
   } | null>(null);
   const [completed, setCompleted] = useState(false);
-  const [automaticActivation, setAutomaticActivation] =
-    useState<AutomaticActivationState>({ status: "waiting" });
-  const automaticActivationStarted = useRef(false);
+  const [creationProgress, setCreationProgress] = useState<AppCreationProgress | null>(null);
+  const creationInFlight = useRef(false);
+  const creationCheckpoint = useRef<{
+    input: PublisherAppConfigInput;
+    config?: PublisherAppConfig;
+    advancedConfiguration?: PublisherAppConfigInput["advancedConfiguration"];
+    colorsSaved?: boolean;
+  } | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [iconStepVisited, setIconStepVisited] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
@@ -2533,7 +2557,7 @@ export function PublisherAppConfigWorkbench({
     !(mode === "create" && !iconStepVisited);
   const paletteCalculationBlocking =
     paletteOverrideCalculation.status === "loading" ||
-    paletteOverrideCalculation.status === "error";
+    (mode === "edit" && paletteOverrideCalculation.status === "error");
   const previewColors = publisherAppColorsWithCounterpoints({
     primary:
       normalizePublisherAppColor(state.colors.primary) ??
@@ -2575,7 +2599,12 @@ export function PublisherAppConfigWorkbench({
       secondary: key === "secondary" ? value : state.colors.secondary,
       tertiary: key === "tertiary" ? value : state.colors.tertiary,
     });
-    void applyPalette(nextColors, "Paleta personalizada");
+    previewPalette(nextColors, "Paleta personalizada");
+  }
+  function previewPalette(colors: PublisherAppColors, paletteName: string, resetTerms = true) {
+    void applyPalette(colors, paletteName, resetTerms).catch(() => {
+      // Palette errors are displayed in the palette status; creation awaits this operation.
+    });
   }
   async function applyPalette(
     colors: PublisherAppColors,
@@ -2597,7 +2626,7 @@ export function PublisherAppConfigWorkbench({
         paletteName,
         message: "La paleta contiene un color inválido.",
       });
-      return null;
+      throw new Error("La paleta contiene un color inválido.");
     }
     const nextColors = publisherAppColorsWithCounterpoints({
       primary: normalizedColors.primary,
@@ -2615,7 +2644,7 @@ export function PublisherAppConfigWorkbench({
         paletteName,
         message: "No pudimos identificar al publicador de esta app.",
       });
-      return null;
+      throw new Error("No pudimos identificar al publicador de esta app.");
     }
 
     if (resetTerms) setTermsAccepted(false);
@@ -2692,7 +2721,7 @@ export function PublisherAppConfigWorkbench({
             : "No pudimos coordinar los colores de la app.",
       });
       paletteOverrideRequest.current = null;
-      return null;
+      throw error;
     }
   }
   function chooseIconSource(iconSource: "publisher" | "custom") {
@@ -2813,34 +2842,6 @@ export function PublisherAppConfigWorkbench({
     return response.config;
   }
 
-  async function activateCreatedAppForTesting() {
-    if (
-      mode !== "create" ||
-      !allowAutomaticActivation ||
-      automaticActivationStarted.current
-    ) {
-      return;
-    }
-    automaticActivationStarted.current = true;
-    setIdentifierPending(true);
-    setAutomaticActivation({ status: "pending" });
-    try {
-      const activatedConfig = await requestAppIdentifier();
-      setAutomaticActivation({
-        status: "active",
-        appProviderIdentifier: activatedConfig.appProviderIdentifier!,
-      });
-    } catch (error) {
-      automaticActivationStarted.current = false;
-      setAutomaticActivation({
-        status: "error",
-        message: error instanceof Error ? error.message : "Volvé a intentarlo.",
-      });
-    } finally {
-      setIdentifierPending(false);
-    }
-  }
-
   async function deactivateIdentifier() {
     if (
       identifierPending ||
@@ -2915,6 +2916,86 @@ export function PublisherAppConfigWorkbench({
     }
   }
 
+  async function createApp() {
+    if (creationInFlight.current) return;
+    creationInFlight.current = true;
+    setPending(true);
+    setToast(null);
+    let step = 0;
+    const advance = (nextStep: number) => {
+      step = nextStep;
+      setCreationProgress({ step, status: "running" });
+    };
+    try {
+      if (!creationCheckpoint.current) {
+        creationCheckpoint.current = {
+          input: normalizedPayload(!iconStepVisited ? {
+            ...state,
+            iconSource: "publisher",
+            ...publisherIconFields(publisherImageUrl),
+          } : state),
+        };
+      }
+      const checkpoint = creationCheckpoint.current;
+      if (!checkpoint.config) {
+        advance(0);
+        const response = await sdkFetch<PublisherAppConfigResponse>(apiPath, {
+          method: "POST",
+          body: JSON.stringify({ ...checkpoint.input, advancedConfiguration: undefined, termsAccepted: true }),
+        });
+        if (!response.config) {
+          throw new Error("El servidor no devolvió la app creada.");
+        }
+        checkpoint.config = response.config;
+        setPersistedConfig(response.config);
+      }
+      if (!checkpoint.advancedConfiguration) {
+        advance(1);
+        const paletteName = suggestedPalettes.find((palette) =>
+          samePalette(checkpoint.input.colors, palette.colors),
+        )?.name ?? "Paleta personalizada";
+        const advancedConfiguration = await applyPalette(
+          checkpoint.input.colors, paletteName, false,
+        );
+        if (!advancedConfiguration) {
+          throw new Error("La coordinación de colores se interrumpió.");
+        }
+        checkpoint.advancedConfiguration = advancedConfiguration;
+      }
+      if (!checkpoint.colorsSaved) {
+        advance(2);
+        const response = await sdkFetch<PublisherAppConfigResponse>(apiPath, {
+          method: "PUT",
+          body: JSON.stringify({ ...checkpoint.input, advancedConfiguration: checkpoint.advancedConfiguration }),
+        });
+        if (!response.config || response.config.id !== checkpoint.config.id) {
+          throw new Error("El servidor no confirmó los colores de la app creada.");
+        }
+        checkpoint.config = response.config;
+        checkpoint.colorsSaved = true;
+      }
+      advance(3);
+      const activated = await requestAppIdentifier();
+      checkpoint.config = activated;
+      const nextState = initialState(activated, publisherTint, publisherImageUrl);
+      setState(nextState);
+      setPersistedState(nextState);
+      setPersistedStatus(activated.status);
+      setCreationProgress(null);
+      setCompleted(true);
+    } catch (error) {
+      setCreationProgress({
+        step,
+        status: "error",
+        message: error instanceof Error ? error.message : "No pudimos completar la creación de la app.",
+        details: error instanceof SdkRequestError ? error.details : undefined,
+      });
+    } finally {
+      creationInFlight.current = false;
+      setPending(false);
+    }
+  }
+
   async function save() {
     if (
       iconSelectionBlocksSubmission ||
@@ -2925,45 +3006,17 @@ export function PublisherAppConfigWorkbench({
       (mode === "edit" && !changed)
     )
       return;
+    if (mode === "create") {
+      await createApp();
+      return;
+    }
     setPending(true);
     setToast(null);
     try {
-      const shouldUsePublisherIconDefault =
-        mode === "create" && !iconStepVisited;
-      let submissionState = shouldUsePublisherIconDefault
-        ? {
-            ...state,
-            iconSource: "publisher" as const,
-            ...publisherIconFields(publisherImageUrl),
-          }
-        : state;
-      if (mode === "create" && paletteOverrideCalculation.status !== "ready") {
-        const paletteName =
-          suggestedPalettes.find((palette) =>
-            samePalette(submissionState.colors, palette.colors),
-          )?.name ??
-          "Paleta personalizada";
-        const advancedConfiguration = await applyPalette(
-          submissionState.colors,
-          paletteName,
-          false,
-        );
-        if (!advancedConfiguration) return;
-        submissionState = { ...submissionState, advancedConfiguration };
-      }
-      const submissionPayload = normalizedPayload(submissionState);
-      if (shouldUsePublisherIconDefault) {
-        setState(submissionState);
-      }
+      const submissionPayload = normalizedPayload(state);
       const response = await sdkFetch<PublisherAppConfigResponse>(apiPath, {
-        method: mode === "create" ? "POST" : "PUT",
-        body: JSON.stringify(
-          mode === "create"
-            ? { ...submissionPayload, termsAccepted: true as const }
-            : allowStatusEditing
-              ? { ...submissionPayload, status }
-              : submissionPayload,
-        ),
+        method: "PUT",
+        body: JSON.stringify(allowStatusEditing ? { ...submissionPayload, status } : submissionPayload),
       });
       const saved = response.config;
       if (!saved)
@@ -2976,10 +3029,6 @@ export function PublisherAppConfigWorkbench({
       setPersistedConfig(saved);
       setStatus(saved.status);
       setPersistedStatus(saved.status);
-      if (mode === "create") {
-        setCompleted(true);
-        return;
-      }
       setToast({
         id: Date.now(),
         tone: "success",
@@ -2990,15 +3039,6 @@ export function PublisherAppConfigWorkbench({
       });
       router.refresh();
     } catch (error) {
-      if (
-        mode === "create" &&
-        error instanceof SdkRequestError &&
-        error.status === 409
-      ) {
-        router.replace(editHref);
-        router.refresh();
-        return;
-      }
       setToast({
         id: Date.now(),
         tone: "error",
@@ -3022,9 +3062,7 @@ export function PublisherAppConfigWorkbench({
           editHref={editHref}
           backHref={backHref}
           backLabel={backLabel}
-          automaticActivation={automaticActivation}
-          onExplosionComplete={() => void activateCreatedAppForTesting()}
-          onRetryActivation={() => void activateCreatedAppForTesting()}
+          appProviderIdentifier={persistedConfig?.appProviderIdentifier ?? ""}
         />
       </section>
     );
@@ -3068,7 +3106,7 @@ export function PublisherAppConfigWorkbench({
           hasPersistedConfig={Boolean(persistedConfig)}
           onUpdateState={updateState}
           onUpdateColor={updateColor}
-          onApplyPalette={applyPalette}
+          onApplyPalette={previewPalette}
           onChooseIconSource={chooseIconSource}
           onIconUpload={(event) => void handleIconUpload(event)}
           onReset={() => {
@@ -3102,6 +3140,14 @@ export function PublisherAppConfigWorkbench({
 
   return (
     <section className="pb-24" data-testid="publisher-app-config-workbench">
+      <AppCreationProgressDialog
+        progress={creationProgress}
+        onRetry={() => void createApp()}
+        editHref={editHref}
+        backHref={backHref}
+        backLabel={backLabel}
+        hasCreatedApp={Boolean(creationCheckpoint.current?.config)}
+      />
       <ActionToast
         toast={toast}
         onDismiss={() => setToast(null)}
@@ -3388,7 +3434,7 @@ export function PublisherAppConfigWorkbench({
                           type="button"
                           aria-pressed={selected}
                           onClick={() =>
-                            applyPalette(preset.colors, preset.name)
+                            previewPalette(preset.colors, preset.name)
                           }
                           disabled={
                             paletteOverrideCalculation.status === "loading"
@@ -3641,7 +3687,7 @@ export function PublisherAppConfigWorkbench({
                     variant="outline"
                     disabled={pending}
                     onClick={() =>
-                      void applyPalette(
+                      previewPalette(
                         state.colors,
                         paletteOverrideCalculation.paletteName,
                         false,

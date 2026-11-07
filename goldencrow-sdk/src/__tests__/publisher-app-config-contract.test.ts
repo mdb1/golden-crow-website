@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { createHash } from "node:crypto";
 import type {
   AdminContext,
   PublisherAppAdvancedConfiguration,
@@ -80,6 +81,9 @@ function documentReferenceFor(
     store.set(id, { ...document });
   });
   ref.set = jest.fn(async (document: StoredDocument) => {
+    if (collectionName === "custom_apps_snapshot" && Buffer.byteLength(JSON.stringify(document)) > 1_048_576) {
+      throw new Error("Snapshot exceeds Firestore document size limit");
+    }
     collectionStore(collectionName).set(id, { ...document });
   });
   ref.update = jest.fn(async (update: StoredDocument) => {
@@ -95,6 +99,9 @@ function documentReferenceFor(
       } else {
         next[key] = value;
       }
+    }
+    if (collectionName === "custom_apps_snapshot" && Buffer.byteLength(JSON.stringify(next)) > 1_048_576) {
+      throw new Error("Snapshot exceeds Firestore document size limit");
     }
     store.set(id, next);
   });
@@ -150,6 +157,7 @@ const mockRunTransaction = jest.fn(
     operation: (transaction: {
       get: (ref: MockDocumentReference) => Promise<MockSnapshot>;
       create: (ref: MockDocumentReference, value: StoredDocument) => void;
+      set: (ref: MockDocumentReference, value: StoredDocument) => void;
       update: (ref: MockDocumentReference, value: StoredDocument) => void;
       delete: (ref: MockDocumentReference) => void;
     }) => Promise<unknown>,
@@ -158,6 +166,9 @@ const mockRunTransaction = jest.fn(
       get: (ref) => ref.get(),
       create: (ref, value) => {
         void ref.create(value);
+      },
+      set: (ref, value) => {
+        void ref.set(value);
       },
       update: (ref, value) => {
         void ref.update(value);
@@ -1341,6 +1352,7 @@ describe("publisher app config contract", () => {
       for (const request of [
         { method: "GET" as const, url: base },
         { method: "POST" as const, url: base, payload: validBody },
+        { method: "PUT" as const, url: base, payload: validBody },
         { method: "POST" as const, url: `${base}/identifier` },
       ]) {
         const response = await fastify.inject(request);
@@ -1404,6 +1416,20 @@ describe("publisher app config contract", () => {
     expect(duplicate.statusCode).toBe(409);
     expect(collectionStore("app_configs").size).toBe(1);
     expect(mockSendPublisherAppCreationNotificationEmails).toHaveBeenCalledTimes(1);
+
+    const colorsUpdated = await fastify.inject({
+      method: "PUT",
+      url: base,
+      payload: { ...validBody, advancedConfiguration: advancedConfigurationBody },
+    });
+    expect(colorsUpdated.statusCode).toBe(200);
+    expect(colorsUpdated.json().config).toMatchObject({
+      id: created.json().config.id,
+      status: "pending_revision",
+      publisherEmail: context.email.toLowerCase(),
+      termsAcceptedByUserId: context.uid,
+      advancedConfiguration: { colorOverrides: advancedConfigurationBody.colorOverrides },
+    });
 
     const activated = await fastify.inject({ method: "POST", url: `${base}/identifier` });
     expect(activated.statusCode).toBe(200);
@@ -1483,6 +1509,54 @@ describe("publisher app config contract", () => {
     expect(secondPage.json().apps).toHaveLength(1);
     expect(secondPage.json().apps[0].id).not.toBe(firstPage.json().apps[0].id);
     expect(secondPage.json().nextCursor).toBeNull();
+  });
+
+  it("compacts legacy embedded icons atomically when adding another app would exceed Firestore's document limit", async () => {
+    const images = ["A", "B", "C"].map((character) => `data:image/png;base64,${character.repeat(384_000)}`);
+    for (let index = 0; index < 2; index += 1) {
+      const id = `large-icon-${index}`;
+      context = organizationContext({ organizationId: id });
+      seedPublisher("organization", id, { name: id, imageUploadDataUrl: images[index] });
+      const created = await fastify.inject({ method: "POST", url: "/publisher-app/config", payload: validBody });
+      expect(created.statusCode).toBe(201);
+    }
+    context = makeAdminContext({ isBootstrap: true });
+    const refreshed = await fastify.inject({ method: "PUT", url: "/admin/publisher-app-configs/snapshot" });
+    expect(refreshed.statusCode).toBe(200);
+    const compactSnapshot = collectionStore("custom_apps_snapshot").get("simple")!;
+    // Reproduce a deployed catalog that still embeds the first two image payloads.
+    collectionStore("custom_apps_snapshot").set("simple", {
+      ...compactSnapshot,
+      apps: (compactSnapshot.apps as StoredDocument[]).map((app, index) => ({ ...app, image: images[index] })),
+    });
+    seedPublisher("organization", "large-icon-2", { name: "Third app", imageUploadDataUrl: images[2] });
+    const created = await fastify.inject({
+      method: "POST",
+      url: "/admin/publisher-app-configs/organizations/large-icon-2",
+      payload: validBody,
+    });
+    expect(created.statusCode).toBe(201);
+    expect(created.json().config.iconImageUploadDataUrl).toBe(images[2]);
+    const snapshot = collectionStore("custom_apps_snapshot").get("simple")!;
+    expect(snapshot.totalCount).toBe(3);
+    expect(Buffer.byteLength(JSON.stringify(snapshot))).toBeLessThan(10_000);
+    expect((snapshot.apps as StoredDocument[]).every((app) => String(app.image).startsWith("https://"))).toBe(true);
+    expect(collectionStore("custom_app_icons").size).toBe(3);
+
+    context = undefined;
+    for (const image of images) {
+      const hash = createHash("sha256").update(image!).digest("hex");
+      const icon = await fastify.inject({ method: "GET", url: `/publisher-app/icon?hash=${hash}` });
+      expect(icon.statusCode).toBe(200);
+      expect(icon.headers["content-type"]).toBe("image/png");
+      expect(icon.headers["cross-origin-resource-policy"]).toBe("cross-origin");
+      expect(icon.headers["cache-control"]).toContain("immutable");
+      expect(icon.rawPayload).toEqual(Buffer.from(image!.split(",")[1]!, "base64"));
+    }
+    const invalid = await fastify.inject({ method: "GET", url: "/publisher-app/icon?hash=../app_configs" });
+    expect(invalid.statusCode).toBe(400);
+    const absent = await fastify.inject({ method: "GET", url: `/publisher-app/icon?hash=${"0".repeat(64)}` });
+    expect(absent.statusCode).toBe(404);
   });
 
   it("creates and reads one lightweight custom app catalog snapshot", async () => {
@@ -1568,7 +1642,7 @@ describe("publisher app config contract", () => {
           id: "individual_shared-publisher-id",
           appProviderIdentifier: null,
           name: "Canonical Individual",
-          image: "data:image/png;base64,QUJD",
+          image: `https://golden-crow-sdk.vercel.app/publisher-app/icon?hash=${createHash("sha256").update("data:image/png;base64,QUJD").digest("hex")}`,
           description: "Individual app description.",
           status: "approved",
           isActive: false,
@@ -1676,7 +1750,7 @@ describe("publisher app config contract", () => {
       )[0],
     ).toMatchObject({
       id: "organization_shared-publisher-id",
-      image: "data:image/png;base64,QUJD",
+      image: `https://golden-crow-sdk.vercel.app/publisher-app/icon?hash=${createHash("sha256").update("data:image/png;base64,QUJD").digest("hex")}`,
       status: "pending_revision",
       isActive: false,
     });
@@ -1754,7 +1828,7 @@ describe("publisher app config contract", () => {
     ).toMatchObject({
       id: "individual_shared-publisher-id",
       name: "New Individual App",
-      image: "data:image/png;base64,REVG",
+      image: `https://golden-crow-sdk.vercel.app/publisher-app/icon?hash=${createHash("sha256").update("data:image/png;base64,REVG").digest("hex")}`,
       description: "New app description.",
     });
 

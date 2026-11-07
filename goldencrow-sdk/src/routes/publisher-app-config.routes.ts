@@ -10,6 +10,7 @@ import {
   deactivatePublisherAppIdentifier,
   deletePublisherAppConfig,
   getPublisherAppConfigById,
+  getPublisherAppCatalogIcon,
   getOrganizationPublisherAppCreationData,
   getPublisherAppCatalogSnapshot,
   getPublisherAppConfig,
@@ -19,6 +20,7 @@ import {
   refreshPublisherAppCatalogSnapshot,
   updatePublisherAppConfig,
   updatePublisherAppConfigById,
+  updateOrganizationPublisherAppConfig,
 } from "../repositories/publisher-app-config.repository.js";
 import { sendPublisherAppCreationNotificationEmails } from "../lib/publisher-app-creation-notification-email.js";
 import { derivePublisherAppCounterpointColors } from "../lib/publisher-app-color-identity.js";
@@ -292,6 +294,43 @@ export async function publisherAppConfigRoutes(
   fastify: FastifyInstance,
 ): Promise<void> {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
+
+  // Only immutable, catalog-published image bytes are public, never app config data.
+  f.get("/publisher-app/icon", {
+    schema: { querystring: z.object({ hash: z.string().regex(/^[a-f0-9]{64}$/) }) },
+  }, async (request, reply) => {
+    try {
+      const icon = await getPublisherAppCatalogIcon(request.query.hash);
+      return reply
+        .header("Cache-Control", "public, max-age=31536000, immutable")
+        .header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox")
+        .header("Cross-Origin-Resource-Policy", "cross-origin")
+        .header("X-Content-Type-Options", "nosniff")
+        .type(icon.contentType)
+        .send(icon.bytes);
+    } catch (error) {
+      return sendRepositoryError(reply, error);
+    }
+  });
+
+  f.put("/admin/publisher-app-configs/organizations/:organizationId", {
+    bodyLimit: CUSTOM_APP_CONFIG_BODY_LIMIT_BYTES,
+    schema: { params: OrganizationAppParamsSchema, body: PublisherAppConfigUpdateBodySchema },
+  }, async (request, reply) => {
+    if (!request.adminContext) {
+      return reply.status(401).send({ error: "No authenticated admin context" });
+    }
+    if (!request.adminContext.isBootstrap) {
+      return reply.status(403).send({ error: "GOD MODE access required" });
+    }
+    try {
+      return reply.send({ config: await updateOrganizationPublisherAppConfig(
+        request.adminContext, request.params.organizationId, request.body,
+      ) });
+    } catch (error) {
+      return sendRepositoryError(reply, error);
+    }
+  });
 
   f.get(
     "/admin/publisher-app-configs/organizations/:organizationId",

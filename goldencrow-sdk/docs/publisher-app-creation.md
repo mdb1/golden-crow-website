@@ -1,0 +1,11 @@
+# Publisher app creation
+
+The backoffice publisher and GOD MODE creation wizards run four ordered operations after terms acceptance: create the base app, calculate the palette overrides, update the app with the full advanced configuration, and create its active identifier. One progress dialog reflects completed responses. Retries retain acknowledged checkpoints; palette, update, or identifier failures do not create another app or publish an incomplete configuration.
+
+GOD MODE uses `POST` / `PUT /admin/publisher-app-configs/organizations/:organizationId` and `POST /admin/publisher-app-configs/organizations/:organizationId/identifier`. All three commands require bootstrap access. The publisher portal uses its existing scoped `/publisher-app/config` commands. Updates preserve the original terms acceptance and audit identity.
+
+`custom_apps_snapshot/simple` keeps the existing catalog schema and `image` field, but newly written catalog images are HTTPS references rather than embedded data URLs. Each inline image is stored once in `custom_app_icons/{sha256}`, with exactly `contentType` and `base64` string fields. The hash is SHA-256 of the original complete data URL; documents are immutable by content identity and bounded by the existing 900,000-character image limit. Original app and publisher icon fields stay intact.
+
+Incremental catalog transactions compact every legacy inline image and write the referenced icon documents atomically with the catalog update. Full snapshot refreshes persist deduplicated icons in bounded groups before writing the compact catalog. This prevents accumulated images from exceeding Firestore's aggregate document limit.
+
+`GET /publisher-app/icon?hash=<64 lowercase hex characters>` serves only those catalog icon bytes, with an immutable cache policy, cross-origin image embedding, MIME validation, hash verification, and a sandboxed content security policy. Missing hashes return 404 and invalid parameters return 400. App configurations and all app commands remain authenticated. No new Firebase project or storage bucket is required at startup.
