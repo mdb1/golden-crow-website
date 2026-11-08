@@ -26,10 +26,13 @@ export function InheritedPlanPanel({
   clientId,
   workouts,
   habits,
+  plans = 0,
 }: {
   clientId: string;
   workouts: number;
   habits: number;
+  /** #1504 Q2 — live nutrition plans of a former coach. */
+  plans?: number;
 }) {
   const t = useTranslations("clients.detail.summary.inheritedPlan");
   const router = useRouter();
@@ -58,7 +61,7 @@ export function InheritedPlanPanel({
           <History className="size-4 shrink-0 opacity-70" aria-hidden />
           {t("title")}
         </p>
-        <p className="text-xs text-muted-foreground">{t("counts", { workouts, habits })}</p>
+        <p className="text-xs text-muted-foreground">{t("counts", { workouts, habits, plans })}</p>
         {failed ? (
           <p className="text-xs text-destructive" role="alert">
             {t("failed")}

@@ -112,6 +112,16 @@ beforeEach(() => {
   db.seed("habits/old-over", habit(OLD, { endsOn: "2026-02-01", reminderEnabled: false }));
   db.seed("habits/new-habit", habit(NEW));
   db.seed("habits/own-habit", habit(C, { clientOwned: true }));
+
+  // #1504 Q2 — nutrition plans.
+  const nutrition = (trainerId: string, extra: Record<string, unknown> = {}) => ({
+    clientId: C, trainerId, source: "coach", startsOn: "2026-01-01", endsOn: null, ...extra,
+  });
+  db.seed("nutrition_plans/old-plan", nutrition(OLD));
+  db.seed("nutrition_plans/old-plan-future", nutrition(OLD, { startsOn: "2026-07-01" }));
+  db.seed("nutrition_plans/old-plan-past", nutrition(OLD, { endsOn: "2026-02-01" }));
+  db.seed("nutrition_plans/new-plan", nutrition(NEW));
+  db.seed("nutrition_plans/own-plan", nutrition(C, { source: "self" }));
 });
 
 afterEach(() => jest.useRealTimers());
@@ -156,7 +166,7 @@ describe("the calendar, as the new coach", () => {
   });
 });
 
-describe("inherited work is read-only for the new coach", () => {
+describe("inherited work for the new coach", () => {
   it.each([
     ["moveAssignment", () => moveAssignment({ id: "old-future", newScheduledFor: "2026-06-22", scope: "one" })],
     ["editAssignmentScheduledFor", () => editAssignmentScheduledFor("old-future", { scheduledFor: "2026-06-22" })],
@@ -166,17 +176,29 @@ describe("inherited work is read-only for the new coach", () => {
     expect(db.writes).toEqual([]);
   });
 
+  // #1504 Q1 (owner, 2026-11-08): a former coach's HABIT is editable again by the current coach.
   it.each([
-    ["updateHabit", () => updateHabit("old-running", { name: { en: "x", es: "x" } })],
+    ["updateHabit", () => updateHabit("old-running", { name: { en: "x", es: "x" }, reminderEnabled: false, scheduleType: "recurring" })],
     ["softDeleteHabit", () => softDeleteHabit("old-running")],
     ["deleteHabitRecurrenceFromDate", () => deleteHabitRecurrenceFromDate("old-running", TODAY)],
     ["skipHabitOccurrence", () => skipHabitOccurrence({ habitId: "old-running", civilDate: TODAY })],
-  ])("%s refuses a former coach's habit and writes nothing", async (_name, run) => {
-    await expect(run()).rejects.toThrow("Inherited habit is read-only.");
-    expect(db.writes).toEqual([]);
+  ])("%s is allowed on a former coach's habit", async (_name, run) => {
+    await run();
+    expect(mutationPaths()).toContain("habits/old-running");
+    // The authorship stays the former coach's: still inherited, still badged.
+    expect((db.doc("habits/old-running") as Record<string, unknown>).trainerId).toBe(OLD);
   });
 
-  it("can still read it, flagged, and still manage their own", async () => {
+  it("writes what was asked on the inherited habit", async () => {
+    await updateHabit("old-running", { name: { en: "x", es: "x" }, reminderEnabled: false, scheduleType: "recurring" });
+    expect((db.doc("habits/old-running") as Record<string, unknown>).name).toEqual({ en: "x", es: "x" });
+    await skipHabitOccurrence({ habitId: "old-running", civilDate: TODAY });
+    expect((db.doc("habits/old-running") as Record<string, unknown>).skippedDates).toEqual([TODAY]);
+    await softDeleteHabit("old-running");
+    expect((db.doc("habits/old-running") as Record<string, unknown>).deleted).toBe(true);
+  });
+
+  it("reads it flagged as inherited, and still manages their own", async () => {
     expect((await getHabit("old-running")).inherited).toBe(true);
     expect((await getHabit("new-habit")).inherited).toBe(false);
     await softDeleteHabit("new-habit");
@@ -187,7 +209,14 @@ describe("inherited work is read-only for the new coach", () => {
 describe("endInheritedPlan", () => {
   it("deletes the former coach's future work and ends their habits", async () => {
     const out = await endInheritedPlan({ clientId: C });
-    expect(out).toEqual({ ok: true, assignmentsDeleted: 2, habitsEnded: 1, habitsDeleted: 1 });
+    expect(out).toEqual({
+      ok: true,
+      assignmentsDeleted: 2,
+      habitsEnded: 1,
+      habitsDeleted: 1,
+      plansEnded: 1,
+      plansDeleted: 1,
+    });
 
     expect(db.doc("workout_assignments/old-future")).toBeUndefined();
     expect(db.doc("workout_assignments/old-today")).toBeUndefined();
@@ -200,6 +229,16 @@ describe("endInheritedPlan", () => {
     const dropped = db.doc("habits/old-not-started") as Record<string, unknown>;
     expect(dropped.deleted).toBe(true);
     expect(dropped.reminderEnabled).toBe(false);
+
+    // #1504 Q2 — the former coach's nutrition plan ends too; one that hadn't started goes.
+    const plan = db.doc("nutrition_plans/old-plan") as Record<string, unknown>;
+    expect(plan.endsOn).toBe("2026-06-14");
+    expect(plan.deleted).toBeUndefined();
+    expect((db.doc("nutrition_plans/old-plan-future") as Record<string, unknown>).deleted).toBe(true);
+    const paths = mutationPaths();
+    for (const id of ["old-plan-past", "new-plan", "own-plan"]) {
+      expect(paths).not.toContain(`nutrition_plans/${id}`);
+    }
   });
 
   it("changes no content of the habits it ends", async () => {
@@ -231,6 +270,8 @@ describe("endInheritedPlan", () => {
       assignmentsDeleted: 0,
       habitsEnded: 0,
       habitsDeleted: 0,
+      plansEnded: 0,
+      plansDeleted: 0,
     });
   });
 

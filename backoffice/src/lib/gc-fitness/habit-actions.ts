@@ -204,7 +204,11 @@ function normalizeHabitTemplateName(value: string): string {
  */
 export interface HabitRow {
   id: string;
-  /** #1504 — authored by a former coach: the detail dialog opens read-only. Only `getHabit` sets it. */
+  /**
+   * #1504 — authored by a former coach: the detail dialog shows the inherited badge. Since
+   * 2026-11-08 (#1504 Q1) the current coach can still edit, skip and delete it like their own.
+   * Only `getHabit` sets it.
+   */
   inherited?: boolean;
   clientId: string;
   trainerId: string;
@@ -332,20 +336,6 @@ function withoutUndefined<T extends Record<string, unknown>>(value: T): T {
   return Object.fromEntries(
     Object.entries(value).filter(([, fieldValue]) => fieldValue !== undefined),
   ) as T;
-}
-
-/**
- * #1504 — a former coach's habit on a client I coach now is READ-ONLY: I can see it
- * (`getHabit`) and end the whole inherited plan (`endInheritedPlan`), not rewrite,
- * skip or delete pieces of what someone else prescribed.
- */
-function assertNotInherited(
-  habit: { trainerId?: string; clientId?: string | null },
-  trainerUid: string,
-): void {
-  if (assignedBy(habit, { coachId: trainerUid }) === "former") {
-    throw new Error("Inherited habit is read-only.");
-  }
 }
 
 async function currentTrainerCanManageHabit(
@@ -902,7 +892,6 @@ export async function updateHabit(
   if (!(await currentTrainerCanManageHabit(db, trainer.uid, existing))) {
     throw new Error("Not your habit.");
   }
-  assertNotInherited(existing, trainer.uid);
 
   const existingType: HabitType = (existing.type as HabitType) ?? "binary";
   const parsed = habitUpdateSchemaForType(existingType).parse(input) as {
@@ -1006,7 +995,6 @@ export async function softDeleteHabit(
   if (!(await currentTrainerCanManageHabit(db, trainer.uid, existing))) {
     throw new Error("Not your habit.");
   }
-  assertNotInherited(existing, trainer.uid);
 
   await docRef.update({
     deleted: true,
@@ -1067,7 +1055,6 @@ export async function deleteHabitRecurrenceFromDate(
   if (!(await currentTrainerCanManageHabit(db, trainer.uid, existing))) {
     throw new Error("Not your habit.");
   }
-  assertNotInherited(existing, trainer.uid);
 
   const newEndsOn = previousCivilDate(fromCivilDate);
 
@@ -1257,7 +1244,6 @@ export async function skipHabitOccurrence(input: {
   if (!(await currentTrainerCanManageHabit(db, trainer.uid, existing))) {
     throw new Error("Not your habit.");
   }
-  assertNotInherited(existing, trainer.uid);
 
   await docRef.update({
     skippedDates: FieldValue.arrayUnion(input.civilDate),

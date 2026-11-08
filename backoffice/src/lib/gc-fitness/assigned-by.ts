@@ -87,3 +87,26 @@ export function isEndableHabit(
   }
   return true;
 }
+
+/**
+ * Same for a nutrition plan (#1504 Q2): live, not the client's own (`source == "self"`), and
+ * not a past phase.
+ */
+export function isEndablePlan(
+  doc: {
+    trainerId?: unknown;
+    clientId?: unknown;
+    source?: unknown;
+    deleted?: unknown;
+    endsOn?: unknown;
+  },
+  user: { coachId?: unknown },
+  today: string,
+): boolean {
+  if (assignedBy(doc, user) !== "former" || doc.source === "self" || doc.deleted === true) {
+    return false;
+  }
+  const endsOn = nonBlank(doc.endsOn);
+  if (endsOn && CIVIL_DATE_RE.test(endsOn) && endsOn < today) return false;
+  return true;
+}

@@ -574,9 +574,9 @@
       "summary": {
         "inheritedPlan": {
           "title": "Plan del coach anterior",
-          "counts": "{workouts, plural, one {# entreno futuro} other {# entrenos futuros}} · {habits, plural, one {# hábito activo} other {# hábitos activos}}. No cuentan en sus números.",
+          "counts": "{workouts, plural, one {# entreno futuro} other {# entrenos futuros}} · {habits, plural, one {# hábito activo} other {# hábitos activos}}{plans, plural, =0 {} one { · # plan de nutrición} other { · # planes de nutrición}}. No cuentan en sus números.",
           "end": "Terminar plan del coach anterior",
-          "confirmBody": "Se borran los entrenos futuros y se terminan los hábitos de ese plan. El historial del cliente no se toca.",
+          "confirmBody": "Se borran los entrenos futuros y se terminan los hábitos y la nutrición de ese plan. El historial del cliente no se toca.",
           "confirm": "Terminar plan",
           "cancel": "Cancelar",
           "failed": "No pudimos terminar el plan. Probá de nuevo."
