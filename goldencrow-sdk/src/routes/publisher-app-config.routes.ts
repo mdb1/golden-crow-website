@@ -23,6 +23,7 @@ import {
   updateOrganizationPublisherAppConfig,
 } from "../repositories/publisher-app-config.repository.js";
 import { sendPublisherAppCreationNotificationEmails } from "../lib/publisher-app-creation-notification-email.js";
+import { PUBLISHER_APP_STATUSES } from "../lib/publisher-app-status.js";
 import { derivePublisherAppCounterpointColors } from "../lib/publisher-app-color-identity.js";
 
 const APP_ICON_DATA_URL_PATTERN =
@@ -256,13 +257,7 @@ const PublisherAppConfigUpdateBodySchema = z
 const PublisherAppConfigAdminUpdateBodySchema = z
   .object({
     ...PublisherAppConfigBodyShape,
-    status: z.enum([
-      "pending_revision",
-      "active",
-      "approved",
-      "changes_requested",
-      "rejected",
-    ]),
+    status: z.enum(PUBLISHER_APP_STATUSES),
   })
   .strict()
   .superRefine(validatePublisherAppIcon);

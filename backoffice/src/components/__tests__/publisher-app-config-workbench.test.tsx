@@ -129,7 +129,7 @@ function mockConfigRequests(config: PublisherAppConfig = savedConfig) {
   jest.mocked(sdkFetch).mockImplementation(async (path, init) => ({
     config: path.endsWith("/identifier") ? {
       ...config,
-      status: "active",
+      status: "active_for_testing",
       appProviderIdentifier: "app_org_pocket_genes_lab_48217",
     } : init?.method === "PUT" ? { ...config, ...JSON.parse(String(init.body)) } : config,
   }));
@@ -206,7 +206,7 @@ describe("PublisherAppConfigWorkbench", () => {
   it("reviews and accepts the five-step request before creating the app", async () => {
     const activatedConfig: PublisherAppConfig = {
       ...savedConfig,
-      status: "active",
+      status: "active_for_testing",
       appProviderIdentifier: "app_org_pocket_genes_lab_48217",
       runtimeRevision: 1,
     };
@@ -548,7 +548,7 @@ describe("PublisherAppConfigWorkbench", () => {
     const editHref = "/god-mode/apps/organization_org-1";
     jest.mocked(sdkFetch).mockImplementation(async (path) => ({
       config: path.endsWith("/identifier")
-        ? { ...savedConfig, status: "active", appProviderIdentifier: "app_org_pocket_genes_lab_48217" }
+        ? { ...savedConfig, status: "active_for_testing", appProviderIdentifier: "app_org_pocket_genes_lab_48217" }
         : savedConfig,
     }));
     renderWorkbench({
@@ -643,7 +643,7 @@ describe("PublisherAppConfigWorkbench", () => {
       await waitFor(() => expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "75"));
       expect(operations).toEqual(["create", "calculate", "save-colors", "publish"]);
       expect(screen.queryByTestId("publisher-app-success-overlay")).toBeNull();
-      publication.resolve({ config: { ...savedConfig, ...colorPayload, status: "active", appProviderIdentifier: "app_org_pocket_genes_lab_48217" } });
+      publication.resolve({ config: { ...savedConfig, ...colorPayload, status: "active_for_testing", appProviderIdentifier: "app_org_pocket_genes_lab_48217" } });
       await screen.findByTestId("publisher-app-success-overlay");
       expect(screen.getByText("app_org_pocket_genes_lab_48217")).toBeTruthy();
       expect(screen.queryByRole("dialog")).toBeNull();
@@ -668,7 +668,7 @@ describe("PublisherAppConfigWorkbench", () => {
       jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
         const stage = path.endsWith("/identifier") ? "publish" : init?.method === "PUT" ? "save-colors" : "create";
         operation(stage);
-        return { config: stage === "publish" ? { ...savedConfig, status: "active", appProviderIdentifier: "app_org_pocket_genes_lab_48217" } : savedConfig };
+        return { config: stage === "publish" ? { ...savedConfig, status: "active_for_testing", appProviderIdentifier: "app_org_pocket_genes_lab_48217" } : savedConfig };
       });
       jest.mocked(fetchPublisherAppPaletteOverrides).mockImplementation(async (colors) => {
         operation("calculate");
@@ -1510,6 +1510,8 @@ describe("PublisherAppConfigWorkbench", () => {
       "/god-mode/apps",
     );
     expect(screen.getByTestId("publisher-app-edit-status")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Activa para pruebas" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Activa" })).toBeTruthy();
     expect(
       screen.getByTestId("publisher-app-danger-toggle").parentElement,
     ).toHaveClass("hidden");
@@ -1906,7 +1908,7 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(previewIcon).toHaveStyle({ background: "#FFFFFF" });
   });
 
-  it("downloads the published runtime v3 config instead of the administrative record", async () => {
+  it.each(["active", "active_for_testing"] as const)("downloads the published runtime v3 config for %s instead of the administrative record", async (status) => {
     const runtimeConfig = {
       schemaVersion: 3 as const,
       appProviderIdentifier: "app_org_pocket_genes_lab_48217",
@@ -1940,12 +1942,13 @@ describe("PublisherAppConfigWorkbench", () => {
       mode: "edit",
       initialConfig: {
         ...savedConfig,
-        status: "active",
+        status,
         appProviderIdentifier: "app_org_pocket_genes_lab_48217",
         runtimeRevision: 1,
       },
     });
 
+    expect(screen.getAllByText(status === "active_for_testing" ? "Activa para pruebas" : "Activa").length).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: "Descargar configuración" }),
     );
@@ -1964,7 +1967,7 @@ describe("PublisherAppConfigWorkbench", () => {
     jest.mocked(sdkFetch).mockResolvedValue({
       config: {
         ...savedConfig,
-        status: "active",
+        status: "active_for_testing",
         appProviderIdentifier: "app_org_pocket_genes_lab_48217",
         runtimeRevision: 1,
       },
@@ -1992,12 +1995,12 @@ describe("PublisherAppConfigWorkbench", () => {
     ).toBeEnabled();
   });
 
-  it("offers to replace a legacy active identifier before downloading", () => {
+  it.each(["active", "active_for_testing"] as const)("offers to replace a legacy %s identifier before downloading", (status) => {
     renderWorkbench({
       mode: "edit",
       initialConfig: {
         ...savedConfig,
-        status: "active",
+        status,
         appProviderIdentifier: "organization_8thNEDU1xbFqwnQDUrPt",
         runtimeRevision: 1,
       },
@@ -2011,7 +2014,7 @@ describe("PublisherAppConfigWorkbench", () => {
     ).toBeDisabled();
   });
 
-  it("turns down an active identifier and returns the edit screen to review", async () => {
+  it.each(["active", "active_for_testing"] as const)("turns down an %s identifier and returns the edit screen to review", async (status) => {
     jest.mocked(sdkFetch).mockResolvedValue({
       config: {
         ...savedConfig,
@@ -2022,7 +2025,7 @@ describe("PublisherAppConfigWorkbench", () => {
       mode: "edit",
       initialConfig: {
         ...savedConfig,
-        status: "active",
+        status,
         appProviderIdentifier: "app_org_pocket_genes_lab_48217",
         runtimeRevision: 1,
       },

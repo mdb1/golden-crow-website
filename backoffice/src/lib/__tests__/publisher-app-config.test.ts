@@ -1,5 +1,7 @@
 import {
   isCurrentPublisherAppIdentifier,
+  isPublisherAppRuntimeEnabled,
+  publisherAppStatusLabel,
   publisherAppCounterpointColors,
   publisherAppColorsWithCounterpoints,
   publisherAppDefaultColors,
@@ -7,6 +9,20 @@ import {
 } from "@/lib/publisher-app-config";
 
 const BASE_COLOR_KEYS = ["primary", "secondary", "tertiary"] as const;
+
+describe("publisher app statuses", () => {
+  it.each([
+    ["active_for_testing", "Activa para pruebas", true],
+    ["active", "Activa", true],
+    ["pending_revision", "En revisión", false],
+    ["approved", "Aprobada", false],
+    ["changes_requested", "Requiere ajustes", false],
+    ["rejected", "No aprobada", false],
+  ] as const)("labels %s distinctly and preserves runtime availability", (status, label, enabled) => {
+    expect(publisherAppStatusLabel(status)).toBe(label);
+    expect(isPublisherAppRuntimeEnabled(status)).toBe(enabled);
+  });
+});
 
 function hslFromHex(value: string) {
   const channels = [1, 3, 5].map(

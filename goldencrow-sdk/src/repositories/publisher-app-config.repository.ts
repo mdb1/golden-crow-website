@@ -23,6 +23,7 @@ import type {
 import { buildPublisherAppRuntimeConfig } from "../lib/publisher-app-runtime-config.js";
 import { normalizePublisherAppAdvancedConfiguration } from "../lib/publisher-app-advanced-config.js";
 import { derivePublisherAppCounterpointColors } from "../lib/publisher-app-color-identity.js";
+import { isPublisherAppRuntimeEnabled, PUBLISHER_APP_STATUSES } from "../lib/publisher-app-status.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 import {
   getProfileSetupState,
@@ -69,13 +70,6 @@ const DEFAULT_ADMIN_APP_CONFIG_PAGE_SIZE = 20;
 const MAX_ADMIN_APP_CONFIG_PAGE_SIZE = 100;
 const APP_SNAPSHOT_PUBLISHER_READ_BATCH_SIZE = 50;
 const APP_SNAPSHOT_DESCRIPTION_MAX_LENGTH = 280;
-const PUBLISHER_APP_STATUSES = [
-  "pending_revision",
-  "active",
-  "approved",
-  "changes_requested",
-  "rejected",
-] as const satisfies readonly PublisherAppStatus[];
 
 function requiredString(value: unknown, label: string) {
   if (typeof value !== "string" || !value.trim()) {
@@ -370,14 +364,8 @@ function storedAppStatus(value: unknown): PublisherAppStatus {
   if (value === undefined || value === null) {
     return "pending_revision";
   }
-  if (
-    value === "pending_revision" ||
-    value === "active" ||
-    value === "approved" ||
-    value === "changes_requested" ||
-    value === "rejected"
-  ) {
-    return value;
+  if (PUBLISHER_APP_STATUSES.includes(value as PublisherAppStatus)) {
+    return value as PublisherAppStatus;
   }
   throw new AdminRepositoryError(
     "Stored publisher app config has an invalid status.",
@@ -715,6 +703,13 @@ function toPublisherAppCatalogSnapshot(
       count: storedNonNegativeInteger(countData.count, "status count"),
     };
   });
+  // Earlier catalogs have the original five counts and no testing entry.
+  if (
+    statusCounts.length === PUBLISHER_APP_STATUSES.length - 1 &&
+    !statusCounts.some(({ status }) => status === "active_for_testing")
+  ) {
+    statusCounts.push({ status: "active_for_testing", count: 0 });
+  }
   const totalCount = storedNonNegativeInteger(data.totalCount, "total count");
   const activeCount = storedNonNegativeInteger(
     data.activeCount,
@@ -739,7 +734,7 @@ function toPublisherAppCatalogSnapshot(
   const expectedActiveCount = apps.filter((app) => app.isActive).length;
   if (
     new Set(apps.map((app) => app.id)).size !== apps.length ||
-    apps.some((app) => app.isActive !== (app.status === "active")) ||
+    apps.some((app) => app.isActive !== isPublisherAppRuntimeEnabled(app.status)) ||
     statusCounts.length !== PUBLISHER_APP_STATUSES.length ||
     storedStatusCounts.size !== PUBLISHER_APP_STATUSES.length ||
     PUBLISHER_APP_STATUSES.some(
@@ -762,7 +757,7 @@ function toPublisherAppCatalogSnapshot(
     totalCount,
     activeCount,
     inactiveCount,
-    statusCounts,
+    statusCounts: PUBLISHER_APP_STATUSES.map((status) => ({ status, count: storedStatusCounts.get(status)! })),
     apps,
     sourceReadCount: storedNonNegativeInteger(
       data.sourceReadCount,
@@ -830,7 +825,7 @@ function publisherAppSnapshotItemFromSource(
       compactSnapshotDescription(publisher.description) ||
       compactSnapshotDescription(publisher.descriptionEn),
     status: config.status,
-    isActive: config.status === "active",
+    isActive: isPublisherAppRuntimeEnabled(config.status),
     publisherKind: config.publisherKind,
     publisherId: config.publisherId,
   };
@@ -1209,7 +1204,7 @@ export async function updatePublisherAppConfigById(
     },
     identity,
   );
-  if (input.status === "active" && !config.appProviderIdentifier) {
+  if (isPublisherAppRuntimeEnabled(input.status) && !config.appProviderIdentifier) {
     throw new AdminRepositoryError(
       "Create an app identifier before activating the config.",
       409,
@@ -1244,7 +1239,7 @@ export async function updatePublisherAppConfigById(
       const catalogSnapshot = await transaction.get(snapshotRef);
       transaction.update(ref, {
         ...update,
-        ...(currentConfig.status === "active"
+        ...((isPublisherAppRuntimeEnabled(currentConfig.status) || isPublisherAppRuntimeEnabled(input.status))
           ? {
               runtimeRevision: (currentConfig.runtimeRevision ?? 1) + 1,
               [RUNTIME_COLOR_CONTRACT_VERSION_FIELD]: RUNTIME_COLOR_CONTRACT_VERSION,
@@ -1266,7 +1261,7 @@ export async function updatePublisherAppConfigById(
   } else {
     await ref.update({
       ...update,
-      ...(config.status === "active"
+      ...((isPublisherAppRuntimeEnabled(config.status) || isPublisherAppRuntimeEnabled(input.status))
         ? {
             runtimeRevision: (config.runtimeRevision ?? 1) + 1,
             [RUNTIME_COLOR_CONTRACT_VERSION_FIELD]: RUNTIME_COLOR_CONTRACT_VERSION,
@@ -1528,7 +1523,7 @@ export async function updatePublisherAppConfig(
       transaction.update(ref, {
         ...baseUpdate,
         status: currentConfig.status,
-        ...(currentConfig.status === "active"
+        ...(isPublisherAppRuntimeEnabled(currentConfig.status)
           ? {
               runtimeRevision: (currentConfig.runtimeRevision ?? 1) + 1,
               [RUNTIME_COLOR_CONTRACT_VERSION_FIELD]: RUNTIME_COLOR_CONTRACT_VERSION,
@@ -1544,7 +1539,7 @@ export async function updatePublisherAppConfig(
           appProviderIdentifier:
             currentConfig.appProviderIdentifier ?? null,
           status: currentConfig.status,
-          isActive: currentConfig.status === "active",
+          isActive: isPublisherAppRuntimeEnabled(currentConfig.status),
         },
         context.uid,
       );
@@ -1552,7 +1547,7 @@ export async function updatePublisherAppConfig(
   } else {
     await ref.update({
       ...baseUpdate,
-      ...(config.status === "active"
+      ...(isPublisherAppRuntimeEnabled(config.status)
         ? {
             runtimeRevision: (config.runtimeRevision ?? 1) + 1,
             [RUNTIME_COLOR_CONTRACT_VERSION_FIELD]: RUNTIME_COLOR_CONTRACT_VERSION,
@@ -1578,7 +1573,7 @@ export async function createPublisherAppIdentifier(
   const initialSnapshot = await ref.get();
   const initialConfig = toPublisherAppConfigRecord(initialSnapshot);
   if (
-    initialConfig.status === "active" &&
+    isPublisherAppRuntimeEnabled(initialConfig.status) &&
     isCurrentAppProviderIdentifier(
       initialConfig.appProviderIdentifier,
       initialConfig.publisherKind,
@@ -1588,10 +1583,10 @@ export async function createPublisherAppIdentifier(
   }
   if (
     initialConfig.status !== "pending_revision" &&
-    initialConfig.status !== "active"
+    !isPublisherAppRuntimeEnabled(initialConfig.status)
   ) {
     throw new AdminRepositoryError(
-      "Only an app pending revision or active for testing can create an identifier.",
+      "Only an app pending revision, active for testing, or active can create an identifier.",
       409,
     );
   }
@@ -1607,7 +1602,7 @@ export async function createPublisherAppIdentifier(
       const snapshot = await transaction.get(ref);
       const config = toPublisherAppConfigRecord(snapshot);
       if (
-        config.status === "active" &&
+        isPublisherAppRuntimeEnabled(config.status) &&
         isCurrentAppProviderIdentifier(
           config.appProviderIdentifier,
           config.publisherKind,
@@ -1615,9 +1610,9 @@ export async function createPublisherAppIdentifier(
       ) {
         return true;
       }
-      if (config.status !== "pending_revision" && config.status !== "active") {
+      if (config.status !== "pending_revision" && !isPublisherAppRuntimeEnabled(config.status)) {
         throw new AdminRepositoryError(
-          "Only an app pending revision or active for testing can create an identifier.",
+          "Only an app pending revision, active for testing, or active can create an identifier.",
           409,
         );
       }
@@ -1627,12 +1622,13 @@ export async function createPublisherAppIdentifier(
         return false;
       }
 
+      const activationStatus = isPublisherAppRuntimeEnabled(config.status) ? config.status : "active_for_testing";
       const catalogSnapshot = await transaction.get(catalogSnapshotRef);
       const nextSnapshotItem = publisherAppSnapshotItemPreservingDescription(
         {
           ...config,
           appProviderIdentifier,
-          status: "active",
+          status: activationStatus,
         },
         catalogSnapshot,
       );
@@ -1649,9 +1645,9 @@ export async function createPublisherAppIdentifier(
       transaction.update(ref, {
         appProviderIdentifier,
         runtimeRevision:
-          config.status === "active" ? (config.runtimeRevision ?? 1) + 1 : 1,
+          isPublisherAppRuntimeEnabled(config.status) ? (config.runtimeRevision ?? 1) + 1 : 1,
         [RUNTIME_COLOR_CONTRACT_VERSION_FIELD]: RUNTIME_COLOR_CONTRACT_VERSION,
-        status: "active",
+        status: activationStatus,
         activatedAt: timestamp,
         activatedByUserId: context.uid,
         updatedAt: timestamp,
@@ -1692,9 +1688,9 @@ export async function deactivatePublisherAppIdentifier(
   await adminDb.runTransaction(async (transaction) => {
     const snapshot = await transaction.get(ref);
     const config = toPublisherAppConfigRecord(snapshot);
-    if (config.status !== "active" || !config.appProviderIdentifier) {
+    if (!isPublisherAppRuntimeEnabled(config.status) || !config.appProviderIdentifier) {
       throw new AdminRepositoryError(
-        "Only an app active for testing can deactivate its identifier.",
+        "Only an active app or an app active for testing can deactivate its identifier.",
         409,
       );
     }
@@ -1735,7 +1731,7 @@ export async function deactivatePublisherAppIdentifier(
 async function publishRuntimeColorContract(snapshot: DocumentSnapshot) {
   const config = toPublisherAppConfigRecord(snapshot);
   if (
-    config.status !== "active" ||
+    !isPublisherAppRuntimeEnabled(config.status) ||
     snapshot.data()?.[RUNTIME_COLOR_CONTRACT_VERSION_FIELD] === RUNTIME_COLOR_CONTRACT_VERSION
   ) {
     return config;
@@ -1744,7 +1740,7 @@ async function publishRuntimeColorContract(snapshot: DocumentSnapshot) {
     const currentSnapshot = await transaction.get(snapshot.ref);
     const current = toPublisherAppConfigRecord(currentSnapshot);
     if (
-      current.status !== "active" ||
+      !isPublisherAppRuntimeEnabled(current.status) ||
       currentSnapshot.data()?.[RUNTIME_COLOR_CONTRACT_VERSION_FIELD] === RUNTIME_COLOR_CONTRACT_VERSION
     ) {
       return current;
@@ -1807,7 +1803,7 @@ export async function getActivePublisherAppRuntimeConfig(
     throw new AdminRepositoryError("App runtime config not found.", 404);
   }
   const config = toPublisherAppConfigRecord(configSnapshot);
-  if (config.status !== "active") {
+  if (!isPublisherAppRuntimeEnabled(config.status)) {
     throw new AdminRepositoryError("App runtime config not found.", 404);
   }
   if (platform === "android" && config.platformOption !== "ios_android") {
@@ -1818,7 +1814,7 @@ export async function getActivePublisherAppRuntimeConfig(
   }
 
   const published = await publishRuntimeColorContract(configSnapshot);
-  if (published.status !== "active" || published.appProviderIdentifier !== normalizedIdentifier) {
+  if (!isPublisherAppRuntimeEnabled(published.status) || published.appProviderIdentifier !== normalizedIdentifier) {
     throw new AdminRepositoryError("App runtime config not found.", 404);
   }
   if (platform === "android" && published.platformOption !== "ios_android") {

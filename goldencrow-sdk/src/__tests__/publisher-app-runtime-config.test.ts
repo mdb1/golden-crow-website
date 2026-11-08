@@ -25,7 +25,10 @@ const derivedSemanticColors = {
   accentSurfaceLight: "#FFFCF8",
 };
 
-describe.each([false, true])("runtime counterpoint transport (stored semantic colors: %s)", (storedSemanticColors) => {
+describe.each([
+  ["active", false], ["active", true],
+  ["active_for_testing", false], ["active_for_testing", true],
+] as const)("runtime counterpoint transport (status: %s, stored semantic colors: %s)", (status, storedSemanticColors) => {
   const source: Parameters<typeof buildPublisherAppRuntimeConfig>[0] = {
     id: "organization_example",
     schemaVersion: 1,
@@ -36,7 +39,7 @@ describe.each([false, true])("runtime counterpoint transport (stored semantic co
     publisherUsername: "example",
     catalogEnabled: true,
     feedEnabled: true,
-    status: "active",
+    status,
     appProviderIdentifier: "app_org_example_12345",
     runtimeRevision: 3,
     platformOption: "ios_android",

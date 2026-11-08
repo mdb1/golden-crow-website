@@ -4,6 +4,7 @@ import type {
 } from "../types/sdk.types.js";
 import { AdminRepositoryError } from "../repositories/admin-errors.js";
 import { derivePublisherAppSemanticColors } from "./publisher-app-advanced-config.js";
+import { isPublisherAppRuntimeEnabled } from "./publisher-app-status.js";
 
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 
@@ -32,7 +33,7 @@ export function buildPublisherAppRuntimeConfig(
       409,
     );
   }
-  if (config.status !== "active") {
+  if (!isPublisherAppRuntimeEnabled(config.status)) {
     throw new AdminRepositoryError(
       "The app runtime config is not active.",
       409,

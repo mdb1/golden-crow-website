@@ -78,6 +78,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   DEFAULT_PUBLISHER_APP_COLOR,
   isCurrentPublisherAppIdentifier,
+  isPublisherAppRuntimeEnabled,
   normalizePublisherAppColor,
   publisherAppColorsWithCounterpoints,
   publisherAppDefaultAdvancedConfiguration,
@@ -1435,7 +1436,7 @@ function PublisherAppEditSheet({
                   !hasPersistedConfig ||
                   !appProviderIdentifier ||
                   !identifierIsCurrent ||
-                  status !== "active" ||
+                  !isPublisherAppRuntimeEnabled(status) ||
                   changed ||
                   identifierPending ||
                   downloadPending
@@ -1477,6 +1478,7 @@ function PublisherAppEditSheet({
                   {(
                     [
                       "pending_revision",
+                      "active_for_testing",
                       "active",
                       "approved",
                       "changes_requested",
@@ -2732,7 +2734,7 @@ export function PublisherAppConfigWorkbench({
     if (
       identifierPending ||
       changed ||
-      status !== "active" ||
+      !isPublisherAppRuntimeEnabled(status) ||
       !persistedConfig?.appProviderIdentifier ||
       apiPath !== "/publisher-app/config"
     ) {
@@ -2921,7 +2923,7 @@ export function PublisherAppConfigWorkbench({
         title: "Cambios guardados",
         message: allowStatusEditing
           ? `La configuración quedó actualizada con estado ${publisherAppStatusLabel(saved.status)}.`
-          : "La configuración de tu app está actualizada y continúa pendiente de revisión.",
+          : `La configuración de tu app está actualizada. Estado: ${publisherAppStatusLabel(saved.status)}.`,
       });
       router.refresh();
     } catch (error) {
@@ -3009,13 +3011,13 @@ export function PublisherAppConfigWorkbench({
           onCreateIdentifier={
             apiPath === "/publisher-app/config" &&
             (status === "pending_revision" ||
-              (status === "active" && !identifierIsCurrent))
+              (isPublisherAppRuntimeEnabled(status) && !identifierIsCurrent))
               ? () => void createIdentifier()
               : undefined
           }
           onDeactivateIdentifier={
             apiPath === "/publisher-app/config" &&
-            status === "active" &&
+            isPublisherAppRuntimeEnabled(status) &&
             Boolean(persistedConfig?.appProviderIdentifier)
               ? () => void deactivateIdentifier()
               : undefined
