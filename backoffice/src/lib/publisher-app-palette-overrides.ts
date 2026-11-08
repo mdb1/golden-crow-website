@@ -194,6 +194,21 @@ function restoresGenesAccent(key: string) {
   return Object.hasOwn(RESTORED_GENES_ACCENTS, key);
 }
 
+// These roles color only the quick-action title and Open labels. The original
+// illustration artwork and every background role keep their existing behavior.
+const FIXED_QUICK_ACTION_TEXT_KEYS = [
+  "community.quickActions.friends.foreground",
+  "community.quickActions.genes.foreground",
+  "community.quickActions.circles.foreground",
+  "community.quickActions.search.foreground",
+] as const;
+const fixedQuickActionTextKeys = new Set<string>(FIXED_QUICK_ACTION_TEXT_KEYS);
+
+function isFixedQuickActionText(key: string) {
+  return fixedQuickActionTextKeys.has(key);
+}
+
+
 function originalValue(option: PublisherAppColorCatalogOption, mode: Appearance) {
   return normalizedCatalogColor(mode === "light" ? option.defaultLightColor : option.defaultDarkColor);
 }
@@ -645,7 +660,8 @@ export function reconcilePublisherAppPaletteContrast({
       (generatedColorOverrides[option.key]?.[mode] ?? originalValue(option, mode)),
   ).map(option => option.key))]));
   const relationships: ContrastPair[] = [...functionalContrastPairs(byKey), ...contrastPairs].filter(pair =>
-    !pair.backgroundKeys.some(restoresGenesAccent),
+    !pair.backgroundKeys.some(restoresGenesAccent) &&
+    !(pair.foregroundKey && isFixedQuickActionText(pair.foregroundKey)),
   );
   const affectedPairs = relationships.flatMap(pair =>
     MODES.filter(mode => {
@@ -673,6 +689,13 @@ export function reconcilePublisherAppPaletteContrast({
       result[key] = { ...result[key], [mode]: after };
       baseline[key] = { ...baseline[key], [mode]: after };
     }
+  }
+  // Fixed text wins even over an old manual dark/transparent text override.
+  // This final assignment never reruns background or gradient corrections.
+  for (const key of FIXED_QUICK_ACTION_TEXT_KEYS) {
+    if (!byKey.has(key)) continue;
+    result[key] = { light: "#FFFFFF", dark: "#FFFFFF" };
+    baseline[key] = { light: "#FFFFFF", dark: "#FFFFFF" };
   }
   const nonempty = (map: Record<string, PublisherAppColorOverride>) => Object.fromEntries(Object.entries(map).filter(([, modes]) => modes.light || modes.dark));
   return { colorOverrides: nonempty(result), generatedColorOverrides: nonempty(baseline) };
@@ -734,6 +757,7 @@ function createPaletteOverridePlan(
   protectBrightSurfaces: boolean,
   selective = true,
   restoreGenes = false,
+  fixQuickActionText = false,
 ): PublisherAppPaletteOverridePlan {
   if (options.length === 0) throw new Error("The color catalog is too small to build the palette plan.");
   const values = new Map<string, PublisherAppColorOverride>();
@@ -774,7 +798,12 @@ function createPaletteOverridePlan(
       values.set(key, Object.fromEntries(MODES.map(mode => [mode, `${color}${parseColor(originalValue(option, mode)).alpha}`])));
     }
   }
-  const colorOverrides = Object.fromEntries([...values.entries()].map(([key, value]) => [key, Object.fromEntries(MODES.filter(mode => value[mode] !== originalValue(byKey.get(key)!, mode)).map(mode => [mode, value[mode]]))] as const).filter(([, value]) => Object.keys(value).length > 0).sort(([a], [b]) => a.localeCompare(b)));
+  if (fixQuickActionText) {
+    for (const key of FIXED_QUICK_ACTION_TEXT_KEYS) {
+      if (byKey.has(key)) values.set(key, { light: "#FFFFFF", dark: "#FFFFFF" });
+    }
+  }
+  const colorOverrides = Object.fromEntries([...values.entries()].map(([key, value]) => [key, Object.fromEntries(MODES.filter(mode => (fixQuickActionText && isFixedQuickActionText(key)) || value[mode] !== originalValue(byKey.get(key)!, mode)).map(mode => [mode, value[mode]]))] as const).filter(([, value]) => Object.keys(value).length > 0).sort(([a], [b]) => a.localeCompare(b)));
   return { catalogVersion, sourceCount: options.length, selectedCount: Object.keys(colorOverrides).length, colorOverrides };
 }
 
@@ -785,7 +814,7 @@ export function createPublisherAppPaletteOverridePlan(
   alternativeTonalFlows: PublisherAppAlternativeTonalFlow[] = [],
   contrastPairs: PublisherAppColorContrastPair[] = [],
 ): PublisherAppPaletteOverridePlan {
-  return createPaletteOverridePlan(colors, options, catalogVersion, alternativeTonalFlows, contrastPairs, true, true, true);
+  return createPaletteOverridePlan(colors, options, catalogVersion, alternativeTonalFlows, contrastPairs, true, true, true, true);
 }
 
 /** Recognize old automatic values when there is no saved generated baseline. */
@@ -819,4 +848,15 @@ export function createPublisherAppPreGenesRestorePaletteOverridePlan(
   contrastPairs: PublisherAppColorContrastPair[] = [],
 ): PublisherAppPaletteOverridePlan {
   return createPaletteOverridePlan(colors, options, catalogVersion, alternativeTonalFlows, contrastPairs, true);
+}
+
+/** Frozen 3.633 generated values, including the original fixed Genes accents. */
+export function createPublisherAppPreQuickTextPaletteOverridePlan(
+  colors: PublisherAppColors,
+  options: PublisherAppColorCatalogOption[],
+  catalogVersion: number,
+  alternativeTonalFlows: PublisherAppAlternativeTonalFlow[] = [],
+  contrastPairs: PublisherAppColorContrastPair[] = [],
+): PublisherAppPaletteOverridePlan {
+  return createPaletteOverridePlan(colors, options, catalogVersion, alternativeTonalFlows, contrastPairs, true, true, true);
 }

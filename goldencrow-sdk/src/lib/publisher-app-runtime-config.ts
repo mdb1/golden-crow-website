@@ -7,6 +7,8 @@ import { derivePublisherAppSemanticColors } from "./publisher-app-advanced-confi
 import { isPublisherAppRuntimeEnabled } from "./publisher-app-status.js";
 
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
+const QUICK_ACTION_TEXT_ROLES = ["friends", "genes", "circles", "search"]
+  .map(action => `community.quickActions.${action}.foreground`);
 
 type RuntimeConfigSource = Omit<PublisherAppConfigRecord, "colors"> & {
   colors: Pick<PublisherAppConfigRecord["colors"], "primary" | "secondary" | "tertiary"> &
@@ -43,6 +45,12 @@ export function buildPublisherAppRuntimeConfig(
   const primary = config.colors.primary;
   const publisherName = config.publisherName;
   const advanced = config.advancedConfiguration;
+  // These roles are consumed by the title and Open labels only. Illustrations
+  // retain their original rendering and all other overrides stay unchanged.
+  const colorOverrides = { ...advanced.colorOverrides };
+  for (const role of QUICK_ACTION_TEXT_ROLES) {
+    colorOverrides[role] = { light: "#FFFFFF", dark: "#FFFFFF" };
+  }
   const learn: PublisherAppRuntimeConfig["learn"] =
     advanced.learn.mode === "base"
       ? { mode: "base" }
@@ -117,9 +125,7 @@ export function buildPublisherAppRuntimeConfig(
           ? { counterpointAnticlockwise: config.colors.counterpointAnticlockwise }
           : {}),
       },
-      ...(Object.keys(advanced.colorOverrides).length > 0
-        ? { colorOverrides: advanced.colorOverrides }
-        : {}),
+      colorOverrides,
     },
     features: {
       catalogEnabled: advanced.catalogEnabled,

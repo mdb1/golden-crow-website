@@ -25,6 +25,13 @@ const derivedSemanticColors = {
   accentSurfaceLight: "#FFFCF8",
 };
 
+const fixedQuickActionText = {
+  "community.quickActions.friends.foreground": { light: "#FFFFFF", dark: "#FFFFFF" },
+  "community.quickActions.genes.foreground": { light: "#FFFFFF", dark: "#FFFFFF" },
+  "community.quickActions.circles.foreground": { light: "#FFFFFF", dark: "#FFFFFF" },
+  "community.quickActions.search.foreground": { light: "#FFFFFF", dark: "#FFFFFF" },
+};
+
 describe.each([
   ["active", false], ["active", true],
   ["active_for_testing", false], ["active_for_testing", true],
@@ -60,6 +67,35 @@ describe.each([
       colorOverrides: { "brand.primary": { light: "#112233", dark: "#445566" } },
     },
   };
+
+  it.each(["absent", "partial", "dark or translucent"])("publishes opaque white quick-action text with %s stored overrides without changing other colors", (caseName) => {
+    const untouched = {
+      "community.quickActions.friends.start": { light: "#A08000", dark: "#23456780" },
+      "community.quickActions.genes.bezel": { light: "#004455", dark: "#004455" },
+      "community.genes.primary": { light: "#00A88A", dark: "#00A88A" },
+      "illustration.primaryTone": { light: "#123456", dark: "#654321" },
+    };
+    const stored = caseName === "absent" ? {} : caseName === "partial"
+      ? { "community.quickActions.friends.foreground": { light: "#000000" } }
+      : Object.fromEntries(Object.keys(fixedQuickActionText).map(key => [key, { light: "#00000040", dark: "#11223380" }]));
+    const sourceWithOverrides = {
+      ...source,
+      advancedConfiguration: { ...source.advancedConfiguration, colorOverrides: { ...untouched, ...stored } },
+    };
+    const before = structuredClone(sourceWithOverrides);
+    const runtime = buildPublisherAppRuntimeConfig(sourceWithOverrides);
+    expect(runtime.branding.colorOverrides).toEqual({ ...untouched, ...fixedQuickActionText });
+    expect(sourceWithOverrides).toEqual(before);
+    expect(runtime.branding.colors).toEqual(storedSemanticColors ? semanticColors : derivedSemanticColors);
+  });
+
+  it("includes the four fixed text overrides even when the stored override map is empty", () => {
+    const runtime = buildPublisherAppRuntimeConfig({
+      ...source,
+      advancedConfiguration: { ...source.advancedConfiguration, colorOverrides: {} },
+    });
+    expect(runtime.branding.colorOverrides).toEqual(fixedQuickActionText);
+  });
 
   it.each([
     {},

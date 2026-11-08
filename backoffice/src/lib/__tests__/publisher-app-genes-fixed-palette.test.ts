@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { getPublisherAppColorCatalog } from "@/lib/publisher-app-customization-catalog-server";
 import { publisherAppColorsWithCounterpoints } from "@/lib/publisher-app-config";
-import { createPublisherAppPaletteOverridePlan, reconcilePublisherAppPaletteContrast } from "@/lib/publisher-app-palette-overrides";
+import { createPublisherAppPaletteOverridePlan, createPublisherAppPreQuickTextPaletteOverridePlan, reconcilePublisherAppPaletteContrast } from "@/lib/publisher-app-palette-overrides";
 
 const catalog = getPublisherAppColorCatalog();
 const optionsByKey = new Map(catalog.options.map(option => [option.key, option]));
@@ -30,6 +30,7 @@ const historicalGenes = {
   "community.genes.visibilityAccent": { light: "#009280", dark: "#009280" },
 } as const;
 const restoredKeys = new Set(Object.keys(historicalGenes));
+const fixedQuickText = ["friends", "genes", "circles", "search"].map(action => `community.quickActions.${action}.foreground`);
 
 // Canonical non-restored projections from committed b91fa88c protect every
 // other role (including Genes text/foundations and quick actions) without
@@ -48,8 +49,16 @@ function effective(plan: Plan, key: string, mode: Appearance) {
   return plan.colorOverrides[key]?.[mode] ?? (mode === "light" ? option.defaultLightColor : option.defaultDarkColor);
 }
 
-function unaffectedHash(plan: Plan) {
-  const projection = Object.fromEntries(Object.entries(plan.colorOverrides)
+function unaffectedHash(plan: Plan, previous: Plan) {
+  // Restore only the newly fixed text entries to the prior committed producer
+  // before checking the unchanged b91 hash. Every background and Genes ink
+  // remains protected by the original fixture.
+  const overrides = { ...plan.colorOverrides };
+  for (const key of fixedQuickText) {
+    if (previous.colorOverrides[key]) overrides[key] = previous.colorOverrides[key];
+    else delete overrides[key];
+  }
+  const projection = Object.fromEntries(Object.entries(overrides)
     .filter(([key]) => !restoredKeys.has(key))
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, modes]) => [key, Object.fromEntries(Object.entries(modes).sort(([a], [b]) => a.localeCompare(b)))]));
@@ -65,6 +74,10 @@ function createPlan(palette = palettes[0]) {
 
 describe.each(palettes)("fixed Genes cyan/green flow with a $name app", palette => {
   const plan = createPlan(palette);
+  const previous = createPublisherAppPreQuickTextPaletteOverridePlan(
+    publisherAppColorsWithCounterpoints(palette), catalog.options, catalog.catalogVersion,
+    catalog.alternativeTonalFlows, catalog.contrastPairs,
+  );
 
   it("restores the historical saturated Genes colors independently of the app palette", () => {
     for (const [key, colors] of Object.entries(historicalGenes)) {
@@ -74,8 +87,8 @@ describe.each(palettes)("fixed Genes cyan/green flow with a $name app", palette 
     }
   });
 
-  it("leaves every other role and all quick-action colors unchanged", () => {
-    expect(unaffectedHash(plan)).toBe(palette.hash);
+  it("leaves every other role unchanged apart from the four fixed quick-action text colors", () => {
+    expect(unaffectedHash(plan, previous)).toBe(palette.hash);
   });
 
   it("retains the restored automatic colors through final reconciliation", () => {

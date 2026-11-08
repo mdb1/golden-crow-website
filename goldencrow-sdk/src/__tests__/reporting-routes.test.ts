@@ -403,6 +403,34 @@ describe("reporting Open API routes", () => {
       expect(repeated.headers.etag).toBe(updated.headers.etag);
     });
 
+    it("invalidates the old ETag when quick-action text is republished white and keeps unrelated colors exact", async () => {
+      const url = "/internal/openapi/apps/config?app-provider-identifier=app_org_medicgen_48217&platform=ios&runtime-version=3&base-content-version=pg-core-v1";
+      const headers = { authorization: `Bearer ${TOKEN}` };
+      const textRoles = ["friends", "genes", "circles", "search"].map(action => `community.quickActions.${action}.foreground`);
+      const unchanged = {
+        "community.quickActions.friends.start": { light: "#A08000", dark: "#23456780" },
+        "community.genes.primary": { light: "#00A88A", dark: "#00A88A" },
+        "illustration.primaryTone": { light: "#123456", dark: "#654321" },
+      };
+      const legacy = { ...runtimeConfig, revision: 7, branding: {
+        colorOverrides: { ...unchanged, ...Object.fromEntries(textRoles.map(key => [key, { light: "#111111", dark: "#22334480" }])) },
+      } };
+      mockGetActivePublisherAppRuntimeConfig.mockResolvedValue(legacy);
+      const previous = await fastify.inject({ method: "GET", url, headers });
+      const published = { ...legacy, revision: 8, branding: {
+        colorOverrides: { ...unchanged, ...Object.fromEntries(textRoles.map(key => [key, { light: "#FFFFFF", dark: "#FFFFFF" }])) },
+      } };
+      mockGetActivePublisherAppRuntimeConfig.mockResolvedValue(published);
+      const updated = await fastify.inject({ method: "GET", url, headers: { ...headers, "if-none-match": String(previous.headers.etag) } });
+      expect(updated.statusCode).toBe(200);
+      expect(updated.json()).toEqual(published);
+      expect(updated.headers.etag).not.toBe(previous.headers.etag);
+      for (const [key, value] of Object.entries(unchanged)) expect(updated.json().branding.colorOverrides[key]).toEqual(value);
+      const repeated = await fastify.inject({ method: "GET", url, headers: { ...headers, "if-none-match": String(updated.headers.etag) } });
+      expect(repeated.statusCode).toBe(304);
+      expect(repeated.headers.etag).toBe(updated.headers.etag);
+    });
+
     it("replaces the ETag when a superseded pastel counterpoint is restored under a newly published revision", async () => {
       const url = "/internal/openapi/apps/config?app-provider-identifier=app_org_medicgen_48217&platform=ios&runtime-version=3&base-content-version=pg-core-v1";
       const headers = { authorization: `Bearer ${TOKEN}` };

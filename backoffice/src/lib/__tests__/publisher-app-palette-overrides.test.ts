@@ -139,7 +139,7 @@ function ratio(foreground: number[], background: number[]) {
 }
 
 describe("publisher app automatic palette fidelity", () => {
-  it("uses the complete native catalog and emits only changed, known colors", () => {
+  it("emits known changed colors plus the four explicit fixed-white text overrides", () => {
     const plan = createPlan();
     expect(catalog.catalogVersion).toBe(8);
     expect(catalog.options).toHaveLength(698);
@@ -150,6 +150,10 @@ describe("publisher app automatic palette fidelity", () => {
     expect(plan.selectedCount).toBeLessThan(plan.sourceCount);
     for (const [key, override] of Object.entries(plan.colorOverrides)) {
       expect(optionByKey.has(key)).toBe(true);
+      if (/^community\.quickActions\.(friends|genes|circles|search)\.foreground$/.test(key)) {
+        expect(override).toEqual({ light: "#FFFFFF", dark: "#FFFFFF" });
+        continue;
+      }
       expect(appearances.some((appearance) =>
         override[appearance] !== undefined && override[appearance] !== original(key, appearance),
       )).toBe(true);
