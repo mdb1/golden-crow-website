@@ -49,7 +49,10 @@ describe("reporting OpenAPI contract", () => {
           required: ["colors"],
           properties: {
             colors: {
-              required: expect.arrayContaining(["counterpointClockwise", "counterpointAnticlockwise"]),
+              required: [
+                "primary", "primaryStrong", "primaryDeep", "primarySoft",
+                "secondary", "accent", "accentTextLight", "accentTextDark", "accentSurfaceLight",
+              ],
               properties: {
                 counterpointClockwise: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
                 counterpointAnticlockwise: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },

@@ -7,6 +7,11 @@ import { derivePublisherAppSemanticColors } from "./publisher-app-advanced-confi
 
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 
+type RuntimeConfigSource = Omit<PublisherAppConfigRecord, "colors"> & {
+  colors: Pick<PublisherAppConfigRecord["colors"], "primary" | "secondary" | "tertiary"> &
+    Partial<Pick<PublisherAppConfigRecord["colors"], "counterpointClockwise" | "counterpointAnticlockwise">>;
+};
+
 function httpsLogoUrl(value: string | null) {
   if (!value) return null;
   try {
@@ -18,7 +23,7 @@ function httpsLogoUrl(value: string | null) {
 }
 
 export function buildPublisherAppRuntimeConfig(
-  config: PublisherAppConfigRecord,
+  config: RuntimeConfigSource,
 ): PublisherAppRuntimeConfig {
   const identifier = config.appProviderIdentifier?.trim();
   if (!identifier || !IDENTIFIER_PATTERN.test(identifier)) {
@@ -104,8 +109,12 @@ export function buildPublisherAppRuntimeConfig(
             secondary: config.colors.secondary,
             tertiary: config.colors.tertiary,
           })),
-        counterpointClockwise: config.colors.counterpointClockwise,
-        counterpointAnticlockwise: config.colors.counterpointAnticlockwise,
+        ...(config.colors.counterpointClockwise
+          ? { counterpointClockwise: config.colors.counterpointClockwise }
+          : {}),
+        ...(config.colors.counterpointAnticlockwise
+          ? { counterpointAnticlockwise: config.colors.counterpointAnticlockwise }
+          : {}),
       },
       ...(Object.keys(advanced.colorOverrides).length > 0
         ? { colorOverrides: advanced.colorOverrides }
