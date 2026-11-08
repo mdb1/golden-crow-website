@@ -27,6 +27,7 @@ import { fetchPublisherAppCustomizationCatalog } from "@/lib/publisher-app-custo
 import { fetchPublisherAppPaletteOverrides } from "@/lib/publisher-app-palette-overrides-client";
 import { getPublisherAppColorCatalog } from "@/lib/publisher-app-customization-catalog-server";
 import { createPublisherAppPaletteOverridePlan } from "@/lib/publisher-app-palette-overrides";
+import { mergePublisherAppPaletteOverrides } from "@/lib/publisher-app-palette-override-merge";
 import { sdkFetch, SdkRequestError } from "@/lib/sdk-client";
 
 const mockRouterReplace = jest.fn();
@@ -178,6 +179,7 @@ function palettePlan(colors: PublisherAppColors) {
     catalog.options,
     catalog.catalogVersion,
     catalog.alternativeTonalFlows,
+    catalog.contrastPairs,
   );
 }
 
@@ -1599,9 +1601,10 @@ describe("PublisherAppConfigWorkbench", () => {
       const payload = JSON.parse(String(jest.mocked(sdkFetch).mock.calls.find(([, init]) => init?.method === "PUT")?.[1]?.body));
       const plan = palettePlan(payload.colors);
       expect(payload.advancedConfiguration.colorOverrides).toEqual(plan.colorOverrides);
+      expect(payload.advancedConfiguration.generatedColorOverrides).toEqual(plan.colorOverrides);
       expect(Object.keys(payload.advancedConfiguration.colorOverrides)).toHaveLength(plan.selectedCount);
-      expect(plan.selectedCount).toBeGreaterThan(400);
-      expect(plan.sourceCount).toBe(620);
+      expect(plan.selectedCount).toBeGreaterThan(0);
+      expect(plan.sourceCount).toBe(698);
       expect(payload.advancedConfiguration.semanticColors).toEqual(publisherAppSemanticColors(payload.colors));
       expect(payload.advancedConfiguration.discoverScope).toEqual({
         mode: "organization",
@@ -1772,7 +1775,7 @@ describe("PublisherAppConfigWorkbench", () => {
       counterpointAnticlockwise: "#223344", counterpointFarClockwise: "#334455", counterpointFarAnticlockwise: "#445566",
     };
     expect(fetchPublisherAppPaletteOverrides).toHaveBeenCalledTimes(1);
-    expect(fetchPublisherAppPaletteOverrides).toHaveBeenCalledWith(expect.objectContaining(expectedColors), expect.any(AbortSignal));
+    expect(fetchPublisherAppPaletteOverrides).toHaveBeenCalledWith(expect.objectContaining(expectedColors), expect.any(AbortSignal), expect.objectContaining({ previousColors: savedConfig.colors }));
     fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
     await waitFor(() => expect(sdkFetch).toHaveBeenCalled());
     const payload = JSON.parse(String(jest.mocked(sdkFetch).mock.calls[0][1]?.body));
@@ -1801,6 +1804,50 @@ describe("PublisherAppConfigWorkbench", () => {
     await screen.findByText(/colores sensibles a la marca quedaron coordinados/i);
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.getByRole("button", { name: "Guardar cambios" })).toBeEnabled();
+  });
+
+  it("passes saved provenance into recalculation and persists manual colors separately from the generated baseline", async () => {
+    const initialGenerated = palettePlan(savedConfig.colors).colorOverrides;
+    const manual = { light: "#ABCDEF80" };
+    const initial = {
+      ...savedConfig,
+      advancedConfiguration: {
+        ...savedConfig.advancedConfiguration!,
+        generatedColorOverrides: initialGenerated,
+        colorOverrides: { ...initialGenerated, "app.background": manual },
+      },
+    };
+    mockConfigRequests(initial);
+    jest.mocked(fetchPublisherAppPaletteOverrides).mockImplementation(async (colors, _signal, previous) => {
+      const generated = palettePlan(colors);
+      return {
+        ...generated,
+        generatedColorOverrides: generated.colorOverrides,
+        colorOverrides: mergePublisherAppPaletteOverrides({
+          generated: generated.colorOverrides,
+          current: previous!.colorOverrides,
+          savedBaseline: previous!.generatedColorOverrides,
+        }),
+      };
+    });
+    renderWorkbench({ mode: "edit", initialConfig: initial });
+    fireEvent.click(screen.getByRole("button", { name: "Editar paleta" }));
+    fireEvent.click(screen.getByRole("button", { name: /Acento cercano/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Paso 3 Contrapuntos" }));
+    expect(fetchPublisherAppPaletteOverrides).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar" }));
+    await screen.findByText(/colores sensibles a la marca quedaron coordinados/i);
+    expect(fetchPublisherAppPaletteOverrides).toHaveBeenCalledWith(
+      expect.any(Object), expect.any(AbortSignal),
+      { previousColors: savedConfig.colors, colorOverrides: initial.advancedConfiguration.colorOverrides, generatedColorOverrides: initialGenerated },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+    await waitFor(() => expect(sdkFetch).toHaveBeenCalled());
+    const payload = JSON.parse(String(jest.mocked(sdkFetch).mock.calls[0][1]?.body));
+    expect(payload.advancedConfiguration.colorOverrides["app.background"]).toEqual(manual);
+    expect(payload.advancedConfiguration.generatedColorOverrides).toEqual(palettePlan(payload.colors).colorOverrides);
+    expect(payload.advancedConfiguration.generatedColorOverrides["app.background"]).toBeUndefined();
+    expect(payload.advancedConfiguration.colorOverrides["learn.background.stop2"]).toEqual(payload.advancedConfiguration.generatedColorOverrides["learn.background.stop2"]);
   });
 
   it("stores only the branding-susceptible colors returned by palette analysis", async () => {
@@ -1840,6 +1887,7 @@ describe("PublisherAppConfigWorkbench", () => {
         counterpointFarAnticlockwise: expect.stringMatching(/^#[0-9A-F]{6}$/),
       }),
       expect.any(AbortSignal),
+      expect.objectContaining({ previousColors: savedConfig.colors, colorOverrides: savedConfig.advancedConfiguration!.colorOverrides }),
     );
     expect(
       await screen.findByText(

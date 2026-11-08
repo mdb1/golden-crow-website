@@ -570,6 +570,9 @@ export function normalizePublisherAppAdvancedConfiguration(
     value.colorOverrides ?? {},
     statusCode,
   );
+  const generatedColorOverrides = value.generatedColorOverrides === undefined
+    ? undefined
+    : normalizedColorOverrides(value.generatedColorOverrides, statusCode);
 
   if (
     typeof value.catalogEnabled !== "boolean" ||
@@ -650,6 +653,7 @@ export function normalizePublisherAppAdvancedConfiguration(
     ),
     semanticColors,
     colorOverrides,
+    ...(generatedColorOverrides === undefined ? {} : { generatedColorOverrides }),
     catalogEnabled: value.catalogEnabled,
     feedEnabled: value.feedEnabled,
     discoverScope,

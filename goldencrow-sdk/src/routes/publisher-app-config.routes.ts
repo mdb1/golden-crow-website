@@ -143,6 +143,7 @@ const PublisherAppAdvancedConfigurationSchema = z
     displayName: NonBlankTextSchema,
     semanticColors: SemanticColorsSchema.nullable(),
     colorOverrides: z.record(NonBlankTextSchema, ColorOverrideSchema),
+    generatedColorOverrides: z.record(NonBlankTextSchema, ColorOverrideSchema).optional(),
     catalogEnabled: z.boolean(),
     feedEnabled: z.boolean(),
     discoverScope: z.discriminatedUnion("mode", [

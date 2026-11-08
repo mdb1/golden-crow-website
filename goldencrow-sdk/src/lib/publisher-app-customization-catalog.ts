@@ -55,6 +55,10 @@ export function getPublisherAppTextCatalogOption(key: string) {
   };
 }
 
+export function getPublisherAppColorCatalogVersion() {
+  return getColorCatalog().catalogVersion;
+}
+
 export function getPublisherAppColorCatalogOption(key: string) {
   colorKeys ??= new Set(getColorCatalog().keys);
   return colorKeys.has(key) ? { key } : undefined;

@@ -340,7 +340,7 @@ describe("reporting Open API routes", () => {
       expect(response.headers.etag).toMatch(/^"[a-f0-9]{64}"$/);
       expect(response.headers["cache-control"]).toBe("public, max-age=300");
       expect(response.headers["x-pocket-genes-text-catalog-version"]).toBe("1");
-      expect(response.headers["x-pocket-genes-color-catalog-version"]).toBe("1");
+      expect(response.headers["x-pocket-genes-color-catalog-version"]).toBe("8");
       expect(mockVerifyReportingAccessToken).toHaveBeenCalledWith(
         TOKEN,
         "/open-api/apps/config",

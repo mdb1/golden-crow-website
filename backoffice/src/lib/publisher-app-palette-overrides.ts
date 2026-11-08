@@ -2,239 +2,15 @@ import type {
   PublisherAppAlternativeTonalFlowCenter,
   PublisherAppAlternativeTonalFlow,
   PublisherAppColorCatalogOption,
+  PublisherAppColorContrastPair,
   PublisherAppColorOverride,
   PublisherAppColors,
-  PublisherAppCounterpointColors,
   PublisherAppPaletteOverridePlan,
 } from "@/lib/publisher-app-config";
-import {
-  normalizePublisherAppColor,
-  PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTERS,
-} from "@/lib/publisher-app-config";
+import { normalizePublisherAppColor, PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTERS } from "@/lib/publisher-app-config";
 
-type RgbColor = {
-  red: number;
-  green: number;
-  blue: number;
-  alpha: string;
-};
-
-type OklchColor = {
-  lightness: number;
-  chroma: number;
-  hue: number;
-};
-
-type PaletteRolePolicy =
-  | "preserve"
-  | "primary"
-  | "vividPrimary"
-  | "vividPrimaryGradientEnd"
-  | "learnBackground"
-  | "learnTabPrimary"
-  | "centerTabWashedPrimary"
-  | "secondary"
-  | "tertiary"
-  | "counterpointClockwise"
-  | "counterpointAnticlockwise"
-  | "alternativeTonalFlow"
-  | "analogous";
-
-type AlternativeTonalFlowPalette = {
-  anchorKey: string;
-  centerHex: string;
-  centerHue: number;
-  fixedTargetChroma?: number;
-  sourceHue: number;
-};
-
-type ThemePalette = {
-  seedHex: [string, string, string];
-  vividPrimaryHex: string;
-  centerHue: number;
-  sourceBrandHue: number;
-  baseChroma: number;
-  counterpointClockwiseHex: string;
-  counterpointAnticlockwiseHex: string;
-  counterpointClockwiseHue: number;
-  counterpointAnticlockwiseHue: number;
-  alternativeTonalFlowByRoleKey: Map<string, AlternativeTonalFlowPalette>;
-};
-
-type PaletteCandidate = {
-  option: PublisherAppColorCatalogOption;
-  override: PublisherAppColorOverride;
-};
-
-type ColorAppearance = "light" | "dark";
-
-type LearnBackgroundTone = {
-  lightness: number;
-  chroma: number;
-};
-
-/*
- * Automatic palette treaty
- * -------------------------
- * 1. Neutrals and semantic statuses are contracts, not branding opportunities.
- *    Black, white, gray and quiet near-neutral colors remain exactly as supplied
- *    by the base catalog.
- * 2. Each light/dark appearance is evaluated independently, so a neutral mode
- *    stays untouched even when the other appearance of the same role is themed.
- * 3. Deep dark-mode backgrounds, canvases and surfaces are environmental
- *    foundations, not brand accents. Their original navy, charcoal or other
- *    night hue is preserved exactly so layered content keeps depth and contrast.
- *    Glows, orbs and highlights above them remain eligible for theming.
- * 4. Brand seeds map to the three colors selected by the operator.
- *    Learn level 1 is anchored to the primary seed; a muted or dark primary is
- *    lifted along the same hue into a vivid, readable level accent. Bacteria's
- *    gradient end stays within 15 degrees of that accent and creates depth by
- *    darkening it, never by borrowing an accessory or counterpoint hue.
- * 5. The selected central Discover tab stays tied to the primary brand hue,
- *    but uses an intentionally very light, low-chroma gradient. Its start is
- *    the slightly stronger washed tint used by the glow; its end is quieter
- *    and closer to white. It never borrows a counterpoint hue.
- * 6. Counterpoints are accessory hues, not new defaults. They are used only
- *    where a compact multi-accent layout genuinely benefits from extra
- *    identities, such as the four-tile Connect quick-access row and selected
- *    Learn atmospheric effects. General navigation, surfaces, text and
- *    semantic states never inherit them.
- * 7. Alternative tonal flows retain internal hue, lightness and alpha
- *    differences around their local center. Rare Circles, Community Composer
- *    and Saved Content use sparse counterpoint centers. Genes is the deliberate
- *    exception: its center and chroma remain fixed in a saturated aqua-green
- *    circuit family, independent of every app palette. Neutral foregrounds,
- *    semantic states and deep dark-mode foundations remain untouched in every
- *    flow.
- * 8. Every other chromatic role keeps its perceptual lightness and its original
- *    hue relationship. The source hue wheel is compressed into a broad
- *    analogous family instead of being collapsed onto three near-identical
- *    anchors.
- * 9. There is no target count or quota. Every branding-susceptible chromatic
- *    role is transformed; every unchanged or protected role is omitted.
- */
-
-const SEMANTIC_STATUS_PATTERN =
-  /\b(error|success|warning|failure|failed|rejected|cancelled|canceled|destructive|danger|requested|received|validating|accepted|queued|running|awaiting|delivered|status|unsupported|unavailable|disabled)\b/i;
-
-const DIRECT_ROLE_POLICY: Record<string, PaletteRolePolicy> = {
-  "brand.primary": "primary",
-  "learn.level.bacteria.accent": "vividPrimary",
-  "learn.level.bacteria.gradientEnd": "vividPrimaryGradientEnd",
-  "tabs.learn.start": "learnTabPrimary",
-  "tabs.learn.end": "learnTabPrimary",
-  "tabs.discover.start": "centerTabWashedPrimary",
-  "tabs.discover.end": "centerTabWashedPrimary",
-  "brand.secondary": "secondary",
-  "brand.accent": "tertiary",
-  "android.material.primary": "primary",
-  "android.material.secondary": "secondary",
-  "android.material.tertiary": "tertiary",
-};
-
-const ACCESSORY_COUNTERPOINT_POLICY: Array<{
-  pattern: RegExp;
-  policy: PaletteRolePolicy;
-}> = [
-  {
-    pattern: /^community\.quickActions\.circles\.(?:start|middle|end|bezel)$/,
-    policy: "counterpointClockwise",
-  },
-  {
-    pattern: /^community\.quickActions\.search\.(?:start|middle|end|bezel)$/,
-    policy: "counterpointAnticlockwise",
-  },
-];
-
-// Seven related hues give an orange identity red-orange, orange, amber,
-// yellow and lime-yellow expressions without drifting into pink or turning
-// every role into the exact same orange.
-const ANALOGOUS_HUE_OFFSETS = [-22, -12, 0, 14, 30, 48, 68] as const;
-const SOURCE_HUE_COMPRESSION = 0.44;
-const ACHROMATIC_CHROMA = 0.012;
-const QUIET_NEUTRAL_CHROMA = 0.04;
-const VIVID_PRIMARY_MIN_CHROMA = 0.19;
-const VIVID_PRIMARY_READY_CHROMA = 0.12;
-const VIVID_PRIMARY_MIN_LIGHTNESS = 0.72;
-const VIVID_PRIMARY_MAX_LIGHTNESS = 0.86;
-const VIVID_PRIMARY_READY_LIGHTNESS = 0.55;
-const BACTERIA_GRADIENT_HUE_OFFSET = 6;
-const BACTERIA_GRADIENT_LIGHTNESS_DELTA = 0.1;
-const BACTERIA_GRADIENT_MIN_LIGHTNESS = 0.45;
-const BACTERIA_GRADIENT_MAX_LIGHTNESS = 0.78;
-const BACTERIA_GRADIENT_MIN_CHROMA = 0.18;
-const CENTER_TAB_WASHED_PRIMARY_TONES: Record<
-  "tabs.discover.start" | "tabs.discover.end",
-  LearnBackgroundTone
-> = {
-  "tabs.discover.start": { lightness: 0.91, chroma: 0.075 },
-  "tabs.discover.end": { lightness: 0.95, chroma: 0.045 },
-};
-const DEEP_DARK_STRUCTURE_MAX_LIGHTNESS = 0.4;
-
-const DEEP_STRUCTURE_ROLE_PATTERN =
-  /\b(background|surface|canvas|backdrop|scrim|veil|fill)\b/i;
-const DEEP_ATMOSPHERIC_EFFECT_PATTERN =
-  /\b(accent|glow|orb|halo|highlight|ribbon|particle|star|sheen|border|outline|text|ink|icon)\b/i;
-const DEEP_BACKGROUND_GRADIENT_PATTERN =
-  /\bgradient\s*(top|middle|bottom|fade|stop\s*\d*)\b/i;
-const ALTERNATIVE_FLOW_HUE_COMPRESSION = 0.07;
-const ALTERNATIVE_FLOW_MAX_HUE_DISTANCE = 6;
-
-const ALTERNATIVE_TONAL_FLOW_ANCHOR_KEYS = {
-  rareCircles: "scientific.rhizoPinkBase",
-  communityComposer: "community.newPost.headerAccent",
-  communityGenes: "community.genes.primary",
-  savedContent: "savedContent.headerStart",
-} as const;
-
-const LEARN_BACKGROUND_SECONDARY_TONES: Record<
-  string,
-  Partial<Record<ColorAppearance, LearnBackgroundTone>>
-> = {
-  "app.learnBackground": {
-    light: { lightness: 0.955, chroma: 0.04 },
-  },
-  "learn.background.stop1": {
-    light: { lightness: 0.985, chroma: 0.012 },
-  },
-  "learn.background.stop2": {
-    light: { lightness: 0.96, chroma: 0.035 },
-  },
-  "learn.background.stop3": {
-    light: { lightness: 0.925, chroma: 0.06 },
-  },
-  "learn.background.stop4": {
-    light: { lightness: 0.975, chroma: 0.02 },
-  },
-  "learn.background.trailingGlow": {
-    light: { lightness: 0.84, chroma: 0.12 },
-    dark: { lightness: 0.78, chroma: 0.17 },
-  },
-  "learn.background.trailingGlowEdge": {
-    light: { lightness: 0.78, chroma: 0.14 },
-    dark: { lightness: 0.68, chroma: 0.15 },
-  },
-  "learn.background.trailingOrb": {
-    light: { lightness: 0.88, chroma: 0.1 },
-    dark: { lightness: 0.76, chroma: 0.16 },
-  },
-};
-
-const LEARN_BACKGROUND_CLOCKWISE_EFFECT_KEYS = new Set([
-  "learn.background.leadingGlow",
-  "learn.background.leadingGlowEdge",
-  "learn.background.leadingOrb",
-  "learn.background.sheenEnd",
-]);
-
-const LEARN_DARK_NIGHT_FOUNDATION_KEYS = new Set([
-  "app.learnBackground",
-  "learn.background.stop1",
-  "learn.background.stop2",
-  "learn.background.stop3",
-  "learn.background.stop4",
-]);
+type RgbColor = { red: number; green: number; blue: number; alpha: string };
+type OklchColor = { lightness: number; chroma: number; hue: number };
 
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(maximum, Math.max(minimum, value));
@@ -365,542 +141,335 @@ function oklchToHex(color: OklchColor, alpha: string) {
   return `#${channel(rgb.red)}${channel(rgb.green)}${channel(rgb.blue)}${alpha}`;
 }
 
-function optionSearchText(option: PublisherAppColorCatalogOption) {
-  return `${option.key} ${option.title} ${option.usageDescription} ${option.group}`
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .replace(/[._/-]+/g, " ");
-}
+// A family is transformed as one continuous coordinate system. Anchors move to
+// the selected color; their shades retain ordering, hue spacing and relative
+// chroma. There are no hue buckets or minimum saturation targets.
+type Appearance = "light" | "dark";
+type Family = { source: OklchColor; target: OklchColor };
+type ContrastPair = PublisherAppColorContrastPair & { preserveOriginal?: boolean };
+type OverrideLocks = Record<string, Partial<Record<Appearance, true>>>;
+const MODES: Appearance[] = ["light", "dark"];
+const QUIET_CHROMA = 0.04;
+const ACHROMATIC_CHROMA = 0.0001;
+const SEMANTIC_STATUS = /\b(error|success|warning|failure|failed|rejected|cancelled|canceled|destructive|danger|requested|received|validating|accepted|queued|running|awaiting|delivered|status|unsupported|unavailable)\b/i;
+const FLOW_ANCHORS: Record<string, string> = {
+  rareCircles: "community.rareCircles.accent",
+  communityComposer: "community.newPost.headerAccent",
+  communityGenes: "community.genes.primary",
+  savedContent: "savedContent.headerStart",
+};
 
-function optionIdentityText(option: PublisherAppColorCatalogOption) {
-  return `${option.key} ${option.title}`
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .replace(/[._/-]+/g, " ");
+function originalValue(option: PublisherAppColorCatalogOption, mode: Appearance) {
+  return normalizedCatalogColor(mode === "light" ? option.defaultLightColor : option.defaultDarkColor);
 }
-
-function optionColors(option: PublisherAppColorCatalogOption) {
-  return [option.defaultLightColor, option.defaultDarkColor].map((value) =>
-    rgbToOklch(parseColor(value)),
-  );
+function originalColor(option: PublisherAppColorCatalogOption, mode: Appearance) {
+  return rgbToOklch(parseColor(originalValue(option, mode)));
 }
-
-function shouldPreserveOption(option: PublisherAppColorCatalogOption) {
-  const text = optionSearchText(option);
-  if (
-    option.group === "General feedback" ||
-    option.group === "Service request status" ||
-    SEMANTIC_STATUS_PATTERN.test(text)
-  ) {
-    return true;
+function identity(option: PublisherAppColorCatalogOption) {
+  return `${option.key} ${option.title}`.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[._/-]+/g, " ");
+}
+function semantic(option: PublisherAppColorCatalogOption) {
+  return option.group === "General feedback" || option.group === "Service request status" || SEMANTIC_STATUS.test(identity(option));
+}
+function deepStructure(option: PublisherAppColorCatalogOption, source: OklchColor, mode: Appearance) {
+  if (mode !== "dark" || source.lightness > 0.4) return false;
+  const name = identity(option);
+  if (/\b(glow|orb|halo|highlight|particle|star|sheen|border|outline|text|ink|icon)\b/i.test(name)) return false;
+  return /\b(background|surface|canvas|backdrop|scrim|veil|fill)\b/i.test(name) ||
+    (option.group === "Screen surfaces and atmosphere" && /\bgradient\b/i.test(name)) ||
+    /^learn\.background\.stop\d+$/.test(option.key);
+}
+function transferLightness(value: number, sourceAnchor: number, targetAnchor: number) {
+  // A monotone map through black, the anchor and white preserves a shade ramp
+  // even when the selected anchor is much lighter or darker than the original.
+  if (value >= sourceAnchor) {
+    return targetAnchor + (value - sourceAnchor) * (1 - targetAnchor) / Math.max(1e-6, 1 - sourceAnchor);
   }
-
-  const colors = optionColors(option);
-  return colors.every((color) => color.chroma <= QUIET_NEUTRAL_CHROMA);
+  return value * targetAnchor / Math.max(1e-6, sourceAnchor);
+}
+function transform(original: OklchColor, alpha: string, family: Family, environmental: boolean) {
+  const chromaScale = family.source.chroma > ACHROMATIC_CHROMA ? family.target.chroma / family.source.chroma : 1;
+  return oklchToHex({
+    // Canvases and translucent lighting must retain their original brightness;
+    // a dark brand must not turn a daylight wash into a mid-tone background.
+    lightness: environmental ? original.lightness : clamp(transferLightness(original.lightness, family.source.lightness, family.target.lightness), 0, 1),
+    chroma: original.chroma * chromaScale,
+    hue: normalizeHue(original.hue + signedHueDifference(family.target.hue, family.source.hue)),
+  }, alpha);
+}
+function normalizedSeed(value: string) {
+  const normalized = normalizePublisherAppColor(value);
+  if (!normalized) throw new Error(`Invalid palette color: ${value}`);
+  return normalized;
 }
 
-function isDeepDarkStructure(
-  option: PublisherAppColorCatalogOption,
-  color: OklchColor,
-  appearance: ColorAppearance,
-) {
-  if (
-    appearance !== "dark" ||
-    color.lightness > DEEP_DARK_STRUCTURE_MAX_LIGHTNESS
-  ) {
-    return false;
-  }
-
-  const identity = optionIdentityText(option);
-  if (DEEP_ATMOSPHERIC_EFFECT_PATTERN.test(identity)) return false;
-  if (DEEP_STRUCTURE_ROLE_PATTERN.test(identity)) return true;
-
-  return (
-    option.group === "Screen surfaces and atmosphere" &&
-    DEEP_BACKGROUND_GRADIENT_PATTERN.test(identity) &&
-    /\b(background|canvas|backdrop|atmosphere)\b/i.test(option.usageDescription)
-  );
-}
-
-function alternativeTonalFlowCenter(
-  id: string,
-  counterpoints: PublisherAppCounterpointColors,
-) {
-  const definition = (
-    PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTERS as Record<
-      string,
-      PublisherAppAlternativeTonalFlowCenter
-    >
-  )[id];
-  if (!definition) return undefined;
-  const centerHex = normalizePublisherAppColor(
-    definition.kind === "fixed"
-      ? definition.color
-      : counterpoints[definition.key],
-  );
-  if (!centerHex) {
-    throw new Error(`Alternative tonal flow ${id} has an invalid center.`);
-  }
+function analogousFamilyForHue(sourceHue: number, primary: Family): Family {
+  // A smooth periodic projection keeps general UI tones near the brand, with
+  // no antipodal seam. Registered gradients rotate together around ONE center
+  // so their original internal hue distances are retained exactly.
+  const difference = signedHueDifference(sourceHue, primary.source.hue);
+  const offset = 45 * Math.sin(difference * Math.PI / 180);
   return {
-    centerHex,
-    fixed: definition.kind === "fixed",
+    ...primary,
+    target: { ...primary.target, hue: normalizeHue(primary.target.hue + offset - difference) },
   };
 }
 
-function buildAlternativeTonalFlowRoleMap(
-  flows: PublisherAppAlternativeTonalFlow[],
-  options: PublisherAppColorCatalogOption[],
-  counterpoints: PublisherAppCounterpointColors,
-) {
-  const optionByKey = new Map(options.map((option) => [option.key, option]));
-  const roleMap = new Map<string, AlternativeTonalFlowPalette>();
-
-  for (const flow of flows) {
-    const center = alternativeTonalFlowCenter(flow.id, counterpoints);
-    const anchorKey =
-      ALTERNATIVE_TONAL_FLOW_ANCHOR_KEYS[
-        flow.id as keyof typeof ALTERNATIVE_TONAL_FLOW_ANCHOR_KEYS
-      ];
-    if (!center || !anchorKey) continue;
-    const anchor = optionByKey.get(anchorKey);
-    if (!anchor || !flow.roleKeys.includes(anchorKey)) {
-      throw new Error(
-        `Alternative tonal flow ${flow.id} is missing its anchor ${anchorKey}.`,
-      );
-    }
-    const sourceAnchor = rgbToOklch(parseColor(anchor.defaultLightColor));
-    if (sourceAnchor.chroma <= ACHROMATIC_CHROMA) {
-      throw new Error(
-        `Alternative tonal flow ${flow.id} needs a chromatic anchor.`,
-      );
-    }
-    const centerColor = rgbToOklch(parseColor(center.centerHex));
-    const flowPalette: AlternativeTonalFlowPalette = {
-      anchorKey,
-      centerHex: center.centerHex,
-      centerHue: centerColor.hue,
-      fixedTargetChroma: center.fixed ? centerColor.chroma : undefined,
-      sourceHue: sourceAnchor.hue,
+function buildFamilies(colors: PublisherAppColors, options: PublisherAppColorCatalogOption[], flows: PublisherAppAlternativeTonalFlow[], mode: Appearance) {
+  const byKey = new Map(options.map(option => [option.key, option]));
+  const sourceFor = (key: string, fallback = "#F61C72") => {
+    const option = byKey.get(key);
+    return option ? originalColor(option, mode) : rgbToOklch(parseColor(fallback));
+  };
+  const family = (sourceKey: string, target: string, fallback?: string): Family => {
+    const source = sourceFor(sourceKey, fallback);
+    const tone = rgbToOklch(parseColor(normalizedSeed(target)));
+    return {
+      source,
+      // Reserve space for shades on BOTH sides, even for a black/white brand.
+      // The six explicit base roles below still receive the exact chosen RGB.
+      // A fully neutral identity removes hue, not the original tonal structure.
+      target: { ...tone, lightness: tone.chroma <= ACHROMATIC_CHROMA ? source.lightness : clamp(tone.lightness, 0.25, 0.9) },
     };
-
-    for (const roleKey of flow.roleKeys) {
-      if (!optionByKey.has(roleKey)) {
-        throw new Error(
-          `Alternative tonal flow ${flow.id} references unknown role ${roleKey}.`,
-        );
-      }
-      if (roleMap.has(roleKey)) {
-        throw new Error(
-          `Alternative tonal flow role ${roleKey} belongs to multiple flows.`,
-        );
-      }
-      roleMap.set(roleKey, flowPalette);
+  };
+  const primary = family("brand.primary", colors.primary);
+  const secondary = family("brand.secondary", colors.secondary);
+  const tertiary = family("brand.accent", colors.tertiary);
+  const learn = family("learn.level.bacteria.accent", colors.secondary, "#00A88A");
+  const firstLevel = family("learn.level.bacteria.accent", colors.primary, "#00A88A");
+  const interfaceFamily: Family = {
+    source: { ...primary.source, hue: sourceFor("app.accent", "#007AFF").hue },
+    target: primary.target,
+  };
+  const roleFamilies = new Map<string, Family>();
+  for (const flow of flows) {
+    const definition = (PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTERS as Record<string, PublisherAppAlternativeTonalFlowCenter>)[flow.id];
+    if (!definition) continue;
+    // Older/synthetic catalogs may not contain the new Rare Circles anchor.
+    const anchorKey = byKey.has(FLOW_ANCHORS[flow.id]) ? FLOW_ANCHORS[flow.id] : flow.roleKeys.find(key => byKey.has(key));
+    if (!anchorKey) throw new Error(`Alternative tonal flow ${flow.id} has no color anchor.`);
+    const target = definition.kind === "fixed" ? definition.color : colors[definition.key];
+    const flowFamily = family(anchorKey, target);
+    for (const key of flow.roleKeys) {
+      if (!byKey.has(key)) throw new Error(`Alternative tonal flow ${flow.id} references unknown role ${key}.`);
+      if (roleFamilies.has(key)) throw new Error(`Alternative tonal flow role ${key} belongs to multiple flows.`);
+      roleFamilies.set(key, flowFamily);
     }
   }
-
-  return roleMap;
+  for (const [name, target] of [["circles", colors.counterpointClockwise], ["search", colors.counterpointAnticlockwise]] as const) {
+    const anchor = `community.quickActions.${name}.middle`;
+    if (!byKey.has(anchor)) continue;
+    const local = family(anchor, target);
+    for (const option of options) if (option.key.startsWith(`community.quickActions.${name}.`)) roleFamilies.set(option.key, local);
+  }
+  const gradientMembers = new Set<string>();
+  const gradientFamilies = new Map<string, Family>();
+  const groups = new Map<string, PublisherAppColorCatalogOption[]>();
+  for (const option of options) {
+    // Registered naming families: an accent + gradientEnd, or start/middle/end
+    // (+ bezel/shadow). A weakly chromatic shade remains in its local family.
+    const match = /^(.*?)(?:\.accent|\.gradientEnd|\.(?:start|middle|end|bezel)|(?:Gradient)?(?:Start|Middle|End)|\.(?:gradientTop|gradientMiddle|gradientBottom|gradientFade)|\.(?:standard|organizations)\d+)$/.exec(option.key);
+    if (!match) continue;
+    const group = groups.get(match[1]) ?? [];
+    group.push(option); groups.set(match[1], group);
+  }
+  for (const group of groups.values()) {
+    const chromatic = group.filter(option => originalColor(option, mode).chroma > ACHROMATIC_CHROMA);
+    if (group.length > 1 && chromatic.length > 0) {
+      const rank = (key: string) => /\.accent$/.test(key) ? 0 : /(?:\.start|Start)$/.test(key) ? 1 : 2;
+      const anchor = chromatic.sort((a, b) => rank(a.key) - rank(b.key) || a.key.localeCompare(b.key))[0];
+      const local = analogousFamilyForHue(originalColor(anchor, mode).hue, primary);
+      for (const option of group) {
+        gradientMembers.add(option.key);
+        gradientFamilies.set(option.key, local);
+      }
+    }
+  }
+  return { primary, secondary, tertiary, learn, firstLevel, interfaceFamily, roleFamilies, gradientMembers, gradientFamilies };
 }
 
-function rolePolicy(
-  option: PublisherAppColorCatalogOption,
-  palette: ThemePalette,
-): PaletteRolePolicy {
-  const directPolicy = DIRECT_ROLE_POLICY[option.key];
-  if (directPolicy) return directPolicy;
-  if (
-    option.key === "app.learnBackground" ||
-    option.group === "Learn background"
-  ) {
-    return "learnBackground";
-  }
-  if (shouldPreserveOption(option)) return "preserve";
-  if (palette.alternativeTonalFlowByRoleKey.has(option.key)) {
-    return "alternativeTonalFlow";
-  }
-  const accessoryPolicy = ACCESSORY_COUNTERPOINT_POLICY.find(({ pattern }) =>
-    pattern.test(option.key),
-  );
-  if (accessoryPolicy) return accessoryPolicy.policy;
-  return "analogous";
+function rgba(hex: string) {
+  const value = parseColor(hex);
+  return { ...value, opacity: value.alpha ? Number.parseInt(value.alpha, 16) / 255 : 1 };
+}
+function composite(foreground: string, background: string) {
+  const fg = rgba(foreground), bg = rgba(background);
+  return rgbToHex({ red: fg.red * fg.opacity + bg.red * (1 - fg.opacity), green: fg.green * fg.opacity + bg.green * (1 - fg.opacity), blue: fg.blue * fg.opacity + bg.blue * (1 - fg.opacity) });
+}
+function rgbToHex(rgb: Omit<RgbColor, "alpha">) {
+  const channel = (value: number) => Math.round(clamp(value, 0, 1) * 255).toString(16).padStart(2, "0").toUpperCase();
+  return `#${channel(rgb.red)}${channel(rgb.green)}${channel(rgb.blue)}`;
+}
+function mixRgb(left: string, right: string, weight: number) {
+  const a = parseColor(left), b = parseColor(right);
+  return rgbToHex({ red: a.red + (b.red - a.red) * weight, green: a.green + (b.green - a.green) * weight, blue: a.blue + (b.blue - a.blue) * weight });
+}
+function luminance(hex: string) {
+  const rgb = parseColor(hex);
+  return 0.2126 * srgbToLinear(rgb.red) + 0.7152 * srgbToLinear(rgb.green) + 0.0722 * srgbToLinear(rgb.blue);
+}
+function contrast(a: string, b: string) {
+  const left = luminance(a), right = luminance(b);
+  return (Math.max(left, right) + 0.05) / (Math.min(left, right) + 0.05);
 }
 
-function normalizedPalette(colors: PublisherAppColors) {
-  return ([colors.primary, colors.secondary, colors.tertiary] as const).map(
-    (value) => {
-      const normalized = normalizePublisherAppColor(value);
-      if (!normalized) throw new Error(`Invalid palette color: ${value}`);
-      return normalized;
-    },
-  ) as [string, string, string];
-}
-
-function vividPrimaryColor(
-  primaryHex: string,
-  primary: OklchColor,
-  chromaticFallback: OklchColor,
-) {
-  if (
-    primary.chroma >= VIVID_PRIMARY_READY_CHROMA &&
-    primary.lightness >= VIVID_PRIMARY_READY_LIGHTNESS
-  ) {
-    return primaryHex;
+function applyContrastPairs(values: Map<string, PublisherAppColorOverride>, byKey: Map<string, PublisherAppColorCatalogOption>, pairs: ContrastPair[], locked: OverrideLocks = {}) {
+  let valueRevision = 0;
+  const foundations = new Set<string>();
+  for (const option of byKey.values()) for (const mode of MODES) {
+    if (["app.background", "app.surface", "app.groupedBackground", "app.profileBackground"].includes(option.key) || deepStructure(option, originalColor(option, mode), mode)) foundations.add(`${option.key}:${mode}`);
   }
-
-  const hueSource =
-    primary.chroma > ACHROMATIC_CHROMA ? primary : chromaticFallback;
-  return oklchToHex(
-    {
-      lightness: clamp(
-        primary.lightness,
-        VIVID_PRIMARY_MIN_LIGHTNESS,
-        VIVID_PRIMARY_MAX_LIGHTNESS,
-      ),
-      chroma: clamp(
-        Math.max(primary.chroma * 1.2, VIVID_PRIMARY_MIN_CHROMA),
-        VIVID_PRIMARY_MIN_CHROMA,
-        0.3,
-      ),
-      hue: hueSource.hue,
-    },
-    "",
-  );
-}
-
-function vividPrimaryGradientEndColor(palette: ThemePalette, alpha: string) {
-  const accent = rgbToOklch(parseColor(palette.vividPrimaryHex));
-  return oklchToHex(
-    {
-      lightness: clamp(
-        accent.lightness - BACTERIA_GRADIENT_LIGHTNESS_DELTA,
-        BACTERIA_GRADIENT_MIN_LIGHTNESS,
-        BACTERIA_GRADIENT_MAX_LIGHTNESS,
-      ),
-      chroma: clamp(
-        Math.max(accent.chroma * 0.94, BACTERIA_GRADIENT_MIN_CHROMA),
-        BACTERIA_GRADIENT_MIN_CHROMA,
-        0.3,
-      ),
-      hue: normalizeHue(accent.hue + BACTERIA_GRADIENT_HUE_OFFSET),
-    },
-    alpha,
-  );
-}
-
-function washedPrimaryCenterTabColor(
-  palette: ThemePalette,
-  option: PublisherAppColorCatalogOption,
-  alpha: string,
-) {
-  const tone =
-    CENTER_TAB_WASHED_PRIMARY_TONES[
-      option.key as keyof typeof CENTER_TAB_WASHED_PRIMARY_TONES
-    ];
-  if (!tone) {
-    throw new Error(`Missing washed central-tab tone for ${option.key}.`);
-  }
-  return oklchToHex(
-    {
-      lightness: tone.lightness,
-      chroma: tone.chroma,
-      hue: palette.centerHue,
-    },
-    alpha,
-  );
-}
-
-function learnBackgroundColor(
-  originalValue: string,
-  palette: ThemePalette,
-  option: PublisherAppColorCatalogOption,
-  appearance: ColorAppearance,
-) {
-  const normalizedOriginal = normalizedCatalogColor(originalValue);
-  const alpha = parseColor(normalizedOriginal).alpha;
-  if (
-    appearance === "dark" &&
-    LEARN_DARK_NIGHT_FOUNDATION_KEYS.has(option.key)
-  ) {
-    return normalizedOriginal;
-  }
-  if (LEARN_BACKGROUND_CLOCKWISE_EFFECT_KEYS.has(option.key)) {
-    return `${palette.counterpointClockwiseHex}${alpha}`;
-  }
-
-  const tone = LEARN_BACKGROUND_SECONDARY_TONES[option.key]?.[appearance];
-  if (!tone) return normalizedOriginal;
-  const secondary = rgbToOklch(parseColor(palette.seedHex[1]));
-  return oklchToHex(
-    {
-      lightness: tone.lightness,
-      chroma: tone.chroma,
-      hue:
-        secondary.chroma > ACHROMATIC_CHROMA
-          ? secondary.hue
-          : palette.centerHue,
-    },
-    alpha,
-  );
-}
-
-function buildThemePalette(
-  colors: PublisherAppColors,
-  options: PublisherAppColorCatalogOption[],
-  alternativeTonalFlows: PublisherAppAlternativeTonalFlow[],
-): ThemePalette {
-  const seedHex = normalizedPalette(colors);
-  const counterpointClockwise = normalizePublisherAppColor(
-    colors.counterpointClockwise,
-  );
-  const counterpointAnticlockwise = normalizePublisherAppColor(
-    colors.counterpointAnticlockwise,
-  );
-  const counterpointFarClockwise = normalizePublisherAppColor(
-    colors.counterpointFarClockwise,
-  );
-  const counterpointFarAnticlockwise = normalizePublisherAppColor(
-    colors.counterpointFarAnticlockwise,
-  );
-  if (
-    !counterpointClockwise ||
-    !counterpointAnticlockwise ||
-    !counterpointFarClockwise ||
-    !counterpointFarAnticlockwise
-  ) {
-    throw new Error("The selected palette has invalid counterpoint colors.");
-  }
-  const counterpoints: PublisherAppCounterpointColors = {
-    counterpointClockwise,
-    counterpointAnticlockwise,
-    counterpointFarClockwise,
-    counterpointFarAnticlockwise,
+  const isLocked = (key: string, mode: Appearance) => locked[key]?.[mode] || foundations.has(`${key}:${mode}`);
+  const effective = (key: string, mode: Appearance) => values.get(key)?.[mode] ?? (byKey.has(key) ? originalValue(byKey.get(key)!, mode) : mode === "light" ? "#FFFFFF" : "#12141A");
+  const set = (key: string, mode: Appearance, value: string) => {
+    values.set(key, { ...values.get(key), [mode]: value });
+    valueRevision += 1;
   };
-  const seeds = seedHex.map((value) => rgbToOklch(parseColor(value))) as [
-    OklchColor,
-    OklchColor,
-    OklchColor,
+  const inspect = (pair: ContrastPair, mode: Appearance) => {
+    if (!byKey.has(pair.foregroundKey) || pair.backgroundKeys.some(key => !byKey.has(key))) throw new Error(`Invalid contrast relationship: ${pair.foregroundKey}`);
+    const prefix = pair.foregroundKey.slice(0, pair.foregroundKey.lastIndexOf("."));
+    const canvasKey = byKey.has(`${prefix}.backgroundBase`) ? `${prefix}.backgroundBase` : "app.background";
+    const canvas = composite(effective(canvasKey, mode), mode === "light" ? "#FFFFFF" : "#12141A");
+    const originalCanvas = composite(byKey.has(canvasKey) ? originalValue(byKey.get(canvasKey)!, mode) : mode === "light" ? "#FFFFFF" : "#12141A", mode === "light" ? "#FFFFFF" : "#12141A");
+    const minimumRatio = pair.preserveOriginal ? Math.min(pair.minimumRatio, ...pair.backgroundKeys.map(key => {
+      const bg = key === canvasKey ? originalCanvas : composite(originalValue(byKey.get(key)!, mode), originalCanvas);
+      return contrast(composite(originalValue(byKey.get(pair.foregroundKey)!, mode), bg), bg);
+    })) : pair.minimumRatio;
+    let sampledRevision = -1;
+    let cachedSamples: Array<{ hex: string; luminance: number }> = [];
+    const backgrounds = () => {
+      if (sampledRevision === valueRevision) return cachedSamples;
+      // The canvas is already composited over the window. Drawing it over
+      // itself again would double a manual background's opacity.
+      const stops = pair.backgroundKeys.map(key => key === canvasKey ? canvas : composite(effective(key, mode), canvas));
+      // Check intermediate gradient pixels too; endpoint checks alone can miss
+      // the darkest interpolated color of a multi-hue gradient.
+      const samples = [...stops];
+      for (let i = 1; i < stops.length; i += 1) for (let step = 1; step < 16; step += 1) samples.push(mixRgb(stops[i - 1], stops[i], step / 16));
+      cachedSamples = samples.map(hex => ({ hex, luminance: luminance(hex) }));
+      sampledRevision = valueRevision;
+      return cachedSamples;
+    };
+    const minimum = (foreground: string) => {
+      const samples = backgrounds();
+      const foregroundLuminance = rgba(foreground).opacity === 1 ? luminance(foreground) : undefined;
+      return Math.min(...samples.map(bg => {
+        const ink = foregroundLuminance ?? luminance(composite(foreground, bg.hex));
+        return (Math.max(ink, bg.luminance) + 0.05) / (Math.min(ink, bg.luminance) + 0.05);
+      }));
+    };
+    return { minimumRatio, minimum };
+  };
+  for (const mode of MODES) for (let pass = 0; pass < 4; pass += 1) {
+    let changed = false;
+    for (const pair of pairs) {
+      const { minimumRatio, minimum } = inspect(pair, mode);
+      const current = effective(pair.foregroundKey, mode);
+      const foregroundAlpha = parseColor(current).alpha;
+      const mixForeground = (ink: string, weight: number) => `${mixRgb(current, ink, weight)}${foregroundAlpha}`;
+      if (minimum(current) >= minimumRatio) continue;
+      const candidates = isLocked(pair.foregroundKey, mode) ? [] : ["#000000", "#FFFFFF"].filter(ink => minimum(`${ink}${foregroundAlpha}`) >= minimumRatio + 0.03);
+      if (candidates.length > 0) {
+        let best = candidates[0], smallest = 2;
+        for (const ink of candidates) {
+          let low = 0, high = 1;
+          for (let i = 0; i < 24; i += 1) {
+            const middle = (low + high) / 2;
+            if (minimum(mixForeground(ink, middle)) >= minimumRatio + 0.03) high = middle; else low = middle;
+          }
+          if (high < smallest) { smallest = high; best = mixForeground(ink, high); }
+        }
+        set(pair.foregroundKey, mode, best); changed = true; continue;
+      }
+      // A single foreground cannot contrast with a gradient spanning both very
+      // dark and very light stops. Move the ENTIRE ramp toward the same pole,
+      // preserving order and relative shading instead of clipping each stop.
+      const foregroundLocked = isLocked(pair.foregroundKey, mode);
+      const preferWhite = luminance(current) > 0.5;
+      const preferredInk = foregroundLocked ? current : `${preferWhite ? "#FFFFFF" : "#000000"}${foregroundAlpha}`;
+      const pole = foregroundLocked
+        ? contrast(composite(current, "#000000"), "#000000") > contrast(composite(current, "#FFFFFF"), "#FFFFFF") ? 0 : 1
+        : preferWhite ? 0 : 1;
+      const originals = pair.backgroundKeys.map(key => effective(key, mode));
+      const paint = (amount: number) => originals.forEach((value, index) => {
+        if (isLocked(pair.backgroundKeys[index], mode)) return;
+        const rgb = parseColor(value), tone = rgbToOklch(rgb);
+        set(pair.backgroundKeys[index], mode, oklchToHex({ ...tone, lightness: tone.lightness + (pole - tone.lightness) * amount, chroma: tone.chroma * (1 - amount) }, rgb.alpha));
+      });
+      let low = 0, high = 1;
+      paint(1);
+      if (minimum(preferredInk) < minimumRatio + 0.03) throw new Error(`Could not preserve contrast for ${pair.foregroundKey}.`);
+      for (let i = 0; i < 24; i += 1) { const mid = (low + high) / 2; paint(mid); if (minimum(preferredInk) >= minimumRatio + 0.03) high = mid; else low = mid; }
+      paint(high); set(pair.foregroundKey, mode, preferredInk); changed = true;
+    }
+    if (!changed) break;
+  }
+  // Shared roles can make constraints interact. Never return a partially
+  // converged composition merely because the bounded correction loop ended.
+  for (const mode of MODES) for (const pair of pairs) {
+    const { minimumRatio, minimum } = inspect(pair, mode);
+    if (minimum(effective(pair.foregroundKey, mode)) + 1e-6 < minimumRatio) {
+      throw new Error(`Could not preserve contrast for ${pair.foregroundKey}.`);
+    }
+  }
+}
+
+/** Recheck the final composition after manual edits, without changing any of
+ * those edits. Automatic corrections become part of the next saved baseline. */
+export function reconcilePublisherAppPaletteContrast({
+  colorOverrides,
+  generatedColorOverrides,
+  lockedOverrides,
+  options,
+  contrastPairs = [],
+}: {
+  colorOverrides: Record<string, PublisherAppColorOverride>;
+  generatedColorOverrides: Record<string, PublisherAppColorOverride>;
+  lockedOverrides: OverrideLocks;
+  options: PublisherAppColorCatalogOption[];
+  contrastPairs?: PublisherAppColorContrastPair[];
+}) {
+  const byKey = new Map(options.map(option => [option.key, option]));
+  const values = new Map(options.map(option => [option.key, { ...colorOverrides[option.key] }]));
+  applyContrastPairs(values, byKey, [...functionalContrastPairs(byKey), ...contrastPairs], lockedOverrides);
+  const result = Object.fromEntries(Object.entries(colorOverrides).map(([key, value]) => [key, { ...value }]));
+  const baseline = Object.fromEntries(Object.entries(generatedColorOverrides).map(([key, value]) => [key, { ...value }]));
+  for (const [key, modes] of values) for (const mode of MODES) {
+    const before = colorOverrides[key]?.[mode] ?? originalValue(byKey.get(key)!, mode);
+    const after = modes[mode] ?? originalValue(byKey.get(key)!, mode);
+    if (lockedOverrides[key]?.[mode] || before === after) continue;
+    if (after === originalValue(byKey.get(key)!, mode)) {
+      if (result[key]) delete result[key][mode];
+      if (baseline[key]) delete baseline[key][mode];
+    } else {
+      result[key] = { ...result[key], [mode]: after };
+      baseline[key] = { ...baseline[key], [mode]: after };
+    }
+  }
+  const nonempty = (map: Record<string, PublisherAppColorOverride>) => Object.fromEntries(Object.entries(map).filter(([, modes]) => modes.light || modes.dark));
+  return { colorOverrides: nonempty(result), generatedColorOverrides: nonempty(baseline) };
+}
+
+function functionalContrastPairs(byKey: Map<string, PublisherAppColorCatalogOption>): ContrastPair[] {
+  const pairs: ContrastPair[] = [
+    { foregroundKey: "app.accent", backgroundKeys: ["app.background", "app.surface"], minimumRatio: 4.5, preserveOriginal: true },
+    { foregroundKey: "app.profileAccent", backgroundKeys: ["app.profileBackground"], minimumRatio: 4.5, preserveOriginal: true },
+    { foregroundKey: "app.profileIcon", backgroundKeys: ["app.profileBackground"], minimumRatio: 4.5, preserveOriginal: true },
+    { foregroundKey: "app.funHeaderChevron", backgroundKeys: ["app.background"], minimumRatio: 4.5, preserveOriginal: true },
+    { foregroundKey: "brand.serviceButtonInk", backgroundKeys: ["serviceInfo.canvas"], minimumRatio: 4.5, preserveOriginal: true },
+    { foregroundKey: "serviceInfo.tealInk", backgroundKeys: ["serviceInfo.mintSurface"], minimumRatio: 4.5, preserveOriginal: true },
+    { foregroundKey: "serviceInfo.violetInk", backgroundKeys: ["serviceInfo.lavenderSurface"], minimumRatio: 4.5, preserveOriginal: true },
+    { foregroundKey: "brand.accentText", backgroundKeys: ["brand.accentSurface"], minimumRatio: 4.5, preserveOriginal: true },
+    ...["Primary", "Secondary", "Background", "Surface", "SurfaceVariant"].map(name => ({ foregroundKey: `android.material.on${name}`, backgroundKeys: [`android.material.${name[0].toLowerCase()}${name.slice(1)}`], minimumRatio: 4.5, preserveOriginal: true })),
+    ...["friends", "genes", "circles", "search"].map(name => ({ foregroundKey: `community.quickActions.${name}.foreground`, backgroundKeys: ["start", "middle", "end"].map(stop => `community.quickActions.${name}.${stop}`), minimumRatio: 4.5, preserveOriginal: true })),
   ];
-  const chromaticSeeds = seeds.filter(
-    (color) => color.chroma > ACHROMATIC_CHROMA,
-  );
-  const primarySeed =
-    seeds[0].chroma > ACHROMATIC_CHROMA ? seeds[0] : chromaticSeeds[0];
-  if (!primarySeed) {
-    throw new Error("The selected palette needs at least one chromatic color.");
+  const levelKeys = [...byKey.keys()].filter(key => /^learn\.level\.[^.]+\.(accent|gradientEnd)$/.test(key));
+  if (levelKeys.length) {
+    // Learn's native colored-header contrast policy targets 2.5. Include
+    // neutral custom brands too, for which a hue-based native check cannot help.
+    pairs.push({ foregroundKey: "learn.header.foreground", backgroundKeys: levelKeys, minimumRatio: 2.5 });
   }
-  const sourceBrandOption = options.find(
-    (option) => option.key === "brand.primary",
-  );
-  const sourceBrandColor = sourceBrandOption
-    ? rgbToOklch(parseColor(sourceBrandOption.defaultLightColor))
-    : null;
-  const averageChroma =
-    chromaticSeeds.reduce((sum, color) => sum + color.chroma, 0) /
-    chromaticSeeds.length;
-  return {
-    seedHex,
-    vividPrimaryHex: vividPrimaryColor(seedHex[0], seeds[0], primarySeed),
-    centerHue: primarySeed.hue,
-    sourceBrandHue:
-      sourceBrandColor && sourceBrandColor.chroma > ACHROMATIC_CHROMA
-        ? sourceBrandColor.hue
-        : 350,
-    baseChroma: clamp(averageChroma, 0.16, 0.28),
-    counterpointClockwiseHex: counterpointClockwise,
-    counterpointAnticlockwiseHex: counterpointAnticlockwise,
-    counterpointClockwiseHue: rgbToOklch(parseColor(counterpointClockwise)).hue,
-    counterpointAnticlockwiseHue: rgbToOklch(
-      parseColor(counterpointAnticlockwise),
-    ).hue,
-    alternativeTonalFlowByRoleKey: buildAlternativeTonalFlowRoleMap(
-      alternativeTonalFlows,
-      options,
-      counterpoints,
-    ),
-  };
-}
-
-function nearestAnalogousOffset(offset: number) {
-  return ANALOGOUS_HUE_OFFSETS.reduce((nearest, candidate) =>
-    Math.abs(candidate - offset) < Math.abs(nearest - offset)
-      ? candidate
-      : nearest,
-  );
-}
-
-function analogousHue(originalHue: number, palette: ThemePalette) {
-  const sourceDifference = signedHueDifference(
-    originalHue,
-    palette.sourceBrandHue,
-  );
-  const compressedDifference = clamp(
-    sourceDifference * SOURCE_HUE_COMPRESSION,
-    ANALOGOUS_HUE_OFFSETS[0],
-    ANALOGOUS_HUE_OFFSETS[ANALOGOUS_HUE_OFFSETS.length - 1],
-  );
-  return normalizeHue(
-    palette.centerHue + nearestAnalogousOffset(compressedDifference),
-  );
-}
-
-function alternativeTonalFlowColor(
-  original: OklchColor,
-  alpha: string,
-  palette: ThemePalette,
-  option: PublisherAppColorCatalogOption,
-) {
-  const flow = palette.alternativeTonalFlowByRoleKey.get(option.key);
-  if (!flow) {
-    throw new Error(`Missing alternative tonal flow for ${option.key}.`);
-  }
-  if (option.key === flow.anchorKey) {
-    return `${flow.centerHex}${alpha}`;
-  }
-
-  const sourceDifference = signedHueDifference(original.hue, flow.sourceHue);
-  const localDifference = clamp(
-    sourceDifference * ALTERNATIVE_FLOW_HUE_COMPRESSION,
-    -ALTERNATIVE_FLOW_MAX_HUE_DISTANCE,
-    ALTERNATIVE_FLOW_MAX_HUE_DISTANCE,
-  );
-  const targetChroma = clamp(
-    original.chroma +
-      ((flow.fixedTargetChroma ?? palette.baseChroma) - original.chroma) * 0.72,
-    Math.min(original.chroma, 0.08),
-    0.3,
-  );
-  return oklchToHex(
-    {
-      lightness: original.lightness,
-      chroma: targetChroma,
-      hue: normalizeHue(flow.centerHue + localDifference),
-    },
-    alpha,
-  );
-}
-
-function chromaStrength(option: PublisherAppColorCatalogOption) {
-  if (option.group === "Screen surfaces and atmosphere") return 0.48;
-  if (
-    /\b(surface|background|shadow|border)\b/i.test(optionSearchText(option))
-  ) {
-    return 0.52;
-  }
-  if (/\b(text|ink)\b/i.test(optionSearchText(option))) return 0.58;
-  if (
-    option.group === "Discover categories" ||
-    option.group === "Bottom navigation" ||
-    option.group === "Scientific decorative palette"
-  ) {
-    return 0.76;
-  }
-  return 0.68;
-}
-
-function coordinatedColor(
-  originalValue: string,
-  palette: ThemePalette,
-  option: PublisherAppColorCatalogOption,
-  policy: PaletteRolePolicy,
-  appearance: ColorAppearance,
-) {
-  const normalizedOriginal = normalizedCatalogColor(originalValue);
-  if (policy === "preserve") return normalizedOriginal;
-
-  const rgb = parseColor(normalizedOriginal);
-  if (policy === "learnBackground") {
-    return learnBackgroundColor(originalValue, palette, option, appearance);
-  }
-  if (policy === "learnTabPrimary") {
-    return `${palette.vividPrimaryHex}${rgb.alpha}`;
-  }
-  if (policy === "centerTabWashedPrimary") {
-    return washedPrimaryCenterTabColor(palette, option, rgb.alpha);
-  }
-  const original = rgbToOklch(rgb);
-  if (isDeepDarkStructure(option, original, appearance)) {
-    return normalizedOriginal;
-  }
-  if (
-    original.chroma <= ACHROMATIC_CHROMA ||
-    original.lightness <= 0.01 ||
-    original.lightness >= 0.99
-  ) {
-    return normalizedOriginal;
-  }
-
-  if (policy === "alternativeTonalFlow") {
-    return alternativeTonalFlowColor(original, rgb.alpha, palette, option);
-  }
-
-  if (policy === "vividPrimary") {
-    return `${palette.vividPrimaryHex}${rgb.alpha}`;
-  }
-  if (policy === "vividPrimaryGradientEnd") {
-    return vividPrimaryGradientEndColor(palette, rgb.alpha);
-  }
-
-  const directIndex =
-    policy === "primary"
-      ? 0
-      : policy === "secondary"
-        ? 1
-        : policy === "tertiary"
-          ? 2
-          : null;
-  if (directIndex !== null) {
-    return `${palette.seedHex[directIndex]}${rgb.alpha}`;
-  }
-
-  const counterpointHue =
-    policy === "counterpointClockwise"
-      ? palette.counterpointClockwiseHue
-      : policy === "counterpointAnticlockwise"
-        ? palette.counterpointAnticlockwiseHue
-        : null;
-
-  const strength = chromaStrength(option);
-  const targetChroma = clamp(
-    original.chroma + (palette.baseChroma - original.chroma) * strength,
-    Math.min(original.chroma, 0.08),
-    0.3,
-  );
-  return oklchToHex(
-    {
-      lightness: original.lightness,
-      chroma: targetChroma,
-      hue: counterpointHue ?? analogousHue(original.hue, palette),
-    },
-    rgb.alpha,
-  );
-}
-
-function candidateForOption(
-  option: PublisherAppColorCatalogOption,
-  palette: ThemePalette,
-): PaletteCandidate | null {
-  const policy = rolePolicy(option, palette);
-  if (policy === "preserve") return null;
-  const override = {
-    light: coordinatedColor(
-      option.defaultLightColor,
-      palette,
-      option,
-      policy,
-      "light",
-    ),
-    dark: coordinatedColor(
-      option.defaultDarkColor,
-      palette,
-      option,
-      policy,
-      "dark",
-    ),
-  };
-  if (
-    override.light === normalizedCatalogColor(option.defaultLightColor) &&
-    override.dark === normalizedCatalogColor(option.defaultDarkColor)
-  ) {
-    return null;
-  }
-  return { option, override };
+  return pairs.filter(pair => byKey.has(pair.foregroundKey) && pair.backgroundKeys.every(key => byKey.has(key)));
 }
 
 export function createPublisherAppPaletteOverridePlan(
@@ -908,30 +477,39 @@ export function createPublisherAppPaletteOverridePlan(
   options: PublisherAppColorCatalogOption[],
   catalogVersion: number,
   alternativeTonalFlows: PublisherAppAlternativeTonalFlow[] = [],
+  contrastPairs: PublisherAppColorContrastPair[] = [],
 ): PublisherAppPaletteOverridePlan {
-  if (options.length === 0) {
-    throw new Error(
-      "The color catalog is too small to build the palette plan.",
-    );
+  if (options.length === 0) throw new Error("The color catalog is too small to build the palette plan.");
+  const values = new Map<string, PublisherAppColorOverride>();
+  const byKey = new Map(options.map(option => [option.key, option]));
+  const seeds = { primary: normalizedSeed(colors.primary), secondary: normalizedSeed(colors.secondary), tertiary: normalizedSeed(colors.tertiary) };
+  for (const mode of MODES) {
+    const families = buildFamilies(colors, options, alternativeTonalFlows, mode);
+    for (const option of options) {
+      const original = originalValue(option, mode), rgb = parseColor(original), tone = rgbToOklch(rgb);
+      const local = families.roleFamilies.get(option.key);
+      let family = local ?? families.gradientFamilies.get(option.key) ?? analogousFamilyForHue(tone.hue, families.primary);
+      const baseDirect = option.key === "brand.primary" || option.key === "android.material.primary" ? "primary" : option.key === "brand.secondary" || option.key === "android.material.secondary" ? "secondary" : option.key === "brand.accent" || option.key === "android.material.tertiary" ? "tertiary" : null;
+      let result = original;
+      if (baseDirect) result = `${seeds[baseDirect]}${rgb.alpha}`;
+      // Illustration destinations already resolve the exact brand/counterpoint
+      // candidates natively. A generic automatic override would mask that
+      // resolver; explicit manual illustration overrides are merged afterwards.
+      else if (option.group !== "Illustrations" && !semantic(option) && !deepStructure(option, tone, mode) && tone.chroma > ACHROMATIC_CHROMA) {
+        const learnBackground = option.group === "Learn background";
+        const levelOne = /^learn\.level\.bacteria\./.test(option.key) || /^tabs\.learn\./.test(option.key);
+        const interfaceTone = /^app\.(?:accent(?:[A-Z].*)?|profileAccent(?:Background)?|profileIcon|profileRippleFill|funHeaderChevron)$/.test(option.key);
+        if (learnBackground) family = families.learn;
+        else if (levelOne) family = families.firstLevel;
+        else if (interfaceTone) family = families.interfaceFamily;
+        else if (/^brand\.accent(?:Surface|Text)$/.test(option.key)) family = families.tertiary;
+        const environmental = interfaceTone || learnBackground || option.group === "Screen surfaces and atmosphere" || /\b(background|surface|canvas|shadow|glow|orb|halo|veil|text|ink|foreground)\b/i.test(identity(option)) || /^services\.gradient/.test(option.key);
+        if (local || interfaceTone || learnBackground || levelOne || families.gradientMembers.has(option.key) || tone.chroma > QUIET_CHROMA) result = transform(tone, rgb.alpha, family, environmental);
+      }
+      values.set(option.key, { ...values.get(option.key), [mode]: result });
+    }
   }
-  const palette = buildThemePalette(colors, options, alternativeTonalFlows);
-  const candidates = options
-    .map((option) => candidateForOption(option, palette))
-    .filter((candidate): candidate is PaletteCandidate => candidate !== null)
-    .sort((left, right) => left.option.key.localeCompare(right.option.key));
-  if (candidates.length === 0) {
-    throw new Error(
-      "The color catalog does not contain enough meaningful chromatic roles.",
-    );
-  }
-
-  const colorOverrides = Object.fromEntries(
-    candidates.map((candidate) => [candidate.option.key, candidate.override]),
-  );
-  return {
-    catalogVersion,
-    sourceCount: options.length,
-    selectedCount: candidates.length,
-    colorOverrides,
-  };
+  applyContrastPairs(values, byKey, [...functionalContrastPairs(byKey), ...contrastPairs]);
+  const colorOverrides = Object.fromEntries([...values.entries()].map(([key, value]) => [key, Object.fromEntries(MODES.filter(mode => value[mode] !== originalValue(byKey.get(key)!, mode)).map(mode => [mode, value[mode]]))] as const).filter(([, value]) => Object.keys(value).length > 0).sort(([a], [b]) => a.localeCompare(b)));
+  return { catalogVersion, sourceCount: options.length, selectedCount: Object.keys(colorOverrides).length, colorOverrides };
 }

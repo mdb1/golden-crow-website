@@ -1,17 +1,21 @@
 import type {
   PublisherAppColors,
+  PublisherAppAdvancedConfiguration,
   PublisherAppPaletteOverridePlan,
 } from "@/lib/publisher-app-config";
 
 export async function fetchPublisherAppPaletteOverrides(
   colors: PublisherAppColors,
   signal?: AbortSignal,
+  previous?: Pick<PublisherAppAdvancedConfiguration, "colorOverrides" | "generatedColorOverrides"> & {
+    previousColors: PublisherAppColors;
+  },
 ) {
   const response = await fetch("/api/publisher-app/palette-overrides", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ colors }),
+    body: JSON.stringify({ colors, ...previous }),
     signal,
   });
 

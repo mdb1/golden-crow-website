@@ -151,6 +151,8 @@ export type PublisherAppAdvancedConfiguration = {
   displayName: string;
   semanticColors: PublisherAppSemanticColors | null;
   colorOverrides: Record<string, PublisherAppColorOverride>;
+  /** Last automatic result, used only by the editor to preserve manual changes. */
+  generatedColorOverrides?: Record<string, PublisherAppColorOverride>;
   catalogEnabled: boolean;
   feedEnabled: boolean;
   discoverScope:
@@ -236,9 +238,21 @@ export type PublisherAppColorCatalogOption = {
   usageDescription: string;
   defaultLightColor: string;
   defaultDarkColor: string;
+  defaultLightOpacity?: number;
+  defaultDarkOpacity?: number;
+  defaultNotes?: string;
+  platformDefaultColors?: Partial<
+    Record<"ios" | "android", { light?: string; dark?: string }>
+  >;
   group: string;
   platforms: Array<"ios" | "android">;
   introducedInCatalogVersion?: number;
+};
+
+export type PublisherAppColorContrastPair = {
+  foregroundKey: string;
+  backgroundKeys: string[];
+  minimumRatio: number;
 };
 
 export type PublisherAppCustomizationCatalogPage<T> = {
@@ -248,6 +262,7 @@ export type PublisherAppCustomizationCatalogPage<T> = {
   totalCount: number;
   nextCursor: string | null;
   alternativeTonalFlows?: PublisherAppAlternativeTonalFlow[];
+  contrastPairs?: PublisherAppColorContrastPair[];
 };
 
 export type PublisherAppPaletteOverridePlan = {
@@ -255,6 +270,8 @@ export type PublisherAppPaletteOverridePlan = {
   sourceCount: number;
   selectedCount: number;
   colorOverrides: Record<string, PublisherAppColorOverride>;
+  /** Pure automatic result before applying retained manual color edits. */
+  generatedColorOverrides?: Record<string, PublisherAppColorOverride>;
 };
 
 export type PublisherAppConfigResponse = {
@@ -508,16 +525,73 @@ export function publisherAppCounterpointColors(
 ): PublisherAppCounterpointColors {
   const normalizedPrimary =
     normalizePublisherAppColor(primary) ?? DEFAULT_PUBLISHER_APP_COLOR;
-  const source = rgbToHsl(hexToRgb(normalizedPrimary));
-  const fallback = rgbToHsl(hexToRgb(DEFAULT_PUBLISHER_APP_COLOR));
-  const hue = source.saturation < 1 ? fallback.hue : source.hue;
-  const saturation = Math.max(85, source.saturation);
-  const lightness = Math.min(58, Math.max(48, source.lightness));
+  const source = hexToRgb(normalizedPrimary);
+  const linear = (channel: number) => {
+    const value = channel / 255;
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  };
+  const red = linear(source.red);
+  const green = linear(source.green);
+  const blue = linear(source.blue);
+  const l = Math.cbrt(0.4122214708 * red + 0.5363325363 * green + 0.0514459929 * blue);
+  const m = Math.cbrt(0.2119034982 * red + 0.6806995451 * green + 0.1073969566 * blue);
+  const s = Math.cbrt(0.0883024619 * red + 0.2817188376 * green + 0.6299787005 * blue);
+  const lightness = 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s;
+  const axisA = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s;
+  const axisB = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
+  const chroma = Math.hypot(axisA, axisB);
+  const hue = Math.atan2(axisB, axisA);
+
+  // A neutral identity has no accessory hue. Preserve it exactly rather than
+  // inventing a bright fallback; chromatic identities keep their original tone.
+  const rotate = (degrees: number) => {
+    if (chroma < 0.000001) return normalizedPrimary;
+    const angle = hue + degrees * Math.PI / 180;
+    const toLinearRgb = (targetChroma: number) => {
+      const a = targetChroma * Math.cos(angle);
+      const b = targetChroma * Math.sin(angle);
+      const lr = lightness + 0.3963377774 * a + 0.2158037573 * b;
+      const mr = lightness - 0.1055613458 * a - 0.0638541728 * b;
+      const sr = lightness - 0.0894841775 * a - 1.291485548 * b;
+      const lc = lr ** 3;
+      const mc = mr ** 3;
+      const sc = sr ** 3;
+      return [
+        4.0767416621 * lc - 3.3077115913 * mc + 0.2309699292 * sc,
+        -1.2684380046 * lc + 2.6097574011 * mc - 0.3413193965 * sc,
+        -0.0041960863 * lc - 0.7034186147 * mc + 1.707614701 * sc,
+      ];
+    };
+    const inGamut = (channels: number[]) =>
+      channels.every((channel) => channel >= 0 && channel <= 1);
+    let channels = toLinearRgb(chroma);
+    if (!inGamut(channels)) {
+      // Reduce only chroma at this hue; retaining perceptual lightness keeps
+      // muted and dark brands muted and dark across all accessory colors.
+      let minimum = 0;
+      let maximum = chroma;
+      channels = toLinearRgb(0);
+      for (let iteration = 0; iteration < 24; iteration += 1) {
+        const candidateChroma = (minimum + maximum) / 2;
+        const candidate = toLinearRgb(candidateChroma);
+        if (inGamut(candidate)) {
+          minimum = candidateChroma;
+          channels = candidate;
+        } else {
+          maximum = candidateChroma;
+        }
+      }
+    }
+    const encoded = channels.map((channel) => 255 * (
+      channel <= 0.0031308 ? 12.92 * channel : 1.055 * channel ** (1 / 2.4) - 0.055
+    ));
+    return rgbToHex(encoded[0], encoded[1], encoded[2]);
+  };
   return {
-    counterpointClockwise: hslToHex(hue + 45, saturation, lightness),
-    counterpointAnticlockwise: hslToHex(hue - 45, saturation, lightness),
-    counterpointFarClockwise: hslToHex(hue + 75, saturation, lightness),
-    counterpointFarAnticlockwise: hslToHex(hue - 75, saturation, lightness),
+    counterpointClockwise: rotate(45),
+    counterpointAnticlockwise: rotate(-45),
+    counterpointFarClockwise: rotate(75),
+    counterpointFarAnticlockwise: rotate(-75),
   };
 }
 

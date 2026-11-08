@@ -1052,6 +1052,8 @@ export interface PublisherAppAdvancedConfiguration {
   displayName: string;
   semanticColors: PublisherAppSemanticColors | null;
   colorOverrides: Record<string, PublisherAppColorOverride>;
+  /** Editor provenance; never serialized into the mobile runtime configuration. */
+  generatedColorOverrides?: Record<string, PublisherAppColorOverride>;
   catalogEnabled: boolean;
   feedEnabled: boolean;
   discoverScope: PublisherAppDiscoverScope;

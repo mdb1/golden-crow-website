@@ -6,6 +6,7 @@ import type {
 } from "../types/sdk.types.js";
 import { buildRouteServer, makeAdminContext } from "./support/route-harness.js";
 import { derivePublisherAppSemanticColors } from "../lib/publisher-app-advanced-config.js";
+import { derivePublisherAppCounterpointColors } from "../lib/publisher-app-color-identity.js";
 
 const FIXED_TIME = Date.parse("2026-10-30T15:00:00.000Z");
 
@@ -426,6 +427,23 @@ describe("publisher app config contract", () => {
     });
   });
 
+  it("persists generated palette provenance without publishing it into the mobile runtime", async () => {
+    const generatedColorOverrides = {
+      "learn.background.stop1": { light: "#F0E0D0", dark: "#10203080" },
+    };
+    const advanced = { ...structuredClone(advancedConfigurationBody), generatedColorOverrides };
+    const created = await fastify.inject({ method: "POST", url: "/publisher-app/config", payload: { ...validBody, advancedConfiguration: advanced } });
+    expect(created.statusCode).toBe(201);
+    expect(created.json().config.advancedConfiguration.generatedColorOverrides).toEqual(generatedColorOverrides);
+    const stored = collectionStore("app_configs").get(created.json().config.id);
+    expect(stored?.advancedConfiguration).toMatchObject({ generatedColorOverrides });
+    await fastify.inject({ method: "POST", url: "/publisher-app/config/identifier" });
+    const runtime = await fastify.inject({ method: "GET", url: "/publisher-app/config/runtime" });
+    expect(runtime.statusCode).toBe(200);
+    expect(runtime.json().branding.colorOverrides).toEqual(advanced.colorOverrides);
+    expect(JSON.stringify(runtime.json())).not.toContain("generatedColorOverrides");
+  });
+
   it.each([
     ["GET", undefined],
     ["POST", validBody],
@@ -646,10 +664,10 @@ describe("publisher app config contract", () => {
       primary: "#AABBCC",
       secondary: "#123456",
       tertiary: "#FEDCBA",
-      counterpointClockwise: "#6639EF",
-      counterpointAnticlockwise: "#39EFC1",
-      counterpointFarClockwise: "#C139EF",
-      counterpointFarAnticlockwise: "#39EF66",
+      counterpointClockwise: "#B9B6CB",
+      counterpointAnticlockwise: "#A3BFC2",
+      counterpointFarClockwise: "#C3B3C4",
+      counterpointFarAnticlockwise: "#A6C0B7",
     });
   });
 
@@ -985,7 +1003,37 @@ describe("publisher app config contract", () => {
     });
   });
 
-  it.each([[false, undefined], [true, undefined], [false, 1], [true, 1]] as const)(
+  it("publishes new missing-counterpoint defaults with a new revision while preserving explicit manual colors", async () => {
+    const created = await fastify.inject({ method: "POST", url: "/publisher-app/config", payload: validBody });
+    expect(created.statusCode).toBe(201);
+    const activated = await fastify.inject({ method: "POST", url: "/publisher-app/config/identifier" });
+    const configId = created.json().config.id;
+    const stored = collectionStore("app_configs").get(configId)!;
+    const originalColors = stored.colors as Record<string, string>;
+    const legacyColors = {
+      primary: "#5A443C",
+      secondary: originalColors.secondary,
+      tertiary: originalColors.tertiary,
+      counterpointAnticlockwise: "#123456",
+    };
+    collectionStore("app_configs").set(configId, {
+      ...stored, colors: legacyColors, runtimeRevision: 7, runtimeColorContractVersion: 2,
+    });
+    const { getActivePublisherAppRuntimeConfig } = await import("../repositories/publisher-app-config.repository.js");
+    const first = await getActivePublisherAppRuntimeConfig(activated.json().config.appProviderIdentifier, "ios");
+    expect(first.revision).toBe(8);
+    expect(first.branding.colors).toMatchObject({
+      primary: "#5A443C",
+      counterpointClockwise: derivePublisherAppCounterpointColors("#5A443C").counterpointClockwise,
+      counterpointAnticlockwise: "#123456",
+    });
+    expect(collectionStore("app_configs").get(configId)).toMatchObject({
+      colors: legacyColors, runtimeRevision: 8, runtimeColorContractVersion: 3,
+    });
+    expect(await getActivePublisherAppRuntimeConfig(activated.json().config.appProviderIdentifier, "ios")).toEqual(first);
+  });
+
+  it.each([[false, undefined], [true, undefined], [false, 1], [true, 1], [false, 2], [true, 2]] as const)(
     "publishes configured counterpoints exactly and bumps a legacy runtime revision only once (stored semantic colors: %s, prior contract: %s)",
     async (useStoredSemanticColors, priorContract) => {
       const created = await fastify.inject({
@@ -1025,7 +1073,7 @@ describe("publisher app config contract", () => {
       expect(collectionStore("app_configs").get(configId)).toEqual({
         ...legacy,
         runtimeRevision: 8,
-        runtimeColorContractVersion: 2,
+        runtimeColorContractVersion: 3,
       });
       expect(await getActivePublisherAppRuntimeConfig(activated.json().config.appProviderIdentifier, "android")).toEqual(first);
       const repeated = await fastify.inject({ method: "GET", url: "/publisher-app/config/runtime" });
@@ -1047,6 +1095,12 @@ describe("publisher app config contract", () => {
       label: "an unknown color role",
       mutate: (advanced: PublisherAppAdvancedConfiguration) => {
         advanced.colorOverrides = { "unknown.color": { light: "#FFFFFF" } };
+      },
+    },
+    {
+      label: "an unknown automatic provenance role",
+      mutate: (advanced: PublisherAppAdvancedConfiguration) => {
+        advanced.generatedColorOverrides = { "unknown.color": { light: "#FFFFFF" } };
       },
     },
     {
@@ -1407,10 +1461,10 @@ describe("publisher app config contract", () => {
         primary: "#010203",
         secondary: "#040506",
         tertiary: "#070809",
-        counterpointClockwise: "#4612E2",
-        counterpointAnticlockwise: "#12E2AE",
-        counterpointFarClockwise: "#AE12E2",
-        counterpointFarAnticlockwise: "#12E246",
+        counterpointClockwise: "#020203",
+        counterpointAnticlockwise: "#010202",
+        counterpointFarClockwise: "#020203",
+        counterpointFarAnticlockwise: "#010202",
       },
       createdByUserId: "org-user-1",
       updatedByUserId: "org-user-2",

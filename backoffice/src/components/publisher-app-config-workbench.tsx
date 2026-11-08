@@ -2548,6 +2548,13 @@ export function PublisherAppConfigWorkbench({
       const plan = await fetchPublisherAppPaletteOverrides(
         nextColors,
         request.controller.signal,
+        {
+          previousColors: state.colors,
+          colorOverrides: state.advancedConfiguration?.colorOverrides ?? {},
+          ...(state.advancedConfiguration?.generatedColorOverrides === undefined
+            ? {}
+            : { generatedColorOverrides: state.advancedConfiguration.generatedColorOverrides }),
+        },
       );
       if (
         paletteOverrideRequest.current !== request ||
@@ -2555,7 +2562,8 @@ export function PublisherAppConfigWorkbench({
       ) {
         return null;
       }
-      const overrideCount = Object.keys(plan.colorOverrides).length;
+      const generatedColorOverrides = plan.generatedColorOverrides ?? plan.colorOverrides;
+      const overrideCount = Object.keys(generatedColorOverrides).length;
       if (
         plan.sourceCount < 1 ||
         plan.selectedCount < 1 ||
@@ -2575,6 +2583,7 @@ export function PublisherAppConfigWorkbench({
           })),
         semanticColors: publisherAppSemanticColors(nextColors),
         colorOverrides: plan.colorOverrides,
+        generatedColorOverrides,
       };
       setState((current) => ({
         ...current,
@@ -2583,6 +2592,7 @@ export function PublisherAppConfigWorkbench({
           ...(current.advancedConfiguration ?? advancedConfiguration),
           semanticColors: advancedConfiguration.semanticColors,
           colorOverrides: plan.colorOverrides,
+          generatedColorOverrides,
         },
       }));
       setPaletteOverrideCalculation({

@@ -47,6 +47,23 @@ function hslFromHex(value: string) {
   };
 }
 
+function perceptualColor(value: string) {
+  const [red, green, blue] = [1, 3, 5].map((offset) => {
+    const channel = Number.parseInt(value.slice(offset, offset + 2), 16) / 255;
+    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  const l = Math.cbrt(0.4122214708 * red + 0.5363325363 * green + 0.0514459929 * blue);
+  const m = Math.cbrt(0.2119034982 * red + 0.6806995451 * green + 0.1073969566 * blue);
+  const s = Math.cbrt(0.0883024619 * red + 0.2817188376 * green + 0.6299787005 * blue);
+  const a = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s;
+  const b = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
+  return {
+    lightness: 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+    chroma: Math.hypot(a, b),
+    hue: (Math.atan2(b, a) * 180 / Math.PI + 360) % 360,
+  };
+}
+
 function circularHueDistance(left: number, right: number) {
   const difference = Math.abs(left - right) % 360;
   return Math.min(difference, 360 - difference);
@@ -98,48 +115,49 @@ describe("publisher app color palettes", () => {
       primary: "#FF5500",
       secondary: "#EFBA2A",
       tertiary: "#F4852A",
-      counterpointClockwise: "#EAFF00",
-      counterpointAnticlockwise: "#FF006A",
-      counterpointFarClockwise: "#6AFF00",
-      counterpointFarAnticlockwise: "#FF00EA",
+      ...publisherAppCounterpointColors("#FF5500"),
     });
   });
 
-  it("derives vivid near and far counterpoints at forty-five and seventy-five degrees", () => {
-    expect(publisherAppCounterpointColors("#FFFF00")).toEqual({
-      counterpointClockwise: "#40FF00",
-      counterpointAnticlockwise: "#FF4000",
-      counterpointFarClockwise: "#00FF40",
-      counterpointFarAnticlockwise: "#FF0040",
-    });
+  it.each(["#FF5500", "#FFFF00", "#1D4ED8", "#5A443C", "#D8C7C0"])(
+    "rotates accessory hue around %s while preserving perceptual lightness and limiting chroma",
+    (primary) => {
+      const source = perceptualColor(primary);
+      const counterpoints = publisherAppCounterpointColors(primary);
+      for (const [key, degrees] of [
+        ["counterpointClockwise", 45],
+        ["counterpointAnticlockwise", -45],
+        ["counterpointFarClockwise", 75],
+        ["counterpointFarAnticlockwise", -75],
+      ] as const) {
+        const color = perceptualColor(counterpoints[key]);
+        expect(circularHueDistance(color.hue, source.hue + degrees)).toBeLessThan(2);
+        expect(Math.abs(color.lightness - source.lightness)).toBeLessThan(0.002);
+        expect(color.chroma).toBeLessThanOrEqual(source.chroma + 0.002);
+      }
+    },
+  );
 
-    const primaryHue = hslFromHex("#FF5500").hue;
-    const counterpoints = publisherAppCounterpointColors("#FF5500");
-    expect(
-      circularHueDistance(
-        hslFromHex(counterpoints.counterpointClockwise).hue,
-        primaryHue + 45,
-      ),
-    ).toBeLessThan(1);
-    expect(
-      circularHueDistance(
-        hslFromHex(counterpoints.counterpointAnticlockwise).hue,
-        primaryHue - 45,
-      ),
-    ).toBeLessThan(1);
-    expect(
-      circularHueDistance(
-        hslFromHex(counterpoints.counterpointFarClockwise).hue,
-        primaryHue + 75,
-      ),
-    ).toBeLessThan(1);
-    expect(
-      circularHueDistance(
-        hslFromHex(counterpoints.counterpointFarAnticlockwise).hue,
-        primaryHue - 75,
-      ),
-    ).toBeLessThan(1);
-  });
+  it.each(["#5A443C", "#D8C7C0", "#9D948F", "#17212C"])(
+    "keeps a muted or dark identity %s equally restrained in its counterpoints",
+    (primary) => {
+      const source = perceptualColor(primary);
+      for (const value of Object.values(publisherAppCounterpointColors(primary))) {
+        const accessory = perceptualColor(value);
+        expect(accessory.chroma).toBeLessThan(0.06);
+        expect(Math.abs(accessory.lightness - source.lightness)).toBeLessThan(0.002);
+      }
+    },
+  );
+
+  it.each(["#000000", "#FFFFFF", "#808080", "#121212", "#F0F0F0"])(
+    "keeps achromatic primary %s achromatic without a fallback hue",
+    (primary) => {
+      expect(Object.values(publisherAppCounterpointColors(primary))).toEqual([
+        primary, primary, primary, primary,
+      ]);
+    },
+  );
 
   it.each(["#795548", "#F3E7DF", "#526D49"])(
     "turns dark, brownish, or washed tint %s into saturated neighboring hues",

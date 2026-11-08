@@ -14,6 +14,7 @@ import {
   verifyReportingAccessToken,
 } from "../repositories/reporting-tokens.repository.js";
 import { getActivePublisherAppRuntimeConfig } from "../repositories/publisher-app-config.repository.js";
+import { getPublisherAppColorCatalogVersion } from "../lib/publisher-app-customization-catalog.js";
 
 const CaseCodeSchema = z
   .string()
@@ -252,7 +253,7 @@ export async function reportingRoutes(fastify: FastifyInstance): Promise<void> {
         reply.header("ETag", etag);
         reply.header("Cache-Control", "public, max-age=300");
         reply.header("X-Pocket-Genes-Text-Catalog-Version", "1");
-        reply.header("X-Pocket-Genes-Color-Catalog-Version", "1");
+        reply.header("X-Pocket-Genes-Color-Catalog-Version", String(getPublisherAppColorCatalogVersion()));
         if (request.headers["if-none-match"] === etag) {
           return reply.status(304).send();
         }

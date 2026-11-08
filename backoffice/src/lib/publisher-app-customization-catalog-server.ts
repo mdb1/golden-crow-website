@@ -4,6 +4,7 @@ import { gunzipSync } from "node:zlib";
 import type {
   PublisherAppAlternativeTonalFlow,
   PublisherAppColorCatalogOption,
+  PublisherAppColorContrastPair,
   PublisherAppCustomizationCatalogPage,
   PublisherAppTextCatalogOption,
 } from "@/lib/publisher-app-config";
@@ -16,11 +17,14 @@ type TextCatalog = {
 type ColorCatalog = {
   catalogVersion: number;
   alternativeTonalFlows: PublisherAppAlternativeTonalFlow[];
+  contrastPairs: PublisherAppColorContrastPair[];
   options: PublisherAppColorCatalogOption[];
 };
+type LegacyColorCatalog = Omit<ColorCatalog, "contrastPairs">;
 
 let textCatalog: TextCatalog | undefined;
 let colorCatalog: ColorCatalog | undefined;
+let legacyColorCatalog: LegacyColorCatalog | undefined;
 
 const TEXT_CATALOG_URL = new URL(
   "../../catalogs/custom-app-texts.json.gz",
@@ -43,6 +47,15 @@ function getTextCatalog() {
 export function getPublisherAppColorCatalog() {
   colorCatalog ??= readCompressedCatalog<ColorCatalog>(COLOR_CATALOG_URL);
   return colorCatalog;
+}
+
+/** Frozen v5 samples are used only to recognize previously generated values. */
+export function getLegacyPublisherAppColorCatalog() {
+  legacyColorCatalog ??= readCompressedCatalog<LegacyColorCatalog>(new URL(
+    "../../catalogs/custom-app-colors-v5.json.gz",
+    import.meta.url,
+  ));
+  return legacyColorCatalog;
 }
 
 function normalizedSearch(value: string | undefined) {
@@ -140,5 +153,6 @@ export function searchPublisherAppColorCatalog(input: {
       input.limit,
     ),
     alternativeTonalFlows: catalog.alternativeTonalFlows,
+    contrastPairs: catalog.contrastPairs,
   };
 }

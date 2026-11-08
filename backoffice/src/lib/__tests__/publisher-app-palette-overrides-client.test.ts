@@ -55,6 +55,22 @@ describe("publisher app palette override client", () => {
     );
   });
 
+  it("sends the previous palette and saved automatic baseline when recalculating an existing app", async () => {
+    const previous = {
+      previousColors: colors,
+      colorOverrides: { "app.accent": { light: "#AABBCC80" } },
+      generatedColorOverrides: { "app.accent": { light: "#112233", dark: "#223344" } },
+    };
+    global.fetch = jest.fn().mockResolvedValue(Response.json({
+      catalogVersion: 8, sourceCount: 698, selectedCount: 1,
+      colorOverrides: previous.colorOverrides,
+      generatedColorOverrides: { "app.accent": { light: "#334455", dark: "#445566" } },
+    }));
+    await fetchPublisherAppPaletteOverrides(colors, undefined, previous);
+    const request = jest.mocked(global.fetch).mock.calls[0][1];
+    expect(JSON.parse(String(request?.body))).toEqual({ colors, ...previous });
+  });
+
   it("uses a JSON API error when one is returned", async () => {
     global.fetch = jest
       .fn()

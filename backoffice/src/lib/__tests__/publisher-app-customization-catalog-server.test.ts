@@ -1,4 +1,5 @@
 import {
+  getPublisherAppColorCatalog,
   searchPublisherAppColorCatalog,
   searchPublisherAppTextCatalog,
 } from "@/lib/publisher-app-customization-catalog-server";
@@ -11,7 +12,7 @@ describe("publisher app customization catalogs", () => {
       limit: 20,
     });
 
-    expect(page.catalogVersion).toBe(5);
+    expect(page.catalogVersion).toBe(8);
     expect(page.items).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ key: "brand.primary", group: "Brand" }),
@@ -33,7 +34,7 @@ describe("publisher app customization catalogs", () => {
       limit: 20,
     });
 
-    expect(discoverPage.catalogVersion).toBe(5);
+    expect(discoverPage.catalogVersion).toBe(8);
     expect(discoverPage.items).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -73,8 +74,8 @@ describe("publisher app customization catalogs", () => {
       limit: 20,
     });
 
-    expect(page.catalogVersion).toBe(5);
-    expect(page.totalCount).toBe(620);
+    expect(page.catalogVersion).toBe(8);
+    expect(page.totalCount).toBe(698);
     expect(page.groups).toEqual(
       expect.arrayContaining([
         "Learn levels",
@@ -138,6 +139,45 @@ describe("publisher app customization catalogs", () => {
       expect(flow.roleKeys.length).toBeGreaterThan(0);
       expect(flow.roleKeys.every((key) => allRoles.has(key))).toBe(true);
     }
+  });
+
+  it("includes complete flow surfaces, illustration tones and contrast relationships", () => {
+    const catalog = getPublisherAppColorCatalog();
+    const page = searchPublisherAppColorCatalog({ cursor: 0, limit: 20 });
+    const options = new Map(catalog.options.map((option) => [option.key, option]));
+
+    expect(options.size).toBe(698);
+    for (const key of [
+      "community.rareCircles.backgroundBase",
+      "community.rareCircles.surfaceStart",
+      "community.rareCircles.headerMiddle",
+      "community.newPost.backgroundBase",
+      "community.newPost.tagAccentQuinary",
+      "community.genes.primaryActionFill",
+      "savedContent.elevatedSurface",
+      "savedContent.countPillForeground",
+      "illustration.purpleTone",
+      "illustration.cyanTone",
+    ]) {
+      expect(options.has(key)).toBe(true);
+    }
+    expect(page.contrastPairs).toEqual(catalog.contrastPairs);
+    expect(catalog.contrastPairs).toHaveLength(21);
+    for (const pair of catalog.contrastPairs) {
+      expect(options.has(pair.foregroundKey)).toBe(true);
+      expect(pair.backgroundKeys.length).toBeGreaterThan(0);
+      expect(pair.backgroundKeys.every((key) => options.has(key))).toBe(true);
+      expect(pair.minimumRatio).toBe(4.5);
+    }
+    expect(options.get("learn.background.leadingGlow")).toEqual(
+      expect.objectContaining({
+        defaultLightColor: "#F2F8F729",
+        defaultLightOpacity: 0.16,
+      }),
+    );
+    expect(options.get("brand.languageAction")?.platformDefaultColors).toEqual({
+      android: { light: "#D90B58", dark: "#FF6FA6" },
+    });
   });
 
   it("searches exact bilingual wording without returning the full catalog", () => {
