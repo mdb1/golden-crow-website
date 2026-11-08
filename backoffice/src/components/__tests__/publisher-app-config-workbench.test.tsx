@@ -811,8 +811,9 @@ describe("PublisherAppConfigWorkbench", () => {
     fireEvent.change(screen.getByLabelText("Elegir color terciario"), {
       target: { value: "#AABBCC" },
     });
+    expect(fetchPublisherAppPaletteOverrides).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar" }));
     await screen.findByText(/colores sensibles a la marca quedaron coordinados/i);
-    fireEvent.click(screen.getByRole("button", { name: "Listo" }));
     expect(saveButton).toBeEnabled();
     fireEvent.click(saveButton);
 
@@ -1654,6 +1655,82 @@ describe("PublisherAppConfigWorkbench", () => {
     },
   );
 
+  it("discards visual identity drafts without calculating or changing the app", () => {
+    renderWorkbench({ mode: "edit", initialConfig: savedConfig });
+    const saveButton = screen.getByRole("button", { name: "Guardar cambios" });
+    fireEvent.click(screen.getByRole("button", { name: "Editar paleta" }));
+    const dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByRole("heading", { name: "Identidad general" })).toBeTruthy();
+    expect(dialog.getByRole("heading", { name: "Paleta principal" })).toBeTruthy();
+    expect(dialog.getByRole("heading", { name: "Contrapuntos de contraste" })).toBeTruthy();
+    fireEvent.click(dialog.getByRole("button", { name: /Destello vecino/i }));
+    fireEvent.change(dialog.getByLabelText("Elegir color principal"), { target: { value: "#AA5533" } });
+    expect(fetchPublisherAppPaletteOverrides).not.toHaveBeenCalled();
+    expect(saveButton).toBeDisabled();
+    fireEvent.click(dialog.getByRole("button", { name: "Cancelar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Editar paleta" }));
+    expect(screen.getByLabelText("Elegir color principal")).toHaveValue(savedConfig.colors.primary.toLowerCase());
+    expect(fetchPublisherAppPaletteOverrides).not.toHaveBeenCalled();
+  });
+
+  it("keeps custom counterpoints while the primary changes, restores defaults and saves the applied choices", async () => {
+    mockConfigRequests();
+    renderWorkbench({ mode: "edit", initialConfig: savedConfig });
+    fireEvent.click(screen.getByRole("button", { name: "Editar paleta" }));
+    fireEvent.click(screen.getByRole("button", { name: /Tu marca, más viva/i }));
+    const choices = [
+      ["color de contrapunto horario", "counterpointClockwise", "#112233"],
+      ["color de contrapunto antihorario", "counterpointAnticlockwise", "#223344"],
+      ["color de contrapunto lejano horario", "counterpointFarClockwise", "#334455"],
+      ["color de contrapunto lejano antihorario", "counterpointFarAnticlockwise", "#445566"],
+    ] as const;
+    for (const [label, , color] of choices) {
+      fireEvent.click(screen.getByRole("button", { name: `Personalizar ${label}` }));
+      fireEvent.change(screen.getByLabelText(`Elegir ${label}`), { target: { value: color } });
+    }
+    expect(screen.getAllByText("Personalizado")).toHaveLength(4);
+    fireEvent.change(screen.getByLabelText("Elegir color principal"), { target: { value: "#AA5533" } });
+    for (const [label, , color] of choices) expect(screen.getByLabelText(`Elegir ${label}`)).toHaveValue(color.toLowerCase());
+    fireEvent.click(screen.getByRole("button", { name: "Restaurar automático: color de contrapunto horario" }));
+    expect(screen.getAllByText("Personalizado")).toHaveLength(3);
+    expect(screen.queryByLabelText("Elegir color de contrapunto horario")).toBeNull();
+    expect(fetchPublisherAppPaletteOverrides).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar" }));
+    await screen.findByText(/colores sensibles a la marca quedaron coordinados/i);
+    const expectedColors = {
+      primary: "#AA5533",
+      counterpointClockwise: publisherAppCounterpointColors("#AA5533").counterpointClockwise,
+      counterpointAnticlockwise: "#223344", counterpointFarClockwise: "#334455", counterpointFarAnticlockwise: "#445566",
+    };
+    expect(fetchPublisherAppPaletteOverrides).toHaveBeenCalledTimes(1);
+    expect(fetchPublisherAppPaletteOverrides).toHaveBeenCalledWith(expect.objectContaining(expectedColors), expect.any(AbortSignal));
+    fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+    await waitFor(() => expect(sdkFetch).toHaveBeenCalled());
+    const payload = JSON.parse(String(jest.mocked(sdkFetch).mock.calls[0][1]?.body));
+    expect(payload.colors).toMatchObject(expectedColors);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Guardar cambios" })).toBeDisabled());
+    fireEvent.click(screen.getByRole("button", { name: "Editar paleta" }));
+    expect(screen.getAllByText("Personalizado")).toHaveLength(3);
+    expect(screen.getByLabelText("Elegir color de contrapunto lejano antihorario")).toHaveValue("#445566");
+  });
+
+  it("leaves the applied palette intact after a calculation failure and retries the draft", async () => {
+    jest.mocked(fetchPublisherAppPaletteOverrides).mockRejectedValueOnce(new Error("No pudimos calcular los colores"));
+    renderWorkbench({ mode: "edit", initialConfig: savedConfig });
+    const saveButton = screen.getByRole("button", { name: "Guardar cambios" });
+    fireEvent.click(screen.getByRole("button", { name: "Editar paleta" }));
+    fireEvent.change(screen.getByLabelText("Elegir color principal"), { target: { value: "#AA5533" } });
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar" }));
+    await screen.findByText("No pudimos calcular los colores");
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(saveButton).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Aplicar" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar" }));
+    await screen.findByText(/colores sensibles a la marca quedaron coordinados/i);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("button", { name: "Guardar cambios" })).toBeEnabled();
+  });
+
   it("stores only the branding-susceptible colors returned by palette analysis", async () => {
     let resolvePlan:
       | ((value: {
@@ -1678,6 +1755,8 @@ describe("PublisherAppConfigWorkbench", () => {
     const saveButton = screen.getByRole("button", { name: "Guardar cambios" });
     fireEvent.click(screen.getByRole("button", { name: "Editar paleta" }));
     fireEvent.click(screen.getByRole("button", { name: /Destello vecino/i }));
+    expect(fetchPublisherAppPaletteOverrides).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar" }));
 
     expect(fetchPublisherAppPaletteOverrides).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1695,7 +1774,8 @@ describe("PublisherAppConfigWorkbench", () => {
       ),
     ).toBeTruthy();
     expect(saveButton).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Listo" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Aplicando…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancelar" })).toBeDisabled();
 
     const colorOverrides = Object.fromEntries(
       Array.from({ length: 3 }, (_, index) => [
@@ -1715,8 +1795,7 @@ describe("PublisherAppConfigWorkbench", () => {
         /3 colores sensibles a la marca quedaron coordinados.*617 conservaron/i,
       ),
     ).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Listo" })).toBeEnabled();
-    fireEvent.click(screen.getByRole("button", { name: "Listo" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
     expect(saveButton).toBeEnabled();
     fireEvent.click(saveButton);
 

@@ -201,11 +201,9 @@ const PublisherAppConfigBodyShape = {
       counterpointFarAnticlockwise: HexColorSchema.optional(),
     })
     .strict()
-    .transform(({ primary, secondary, tertiary }) => ({
-      primary,
-      secondary,
-      tertiary,
-      ...derivePublisherAppCounterpointColors(primary),
+    .transform((colors) => ({
+      ...derivePublisherAppCounterpointColors(colors.primary),
+      ...colors,
     })),
   iconSource: z.enum(["publisher", "custom"]).default("publisher"),
   iconImageUrl: z.string().trim().url().max(2_048).nullable().default(null),

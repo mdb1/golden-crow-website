@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
+import { PublisherAppVisualIdentityEditor } from "@/components/publisher-app-visual-identity-editor";
 import {
   PublisherAppAdvancedConfigurationEditor,
   publisherAppBrandThemeStyle,
@@ -323,7 +324,7 @@ function PaletteOverrideCalculationStatus({
         <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-700 dark:bg-rose-400/15 dark:text-rose-100">
           !
         </span>
-        <span>{calculation.message} Elegí la paleta nuevamente.</span>
+        <span>{calculation.message}</span>
       </div>
     );
   }
@@ -395,6 +396,7 @@ function normalizedPayload(state: PublisherAppConfigInput) {
     iconImageUploadDataUrl:
       state.iconImageUploadDataUrl?.trim() || misplacedUploadDataUrl || null,
     colors: publisherAppColorsWithCounterpoints({
+      ...state.colors,
       primary:
         normalizePublisherAppColor(state.colors.primary) ??
         state.colors.primary,
@@ -1184,7 +1186,6 @@ function PublisherAppEditSheet({
   deletePending,
   hasPersistedConfig,
   onUpdateState,
-  onUpdateColor,
   onApplyPalette,
   onChooseIconSource,
   onIconUpload,
@@ -1228,8 +1229,7 @@ function PublisherAppEditSheet({
   deletePending: boolean;
   hasPersistedConfig: boolean;
   onUpdateState: (patch: Partial<PublisherAppConfigInput>) => void;
-  onUpdateColor: (key: EditableColorKey, value: string) => void;
-  onApplyPalette: (colors: PublisherAppColors, paletteName: string) => void;
+  onApplyPalette: (colors: PublisherAppColors, paletteName: string) => Promise<boolean>;
   onChooseIconSource: (source: "publisher" | "custom") => void;
   onIconUpload: (event: ChangeEvent<HTMLInputElement>) => void;
   onReset: () => void;
@@ -1277,7 +1277,7 @@ function PublisherAppEditSheet({
     colors: {
       title: "Editar identidad visual",
       description:
-        "Elegí los tres colores base; los cuatro contrapuntos se derivan del principal.",
+        "Configurá tu identidad, la paleta principal y los contrapuntos de contraste.",
     },
     icon: {
       title: "Editar icono de la app",
@@ -1597,12 +1597,17 @@ function PublisherAppEditSheet({
               testId="publisher-app-edit-colors"
               icon={<Palette className="size-5" />}
               title="Identidad visual"
-              description="Tres colores base y cuatro contrapuntos accesorios derivados del principal."
+              description="Colores principales y tonos alternativos de contraste."
               actionLabel="Editar paleta"
               onAction={() => setActiveDialog("colors")}
             >
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                {COLOR_FIELDS.map((field) => (
+              {[
+                { title: "Paleta principal", fields: EDITABLE_COLOR_FIELDS },
+                { title: "Contrapuntos de contraste", fields: COLOR_FIELDS.filter((field) => !field.editable) },
+              ].map((group) => <div key={group.title} className="mb-4 last:mb-0">
+                <h4 className="mb-3 text-sm font-semibold">{group.title}</h4>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {group.fields.map((field) => (
                   <div
                     key={field.key}
                     className="flex items-center gap-3 rounded-xl border border-violet-100/80 bg-white/72 p-3 dark:border-violet-400/14 dark:bg-slate-950/28"
@@ -1621,7 +1626,9 @@ function PublisherAppEditSheet({
                     </span>
                   </div>
                 ))}
-              </div>
+                </div>
+              </div>)}
+              {activeDialog !== "colors" ? <PaletteOverrideCalculationStatus calculation={paletteOverrideCalculation} /> : null}
             </PublisherAppEditSection>
 
             <PublisherAppEditSection
@@ -1890,20 +1897,21 @@ function PublisherAppEditSheet({
       <Dialog
         open={Boolean(activeDialog)}
         onOpenChange={(open) => {
+          if (activeDialog === "colors" && paletteOverrideCalculation.status === "loading") return;
           if (!open) setActiveDialog(null);
         }}
       >
-        <DialogContent className="max-h-[88vh] overflow-hidden rounded-[24px] border-violet-100 p-0 sm:max-w-4xl dark:border-violet-400/18">
-          <DialogHeader className="border-b border-violet-100 bg-violet-50/55 px-6 py-5 text-left dark:border-violet-400/14 dark:bg-violet-950/18">
+        <DialogContent showCloseButton={activeDialog !== "colors" || paletteOverrideCalculation.status !== "loading"} className="max-h-[88vh] gap-0 overflow-hidden rounded-[24px] border-violet-100 p-0 sm:max-w-4xl dark:border-violet-400/18">
+          <DialogHeader className="shrink-0 border-b border-violet-100 bg-violet-50/55 px-6 py-5 text-left dark:border-violet-400/14 dark:bg-violet-950/18">
             <DialogTitle className="font-heading text-xl font-semibold">
               {activeDialogCopy?.title}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className={activeDialog === "colors" ? "sr-only" : undefined}>
               {activeDialogCopy?.description}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="max-h-[66vh] overflow-y-auto px-5 py-5 sm:px-6">
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
             {activeDialog === "platforms" ? (
               <RadioGroup
                 aria-label="Plataformas de la app"
@@ -2051,123 +2059,20 @@ function PublisherAppEditSheet({
             ) : null}
 
             {activeDialog === "colors" ? (
-              <div className="space-y-6">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-violet-700 dark:text-violet-200">
-                    Paletas creadas desde tu identidad
-                  </p>
-                  <div className="mt-3 grid gap-3 md:grid-cols-2">
-                    {suggestedPalettes.map((palette) => {
-                      const selected = samePalette(
-                        state.colors,
-                        palette.colors,
-                      );
-                      return (
-                        <button
-                          key={palette.name}
-                          type="button"
-                          aria-pressed={selected}
-                          onClick={() =>
-                            onApplyPalette(palette.colors, palette.name)
-                          }
-                          disabled={
-                            paletteOverrideCalculation.status === "loading"
-                          }
-                          className={cn(
-                            "flex min-h-24 items-center gap-4 rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-70 disabled:hover:translate-y-0",
-                            selected
-                              ? "border-violet-400 bg-violet-50 shadow-[0_16px_36px_-28px_rgba(109,40,217,0.8)] dark:bg-violet-500/12"
-                              : "border-violet-100 bg-white hover:border-violet-300 dark:border-violet-400/16 dark:bg-slate-950/36",
-                          )}
-                        >
-                          <span className="flex shrink-0 -space-x-2">
-                            {Object.values(palette.colors).map((color) => (
-                              <span
-                                key={color}
-                                className="size-10 rounded-full border-2 border-white shadow-sm dark:border-slate-950"
-                                style={{ backgroundColor: color }}
-                              />
-                            ))}
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block font-semibold text-foreground">
-                              {palette.name}
-                            </span>
-                            <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                              {palette.description}
-                            </span>
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <PaletteOverrideCalculationStatus
-                    calculation={paletteOverrideCalculation}
-                  />
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {COLOR_FIELDS.map((field) => {
-                    const normalized =
-                      normalizePublisherAppColor(state.colors[field.key]) ??
-                      DEFAULT_PUBLISHER_APP_COLOR;
-                    if (!field.editable) {
-                      return (
-                        <div
-                          key={field.key}
-                          className="flex min-h-52 flex-col items-center rounded-[22px] border border-dashed border-violet-200 bg-violet-50/55 p-4 text-center dark:border-violet-400/24 dark:bg-violet-500/8"
-                        >
-                          <span
-                            className="mt-2 size-24 rounded-[28px] border-4 border-white shadow-[0_20px_36px_-20px_rgba(15,23,42,0.8)] ring-1 ring-black/8"
-                            style={{ backgroundColor: normalized }}
-                          />
-                          <span className="mt-4 font-semibold text-foreground">
-                            {field.label}
-                          </span>
-                          <span className="mt-1 text-xs leading-5 text-muted-foreground">
-                            {field.description}
-                          </span>
-                          <span className="mt-auto rounded-full bg-violet-100 px-3 py-1 text-[10px] font-bold text-violet-800 dark:bg-violet-400/15 dark:text-violet-100">
-                            Derivado del principal · {field.hueShift}
-                          </span>
-                        </div>
-                      );
-                    }
-                    return (
-                      <label
-                        key={field.key}
-                        className="group relative flex min-h-52 cursor-pointer flex-col items-center rounded-[22px] border border-violet-100 bg-white p-4 text-center transition hover:-translate-y-0.5 hover:border-violet-400 dark:border-violet-400/16 dark:bg-slate-950/36"
-                      >
-                        <input
-                          type="color"
-                          aria-label={`Elegir ${field.label.toLowerCase()}`}
-                          value={normalized}
-                          disabled={
-                            paletteOverrideCalculation.status === "loading"
-                          }
-                          onChange={(event) =>
-                            onUpdateColor(
-                              field.key,
-                              event.target.value.toUpperCase(),
-                            )
-                          }
-                          className="absolute inset-0 z-20 size-full cursor-pointer opacity-0"
-                        />
-                        <span
-                          className="mt-2 size-24 rounded-[28px] border-4 border-white shadow-[0_20px_36px_-20px_rgba(15,23,42,0.8)] ring-1 ring-black/8"
-                          style={{ backgroundColor: normalized }}
-                        />
-                        <span className="mt-4 font-semibold text-foreground">
-                          {field.label}
-                        </span>
-                        <span className="mt-1 text-xs leading-5 text-muted-foreground">
-                          {field.description}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
+              <>
+                <PublisherAppVisualIdentityEditor
+                  id="publisher-app-visual-identity"
+                  colors={state.colors}
+                  fields={COLOR_FIELDS}
+                  suggestedPalettes={suggestedPalettes}
+                  disabled={paletteOverrideCalculation.status === "loading"}
+                  onApply={onApplyPalette}
+                  onApplied={() => setActiveDialog(null)}
+                />
+                {paletteOverrideCalculation.status === "loading" || paletteOverrideCalculation.status === "error" ? (
+                  <PaletteOverrideCalculationStatus calculation={paletteOverrideCalculation} />
+                ) : null}
+              </>
             ) : null}
 
             {activeDialog === "icon" ? (
@@ -2283,15 +2188,22 @@ function PublisherAppEditSheet({
             ) : null}
           </div>
 
-          <DialogFooter className="border-t border-violet-100 bg-violet-50/55 px-6 py-4 dark:border-violet-400/14 dark:bg-violet-950/18">
+          <DialogFooter className="shrink-0 border-t border-violet-100 bg-violet-50/55 px-6 py-4 dark:border-violet-400/14 dark:bg-violet-950/18">
+            {activeDialog === "colors" ? <>
+              <Button type="button" variant="outline" disabled={paletteOverrideCalculation.status === "loading"} onClick={() => setActiveDialog(null)}>Cancelar</Button>
+              <Button type="submit" form="publisher-app-visual-identity" disabled={paletteOverrideCalculation.status === "loading"} className="h-11 min-w-28 rounded-xl bg-violet-600 text-white hover:bg-violet-700">
+                {paletteOverrideCalculation.status === "loading" ? <LoaderCircle className="size-4 animate-spin" /> : <Check className="size-4" />}
+                {paletteOverrideCalculation.status === "loading" ? "Aplicando…" : "Aplicar"}
+              </Button>
+            </> : (
             <Button
               type="button"
               onClick={() => setActiveDialog(null)}
-              disabled={activeDialog === "colors" && paletteCalculationBlocking}
               className="h-11 min-w-28 rounded-xl bg-violet-600 text-white hover:bg-violet-700"
             >
               Listo
             </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2555,10 +2467,9 @@ export function PublisherAppConfigWorkbench({
   const iconSelectionBlocksSubmission =
     (customIconMissing || customIconUrlInvalid) &&
     !(mode === "create" && !iconStepVisited);
-  const paletteCalculationBlocking =
-    paletteOverrideCalculation.status === "loading" ||
-    (mode === "edit" && paletteOverrideCalculation.status === "error");
+  const paletteCalculationBlocking = paletteOverrideCalculation.status === "loading";
   const previewColors = publisherAppColorsWithCounterpoints({
+    ...state.colors,
     primary:
       normalizePublisherAppColor(state.colors.primary) ??
       DEFAULT_PUBLISHER_APP_COLOR,
@@ -2611,16 +2522,7 @@ export function PublisherAppConfigWorkbench({
     paletteName: string,
     resetTerms = true,
   ) {
-    const normalizedColors = {
-      primary: normalizePublisherAppColor(colors.primary),
-      secondary: normalizePublisherAppColor(colors.secondary),
-      tertiary: normalizePublisherAppColor(colors.tertiary),
-    };
-    if (
-      !normalizedColors.primary ||
-      !normalizedColors.secondary ||
-      !normalizedColors.tertiary
-    ) {
+    if (COLOR_FIELDS.some(({ key }) => !normalizePublisherAppColor(colors[key]))) {
       setPaletteOverrideCalculation({
         status: "error",
         paletteName,
@@ -2628,11 +2530,7 @@ export function PublisherAppConfigWorkbench({
       });
       throw new Error("La paleta contiene un color inválido.");
     }
-    const nextColors = publisherAppColorsWithCounterpoints({
-      primary: normalizedColors.primary,
-      secondary: normalizedColors.secondary,
-      tertiary: normalizedColors.tertiary,
-    });
+    const nextColors = Object.fromEntries(COLOR_FIELDS.map(({ key }) => [key, normalizePublisherAppColor(colors[key])!])) as PublisherAppColors;
     const resolvedPublisherKind = initialConfig?.publisherKind ?? publisherKind;
     const resolvedPublisherId = initialConfig?.publisherId ?? publisherId;
     if (
@@ -2648,7 +2546,7 @@ export function PublisherAppConfigWorkbench({
     }
 
     if (resetTerms) setTermsAccepted(false);
-    setState((current) => ({ ...current, colors: nextColors }));
+    if (mode === "create") setState((current) => ({ ...current, colors: nextColors }));
     paletteOverrideRequest.current?.controller.abort();
     const request = {
       controller: new AbortController(),
@@ -3105,8 +3003,10 @@ export function PublisherAppConfigWorkbench({
           deletePending={deletePending}
           hasPersistedConfig={Boolean(persistedConfig)}
           onUpdateState={updateState}
-          onUpdateColor={updateColor}
-          onApplyPalette={previewPalette}
+          onApplyPalette={async (colors, paletteName) => {
+            try { return Boolean(await applyPalette(colors, paletteName)); }
+            catch { return false; }
+          }}
           onChooseIconSource={chooseIconSource}
           onIconUpload={(event) => void handleIconUpload(event)}
           onReset={() => {

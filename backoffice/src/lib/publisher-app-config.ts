@@ -516,11 +516,15 @@ export function publisherAppCounterpointColors(
 }
 
 export function publisherAppColorsWithCounterpoints(
-  colors: PublisherAppBaseColors,
+  colors: PublisherAppBaseColors & Partial<PublisherAppCounterpointColors>,
 ): PublisherAppColors {
+  const automatic = publisherAppCounterpointColors(colors.primary);
   return {
     ...colors,
-    ...publisherAppCounterpointColors(colors.primary),
+    counterpointClockwise: colors.counterpointClockwise ?? automatic.counterpointClockwise,
+    counterpointAnticlockwise: colors.counterpointAnticlockwise ?? automatic.counterpointAnticlockwise,
+    counterpointFarClockwise: colors.counterpointFarClockwise ?? automatic.counterpointFarClockwise,
+    counterpointFarAnticlockwise: colors.counterpointFarAnticlockwise ?? automatic.counterpointFarAnticlockwise,
   };
 }
 

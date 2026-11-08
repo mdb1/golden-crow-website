@@ -236,10 +236,10 @@ const validBody = {
     primary: "#aabbcc",
     secondary: "#123456",
     tertiary: "#fedcba",
-    counterpointClockwise: "#000001",
-    counterpointAnticlockwise: "#000002",
-    counterpointFarClockwise: "#000003",
-    counterpointFarAnticlockwise: "#000004",
+    counterpointClockwise: "#6639EF",
+    counterpointAnticlockwise: "#39EFC1",
+    counterpointFarClockwise: "#C139EF",
+    counterpointFarAnticlockwise: "#39EF66",
   },
   iconSource: "publisher" as const,
   iconImageUrl: null,
@@ -653,6 +653,27 @@ describe("publisher app config contract", () => {
     });
   });
 
+  it("preserves all four manual counterpoints through creation, save, reads and runtime publication", async () => {
+    const colors = {
+      ...validBody.colors,
+      counterpointClockwise: "#abcdef", counterpointAnticlockwise: "#123abc",
+      counterpointFarClockwise: "#fedcba", counterpointFarAnticlockwise: "#987def",
+    };
+    const expected = Object.fromEntries(Object.entries(colors).map(([key, value]) => [key, value.toUpperCase()]));
+    const created = await fastify.inject({ method: "POST", url: "/publisher-app/config", payload: { ...validBody, colors } });
+    expect(created.statusCode).toBe(201);
+    expect(created.json().config.colors).toEqual(expected);
+    const saved = await fastify.inject({ method: "PUT", url: "/publisher-app/config", payload: { ...validBody, colors } });
+    expect(saved.statusCode).toBe(200);
+    expect(saved.json().config.colors).toEqual(expected);
+    expect(collectionStore("app_configs").get(created.json().config.id)?.colors).toEqual(expected);
+    const read = await fastify.inject({ method: "GET", url: "/publisher-app/config" });
+    expect(read.json().config.colors).toEqual(expected);
+    await fastify.inject({ method: "POST", url: "/publisher-app/config/identifier" });
+    const runtime = await fastify.inject({ method: "GET", url: "/publisher-app/config/runtime" });
+    expect(runtime.json().branding.colors).toMatchObject({ counterpointClockwise: "#ABCDEF", counterpointAnticlockwise: "#123ABC" });
+  });
+
   it("requires explicit terms acceptance before creating an app config", async () => {
     const { termsAccepted: _termsAccepted, ...payload } = validBody;
 
@@ -892,9 +913,9 @@ describe("publisher app config contract", () => {
     });
   });
 
-  it.each([false, true])(
-    "publishes configured counterpoints exactly and bumps a legacy runtime revision only once (stored semantic colors: %s)",
-    async (useStoredSemanticColors) => {
+  it.each([[false, undefined], [true, undefined], [false, 1], [true, 1]] as const)(
+    "publishes configured counterpoints exactly and bumps a legacy runtime revision only once (stored semantic colors: %s, prior contract: %s)",
+    async (useStoredSemanticColors, priorContract) => {
       const created = await fastify.inject({
         method: "POST",
         url: "/publisher-app/config",
@@ -909,7 +930,8 @@ describe("publisher app config contract", () => {
       const configId = created.json().config.id;
       const original = collectionStore("app_configs").get(configId)!;
       const legacy: StoredDocument = { ...original, runtimeRevision: 7 };
-      delete legacy.runtimeColorContractVersion;
+      if (priorContract === undefined) delete legacy.runtimeColorContractVersion;
+      else legacy.runtimeColorContractVersion = priorContract;
       collectionStore("app_configs").set(configId, legacy);
       const expectedSemanticColors = useStoredSemanticColors
         ? advancedConfigurationBody.semanticColors
@@ -931,7 +953,7 @@ describe("publisher app config contract", () => {
       expect(collectionStore("app_configs").get(configId)).toEqual({
         ...legacy,
         runtimeRevision: 8,
-        runtimeColorContractVersion: 1,
+        runtimeColorContractVersion: 2,
       });
       expect(await getActivePublisherAppRuntimeConfig(activated.json().config.appProviderIdentifier, "android")).toEqual(first);
       const repeated = await fastify.inject({ method: "GET", url: "/publisher-app/config/runtime" });

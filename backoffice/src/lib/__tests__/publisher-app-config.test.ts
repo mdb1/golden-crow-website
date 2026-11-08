@@ -1,6 +1,7 @@
 import {
   isCurrentPublisherAppIdentifier,
   publisherAppCounterpointColors,
+  publisherAppColorsWithCounterpoints,
   publisherAppDefaultColors,
   publisherAppPaletteSuggestions,
 } from "@/lib/publisher-app-config";
@@ -65,6 +66,17 @@ describe("publisher app identifiers", () => {
 });
 
 describe("publisher app color palettes", () => {
+  it("preserves chosen counterpoints and calculates only missing colors", () => {
+    const colors = publisherAppColorsWithCounterpoints({
+      primary: "#FF5500", secondary: "#FFB21F", tertiary: "#F58220",
+      counterpointClockwise: "#123456", counterpointFarAnticlockwise: "#ABCDEF",
+    });
+    expect(colors).toEqual({
+      primary: "#FF5500", secondary: "#FFB21F", tertiary: "#F58220",
+      ...publisherAppCounterpointColors("#FF5500"),
+      counterpointClockwise: "#123456", counterpointFarAnticlockwise: "#ABCDEF",
+    });
+  });
   it("matches the bright closely related Medicgen orange palette", () => {
     expect(publisherAppDefaultColors("#FF5500")).toEqual({
       primary: "#FF5500",

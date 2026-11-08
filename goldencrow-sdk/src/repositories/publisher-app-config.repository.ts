@@ -37,7 +37,7 @@ const CUSTOM_APPS_SNAPSHOT_COLLECTION = "custom_apps_snapshot";
 const CUSTOM_APPS_SNAPSHOT_DOCUMENT = "simple";
 const CUSTOM_APP_ICONS_COLLECTION = "custom_app_icons";
 const APP_CONFIG_SCHEMA_VERSION = 1 as const;
-const RUNTIME_COLOR_CONTRACT_VERSION = 1;
+const RUNTIME_COLOR_CONTRACT_VERSION = 2;
 const RUNTIME_COLOR_CONTRACT_VERSION_FIELD = "runtimeColorContractVersion";
 const CUSTOM_APPS_SNAPSHOT_SCHEMA_VERSION = 1 as const;
 const APP_TERMS_VERSION = "2026-10-31";
@@ -139,11 +139,15 @@ function normalizeColor(value: unknown, label: string) {
 
 function normalizeColors(colors: PublisherAppConfigColors) {
   const primary = normalizeColor(colors.primary, "Primary color");
+  const automatic = derivePublisherAppCounterpointColors(primary);
   return {
     primary,
     secondary: normalizeColor(colors.secondary, "Secondary color"),
     tertiary: normalizeColor(colors.tertiary, "Tertiary color"),
-    ...derivePublisherAppCounterpointColors(primary),
+    counterpointClockwise: normalizeColor(colors.counterpointClockwise ?? automatic.counterpointClockwise, "Clockwise counterpoint"),
+    counterpointAnticlockwise: normalizeColor(colors.counterpointAnticlockwise ?? automatic.counterpointAnticlockwise, "Anticlockwise counterpoint"),
+    counterpointFarClockwise: normalizeColor(colors.counterpointFarClockwise ?? automatic.counterpointFarClockwise, "Far clockwise counterpoint"),
+    counterpointFarAnticlockwise: normalizeColor(colors.counterpointFarAnticlockwise ?? automatic.counterpointFarAnticlockwise, "Far anticlockwise counterpoint"),
   };
 }
 
@@ -436,14 +440,7 @@ function storedColors(value: unknown): PublisherAppConfigColors {
     );
   }
 
-  const colors = value as Record<string, unknown>;
-  const primary = normalizeColor(colors.primary, "Primary color");
-  return {
-    primary,
-    secondary: normalizeColor(colors.secondary, "Secondary color"),
-    tertiary: normalizeColor(colors.tertiary, "Tertiary color"),
-    ...derivePublisherAppCounterpointColors(primary),
-  };
+  return normalizeColors(value as PublisherAppConfigColors);
 }
 
 export function toPublisherAppConfigRecord(
