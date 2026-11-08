@@ -9,6 +9,9 @@ import {
 const catalog = getPublisherAppColorCatalog();
 const textRoles = ["friends", "genes", "circles", "search"].map(action => `community.quickActions.${action}.foreground`);
 const fixedTextRoles = new Set(textRoles);
+const redesignedBackgroundRoles = new Set(["friends", "genes", "circles", "search"].flatMap(action =>
+  ["start", "middle", "end", "bezel"].map(stop => `community.quickActions.${action}.${stop}`),
+));
 const white = { light: "#FFFFFF", dark: "#FFFFFF" };
 
 const palettes = [
@@ -40,8 +43,11 @@ describe.each(palettes)("fixed quick-action text with a $name palette", palette 
     expect(plan.selectedCount).toBe(Object.keys(plan.colorOverrides).length);
   });
 
-  it("preserves every background, Genes accent and other color from the prior producer", () => {
-    expect(withoutText(plan.colorOverrides)).toEqual(withoutText(planFor(palette, true).colorOverrides));
+  it("preserves Genes and unrelated roles outside the separately redesigned quick-action backgrounds", () => {
+    const unrelated = (overrides: Record<string, PublisherAppColorOverride>) => Object.fromEntries(
+      Object.entries(withoutText(overrides)).filter(([key]) => !redesignedBackgroundRoles.has(key)),
+    );
+    expect(unrelated(plan.colorOverrides)).toEqual(unrelated(planFor(palette, true).colorOverrides));
   });
 });
 

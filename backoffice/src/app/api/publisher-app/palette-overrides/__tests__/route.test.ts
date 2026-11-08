@@ -2,7 +2,13 @@ import { getServerSession } from "next-auth";
 import { POST } from "../route";
 import { publisherAppColorsWithCounterpoints, publisherAppPreviousCounterpointColors, publisherAppSupersededCounterpointColors } from "@/lib/publisher-app-config";
 import { getLegacyPublisherAppColorCatalog, getPublisherAppColorCatalog } from "@/lib/publisher-app-customization-catalog-server";
-import { createPublisherAppPaletteOverridePlan, createPublisherAppPreviousPaletteOverridePlan, createPublisherAppOverdarkenedPaletteOverridePlan, createPublisherAppPreGenesRestorePaletteOverridePlan } from "@/lib/publisher-app-palette-overrides";
+import {
+  createPublisherAppPaletteOverridePlan,
+  createPublisherAppPreviousPaletteOverridePlan,
+  createPublisherAppOverdarkenedPaletteOverridePlan,
+  createPublisherAppPreGenesRestorePaletteOverridePlan,
+  createPublisherAppPreQuickBackgroundPaletteOverridePlan,
+} from "@/lib/publisher-app-palette-overrides";
 import { createLegacyPublisherAppPaletteOverridePlan, legacyPublisherAppCounterpointColors } from "@/lib/publisher-app-legacy-palette-overrides";
 
 jest.mock("next-auth", () => ({ getServerSession: jest.fn() }));
@@ -280,6 +286,44 @@ describe("custom app palette override route", () => {
     expect(body.colorOverrides["community.genes.focus.research"]).toEqual(manualFocus);
     expect(body.colorOverrides["learn.background.leadingGlow"].light).toBe("#11223380");
     expect(body.generatedColorOverrides["community.genes.focus.research"]).toEqual(newPlan.colorOverrides["community.genes.focus.research"]);
+  });
+
+  it.each([false, true])("replaces old generated quick-action backgrounds while retaining manual colors (saved baseline: %s)", async (savedBaseline) => {
+    jest.mocked(getServerSession).mockResolvedValue({ user: { email: "admin@example.org" }, expires: "2099-01-01T00:00:00.000Z" });
+    const colors = publisherAppColorsWithCounterpoints({ primary: "#40FF00", secondary: "#2AEF47", tertiary: "#82F820" });
+    const catalog = getPublisherAppColorCatalog();
+    const oldPlan = createPublisherAppPreQuickBackgroundPaletteOverridePlan(colors, catalog.options, catalog.catalogVersion, catalog.alternativeTonalFlows, catalog.contrastPairs);
+    const newPlan = createPublisherAppPaletteOverridePlan(colors, catalog.options, catalog.catalogVersion, catalog.alternativeTonalFlows, catalog.contrastPairs);
+    const automaticBackground = "community.quickActions.friends.middle";
+    expect(oldPlan.colorOverrides[automaticBackground]).not.toEqual(newPlan.colorOverrides[automaticBackground]);
+    const manualBackground = "community.quickActions.genes.start";
+    const manualGenes = { light: "#147C6EF2", dark: "#2A9F8BCC" };
+    const current: typeof oldPlan.colorOverrides = {
+      ...oldPlan.colorOverrides,
+      [manualBackground]: { ...oldPlan.colorOverrides[manualBackground], light: "#24574C80" },
+      "community.genes.focus.research": manualGenes,
+      "learn.background.leadingGlow": { light: "#11223380" },
+    };
+    // Older editor configurations omitted overrides that matched native white.
+    delete current["community.quickActions.friends.foreground"];
+    const response = await POST(new Request("https://example.test/api/publisher-app/palette-overrides", {
+      method: "POST", body: JSON.stringify({
+        colors, previousColors: colors, colorOverrides: current,
+        ...(savedBaseline ? { generatedColorOverrides: oldPlan.colorOverrides } : {}),
+      }),
+    }));
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.colorOverrides[automaticBackground]).toEqual(newPlan.colorOverrides[automaticBackground]);
+    expect(body.generatedColorOverrides[automaticBackground]).toEqual(newPlan.colorOverrides[automaticBackground]);
+    expect(body.colorOverrides[manualBackground].light).toBe("#24574C80");
+    expect(body.colorOverrides[manualBackground].dark).toBe(newPlan.colorOverrides[manualBackground].dark);
+    expect(body.generatedColorOverrides[manualBackground]).toEqual(newPlan.colorOverrides[manualBackground]);
+    expect(body.colorOverrides["community.genes.focus.research"]).toEqual(manualGenes);
+    expect(body.colorOverrides["learn.background.leadingGlow"].light).toBe("#11223380");
+    for (const action of ["friends", "genes", "circles", "search"]) {
+      expect(body.colorOverrides[`community.quickActions.${action}.foreground`]).toEqual({ light: "#FFFFFF", dark: "#FFFFFF" });
+    }
   });
 
   it("reconciles automatic foreground contrast against a retained manual background and saves the corrected baseline", async () => {

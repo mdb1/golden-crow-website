@@ -30,7 +30,9 @@ const historicalGenes = {
   "community.genes.visibilityAccent": { light: "#009280", dark: "#009280" },
 } as const;
 const restoredKeys = new Set(Object.keys(historicalGenes));
-const fixedQuickText = ["friends", "genes", "circles", "search"].map(action => `community.quickActions.${action}.foreground`);
+const laterQuickActionRoles = ["friends", "genes", "circles", "search"].flatMap(action =>
+  ["foreground", "start", "middle", "end", "bezel"].map(part => `community.quickActions.${action}.${part}`),
+);
 
 // Canonical non-restored projections from committed b91fa88c protect every
 // other role (including Genes text/foundations and quick actions) without
@@ -50,11 +52,11 @@ function effective(plan: Plan, key: string, mode: Appearance) {
 }
 
 function unaffectedHash(plan: Plan, previous: Plan) {
-  // Restore only the newly fixed text entries to the prior committed producer
-  // before checking the unchanged b91 hash. Every background and Genes ink
-  // remains protected by the original fixture.
+  // Normalize only the subsequently fixed text and redesigned quick-action
+  // backgrounds before checking the original b91 fixture. Every other role,
+  // including Genes ink and foundations, remains protected by that fixture.
   const overrides = { ...plan.colorOverrides };
-  for (const key of fixedQuickText) {
+  for (const key of laterQuickActionRoles) {
     if (previous.colorOverrides[key]) overrides[key] = previous.colorOverrides[key];
     else delete overrides[key];
   }
@@ -87,7 +89,7 @@ describe.each(palettes)("fixed Genes cyan/green flow with a $name app", palette 
     }
   });
 
-  it("leaves every other role unchanged apart from the four fixed quick-action text colors", () => {
+  it("leaves every other role unchanged apart from the separately scoped quick-action row", () => {
     expect(unaffectedHash(plan, previous)).toBe(palette.hash);
   });
 

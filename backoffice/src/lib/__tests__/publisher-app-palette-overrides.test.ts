@@ -372,11 +372,10 @@ describe.each(palettes)("$name brand palette", (palette) => {
     }
   });
 
-  it("retains intentional multi-hue gradients rather than flattening every family to one hue", () => {
+  it("retains intentional multi-hue gradients outside the redesigned quick-action row", () => {
     for (const appearance of appearances) {
       for (const keys of [
         ["tabs.discover.start", "tabs.discover.end"],
-        ["community.quickActions.genes.start", "community.quickActions.genes.middle"],
       ]) {
         const [start, end] = keys.map((key) => effective(plan, key, appearance));
         if (Math.min(perceptualColor(start).chroma, perceptualColor(end).chroma) <= 0.008) continue;

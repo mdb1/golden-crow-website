@@ -208,6 +208,57 @@ function isFixedQuickActionText(key: string) {
   return fixedQuickActionTextKeys.has(key);
 }
 
+const QUICK_ACTION_BACKGROUND_SOURCES = [
+  ["friends", "primary"],
+  ["genes", "secondary"],
+  ["circles", "tertiary"],
+  ["search", "counterpointClockwise"],
+] as const;
+const QUICK_ACTION_BACKGROUND_STOPS = { start: 0.02, middle: 0, end: -0.03, bezel: -0.05 } as const;
+
+function quickActionCenter(seed: string, primary: string, toneToBrand: boolean) {
+  const source = rgbToOklch(parseColor(normalizedSeed(seed)));
+  const brand = rgbToOklch(parseColor(normalizedSeed(primary)));
+  let center = source;
+  if (toneToBrand && source.chroma > ACHROMATIC_CHROMA && brand.chroma > ACHROMATIC_CHROMA) {
+    const axes = (tone: OklchColor) => ({
+      a: tone.chroma * Math.cos(tone.hue * Math.PI / 180),
+      b: tone.chroma * Math.sin(tone.hue * Math.PI / 180),
+    });
+    const seedAxes = axes(source), brandAxes = axes(brand);
+    const a = seedAxes.a * 0.88 + brandAxes.a * 0.12;
+    const b = seedAxes.b * 0.88 + brandAxes.b * 0.12;
+    const mixedHue = normalizeHue(Math.atan2(b, a) * 180 / Math.PI);
+    center = {
+      lightness: source.lightness,
+      chroma: clamp(Math.hypot(a, b), source.chroma * 0.9, source.chroma),
+      hue: normalizeHue(source.hue + clamp(signedHueDifference(mixedHue, source.hue), -6, 6)),
+    };
+  }
+  const hex = oklchToHex(center, "");
+  if (contrast("#FFFFFF", hex) >= 2.5) return center;
+  // Only an actually luminous card center gets a readable display shade.
+  // This component has fixed white text, including when the chosen seed is a
+  // near-white neutral. Already-ochre/dark colors never enter this correction.
+  const targetLuminance = 1.05 / 3.03 - 0.05;
+  const shaded = shadedControlColor(hex, clamp(targetLuminance / luminance(hex), 0, 1));
+  return rgbToOklch(parseColor(shaded));
+}
+
+function applyQuickActionBackgrounds(values: Map<string, PublisherAppColorOverride>, byKey: Map<string, PublisherAppColorCatalogOption>, colors: PublisherAppColors) {
+  for (const [action, source] of QUICK_ACTION_BACKGROUND_SOURCES) {
+    const center = quickActionCenter(colors[source], colors.primary, action !== "friends");
+    for (const [stop, offset] of Object.entries(QUICK_ACTION_BACKGROUND_STOPS)) {
+      const key = `community.quickActions.${action}.${stop}`;
+      const option = byKey.get(key);
+      if (!option) continue;
+      const tone = { ...center, lightness: clamp(center.lightness + offset, 0, 1) };
+      values.set(key, Object.fromEntries(MODES.map(mode => [mode, oklchToHex(tone, parseColor(originalValue(option, mode)).alpha)])));
+    }
+  }
+}
+
+
 
 function originalValue(option: PublisherAppColorCatalogOption, mode: Appearance) {
   return normalizedCatalogColor(mode === "light" ? option.defaultLightColor : option.defaultDarkColor);
@@ -307,6 +358,8 @@ function buildFamilies(colors: PublisherAppColors, options: PublisherAppColorCat
       roleFamilies.set(key, flowFamily);
     }
   }
+  // Keep the former coordinates for historical-palette recognition. Current
+  // tile backgrounds are assigned explicitly by applyQuickActionBackgrounds.
   for (const [name, target] of [["circles", colors.counterpointClockwise], ["search", colors.counterpointAnticlockwise]] as const) {
     const anchor = `community.quickActions.${name}.middle`;
     if (!byKey.has(anchor)) continue;
@@ -758,6 +811,7 @@ function createPaletteOverridePlan(
   selective = true,
   restoreGenes = false,
   fixQuickActionText = false,
+  anchorQuickActionBackgrounds = false,
 ): PublisherAppPaletteOverridePlan {
   if (options.length === 0) throw new Error("The color catalog is too small to build the palette plan.");
   const values = new Map<string, PublisherAppColorOverride>();
@@ -798,6 +852,7 @@ function createPaletteOverridePlan(
       values.set(key, Object.fromEntries(MODES.map(mode => [mode, `${color}${parseColor(originalValue(option, mode)).alpha}`])));
     }
   }
+  if (anchorQuickActionBackgrounds) applyQuickActionBackgrounds(values, byKey, colors);
   if (fixQuickActionText) {
     for (const key of FIXED_QUICK_ACTION_TEXT_KEYS) {
       if (byKey.has(key)) values.set(key, { light: "#FFFFFF", dark: "#FFFFFF" });
@@ -814,7 +869,7 @@ export function createPublisherAppPaletteOverridePlan(
   alternativeTonalFlows: PublisherAppAlternativeTonalFlow[] = [],
   contrastPairs: PublisherAppColorContrastPair[] = [],
 ): PublisherAppPaletteOverridePlan {
-  return createPaletteOverridePlan(colors, options, catalogVersion, alternativeTonalFlows, contrastPairs, true, true, true, true);
+  return createPaletteOverridePlan(colors, options, catalogVersion, alternativeTonalFlows, contrastPairs, true, true, true, true, true);
 }
 
 /** Recognize old automatic values when there is no saved generated baseline. */
@@ -859,4 +914,15 @@ export function createPublisherAppPreQuickTextPaletteOverridePlan(
   contrastPairs: PublisherAppColorContrastPair[] = [],
 ): PublisherAppPaletteOverridePlan {
   return createPaletteOverridePlan(colors, options, catalogVersion, alternativeTonalFlows, contrastPairs, true, true, true);
+}
+
+/** Frozen 3.634 background results identify previous automatic tile colors. */
+export function createPublisherAppPreQuickBackgroundPaletteOverridePlan(
+  colors: PublisherAppColors,
+  options: PublisherAppColorCatalogOption[],
+  catalogVersion: number,
+  alternativeTonalFlows: PublisherAppAlternativeTonalFlow[] = [],
+  contrastPairs: PublisherAppColorContrastPair[] = [],
+): PublisherAppPaletteOverridePlan {
+  return createPaletteOverridePlan(colors, options, catalogVersion, alternativeTonalFlows, contrastPairs, true, true, true, true);
 }
