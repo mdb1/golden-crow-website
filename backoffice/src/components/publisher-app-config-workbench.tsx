@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
+import { PublisherAppPaletteComposition } from "@/components/publisher-app-palette-composition";
 import { PublisherAppVisualIdentityEditor } from "@/components/publisher-app-visual-identity-editor";
 import {
   PublisherAppAdvancedConfigurationEditor,
@@ -1112,7 +1113,7 @@ function PublisherAppEditSection({
 }: {
   icon: ReactNode;
   title: string;
-  description: string;
+  description?: string;
   actionLabel: string;
   onAction: () => void;
   children: ReactNode;
@@ -1132,9 +1133,9 @@ function PublisherAppEditSection({
             <h3 className="font-heading text-lg font-semibold text-foreground">
               {title}
             </h3>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            {description ? <p className="mt-1 text-sm leading-6 text-muted-foreground">
               {description}
-            </p>
+            </p> : null}
           </div>
         </div>
         <Button
@@ -1597,37 +1598,10 @@ function PublisherAppEditSheet({
               testId="publisher-app-edit-colors"
               icon={<Palette className="size-5" />}
               title="Identidad visual"
-              description="Colores principales y tonos alternativos de contraste."
               actionLabel="Editar paleta"
               onAction={() => setActiveDialog("colors")}
             >
-              {[
-                { title: "Paleta principal", fields: EDITABLE_COLOR_FIELDS },
-                { title: "Contrapuntos de contraste", fields: COLOR_FIELDS.filter((field) => !field.editable) },
-              ].map((group) => <div key={group.title} className="mb-4 last:mb-0">
-                <h4 className="mb-3 text-sm font-semibold">{group.title}</h4>
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {group.fields.map((field) => (
-                  <div
-                    key={field.key}
-                    className="flex items-center gap-3 rounded-xl border border-violet-100/80 bg-white/72 p-3 dark:border-violet-400/14 dark:bg-slate-950/28"
-                  >
-                    <span
-                      className="size-11 shrink-0 rounded-xl border-2 border-white shadow-[0_10px_24px_-14px_rgba(15,23,42,0.85)] ring-1 ring-black/8"
-                      style={{ backgroundColor: colors[field.key] }}
-                    />
-                    <span className="min-w-0">
-                      <span className="block text-sm font-semibold text-foreground">
-                        {field.label}
-                      </span>
-                      <span className="block font-mono text-xs text-muted-foreground">
-                        {colors[field.key]}
-                      </span>
-                    </span>
-                  </div>
-                ))}
-                </div>
-              </div>)}
+              <PublisherAppPaletteComposition colors={colors} />
               {activeDialog !== "colors" ? <PaletteOverrideCalculationStatus calculation={paletteOverrideCalculation} /> : null}
             </PublisherAppEditSection>
 
