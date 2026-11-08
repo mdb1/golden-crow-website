@@ -1,11 +1,28 @@
 import {
   isCurrentPublisherAppIdentifier,
+  isPublisherAppRuntimeEnabled,
+  publisherAppStatusLabel,
   publisherAppCounterpointColors,
+  publisherAppColorsWithCounterpoints,
   publisherAppDefaultColors,
   publisherAppPaletteSuggestions,
 } from "@/lib/publisher-app-config";
 
 const BASE_COLOR_KEYS = ["primary", "secondary", "tertiary"] as const;
+
+describe("publisher app statuses", () => {
+  it.each([
+    ["active_for_testing", "Activa para pruebas", true],
+    ["active", "Activa", true],
+    ["pending_revision", "En revisión", false],
+    ["approved", "Aprobada", false],
+    ["changes_requested", "Requiere ajustes", false],
+    ["rejected", "No aprobada", false],
+  ] as const)("labels %s distinctly and preserves runtime availability", (status, label, enabled) => {
+    expect(publisherAppStatusLabel(status)).toBe(label);
+    expect(isPublisherAppRuntimeEnabled(status)).toBe(enabled);
+  });
+});
 
 function hslFromHex(value: string) {
   const channels = [1, 3, 5].map(
@@ -65,6 +82,17 @@ describe("publisher app identifiers", () => {
 });
 
 describe("publisher app color palettes", () => {
+  it("preserves chosen counterpoints and calculates only missing colors", () => {
+    const colors = publisherAppColorsWithCounterpoints({
+      primary: "#FF5500", secondary: "#FFB21F", tertiary: "#F58220",
+      counterpointClockwise: "#123456", counterpointFarAnticlockwise: "#ABCDEF",
+    });
+    expect(colors).toEqual({
+      primary: "#FF5500", secondary: "#FFB21F", tertiary: "#F58220",
+      ...publisherAppCounterpointColors("#FF5500"),
+      counterpointClockwise: "#123456", counterpointFarAnticlockwise: "#ABCDEF",
+    });
+  });
   it("matches the bright closely related Medicgen orange palette", () => {
     expect(publisherAppDefaultColors("#FF5500")).toEqual({
       primary: "#FF5500",

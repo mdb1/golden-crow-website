@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth";
 import {
   normalizePublisherAppColor,
   publisherAppColorsWithCounterpoints,
+  type PublisherAppColors,
 } from "@/lib/publisher-app-config";
 import { getPublisherAppColorCatalog } from "@/lib/publisher-app-customization-catalog-server";
 import { createPublisherAppPaletteOverridePlan } from "@/lib/publisher-app-palette-overrides";
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json().catch(() => null)) as {
-    colors?: { primary?: unknown; secondary?: unknown; tertiary?: unknown };
+    colors?: Partial<Record<keyof PublisherAppColors, unknown>>;
   } | null;
   const primary =
     typeof body?.colors?.primary === "string"
@@ -36,10 +37,20 @@ export async function POST(request: Request) {
   if (!primary || !secondary || !tertiary) {
     return Response.json({ error: "Invalid palette colors." }, { status: 400 });
   }
+  const colors = publisherAppColorsWithCounterpoints({ primary, secondary, tertiary });
+  for (const key of ["counterpointClockwise", "counterpointAnticlockwise", "counterpointFarClockwise", "counterpointFarAnticlockwise"] as const) {
+    const value = body?.colors?.[key];
+    if (value === undefined) continue;
+    const normalized = typeof value === "string" ? normalizePublisherAppColor(value) : undefined;
+    if (!normalized) {
+      return Response.json({ error: "Invalid counterpoint colors." }, { status: 400 });
+    }
+    colors[key] = normalized;
+  }
 
   const catalog = getPublisherAppColorCatalog();
   const plan = createPublisherAppPaletteOverridePlan(
-    publisherAppColorsWithCounterpoints({ primary, secondary, tertiary }),
+    colors,
     catalog.options,
     catalog.catalogVersion,
     catalog.alternativeTonalFlows,

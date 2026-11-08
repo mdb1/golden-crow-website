@@ -96,6 +96,8 @@ function answered(
 // changes, a reviewer must look at why: every entry here is reachable by
 // anyone on the internet.
 const ANONYMOUS_ROUTES = [
+  "GET /publisher-app/icon",
+  "HEAD /publisher-app/icon",
   "GET /health",
   "HEAD /health",
   "POST /auth/email-signup/eligibility",

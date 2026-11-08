@@ -97,6 +97,10 @@ describe("GodModePublisherAppsBrowser", () => {
 
     renderBrowser();
 
+    expect(screen.getByRole("link", { name: "Nueva app" })).toHaveAttribute(
+      "href", "/god-mode/apps/new",
+    );
+
     expect(
       await screen.findByRole("link", { name: "Editar app de Alpha Lab" }),
     ).toHaveAttribute("href", "/god-mode/apps/organization_alpha");
@@ -140,6 +144,20 @@ describe("GodModePublisherAppsBrowser", () => {
     expect(sdkFetch).toHaveBeenCalledTimes(1);
   });
 
+  it("distinguishes testing apps from existing active apps", async () => {
+    jest.mocked(sdkFetch).mockResolvedValue({
+      apps: [
+        app("organization_active", "Active Lab", { status: "active" }),
+        app("organization_testing", "Testing Lab", { status: "active_for_testing" }),
+      ],
+      nextCursor: null,
+    });
+    renderBrowser();
+    await screen.findByText("Testing Lab");
+    expect(screen.getByText("Activa")).toBeInTheDocument();
+    expect(screen.getByText("Activa para pruebas")).toBeInTheDocument();
+  });
+
   it("shows and fully refreshes the single lightweight app snapshot", async () => {
     const betaDataImage = "data:image/png;base64,iVBORw0KGgo=";
     const currentSnapshot = {
@@ -153,7 +171,8 @@ describe("GodModePublisherAppsBrowser", () => {
       updatedByUserId: "god-user",
       statusCounts: [
         { status: "pending_revision" as const, count: 0 },
-        { status: "active" as const, count: 1 },
+        { status: "active_for_testing" as const, count: 1 },
+        { status: "active" as const, count: 0 },
         { status: "approved" as const, count: 0 },
         { status: "changes_requested" as const, count: 0 },
         { status: "rejected" as const, count: 0 },
@@ -165,7 +184,7 @@ describe("GodModePublisherAppsBrowser", () => {
           name: "Alpha Catalog",
           image: "https://example.org/alpha.png",
           description: "Alpha snapshot description.",
-          status: "active" as const,
+          status: "active_for_testing" as const,
           isActive: true,
           publisherKind: "organization" as const,
           publisherId: "alpha",
@@ -222,6 +241,7 @@ describe("GodModePublisherAppsBrowser", () => {
       "publisher-apps-snapshot-file",
     );
     expect(within(file).getByText("Alpha Catalog")).toBeInTheDocument();
+    expect(within(file).getByText("Activa para pruebas")).toBeInTheDocument();
     expect(
       within(file).getByText("app_org_alpha_12345"),
     ).toBeInTheDocument();

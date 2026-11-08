@@ -41,6 +41,7 @@ if (!process.env.SMOKE_BOOT_CHILD) {
 // added here AND to the public-path matcher in src/server.ts — on purpose,
 // twice.
 const PUBLIC = new Set([
+  "GET /publisher-app/icon",
   "GET /health",
   "POST /auth/login",
   "POST /auth/logout",

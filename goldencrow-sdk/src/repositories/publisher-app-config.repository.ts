@@ -4,7 +4,7 @@ import {
   type DocumentSnapshot,
   type Transaction,
 } from "firebase-admin/firestore";
-import { randomInt } from "node:crypto";
+import { createHash, randomInt } from "node:crypto";
 import { adminDbFor } from "../config/firebase.js";
 import type {
   AdminContext,
@@ -23,6 +23,7 @@ import type {
 import { buildPublisherAppRuntimeConfig } from "../lib/publisher-app-runtime-config.js";
 import { normalizePublisherAppAdvancedConfiguration } from "../lib/publisher-app-advanced-config.js";
 import { derivePublisherAppCounterpointColors } from "../lib/publisher-app-color-identity.js";
+import { isPublisherAppRuntimeEnabled, PUBLISHER_APP_STATUSES } from "../lib/publisher-app-status.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 import {
   getProfileSetupState,
@@ -35,7 +36,10 @@ const APP_CONFIGS_COLLECTION = "app_configs";
 const APP_CONFIG_IDENTIFIERS_COLLECTION = "app_config_identifiers";
 const CUSTOM_APPS_SNAPSHOT_COLLECTION = "custom_apps_snapshot";
 const CUSTOM_APPS_SNAPSHOT_DOCUMENT = "simple";
+const CUSTOM_APP_ICONS_COLLECTION = "custom_app_icons";
 const APP_CONFIG_SCHEMA_VERSION = 1 as const;
+const RUNTIME_COLOR_CONTRACT_VERSION = 2;
+const RUNTIME_COLOR_CONTRACT_VERSION_FIELD = "runtimeColorContractVersion";
 const CUSTOM_APPS_SNAPSHOT_SCHEMA_VERSION = 1 as const;
 const APP_TERMS_VERSION = "2026-10-31";
 const HEX_COLOR_PATTERN = /^#[0-9A-F]{6}$/;
@@ -50,6 +54,7 @@ type PublisherScope = {
 
 type PublisherIdentity = PublisherScope & {
   name: string;
+  tint?: string;
   email: string;
   username: string;
   imageUrl: string | null;
@@ -65,13 +70,6 @@ const DEFAULT_ADMIN_APP_CONFIG_PAGE_SIZE = 20;
 const MAX_ADMIN_APP_CONFIG_PAGE_SIZE = 100;
 const APP_SNAPSHOT_PUBLISHER_READ_BATCH_SIZE = 50;
 const APP_SNAPSHOT_DESCRIPTION_MAX_LENGTH = 280;
-const PUBLISHER_APP_STATUSES = [
-  "pending_revision",
-  "active",
-  "approved",
-  "changes_requested",
-  "rejected",
-] as const satisfies readonly PublisherAppStatus[];
 
 function requiredString(value: unknown, label: string) {
   if (typeof value !== "string" || !value.trim()) {
@@ -135,11 +133,15 @@ function normalizeColor(value: unknown, label: string) {
 
 function normalizeColors(colors: PublisherAppConfigColors) {
   const primary = normalizeColor(colors.primary, "Primary color");
+  const automatic = derivePublisherAppCounterpointColors(primary);
   return {
     primary,
     secondary: normalizeColor(colors.secondary, "Secondary color"),
     tertiary: normalizeColor(colors.tertiary, "Tertiary color"),
-    ...derivePublisherAppCounterpointColors(primary),
+    counterpointClockwise: normalizeColor(colors.counterpointClockwise ?? automatic.counterpointClockwise, "Clockwise counterpoint"),
+    counterpointAnticlockwise: normalizeColor(colors.counterpointAnticlockwise ?? automatic.counterpointAnticlockwise, "Anticlockwise counterpoint"),
+    counterpointFarClockwise: normalizeColor(colors.counterpointFarClockwise ?? automatic.counterpointFarClockwise, "Far clockwise counterpoint"),
+    counterpointFarAnticlockwise: normalizeColor(colors.counterpointFarAnticlockwise ?? automatic.counterpointFarAnticlockwise, "Far anticlockwise counterpoint"),
   };
 }
 
@@ -318,6 +320,10 @@ async function publisherIdentity(
   return {
     ...scope,
     name,
+    tint:
+      typeof publisherData.colorHex === "string"
+        ? publisherData.colorHex
+        : undefined,
     email,
     username,
     imageUrl:
@@ -358,14 +364,8 @@ function storedAppStatus(value: unknown): PublisherAppStatus {
   if (value === undefined || value === null) {
     return "pending_revision";
   }
-  if (
-    value === "pending_revision" ||
-    value === "active" ||
-    value === "approved" ||
-    value === "changes_requested" ||
-    value === "rejected"
-  ) {
-    return value;
+  if (PUBLISHER_APP_STATUSES.includes(value as PublisherAppStatus)) {
+    return value as PublisherAppStatus;
   }
   throw new AdminRepositoryError(
     "Stored publisher app config has an invalid status.",
@@ -428,14 +428,7 @@ function storedColors(value: unknown): PublisherAppConfigColors {
     );
   }
 
-  const colors = value as Record<string, unknown>;
-  const primary = normalizeColor(colors.primary, "Primary color");
-  return {
-    primary,
-    secondary: normalizeColor(colors.secondary, "Secondary color"),
-    tertiary: normalizeColor(colors.tertiary, "Tertiary color"),
-    ...derivePublisherAppCounterpointColors(primary),
-  };
+  return normalizeColors(value as PublisherAppConfigColors);
 }
 
 export function toPublisherAppConfigRecord(
@@ -710,6 +703,13 @@ function toPublisherAppCatalogSnapshot(
       count: storedNonNegativeInteger(countData.count, "status count"),
     };
   });
+  // Earlier catalogs have the original five counts and no testing entry.
+  if (
+    statusCounts.length === PUBLISHER_APP_STATUSES.length - 1 &&
+    !statusCounts.some(({ status }) => status === "active_for_testing")
+  ) {
+    statusCounts.push({ status: "active_for_testing", count: 0 });
+  }
   const totalCount = storedNonNegativeInteger(data.totalCount, "total count");
   const activeCount = storedNonNegativeInteger(
     data.activeCount,
@@ -734,7 +734,7 @@ function toPublisherAppCatalogSnapshot(
   const expectedActiveCount = apps.filter((app) => app.isActive).length;
   if (
     new Set(apps.map((app) => app.id)).size !== apps.length ||
-    apps.some((app) => app.isActive !== (app.status === "active")) ||
+    apps.some((app) => app.isActive !== isPublisherAppRuntimeEnabled(app.status)) ||
     statusCounts.length !== PUBLISHER_APP_STATUSES.length ||
     storedStatusCounts.size !== PUBLISHER_APP_STATUSES.length ||
     PUBLISHER_APP_STATUSES.some(
@@ -757,7 +757,7 @@ function toPublisherAppCatalogSnapshot(
     totalCount,
     activeCount,
     inactiveCount,
-    statusCounts,
+    statusCounts: PUBLISHER_APP_STATUSES.map((status) => ({ status, count: storedStatusCounts.get(status)! })),
     apps,
     sourceReadCount: storedNonNegativeInteger(
       data.sourceReadCount,
@@ -825,7 +825,7 @@ function publisherAppSnapshotItemFromSource(
       compactSnapshotDescription(publisher.description) ||
       compactSnapshotDescription(publisher.descriptionEn),
     status: config.status,
-    isActive: config.status === "active",
+    isActive: isPublisherAppRuntimeEnabled(config.status),
     publisherKind: config.publisherKind,
     publisherId: config.publisherId,
   };
@@ -858,6 +858,53 @@ function appConfigChangeAffectsCatalogSnapshot(
   return !catalogSnapshotItemsEqual(previousItem, next);
 }
 
+// The aggregate catalog stores URLs; each uploaded icon has its own bounded,
+// immutable document so image bytes cannot push the catalog over Firestore's limit.
+function compactCatalogImages(
+  apps: PublisherAppCatalogSnapshotItem[],
+  writeIcon: (hash: string, icon: { contentType: string; base64: string }) => void,
+) {
+  const written = new Set<string>();
+  return apps.map((app) => {
+    if (!app.image?.startsWith("data:")) return app;
+    const match = app.image.match(
+      /^data:(image\/(?:png|jpeg|webp|svg\+xml|x-icon|vnd\.microsoft\.icon));base64,([A-Za-z0-9+/]+={0,2})$/,
+    );
+    if (!match || app.image.length > 900_000) {
+      throw new AdminRepositoryError("Stored app catalog icon is invalid or too large.", 500);
+    }
+    const hash = createHash("sha256").update(app.image).digest("hex");
+    if (!written.has(hash)) {
+      writeIcon(hash, { contentType: match[1]!, base64: match[2]! });
+      written.add(hash);
+    }
+    return {
+      ...app,
+      image: `https://golden-crow-sdk.vercel.app/publisher-app/icon?hash=${hash}`,
+    };
+  });
+}
+
+export async function getPublisherAppCatalogIcon(hash: string) {
+  const snapshot = await adminDb.collection(CUSTOM_APP_ICONS_COLLECTION).doc(hash).get();
+  const data = snapshot.data();
+  if (!snapshot.exists || !data) {
+    throw new AdminRepositoryError("App icon not found.", 404);
+  }
+  const { contentType, base64 } = data;
+  if (
+    typeof contentType !== "string" || typeof base64 !== "string" ||
+    Object.keys(data).some((key) => key !== "contentType" && key !== "base64") ||
+    base64.length > 900_000 ||
+    !/^image\/(?:png|jpeg|webp|svg\+xml|x-icon|vnd\.microsoft\.icon)$/.test(contentType) ||
+    !/^[A-Za-z0-9+/]+={0,2}$/.test(base64) ||
+    createHash("sha256").update(`data:${contentType};base64,${base64}`).digest("hex") !== hash
+  ) {
+    throw new AdminRepositoryError("Stored app icon is invalid.", 500);
+  }
+  return { contentType, bytes: Buffer.from(base64, "base64") };
+}
+
 function catalogSnapshotIncrementalUpdate(
   snapshot: DocumentSnapshot,
   targetId: string,
@@ -871,10 +918,11 @@ function catalogSnapshotIncrementalUpdate(
   const previousItem =
     previousIndex >= 0 ? current.apps[previousIndex] ?? null : null;
   if (
-    (previousItem &&
+    !current.apps.some((app) => app.image?.startsWith("data:")) &&
+    ((previousItem &&
       nextItem &&
       catalogSnapshotItemsEqual(previousItem, nextItem)) ||
-    (!previousItem && !nextItem)
+      (!previousItem && !nextItem))
   ) {
     return null;
   }
@@ -943,7 +991,12 @@ function updateCatalogSnapshotInTransaction(
     nextItem,
     updatedByUserId,
   );
-  if (update) transaction.update(snapshot.ref, update);
+  if (update) {
+    update.apps = compactCatalogImages(update.apps, (hash, icon) => {
+      transaction.set(adminDb.collection(CUSTOM_APP_ICONS_COLLECTION).doc(hash), icon);
+    });
+    transaction.update(snapshot.ref, update);
+  }
 }
 
 function publisherAppSnapshotItemPreservingDescription(
@@ -1043,6 +1096,14 @@ export async function refreshPublisherAppCatalogSnapshot(
   const reference = adminDb
     .collection(CUSTOM_APPS_SNAPSHOT_COLLECTION)
     .doc(CUSTOM_APPS_SNAPSHOT_DOCUMENT);
+  const icons = new Map<string, { contentType: string; base64: string }>();
+  const compactApps = compactCatalogImages(apps, (hash, icon) => icons.set(hash, icon));
+  const iconEntries = [...icons.entries()];
+  for (let index = 0; index < iconEntries.length; index += APP_SNAPSHOT_PUBLISHER_READ_BATCH_SIZE) {
+    await Promise.all(iconEntries.slice(index, index + APP_SNAPSHOT_PUBLISHER_READ_BATCH_SIZE).map(
+      ([hash, icon]) => adminDb.collection(CUSTOM_APP_ICONS_COLLECTION).doc(hash).set(icon),
+    ));
+  }
   await reference.set({
     id: CUSTOM_APPS_SNAPSHOT_DOCUMENT,
     schemaVersion: CUSTOM_APPS_SNAPSHOT_SCHEMA_VERSION,
@@ -1050,7 +1111,7 @@ export async function refreshPublisherAppCatalogSnapshot(
     activeCount,
     inactiveCount: apps.length - activeCount,
     statusCounts,
-    apps,
+    apps: compactApps,
     sourceReadCount: configs.length * 2,
     updatedAt: FieldValue.serverTimestamp(),
     updatedByUserId: context.uid,
@@ -1143,7 +1204,7 @@ export async function updatePublisherAppConfigById(
     },
     identity,
   );
-  if (input.status === "active" && !config.appProviderIdentifier) {
+  if (isPublisherAppRuntimeEnabled(input.status) && !config.appProviderIdentifier) {
     throw new AdminRepositoryError(
       "Create an app identifier before activating the config.",
       409,
@@ -1178,8 +1239,11 @@ export async function updatePublisherAppConfigById(
       const catalogSnapshot = await transaction.get(snapshotRef);
       transaction.update(ref, {
         ...update,
-        ...(currentConfig.status === "active"
-          ? { runtimeRevision: (currentConfig.runtimeRevision ?? 1) + 1 }
+        ...((isPublisherAppRuntimeEnabled(currentConfig.status) || isPublisherAppRuntimeEnabled(input.status))
+          ? {
+              runtimeRevision: (currentConfig.runtimeRevision ?? 1) + 1,
+              [RUNTIME_COLOR_CONTRACT_VERSION_FIELD]: RUNTIME_COLOR_CONTRACT_VERSION,
+            }
           : {}),
       });
       updateCatalogSnapshotInTransaction(
@@ -1197,8 +1261,11 @@ export async function updatePublisherAppConfigById(
   } else {
     await ref.update({
       ...update,
-      ...(config.status === "active"
-        ? { runtimeRevision: (config.runtimeRevision ?? 1) + 1 }
+      ...((isPublisherAppRuntimeEnabled(config.status) || isPublisherAppRuntimeEnabled(input.status))
+        ? {
+            runtimeRevision: (config.runtimeRevision ?? 1) + 1,
+            [RUNTIME_COLOR_CONTRACT_VERSION_FIELD]: RUNTIME_COLOR_CONTRACT_VERSION,
+          }
         : {}),
     });
   }
@@ -1225,6 +1292,77 @@ export async function getPublisherAppConfig(
     .get();
 
   return snapshot.exists ? toPublisherAppConfigRecord(snapshot) : null;
+}
+
+// Scope the operation to the selected publisher without impersonating an account:
+// the authenticated operator remains the identity and audit/terms actor.
+function organizationAppContext(
+  context: AdminContext,
+  organizationId: string,
+): AdminContext {
+  if (!context.isBootstrap) {
+    throw new AdminRepositoryError("GOD MODE access required", 403);
+  }
+  const id = organizationId.trim();
+  if (!id || id.includes("/") || id.length > 300) {
+    throw new AdminRepositoryError("A valid organization id is required.", 400);
+  }
+  return {
+    ...context,
+    role: "organization_publisher",
+    organizationId: id,
+    individualId: undefined,
+  };
+}
+
+export async function getOrganizationPublisherAppCreationData(
+  context: AdminContext,
+  organizationId: string,
+) {
+  const scopedContext = organizationAppContext(context, organizationId);
+  const [identity, config] = await Promise.all([
+    publisherIdentity(scopedContext, publisherScope(scopedContext)),
+    getPublisherAppConfig(scopedContext),
+  ]);
+  return {
+    config,
+    publisherKind: identity.kind,
+    publisherId: identity.id,
+    publisherName: identity.name,
+    publisherTint: identity.tint,
+    publisherImageUrl:
+      identity.imageUrl ?? identity.imageUploadDataUrl ?? undefined,
+    publisherEmail: identity.email,
+    publisherUsername: identity.username,
+  };
+}
+
+export async function createOrganizationPublisherAppConfig(
+  context: AdminContext,
+  organizationId: string,
+  input: PublisherAppConfigCreateInput,
+) {
+  return createPublisherAppConfig(
+    organizationAppContext(context, organizationId),
+    input,
+  );
+}
+
+export async function createOrganizationPublisherAppIdentifier(
+  context: AdminContext,
+  organizationId: string,
+) {
+  return createPublisherAppIdentifier(
+    organizationAppContext(context, organizationId),
+  );
+}
+
+export async function updateOrganizationPublisherAppConfig(
+  context: AdminContext,
+  organizationId: string,
+  input: PublisherAppConfigInput,
+) {
+  return updatePublisherAppConfig(organizationAppContext(context, organizationId), input);
 }
 
 export async function createPublisherAppConfig(
@@ -1385,8 +1523,11 @@ export async function updatePublisherAppConfig(
       transaction.update(ref, {
         ...baseUpdate,
         status: currentConfig.status,
-        ...(currentConfig.status === "active"
-          ? { runtimeRevision: (currentConfig.runtimeRevision ?? 1) + 1 }
+        ...(isPublisherAppRuntimeEnabled(currentConfig.status)
+          ? {
+              runtimeRevision: (currentConfig.runtimeRevision ?? 1) + 1,
+              [RUNTIME_COLOR_CONTRACT_VERSION_FIELD]: RUNTIME_COLOR_CONTRACT_VERSION,
+            }
           : {}),
       });
       updateCatalogSnapshotInTransaction(
@@ -1398,7 +1539,7 @@ export async function updatePublisherAppConfig(
           appProviderIdentifier:
             currentConfig.appProviderIdentifier ?? null,
           status: currentConfig.status,
-          isActive: currentConfig.status === "active",
+          isActive: isPublisherAppRuntimeEnabled(currentConfig.status),
         },
         context.uid,
       );
@@ -1406,8 +1547,11 @@ export async function updatePublisherAppConfig(
   } else {
     await ref.update({
       ...baseUpdate,
-      ...(config.status === "active"
-        ? { runtimeRevision: (config.runtimeRevision ?? 1) + 1 }
+      ...(isPublisherAppRuntimeEnabled(config.status)
+        ? {
+            runtimeRevision: (config.runtimeRevision ?? 1) + 1,
+            [RUNTIME_COLOR_CONTRACT_VERSION_FIELD]: RUNTIME_COLOR_CONTRACT_VERSION,
+          }
         : {}),
     });
   }
@@ -1429,7 +1573,7 @@ export async function createPublisherAppIdentifier(
   const initialSnapshot = await ref.get();
   const initialConfig = toPublisherAppConfigRecord(initialSnapshot);
   if (
-    initialConfig.status === "active" &&
+    isPublisherAppRuntimeEnabled(initialConfig.status) &&
     isCurrentAppProviderIdentifier(
       initialConfig.appProviderIdentifier,
       initialConfig.publisherKind,
@@ -1439,10 +1583,10 @@ export async function createPublisherAppIdentifier(
   }
   if (
     initialConfig.status !== "pending_revision" &&
-    initialConfig.status !== "active"
+    !isPublisherAppRuntimeEnabled(initialConfig.status)
   ) {
     throw new AdminRepositoryError(
-      "Only an app pending revision or active for testing can create an identifier.",
+      "Only an app pending revision, active for testing, or active can create an identifier.",
       409,
     );
   }
@@ -1458,7 +1602,7 @@ export async function createPublisherAppIdentifier(
       const snapshot = await transaction.get(ref);
       const config = toPublisherAppConfigRecord(snapshot);
       if (
-        config.status === "active" &&
+        isPublisherAppRuntimeEnabled(config.status) &&
         isCurrentAppProviderIdentifier(
           config.appProviderIdentifier,
           config.publisherKind,
@@ -1466,9 +1610,9 @@ export async function createPublisherAppIdentifier(
       ) {
         return true;
       }
-      if (config.status !== "pending_revision" && config.status !== "active") {
+      if (config.status !== "pending_revision" && !isPublisherAppRuntimeEnabled(config.status)) {
         throw new AdminRepositoryError(
-          "Only an app pending revision or active for testing can create an identifier.",
+          "Only an app pending revision, active for testing, or active can create an identifier.",
           409,
         );
       }
@@ -1478,12 +1622,13 @@ export async function createPublisherAppIdentifier(
         return false;
       }
 
+      const activationStatus = isPublisherAppRuntimeEnabled(config.status) ? config.status : "active_for_testing";
       const catalogSnapshot = await transaction.get(catalogSnapshotRef);
       const nextSnapshotItem = publisherAppSnapshotItemPreservingDescription(
         {
           ...config,
           appProviderIdentifier,
-          status: "active",
+          status: activationStatus,
         },
         catalogSnapshot,
       );
@@ -1500,8 +1645,9 @@ export async function createPublisherAppIdentifier(
       transaction.update(ref, {
         appProviderIdentifier,
         runtimeRevision:
-          config.status === "active" ? (config.runtimeRevision ?? 1) + 1 : 1,
-        status: "active",
+          isPublisherAppRuntimeEnabled(config.status) ? (config.runtimeRevision ?? 1) + 1 : 1,
+        [RUNTIME_COLOR_CONTRACT_VERSION_FIELD]: RUNTIME_COLOR_CONTRACT_VERSION,
+        status: activationStatus,
         activatedAt: timestamp,
         activatedByUserId: context.uid,
         updatedAt: timestamp,
@@ -1542,9 +1688,9 @@ export async function deactivatePublisherAppIdentifier(
   await adminDb.runTransaction(async (transaction) => {
     const snapshot = await transaction.get(ref);
     const config = toPublisherAppConfigRecord(snapshot);
-    if (config.status !== "active" || !config.appProviderIdentifier) {
+    if (!isPublisherAppRuntimeEnabled(config.status) || !config.appProviderIdentifier) {
       throw new AdminRepositoryError(
-        "Only an app active for testing can deactivate its identifier.",
+        "Only an active app or an app active for testing can deactivate its identifier.",
         409,
       );
     }
@@ -1580,22 +1726,52 @@ export async function deactivatePublisherAppIdentifier(
   return toPublisherAppConfigRecord(await ref.get());
 }
 
+// Existing published apps must not serve changed bytes under an old revision.
+// Publish the additive color contract once, atomically, before returning it.
+async function publishRuntimeColorContract(snapshot: DocumentSnapshot) {
+  const config = toPublisherAppConfigRecord(snapshot);
+  if (
+    !isPublisherAppRuntimeEnabled(config.status) ||
+    snapshot.data()?.[RUNTIME_COLOR_CONTRACT_VERSION_FIELD] === RUNTIME_COLOR_CONTRACT_VERSION
+  ) {
+    return config;
+  }
+  return adminDb.runTransaction(async (transaction) => {
+    const currentSnapshot = await transaction.get(snapshot.ref);
+    const current = toPublisherAppConfigRecord(currentSnapshot);
+    if (
+      !isPublisherAppRuntimeEnabled(current.status) ||
+      currentSnapshot.data()?.[RUNTIME_COLOR_CONTRACT_VERSION_FIELD] === RUNTIME_COLOR_CONTRACT_VERSION
+    ) {
+      return current;
+    }
+    const runtimeRevision = (current.runtimeRevision ?? 1) + 1;
+    transaction.update(snapshot.ref, {
+      runtimeRevision,
+      [RUNTIME_COLOR_CONTRACT_VERSION_FIELD]: RUNTIME_COLOR_CONTRACT_VERSION,
+    });
+    return { ...current, runtimeRevision };
+  });
+}
+
 export async function getPublisherAppRuntimeConfig(
   context: AdminContext,
 ): Promise<PublisherAppRuntimeConfig> {
-  const config = await getPublisherAppConfig(context);
-  if (!config) {
-    throw new AdminRepositoryError("Publisher app config not found.", 404);
-  }
-  return buildPublisherAppRuntimeConfig(config);
+  const scope = publisherScope(context);
+  const snapshot = await adminDb.collection(APP_CONFIGS_COLLECTION)
+    .doc(`${scope.kind}_${scope.id}`).get();
+  return buildPublisherAppRuntimeConfig(await publishRuntimeColorContract(snapshot));
 }
 
 export async function getPublisherAppRuntimeConfigById(
   configId: string,
 ): Promise<PublisherAppRuntimeConfig> {
-  return buildPublisherAppRuntimeConfig(
-    await getPublisherAppConfigById(configId),
-  );
+  const normalizedId = configId.trim();
+  if (!normalizedId) {
+    throw new AdminRepositoryError("Publisher app config id is required.", 400);
+  }
+  const snapshot = await adminDb.collection(APP_CONFIGS_COLLECTION).doc(normalizedId).get();
+  return buildPublisherAppRuntimeConfig(await publishRuntimeColorContract(snapshot));
 }
 
 export async function getActivePublisherAppRuntimeConfig(
@@ -1627,7 +1803,7 @@ export async function getActivePublisherAppRuntimeConfig(
     throw new AdminRepositoryError("App runtime config not found.", 404);
   }
   const config = toPublisherAppConfigRecord(configSnapshot);
-  if (config.status !== "active") {
+  if (!isPublisherAppRuntimeEnabled(config.status)) {
     throw new AdminRepositoryError("App runtime config not found.", 404);
   }
   if (platform === "android" && config.platformOption !== "ios_android") {
@@ -1637,7 +1813,14 @@ export async function getActivePublisherAppRuntimeConfig(
     );
   }
 
-  return buildPublisherAppRuntimeConfig(config);
+  const published = await publishRuntimeColorContract(configSnapshot);
+  if (!isPublisherAppRuntimeEnabled(published.status) || published.appProviderIdentifier !== normalizedIdentifier) {
+    throw new AdminRepositoryError("App runtime config not found.", 404);
+  }
+  if (platform === "android" && published.platformOption !== "ios_android") {
+    throw new AdminRepositoryError("This app config is not compatible with Android.", 409);
+  }
+  return buildPublisherAppRuntimeConfig(published);
 }
 
 export async function deletePublisherAppConfig(

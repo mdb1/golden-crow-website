@@ -82,7 +82,7 @@ describe("PublisherAppPromoBanner atomic renderer", () => {
 
     const { unmount } = render(
       <PublisherAppPromoBanner
-        organizationName="DNA Institute"
+        organizationName="  DNA Institute, Research — Genetics  "
         organizationTint="#657960"
         organizationImageUrl="https://example.org/dna-institute.png"
         ctaLabel="Editar mi app"

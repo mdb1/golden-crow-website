@@ -21,6 +21,7 @@ import { nativeServiceTransactionPlatform } from "./lib/service-transaction-owne
 // Routes exempt from session cookie auth
 const PUBLIC_PATHS = new Set([
   "/health",
+  "/publisher-app/icon",
   "/client-bookings",
   "/discover/publisher-favicon",
   "/discover/publisher-requests",

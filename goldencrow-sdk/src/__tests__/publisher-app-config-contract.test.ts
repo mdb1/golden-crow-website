@@ -1,9 +1,11 @@
 import type { FastifyInstance } from "fastify";
+import { createHash } from "node:crypto";
 import type {
   AdminContext,
   PublisherAppAdvancedConfiguration,
 } from "../types/sdk.types.js";
 import { buildRouteServer, makeAdminContext } from "./support/route-harness.js";
+import { derivePublisherAppSemanticColors } from "../lib/publisher-app-advanced-config.js";
 
 const FIXED_TIME = Date.parse("2026-10-30T15:00:00.000Z");
 
@@ -23,10 +25,11 @@ type MockDocumentReference = {
   delete: jest.Mock<Promise<void>, []>;
 };
 type MockQuery = {
+  where: jest.Mock<MockQuery, [string, string, unknown]>;
   orderBy: jest.Mock<MockQuery, []>;
   startAfter: jest.Mock<MockQuery, [MockSnapshot]>;
   limit: jest.Mock<MockQuery, [number]>;
-  get: jest.Mock<Promise<{ docs: MockSnapshot[] }>, []>;
+  get: jest.Mock<Promise<{ docs: MockSnapshot[]; empty: boolean }>, []>;
 };
 
 const collections = new Map<string, Map<string, StoredDocument>>();
@@ -80,6 +83,9 @@ function documentReferenceFor(
     store.set(id, { ...document });
   });
   ref.set = jest.fn(async (document: StoredDocument) => {
+    if (collectionName === "custom_apps_snapshot" && Buffer.byteLength(JSON.stringify(document)) > 1_048_576) {
+      throw new Error("Snapshot exceeds Firestore document size limit");
+    }
     collectionStore(collectionName).set(id, { ...document });
   });
   ref.update = jest.fn(async (update: StoredDocument) => {
@@ -96,6 +102,9 @@ function documentReferenceFor(
         next[key] = value;
       }
     }
+    if (collectionName === "custom_apps_snapshot" && Buffer.byteLength(JSON.stringify(next)) > 1_048_576) {
+      throw new Error("Snapshot exceeds Firestore document size limit");
+    }
     store.set(id, next);
   });
   ref.delete = jest.fn(async () => {
@@ -108,7 +117,13 @@ function documentReferenceFor(
 function queryForCollection(name: string) {
   let afterId = "";
   let pageLimit = Number.POSITIVE_INFINITY;
+  const filters: Array<[string, unknown]> = [];
   const query = {} as MockQuery;
+  query.where = jest.fn((field: string, operator: string, value: unknown) => {
+    if (operator !== "==") throw new Error(`Unsupported mock operator ${operator}`);
+    filters.push([field, value]);
+    return query;
+  });
   query.orderBy = jest.fn(() => query);
   query.startAfter = jest.fn((snapshot: MockSnapshot) => {
     afterId = snapshot.id;
@@ -120,20 +135,21 @@ function queryForCollection(name: string) {
   });
   query.get = jest.fn(async () => {
     mockQueryReadCollections.push(name);
-    const records = [...collectionStore(name).entries()].sort((left, right) => {
-      const leftTime = new Date(String(left[1].updatedAt)).getTime();
-      const rightTime = new Date(String(right[1].updatedAt)).getTime();
-      return rightTime - leftTime || left[0].localeCompare(right[0]);
-    });
+    const records = [...collectionStore(name).entries()]
+      .filter(([, value]) => filters.every(([field, expected]) => value[field] === expected))
+      .sort((left, right) => {
+        const leftTime = new Date(String(left[1].updatedAt)).getTime();
+        const rightTime = new Date(String(right[1].updatedAt)).getTime();
+        return rightTime - leftTime || left[0].localeCompare(right[0]);
+      });
     const startIndex = afterId
       ? Math.max(0, records.findIndex(([id]) => id === afterId) + 1)
       : 0;
-    return {
-      docs: records.slice(startIndex, startIndex + pageLimit).map(([id]) => {
-        const ref = documentReferenceFor(name, id);
-        return snapshotFor(name, id, ref);
-      }),
-    };
+    const docs = records.slice(startIndex, startIndex + pageLimit).map(([id]) => {
+      const ref = documentReferenceFor(name, id);
+      return snapshotFor(name, id, ref);
+    });
+    return { docs, empty: docs.length === 0 };
   });
   return query;
 }
@@ -142,6 +158,7 @@ const mockCollection = jest.fn((name: string) => {
   const query = queryForCollection(name);
   return {
     doc: jest.fn((id: string) => documentReferenceFor(name, id)),
+    where: query.where,
     orderBy: query.orderBy,
   };
 });
@@ -150,6 +167,7 @@ const mockRunTransaction = jest.fn(
     operation: (transaction: {
       get: (ref: MockDocumentReference) => Promise<MockSnapshot>;
       create: (ref: MockDocumentReference, value: StoredDocument) => void;
+      set: (ref: MockDocumentReference, value: StoredDocument) => void;
       update: (ref: MockDocumentReference, value: StoredDocument) => void;
       delete: (ref: MockDocumentReference) => void;
     }) => Promise<unknown>,
@@ -158,6 +176,9 @@ const mockRunTransaction = jest.fn(
       get: (ref) => ref.get(),
       create: (ref, value) => {
         void ref.create(value);
+      },
+      set: (ref, value) => {
+        void ref.set(value);
       },
       update: (ref, value) => {
         void ref.update(value);
@@ -215,10 +236,10 @@ const validBody = {
     primary: "#aabbcc",
     secondary: "#123456",
     tertiary: "#fedcba",
-    counterpointClockwise: "#000001",
-    counterpointAnticlockwise: "#000002",
-    counterpointFarClockwise: "#000003",
-    counterpointFarAnticlockwise: "#000004",
+    counterpointClockwise: "#6639EF",
+    counterpointAnticlockwise: "#39EFC1",
+    counterpointFarClockwise: "#C139EF",
+    counterpointFarAnticlockwise: "#39EF66",
   },
   iconSource: "publisher" as const,
   iconImageUrl: null,
@@ -431,6 +452,10 @@ describe("publisher app config contract", () => {
 
   it.each([
     {
+      label: "server-owned runtime publication metadata",
+      payload: { ...validBody, runtimeColorContractVersion: 1 },
+    },
+    {
       label: "server-owned identity and audit fields",
       payload: {
         ...validBody,
@@ -628,6 +653,30 @@ describe("publisher app config contract", () => {
     });
   });
 
+  it("preserves all four manual counterpoints through creation, save, reads and runtime publication", async () => {
+    const colors = {
+      ...validBody.colors,
+      counterpointClockwise: "#abcdef", counterpointAnticlockwise: "#123abc",
+      counterpointFarClockwise: "#fedcba", counterpointFarAnticlockwise: "#987def",
+    };
+    const expected = Object.fromEntries(Object.entries(colors).map(([key, value]) => [key, value.toUpperCase()]));
+    const created = await fastify.inject({ method: "POST", url: "/publisher-app/config", payload: { ...validBody, colors } });
+    expect(created.statusCode).toBe(201);
+    expect(created.json().config.colors).toEqual(expected);
+    const saved = await fastify.inject({ method: "PUT", url: "/publisher-app/config", payload: { ...validBody, colors } });
+    expect(saved.statusCode).toBe(200);
+    expect(saved.json().config.colors).toEqual(expected);
+    expect(collectionStore("app_configs").get(created.json().config.id)?.colors).toEqual(expected);
+    const read = await fastify.inject({ method: "GET", url: "/publisher-app/config" });
+    expect(read.json().config.colors).toEqual(expected);
+    const activated = await fastify.inject({ method: "POST", url: "/publisher-app/config/identifier" });
+    expect(activated.statusCode).toBe(200);
+    expect(activated.json().config.status).toBe("active_for_testing");
+    expect(collectionStore("app_configs").get(created.json().config.id)?.status).toBe("active_for_testing");
+    const runtime = await fastify.inject({ method: "GET", url: "/publisher-app/config/runtime" });
+    expect(runtime.json().branding.colors).toMatchObject({ counterpointClockwise: "#ABCDEF", counterpointAnticlockwise: "#123ABC" });
+  });
+
   it("requires explicit terms acceptance before creating an app config", async () => {
     const { termsAccepted: _termsAccepted, ...payload } = validBody;
 
@@ -662,7 +711,7 @@ describe("publisher app config contract", () => {
     );
     expect(identifierResponse.json()).toMatchObject({
       config: {
-        status: "active",
+        status: "active_for_testing",
         runtimeRevision: 1,
         activatedByUserId: "org-user-1",
       },
@@ -685,8 +734,9 @@ describe("publisher app config contract", () => {
     expect(repeatedIdentifierResponse.json().config).toMatchObject({
       appProviderIdentifier,
       runtimeRevision: 1,
-      status: "active",
+      status: "active_for_testing",
     });
+    expect(collectionStore("app_configs").get(createResponse.json().config.id)?.status).toBe("active_for_testing");
     expect(collectionStore("app_config_identifiers").size).toBe(1);
 
     const runtimeResponse = await fastify.inject({
@@ -718,6 +768,8 @@ describe("publisher app config contract", () => {
           accentTextLight: expect.stringMatching(/^#[0-9A-F]{6}$/),
           accentTextDark: expect.stringMatching(/^#[0-9A-F]{6}$/),
           accentSurfaceLight: expect.stringMatching(/^#[0-9A-F]{6}$/),
+          counterpointClockwise: "#6639EF",
+          counterpointAnticlockwise: "#39EFC1",
         },
       },
       features: {
@@ -763,6 +815,74 @@ describe("publisher app config contract", () => {
         termsURL: "https://goldencrowvs.com/terms/",
       },
     });
+  });
+
+  it.each(["active", "active_for_testing"] as const)(
+    "keeps %s apps available and revises their runtime when edited or moved to the other active state",
+    async (status) => {
+      const created = await fastify.inject({ method: "POST", url: "/publisher-app/config", payload: validBody });
+      expect(created.statusCode).toBe(201);
+      const activated = await fastify.inject({ method: "POST", url: "/publisher-app/config/identifier" });
+      expect(activated.statusCode).toBe(200);
+      const { id, appProviderIdentifier } = activated.json().config;
+      collectionStore("app_configs").set(id, { ...collectionStore("app_configs").get(id), status });
+      context = makeAdminContext({ isBootstrap: true });
+      expect((await fastify.inject({ method: "PUT", url: "/admin/publisher-app-configs/snapshot" })).statusCode).toBe(200);
+      context = organizationContext();
+
+      const replay = await fastify.inject({ method: "POST", url: "/publisher-app/config/identifier" });
+      expect(replay.json().config).toMatchObject({ status, appProviderIdentifier, runtimeRevision: 1 });
+      const { getActivePublisherAppRuntimeConfig } = await import("../repositories/publisher-app-config.repository.js");
+      expect(await getActivePublisherAppRuntimeConfig(appProviderIdentifier, "ios")).toMatchObject({ status: "published", revision: 1 });
+
+      const edited = await fastify.inject({
+        method: "PUT", url: "/publisher-app/config",
+        payload: { ...validBody, colors: { ...validBody.colors, primary: "#F97316" } },
+      });
+      expect(edited.statusCode).toBe(200);
+      expect(edited.json().config).toMatchObject({ status, appProviderIdentifier, runtimeRevision: 2 });
+      expect(await getActivePublisherAppRuntimeConfig(appProviderIdentifier, "ios")).toMatchObject({ revision: 2, branding: { colors: { primary: "#F97316" } } });
+
+      const nextStatus = status === "active" ? "active_for_testing" : "active";
+      context = makeAdminContext({ isBootstrap: true });
+      const transitioned = await fastify.inject({
+        method: "PUT", url: `/admin/publisher-app-configs/${id}`,
+        payload: { ...validBody, termsAccepted: undefined, status: nextStatus },
+      });
+      expect(transitioned.statusCode).toBe(200);
+      expect(transitioned.json().config).toMatchObject({ status: nextStatus, runtimeRevision: 3 });
+      const snapshot = collectionStore("custom_apps_snapshot").get("simple")!;
+      expect(snapshot).toMatchObject({ activeCount: 1, inactiveCount: 0, totalCount: 1 });
+      expect((snapshot.apps as StoredDocument[])[0]).toMatchObject({ status: nextStatus, isActive: true });
+      expect((snapshot.statusCounts as StoredDocument[]).find((entry) => entry.status === nextStatus)?.count).toBe(1);
+      expect((snapshot.statusCounts as StoredDocument[]).find((entry) => entry.status === status)?.count).toBe(0);
+      expect(await getActivePublisherAppRuntimeConfig(appProviderIdentifier, "android")).toMatchObject({ revision: 3, status: "published" });
+    },
+  );
+
+  it.each(["active", "active_for_testing"] as const)("requires an identifier before an admin can set %s", async (status) => {
+    const created = await fastify.inject({ method: "POST", url: "/publisher-app/config", payload: validBody });
+    expect(created.statusCode).toBe(201);
+    context = makeAdminContext({ isBootstrap: true });
+    const updated = await fastify.inject({ method: "PUT", url: `/admin/publisher-app-configs/${created.json().config.id}`, payload: { ...validBody, termsAccepted: undefined, status } });
+    expect(updated.statusCode).toBe(409);
+    expect(collectionStore("app_configs").get(created.json().config.id)?.status).toBe("pending_revision");
+  });
+
+  it.each(["active", "active_for_testing"] as const)("revises the runtime when an admin re-enables a configured app as %s", async (status) => {
+    await fastify.inject({ method: "POST", url: "/publisher-app/config", payload: validBody });
+    const activated = await fastify.inject({ method: "POST", url: "/publisher-app/config/identifier" });
+    const { id, appProviderIdentifier } = activated.json().config;
+    collectionStore("app_configs").set(id, { ...collectionStore("app_configs").get(id), status: "approved", runtimeRevision: 7 });
+    context = makeAdminContext({ isBootstrap: true });
+    await fastify.inject({ method: "PUT", url: "/admin/publisher-app-configs/snapshot" });
+    expect(collectionStore("custom_apps_snapshot").get("simple")).toMatchObject({ activeCount: 0, inactiveCount: 1 });
+    const enabled = await fastify.inject({ method: "PUT", url: `/admin/publisher-app-configs/${id}`, payload: { ...validBody, termsAccepted: undefined, status } });
+    expect(enabled.statusCode).toBe(200);
+    expect(enabled.json().config).toMatchObject({ status, runtimeRevision: 8, appProviderIdentifier });
+    expect(collectionStore("custom_apps_snapshot").get("simple")).toMatchObject({ activeCount: 1, inactiveCount: 0 });
+    const { getActivePublisherAppRuntimeConfig } = await import("../repositories/publisher-app-config.repository.js");
+    expect(await getActivePublisherAppRuntimeConfig(appProviderIdentifier, "ios")).toMatchObject({ status: "published", revision: 8 });
   });
 
   it("publishes every advanced configuration block into the runtime contract", async () => {
@@ -858,10 +978,63 @@ describe("publisher app config contract", () => {
         termsURL: "https://example.org/terms",
       },
     });
-    expect(runtimeResponse.json().branding.colors).toEqual(
-      advancedConfigurationBody.semanticColors,
-    );
+    expect(runtimeResponse.json().branding.colors).toEqual({
+      ...advancedConfigurationBody.semanticColors,
+      counterpointClockwise: "#6639EF",
+      counterpointAnticlockwise: "#39EFC1",
+    });
   });
+
+  it.each([[false, undefined], [true, undefined], [false, 1], [true, 1]] as const)(
+    "publishes configured counterpoints exactly and bumps a legacy runtime revision only once (stored semantic colors: %s, prior contract: %s)",
+    async (useStoredSemanticColors, priorContract) => {
+      const created = await fastify.inject({
+        method: "POST",
+        url: "/publisher-app/config",
+        payload: {
+          ...validBody,
+          ...(useStoredSemanticColors ? { advancedConfiguration: advancedConfigurationBody } : {}),
+        },
+      });
+      expect(created.statusCode).toBe(201);
+      const activated = await fastify.inject({ method: "POST", url: "/publisher-app/config/identifier" });
+      expect(activated.statusCode).toBe(200);
+      const configId = created.json().config.id;
+      const original = collectionStore("app_configs").get(configId)!;
+      const legacy: StoredDocument = { ...original, runtimeRevision: 7 };
+      if (priorContract === undefined) delete legacy.runtimeColorContractVersion;
+      else legacy.runtimeColorContractVersion = priorContract;
+      collectionStore("app_configs").set(configId, legacy);
+      const expectedSemanticColors = useStoredSemanticColors
+        ? advancedConfigurationBody.semanticColors
+        : derivePublisherAppSemanticColors(created.json().config.colors);
+      const colors = created.json().config.colors;
+      const { getActivePublisherAppRuntimeConfig } = await import("../repositories/publisher-app-config.repository.js");
+      const first = await getActivePublisherAppRuntimeConfig(activated.json().config.appProviderIdentifier, "ios");
+      expect(first.revision).toBe(8);
+      expect(first.branding.colors).toEqual({
+        ...expectedSemanticColors,
+        counterpointClockwise: colors.counterpointClockwise,
+        counterpointAnticlockwise: colors.counterpointAnticlockwise,
+      });
+      expect(first.branding.colors.counterpointClockwise).toMatch(/^#[0-9A-F]{6}$/);
+      expect(first.branding.colors.counterpointAnticlockwise).toMatch(/^#[0-9A-F]{6}$/);
+      if (useStoredSemanticColors) {
+        expect(first.branding.colorOverrides).toEqual(advancedConfigurationBody.colorOverrides);
+      }
+      expect(collectionStore("app_configs").get(configId)).toEqual({
+        ...legacy,
+        runtimeRevision: 8,
+        runtimeColorContractVersion: 2,
+      });
+      expect(await getActivePublisherAppRuntimeConfig(activated.json().config.appProviderIdentifier, "android")).toEqual(first);
+      const repeated = await fastify.inject({ method: "GET", url: "/publisher-app/config/runtime" });
+      expect(repeated.json()).toEqual(first);
+      context = makeAdminContext({ isBootstrap: true });
+      const exported = await fastify.inject({ method: "GET", url: `/admin/publisher-app-configs/${configId}/runtime` });
+      expect(exported.json()).toEqual(first);
+    },
+  );
 
   it.each([
     {
@@ -937,7 +1110,7 @@ describe("publisher app config contract", () => {
     });
   });
 
-  it("turns down an active identifier and returns the app to pending revision", async () => {
+  it.each(["active", "active_for_testing"] as const)("turns down an %s identifier and returns the app to pending revision", async (status) => {
     await fastify.inject({
       method: "POST",
       url: "/publisher-app/config",
@@ -949,6 +1122,10 @@ describe("publisher app config contract", () => {
     });
     const appProviderIdentifier = activationResponse.json().config
       .appProviderIdentifier as string;
+    collectionStore("app_configs").set("organization_shared-publisher-id", {
+      ...collectionStore("app_configs").get("organization_shared-publisher-id"),
+      status,
+    });
 
     const response = await fastify.inject({
       method: "DELETE",
@@ -980,7 +1157,7 @@ describe("publisher app config contract", () => {
     });
     expect(reactivationResponse.statusCode).toBe(200);
     expect(reactivationResponse.json().config).toMatchObject({
-      status: "active",
+      status: "active_for_testing",
       runtimeRevision: 1,
       appProviderIdentifier: expect.stringMatching(
         /^app_org_canonical_organization_[0-9]{5}$/,
@@ -1006,7 +1183,7 @@ describe("publisher app config contract", () => {
 
     expect(response.statusCode).toBe(409);
     expect(response.json()).toEqual({
-      error: "Only an app active for testing can deactivate its identifier.",
+      error: "Only an active app or an app active for testing can deactivate its identifier.",
     });
   });
 
@@ -1034,6 +1211,8 @@ describe("publisher app config contract", () => {
     expect(response.json().config.appProviderIdentifier).toMatch(
       /^app_ind_dra_maria_jose_[0-9]{5}$/,
     );
+    expect(response.json().config.status).toBe("active_for_testing");
+    expect(collectionStore("app_configs").get(creationResponse.json().config.id)?.status).toBe("active_for_testing");
   });
 
   it("keeps organization and individual configs separate when their publisher ids match", async () => {
@@ -1333,6 +1512,134 @@ describe("publisher app config contract", () => {
     }
   });
 
+  it.each([undefined, organizationContext(), makeAdminContext({ isBootstrap: false })])(
+    "protects organization app creation, preparation, and activation before any reads (%j)",
+    async (actor) => {
+      context = actor;
+      const base = "/admin/publisher-app-configs/organizations/shared-publisher-id";
+      for (const request of [
+        { method: "GET" as const, url: base },
+        { method: "POST" as const, url: base, payload: validBody },
+        { method: "PUT" as const, url: base, payload: validBody },
+        { method: "POST" as const, url: `${base}/identifier` },
+      ]) {
+        const response = await fastify.inject(request);
+        expect(response.statusCode).toBe(actor ? 403 : 401);
+      }
+      expect(mockCollection).not.toHaveBeenCalled();
+      expect(mockSendPublisherAppCreationNotificationEmails).not.toHaveBeenCalled();
+    },
+  );
+
+  it("creates and activates the selected organization's app through the publisher workflow, auditing the real operator", async () => {
+    context = makeAdminContext({ isBootstrap: true });
+    const base = "/admin/publisher-app-configs/organizations/shared-publisher-id";
+    const snapshot = await fastify.inject({ method: "PUT", url: "/admin/publisher-app-configs/snapshot" });
+    expect(snapshot.statusCode).toBe(200);
+    seedPublisher("organization", "shared-publisher-id", {
+      name: "Canonical Organization",
+      colorHex: "#123ABC",
+      imageUrl: "https://example.org/canonical-icon.png",
+    });
+
+    const preparation = await fastify.inject({ method: "GET", url: base });
+    expect(preparation.statusCode).toBe(200);
+    expect(preparation.json()).toMatchObject({
+      config: null,
+      publisherKind: "organization",
+      publisherId: "shared-publisher-id",
+      publisherName: "Canonical Organization",
+      publisherTint: "#123ABC",
+      publisherImageUrl: "https://example.org/canonical-icon.png",
+      publisherEmail: context.email.toLowerCase(),
+      publisherUsername: "current-profile-user",
+    });
+    expect(collectionStore("app_configs").size).toBe(0);
+
+    const created = await fastify.inject({ method: "POST", url: base, payload: validBody });
+    expect(created.statusCode).toBe(201);
+    expect(created.json().config).toMatchObject({
+      id: "organization_shared-publisher-id",
+      publisherKind: "organization",
+      publisherId: "shared-publisher-id",
+      publisherName: "Canonical Organization",
+      publisherEmail: context.email.toLowerCase(),
+      publisherUsername: "current-profile-user",
+      iconImageUrl: "https://example.org/canonical-icon.png",
+      status: "pending_revision",
+      createdByUserId: context.uid,
+      termsAcceptedByUserId: context.uid,
+      advancedConfiguration: {
+        discoverScope: { mode: "organization", publisherOrganizationId: "shared-publisher-id" },
+        serviceScope: { mode: "provider", providerId: "shared-publisher-id", providerKind: "organization" },
+      },
+    });
+    expect(mockSendPublisherAppCreationNotificationEmails).toHaveBeenCalledWith(created.json().config);
+    expect(collectionStore("custom_apps_snapshot").get("simple")).toMatchObject({
+      totalCount: 1,
+      updatedByUserId: context.uid,
+    });
+
+    const duplicate = await fastify.inject({ method: "POST", url: base, payload: validBody });
+    expect(duplicate.statusCode).toBe(409);
+    expect(collectionStore("app_configs").size).toBe(1);
+    expect(mockSendPublisherAppCreationNotificationEmails).toHaveBeenCalledTimes(1);
+
+    const colorsUpdated = await fastify.inject({
+      method: "PUT",
+      url: base,
+      payload: { ...validBody, advancedConfiguration: advancedConfigurationBody },
+    });
+    expect(colorsUpdated.statusCode).toBe(200);
+    expect(colorsUpdated.json().config).toMatchObject({
+      id: created.json().config.id,
+      status: "pending_revision",
+      publisherEmail: context.email.toLowerCase(),
+      termsAcceptedByUserId: context.uid,
+      advancedConfiguration: { colorOverrides: advancedConfigurationBody.colorOverrides },
+    });
+
+    const activated = await fastify.inject({ method: "POST", url: `${base}/identifier` });
+    expect(activated.statusCode).toBe(200);
+    expect(activated.json().config).toMatchObject({
+      status: "active_for_testing",
+      activatedByUserId: context.uid,
+      appProviderIdentifier: expect.stringMatching(/^app_org_/),
+    });
+    const replay = await fastify.inject({ method: "POST", url: `${base}/identifier` });
+    expect(replay.json().config.status).toBe("active_for_testing");
+    expect(replay.json().config.appProviderIdentifier).toBe(activated.json().config.appProviderIdentifier);
+    expect(collectionStore("app_configs").get(created.json().config.id)?.status).toBe("active_for_testing");
+    expect((collectionStore("custom_apps_snapshot").get("simple")?.apps as StoredDocument[])[0]).toMatchObject({
+      status: "active_for_testing", isActive: true,
+    });
+    const existing = await fastify.inject({ method: "GET", url: base });
+    expect(existing.json().config.id).toBe("organization_shared-publisher-id");
+  });
+
+  it("rejects missing organizations and client-authored publisher identities without creating an app", async () => {
+    context = makeAdminContext({ isBootstrap: true });
+    const missing = await fastify.inject({
+      method: "POST",
+      url: "/admin/publisher-app-configs/organizations/missing",
+      payload: validBody,
+    });
+    expect(missing.statusCode).toBe(404);
+    for (const payload of [
+      { ...validBody, publisherId: "other-org", publisherEmail: "fake@example.org" },
+      { ...validBody, termsAccepted: false },
+    ]) {
+      const rejected = await fastify.inject({
+        method: "POST",
+        url: "/admin/publisher-app-configs/organizations/shared-publisher-id",
+        payload,
+      });
+      expect(rejected.statusCode).toBe(400);
+    }
+    expect(collectionStore("app_configs").size).toBe(0);
+    expect(mockSendPublisherAppCreationNotificationEmails).not.toHaveBeenCalled();
+  });
+
   it("lists every app config for GOD MODE with a bounded cursor page", async () => {
     const firstCreate = await fastify.inject({
       method: "POST",
@@ -1375,6 +1682,54 @@ describe("publisher app config contract", () => {
     expect(secondPage.json().apps).toHaveLength(1);
     expect(secondPage.json().apps[0].id).not.toBe(firstPage.json().apps[0].id);
     expect(secondPage.json().nextCursor).toBeNull();
+  });
+
+  it("compacts legacy embedded icons atomically when adding another app would exceed Firestore's document limit", async () => {
+    const images = ["A", "B", "C"].map((character) => `data:image/png;base64,${character.repeat(384_000)}`);
+    for (let index = 0; index < 2; index += 1) {
+      const id = `large-icon-${index}`;
+      context = organizationContext({ organizationId: id });
+      seedPublisher("organization", id, { name: id, imageUploadDataUrl: images[index] });
+      const created = await fastify.inject({ method: "POST", url: "/publisher-app/config", payload: validBody });
+      expect(created.statusCode).toBe(201);
+    }
+    context = makeAdminContext({ isBootstrap: true });
+    const refreshed = await fastify.inject({ method: "PUT", url: "/admin/publisher-app-configs/snapshot" });
+    expect(refreshed.statusCode).toBe(200);
+    const compactSnapshot = collectionStore("custom_apps_snapshot").get("simple")!;
+    // Reproduce a deployed catalog that still embeds the first two image payloads.
+    collectionStore("custom_apps_snapshot").set("simple", {
+      ...compactSnapshot,
+      apps: (compactSnapshot.apps as StoredDocument[]).map((app, index) => ({ ...app, image: images[index] })),
+    });
+    seedPublisher("organization", "large-icon-2", { name: "Third app", imageUploadDataUrl: images[2] });
+    const created = await fastify.inject({
+      method: "POST",
+      url: "/admin/publisher-app-configs/organizations/large-icon-2",
+      payload: validBody,
+    });
+    expect(created.statusCode).toBe(201);
+    expect(created.json().config.iconImageUploadDataUrl).toBe(images[2]);
+    const snapshot = collectionStore("custom_apps_snapshot").get("simple")!;
+    expect(snapshot.totalCount).toBe(3);
+    expect(Buffer.byteLength(JSON.stringify(snapshot))).toBeLessThan(10_000);
+    expect((snapshot.apps as StoredDocument[]).every((app) => String(app.image).startsWith("https://"))).toBe(true);
+    expect(collectionStore("custom_app_icons").size).toBe(3);
+
+    context = undefined;
+    for (const image of images) {
+      const hash = createHash("sha256").update(image!).digest("hex");
+      const icon = await fastify.inject({ method: "GET", url: `/publisher-app/icon?hash=${hash}` });
+      expect(icon.statusCode).toBe(200);
+      expect(icon.headers["content-type"]).toBe("image/png");
+      expect(icon.headers["cross-origin-resource-policy"]).toBe("cross-origin");
+      expect(icon.headers["cache-control"]).toContain("immutable");
+      expect(icon.rawPayload).toEqual(Buffer.from(image!.split(",")[1]!, "base64"));
+    }
+    const invalid = await fastify.inject({ method: "GET", url: "/publisher-app/icon?hash=../app_configs" });
+    expect(invalid.statusCode).toBe(400);
+    const absent = await fastify.inject({ method: "GET", url: `/publisher-app/icon?hash=${"0".repeat(64)}` });
+    expect(absent.statusCode).toBe(404);
   });
 
   it("creates and reads one lightweight custom app catalog snapshot", async () => {
@@ -1460,7 +1815,7 @@ describe("publisher app config contract", () => {
           id: "individual_shared-publisher-id",
           appProviderIdentifier: null,
           name: "Canonical Individual",
-          image: "data:image/png;base64,QUJD",
+          image: `https://golden-crow-sdk.vercel.app/publisher-app/icon?hash=${createHash("sha256").update("data:image/png;base64,QUJD").digest("hex")}`,
           description: "Individual app description.",
           status: "approved",
           isActive: false,
@@ -1480,6 +1835,27 @@ describe("publisher app config contract", () => {
     expect(readResponse.statusCode).toBe(200);
     expect(readResponse.headers["cache-control"]).toBe("private, no-store");
     expect(readResponse.json()).toEqual(updateResponse.json());
+
+    const currentSnapshot = collectionStore("custom_apps_snapshot").get("simple")!;
+    const legacySnapshot = {
+      ...currentSnapshot,
+      statusCounts: (currentSnapshot.statusCounts as StoredDocument[]).filter((entry) => entry.status !== "active_for_testing"),
+    };
+    expect(legacySnapshot.statusCounts).toHaveLength(5);
+    collectionStore("custom_apps_snapshot").set("simple", legacySnapshot);
+    const legacyRead = await fastify.inject({ method: "GET", url: "/admin/publisher-app-configs/snapshot" });
+    expect(legacyRead.statusCode).toBe(200);
+    expect(legacyRead.json()).toEqual(updateResponse.json());
+    expect(collectionStore("custom_apps_snapshot").get("simple")).toEqual(legacySnapshot);
+
+    for (const statusCounts of [
+      legacySnapshot.statusCounts.filter((entry) => entry.status !== "active"),
+      [...legacySnapshot.statusCounts, legacySnapshot.statusCounts.find((entry) => entry.status === "active")!],
+    ]) {
+      collectionStore("custom_apps_snapshot").set("simple", { ...legacySnapshot, statusCounts });
+      const invalidRead = await fastify.inject({ method: "GET", url: "/admin/publisher-app-configs/snapshot" });
+      expect(invalidRead.statusCode).toBe(500);
+    }
   });
 
   it("updates only the affected snapshot item for relevant app mutations", async () => {
@@ -1568,7 +1944,7 @@ describe("publisher app config contract", () => {
       )[0],
     ).toMatchObject({
       id: "organization_shared-publisher-id",
-      image: "data:image/png;base64,QUJD",
+      image: `https://golden-crow-sdk.vercel.app/publisher-app/icon?hash=${createHash("sha256").update("data:image/png;base64,QUJD").digest("hex")}`,
       status: "pending_revision",
       isActive: false,
     });
@@ -1587,7 +1963,7 @@ describe("publisher app config contract", () => {
       )[0],
     ).toMatchObject({
       appProviderIdentifier: activation.json().config.appProviderIdentifier,
-      status: "active",
+      status: "active_for_testing",
       isActive: true,
     });
     expect(collectionStore("custom_apps_snapshot").get("simple")).toMatchObject(
@@ -1646,7 +2022,7 @@ describe("publisher app config contract", () => {
     ).toMatchObject({
       id: "individual_shared-publisher-id",
       name: "New Individual App",
-      image: "data:image/png;base64,REVG",
+      image: `https://golden-crow-sdk.vercel.app/publisher-app/icon?hash=${createHash("sha256").update("data:image/png;base64,REVG").digest("hex")}`,
       description: "New app description.",
     });
 

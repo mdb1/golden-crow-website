@@ -963,7 +963,7 @@ export interface DiscoverIndividualRecord {
 export type PublisherAppPlatformOption = "ios" | "ios_android";
 export type PublisherAppPublisherKind = "organization" | "individual";
 export type PublisherAppStatus =
-  "pending_revision" | "active" | "approved" | "changes_requested" | "rejected";
+  "pending_revision" | "active_for_testing" | "active" | "approved" | "changes_requested" | "rejected";
 export type PublisherAppIconSource = "publisher" | "custom";
 
 export interface PublisherAppConfigColors {
@@ -1160,7 +1160,10 @@ export interface PublisherAppRuntimeConfig {
     displayName: string;
     logoURL: string | null;
     logoUploadDataUrl?: string | null;
-    colors: PublisherAppSemanticColors;
+    colors: PublisherAppSemanticColors & Partial<Pick<
+      PublisherAppConfigColors,
+      "counterpointClockwise" | "counterpointAnticlockwise"
+    >>;
     colorOverrides?: Record<string, PublisherAppColorOverride>;
   };
   features: {
