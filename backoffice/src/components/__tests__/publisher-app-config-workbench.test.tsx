@@ -9,11 +9,15 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { PublisherAppConfigWorkbench } from "@/components/publisher-app-config-workbench";
 import {
   publisherAppCounterpointColors,
+  publisherAppSemanticColors,
   type PublisherAppConfig,
+  type PublisherAppColors,
+  type PublisherAppPaletteOverridePlan,
 } from "@/lib/publisher-app-config";
 import {
   PUBLISHER_PORTAL_APP_EDIT_ROUTE,
@@ -21,7 +25,9 @@ import {
 } from "@/lib/publisher-portal-routes";
 import { fetchPublisherAppCustomizationCatalog } from "@/lib/publisher-app-customization-catalog-client";
 import { fetchPublisherAppPaletteOverrides } from "@/lib/publisher-app-palette-overrides-client";
-import { sdkFetch } from "@/lib/sdk-client";
+import { getPublisherAppColorCatalog } from "@/lib/publisher-app-customization-catalog-server";
+import { createPublisherAppPaletteOverridePlan } from "@/lib/publisher-app-palette-overrides";
+import { sdkFetch, SdkRequestError } from "@/lib/sdk-client";
 
 const mockRouterReplace = jest.fn();
 const mockRouterRefresh = jest.fn();
@@ -119,6 +125,16 @@ const savedConfig: PublisherAppConfig = {
   updatedByUserId: "publisher-1",
 };
 
+function mockConfigRequests(config: PublisherAppConfig = savedConfig) {
+  jest.mocked(sdkFetch).mockImplementation(async (path, init) => ({
+    config: path.endsWith("/identifier") ? {
+      ...config,
+      status: "active_for_testing",
+      appProviderIdentifier: "app_org_pocket_genes_lab_48217",
+    } : init?.method === "PUT" ? { ...config, ...JSON.parse(String(init.body)) } : config,
+  }));
+}
+
 function renderWorkbench(
   props: Partial<React.ComponentProps<typeof PublisherAppConfigWorkbench>> = {},
 ) {
@@ -126,6 +142,8 @@ function renderWorkbench(
     <AppLanguageProvider initialLanguage="es" forcedLanguage="es">
       <PublisherAppConfigWorkbench
         mode="create"
+        publisherKind="organization"
+        publisherId="org-1"
         publisherName="Pocket Genes Lab"
         publisherTint="#123ABC"
         publisherEmail="publisher@example.org"
@@ -144,15 +162,51 @@ function advanceToIcon() {
   fireEvent.click(screen.getByRole("button", { name: /Paso 4 Icono/i }));
 }
 
+function chooseColor(label: string, color: string) {
+  fireEvent.click(screen.getByRole("button", { name: `Editar ${label}` }));
+  expect(screen.queryAllByRole("textbox")).toHaveLength(0);
+  expect(document.querySelectorAll('input[type="color"]')).toHaveLength(1);
+  fireEvent.change(screen.getByLabelText(`Elegir ${label}`), { target: { value: color } });
+  fireEvent.click(screen.getByRole("button", { name: "Usar este color" }));
+  expect(document.querySelectorAll('input[type="color"]')).toHaveLength(0);
+}
+
+function palettePlan(colors: PublisherAppColors) {
+  const catalog = getPublisherAppColorCatalog();
+  return createPublisherAppPaletteOverridePlan(
+    colors,
+    catalog.options,
+    catalog.catalogVersion,
+    catalog.alternativeTonalFlows,
+  );
+}
+
+function acceptCreationTerms() {
+  fireEvent.click(screen.getByRole("button", { name: /Paso 5 Revisión/i }));
+  fireEvent.click(screen.getByRole("checkbox", {
+    name: /Leí y acepto los términos y condiciones/i,
+  }));
+  fireEvent.click(screen.getByRole("button", {
+    name: "Aceptar condiciones y continuar",
+  }));
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((complete) => { resolve = complete; });
+  return { promise, resolve };
+}
+
 describe("PublisherAppConfigWorkbench", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(fetchPublisherAppPaletteOverrides).mockImplementation(async (colors) => palettePlan(colors));
   });
 
   it("reviews and accepts the five-step request before creating the app", async () => {
     const activatedConfig: PublisherAppConfig = {
       ...savedConfig,
-      status: "active",
+      status: "active_for_testing",
       appProviderIdentifier: "app_org_pocket_genes_lab_48217",
       runtimeRevision: 1,
     };
@@ -238,9 +292,8 @@ describe("PublisherAppConfigWorkbench", () => {
     });
     fireEvent.click(communityCheckbox);
     advanceToColors();
-    fireEvent.change(screen.getByLabelText("Elegir color principal"), {
-      target: { value: "#112233" },
-    });
+    chooseColor("color principal", "#112233");
+    await screen.findByText(/colores sensibles a la marca quedaron coordinados/i);
     advanceToIcon();
     fireEvent.click(screen.getByRole("button", { name: "Revisar solicitud" }));
 
@@ -408,7 +461,7 @@ describe("PublisherAppConfigWorkbench", () => {
     fireEvent.click(acceptButton);
 
     await waitFor(() => {
-      expect(sdkFetch).toHaveBeenCalledTimes(1);
+      expect(sdkFetch).toHaveBeenCalledWith("/publisher-app/config", expect.objectContaining({ method: "PUT" }));
     });
     const [path, init] = jest.mocked(sdkFetch).mock.calls[0];
     expect(path).toBe("/publisher-app/config");
@@ -490,6 +543,153 @@ describe("PublisherAppConfigWorkbench", () => {
     ).toHaveTextContent("La app está activa para pruebas");
   });
 
+  it("creates and automatically activates a god-mode app while keeping every exit in god mode", async () => {
+    const apiPath = "/admin/publisher-app-configs/organizations/org-1";
+    const editHref = "/god-mode/apps/organization_org-1";
+    jest.mocked(sdkFetch).mockImplementation(async (path) => ({
+      config: path.endsWith("/identifier")
+        ? { ...savedConfig, status: "active_for_testing", appProviderIdentifier: "app_org_pocket_genes_lab_48217" }
+        : savedConfig,
+    }));
+    renderWorkbench({
+      apiPath,
+      editHref,
+      backHref: "/god-mode/apps",
+      backLabel: "Volver a Apps",
+      publisherKind: "organization",
+      publisherId: "org-1",
+    });
+    expect(screen.getByRole("link", { name: "Volver a Apps" })).toHaveAttribute("href", "/god-mode/apps");
+    expect(screen.getAllByRole("button", { name: /Paso \d/ })).toHaveLength(5);
+    fireEvent.click(screen.getByRole("button", { name: /Paso 5 Revisión/i }));
+    const submit = screen.getByRole("button", { name: "Aceptar condiciones y continuar" });
+    expect(submit).toBeDisabled();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Leí y acepto los términos y condiciones/i }));
+    fireEvent.click(submit);
+    await screen.findByTestId("publisher-app-success-overlay");
+    expect(sdkFetch).toHaveBeenCalledWith(apiPath, expect.objectContaining({ method: "POST" }));
+    expect(screen.getByRole("link", { name: /Ver y editar mi app/i })).toHaveAttribute("href", editHref);
+    expect(screen.getByRole("link", { name: "Volver a Apps" })).toHaveAttribute("href", "/god-mode/apps");
+    fireEvent.animationEnd(screen.getByTestId("publisher-app-success-circle"));
+    await screen.findByText("app_org_pocket_genes_lab_48217");
+    expect(sdkFetch).toHaveBeenCalledWith(`${apiPath}/identifier`, { method: "POST" });
+    expect(jest.mocked(sdkFetch).mock.calls.some(([path]) => path.startsWith("/publisher-app/"))).toBe(false);
+  });
+
+  it("shows concurrent creation errors without redirecting away from the process", async () => {
+    const apiPath = "/admin/publisher-app-configs/organizations/org-1";
+    jest.mocked(sdkFetch).mockRejectedValue(new SdkRequestError({
+      status: 409,
+      method: "POST",
+      path: apiPath,
+      message: "A publisher app config already exists.",
+      details: "",
+    }));
+    renderWorkbench({
+      apiPath,
+      editHref: "/god-mode/apps/organization_org-1",
+      backHref: "/god-mode/apps",
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Paso 5 Revisión/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Leí y acepto los términos y condiciones/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Aceptar condiciones y continuar" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("A publisher app config already exists.");
+    expect(mockRouterReplace).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Reintentar proceso" })).toBeEnabled();
+  });
+
+  it.each(["/publisher-app/config", "/admin/publisher-app-configs/organizations/org-1"])(
+    "runs creation, calculation, color persistence, and publication sequentially with real progress (%s)",
+    async (apiPath) => {
+      const creation = deferred<{ config: PublisherAppConfig }>();
+      const calculation = deferred<PublisherAppPaletteOverridePlan>();
+      const colorSave = deferred<{ config: PublisherAppConfig }>();
+      const publication = deferred<{ config: PublisherAppConfig }>();
+      const operations: string[] = [];
+      jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+        if (path.endsWith("/identifier")) { operations.push("publish"); return publication.promise; }
+        if (init?.method === "PUT") { operations.push("save-colors"); return colorSave.promise; }
+        operations.push("create");
+        return creation.promise;
+      });
+      jest.mocked(fetchPublisherAppPaletteOverrides).mockImplementation(async () => {
+        operations.push("calculate");
+        return calculation.promise;
+      });
+      renderWorkbench({ apiPath });
+      acceptCreationTerms();
+      expect(await screen.findByRole("progressbar")).toHaveAttribute("aria-valuenow", "0");
+      expect(operations).toEqual(["create"]);
+      const createPayload = JSON.parse(String(jest.mocked(sdkFetch).mock.calls[0][1]?.body));
+      expect(createPayload).toHaveProperty("termsAccepted", true);
+      expect(createPayload).not.toHaveProperty("advancedConfiguration");
+      expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
+      fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+      expect(screen.getByRole("dialog")).toBeTruthy();
+
+      creation.resolve({ config: savedConfig });
+      await waitFor(() => expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "25"));
+      expect(operations).toEqual(["create", "calculate"]);
+      const colors = jest.mocked(fetchPublisherAppPaletteOverrides).mock.calls[0][0];
+      const plan = palettePlan(colors);
+      calculation.resolve(plan);
+      await waitFor(() => expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "50"));
+      expect(operations).toEqual(["create", "calculate", "save-colors"]);
+      const colorPayload = JSON.parse(String(jest.mocked(sdkFetch).mock.calls[1][1]?.body));
+      expect(colorPayload.advancedConfiguration.colorOverrides).toEqual(plan.colorOverrides);
+      expect(screen.queryByTestId("publisher-app-success-overlay")).toBeNull();
+
+      colorSave.resolve({ config: { ...savedConfig, ...colorPayload } });
+      await waitFor(() => expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "75"));
+      expect(operations).toEqual(["create", "calculate", "save-colors", "publish"]);
+      expect(screen.queryByTestId("publisher-app-success-overlay")).toBeNull();
+      publication.resolve({ config: { ...savedConfig, ...colorPayload, status: "active_for_testing", appProviderIdentifier: "app_org_pocket_genes_lab_48217" } });
+      await screen.findByTestId("publisher-app-success-overlay");
+      expect(screen.getByText("app_org_pocket_genes_lab_48217")).toBeTruthy();
+      expect(screen.queryByRole("dialog")).toBeNull();
+      fireEvent.animationEnd(screen.getByTestId("publisher-app-success-circle"));
+      expect(operations).toHaveLength(4);
+    },
+  );
+
+  it.each(["create", "calculate", "save-colors", "publish"])(
+    "shows a %s error and resumes at that stage without repeating completed operations",
+    async (failureStage) => {
+      const apiPath = "/admin/publisher-app-configs/organizations/org-1";
+      const operations: string[] = [];
+      let failed = false;
+      function operation(stage: string) {
+        operations.push(stage);
+        if (stage === failureStage && !failed) {
+          failed = true;
+          throw new SdkRequestError({ status: 500, method: "POST", path: apiPath, message: "Stage unavailable", details: "Backend request error log" });
+        }
+      }
+      jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+        const stage = path.endsWith("/identifier") ? "publish" : init?.method === "PUT" ? "save-colors" : "create";
+        operation(stage);
+        return { config: stage === "publish" ? { ...savedConfig, status: "active_for_testing", appProviderIdentifier: "app_org_pocket_genes_lab_48217" } : savedConfig };
+      });
+      jest.mocked(fetchPublisherAppPaletteOverrides).mockImplementation(async (colors) => {
+        operation("calculate");
+        return palettePlan(colors);
+      });
+      renderWorkbench({ apiPath });
+      acceptCreationTerms();
+      expect(await screen.findByRole("alert")).toHaveTextContent("Stage unavailable");
+      expect(screen.getByText("Backend request error log")).toBeTruthy();
+      const stageIndex = ["create", "calculate", "save-colors", "publish"].indexOf(failureStage);
+      expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", String(stageIndex * 25));
+      expect(screen.queryByTestId("publisher-app-success-overlay")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Reintentar proceso" }));
+      await screen.findByTestId("publisher-app-success-overlay");
+      for (const stage of ["create", "calculate", "save-colors", "publish"]) {
+        expect(operations.filter((entry) => entry === stage)).toHaveLength(stage === failureStage ? 2 : 1);
+      }
+      expect(mockRouterReplace).not.toHaveBeenCalled();
+    },
+  );
+
   it("doubles subscription and store setup prices for iOS and Android", () => {
     renderWorkbench();
 
@@ -507,7 +707,7 @@ describe("PublisherAppConfigWorkbench", () => {
   });
 
   it("uses the existing publisher icon when review is opened before step four", async () => {
-    jest.mocked(sdkFetch).mockResolvedValue({ config: savedConfig });
+    mockConfigRequests();
     renderWorkbench({
       publisherImageUrl: "https://example.org/existing-publisher-icon.png",
     });
@@ -524,7 +724,7 @@ describe("PublisherAppConfigWorkbench", () => {
       }),
     );
 
-    await waitFor(() => expect(sdkFetch).toHaveBeenCalledTimes(1));
+    await screen.findByTestId("publisher-app-success-overlay");
     const payload = JSON.parse(
       String(jest.mocked(sdkFetch).mock.calls[0][1]?.body),
     );
@@ -538,12 +738,10 @@ describe("PublisherAppConfigWorkbench", () => {
 
   it("submits an uploaded publisher identity in the upload field", async () => {
     const publisherIconDataUrl = "data:image/png;base64,QUJDRA==";
-    jest.mocked(sdkFetch).mockResolvedValue({
-      config: {
-        ...savedConfig,
-        iconImageUrl: null,
-        iconImageUploadDataUrl: publisherIconDataUrl,
-      },
+    mockConfigRequests({
+      ...savedConfig,
+      iconImageUrl: null,
+      iconImageUploadDataUrl: publisherIconDataUrl,
     });
     renderWorkbench({ publisherImageUrl: publisherIconDataUrl });
 
@@ -559,7 +757,7 @@ describe("PublisherAppConfigWorkbench", () => {
       }),
     );
 
-    await waitFor(() => expect(sdkFetch).toHaveBeenCalledTimes(1));
+    await screen.findByTestId("publisher-app-success-overlay");
     const payload = JSON.parse(
       String(jest.mocked(sdkFetch).mock.calls[0][1]?.body),
     );
@@ -615,13 +813,13 @@ describe("PublisherAppConfigWorkbench", () => {
     fireEvent.click(screen.getByRole("button", { name: "Listo" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Editar paleta" }));
-    expect(screen.getByLabelText("Elegir color principal")).toHaveValue(
-      "#123abc",
-    );
-    fireEvent.change(screen.getByLabelText("Elegir color terciario"), {
-      target: { value: "#AABBCC" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Listo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Paso 2 Colores principales" }));
+    expect(screen.getByRole("button", { name: "Editar color principal" })).toHaveTextContent("#123ABC");
+    chooseColor("color terciario", "#AABBCC");
+    expect(fetchPublisherAppPaletteOverrides).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Paso 3 Contrapuntos" }));
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar" }));
+    await screen.findByText(/colores sensibles a la marca quedaron coordinados/i);
     expect(saveButton).toBeEnabled();
     fireEvent.click(saveButton);
 
@@ -682,7 +880,7 @@ describe("PublisherAppConfigWorkbench", () => {
   });
 
   it("expands the advanced configuration blocks and persists fine-tuning", async () => {
-    jest.mocked(sdkFetch).mockResolvedValue({ config: savedConfig });
+    mockConfigRequests();
     jest
       .mocked(fetchPublisherAppCustomizationCatalog)
       .mockImplementation(async (kind) => {
@@ -1009,7 +1207,7 @@ describe("PublisherAppConfigWorkbench", () => {
   });
 
   it("builds a custom Learn curriculum through hierarchical detail screens", async () => {
-    jest.mocked(sdkFetch).mockResolvedValue({ config: savedConfig });
+    mockConfigRequests();
     renderWorkbench({ mode: "edit", initialConfig: savedConfig });
 
     fireEvent.click(screen.getByTestId("publisher-app-advanced-toggle"));
@@ -1312,6 +1510,8 @@ describe("PublisherAppConfigWorkbench", () => {
       "/god-mode/apps",
     );
     expect(screen.getByTestId("publisher-app-edit-status")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Activa para pruebas" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Activa" })).toBeTruthy();
     expect(
       screen.getByTestId("publisher-app-danger-toggle").parentElement,
     ).toHaveClass("hidden");
@@ -1331,7 +1531,7 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(payload.status).toBe("approved");
   });
 
-  it("uses branded palette suggestions and full visual pickers without editable hex fields", () => {
+  it("shows only the three editable colors throughout creation", async () => {
     renderWorkbench();
     advanceToColors();
 
@@ -1352,32 +1552,255 @@ describe("PublisherAppConfigWorkbench", () => {
       screen.getByRole("button", { name: /Principal alternativo/i }),
     ).toBeTruthy();
 
-    const primaryPicker = screen.getByLabelText(
-      "Elegir color principal",
-    ) as HTMLInputElement;
-    expect(primaryPicker.type).toBe("color");
-    expect(
-      screen.queryByRole("textbox", { name: /color principal/i }),
-    ).toBeNull();
-    expect(screen.getByText("Color de contrapunto horario")).toBeTruthy();
-    expect(screen.getByText("Color de contrapunto antihorario")).toBeTruthy();
-    expect(
-      screen.getByText("Color de contrapunto lejano horario"),
-    ).toBeTruthy();
-    expect(
-      screen.getByText("Color de contrapunto lejano antihorario"),
-    ).toBeTruthy();
-    expect(screen.getAllByText(/Derivado del principal ·/)).toHaveLength(4);
+    const primaryEdit = screen.getByRole("button", { name: "Editar color principal" });
+    expect(primaryEdit).toHaveTextContent(/#[0-9A-F]{6}/);
+    expect(screen.queryAllByRole("textbox")).toHaveLength(0);
+    expect(screen.getAllByRole("button", { name: /^Editar color/ })).toHaveLength(3);
+    expect(document.querySelectorAll('input[type="color"]')).toHaveLength(0);
+    expect(screen.queryByText(/contrapunto/i)).toBeNull();
+    expect(screen.queryByText(/Derivado del principal ·/)).toBeNull();
     expect(
       screen.queryByLabelText("Elegir color de contrapunto horario"),
     ).toBeNull();
     expect(
       screen.queryByLabelText("Elegir color de contrapunto antihorario"),
     ).toBeNull();
-    expect(screen.queryByText(/^#[0-9A-F]{6}$/)).toBeNull();
+    chooseColor("color principal", "#445566");
+    expect(primaryEdit).toHaveTextContent("#445566");
+    await screen.findByText(/colores sensibles a la marca quedaron coordinados/i);
+    fireEvent.click(screen.getByRole("button", { name: /Paso 5 Revisión/i }));
+    expect(screen.queryByText(/contrapunto/i)).toBeNull();
+    const palette = screen.getByText("Paleta visual").closest("section")!;
+    expect(within(palette).getAllByRole("term")).toHaveLength(3);
+  });
 
-    fireEvent.change(primaryPicker, { target: { value: "#445566" } });
-    expect(primaryPicker).toHaveValue("#445566");
+  it.each([
+    { surface: "publisher portal", apiPath: "/publisher-app/config" },
+    { surface: "god mode", apiPath: "/admin/publisher-app-configs/organizations/org-1" },
+  ].flatMap((surface) => ["default", "preset", "custom"].map((choice) => ({ ...surface, choice }))))(
+    "creates the complete override set in $surface with a $choice palette",
+    async ({ apiPath, choice }) => {
+      mockConfigRequests();
+      renderWorkbench({ apiPath });
+      if (choice !== "default") {
+        advanceToColors();
+        if (choice === "preset") {
+          fireEvent.click(screen.getByRole("button", { name: /Acento cercano/i }));
+        } else {
+          chooseColor("color principal", "#445566");
+        }
+        await screen.findByText(/colores sensibles a la marca quedaron coordinados/i);
+      }
+      acceptCreationTerms();
+      await screen.findByTestId("publisher-app-success-overlay");
+
+      expect(sdkFetch).toHaveBeenCalledWith(apiPath, expect.objectContaining({ method: "POST" }));
+      expect(fetchPublisherAppPaletteOverrides).toHaveBeenCalledTimes(choice === "default" ? 1 : 2);
+      const payload = JSON.parse(String(jest.mocked(sdkFetch).mock.calls.find(([, init]) => init?.method === "PUT")?.[1]?.body));
+      const plan = palettePlan(payload.colors);
+      expect(payload.advancedConfiguration.colorOverrides).toEqual(plan.colorOverrides);
+      expect(Object.keys(payload.advancedConfiguration.colorOverrides)).toHaveLength(plan.selectedCount);
+      expect(plan.selectedCount).toBeGreaterThan(400);
+      expect(plan.sourceCount).toBe(620);
+      expect(payload.advancedConfiguration.semanticColors).toEqual(publisherAppSemanticColors(payload.colors));
+      expect(payload.advancedConfiguration.discoverScope).toEqual({
+        mode: "organization",
+        publisherOrganizationId: "org-1",
+      });
+      expect(payload.colors).toMatchObject(publisherAppCounterpointColors(payload.colors.primary));
+    },
+  );
+
+  it("waits for palette calculation and persistence before publishing the created app", async () => {
+    let resolvePlan!: (plan: PublisherAppPaletteOverridePlan) => void;
+    jest.mocked(fetchPublisherAppPaletteOverrides).mockReturnValueOnce(new Promise((resolve) => { resolvePlan = resolve; }));
+    mockConfigRequests();
+    renderWorkbench();
+    acceptCreationTerms();
+    await screen.findByText(/Analizando qué colores adaptar a Tu marca, más viva/i);
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "25");
+    expect(sdkFetch).toHaveBeenCalledTimes(1);
+    expect(jest.mocked(sdkFetch).mock.calls[0][1]?.method).toBe("POST");
+    const colors = jest.mocked(fetchPublisherAppPaletteOverrides).mock.calls[0][0];
+    resolvePlan(palettePlan(colors));
+    await screen.findByTestId("publisher-app-success-overlay");
+    const payload = JSON.parse(String(jest.mocked(sdkFetch).mock.calls.find(([, init]) => init?.method === "PUT")?.[1]?.body));
+    expect(payload.advancedConfiguration.colorOverrides).toEqual(palettePlan(colors).colorOverrides);
+  });
+
+  it.each(["network failure", "incomplete plan"])(
+    "stops before publishing on a palette %s and resumes without another app creation",
+    async (failure) => {
+      if (failure === "network failure") {
+        jest.mocked(fetchPublisherAppPaletteOverrides).mockRejectedValueOnce(new Error("Palette service unavailable"));
+      } else {
+        jest.mocked(fetchPublisherAppPaletteOverrides).mockResolvedValueOnce({
+          catalogVersion: 5,
+          sourceCount: 620,
+          selectedCount: 445,
+          colorOverrides: {},
+        });
+      }
+      mockConfigRequests();
+      renderWorkbench();
+      acceptCreationTerms();
+      await waitFor(() => expect(screen.getByRole("button", { name: "Reintentar proceso" })).toBeEnabled());
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        failure === "network failure" ? "Palette service unavailable" : "cobertura incompleta",
+      );
+      expect(sdkFetch).toHaveBeenCalledTimes(1);
+      expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "25");
+      fireEvent.click(screen.getByRole("button", { name: "Reintentar proceso" }));
+      await screen.findByTestId("publisher-app-success-overlay");
+      expect(jest.mocked(sdkFetch).mock.calls.map(([, init]) => init?.method)).toEqual(["POST", "PUT", "POST"]);
+    },
+  );
+
+  it.each(["click", "keyboard"])("keeps footer navigation separate from Apply when activated by %s", async (activation) => {
+    const user = userEvent.setup();
+    renderWorkbench({ mode: "edit", initialConfig: savedConfig });
+    fireEvent.click(screen.getByRole("button", { name: "Editar paleta" }));
+    const activate = async (name: string) => {
+      const button = screen.getByRole("button", { name });
+      if (activation === "keyboard") {
+        button.focus();
+        await user.keyboard("{Enter}");
+      } else {
+        fireEvent.click(button);
+      }
+    };
+
+    expect(screen.getByRole("heading", { name: "Elegí tu identidad" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Aplicar" })).toBeNull();
+    await activate("Continuar a colores principales");
+    expect(screen.getByRole("heading", { name: "Tus tres colores principales" })).toBeTruthy();
+    expect(fetchPublisherAppPaletteOverrides).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Aplicar" })).toBeNull();
+
+    await activate("Continuar a contrapuntos");
+    expect(screen.getByRole("heading", { name: "Un toque de contraste" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Aplicar" })).toBeEnabled();
+    expect(fetchPublisherAppPaletteOverrides).not.toHaveBeenCalled();
+    expect(screen.queryAllByRole("textbox")).toHaveLength(0);
+    expect(document.querySelectorAll('input[type="color"]')).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar" }));
+    await screen.findByText(/colores sensibles a la marca quedaron coordinados/i);
+    expect(fetchPublisherAppPaletteOverrides).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(sdkFetch).not.toHaveBeenCalled();
+  });
+
+  it("discards visual identity drafts without calculating or changing the app", () => {
+    renderWorkbench({ mode: "edit", initialConfig: savedConfig });
+    const saveButton = screen.getByRole("button", { name: "Guardar cambios" });
+    fireEvent.click(screen.getByRole("button", { name: "Editar paleta" }));
+    const dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByRole("heading", { name: "Elegí tu identidad" })).toBeTruthy();
+    expect(dialog.queryByRole("heading", { name: "Tus tres colores principales" })).toBeNull();
+    expect(dialog.queryByRole("heading", { name: "Un toque de contraste" })).toBeNull();
+    expect(dialog.queryByRole("button", { name: "Aplicar" })).toBeNull();
+    fireEvent.click(dialog.getByRole("button", { name: /Destello vecino/i }));
+    expect(dialog.getByRole("heading", { name: "Tus tres colores principales" })).toBeTruthy();
+    expect(dialog.queryByRole("heading", { name: "Elegí tu identidad" })).toBeNull();
+    chooseColor("color principal", "#AA5533");
+    expect(fetchPublisherAppPaletteOverrides).not.toHaveBeenCalled();
+    expect(saveButton).toBeDisabled();
+    fireEvent.click(dialog.getByRole("button", { name: "Cancelar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Editar paleta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Paso 2 Colores principales" }));
+    expect(screen.getByRole("button", { name: "Editar color principal" })).toHaveTextContent(savedConfig.colors.primary);
+    expect(fetchPublisherAppPaletteOverrides).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { key: "primary", label: "Color principal", stage: "Paso 2 Colores principales" },
+    { key: "counterpointClockwise", label: "Color de contrapunto horario", stage: "Paso 3 Contrapuntos" },
+  ] as const)("opens only the tapped $label from the summary and cancels back to its stage", ({ key, label, stage }) => {
+    renderWorkbench({ mode: "edit", initialConfig: savedConfig });
+    const saveButton = screen.getByRole("button", { name: "Guardar cambios" });
+    const summary = within(screen.getByTestId("publisher-app-edit-colors"));
+    fireEvent.click(summary.getByRole("button", { name: `Editar ${label.toLowerCase()}` }));
+
+    const pickerDialog = within(screen.getByRole("dialog", { name: label }));
+    const picker = pickerDialog.getByLabelText(`Elegir ${label.toLowerCase()}`);
+    expect(picker).toHaveValue(savedConfig.colors[key].toLowerCase());
+    expect(document.querySelectorAll('input[type="color"]')).toHaveLength(1);
+    expect(screen.queryAllByRole("textbox")).toHaveLength(0);
+    fireEvent.change(picker, { target: { value: "#AABBCC" } });
+    fireEvent.click(pickerDialog.getByRole("button", { name: "Cancelar" }));
+
+    const editor = within(screen.getByRole("dialog", { name: "Editar identidad visual" }));
+    expect(editor.getByRole("button", { name: stage })).toHaveAttribute("aria-current", "step");
+    expect(editor.getByRole("button", { name: `Editar ${label.toLowerCase()}` })).toHaveTextContent(savedConfig.colors[key]);
+    expect(document.querySelectorAll('input[type="color"]')).toHaveLength(0);
+    expect(fetchPublisherAppPaletteOverrides).not.toHaveBeenCalled();
+    fireEvent.click(editor.getByRole("button", { name: "Cancelar" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(saveButton).toBeDisabled();
+  });
+
+  it("keeps custom counterpoints while the primary changes, restores defaults and saves the applied choices", async () => {
+    mockConfigRequests();
+    renderWorkbench({ mode: "edit", initialConfig: savedConfig });
+    fireEvent.click(screen.getByRole("button", { name: "Editar paleta" }));
+    fireEvent.click(screen.getByRole("button", { name: /Tu marca, más viva/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Paso 3 Contrapuntos" }));
+    const choices = [
+      ["color de contrapunto horario", "counterpointClockwise", "#112233"],
+      ["color de contrapunto antihorario", "counterpointAnticlockwise", "#223344"],
+      ["color de contrapunto lejano horario", "counterpointFarClockwise", "#334455"],
+      ["color de contrapunto lejano antihorario", "counterpointFarAnticlockwise", "#445566"],
+    ] as const;
+    for (const [label, , color] of choices) {
+      chooseColor(label, color);
+    }
+    expect(screen.getAllByText("Personalizado")).toHaveLength(4);
+    fireEvent.click(screen.getByRole("button", { name: "Paso 2 Colores principales" }));
+    chooseColor("color principal", "#AA5533");
+    fireEvent.click(screen.getByRole("button", { name: "Paso 3 Contrapuntos" }));
+    for (const [label, , color] of choices) expect(screen.getByRole("button", { name: `Editar ${label}` })).toHaveTextContent(color);
+    fireEvent.click(screen.getByRole("button", { name: "Restaurar automático: color de contrapunto horario" }));
+    expect(screen.getAllByText("Personalizado")).toHaveLength(3);
+    expect(screen.queryByLabelText("Elegir color de contrapunto horario")).toBeNull();
+    expect(fetchPublisherAppPaletteOverrides).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar" }));
+    await screen.findByText(/colores sensibles a la marca quedaron coordinados/i);
+    const expectedColors = {
+      primary: "#AA5533",
+      counterpointClockwise: publisherAppCounterpointColors("#AA5533").counterpointClockwise,
+      counterpointAnticlockwise: "#223344", counterpointFarClockwise: "#334455", counterpointFarAnticlockwise: "#445566",
+    };
+    expect(fetchPublisherAppPaletteOverrides).toHaveBeenCalledTimes(1);
+    expect(fetchPublisherAppPaletteOverrides).toHaveBeenCalledWith(expect.objectContaining(expectedColors), expect.any(AbortSignal));
+    fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+    await waitFor(() => expect(sdkFetch).toHaveBeenCalled());
+    const payload = JSON.parse(String(jest.mocked(sdkFetch).mock.calls[0][1]?.body));
+    expect(payload.colors).toMatchObject(expectedColors);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Guardar cambios" })).toBeDisabled());
+    fireEvent.click(screen.getByRole("button", { name: "Editar paleta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Paso 3 Contrapuntos" }));
+    expect(screen.getAllByText("Personalizado")).toHaveLength(3);
+    expect(screen.getByRole("button", { name: "Editar color de contrapunto lejano antihorario" })).toHaveTextContent("#445566");
+  });
+
+  it("leaves the applied palette intact after a calculation failure and retries the draft", async () => {
+    jest.mocked(fetchPublisherAppPaletteOverrides).mockRejectedValueOnce(new Error("No pudimos calcular los colores"));
+    renderWorkbench({ mode: "edit", initialConfig: savedConfig });
+    const saveButton = screen.getByRole("button", { name: "Guardar cambios" });
+    fireEvent.click(screen.getByRole("button", { name: "Editar paleta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Paso 2 Colores principales" }));
+    chooseColor("color principal", "#AA5533");
+    fireEvent.click(screen.getByRole("button", { name: "Paso 3 Contrapuntos" }));
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar" }));
+    await screen.findByText("No pudimos calcular los colores");
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(saveButton).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Aplicar" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar" }));
+    await screen.findByText(/colores sensibles a la marca quedaron coordinados/i);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("button", { name: "Guardar cambios" })).toBeEnabled();
   });
 
   it("stores only the branding-susceptible colors returned by palette analysis", async () => {
@@ -1398,12 +1821,15 @@ describe("PublisherAppConfigWorkbench", () => {
       resolvePlan = resolve;
     });
     jest.mocked(fetchPublisherAppPaletteOverrides).mockReturnValue(planPromise);
-    jest.mocked(sdkFetch).mockResolvedValue({ config: savedConfig });
+    mockConfigRequests();
     renderWorkbench({ mode: "edit", initialConfig: savedConfig });
 
     const saveButton = screen.getByRole("button", { name: "Guardar cambios" });
     fireEvent.click(screen.getByRole("button", { name: "Editar paleta" }));
     fireEvent.click(screen.getByRole("button", { name: /Destello vecino/i }));
+    expect(fetchPublisherAppPaletteOverrides).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Paso 3 Contrapuntos" }));
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar" }));
 
     expect(fetchPublisherAppPaletteOverrides).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1421,7 +1847,8 @@ describe("PublisherAppConfigWorkbench", () => {
       ),
     ).toBeTruthy();
     expect(saveButton).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Listo" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Aplicando…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancelar" })).toBeDisabled();
 
     const colorOverrides = Object.fromEntries(
       Array.from({ length: 3 }, (_, index) => [
@@ -1441,8 +1868,7 @@ describe("PublisherAppConfigWorkbench", () => {
         /3 colores sensibles a la marca quedaron coordinados.*617 conservaron/i,
       ),
     ).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Listo" })).toBeEnabled();
-    fireEvent.click(screen.getByRole("button", { name: "Listo" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
     expect(saveButton).toBeEnabled();
     fireEvent.click(saveButton);
 
@@ -1482,7 +1908,7 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(previewIcon).toHaveStyle({ background: "#FFFFFF" });
   });
 
-  it("downloads the published runtime v3 config instead of the administrative record", async () => {
+  it.each(["active", "active_for_testing"] as const)("downloads the published runtime v3 config for %s instead of the administrative record", async (status) => {
     const runtimeConfig = {
       schemaVersion: 3 as const,
       appProviderIdentifier: "app_org_pocket_genes_lab_48217",
@@ -1516,12 +1942,13 @@ describe("PublisherAppConfigWorkbench", () => {
       mode: "edit",
       initialConfig: {
         ...savedConfig,
-        status: "active",
+        status,
         appProviderIdentifier: "app_org_pocket_genes_lab_48217",
         runtimeRevision: 1,
       },
     });
 
+    expect(screen.getAllByText(status === "active_for_testing" ? "Activa para pruebas" : "Activa").length).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: "Descargar configuración" }),
     );
@@ -1540,7 +1967,7 @@ describe("PublisherAppConfigWorkbench", () => {
     jest.mocked(sdkFetch).mockResolvedValue({
       config: {
         ...savedConfig,
-        status: "active",
+        status: "active_for_testing",
         appProviderIdentifier: "app_org_pocket_genes_lab_48217",
         runtimeRevision: 1,
       },
@@ -1568,12 +1995,12 @@ describe("PublisherAppConfigWorkbench", () => {
     ).toBeEnabled();
   });
 
-  it("offers to replace a legacy active identifier before downloading", () => {
+  it.each(["active", "active_for_testing"] as const)("offers to replace a legacy %s identifier before downloading", (status) => {
     renderWorkbench({
       mode: "edit",
       initialConfig: {
         ...savedConfig,
-        status: "active",
+        status,
         appProviderIdentifier: "organization_8thNEDU1xbFqwnQDUrPt",
         runtimeRevision: 1,
       },
@@ -1587,7 +2014,7 @@ describe("PublisherAppConfigWorkbench", () => {
     ).toBeDisabled();
   });
 
-  it("turns down an active identifier and returns the edit screen to review", async () => {
+  it.each(["active", "active_for_testing"] as const)("turns down an %s identifier and returns the edit screen to review", async (status) => {
     jest.mocked(sdkFetch).mockResolvedValue({
       config: {
         ...savedConfig,
@@ -1598,7 +2025,7 @@ describe("PublisherAppConfigWorkbench", () => {
       mode: "edit",
       initialConfig: {
         ...savedConfig,
-        status: "active",
+        status,
         appProviderIdentifier: "app_org_pocket_genes_lab_48217",
         runtimeRevision: 1,
       },

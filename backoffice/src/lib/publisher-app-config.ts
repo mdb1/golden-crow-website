@@ -1,11 +1,17 @@
 export type PublisherAppPlatformOption = "ios" | "ios_android";
 export type PublisherAppIconSource = "publisher" | "custom";
 export type PublisherAppStatus =
-  "pending_revision" | "active" | "approved" | "changes_requested" | "rejected";
+  "pending_revision" | "active_for_testing" | "active" | "approved" | "changes_requested" | "rejected";
+
+export function isPublisherAppRuntimeEnabled(status: PublisherAppStatus) {
+  return status === "active" || status === "active_for_testing";
+}
 
 export function publisherAppStatusLabel(status: PublisherAppStatus) {
   switch (status) {
     case "active":
+      return "Activa";
+    case "active_for_testing":
       return "Activa para pruebas";
     case "approved":
       return "Aprobada";
@@ -253,6 +259,16 @@ export type PublisherAppPaletteOverridePlan = {
 
 export type PublisherAppConfigResponse = {
   config: PublisherAppConfig | null;
+};
+
+export type OrganizationPublisherAppCreationData = PublisherAppConfigResponse & {
+  publisherKind: "organization";
+  publisherId: string;
+  publisherName: string;
+  publisherTint?: string;
+  publisherImageUrl?: string;
+  publisherEmail: string;
+  publisherUsername: string;
 };
 
 export type PublisherAppConfigsPage = {
@@ -506,11 +522,15 @@ export function publisherAppCounterpointColors(
 }
 
 export function publisherAppColorsWithCounterpoints(
-  colors: PublisherAppBaseColors,
+  colors: PublisherAppBaseColors & Partial<PublisherAppCounterpointColors>,
 ): PublisherAppColors {
+  const automatic = publisherAppCounterpointColors(colors.primary);
   return {
     ...colors,
-    ...publisherAppCounterpointColors(colors.primary),
+    counterpointClockwise: colors.counterpointClockwise ?? automatic.counterpointClockwise,
+    counterpointAnticlockwise: colors.counterpointAnticlockwise ?? automatic.counterpointAnticlockwise,
+    counterpointFarClockwise: colors.counterpointFarClockwise ?? automatic.counterpointFarClockwise,
+    counterpointFarAnticlockwise: colors.counterpointFarAnticlockwise ?? automatic.counterpointFarAnticlockwise,
   };
 }
 

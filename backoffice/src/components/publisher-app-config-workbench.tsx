@@ -42,6 +42,9 @@ import {
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
+import { PublisherAppPaletteComposition } from "@/components/publisher-app-palette-composition";
+import { PublisherAppColorPicker } from "@/components/publisher-app-color-picker";
+import { PublisherAppVisualIdentityEditor } from "@/components/publisher-app-visual-identity-editor";
 import {
   PublisherAppAdvancedConfigurationEditor,
   publisherAppBrandThemeStyle,
@@ -70,10 +73,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   DEFAULT_PUBLISHER_APP_COLOR,
   isCurrentPublisherAppIdentifier,
+  isPublisherAppRuntimeEnabled,
   normalizePublisherAppColor,
   publisherAppColorsWithCounterpoints,
   publisherAppDefaultAdvancedConfiguration,
@@ -111,6 +116,7 @@ type PublisherAppConfigWorkbenchProps = {
   apiPath?: string;
   backHref?: string;
   backLabel?: string;
+  editHref?: string;
   allowStatusEditing?: boolean;
   showDangerZone?: boolean;
 };
@@ -255,6 +261,8 @@ const COLOR_FIELDS: ColorField[] = [
   },
 ];
 
+const EDITABLE_COLOR_FIELDS = COLOR_FIELDS.filter((field) => field.editable);
+
 const PALETTE_SUGGESTION_COPY = [
   {
     name: "Tu marca, más viva",
@@ -319,7 +327,7 @@ function PaletteOverrideCalculationStatus({
         <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-700 dark:bg-rose-400/15 dark:text-rose-100">
           !
         </span>
-        <span>{calculation.message} Elegí la paleta nuevamente.</span>
+        <span>{calculation.message}</span>
       </div>
     );
   }
@@ -391,6 +399,7 @@ function normalizedPayload(state: PublisherAppConfigInput) {
     iconImageUploadDataUrl:
       state.iconImageUploadDataUrl?.trim() || misplacedUploadDataUrl || null,
     colors: publisherAppColorsWithCounterpoints({
+      ...state.colors,
       primary:
         normalizePublisherAppColor(state.colors.primary) ??
         state.colors.primary,
@@ -852,8 +861,8 @@ function PublisherAppReviewDocument({
           </ReviewSection>
 
           <ReviewSection title="Paleta visual">
-            <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-              {COLOR_FIELDS.map((field) => (
+            <dl className="grid gap-4 sm:grid-cols-3">
+              {EDITABLE_COLOR_FIELDS.map((field) => (
                 <div key={field.key} className="border border-black/15 p-3">
                   <dt className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-black/55">
                     {field.label}
@@ -1106,7 +1115,7 @@ function PublisherAppEditSection({
 }: {
   icon: ReactNode;
   title: string;
-  description: string;
+  description?: string;
   actionLabel: string;
   onAction: () => void;
   children: ReactNode;
@@ -1126,9 +1135,9 @@ function PublisherAppEditSection({
             <h3 className="font-heading text-lg font-semibold text-foreground">
               {title}
             </h3>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            {description ? <p className="mt-1 text-sm leading-6 text-muted-foreground">
               {description}
-            </p>
+            </p> : null}
           </div>
         </div>
         <Button
@@ -1180,7 +1189,6 @@ function PublisherAppEditSheet({
   deletePending,
   hasPersistedConfig,
   onUpdateState,
-  onUpdateColor,
   onApplyPalette,
   onChooseIconSource,
   onIconUpload,
@@ -1224,8 +1232,7 @@ function PublisherAppEditSheet({
   deletePending: boolean;
   hasPersistedConfig: boolean;
   onUpdateState: (patch: Partial<PublisherAppConfigInput>) => void;
-  onUpdateColor: (key: EditableColorKey, value: string) => void;
-  onApplyPalette: (colors: PublisherAppColors, paletteName: string) => void;
+  onApplyPalette: (colors: PublisherAppColors, paletteName: string) => Promise<boolean>;
   onChooseIconSource: (source: "publisher" | "custom") => void;
   onIconUpload: (event: ChangeEvent<HTMLInputElement>) => void;
   onReset: () => void;
@@ -1237,6 +1244,13 @@ function PublisherAppEditSheet({
 }) {
   const [activeDialog, setActiveDialog] =
     useState<PublisherAppEditDialog>(null);
+  const [identityStage, setIdentityStage] = useState<0 | 1 | 2>(0);
+  const [identityColor, setIdentityColor] = useState<ColorKey | null>(null);
+  function openIdentityEditor(key?: ColorKey) {
+    setIdentityStage(key ? (["primary", "secondary", "tertiary"].includes(key) ? 1 : 2) : 0);
+    setIdentityColor(key ?? null);
+    setActiveDialog("colors");
+  }
   const [dangerOpen, setDangerOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const optionalFeatures = [
@@ -1273,7 +1287,7 @@ function PublisherAppEditSheet({
     colors: {
       title: "Editar identidad visual",
       description:
-        "Elegí los tres colores base; los cuatro contrapuntos se derivan del principal.",
+        "Configurá tu identidad, la paleta principal y los contrapuntos de contraste.",
     },
     icon: {
       title: "Editar icono de la app",
@@ -1422,7 +1436,7 @@ function PublisherAppEditSheet({
                   !hasPersistedConfig ||
                   !appProviderIdentifier ||
                   !identifierIsCurrent ||
-                  status !== "active" ||
+                  !isPublisherAppRuntimeEnabled(status) ||
                   changed ||
                   identifierPending ||
                   downloadPending
@@ -1464,6 +1478,7 @@ function PublisherAppEditSheet({
                   {(
                     [
                       "pending_revision",
+                      "active_for_testing",
                       "active",
                       "approved",
                       "changes_requested",
@@ -1593,31 +1608,11 @@ function PublisherAppEditSheet({
               testId="publisher-app-edit-colors"
               icon={<Palette className="size-5" />}
               title="Identidad visual"
-              description="Tres colores base y cuatro contrapuntos accesorios derivados del principal."
               actionLabel="Editar paleta"
-              onAction={() => setActiveDialog("colors")}
+              onAction={() => openIdentityEditor()}
             >
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                {COLOR_FIELDS.map((field) => (
-                  <div
-                    key={field.key}
-                    className="flex items-center gap-3 rounded-xl border border-violet-100/80 bg-white/72 p-3 dark:border-violet-400/14 dark:bg-slate-950/28"
-                  >
-                    <span
-                      className="size-11 shrink-0 rounded-xl border-2 border-white shadow-[0_10px_24px_-14px_rgba(15,23,42,0.85)] ring-1 ring-black/8"
-                      style={{ backgroundColor: colors[field.key] }}
-                    />
-                    <span className="min-w-0">
-                      <span className="block text-sm font-semibold text-foreground">
-                        {field.label}
-                      </span>
-                      <span className="block font-mono text-xs text-muted-foreground">
-                        {colors[field.key]}
-                      </span>
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <PublisherAppPaletteComposition colors={colors} onEditColor={openIdentityEditor} />
+              {activeDialog !== "colors" ? <PaletteOverrideCalculationStatus calculation={paletteOverrideCalculation} /> : null}
             </PublisherAppEditSection>
 
             <PublisherAppEditSection
@@ -1886,20 +1881,21 @@ function PublisherAppEditSheet({
       <Dialog
         open={Boolean(activeDialog)}
         onOpenChange={(open) => {
+          if (activeDialog === "colors" && paletteOverrideCalculation.status === "loading") return;
           if (!open) setActiveDialog(null);
         }}
       >
-        <DialogContent className="max-h-[88vh] overflow-hidden rounded-[24px] border-violet-100 p-0 sm:max-w-4xl dark:border-violet-400/18">
-          <DialogHeader className="border-b border-violet-100 bg-violet-50/55 px-6 py-5 text-left dark:border-violet-400/14 dark:bg-violet-950/18">
+        <DialogContent showCloseButton={activeDialog !== "colors" || paletteOverrideCalculation.status !== "loading"} className="max-h-[88vh] gap-0 overflow-hidden rounded-[24px] border-violet-100 p-0 sm:max-w-4xl dark:border-violet-400/18">
+          <DialogHeader className="shrink-0 border-b border-violet-100 bg-violet-50/55 px-6 py-5 text-left dark:border-violet-400/14 dark:bg-violet-950/18">
             <DialogTitle className="font-heading text-xl font-semibold">
               {activeDialogCopy?.title}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className={activeDialog === "colors" ? "sr-only" : undefined}>
               {activeDialogCopy?.description}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="max-h-[66vh] overflow-y-auto px-5 py-5 sm:px-6">
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
             {activeDialog === "platforms" ? (
               <RadioGroup
                 aria-label="Plataformas de la app"
@@ -2047,123 +2043,23 @@ function PublisherAppEditSheet({
             ) : null}
 
             {activeDialog === "colors" ? (
-              <div className="space-y-6">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-violet-700 dark:text-violet-200">
-                    Paletas creadas desde tu identidad
-                  </p>
-                  <div className="mt-3 grid gap-3 md:grid-cols-2">
-                    {suggestedPalettes.map((palette) => {
-                      const selected = samePalette(
-                        state.colors,
-                        palette.colors,
-                      );
-                      return (
-                        <button
-                          key={palette.name}
-                          type="button"
-                          aria-pressed={selected}
-                          onClick={() =>
-                            onApplyPalette(palette.colors, palette.name)
-                          }
-                          disabled={
-                            paletteOverrideCalculation.status === "loading"
-                          }
-                          className={cn(
-                            "flex min-h-24 items-center gap-4 rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-70 disabled:hover:translate-y-0",
-                            selected
-                              ? "border-violet-400 bg-violet-50 shadow-[0_16px_36px_-28px_rgba(109,40,217,0.8)] dark:bg-violet-500/12"
-                              : "border-violet-100 bg-white hover:border-violet-300 dark:border-violet-400/16 dark:bg-slate-950/36",
-                          )}
-                        >
-                          <span className="flex shrink-0 -space-x-2">
-                            {Object.values(palette.colors).map((color) => (
-                              <span
-                                key={color}
-                                className="size-10 rounded-full border-2 border-white shadow-sm dark:border-slate-950"
-                                style={{ backgroundColor: color }}
-                              />
-                            ))}
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block font-semibold text-foreground">
-                              {palette.name}
-                            </span>
-                            <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                              {palette.description}
-                            </span>
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <PaletteOverrideCalculationStatus
-                    calculation={paletteOverrideCalculation}
-                  />
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {COLOR_FIELDS.map((field) => {
-                    const normalized =
-                      normalizePublisherAppColor(state.colors[field.key]) ??
-                      DEFAULT_PUBLISHER_APP_COLOR;
-                    if (!field.editable) {
-                      return (
-                        <div
-                          key={field.key}
-                          className="flex min-h-52 flex-col items-center rounded-[22px] border border-dashed border-violet-200 bg-violet-50/55 p-4 text-center dark:border-violet-400/24 dark:bg-violet-500/8"
-                        >
-                          <span
-                            className="mt-2 size-24 rounded-[28px] border-4 border-white shadow-[0_20px_36px_-20px_rgba(15,23,42,0.8)] ring-1 ring-black/8"
-                            style={{ backgroundColor: normalized }}
-                          />
-                          <span className="mt-4 font-semibold text-foreground">
-                            {field.label}
-                          </span>
-                          <span className="mt-1 text-xs leading-5 text-muted-foreground">
-                            {field.description}
-                          </span>
-                          <span className="mt-auto rounded-full bg-violet-100 px-3 py-1 text-[10px] font-bold text-violet-800 dark:bg-violet-400/15 dark:text-violet-100">
-                            Derivado del principal · {field.hueShift}
-                          </span>
-                        </div>
-                      );
-                    }
-                    return (
-                      <label
-                        key={field.key}
-                        className="group relative flex min-h-52 cursor-pointer flex-col items-center rounded-[22px] border border-violet-100 bg-white p-4 text-center transition hover:-translate-y-0.5 hover:border-violet-400 dark:border-violet-400/16 dark:bg-slate-950/36"
-                      >
-                        <input
-                          type="color"
-                          aria-label={`Elegir ${field.label.toLowerCase()}`}
-                          value={normalized}
-                          disabled={
-                            paletteOverrideCalculation.status === "loading"
-                          }
-                          onChange={(event) =>
-                            onUpdateColor(
-                              field.key,
-                              event.target.value.toUpperCase(),
-                            )
-                          }
-                          className="absolute inset-0 z-20 size-full cursor-pointer opacity-0"
-                        />
-                        <span
-                          className="mt-2 size-24 rounded-[28px] border-4 border-white shadow-[0_20px_36px_-20px_rgba(15,23,42,0.8)] ring-1 ring-black/8"
-                          style={{ backgroundColor: normalized }}
-                        />
-                        <span className="mt-4 font-semibold text-foreground">
-                          {field.label}
-                        </span>
-                        <span className="mt-1 text-xs leading-5 text-muted-foreground">
-                          {field.description}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
+              <>
+                <PublisherAppVisualIdentityEditor
+                  id="publisher-app-visual-identity"
+                  colors={state.colors}
+                  fields={COLOR_FIELDS}
+                  suggestedPalettes={suggestedPalettes}
+                  disabled={paletteOverrideCalculation.status === "loading"}
+                  onApply={onApplyPalette}
+                  onApplied={() => setActiveDialog(null)}
+                  stage={identityStage}
+                  onStageChange={setIdentityStage}
+                  initialColor={identityColor}
+                />
+                {paletteOverrideCalculation.status === "loading" || paletteOverrideCalculation.status === "error" ? (
+                  <PaletteOverrideCalculationStatus calculation={paletteOverrideCalculation} />
+                ) : null}
+              </>
             ) : null}
 
             {activeDialog === "icon" ? (
@@ -2279,15 +2175,25 @@ function PublisherAppEditSheet({
             ) : null}
           </div>
 
-          <DialogFooter className="border-t border-violet-100 bg-violet-50/55 px-6 py-4 dark:border-violet-400/14 dark:bg-violet-950/18">
+          <DialogFooter className="shrink-0 border-t border-violet-100 bg-violet-50/55 px-6 py-4 dark:border-violet-400/14 dark:bg-violet-950/18">
+            {activeDialog === "colors" ? <>
+              <Button type="button" variant="outline" disabled={paletteOverrideCalculation.status === "loading"} onClick={() => setActiveDialog(null)}>Cancelar</Button>
+              {identityStage > 0 ? <Button type="button" variant="ghost" disabled={paletteOverrideCalculation.status === "loading"} onClick={() => setIdentityStage(identityStage === 2 ? 1 : 0)}><ArrowLeft className="size-4" />{identityStage === 2 ? "Volver a colores principales" : "Volver a identidad"}</Button> : null}
+              {identityStage < 2 ? <Button key="identity-continue" type="button" onClick={(event) => { event.preventDefault(); setIdentityStage(identityStage === 0 ? 1 : 2); }}><ArrowRight className="size-4" />{identityStage === 0 ? "Continuar a colores principales" : "Continuar a contrapuntos"}</Button> : (
+              <Button key="identity-apply" type="submit" form="publisher-app-visual-identity" disabled={paletteOverrideCalculation.status === "loading"} className="h-11 min-w-28 rounded-xl bg-violet-600 text-white hover:bg-violet-700">
+                {paletteOverrideCalculation.status === "loading" ? <LoaderCircle className="size-4 animate-spin" /> : <Check className="size-4" />}
+                {paletteOverrideCalculation.status === "loading" ? "Aplicando…" : "Aplicar"}
+              </Button>
+              )}
+            </> : (
             <Button
               type="button"
               onClick={() => setActiveDialog(null)}
-              disabled={activeDialog === "colors" && paletteCalculationBlocking}
               className="h-11 min-w-28 rounded-xl bg-violet-600 text-white hover:bg-violet-700"
             >
               Listo
             </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2295,29 +2201,92 @@ function PublisherAppEditSheet({
   );
 }
 
-type AutomaticActivationState =
-  | { status: "waiting" }
-  | { status: "pending" }
-  | { status: "active"; appProviderIdentifier: string }
-  | { status: "error"; message: string };
+const APP_CREATION_STAGES = [
+  "Crear la app",
+  "Calcular los colores",
+  "Guardar los colores coordinados",
+  "Publicar el identificador",
+] as const;
+
+type AppCreationProgress = {
+  step: number;
+  status: "running" | "error";
+  message?: string;
+  details?: string;
+};
+
+function AppCreationProgressDialog({ progress, onRetry, editHref, backHref, backLabel, hasCreatedApp }: {
+  progress: AppCreationProgress | null;
+  onRetry: () => void;
+  editHref: string;
+  backHref: string;
+  backLabel: string;
+  hasCreatedApp: boolean;
+}) {
+  return (
+    <Dialog open={progress !== null}>
+      <DialogContent
+        showCloseButton={false}
+        className="sm:max-w-lg"
+        onEscapeKeyDown={(event) => event.preventDefault()}
+        onInteractOutside={(event) => event.preventDefault()}
+      >
+        <DialogHeader>
+          <DialogTitle>Creación de la app</DialogTitle>
+          <DialogDescription>
+            {progress?.status === "error" ? "El proceso se detuvo. Los pasos completados se conservaron." : "Estamos preparando tu app automáticamente."}
+          </DialogDescription>
+        </DialogHeader>
+        {progress ? (
+          <>
+            <Progress
+              aria-label="Progreso de creación de la app"
+              value={progress.step * 25}
+              aria-valuetext={`${progress.step} de ${APP_CREATION_STAGES.length} pasos completados`}
+              className="h-2"
+            />
+            <ol className="space-y-3" aria-live="polite">
+              {APP_CREATION_STAGES.map((label, index) => (
+                <li key={label} className="flex items-center gap-3" aria-current={index === progress.step ? "step" : undefined}>
+                  {index < progress.step ? <CheckCircle2 className="size-5 text-emerald-600" /> : index === progress.step && progress.status === "running" ? <LoaderCircle className="size-5 animate-spin text-violet-600" /> : <span className="size-5 rounded-full border" />}
+                  <span>{label}</span>
+                </li>
+              ))}
+            </ol>
+            {progress.status === "error" ? (
+              <>
+                <div role="alert" className="space-y-3 rounded-xl border border-destructive/30 p-4 text-sm">
+                  <p className="font-semibold">Falló el paso: {APP_CREATION_STAGES[progress.step]}</p>
+                  <p>{progress.message}</p>
+                  {progress.details ? <details><summary className="cursor-pointer">Detalles del error</summary><pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all text-xs">{progress.details}</pre></details> : null}
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" asChild><Link href={backHref}><ArrowLeft className="size-4" />{backLabel}</Link></Button>
+                  {hasCreatedApp ? <Button variant="outline" asChild><Link href={editHref}>Revisar app creada</Link></Button> : null}
+                  <Button onClick={onRetry}>Reintentar proceso</Button>
+                </DialogFooter>
+              </>
+            ) : null}
+          </>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function SuccessCelebration({
   publisherName,
-  automaticActivation,
-  onExplosionComplete,
-  onRetryActivation,
+  editHref,
+  backHref,
+  backLabel,
+  appProviderIdentifier,
 }: {
   publisherName: string;
-  automaticActivation: AutomaticActivationState;
-  onExplosionComplete: () => void;
-  onRetryActivation: () => void;
+  editHref: string;
+  backHref: string;
+  backLabel: string;
+  appProviderIdentifier: string;
 }) {
-  useEffect(() => {
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-      onExplosionComplete();
-    }
-  }, [onExplosionComplete]);
-
   return (
     <section
       role="status"
@@ -2329,7 +2298,6 @@ function SuccessCelebration({
         data-testid="publisher-app-success-circle"
         aria-hidden="true"
         className="publisher-app-success-circle pointer-events-none fixed left-1/2 top-1/2 size-9 rounded-full bg-[#16a34a]"
-        onAnimationEnd={onExplosionComplete}
       />
 
       <div
@@ -2362,51 +2330,15 @@ function SuccessCelebration({
           data-testid="publisher-app-automatic-activation"
           className="mx-auto mt-7 max-w-[720px] rounded-2xl border border-white/25 bg-white/12 px-5 py-4 text-sm text-white shadow-[0_18px_40px_-28px_rgba(0,0,0,0.5)] backdrop-blur-sm"
         >
-          {automaticActivation.status === "active" ? (
-            <div className="flex flex-col items-center justify-center gap-1 sm:flex-row sm:gap-2">
-              <CheckCircle2 className="size-5 shrink-0" />
-              <span>
-                La app está activa para pruebas con el identificador{" "}
-                <strong className="break-all font-mono">
-                  {automaticActivation.appProviderIdentifier}
-                </strong>
-                .
-              </span>
-            </div>
-          ) : automaticActivation.status === "error" ? (
-            <div className="space-y-3">
-              <p>
-                La app fue creada, pero no pudimos activarla para pruebas:{" "}
-                {automaticActivation.message}
-              </p>
-              <Button
-                type="button"
-                variant="secondary"
-                className="rounded-full bg-white text-emerald-800 hover:bg-emerald-50"
-                onClick={onRetryActivation}
-              >
-                Reintentar activación
-              </Button>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center gap-2">
-              {automaticActivation.status === "pending" ? (
-                <LoaderCircle className="size-5 animate-spin" />
-              ) : (
-                <KeyRound className="size-5" />
-              )}
-              <span>
-                {automaticActivation.status === "pending"
-                  ? "Creando el identificador y activando la app para pruebas…"
-                  : "La activación para pruebas comenzará al terminar la animación…"}
-              </span>
-            </div>
-          )}
+          <div className="flex flex-col items-center justify-center gap-1 sm:flex-row sm:gap-2">
+            <CheckCircle2 className="size-5 shrink-0" />
+            <span>La app está activa para pruebas con el identificador <strong className="break-all font-mono">{appProviderIdentifier}</strong>.</span>
+          </div>
         </div>
 
         <div className="mt-9 flex flex-col flex-wrap justify-center gap-4 sm:flex-row">
           <Link
-            href={PUBLISHER_PORTAL_APP_EDIT_ROUTE}
+            href={editHref}
             className="inline-grid min-h-[68px] place-items-center gap-0.5 rounded-full bg-white px-8 py-3 text-emerald-700 shadow-[0_20px_45px_-22px_rgba(0,0,0,0.42)] transition hover:-translate-y-0.5 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/45 motion-reduce:transform-none"
           >
             <span className="text-xs font-semibold text-slate-500">
@@ -2417,10 +2349,10 @@ function SuccessCelebration({
             </strong>
           </Link>
           <Link
-            href={PUBLISHER_PORTAL_HOME_ROUTE}
+            href={backHref}
             className="inline-flex min-h-[68px] items-center justify-center gap-2 rounded-full border border-white/50 px-8 py-3 font-extrabold text-white transition hover:-translate-y-0.5 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/35 motion-reduce:transform-none"
           >
-            <ArrowLeft className="size-4" /> Volver al inicio
+            <ArrowLeft className="size-4" /> {backLabel}
           </Link>
         </div>
       </div>
@@ -2441,6 +2373,7 @@ export function PublisherAppConfigWorkbench({
   apiPath = "/publisher-app/config",
   backHref = PUBLISHER_PORTAL_HOME_ROUTE,
   backLabel = "Volver al inicio",
+  editHref = PUBLISHER_PORTAL_APP_EDIT_ROUTE,
   allowStatusEditing = false,
   showDangerZone = true,
 }: PublisherAppConfigWorkbenchProps) {
@@ -2467,13 +2400,17 @@ export function PublisherAppConfigWorkbench({
   const [paletteOverrideCalculation, setPaletteOverrideCalculation] =
     useState<PaletteOverrideCalculation>({ status: "idle" });
   const paletteOverrideRequest = useRef<{
-    sequence: number;
     controller: AbortController;
   } | null>(null);
   const [completed, setCompleted] = useState(false);
-  const [automaticActivation, setAutomaticActivation] =
-    useState<AutomaticActivationState>({ status: "waiting" });
-  const automaticActivationStarted = useRef(false);
+  const [creationProgress, setCreationProgress] = useState<AppCreationProgress | null>(null);
+  const creationInFlight = useRef(false);
+  const creationCheckpoint = useRef<{
+    input: PublisherAppConfigInput;
+    config?: PublisherAppConfig;
+    advancedConfiguration?: PublisherAppConfigInput["advancedConfiguration"];
+    colorsSaved?: boolean;
+  } | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [iconStepVisited, setIconStepVisited] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
@@ -2520,10 +2457,9 @@ export function PublisherAppConfigWorkbench({
   const iconSelectionBlocksSubmission =
     (customIconMissing || customIconUrlInvalid) &&
     !(mode === "create" && !iconStepVisited);
-  const paletteCalculationBlocking =
-    paletteOverrideCalculation.status === "loading" ||
-    paletteOverrideCalculation.status === "error";
+  const paletteCalculationBlocking = paletteOverrideCalculation.status === "loading";
   const previewColors = publisherAppColorsWithCounterpoints({
+    ...state.colors,
     primary:
       normalizePublisherAppColor(state.colors.primary) ??
       DEFAULT_PUBLISHER_APP_COLOR,
@@ -2564,36 +2500,27 @@ export function PublisherAppConfigWorkbench({
       secondary: key === "secondary" ? value : state.colors.secondary,
       tertiary: key === "tertiary" ? value : state.colors.tertiary,
     });
-    if (paletteOverrideCalculation.status === "idle") {
-      setTermsAccepted(false);
-      setState((current) => ({ ...current, colors: nextColors }));
-      return;
-    }
-    applyPalette(nextColors, "Paleta personalizada");
+    previewPalette(nextColors, "Paleta personalizada");
   }
-  function applyPalette(colors: PublisherAppColors, paletteName: string) {
-    const normalizedColors = {
-      primary: normalizePublisherAppColor(colors.primary),
-      secondary: normalizePublisherAppColor(colors.secondary),
-      tertiary: normalizePublisherAppColor(colors.tertiary),
-    };
-    if (
-      !normalizedColors.primary ||
-      !normalizedColors.secondary ||
-      !normalizedColors.tertiary
-    ) {
+  function previewPalette(colors: PublisherAppColors, paletteName: string, resetTerms = true) {
+    void applyPalette(colors, paletteName, resetTerms).catch(() => {
+      // Palette errors are displayed in the palette status; creation awaits this operation.
+    });
+  }
+  async function applyPalette(
+    colors: PublisherAppColors,
+    paletteName: string,
+    resetTerms = true,
+  ) {
+    if (COLOR_FIELDS.some(({ key }) => !normalizePublisherAppColor(colors[key]))) {
       setPaletteOverrideCalculation({
         status: "error",
         paletteName,
         message: "La paleta contiene un color inválido.",
       });
-      return;
+      throw new Error("La paleta contiene un color inválido.");
     }
-    const nextColors = publisherAppColorsWithCounterpoints({
-      primary: normalizedColors.primary,
-      secondary: normalizedColors.secondary,
-      tertiary: normalizedColors.tertiary,
-    });
+    const nextColors = Object.fromEntries(COLOR_FIELDS.map(({ key }) => [key, normalizePublisherAppColor(colors[key])!])) as PublisherAppColors;
     const resolvedPublisherKind = initialConfig?.publisherKind ?? publisherKind;
     const resolvedPublisherId = initialConfig?.publisherId ?? publisherId;
     if (
@@ -2605,81 +2532,85 @@ export function PublisherAppConfigWorkbench({
         paletteName,
         message: "No pudimos identificar al publicador de esta app.",
       });
-      return;
+      throw new Error("No pudimos identificar al publicador de esta app.");
     }
 
-    setTermsAccepted(false);
-    setState((current) => ({ ...current, colors: nextColors }));
+    if (resetTerms) setTermsAccepted(false);
+    if (mode === "create") setState((current) => ({ ...current, colors: nextColors }));
     paletteOverrideRequest.current?.controller.abort();
     const request = {
-      sequence: (paletteOverrideRequest.current?.sequence ?? 0) + 1,
       controller: new AbortController(),
     };
     paletteOverrideRequest.current = request;
     setPaletteOverrideCalculation({ status: "loading", paletteName });
 
-    void fetchPublisherAppPaletteOverrides(
-      nextColors,
-      request.controller.signal,
-    )
-      .then((plan) => {
-        if (paletteOverrideRequest.current?.sequence !== request.sequence) {
-          return;
-        }
-        const overrideCount = Object.keys(plan.colorOverrides).length;
-        if (
-          plan.sourceCount < 1 ||
-          plan.selectedCount < 1 ||
-          plan.selectedCount > plan.sourceCount ||
-          overrideCount !== plan.selectedCount
-        ) {
-          throw new Error(
-            "La coordinación de colores devolvió una cobertura incompleta.",
-          );
-        }
-        setState((current) => {
-          const advancedConfiguration =
-            current.advancedConfiguration ??
-            publisherAppDefaultAdvancedConfiguration({
-              name: publisherName,
-              kind: resolvedPublisherKind!,
-              id: resolvedPublisherId!,
-            });
-          return {
-            ...current,
-            colors: nextColors,
-            advancedConfiguration: {
-              ...advancedConfiguration,
-              semanticColors: publisherAppSemanticColors(nextColors),
-              colorOverrides: plan.colorOverrides,
-            },
-          };
-        });
-        setPaletteOverrideCalculation({
-          status: "ready",
-          paletteName,
-          selectedCount: plan.selectedCount,
-          sourceCount: plan.sourceCount,
-        });
-        paletteOverrideRequest.current = null;
-      })
-      .catch((error: unknown) => {
-        if (
-          paletteOverrideRequest.current?.sequence !== request.sequence ||
-          (error instanceof DOMException && error.name === "AbortError")
-        ) {
-          return;
-        }
-        setPaletteOverrideCalculation({
-          status: "error",
-          paletteName,
-          message:
-            error instanceof Error
-              ? error.message
-              : "No pudimos coordinar los colores de la app.",
-        });
-        paletteOverrideRequest.current = null;
+    try {
+      const plan = await fetchPublisherAppPaletteOverrides(
+        nextColors,
+        request.controller.signal,
+      );
+      if (
+        paletteOverrideRequest.current !== request ||
+        request.controller.signal.aborted
+      ) {
+        return null;
+      }
+      const overrideCount = Object.keys(plan.colorOverrides).length;
+      if (
+        plan.sourceCount < 1 ||
+        plan.selectedCount < 1 ||
+        plan.selectedCount > plan.sourceCount ||
+        overrideCount !== plan.selectedCount
+      ) {
+        throw new Error(
+          "La coordinación de colores devolvió una cobertura incompleta.",
+        );
+      }
+      const advancedConfiguration = {
+        ...(state.advancedConfiguration ??
+          publisherAppDefaultAdvancedConfiguration({
+            name: publisherName,
+            kind: resolvedPublisherKind!,
+            id: resolvedPublisherId!,
+          })),
+        semanticColors: publisherAppSemanticColors(nextColors),
+        colorOverrides: plan.colorOverrides,
+      };
+      setState((current) => ({
+        ...current,
+        colors: nextColors,
+        advancedConfiguration: {
+          ...(current.advancedConfiguration ?? advancedConfiguration),
+          semanticColors: advancedConfiguration.semanticColors,
+          colorOverrides: plan.colorOverrides,
+        },
+      }));
+      setPaletteOverrideCalculation({
+        status: "ready",
+        paletteName,
+        selectedCount: plan.selectedCount,
+        sourceCount: plan.sourceCount,
       });
+      paletteOverrideRequest.current = null;
+      return advancedConfiguration;
+    } catch (error: unknown) {
+      if (
+        paletteOverrideRequest.current !== request ||
+        (error instanceof DOMException && error.name === "AbortError")
+      ) {
+        return null;
+      }
+      setPaletteOverrideCalculation({
+        status: "error",
+        paletteName,
+        message:
+          error instanceof Error
+            ? error.message
+            : "No pudimos coordinar los colores de la app.",
+      });
+      paletteOverrideRequest.current = null;
+      throw error;
+    }
   }
   function chooseIconSource(iconSource: "publisher" | "custom") {
     updateState(
@@ -2799,39 +2730,11 @@ export function PublisherAppConfigWorkbench({
     return response.config;
   }
 
-  async function activateCreatedAppForTesting() {
-    if (
-      mode !== "create" ||
-      apiPath !== "/publisher-app/config" ||
-      automaticActivationStarted.current
-    ) {
-      return;
-    }
-    automaticActivationStarted.current = true;
-    setIdentifierPending(true);
-    setAutomaticActivation({ status: "pending" });
-    try {
-      const activatedConfig = await requestAppIdentifier();
-      setAutomaticActivation({
-        status: "active",
-        appProviderIdentifier: activatedConfig.appProviderIdentifier!,
-      });
-    } catch (error) {
-      automaticActivationStarted.current = false;
-      setAutomaticActivation({
-        status: "error",
-        message: error instanceof Error ? error.message : "Volvé a intentarlo.",
-      });
-    } finally {
-      setIdentifierPending(false);
-    }
-  }
-
   async function deactivateIdentifier() {
     if (
       identifierPending ||
       changed ||
-      status !== "active" ||
+      !isPublisherAppRuntimeEnabled(status) ||
       !persistedConfig?.appProviderIdentifier ||
       apiPath !== "/publisher-app/config"
     ) {
@@ -2901,6 +2804,86 @@ export function PublisherAppConfigWorkbench({
     }
   }
 
+  async function createApp() {
+    if (creationInFlight.current) return;
+    creationInFlight.current = true;
+    setPending(true);
+    setToast(null);
+    let step = 0;
+    const advance = (nextStep: number) => {
+      step = nextStep;
+      setCreationProgress({ step, status: "running" });
+    };
+    try {
+      if (!creationCheckpoint.current) {
+        creationCheckpoint.current = {
+          input: normalizedPayload(!iconStepVisited ? {
+            ...state,
+            iconSource: "publisher",
+            ...publisherIconFields(publisherImageUrl),
+          } : state),
+        };
+      }
+      const checkpoint = creationCheckpoint.current;
+      if (!checkpoint.config) {
+        advance(0);
+        const response = await sdkFetch<PublisherAppConfigResponse>(apiPath, {
+          method: "POST",
+          body: JSON.stringify({ ...checkpoint.input, advancedConfiguration: undefined, termsAccepted: true }),
+        });
+        if (!response.config) {
+          throw new Error("El servidor no devolvió la app creada.");
+        }
+        checkpoint.config = response.config;
+        setPersistedConfig(response.config);
+      }
+      if (!checkpoint.advancedConfiguration) {
+        advance(1);
+        const paletteName = suggestedPalettes.find((palette) =>
+          samePalette(checkpoint.input.colors, palette.colors),
+        )?.name ?? "Paleta personalizada";
+        const advancedConfiguration = await applyPalette(
+          checkpoint.input.colors, paletteName, false,
+        );
+        if (!advancedConfiguration) {
+          throw new Error("La coordinación de colores se interrumpió.");
+        }
+        checkpoint.advancedConfiguration = advancedConfiguration;
+      }
+      if (!checkpoint.colorsSaved) {
+        advance(2);
+        const response = await sdkFetch<PublisherAppConfigResponse>(apiPath, {
+          method: "PUT",
+          body: JSON.stringify({ ...checkpoint.input, advancedConfiguration: checkpoint.advancedConfiguration }),
+        });
+        if (!response.config || response.config.id !== checkpoint.config.id) {
+          throw new Error("El servidor no confirmó los colores de la app creada.");
+        }
+        checkpoint.config = response.config;
+        checkpoint.colorsSaved = true;
+      }
+      advance(3);
+      const activated = await requestAppIdentifier();
+      checkpoint.config = activated;
+      const nextState = initialState(activated, publisherTint, publisherImageUrl);
+      setState(nextState);
+      setPersistedState(nextState);
+      setPersistedStatus(activated.status);
+      setCreationProgress(null);
+      setCompleted(true);
+    } catch (error) {
+      setCreationProgress({
+        step,
+        status: "error",
+        message: error instanceof Error ? error.message : "No pudimos completar la creación de la app.",
+        details: error instanceof SdkRequestError ? error.details : undefined,
+      });
+    } finally {
+      creationInFlight.current = false;
+      setPending(false);
+    }
+  }
+
   async function save() {
     if (
       iconSelectionBlocksSubmission ||
@@ -2911,31 +2894,17 @@ export function PublisherAppConfigWorkbench({
       (mode === "edit" && !changed)
     )
       return;
+    if (mode === "create") {
+      await createApp();
+      return;
+    }
     setPending(true);
     setToast(null);
     try {
-      const shouldUsePublisherIconDefault =
-        mode === "create" && !iconStepVisited;
-      const submissionState = shouldUsePublisherIconDefault
-        ? {
-            ...state,
-            iconSource: "publisher" as const,
-            ...publisherIconFields(publisherImageUrl),
-          }
-        : state;
-      const submissionPayload = normalizedPayload(submissionState);
-      if (shouldUsePublisherIconDefault) {
-        setState(submissionState);
-      }
+      const submissionPayload = normalizedPayload(state);
       const response = await sdkFetch<PublisherAppConfigResponse>(apiPath, {
-        method: mode === "create" ? "POST" : "PUT",
-        body: JSON.stringify(
-          mode === "create"
-            ? { ...submissionPayload, termsAccepted: true as const }
-            : allowStatusEditing
-              ? { ...submissionPayload, status }
-              : submissionPayload,
-        ),
+        method: "PUT",
+        body: JSON.stringify(allowStatusEditing ? { ...submissionPayload, status } : submissionPayload),
       });
       const saved = response.config;
       if (!saved)
@@ -2948,29 +2917,16 @@ export function PublisherAppConfigWorkbench({
       setPersistedConfig(saved);
       setStatus(saved.status);
       setPersistedStatus(saved.status);
-      if (mode === "create") {
-        setCompleted(true);
-        return;
-      }
       setToast({
         id: Date.now(),
         tone: "success",
         title: "Cambios guardados",
         message: allowStatusEditing
           ? `La configuración quedó actualizada con estado ${publisherAppStatusLabel(saved.status)}.`
-          : "La configuración de tu app está actualizada y continúa pendiente de revisión.",
+          : `La configuración de tu app está actualizada. Estado: ${publisherAppStatusLabel(saved.status)}.`,
       });
       router.refresh();
     } catch (error) {
-      if (
-        mode === "create" &&
-        error instanceof SdkRequestError &&
-        error.status === 409
-      ) {
-        router.replace(PUBLISHER_PORTAL_APP_EDIT_ROUTE);
-        router.refresh();
-        return;
-      }
       setToast({
         id: Date.now(),
         tone: "error",
@@ -2991,9 +2947,10 @@ export function PublisherAppConfigWorkbench({
       <section className="pb-24">
         <SuccessCelebration
           publisherName={publisherName}
-          automaticActivation={automaticActivation}
-          onExplosionComplete={() => void activateCreatedAppForTesting()}
-          onRetryActivation={() => void activateCreatedAppForTesting()}
+          editHref={editHref}
+          backHref={backHref}
+          backLabel={backLabel}
+          appProviderIdentifier={persistedConfig?.appProviderIdentifier ?? ""}
         />
       </section>
     );
@@ -3036,8 +2993,10 @@ export function PublisherAppConfigWorkbench({
           deletePending={deletePending}
           hasPersistedConfig={Boolean(persistedConfig)}
           onUpdateState={updateState}
-          onUpdateColor={updateColor}
-          onApplyPalette={applyPalette}
+          onApplyPalette={async (colors, paletteName) => {
+            try { return Boolean(await applyPalette(colors, paletteName)); }
+            catch { return false; }
+          }}
           onChooseIconSource={chooseIconSource}
           onIconUpload={(event) => void handleIconUpload(event)}
           onReset={() => {
@@ -3052,13 +3011,13 @@ export function PublisherAppConfigWorkbench({
           onCreateIdentifier={
             apiPath === "/publisher-app/config" &&
             (status === "pending_revision" ||
-              (status === "active" && !identifierIsCurrent))
+              (isPublisherAppRuntimeEnabled(status) && !identifierIsCurrent))
               ? () => void createIdentifier()
               : undefined
           }
           onDeactivateIdentifier={
             apiPath === "/publisher-app/config" &&
-            status === "active" &&
+            isPublisherAppRuntimeEnabled(status) &&
             Boolean(persistedConfig?.appProviderIdentifier)
               ? () => void deactivateIdentifier()
               : undefined
@@ -3071,6 +3030,14 @@ export function PublisherAppConfigWorkbench({
 
   return (
     <section className="pb-24" data-testid="publisher-app-config-workbench">
+      <AppCreationProgressDialog
+        progress={creationProgress}
+        onRetry={() => void createApp()}
+        editHref={editHref}
+        backHref={backHref}
+        backLabel={backLabel}
+        hasCreatedApp={Boolean(creationCheckpoint.current?.config)}
+      />
       <ActionToast
         toast={toast}
         onDismiss={() => setToast(null)}
@@ -3091,9 +3058,9 @@ export function PublisherAppConfigWorkbench({
           </p>
         </div>
         <Button variant="outline" asChild className="h-10 rounded-xl">
-          <Link href={PUBLISHER_PORTAL_HOME_ROUTE}>
+          <Link href={backHref}>
             <ArrowLeft className="size-4" />
-            Volver al inicio
+            {backLabel}
           </Link>
         </Button>
       </div>
@@ -3357,7 +3324,7 @@ export function PublisherAppConfigWorkbench({
                           type="button"
                           aria-pressed={selected}
                           onClick={() =>
-                            applyPalette(preset.colors, preset.name)
+                            previewPalette(preset.colors, preset.name)
                           }
                           disabled={
                             paletteOverrideCalculation.status === "loading"
@@ -3419,94 +3386,24 @@ export function PublisherAppConfigWorkbench({
                     <p className="text-base font-semibold text-foreground">
                       Ajustá los tres colores base
                     </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Los cuatro contrapuntos se calculan automáticamente a
-                      ±45° y ±75° del color principal. Funcionan como centros
-                      para acentos puntuales y flujos tonales alternativos.
-                    </p>
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {COLOR_FIELDS.map((field) => {
-                      const normalized =
-                        normalizePublisherAppColor(state.colors[field.key]) ??
-                        DEFAULT_PUBLISHER_APP_COLOR;
-                      if (!field.editable) {
-                        return (
-                          <div
-                            key={field.key}
-                            className="flex min-h-56 flex-col items-center overflow-hidden rounded-[22px] border border-dashed border-violet-200 bg-violet-50/55 p-4 text-center dark:border-violet-400/24 dark:bg-violet-500/8"
-                          >
-                            <span className="relative flex size-24 items-center justify-center">
-                              <span
-                                className="absolute inset-1 rounded-full border border-dashed border-violet-300"
-                                aria-hidden="true"
-                              />
-                              <span
-                                className="relative flex size-[68px] items-center justify-center overflow-hidden rounded-[23px] border-4 border-white text-white shadow-[0_18px_32px_-18px_rgba(15,23,42,0.8)]"
-                                style={{ backgroundColor: normalized }}
-                              >
-                                <span className="absolute inset-x-2 top-1.5 h-1/3 rounded-full bg-white/25 blur-sm" />
-                                <Palette className="relative size-6 drop-shadow" />
-                              </span>
-                            </span>
-                            <span className="mt-2 text-sm font-semibold text-foreground">
-                              {field.label}
-                            </span>
-                            <span className="mt-1 text-xs leading-5 text-muted-foreground">
-                              {field.description}
-                            </span>
-                            <span className="mt-auto rounded-full bg-violet-100 px-3 py-1 text-[10px] font-bold text-violet-800 dark:bg-violet-400/15 dark:text-violet-100">
-                              Derivado del principal · {field.hueShift}
-                            </span>
-                          </div>
-                        );
-                      }
-                      return (
-                        <label
-                          key={field.key}
-                          className="group relative flex min-h-56 cursor-pointer flex-col items-center overflow-hidden rounded-[22px] border border-border/80 bg-card p-4 text-center transition duration-200 hover:-translate-y-0.5 hover:border-violet-400 hover:shadow-[0_18px_38px_-30px_rgba(109,40,217,0.72)]"
-                        >
-                          <input
-                            type="color"
-                            aria-label={`Elegir ${field.label.toLowerCase()}`}
-                            value={normalized}
-                            disabled={
-                              paletteOverrideCalculation.status === "loading"
-                            }
-                            onChange={(event) =>
-                              updateColor(
-                                field.key,
-                                event.target.value.toUpperCase(),
-                              )
-                            }
-                            className="absolute inset-0 z-20 size-full cursor-pointer opacity-0"
-                          />
-                          <span className="relative flex size-24 items-center justify-center">
-                            <span
-                              className="absolute inset-1 rounded-full border border-dashed border-violet-300 transition-transform duration-500 group-hover:rotate-45 group-hover:scale-105"
-                              aria-hidden="true"
-                            />
-                            <span
-                              className="relative flex size-[68px] items-center justify-center overflow-hidden rounded-[23px] border-4 border-white text-white shadow-[0_18px_32px_-18px_rgba(15,23,42,0.8)]"
-                              style={{
-                                backgroundColor: normalized,
-                              }}
-                            >
-                              <span className="absolute inset-x-2 top-1.5 h-1/3 rounded-full bg-white/25 blur-sm" />
-                              <Palette className="relative size-6 drop-shadow" />
-                            </span>
-                          </span>
-                          <span className="mt-2 text-sm font-semibold text-foreground">
-                            {field.label}
-                          </span>
-                          <span className="mt-1 text-xs leading-5 text-muted-foreground">
-                            {field.description}
-                          </span>
-                          <span className="mt-auto rounded-full bg-violet-100 px-3 py-1 text-[10px] font-bold text-violet-800 transition group-hover:bg-violet-600 group-hover:text-white dark:bg-violet-400/15 dark:text-violet-100">
-                            Cambiar color
-                          </span>
-                        </label>
-                      );
+                  <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                    {EDITABLE_COLOR_FIELDS.map((field) => {
+                      const normalized = normalizePublisherAppColor(state.colors[field.key]) ?? DEFAULT_PUBLISHER_APP_COLOR;
+                      return <PublisherAppColorPicker
+                        key={field.key}
+                        label={field.label}
+                        value={normalized}
+                        disabled={paletteOverrideCalculation.status === "loading"}
+                        onChange={(value) => updateColor(field.key, value)}
+                        className="min-w-0 flex-col rounded-2xl px-1 py-4 hover:-translate-y-1 motion-reduce:transform-none"
+                      >
+                        <span aria-hidden="true" className="relative flex aspect-square w-24 max-w-full items-center justify-center rounded-full border border-dashed border-violet-300 transition duration-300 group-hover:rotate-6 sm:w-36 motion-reduce:transform-none">
+                          <span className="size-[82%] rounded-full border-4 border-background shadow-lg ring-1 ring-black/10" style={{ backgroundColor: normalized }} />
+                        </span>
+                        <span className="mt-2 text-xs font-semibold sm:text-sm">{field.label.replace("Color ", "")}</span>
+                        <span className="flex items-center gap-1 text-muted-foreground"><code className="text-[10px] sm:text-xs">{normalized}</code><Pencil className="size-3" /></span>
+                      </PublisherAppColorPicker>;
                     })}
                   </div>
                 </div>
@@ -3636,15 +3533,36 @@ export function PublisherAppConfigWorkbench({
             ) : null}
 
             {activeStep.id === "review" ? (
-              <PublisherAppReviewDocument
-                publisherName={publisherName}
-                publisherEmail={publisherEmail}
-                state={state}
-                colors={previewColors}
-                iconSource={resolvedIconSource}
-                termsAccepted={termsAccepted}
-                onTermsAcceptedChange={setTermsAccepted}
-              />
+              <div className="space-y-5">
+                <PaletteOverrideCalculationStatus
+                  calculation={paletteOverrideCalculation}
+                />
+                {paletteOverrideCalculation.status === "error" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={pending}
+                    onClick={() =>
+                      previewPalette(
+                        state.colors,
+                        paletteOverrideCalculation.paletteName,
+                        false,
+                      )
+                    }
+                  >
+                    Reintentar coordinación
+                  </Button>
+                ) : null}
+                <PublisherAppReviewDocument
+                  publisherName={publisherName}
+                  publisherEmail={publisherEmail}
+                  state={state}
+                  colors={previewColors}
+                  iconSource={resolvedIconSource}
+                  termsAccepted={termsAccepted}
+                  onTermsAcceptedChange={setTermsAccepted}
+                />
+              </div>
             ) : null}
           </div>
 

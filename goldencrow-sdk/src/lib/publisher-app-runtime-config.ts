@@ -4,8 +4,14 @@ import type {
 } from "../types/sdk.types.js";
 import { AdminRepositoryError } from "../repositories/admin-errors.js";
 import { derivePublisherAppSemanticColors } from "./publisher-app-advanced-config.js";
+import { isPublisherAppRuntimeEnabled } from "./publisher-app-status.js";
 
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
+
+type RuntimeConfigSource = Omit<PublisherAppConfigRecord, "colors"> & {
+  colors: Pick<PublisherAppConfigRecord["colors"], "primary" | "secondary" | "tertiary"> &
+    Partial<Pick<PublisherAppConfigRecord["colors"], "counterpointClockwise" | "counterpointAnticlockwise">>;
+};
 
 function httpsLogoUrl(value: string | null) {
   if (!value) return null;
@@ -18,7 +24,7 @@ function httpsLogoUrl(value: string | null) {
 }
 
 export function buildPublisherAppRuntimeConfig(
-  config: PublisherAppConfigRecord,
+  config: RuntimeConfigSource,
 ): PublisherAppRuntimeConfig {
   const identifier = config.appProviderIdentifier?.trim();
   if (!identifier || !IDENTIFIER_PATTERN.test(identifier)) {
@@ -27,7 +33,7 @@ export function buildPublisherAppRuntimeConfig(
       409,
     );
   }
-  if (config.status !== "active") {
+  if (!isPublisherAppRuntimeEnabled(config.status)) {
     throw new AdminRepositoryError(
       "The app runtime config is not active.",
       409,
@@ -97,13 +103,20 @@ export function buildPublisherAppRuntimeConfig(
       ...(config.iconImageUploadDataUrl
         ? { logoUploadDataUrl: config.iconImageUploadDataUrl }
         : {}),
-      colors:
-        advanced.semanticColors ??
-        derivePublisherAppSemanticColors({
-          primary,
-          secondary: config.colors.secondary,
-          tertiary: config.colors.tertiary,
-        }),
+      colors: {
+        ...(advanced.semanticColors ??
+          derivePublisherAppSemanticColors({
+            primary,
+            secondary: config.colors.secondary,
+            tertiary: config.colors.tertiary,
+          })),
+        ...(config.colors.counterpointClockwise
+          ? { counterpointClockwise: config.colors.counterpointClockwise }
+          : {}),
+        ...(config.colors.counterpointAnticlockwise
+          ? { counterpointAnticlockwise: config.colors.counterpointAnticlockwise }
+          : {}),
+      },
       ...(Object.keys(advanced.colorOverrides).length > 0
         ? { colorOverrides: advanced.colorOverrides }
         : {}),

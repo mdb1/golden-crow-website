@@ -371,6 +371,37 @@ describe("reporting Open API routes", () => {
       expect(response.body).toBe("");
     });
 
+    it("replaces a legacy ETag after the counterpoint publication and keeps the new ETag stable", async () => {
+      const url = "/internal/openapi/apps/config?app-provider-identifier=app_org_medicgen_48217&platform=ios&runtime-version=3&base-content-version=pg-core-v1";
+      const headers = { authorization: `Bearer ${TOKEN}` };
+      const legacy = { ...runtimeConfig, revision: 7, branding: { colors: { primary: "#F97316" } } };
+      mockGetActivePublisherAppRuntimeConfig.mockResolvedValue(legacy);
+      const previous = await fastify.inject({ method: "GET", url, headers });
+      const published = {
+        ...legacy,
+        revision: 8,
+        branding: { colors: {
+          ...legacy.branding.colors,
+          counterpointClockwise: "#D5F916",
+          counterpointAnticlockwise: "#F91663",
+        } },
+      };
+      mockGetActivePublisherAppRuntimeConfig.mockResolvedValue(published);
+      const updated = await fastify.inject({
+        method: "GET", url,
+        headers: { ...headers, "if-none-match": String(previous.headers.etag) },
+      });
+      expect(updated.statusCode).toBe(200);
+      expect(updated.json()).toEqual(published);
+      expect(updated.headers.etag).not.toBe(previous.headers.etag);
+      const repeated = await fastify.inject({
+        method: "GET", url,
+        headers: { ...headers, "if-none-match": String(updated.headers.etag) },
+      });
+      expect(repeated.statusCode).toBe(304);
+      expect(repeated.headers.etag).toBe(updated.headers.etag);
+    });
+
     it.each([
       ["runtime-version=2&base-content-version=pg-core-v1", 426],
       ["runtime-version=3&base-content-version=pg-core-v2", 409],

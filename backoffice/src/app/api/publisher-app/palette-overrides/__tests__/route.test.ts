@@ -1,5 +1,8 @@
 import { getServerSession } from "next-auth";
 import { POST } from "../route";
+import { publisherAppColorsWithCounterpoints } from "@/lib/publisher-app-config";
+import { getPublisherAppColorCatalog } from "@/lib/publisher-app-customization-catalog-server";
+import { createPublisherAppPaletteOverridePlan } from "@/lib/publisher-app-palette-overrides";
 
 jest.mock("next-auth", () => ({ getServerSession: jest.fn() }));
 jest.mock("@/lib/auth", () => ({ authOptions: { marker: "auth" } }));
@@ -86,5 +89,24 @@ describe("custom app palette override route", () => {
         "savedContent.headerStart": expect.any(Object),
       }),
     );
+  });
+
+  it("uses the four manually selected counterpoints when planning tonal overrides", async () => {
+    jest.mocked(getServerSession).mockResolvedValue({ user: { email: "admin@example.org" }, expires: "2099-01-01T00:00:00.000Z" });
+    const colors = publisherAppColorsWithCounterpoints({
+      primary: "#FF5500", secondary: "#FFB21F", tertiary: "#F58220",
+      counterpointClockwise: "#123ABC", counterpointAnticlockwise: "#ABCDEF",
+      counterpointFarClockwise: "#334455", counterpointFarAnticlockwise: "#445566",
+    });
+    const response = await POST(new Request("https://example.test/api/publisher-app/palette-overrides", { method: "POST", body: JSON.stringify({ colors }) }));
+    const catalog = getPublisherAppColorCatalog();
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(createPublisherAppPaletteOverridePlan(colors, catalog.options, catalog.catalogVersion, catalog.alternativeTonalFlows));
+  });
+
+  it.each(["counterpointClockwise", "counterpointAnticlockwise", "counterpointFarClockwise", "counterpointFarAnticlockwise"])("rejects an invalid manual %s", async (key) => {
+    jest.mocked(getServerSession).mockResolvedValue({ user: { email: "admin@example.org" }, expires: "2099-01-01T00:00:00.000Z" });
+    const response = await POST(new Request("https://example.test/api/publisher-app/palette-overrides", { method: "POST", body: JSON.stringify({ colors: { primary: "#FF5500", secondary: "#FFB21F", tertiary: "#F58220", [key]: "invalid" } }) }));
+    expect(response.status).toBe(400);
   });
 });

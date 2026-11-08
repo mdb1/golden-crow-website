@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 
 const DEFAULT_APP_TINT = "#6D28D9";
+const ORGANIZATION_NAME_DIVIDER = /[,.;:|/\\_~=*•·‧⋅∙‣…()[\]{}\p{Dash_Punctuation}−，．、。；：｜／]/u;
 const EMERALD_ACCENT = "#00E83C";
 const VIVID_MATERIAL_SATURATION = 100;
 // The renderer adds black depth and white bloom after this source color. A
@@ -281,7 +282,10 @@ export function PublisherAppPromoBanner({
   ctaLabel = "Crear mi app",
 }: PublisherAppPromoBannerProps) {
   const hostRef = useRef<HTMLDivElement>(null);
-  const brandName = organizationName.trim() || "Tu marca";
+  const shortName =
+    organizationName.split(ORGANIZATION_NAME_DIVIDER, 1)[0]?.trim() ||
+    organizationName.trim() ||
+    "Tu marca";
   const brandLogoUrl = organizationImageUrl?.trim() ?? "";
   const palette = publisherAppIntensePalette(organizationTint);
 
@@ -305,7 +309,7 @@ export function PublisherAppPromoBanner({
           accent: palette.accent,
           accentDeep: palette.accentDeep,
           accentLight: palette.accentLight,
-          companyName: brandName,
+          companyName: shortName,
           actionLabel: ctaLabel,
           brandLogoUrl,
           backgroundDepthOpacity: palette.backgroundDepthOpacity,
@@ -337,7 +341,7 @@ export function PublisherAppPromoBanner({
       instance?.destroy();
     };
   }, [
-    brandName,
+    shortName,
     brandLogoUrl,
     ctaLabel,
     palette.accent,
@@ -371,7 +375,7 @@ export function PublisherAppPromoBanner({
       data-runtime-state="loading"
       className="atomic-host shadow-[0_18px_40px_-28px_rgba(15,23,42,0.65)]"
     >
-      <span className="sr-only">La app de {brandName}</span>
+      <span className="sr-only">La app de {shortName}</span>
       <span className="sr-only">99.99</span>
       <span className="sr-only">59.99</span>
       <span className="sr-only">{ctaLabel}</span>

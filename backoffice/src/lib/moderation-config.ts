@@ -1749,6 +1749,9 @@ export function getChromeMetadata(pathname: string): ChromeMetadata {
   if (pathname === "/god-mode/crm") {
     return { eyebrow: "GOD MODE", title: "CRM", description: "Pocket Genes partnership outreach CRM." };
   }
+  if (pathname === "/god-mode/apps/new") {
+    return { eyebrow: "GOD MODE", title: "Nueva app", description: "Create an app for an organization." };
+  }
   if (pathname.startsWith("/god-mode/apps/")) {
     return { eyebrow: "GOD MODE", title: "Edit App", description: "Review a publisher app configuration and its revision status." };
   }
