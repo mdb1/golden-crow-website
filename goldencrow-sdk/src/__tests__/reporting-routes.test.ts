@@ -403,15 +403,15 @@ describe("reporting Open API routes", () => {
       expect(repeated.headers.etag).toBe(updated.headers.etag);
     });
 
-    it("replaces the ETag when an existing counterpoint value changes under a newly published revision", async () => {
+    it("replaces the ETag when a superseded pastel counterpoint is restored under a newly published revision", async () => {
       const url = "/internal/openapi/apps/config?app-provider-identifier=app_org_medicgen_48217&platform=ios&runtime-version=3&base-content-version=pg-core-v1";
       const headers = { authorization: `Bearer ${TOKEN}` };
       const legacy = {
         ...runtimeConfig,
         revision: 7,
         branding: { colors: {
-          primary: "#5A443C",
-          counterpointClockwise: "#524935",
+          primary: "#40FF00",
+          counterpointClockwise: "#00F5E4",
           counterpointAnticlockwise: "#123456",
         } },
       };
@@ -422,10 +422,11 @@ describe("reporting Open API routes", () => {
         revision: 8,
         branding: { colors: {
           ...legacy.branding.colors,
-          counterpointClockwise: derivePublisherAppCounterpointColors("#5A443C").counterpointClockwise,
+          counterpointClockwise: derivePublisherAppCounterpointColors("#40FF00").counterpointClockwise,
         } },
       };
       expect(published.branding.colors.counterpointClockwise).not.toBe(legacy.branding.colors.counterpointClockwise);
+      expect(published.branding.colors.counterpointClockwise).toBe("#00FF7F");
       mockGetActivePublisherAppRuntimeConfig.mockResolvedValue(published);
       const updated = await fastify.inject({ method: "GET", url, headers: { ...headers, "if-none-match": String(previous.headers.etag) } });
       expect(updated.statusCode).toBe(200);

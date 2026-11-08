@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Check, Pencil, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PublisherAppSingleColorDialog } from "@/components/publisher-app-color-picker";
-import { normalizePublisherAppColor, publisherAppCounterpointPlan, publisherAppPreviousCounterpointColors, type PublisherAppColors } from "@/lib/publisher-app-config";
+import { normalizePublisherAppColor, publisherAppCounterpointPlan, publisherAppPreviousCounterpointColors, publisherAppSupersededCounterpointColors, type PublisherAppColors } from "@/lib/publisher-app-config";
 import { cn } from "@/lib/utils";
 
 type BaseKey = "primary" | "secondary" | "tertiary";
@@ -34,12 +34,12 @@ export function PublisherAppVisualIdentityEditor({
 }) {
   const [initialDraft] = useState(() => {
     const automatic = publisherAppCounterpointPlan(colors.primary).colors;
-    const previous = publisherAppPreviousCounterpointColors(colors.primary);
+    const previous = [publisherAppPreviousCounterpointColors(colors.primary), ...publisherAppSupersededCounterpointColors(colors.primary)];
     const next = { ...colors };
     const custom = new Set<CounterpointKey>();
     for (const key of COUNTERPOINT_KEYS) {
       const current = normalizePublisherAppColor(colors[key]);
-      if (current === automatic[key] || current === previous[key]) next[key] = automatic[key];
+      if (current === automatic[key] || previous.some((palette) => current === palette[key])) next[key] = automatic[key];
       else custom.add(key);
     }
     return { colors: next, custom };

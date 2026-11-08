@@ -664,10 +664,10 @@ describe("publisher app config contract", () => {
       primary: "#AABBCC",
       secondary: "#123456",
       tertiary: "#FEDCBA",
-      counterpointClockwise: "#B9B6CB",
-      counterpointAnticlockwise: "#A3BFC2",
-      counterpointFarClockwise: "#C3B3C4",
-      counterpointFarAnticlockwise: "#A6C0B7",
+      counterpointClockwise: "#6639EF",
+      counterpointAnticlockwise: "#39EFC1",
+      counterpointFarClockwise: "#C139EF",
+      counterpointFarAnticlockwise: "#39EF66",
     });
   });
 
@@ -1003,7 +1003,7 @@ describe("publisher app config contract", () => {
     });
   });
 
-  it("publishes adjusted missing-counterpoint defaults from contract 3 with a new revision while preserving explicit manual colors", async () => {
+  it.each([3, 4])("publishes restored missing-counterpoint defaults from contract %s with a new revision while preserving explicit manual colors", async (priorContract) => {
     const created = await fastify.inject({ method: "POST", url: "/publisher-app/config", payload: validBody });
     expect(created.statusCode).toBe(201);
     const activated = await fastify.inject({ method: "POST", url: "/publisher-app/config/identifier" });
@@ -1017,7 +1017,7 @@ describe("publisher app config contract", () => {
       counterpointAnticlockwise: "#123456",
     };
     collectionStore("app_configs").set(configId, {
-      ...stored, colors: legacyColors, runtimeRevision: 7, runtimeColorContractVersion: 3,
+      ...stored, colors: legacyColors, runtimeRevision: 7, runtimeColorContractVersion: priorContract,
     });
     const { getActivePublisherAppRuntimeConfig } = await import("../repositories/publisher-app-config.repository.js");
     const first = await getActivePublisherAppRuntimeConfig(activated.json().config.appProviderIdentifier, "ios");
@@ -1029,12 +1029,12 @@ describe("publisher app config contract", () => {
     });
     expect(first.branding.colors.counterpointClockwise).not.toBe("#524935");
     expect(collectionStore("app_configs").get(configId)).toMatchObject({
-      colors: legacyColors, runtimeRevision: 8, runtimeColorContractVersion: 4,
+      colors: legacyColors, runtimeRevision: 8, runtimeColorContractVersion: 5,
     });
     expect(await getActivePublisherAppRuntimeConfig(activated.json().config.appProviderIdentifier, "ios")).toEqual(first);
   });
 
-  it.each([[false, undefined], [true, undefined], [false, 1], [true, 1], [false, 2], [true, 2], [false, 3], [true, 3]] as const)(
+  it.each([[false, undefined], [true, undefined], [false, 1], [true, 1], [false, 2], [true, 2], [false, 3], [true, 3], [false, 4], [true, 4]] as const)(
     "publishes configured counterpoints exactly and bumps a legacy runtime revision only once (stored semantic colors: %s, prior contract: %s)",
     async (useStoredSemanticColors, priorContract) => {
       const created = await fastify.inject({
@@ -1074,7 +1074,7 @@ describe("publisher app config contract", () => {
       expect(collectionStore("app_configs").get(configId)).toEqual({
         ...legacy,
         runtimeRevision: 8,
-        runtimeColorContractVersion: 4,
+        runtimeColorContractVersion: 5,
       });
       expect(await getActivePublisherAppRuntimeConfig(activated.json().config.appProviderIdentifier, "android")).toEqual(first);
       const repeated = await fastify.inject({ method: "GET", url: "/publisher-app/config/runtime" });
@@ -1462,10 +1462,10 @@ describe("publisher app config contract", () => {
         primary: "#010203",
         secondary: "#040506",
         tertiary: "#070809",
-        counterpointClockwise: "#020203",
-        counterpointAnticlockwise: "#010202",
-        counterpointFarClockwise: "#020203",
-        counterpointFarAnticlockwise: "#010202",
+        counterpointClockwise: "#4612E2",
+        counterpointAnticlockwise: "#12E2AE",
+        counterpointFarClockwise: "#AE12E2",
+        counterpointFarAnticlockwise: "#12E246",
       },
       createdByUserId: "org-user-1",
       updatedByUserId: "org-user-2",

@@ -3,7 +3,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { PublisherAppPaletteComposition } from "@/components/publisher-app-palette-composition";
 import { PublisherAppVisualIdentityEditor, type VisualIdentityColorField } from "@/components/publisher-app-visual-identity-editor";
-import { publisherAppCounterpointPlan, type PublisherAppColors } from "@/lib/publisher-app-config";
+import { publisherAppCounterpointPlan, publisherAppPreviousCounterpointColors, publisherAppSupersededCounterpointColors, type PublisherAppColors } from "@/lib/publisher-app-config";
 
 const mockAutomaticColors = {
   counterpointClockwise: "#112233",
@@ -17,18 +17,32 @@ const mockPreviousColors = {
   counterpointFarClockwise: "#CC5500",
   counterpointFarAnticlockwise: "#DD6600",
 };
+const mockSupersededColors = {
+  counterpointClockwise: "#AA8899",
+  counterpointAnticlockwise: "#BB99AA",
+  counterpointFarClockwise: "#CCAABB",
+  counterpointFarAnticlockwise: "#DDBBCC",
+};
+const mockShiftedColors = {
+  counterpointClockwise: "#8899AA",
+  counterpointAnticlockwise: "#99AABB",
+  counterpointFarClockwise: "#AABBCC",
+  counterpointFarAnticlockwise: "#BBCCDD",
+};
+const mockOffsets = {
+  counterpointClockwise: 85,
+  counterpointAnticlockwise: -5,
+  counterpointFarClockwise: 115,
+  counterpointFarAnticlockwise: -35,
+};
 jest.mock("@/lib/publisher-app-config", () => ({
   ...jest.requireActual("@/lib/publisher-app-config"),
   publisherAppCounterpointPlan: jest.fn(() => ({
     colors: mockAutomaticColors,
-    offsets: {
-      counterpointClockwise: 85,
-      counterpointAnticlockwise: -5,
-      counterpointFarClockwise: 115,
-      counterpointFarAnticlockwise: -35,
-    },
+    offsets: mockOffsets,
   })),
   publisherAppPreviousCounterpointColors: jest.fn(() => mockPreviousColors),
+  publisherAppSupersededCounterpointColors: jest.fn(() => [mockSupersededColors, mockShiftedColors]),
 }));
 
 const colors: PublisherAppColors = {
@@ -51,6 +65,12 @@ function renderEditor(value = colors) {
 }
 
 describe("calculated counterpoint angle labels", () => {
+  beforeEach(() => {
+    jest.mocked(publisherAppCounterpointPlan).mockImplementation(() => ({ colors: mockAutomaticColors, offsets: mockOffsets }));
+    jest.mocked(publisherAppPreviousCounterpointColors).mockImplementation(() => mockPreviousColors);
+    jest.mocked(publisherAppSupersededCounterpointColors).mockImplementation(() => [mockSupersededColors, mockShiftedColors]);
+  });
+
   it("shows the actual shifted angles in the main composition without fixed-degree claims", () => {
     render(<PublisherAppPaletteComposition colors={colors} />);
     expect(screen.getByText("+85°")).toBeTruthy();
@@ -95,12 +115,54 @@ describe("calculated counterpoint angle labels", () => {
     expect(onApply).not.toHaveBeenCalled();
   });
 
-  it("shows a real calculated −115° adjustment for a yellow brand", () => {
+  it.each([mockSupersededColors, mockShiftedColors])("restores superseded automatic drafts while retaining an unrelated manual color", (previous) => {
+    const { onApply } = renderEditor({ ...colors, ...previous, counterpointAnticlockwise: "#FF9900" });
+    expect(screen.getByRole("button", { name: "Editar color de contrapunto horario" })).toHaveTextContent(mockAutomaticColors.counterpointClockwise);
+    expect(screen.getByRole("button", { name: "Editar color de contrapunto lejano horario" })).toHaveTextContent(mockAutomaticColors.counterpointFarClockwise);
+    expect(screen.getByRole("button", { name: "Editar color de contrapunto antihorario" })).toHaveTextContent("#FF9900");
+    expect(screen.getAllByText("Personalizado")).toHaveLength(1);
+    expect(onApply).not.toHaveBeenCalled();
+  });
+
+  it("preserves the screenshot's vivid first three colors and saves only the fourth adjustment after Apply", () => {
     const actual = jest.requireActual<typeof import("@/lib/publisher-app-config")>("@/lib/publisher-app-config");
-    const plan = actual.publisherAppCounterpointPlan("#FFFF00");
+    jest.mocked(publisherAppCounterpointPlan).mockImplementation(actual.publisherAppCounterpointPlan);
+    jest.mocked(publisherAppPreviousCounterpointColors).mockImplementation(actual.publisherAppPreviousCounterpointColors);
+    jest.mocked(publisherAppSupersededCounterpointColors).mockImplementation(actual.publisherAppSupersededCounterpointColors);
+    const original: PublisherAppColors = {
+      primary: "#40FF00", secondary: "#2AEF47", tertiary: "#82F820",
+      counterpointClockwise: "#00FF7F", counterpointAnticlockwise: "#FFFF00",
+      counterpointFarClockwise: "#00FFFF", counterpointFarAnticlockwise: "#FF7F00",
+    };
+    const { onApply } = renderEditor(original);
+    expect(screen.getByRole("button", { name: "Editar color de contrapunto horario" })).toHaveTextContent("#00FF7F");
+    expect(screen.getByRole("button", { name: "Editar color de contrapunto antihorario" })).toHaveTextContent("#FFFF00");
+    expect(screen.getByRole("button", { name: "Editar color de contrapunto lejano horario" })).toHaveTextContent("#00FFFF");
+    expect(screen.queryByText("#FF7F00")).toBeNull();
+    expect(screen.getByText("+45°")).toBeTruthy();
+    expect(screen.getByText("−45°")).toBeTruthy();
+    expect(screen.getByText("+75°")).toBeTruthy();
+    expect(screen.getByText("−115°")).toBeTruthy();
+    expect(screen.getAllByText("Automático")).toHaveLength(4);
+    expect(screen.queryAllByRole("textbox")).toHaveLength(0);
+    expect(onApply).not.toHaveBeenCalled();
+    expect(original.counterpointFarAnticlockwise).toBe("#FF7F00");
+    fireEvent.submit(screen.getByRole("form", { name: "Editor de identidad visual" }));
+    expect(onApply).toHaveBeenCalledWith({
+      ...original,
+      counterpointFarAnticlockwise: actual.publisherAppCounterpointPlan(original.primary).colors.counterpointFarAnticlockwise,
+    }, "Paleta personalizada");
+  });
+
+  it("shows the real screenshot palette and its single −115° adjustment in the main composition", () => {
+    const actual = jest.requireActual<typeof import("@/lib/publisher-app-config")>("@/lib/publisher-app-config");
+    const plan = actual.publisherAppCounterpointPlan("#40FF00");
     expect(plan.offsets.counterpointFarAnticlockwise).toBe(-115);
     jest.mocked(publisherAppCounterpointPlan).mockImplementationOnce(actual.publisherAppCounterpointPlan);
-    render(<PublisherAppPaletteComposition colors={{ ...colors, primary: "#FFFF00", ...plan.colors }} />);
+    render(<PublisherAppPaletteComposition colors={{ ...colors, primary: "#40FF00", ...plan.colors }} />);
+    expect(screen.getByText("#00FF7F")).toBeTruthy();
+    expect(screen.getByText("#FFFF00")).toBeTruthy();
+    expect(screen.getByText("#00FFFF")).toBeTruthy();
     expect(screen.getByText("−115°")).toBeTruthy();
     expect(screen.getByText(plan.colors.counterpointFarAnticlockwise)).toBeTruthy();
   });

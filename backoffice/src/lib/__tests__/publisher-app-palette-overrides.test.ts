@@ -37,6 +37,7 @@ const palettes = [
   { name: "muted", primary: "#5A443C", secondary: "#D8C7C0", tertiary: "#9D948F" },
   { name: "pastel", primary: "#D8C7C0", secondary: "#D2DCE6", tertiary: "#CDDCCE" },
   { name: "dark", primary: "#0A1834", secondary: "#17313A", tertiary: "#253A35" },
+  { name: "original vivid green", primary: "#40FF00", secondary: "#2AEF47", tertiary: "#82F820" },
 ];
 
 const appearances = ["light", "dark"] as const;
@@ -224,8 +225,12 @@ describe("publisher app automatic palette fidelity", () => {
     }
   });
 
-  it.each(["#000000", "#FFFFFF", "#777777"])("accepts a fully achromatic identity %s without inventing accessory colors", (primary) => {
-    const palette = { name: "neutral", primary, secondary: primary, tertiary: primary };
+  it.each(["#000000", "#FFFFFF", "#777777"])("keeps a deliberately achromatic full palette %s neutral", (primary) => {
+    const palette = {
+      name: "neutral", primary, secondary: primary, tertiary: primary,
+      counterpointClockwise: primary, counterpointAnticlockwise: primary,
+      counterpointFarClockwise: primary, counterpointFarAnticlockwise: primary,
+    };
     const colors = publisherAppColorsWithCounterpoints(palette);
     const plan = createPlan(palette);
     for (const key of ["counterpointClockwise", "counterpointAnticlockwise", "counterpointFarClockwise", "counterpointFarAnticlockwise"] as const) {
@@ -265,15 +270,6 @@ describe("publisher app automatic palette fidelity", () => {
     for (const key of keys) {
       for (const appearance of appearances) {
         expect(new Set(plans.map((plan) => effective(plan, key, appearance))).size).toBe(1);
-      }
-    }
-  });
-
-  it("keeps automatic counterpoints restrained when the brand is muted", () => {
-    for (const palette of [palettes[3], palettes[4], palettes[5]]) {
-      const colors = publisherAppColorsWithCounterpoints(palette);
-      for (const key of ["counterpointClockwise", "counterpointAnticlockwise", "counterpointFarClockwise", "counterpointFarAnticlockwise"] as const) {
-        expect(perceptualColor(colors[key]).chroma).toBeLessThanOrEqual(perceptualColor(colors.primary).chroma * 1.4 + 0.005);
       }
     }
   });

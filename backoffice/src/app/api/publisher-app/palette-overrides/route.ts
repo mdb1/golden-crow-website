@@ -4,6 +4,7 @@ import {
   normalizePublisherAppColor,
   publisherAppColorsWithCounterpoints,
   publisherAppPreviousCounterpointColors,
+  publisherAppSupersededCounterpointColors,
   type PublisherAppColors,
   type PublisherAppColorOverride,
 } from "@/lib/publisher-app-config";
@@ -121,6 +122,13 @@ export async function POST(request: Request) {
       catalog.options, catalog.catalogVersion,
       catalog.alternativeTonalFlows, catalog.contrastPairs,
     ));
+    for (const counterpoints of publisherAppSupersededCounterpointColors(previous.primary)) {
+      infer(() => createPublisherAppPaletteOverridePlan(
+        { ...previous, ...counterpoints },
+        catalog.options, catalog.catalogVersion,
+        catalog.alternativeTonalFlows, catalog.contrastPairs,
+      ));
+    }
   }
   const colorOverrides = mergePublisherAppPaletteOverrides({
     generated: plan.colorOverrides,

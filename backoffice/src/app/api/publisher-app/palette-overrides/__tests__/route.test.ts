@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth";
 import { POST } from "../route";
-import { publisherAppColorsWithCounterpoints, publisherAppPreviousCounterpointColors } from "@/lib/publisher-app-config";
+import { publisherAppColorsWithCounterpoints, publisherAppSupersededCounterpointColors } from "@/lib/publisher-app-config";
 import { getLegacyPublisherAppColorCatalog, getPublisherAppColorCatalog } from "@/lib/publisher-app-customization-catalog-server";
 import { createPublisherAppPaletteOverridePlan } from "@/lib/publisher-app-palette-overrides";
 import { createLegacyPublisherAppPaletteOverridePlan, legacyPublisherAppCounterpointColors } from "@/lib/publisher-app-legacy-palette-overrides";
@@ -181,10 +181,10 @@ describe("custom app palette override route", () => {
     expect(body.colorOverrides["app.background"]).toEqual({ dark: "#ABCDEF80" });
   });
 
-  it("recognizes previous OKLCH defaults when omitted counterpoint seeds now resolve to the adjusted palette", async () => {
+  it.each([0, 1])("recognizes superseded OKLCH defaults variant %s when omitted counterpoint seeds now resolve to the restored palette", async (variant) => {
     jest.mocked(getServerSession).mockResolvedValue({ user: { email: "admin@example.org" }, expires: "2099-01-01T00:00:00.000Z" });
     const previousColors = { primary: "#66F246", secondary: "#9AEF28", tertiary: "#ACF81E" };
-    const oldColors = { ...previousColors, ...publisherAppPreviousCounterpointColors(previousColors.primary) };
+    const oldColors = { ...previousColors, ...publisherAppSupersededCounterpointColors(previousColors.primary)[variant]! };
     const catalog = getPublisherAppColorCatalog();
     const oldPlan = createPublisherAppPaletteOverridePlan(oldColors, catalog.options, catalog.catalogVersion, catalog.alternativeTonalFlows, catalog.contrastPairs);
     const colors = publisherAppColorsWithCounterpoints(previousColors);
@@ -251,18 +251,18 @@ describe("custom app palette override route", () => {
     const generated = createPublisherAppPaletteOverridePlan(colors, catalog.options, catalog.catalogVersion, catalog.alternativeTonalFlows, catalog.contrastPairs).colorOverrides;
     const foregroundKey = "community.rareCircles.headerForeground";
     const backgroundKeys = ["community.rareCircles.headerStart", "community.rareCircles.headerMiddle", "community.rareCircles.headerEnd"];
-    expect(Math.min(...backgroundKeys.map(key => colorContrast("#000000", generated[key]?.light ?? catalog.options.find(option => option.key === key)!.defaultLightColor)))).toBeLessThan(4.5);
+    expect(Math.min(...backgroundKeys.map(key => colorContrast("#FFFFFF", generated[key]?.light ?? catalog.options.find(option => option.key === key)!.defaultLightColor)))).toBeLessThan(4.5);
     const response = await POST(new Request("https://example.test/api/publisher-app/palette-overrides", {
       method: "POST", body: JSON.stringify({ colors, previousColors: colors,
-        colorOverrides: { [foregroundKey]: { light: "#000000" } }, generatedColorOverrides: {},
+        colorOverrides: { [foregroundKey]: { light: "#FFFFFF" } }, generatedColorOverrides: {},
       }),
     }));
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.colorOverrides[foregroundKey].light).toBe("#000000");
+    expect(body.colorOverrides[foregroundKey].light).toBe("#FFFFFF");
     for (const key of backgroundKeys) {
       const effective = body.colorOverrides[key]?.light ?? catalog.options.find(option => option.key === key)!.defaultLightColor;
-      expect(colorContrast("#000000", effective)).toBeGreaterThanOrEqual(4.5);
+      expect(colorContrast("#FFFFFF", effective)).toBeGreaterThanOrEqual(4.5);
       expect(body.generatedColorOverrides[key]?.light).toBe(body.colorOverrides[key]?.light);
     }
   });
