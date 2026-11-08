@@ -2,11 +2,11 @@
 // anterior», and the pure bits of the ficha that must ignore inherited work.
 //
 // `planInheritedPlanEnd` follows the criteria of gc-fitness
-// `functions/src/coach/unlinkCleanupPlan.ts` (#1395) for assignments and habits;
-// nutrition plans are out of #1504's scope. Plain module (NOT "use server"): sync
+// `functions/src/coach/unlinkCleanupPlan.ts` (#1395) for assignments, habits and
+// (since #1504 Q2, 2026-11-08) nutrition plans. Plain module (NOT "use server"): sync
 // exports would break `next build` there (#785).
 
-import { assignedBy, isEndableAssignment, isEndableHabit } from "./assigned-by";
+import { assignedBy, isEndableAssignment, isEndableHabit, isEndablePlan } from "./assigned-by";
 import { addCivilDays } from "./recurrence-expansion";
 
 export interface PlanDoc {
@@ -18,6 +18,8 @@ export interface InheritedPlanEnd {
   deleteAssignmentIds: string[];
   endHabits: Array<{ id: string; endsOn: string }>;
   deleteHabitIds: string[];
+  endPlans: Array<{ id: string; endsOn: string }>;
+  deletePlanIds: string[];
 }
 
 const CIVIL_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -31,12 +33,16 @@ function civil(v: unknown): string | null {
  *   with no `workout_logs` doc (the client opened it — kept) → deleted.
  * - Habits: inherited, live, not over → `endsOn = yesterday`; when that would precede
  *   `startsOn` there is no past to keep → soft-deleted.
+ * - Nutrition plans: inherited, live, not `source == "self"`, not a past phase →
+ *   `endsOn = yesterday`; one that starts today or later (or has no `startsOn`) →
+ *   soft-deleted, exactly like the server's `planUnlinkCleanup`.
  */
 export function planInheritedPlanEnd(args: {
   coachId: string | null;
   today: string;
   assignments: PlanDoc[];
   habits: PlanDoc[];
+  plans?: PlanDoc[];
   loggedAssignmentIds?: ReadonlySet<string>;
 }): InheritedPlanEnd {
   const user = { coachId: args.coachId };
@@ -55,7 +61,16 @@ export function planInheritedPlanEnd(args: {
     if (startsOn && yesterday < startsOn) deleteHabitIds.push(id);
     else endHabits.push({ id, endsOn: yesterday });
   }
-  return { deleteAssignmentIds, endHabits, deleteHabitIds };
+
+  const endPlans: InheritedPlanEnd["endPlans"] = [];
+  const deletePlanIds: string[] = [];
+  for (const { id, data } of args.plans ?? []) {
+    if (!isEndablePlan(data, user, args.today)) continue;
+    const startsOn = civil(data.startsOn);
+    if (!startsOn || startsOn >= args.today) deletePlanIds.push(id);
+    else endPlans.push({ id, endsOn: yesterday });
+  }
+  return { deleteAssignmentIds, endHabits, deleteHabitIds, endPlans, deletePlanIds };
 }
 
 /** Drops the `former` docs of a client from any number the coach is shown. */

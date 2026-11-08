@@ -259,10 +259,6 @@ export function HabitDetailDialog({
             />
           ) : (
             <div className="flex flex-col gap-2">
-              {/* gc-fitness#1504 — a former coach's habit is read-only: the server refuses
-                  these, and the way out is «Terminar plan» on the ficha. */}
-              {!data?.inherited ? (
-                <>
               <Button
                 asChild
                 variant="outline"
@@ -294,8 +290,6 @@ export function HabitDetailDialog({
                 <Trash2 className="size-4" />
                 {isRecurring ? "Eliminar el hábito (desde este día)" : "Eliminar el hábito"}
               </Button>
-                </>
-              ) : null}
               <Button variant="ghost" onClick={() => onOpenChange(false)}>
                 Cerrar
               </Button>

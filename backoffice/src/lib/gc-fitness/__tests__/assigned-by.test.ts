@@ -1,7 +1,7 @@
 // gc-fitness#1504 — twin of Swift `AssignedByTests`, Kotlin `AssignedByTest` and
 // functions' `assignedBy.test.ts`: all of them walk the same vector.
 
-import { assignedBy, isEndableAssignment, isEndableHabit } from "../assigned-by";
+import { assignedBy, isEndableAssignment, isEndableHabit, isEndablePlan } from "../assigned-by";
 import { computeWorkoutStreak, planInheritedPlanEnd, withoutInherited } from "../inherited-plan";
 import vector from "./assigned-by.vector.json";
 
@@ -18,10 +18,15 @@ describe("assignedBy — shared vector", () => {
     expect(isEndableHabit(c, { coachId: c.coachId }, c.today)).toBe(c.expected);
   });
 
+  it.each(vector.endablePlan.map((c) => [c.name, c] as const))("endable plan: %s", (_name, c) => {
+    expect(isEndablePlan(c, { coachId: c.coachId }, c.today)).toBe(c.expected);
+  });
+
   it("the vector keeps the size the other twins assert", () => {
     expect(vector.assignedBy).toHaveLength(11);
     expect(vector.endableAssignment).toHaveLength(10);
     expect(vector.endableHabit).toHaveLength(10);
+    expect(vector.endablePlan).toHaveLength(9);
   });
 });
 
@@ -123,5 +128,25 @@ describe("planInheritedPlanEnd", () => {
       { id: "no-dates", endsOn: "2026-11-04" },
     ]);
     expect(plan.deleteHabitIds).toEqual(["starts-today", "starts-later"]);
+  });
+
+  it("ends a former coach's nutrition plan yesterday, and soft-deletes one that hadn't started (#1504 Q2)", () => {
+    const plan = planInheritedPlanEnd({
+      coachId: "NEW",
+      today: TODAY,
+      assignments: [],
+      habits: [],
+      plans: [
+        { id: "running", data: { ...former, source: "coach", startsOn: "2026-01-01" } },
+        { id: "no-dates", data: { ...former, source: "coach" } },
+        { id: "starts-today", data: { ...former, source: "coach", startsOn: TODAY } },
+        { id: "past-phase", data: { ...former, source: "coach", startsOn: "2026-01-01", endsOn: "2026-11-04" } },
+        { id: "gone", data: { ...former, source: "coach", deleted: true } },
+        { id: "current", data: { clientId: "C", trainerId: "NEW", source: "coach", startsOn: "2026-01-01" } },
+        { id: "own", data: { clientId: "C", trainerId: "C", source: "self", startsOn: "2026-01-01" } },
+      ],
+    });
+    expect(plan.endPlans).toEqual([{ id: "running", endsOn: "2026-11-04" }]);
+    expect(plan.deletePlanIds).toEqual(["no-dates", "starts-today"]);
   });
 });

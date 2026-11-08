@@ -10,7 +10,7 @@ import type { ClientGoalRow } from "@/lib/gc-fitness/client-goal-actions";
 import { Badge } from "@/components/ui/badge";
 import { ClientSummaryLists } from "./ClientSummaryLists";
 import { effectiveIsoWeekdays } from "@/lib/gc-fitness/habit-schedule";
-import { assignedBy, isEndableAssignment, isEndableHabit } from "@/lib/gc-fitness/assigned-by";
+import { assignedBy, isEndableAssignment, isEndableHabit, isEndablePlan } from "@/lib/gc-fitness/assigned-by";
 import { computeWorkoutStreak } from "@/lib/gc-fitness/inherited-plan";
 import { InheritedPlanPanel } from "./InheritedPlanPanel";
 const WEEKDAY_LABELS_WORKOUT: Record<number, string> = {
@@ -49,7 +49,7 @@ export async function ClientSummaryCard({
   // with them, so the card showed only the old coach's overdue work and the streak
   // never reached anything recent. (clientId, scheduledFor) exists in both directions.
   const todayCivil = civilDateToday(timezone);
-  const [pastSnap, upcomingSnap, habitsSnap] = await Promise.all([
+  const [pastSnap, upcomingSnap, habitsSnap, plansSnap] = await Promise.all([
     db
       .collection(FirestoreCollections.workoutAssignments)
       .where("clientId", "==", clientId)
@@ -77,6 +77,12 @@ export async function ClientSummaryCard({
       .collection(FirestoreCollections.habits)
       .where("clientId", "==", clientId)
       .limit(200)
+      .get()
+      .catch(() => ({ docs: [] as Array<{ id: string; data: () => Record<string, unknown> }> })),
+    // #1504 Q2 — a former coach's nutrition plan also counts toward «Terminar plan».
+    db
+      .collection(FirestoreCollections.nutritionPlans)
+      .where("clientId", "==", clientId)
       .get()
       .catch(() => ({ docs: [] as Array<{ id: string; data: () => Record<string, unknown> }> })),
   ]);
@@ -120,6 +126,9 @@ export async function ClientSummaryCard({
   ).length;
   const inheritedHabits = habitsSnap.docs.filter((doc) =>
     isEndableHabit(doc.data() as Record<string, unknown>, coach, todayCivil),
+  ).length;
+  const inheritedPlans = plansSnap.docs.filter((doc) =>
+    isEndablePlan(doc.data() as Record<string, unknown>, coach, todayCivil),
   ).length;
   const workoutsGrouped = groupWorkouts(visibleWorkouts);
 
@@ -189,12 +198,13 @@ export async function ClientSummaryCard({
           </Badge>
         ) : null}
       </div>
-      {inheritedWorkouts + inheritedHabits > 0 ? (
+      {inheritedWorkouts + inheritedHabits + inheritedPlans > 0 ? (
         <div className="mb-3">
           <InheritedPlanPanel
             clientId={clientId}
             workouts={inheritedWorkouts}
             habits={inheritedHabits}
+            plans={inheritedPlans}
           />
         </div>
       ) : null}

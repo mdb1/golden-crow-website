@@ -103,7 +103,7 @@ describe("ClientSummaryCard after a coach swap", () => {
     expect(lists.habits.map((h) => h.name)).toEqual(["My habit"]);
 
     const panel = findElement(tree, InheritedPlanPanel)!.props;
-    expect(panel).toMatchObject({ clientId: C, workouts: 1, habits: 1 });
+    expect(panel).toMatchObject({ clientId: C, workouts: 1, habits: 1, plans: 0 });
   });
 
   it("the streak isn't broken by the inherited overdue, and isn't lost behind them", async () => {
@@ -121,7 +121,16 @@ describe("ClientSummaryCard after a coach swap", () => {
     expect(findText(await render(), /workoutStreakLabel:3/)).toBe(true);
   });
 
+  it("an inherited nutrition plan alone offers the exit (#1504 Q2)", async () => {
+    db.seed("nutrition_plans/old", { clientId: C, trainerId: "coach-old", source: "coach", startsOn: "2026-01-01", endsOn: null });
+    db.seed("nutrition_plans/mine", { clientId: C, trainerId: NEW, source: "coach", startsOn: "2026-01-01", endsOn: null });
+    db.seed("nutrition_plans/own", { clientId: C, trainerId: C, source: "self", startsOn: "2026-01-01", endsOn: null });
+    const panel = findElement(await render(), InheritedPlanPanel)!.props;
+    expect(panel).toMatchObject({ clientId: C, workouts: 0, habits: 0, plans: 1 });
+  });
+
   it("offers no exit when nothing inherited is live", async () => {
+    db.seed("nutrition_plans/old-over", { clientId: C, trainerId: "coach-old", source: "coach", startsOn: "2026-01-01", endsOn: "2026-02-01" });
     expect(findElement(await render(), InheritedPlanPanel)).toBeNull();
   });
 });

@@ -36,5 +36,16 @@
     { "name": "client-owned flag keeps it", "trainerId": "OLD", "clientId": "C", "coachId": "NEW", "clientOwned": true, "deleted": false, "scheduleType": "recurring", "startsOn": "2026-01-01", "endsOn": null, "today": "2026-11-05", "expected": false },
     { "name": "current coach is not inherited", "trainerId": "NEW", "clientId": "C", "coachId": "NEW", "clientOwned": false, "deleted": false, "scheduleType": "recurring", "startsOn": "2026-01-01", "endsOn": null, "today": "2026-11-05", "expected": false },
     { "name": "own habit is not inherited", "trainerId": "C", "clientId": "C", "coachId": "NEW", "clientOwned": true, "deleted": false, "scheduleType": "recurring", "startsOn": "2026-01-01", "endsOn": null, "today": "2026-11-05", "expected": false }
+  ],
+  "endablePlan": [
+    { "name": "open-ended, former", "trainerId": "OLD", "clientId": "C", "coachId": "NEW", "source": "coach", "deleted": false, "startsOn": "2026-01-01", "endsOn": null, "today": "2026-11-05", "expected": true },
+    { "name": "no source, no dates", "trainerId": "OLD", "clientId": "C", "coachId": "NEW", "source": null, "deleted": false, "startsOn": null, "endsOn": null, "today": "2026-11-05", "expected": true },
+    { "name": "ends today still runs", "trainerId": "OLD", "clientId": "C", "coachId": "NEW", "source": "coach", "deleted": false, "startsOn": "2026-01-01", "endsOn": "2026-11-05", "today": "2026-11-05", "expected": true },
+    { "name": "starts in the future", "trainerId": "OLD", "clientId": "C", "coachId": "NEW", "source": "coach", "deleted": false, "startsOn": "2026-12-01", "endsOn": null, "today": "2026-11-05", "expected": true },
+    { "name": "a past phase", "trainerId": "OLD", "clientId": "C", "coachId": "NEW", "source": "coach", "deleted": false, "startsOn": "2026-01-01", "endsOn": "2026-11-04", "today": "2026-11-05", "expected": false },
+    { "name": "soft-deleted", "trainerId": "OLD", "clientId": "C", "coachId": "NEW", "source": "coach", "deleted": true, "startsOn": "2026-01-01", "endsOn": null, "today": "2026-11-05", "expected": false },
+    { "name": "source self keeps it", "trainerId": "OLD", "clientId": "C", "coachId": "NEW", "source": "self", "deleted": false, "startsOn": "2026-01-01", "endsOn": null, "today": "2026-11-05", "expected": false },
+    { "name": "current coach is not inherited", "trainerId": "NEW", "clientId": "C", "coachId": "NEW", "source": "coach", "deleted": false, "startsOn": "2026-01-01", "endsOn": null, "today": "2026-11-05", "expected": false },
+    { "name": "own plan is not inherited", "trainerId": "C", "clientId": "C", "coachId": "NEW", "source": "self", "deleted": false, "startsOn": "2026-01-01", "endsOn": null, "today": "2026-11-05", "expected": false }
   ]
 }
