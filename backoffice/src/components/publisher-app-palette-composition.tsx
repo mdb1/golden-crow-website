@@ -1,5 +1,5 @@
 import { Pencil } from "lucide-react";
-import type { PublisherAppColors } from "@/lib/publisher-app-config";
+import { normalizePublisherAppColor, publisherAppCounterpointPlan, type PublisherAppColors } from "@/lib/publisher-app-config";
 import { cn } from "@/lib/utils";
 
 const MAIN_SWATCHES = [
@@ -20,12 +20,14 @@ function PaletteBall({
   fullLabel = label,
   value,
   main = false,
+  hueShift,
   onEdit,
 }: {
   label: string;
   fullLabel?: string;
   value: string;
   main?: boolean;
+  hueShift?: number;
   onEdit?: () => void;
 }) {
   const content = (
@@ -51,6 +53,7 @@ function PaletteBall({
         {onEdit ? <Pencil aria-hidden="true" className={cn("shrink-0 text-violet-600 transition-transform duration-300 group-hover:-rotate-12 motion-reduce:transform-none dark:text-violet-300", main ? "size-3.5" : "size-3")} /> : null}
       </span>
       <span className={cn("mt-1 block font-mono text-muted-foreground", main ? "text-[10px] sm:text-xs" : "text-[9px] sm:text-[10px]")}>{value}</span>
+      {hueShift === undefined ? null : <span className="mt-1 block text-[9px] font-medium text-muted-foreground sm:text-[10px]">{hueShift < 0 ? "−" : "+"}{Math.abs(hueShift)}°</span>}
     </>
   );
   const className = cn(
@@ -73,6 +76,7 @@ export function PublisherAppPaletteComposition({
   colors: PublisherAppColors;
   onEditColor?: (key: keyof PublisherAppColors) => void;
 }) {
+  const automatic = publisherAppCounterpointPlan(colors.primary);
   return (
     <div className="overflow-hidden rounded-[24px] border border-border/70 bg-background">
       <section aria-label="Paleta principal" className="bg-[radial-gradient(ellipse_at_top,rgba(139,92,246,0.06),transparent_70%)] px-3 pt-5 pb-3 sm:px-6 sm:pt-6 sm:pb-5">
@@ -91,7 +95,7 @@ export function PublisherAppPaletteComposition({
         <ul className="mt-3 grid grid-cols-4 gap-1 sm:mt-4 sm:gap-3">
           {COUNTERPOINT_SWATCHES.map((swatch) => (
             <li key={swatch.key} className="min-w-0">
-              <PaletteBall label={swatch.label} fullLabel={swatch.fullLabel} value={colors[swatch.key]} onEdit={onEditColor ? () => onEditColor(swatch.key) : undefined} />
+              <PaletteBall label={swatch.label} fullLabel={swatch.fullLabel} value={colors[swatch.key]} hueShift={normalizePublisherAppColor(colors[swatch.key]) === automatic.colors[swatch.key] ? automatic.offsets[swatch.key] : undefined} onEdit={onEditColor ? () => onEditColor(swatch.key) : undefined} />
             </li>
           ))}
         </ul>

@@ -3,12 +3,35 @@ import {
   isPublisherAppRuntimeEnabled,
   publisherAppStatusLabel,
   publisherAppCounterpointColors,
+  publisherAppCounterpointPlan,
   publisherAppColorsWithCounterpoints,
   publisherAppDefaultColors,
   publisherAppPaletteSuggestions,
 } from "@/lib/publisher-app-config";
 
 const BASE_COLOR_KEYS = ["primary", "secondary", "tertiary"] as const;
+const COUNTERPOINT_OFFSETS = {
+  counterpointClockwise: 45,
+  counterpointAnticlockwise: -45,
+  counterpointFarClockwise: 75,
+  counterpointFarAnticlockwise: -75,
+} as const;
+
+function wheelColor(hue: number, saturation: number, lightness: number) {
+  const intensity = saturation / 100 * Math.min(lightness / 100, 1 - lightness / 100);
+  const channel = (offset: number) => {
+    const position = (offset + hue / 30) % 12;
+    const value = lightness / 100 - intensity * Math.max(-1, Math.min(position - 3, 9 - position, 1));
+    return Math.round(value * 255).toString(16).padStart(2, "0");
+  };
+  return `#${channel(0)}${channel(8)}${channel(4)}`.toUpperCase();
+}
+
+function isOrange(value: string) {
+  const color = hslFromHex(value);
+  return color.saturation > 0 && color.hue >= 10 && color.hue <= 55;
+}
+
 
 describe("publisher app statuses", () => {
   it.each([
@@ -123,20 +146,70 @@ describe("publisher app color palettes", () => {
     "rotates accessory hue around %s while preserving perceptual lightness and limiting chroma",
     (primary) => {
       const source = perceptualColor(primary);
-      const counterpoints = publisherAppCounterpointColors(primary);
-      for (const [key, degrees] of [
-        ["counterpointClockwise", 45],
-        ["counterpointAnticlockwise", -45],
-        ["counterpointFarClockwise", 75],
-        ["counterpointFarAnticlockwise", -75],
-      ] as const) {
-        const color = perceptualColor(counterpoints[key]);
-        expect(circularHueDistance(color.hue, source.hue + degrees)).toBeLessThan(2);
+      const plan = publisherAppCounterpointPlan(primary);
+      expect(plan.colors).toEqual(publisherAppCounterpointColors(primary));
+      for (const key of Object.keys(COUNTERPOINT_OFFSETS) as Array<keyof typeof COUNTERPOINT_OFFSETS>) {
+        const degrees = plan.offsets[key];
+        const color = perceptualColor(plan.colors[key]);
+        const hueError = circularHueDistance(color.hue, source.hue + degrees);
+        if (color.chroma >= 0.02) expect(hueError).toBeLessThan(2);
+        // Near-white gamut-limited shades have little chroma, so 8-bit rounding
+        // can move their angle while keeping the actual hue-axis error tiny.
+        expect(Math.abs(Math.sin(hueError * Math.PI / 180)) * color.chroma).toBeLessThan(0.0015);
         expect(Math.abs(color.lightness - source.lightness)).toBeLessThan(0.002);
         expect(color.chroma).toBeLessThanOrEqual(source.chroma + 0.002);
       }
     },
   );
+
+  it("keeps the usual angles when neither side produces orange", () => {
+    expect(publisherAppCounterpointPlan("#1D4ED8").offsets).toEqual(COUNTERPOINT_OFFSETS);
+  });
+
+  it("moves an orange side together in fixed increments and reports the actual angles", () => {
+    const plan = publisherAppCounterpointPlan("#66F246");
+    expect(plan.offsets.counterpointClockwise).toBe(45);
+    expect(plan.offsets.counterpointFarClockwise).toBe(75);
+    expect(plan.offsets.counterpointAnticlockwise).not.toBe(-45);
+    const shift = plan.offsets.counterpointAnticlockwise + 45;
+    expect(Math.abs(shift) % 40).toBe(0);
+    expect(plan.offsets.counterpointFarAnticlockwise + 75).toBe(shift);
+    expect(Object.values(plan.colors).some(isOrange)).toBe(false);
+    for (const key of ["counterpointAnticlockwise", "counterpointFarAnticlockwise"] as const) {
+      expect(circularHueDistance(hslFromHex(plan.colors[key]).hue, 0)).toBeLessThan(45);
+    }
+  });
+
+  it.each([
+    [95, 50], [75, 35], [30, 55], [35, 85],
+  ])("never generates orange across the hue wheel at saturation %s and lightness %s", (saturation, lightness) => {
+    for (let hue = 0; hue < 360; hue += 5) {
+      const primary = wheelColor(hue, saturation, lightness);
+      const source = perceptualColor(primary);
+      const plan = publisherAppCounterpointPlan(primary);
+      for (const value of Object.values(plan.colors)) {
+        expect({ primary, value, orange: isOrange(value) }).toEqual({ primary, value, orange: false });
+        expect(Math.abs(perceptualColor(value).lightness - source.lightness)).toBeLessThan(0.003);
+        expect(perceptualColor(value).chroma).toBeLessThanOrEqual(source.chroma + 0.003);
+      }
+      expect(new Set(Object.values(plan.offsets).map(degrees => ((degrees % 360) + 360) % 360)).size).toBe(4);
+      for (const [near, far] of [["counterpointClockwise", "counterpointFarClockwise"], ["counterpointAnticlockwise", "counterpointFarAnticlockwise"]] as const) {
+        const shift = plan.offsets[near] - COUNTERPOINT_OFFSETS[near];
+        expect(shift).toBeLessThanOrEqual(0);
+        expect(Math.abs(shift) % 40).toBe(0);
+        expect(plan.offsets[far] - COUNTERPOINT_OFFSETS[far]).toBe(shift);
+      }
+    }
+  });
+
+  it("preserves explicitly selected orange counterpoints", () => {
+    const colors = publisherAppColorsWithCounterpoints({
+      primary: "#66F246", secondary: "#1D4ED8", tertiary: "#EC4899",
+      counterpointClockwise: "#FF8800", counterpointFarAnticlockwise: "#FFA500",
+    });
+    expect(colors.counterpointClockwise).toBe("#FF8800");
+    expect(colors.counterpointFarAnticlockwise).toBe("#FFA500");
+  });
 
   it.each(["#5A443C", "#D8C7C0", "#9D948F", "#17212C"])(
     "keeps a muted or dark identity %s equally restrained in its counterpoints",

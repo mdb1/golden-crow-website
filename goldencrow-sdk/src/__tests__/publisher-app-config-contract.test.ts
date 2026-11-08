@@ -671,10 +671,10 @@ describe("publisher app config contract", () => {
     });
   });
 
-  it("preserves all four manual counterpoints through creation, save, reads and runtime publication", async () => {
+  it("preserves all four manual counterpoints, including orange, through creation, save, reads and runtime publication", async () => {
     const colors = {
       ...validBody.colors,
-      counterpointClockwise: "#abcdef", counterpointAnticlockwise: "#123abc",
+      counterpointClockwise: "#ff8800", counterpointAnticlockwise: "#123abc",
       counterpointFarClockwise: "#fedcba", counterpointFarAnticlockwise: "#987def",
     };
     const expected = Object.fromEntries(Object.entries(colors).map(([key, value]) => [key, value.toUpperCase()]));
@@ -692,7 +692,7 @@ describe("publisher app config contract", () => {
     expect(activated.json().config.status).toBe("active_for_testing");
     expect(collectionStore("app_configs").get(created.json().config.id)?.status).toBe("active_for_testing");
     const runtime = await fastify.inject({ method: "GET", url: "/publisher-app/config/runtime" });
-    expect(runtime.json().branding.colors).toMatchObject({ counterpointClockwise: "#ABCDEF", counterpointAnticlockwise: "#123ABC" });
+    expect(runtime.json().branding.colors).toMatchObject({ counterpointClockwise: "#FF8800", counterpointAnticlockwise: "#123ABC" });
   });
 
   it("requires explicit terms acceptance before creating an app config", async () => {
@@ -1003,7 +1003,7 @@ describe("publisher app config contract", () => {
     });
   });
 
-  it("publishes new missing-counterpoint defaults with a new revision while preserving explicit manual colors", async () => {
+  it("publishes adjusted missing-counterpoint defaults from contract 3 with a new revision while preserving explicit manual colors", async () => {
     const created = await fastify.inject({ method: "POST", url: "/publisher-app/config", payload: validBody });
     expect(created.statusCode).toBe(201);
     const activated = await fastify.inject({ method: "POST", url: "/publisher-app/config/identifier" });
@@ -1017,7 +1017,7 @@ describe("publisher app config contract", () => {
       counterpointAnticlockwise: "#123456",
     };
     collectionStore("app_configs").set(configId, {
-      ...stored, colors: legacyColors, runtimeRevision: 7, runtimeColorContractVersion: 2,
+      ...stored, colors: legacyColors, runtimeRevision: 7, runtimeColorContractVersion: 3,
     });
     const { getActivePublisherAppRuntimeConfig } = await import("../repositories/publisher-app-config.repository.js");
     const first = await getActivePublisherAppRuntimeConfig(activated.json().config.appProviderIdentifier, "ios");
@@ -1027,13 +1027,14 @@ describe("publisher app config contract", () => {
       counterpointClockwise: derivePublisherAppCounterpointColors("#5A443C").counterpointClockwise,
       counterpointAnticlockwise: "#123456",
     });
+    expect(first.branding.colors.counterpointClockwise).not.toBe("#524935");
     expect(collectionStore("app_configs").get(configId)).toMatchObject({
-      colors: legacyColors, runtimeRevision: 8, runtimeColorContractVersion: 3,
+      colors: legacyColors, runtimeRevision: 8, runtimeColorContractVersion: 4,
     });
     expect(await getActivePublisherAppRuntimeConfig(activated.json().config.appProviderIdentifier, "ios")).toEqual(first);
   });
 
-  it.each([[false, undefined], [true, undefined], [false, 1], [true, 1], [false, 2], [true, 2]] as const)(
+  it.each([[false, undefined], [true, undefined], [false, 1], [true, 1], [false, 2], [true, 2], [false, 3], [true, 3]] as const)(
     "publishes configured counterpoints exactly and bumps a legacy runtime revision only once (stored semantic colors: %s, prior contract: %s)",
     async (useStoredSemanticColors, priorContract) => {
       const created = await fastify.inject({
@@ -1073,7 +1074,7 @@ describe("publisher app config contract", () => {
       expect(collectionStore("app_configs").get(configId)).toEqual({
         ...legacy,
         runtimeRevision: 8,
-        runtimeColorContractVersion: 3,
+        runtimeColorContractVersion: 4,
       });
       expect(await getActivePublisherAppRuntimeConfig(activated.json().config.appProviderIdentifier, "android")).toEqual(first);
       const repeated = await fastify.inject({ method: "GET", url: "/publisher-app/config/runtime" });

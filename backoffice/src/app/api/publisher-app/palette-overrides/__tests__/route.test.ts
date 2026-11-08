@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth";
 import { POST } from "../route";
-import { publisherAppColorsWithCounterpoints } from "@/lib/publisher-app-config";
+import { publisherAppColorsWithCounterpoints, publisherAppPreviousCounterpointColors } from "@/lib/publisher-app-config";
 import { getLegacyPublisherAppColorCatalog, getPublisherAppColorCatalog } from "@/lib/publisher-app-customization-catalog-server";
 import { createPublisherAppPaletteOverridePlan } from "@/lib/publisher-app-palette-overrides";
 import { createLegacyPublisherAppPaletteOverridePlan, legacyPublisherAppCounterpointColors } from "@/lib/publisher-app-legacy-palette-overrides";
@@ -179,6 +179,25 @@ describe("custom app palette override route", () => {
     expect(body.colorOverrides["savedContent.headerStart"]).toEqual(body.generatedColorOverrides["savedContent.headerStart"]);
     expect(body.colorOverrides["savedContent.headerStart"]).not.toEqual(legacy.colorOverrides["savedContent.headerStart"]);
     expect(body.colorOverrides["app.background"]).toEqual({ dark: "#ABCDEF80" });
+  });
+
+  it("recognizes previous OKLCH defaults when omitted counterpoint seeds now resolve to the adjusted palette", async () => {
+    jest.mocked(getServerSession).mockResolvedValue({ user: { email: "admin@example.org" }, expires: "2099-01-01T00:00:00.000Z" });
+    const previousColors = { primary: "#66F246", secondary: "#9AEF28", tertiary: "#ACF81E" };
+    const oldColors = { ...previousColors, ...publisherAppPreviousCounterpointColors(previousColors.primary) };
+    const catalog = getPublisherAppColorCatalog();
+    const oldPlan = createPublisherAppPaletteOverridePlan(oldColors, catalog.options, catalog.catalogVersion, catalog.alternativeTonalFlows, catalog.contrastPairs);
+    const colors = publisherAppColorsWithCounterpoints(previousColors);
+    expect(colors.counterpointFarAnticlockwise).not.toBe(oldColors.counterpointFarAnticlockwise);
+    const current = { ...oldPlan.colorOverrides, "learn.background.leadingGlow": { light: "#11223380" } };
+    const response = await POST(new Request("https://example.test/api/publisher-app/palette-overrides", {
+      method: "POST", body: JSON.stringify({ colors, previousColors, colorOverrides: current }),
+    }));
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.colorOverrides["community.newPost.headerAccent"]).toEqual(body.generatedColorOverrides["community.newPost.headerAccent"]);
+    expect(body.colorOverrides["community.newPost.headerAccent"]).not.toEqual(oldPlan.colorOverrides["community.newPost.headerAccent"]);
+    expect(body.colorOverrides["learn.background.leadingGlow"].light).toBe("#11223380");
   });
 
   it("reconciles automatic foreground contrast against a retained manual background and saves the corrected baseline", async () => {

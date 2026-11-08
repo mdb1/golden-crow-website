@@ -2,13 +2,13 @@ import type { PublisherAppConfigColors } from "../types/sdk.types.js";
 
 const DEFAULT_PUBLISHER_APP_COLOR = "#6D28D9";
 
-type CounterpointColors = Pick<
+type CounterpointColors = Required<Pick<
   PublisherAppConfigColors,
   | "counterpointClockwise"
   | "counterpointAnticlockwise"
   | "counterpointFarClockwise"
   | "counterpointFarAnticlockwise"
->;
+>>;
 
 function normalizePublisherAppColor(value?: string) {
   const trimmed = value?.trim() ?? "";
@@ -36,10 +36,15 @@ function rgbToHex(red: number, green: number, blue: number) {
     .join("")}`.toUpperCase();
 }
 
+export type PublisherAppCounterpointPlan = {
+  colors: CounterpointColors;
+  offsets: Record<keyof CounterpointColors, number>;
+};
 
-export function derivePublisherAppCounterpointColors(
+function calculatePublisherAppCounterpointPlan(
   primary: string,
-): CounterpointColors {
+  avoidOrange: boolean,
+): PublisherAppCounterpointPlan {
   const normalizedPrimary =
     normalizePublisherAppColor(primary) ?? DEFAULT_PUBLISHER_APP_COLOR;
   const source = hexToRgb(normalizedPrimary);
@@ -104,10 +109,69 @@ export function derivePublisherAppCounterpointColors(
     ));
     return rgbToHex(encoded[0]!, encoded[1]!, encoded[2]!);
   };
-  return {
+  const offsets: PublisherAppCounterpointPlan["offsets"] = {
+    counterpointClockwise: 45,
+    counterpointAnticlockwise: -45,
+    counterpointFarClockwise: 75,
+    counterpointFarAnticlockwise: -75,
+  };
+  const colors: CounterpointColors = {
     counterpointClockwise: rotate(45),
     counterpointAnticlockwise: rotate(-45),
     counterpointFarClockwise: rotate(75),
     counterpointFarAnticlockwise: rotate(-75),
   };
+  if (avoidOrange && chroma >= 0.000001) {
+    const isOrange = (value: string) => {
+      const rgb = hexToRgb(value);
+      const maximum = Math.max(rgb.red, rgb.green, rgb.blue);
+      const minimum = Math.min(rgb.red, rgb.green, rgb.blue);
+      const delta = maximum - minimum;
+      if (delta === 0) return false;
+      const rawHue = maximum === rgb.red
+        ? 60 * (((rgb.green - rgb.blue) / delta) % 6)
+        : maximum === rgb.green
+          ? 60 * ((rgb.blue - rgb.red) / delta + 2)
+          : 60 * ((rgb.red - rgb.green) / delta + 4);
+      const renderedHue = (rawHue + 360) % 360;
+      return renderedHue >= 10 && renderedHue <= 55;
+    };
+    const sides = [
+      ["counterpointClockwise", "counterpointFarClockwise"],
+      ["counterpointAnticlockwise", "counterpointFarAnticlockwise"],
+    ] as const;
+    const affected = sides.map(keys => keys.some(key => isOrange(colors[key])));
+    const normalizedAngle = (degrees: number) => ((degrees % 360) + 360) % 360;
+    const used = new Set<number>();
+    sides.forEach((keys, index) => {
+      if (!affected[index]) keys.forEach(key => used.add(normalizedAngle(offsets[key])));
+    });
+    sides.forEach((keys, index) => {
+      if (!affected[index]) return;
+      const initial = keys.map(key => offsets[key]);
+      // Move a side together in fixed steps toward reds/pinks. Test the final
+      // rendered RGB, since gamut mapping can move a boundary shade into orange.
+      for (let step = 1; step <= 9; step += 1) {
+        const nextOffsets = initial.map(degrees => degrees - 40 * step);
+        const nextColors = nextOffsets.map(rotate);
+        if (nextColors.some(isOrange) || nextOffsets.some(degrees => used.has(normalizedAngle(degrees)))) continue;
+        keys.forEach((key, slot) => {
+          offsets[key] = nextOffsets[slot]!;
+          colors[key] = nextColors[slot]!;
+          used.add(normalizedAngle(offsets[key]));
+        });
+        return;
+      }
+      throw new Error("No pudimos calcular los contrapuntos de esta paleta.");
+    });
+  }
+  return { colors, offsets };
+}
+
+export function derivePublisherAppCounterpointPlan(primary: string): PublisherAppCounterpointPlan {
+  return calculatePublisherAppCounterpointPlan(primary, true);
+}
+
+export function derivePublisherAppCounterpointColors(primary: string): CounterpointColors {
+  return derivePublisherAppCounterpointPlan(primary).colors;
 }

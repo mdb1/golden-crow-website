@@ -6,6 +6,7 @@
 import type { FastifyInstance } from "fastify";
 import { AdminRepositoryError } from "../repositories/admin-errors.js";
 import { buildRouteServer } from "./support/route-harness.js";
+import { derivePublisherAppCounterpointColors } from "../lib/publisher-app-color-identity.js";
 
 const mockGetReportingPatient = jest.fn();
 const mockGetReportingTwoPQCaseByCode = jest.fn();
@@ -398,6 +399,39 @@ describe("reporting Open API routes", () => {
         method: "GET", url,
         headers: { ...headers, "if-none-match": String(updated.headers.etag) },
       });
+      expect(repeated.statusCode).toBe(304);
+      expect(repeated.headers.etag).toBe(updated.headers.etag);
+    });
+
+    it("replaces the ETag when an existing counterpoint value changes under a newly published revision", async () => {
+      const url = "/internal/openapi/apps/config?app-provider-identifier=app_org_medicgen_48217&platform=ios&runtime-version=3&base-content-version=pg-core-v1";
+      const headers = { authorization: `Bearer ${TOKEN}` };
+      const legacy = {
+        ...runtimeConfig,
+        revision: 7,
+        branding: { colors: {
+          primary: "#5A443C",
+          counterpointClockwise: "#524935",
+          counterpointAnticlockwise: "#123456",
+        } },
+      };
+      mockGetActivePublisherAppRuntimeConfig.mockResolvedValue(legacy);
+      const previous = await fastify.inject({ method: "GET", url, headers });
+      const published = {
+        ...legacy,
+        revision: 8,
+        branding: { colors: {
+          ...legacy.branding.colors,
+          counterpointClockwise: derivePublisherAppCounterpointColors("#5A443C").counterpointClockwise,
+        } },
+      };
+      expect(published.branding.colors.counterpointClockwise).not.toBe(legacy.branding.colors.counterpointClockwise);
+      mockGetActivePublisherAppRuntimeConfig.mockResolvedValue(published);
+      const updated = await fastify.inject({ method: "GET", url, headers: { ...headers, "if-none-match": String(previous.headers.etag) } });
+      expect(updated.statusCode).toBe(200);
+      expect(updated.json()).toEqual(published);
+      expect(updated.headers.etag).not.toBe(previous.headers.etag);
+      const repeated = await fastify.inject({ method: "GET", url, headers: { ...headers, "if-none-match": String(updated.headers.etag) } });
       expect(repeated.statusCode).toBe(304);
       expect(repeated.headers.etag).toBe(updated.headers.etag);
     });

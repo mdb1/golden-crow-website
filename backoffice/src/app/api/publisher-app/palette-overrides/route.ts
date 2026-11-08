@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth";
 import {
   normalizePublisherAppColor,
   publisherAppColorsWithCounterpoints,
+  publisherAppPreviousCounterpointColors,
   type PublisherAppColors,
   type PublisherAppColorOverride,
 } from "@/lib/publisher-app-config";
@@ -113,6 +114,11 @@ export async function POST(request: Request) {
     ));
     infer(() => createPublisherAppPaletteOverridePlan(
       previous, catalog.options, catalog.catalogVersion,
+      catalog.alternativeTonalFlows, catalog.contrastPairs,
+    ));
+    infer(() => createPublisherAppPaletteOverridePlan(
+      { ...previous, ...publisherAppPreviousCounterpointColors(previous.primary) },
+      catalog.options, catalog.catalogVersion,
       catalog.alternativeTonalFlows, catalog.contrastPairs,
     ));
   }

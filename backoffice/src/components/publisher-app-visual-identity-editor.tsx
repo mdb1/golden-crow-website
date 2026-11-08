@@ -4,14 +4,14 @@ import { useState } from "react";
 import { Check, Pencil, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PublisherAppSingleColorDialog } from "@/components/publisher-app-color-picker";
-import { normalizePublisherAppColor, publisherAppCounterpointColors, type PublisherAppColors } from "@/lib/publisher-app-config";
+import { normalizePublisherAppColor, publisherAppCounterpointPlan, publisherAppPreviousCounterpointColors, type PublisherAppColors } from "@/lib/publisher-app-config";
 import { cn } from "@/lib/utils";
 
 type BaseKey = "primary" | "secondary" | "tertiary";
 type CounterpointKey = Exclude<keyof PublisherAppColors, BaseKey>;
 export type VisualIdentityColorField =
   | { key: BaseKey; label: string; description: string; editable: true }
-  | { key: CounterpointKey; label: string; description: string; editable: false; hueShift: string };
+  | { key: CounterpointKey; label: string; description: string; editable: false };
 
 const COUNTERPOINT_KEYS: CounterpointKey[] = [
   "counterpointClockwise", "counterpointAnticlockwise", "counterpointFarClockwise", "counterpointFarAnticlockwise",
@@ -32,14 +32,24 @@ export function PublisherAppVisualIdentityEditor({
   onStageChange: (stage: 0 | 1 | 2) => void;
   initialColor?: keyof PublisherAppColors | null;
 }) {
-  const [draft, setDraft] = useState<PublisherAppColors>(() => ({ ...colors }));
+  const [initialDraft] = useState(() => {
+    const automatic = publisherAppCounterpointPlan(colors.primary).colors;
+    const previous = publisherAppPreviousCounterpointColors(colors.primary);
+    const next = { ...colors };
+    const custom = new Set<CounterpointKey>();
+    for (const key of COUNTERPOINT_KEYS) {
+      const current = normalizePublisherAppColor(colors[key]);
+      if (current === automatic[key] || current === previous[key]) next[key] = automatic[key];
+      else custom.add(key);
+    }
+    return { colors: next, custom };
+  });
+  const [draft, setDraft] = useState<PublisherAppColors>(() => initialDraft.colors);
   const [paletteName, setPaletteName] = useState("Paleta personalizada");
   const [editingColor, setEditingColor] = useState<keyof PublisherAppColors | null>(initialColor ?? null);
-  const [customKeys, setCustomKeys] = useState(() => {
-    const automatic = publisherAppCounterpointColors(colors.primary);
-    return new Set(COUNTERPOINT_KEYS.filter((key) => normalizePublisherAppColor(colors[key]) !== automatic[key]));
-  });
-  const automatic = publisherAppCounterpointColors(draft.primary);
+  const [customKeys, setCustomKeys] = useState(() => new Set(initialDraft.custom));
+  const automaticPlan = publisherAppCounterpointPlan(draft.primary);
+  const automatic = automaticPlan.colors;
   const activeField = fields.find((field) => field.key === editingColor);
 
   function changeColor(field: VisualIdentityColorField, value: string) {
@@ -48,7 +58,7 @@ export function PublisherAppVisualIdentityEditor({
     setDraft((current) => {
       const next = { ...current, [field.key]: value };
       if (field.key === "primary") {
-        const defaults = publisherAppCounterpointColors(value);
+        const defaults = publisherAppCounterpointPlan(value).colors;
         for (const key of COUNTERPOINT_KEYS) if (!customKeys.has(key)) next[key] = defaults[key];
       }
       return next;
@@ -73,6 +83,7 @@ export function PublisherAppVisualIdentityEditor({
           </span>
         </button>
         {!main ? <div className="mt-1 flex flex-wrap items-center justify-center gap-1">
+          {!custom ? <span className="text-[9px] font-medium text-muted-foreground sm:text-[10px]">{automaticPlan.offsets[field.key] < 0 ? "−" : "+"}{Math.abs(automaticPlan.offsets[field.key])}°</span> : null}
           <span className={cn("rounded-full px-1.5 py-1 text-[8px] font-semibold sm:text-[10px]", custom ? "bg-amber-100 text-amber-900 dark:bg-amber-500/15 dark:text-amber-100" : "bg-muted text-muted-foreground")}>{custom ? "Personalizado" : "Automático"}</span>
           {custom ? <Button type="button" size="icon-sm" variant="ghost" aria-label={`Restaurar automático: ${field.label.toLowerCase()}`} title="Restaurar automático" disabled={disabled} onClick={() => {
             setCustomKeys((current) => { const next = new Set(current); next.delete(field.key); return next; });

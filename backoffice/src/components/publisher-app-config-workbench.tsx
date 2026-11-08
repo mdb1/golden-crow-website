@@ -205,7 +205,6 @@ type ColorField =
       label: string;
       description: string;
       editable: false;
-      hueShift: "+45°" | "−45°" | "+75°" | "−75°";
     };
 
 const COLOR_FIELDS: ColorField[] = [
@@ -233,7 +232,6 @@ const COLOR_FIELDS: ColorField[] = [
     description:
       "Acento accesorio para composiciones puntuales con varios colores.",
     editable: false,
-    hueShift: "+45°",
   },
   {
     key: "counterpointAnticlockwise",
@@ -241,7 +239,6 @@ const COLOR_FIELDS: ColorField[] = [
     description:
       "Acento accesorio opuesto para separar elementos excepcionales.",
     editable: false,
-    hueShift: "−45°",
   },
   {
     key: "counterpointFarClockwise",
@@ -249,7 +246,6 @@ const COLOR_FIELDS: ColorField[] = [
     description:
       "Centro tonal alternativo para experiencias locales que necesitan mayor separación.",
     editable: false,
-    hueShift: "+75°",
   },
   {
     key: "counterpointFarAnticlockwise",
@@ -257,7 +253,6 @@ const COLOR_FIELDS: ColorField[] = [
     description:
       "Centro tonal alternativo opuesto para una cuarta familia expresiva.",
     editable: false,
-    hueShift: "−75°",
   },
 ];
 
