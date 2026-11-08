@@ -154,10 +154,12 @@ describe("listMonthForClients", () => {
       todayCivil: "2026-06-08",
     });
 
-    // Chips sort by templateName: "New workout" < "Self workout". The
-    // old-coach doc (trainerId "old-coach" !== clientId) must NOT surface
-    // (#446); the client self-assigned doc MUST (#449), tagged selfAssigned.
-    expect(result.workoutsByDay["2026-06-10"]).toEqual([
+    // Chips sort by templateName. The old-coach doc (trainerId "old-coach" !==
+    // clientId) surfaces marked inherited (#1504, it used to be hidden, #446); the
+    // client self-assigned doc too (#449), tagged selfAssigned.
+    const inheritedChip = result.workoutsByDay["2026-06-10"].find((w) => w.id === "old-assignment");
+    expect(inheritedChip).toEqual(expect.objectContaining({ inherited: true, selfAssigned: false }));
+    expect(result.workoutsByDay["2026-06-10"].filter((w) => !w.inherited)).toEqual([
       expect.objectContaining({
         id: "new-assignment",
         templateName: "New workout",
@@ -169,8 +171,6 @@ describe("listMonthForClients", () => {
         selfAssigned: true,
       }),
     ]);
-    const workoutIds = result.workoutsByDay["2026-06-10"].map((w) => w.id);
-    expect(workoutIds).not.toContain("old-assignment");
     expect(result.habitsByDay["2026-06-10"]).toEqual([
       expect.objectContaining({
         id: "client-habit:2026-06-10",

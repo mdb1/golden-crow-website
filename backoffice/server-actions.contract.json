@@ -617,6 +617,11 @@
       "params": "arg"
     },
     {
+      "file": "src/lib/gc-fitness/inherited-plan-actions.ts",
+      "export": "endInheritedPlan",
+      "params": "arg"
+    },
+    {
       "file": "src/lib/gc-fitness/invite-actions.ts",
       "export": "resendClientInvite",
       "params": "arg"

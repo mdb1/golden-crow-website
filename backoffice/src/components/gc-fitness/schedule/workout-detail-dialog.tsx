@@ -17,6 +17,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
   Download,
+  History,
   MessageCircle,
   Pencil,
   Play,
@@ -154,12 +155,15 @@ export function WorkoutDetailDialog({
   // every mutating CTA (edit / recurrence / delete) and the coach-owned
   // "Iniciar entrenamiento" live-session entry are hidden.
   const isSelfAssigned = data?.selfAssigned === true;
+  // gc-fitness#1504 — a former coach's workout opens read-only for the same reason.
+  const isInherited = data?.inherited === true;
+  const isReadOnly = isSelfAssigned || isInherited;
 
   // "Editar recurrencia" only applies to a recurring series (seriesId set) that
   // still has upcoming occurrences — i.e. scheduled or started, not a finished
   // (completed/missed) one. Single assignments have no recurrence to change.
   const canEditRecurrence =
-    !isSelfAssigned &&
+    !isReadOnly &&
     Boolean(data?.seriesId) &&
     data?.status !== "completed" &&
     data?.status !== "missed";
@@ -194,6 +198,12 @@ export function WorkoutDetailDialog({
                       Abrir chat
                     </Link>
                   </Button>
+                ) : null}
+                {isInherited ? (
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    <History className="size-3" />
+                    {tCal("inheritedBadge")}
+                  </span>
                 ) : null}
                 {isSelfAssigned ? (
                   // Issue #449 — marks the workout as client-created (same
@@ -252,7 +262,7 @@ export function WorkoutDetailDialog({
               Cerrar
             </Button>
             {data &&
-            !isSelfAssigned &&
+            !isReadOnly &&
             data.status !== "completed" &&
             data.status !== "missed" ? (
               <Button asChild className="gap-1">
@@ -277,7 +287,7 @@ export function WorkoutDetailDialog({
                 Editar recurrencia
               </Button>
             ) : null}
-            {!isSelfAssigned ? (
+            {!isReadOnly ? (
               <Button
                 variant="outline"
                 disabled={!data || isLoading}
@@ -288,7 +298,7 @@ export function WorkoutDetailDialog({
                 Editar
               </Button>
             ) : null}
-            {!isSelfAssigned ? (
+            {!isReadOnly ? (
               <Button
                 variant="destructive"
                 disabled={!data || isLoading}

@@ -52,6 +52,7 @@ import {
   markCoachActivityDeleted,
   habitAssignedEvent,
 } from "./coach-activity-log";
+import { assignedBy } from "./assigned-by";
 import { FirestoreCollections } from "./collections";
 import { normalizeMirrorEmail } from "./email-normalization";
 import { isHabitNotDeleted } from "./habit-visibility";
@@ -203,6 +204,8 @@ function normalizeHabitTemplateName(value: string): string {
  */
 export interface HabitRow {
   id: string;
+  /** #1504 — authored by a former coach: the detail dialog opens read-only. Only `getHabit` sets it. */
+  inherited?: boolean;
   clientId: string;
   trainerId: string;
   /** Back-link to the habit template this assignment was created from. */
@@ -329,6 +332,20 @@ function withoutUndefined<T extends Record<string, unknown>>(value: T): T {
   return Object.fromEntries(
     Object.entries(value).filter(([, fieldValue]) => fieldValue !== undefined),
   ) as T;
+}
+
+/**
+ * #1504 — a former coach's habit on a client I coach now is READ-ONLY: I can see it
+ * (`getHabit`) and end the whole inherited plan (`endInheritedPlan`), not rewrite,
+ * skip or delete pieces of what someone else prescribed.
+ */
+function assertNotInherited(
+  habit: { trainerId?: string; clientId?: string | null },
+  trainerUid: string,
+): void {
+  if (assignedBy(habit, { coachId: trainerUid }) === "former") {
+    throw new Error("Inherited habit is read-only.");
+  }
 }
 
 async function currentTrainerCanManageHabit(
@@ -885,6 +902,7 @@ export async function updateHabit(
   if (!(await currentTrainerCanManageHabit(db, trainer.uid, existing))) {
     throw new Error("Not your habit.");
   }
+  assertNotInherited(existing, trainer.uid);
 
   const existingType: HabitType = (existing.type as HabitType) ?? "binary";
   const parsed = habitUpdateSchemaForType(existingType).parse(input) as {
@@ -988,6 +1006,7 @@ export async function softDeleteHabit(
   if (!(await currentTrainerCanManageHabit(db, trainer.uid, existing))) {
     throw new Error("Not your habit.");
   }
+  assertNotInherited(existing, trainer.uid);
 
   await docRef.update({
     deleted: true,
@@ -1048,6 +1067,7 @@ export async function deleteHabitRecurrenceFromDate(
   if (!(await currentTrainerCanManageHabit(db, trainer.uid, existing))) {
     throw new Error("Not your habit.");
   }
+  assertNotInherited(existing, trainer.uid);
 
   const newEndsOn = previousCivilDate(fromCivilDate);
 
@@ -1107,7 +1127,10 @@ export async function getHabit(id: string): Promise<HabitRow> {
   if (!(await currentTrainerCanManageHabit(db, trainer.uid, data))) {
     throw new Error("Not your habit.");
   }
-  return projectHabitRow(snap.id, data);
+  return {
+    ...projectHabitRow(snap.id, data),
+    inherited: assignedBy(data, { coachId: trainer.uid }) === "former",
+  };
 }
 
 /**
@@ -1234,6 +1257,7 @@ export async function skipHabitOccurrence(input: {
   if (!(await currentTrainerCanManageHabit(db, trainer.uid, existing))) {
     throw new Error("Not your habit.");
   }
+  assertNotInherited(existing, trainer.uid);
 
   await docRef.update({
     skippedDates: FieldValue.arrayUnion(input.civilDate),

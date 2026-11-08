@@ -19,6 +19,7 @@
 import { getTranslations } from "next-intl/server";
 
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
+import { assignedBy } from "@/lib/gc-fitness/assigned-by";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { civilDateFormat } from "@/lib/gc-fitness/civil-date";
 import { coerceLegacyHabitLogValue } from "@/lib/gc-fitness/habit-compliance";
@@ -29,6 +30,8 @@ import { HabitTrendsClient, type HabitTrendRow } from "./HabitTrendsClient";
 
 export interface HabitTrendsWidgetProps {
   clientId: string;
+  /** #1504 — `users/{client}.coachId` (null: no coach), to leave a former coach's habits out. */
+  coachId: string | null;
   timezone: string;
 }
 
@@ -43,7 +46,7 @@ function isHabitScheduledOnDate(
   return isHabitScheduledOn(habit, civilDate);
 }
 
-export async function HabitTrendsWidget({ clientId, timezone }: HabitTrendsWidgetProps) {
+export async function HabitTrendsWidget({ clientId, coachId, timezone }: HabitTrendsWidgetProps) {
   const t = await getTranslations("clients.detail.habitTrends");
   const unnamed = t("unnamed");
   const db = gcFitnessFirestore();
@@ -56,7 +59,10 @@ export async function HabitTrendsWidget({ clientId, timezone }: HabitTrendsWidge
     .collection(FirestoreCollections.habits)
     .where("clientId", "==", clientId)
     .get();
-  const habitDocs = habitsSnap.docs.filter((d) => isHabitNotDeleted(d.data()));
+  // #1504 — a former coach's habits are not this client's adherence any more.
+  const habitDocs = habitsSnap.docs.filter(
+    (d) => isHabitNotDeleted(d.data()) && assignedBy(d.data(), { coachId }) !== "former",
+  );
 
   const today = civilDateFormat(new Date(), timezone);
   // Ascending list of the trailing 365 civil dates ending today. Each

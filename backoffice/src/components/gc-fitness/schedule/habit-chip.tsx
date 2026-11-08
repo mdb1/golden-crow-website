@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Circle, User, XCircle } from "lucide-react";
+import { CheckCircle2, Circle, History, User, XCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import type { MonthHabitChip } from "@/lib/gc-fitness/schedule-month-actions";
@@ -40,6 +40,16 @@ export function ClientOwnedBadge() {
   );
 }
 
+/** gc-fitness#1504: marks what a former coach of this client left on the plan. */
+export function InheritedBadge() {
+  const t = useTranslations("schedule.calendar");
+  return (
+    <span title={t("inheritedBadge")} className="inline-flex shrink-0">
+      <History className="size-2.5 opacity-70" aria-label={t("inheritedBadge")} />
+    </span>
+  );
+}
+
 /**
  * Shared compact habit "pill" used by the full Agenda calendar (DayCell +
  * ClientDayCell) and the client-detail mini calendar (issue #447) — habits
@@ -63,6 +73,7 @@ export function HabitChip({
       <HabitStatusGlyph status={habit.status} />
       <span className="min-w-0 max-w-full truncate">{habit.habitName}</span>
       {habit.clientOwned ? <ClientOwnedBadge /> : null}
+      {habit.inherited ? <InheritedBadge /> : null}
     </>
   );
 

@@ -44,6 +44,7 @@ import { unstable_cache } from "next/cache";
 
 import { gcFitnessAuth, gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { getCurrentTrainer } from "./auth-helpers";
+import { assignedBy } from "./assigned-by";
 import { FirestoreCollections } from "./collections";
 import { coachVisibleClientName } from "./client-name";
 import { coerceLegacyHabitLogValue } from "./habit-compliance";
@@ -716,8 +717,12 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
           { clientId: c.uid, cap: 150 },
         );
       }
-      const habitDocs = clientHabits.docs.filter((d) =>
-        isHabitNotDeleted(d.data() as Record<string, unknown>),
+      // #1504 — what a former coach left on the client's plan is not this coach's
+      // to answer for: no compliance, no «faltó a N», no month count.
+      const notInherited = (d: { data: () => unknown }) =>
+        assignedBy(d.data() as Record<string, unknown>, { coachId: trainer.uid }) !== "former";
+      const habitDocs = clientHabits.docs.filter(
+        (d) => isHabitNotDeleted(d.data() as Record<string, unknown>) && notInherited(d),
       );
       const windowedLogsByHabit = new Map<string, HabitLogRow[]>();
       for (const ldoc of windowedHabitLogs.docs) {
@@ -765,8 +770,8 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         complianceCount > 0 ? complianceSum / complianceCount : 0;
 
       // 11-06: derive missed workouts + needs-attention.
-      const assignedCount = assignedLast7Snap.size;
-      const completedCount = completedLast7Snap.docs.filter((doc) => {
+      const assignedCount = assignedLast7Snap.docs.filter(notInherited).length;
+      const completedCount = completedLast7Snap.docs.filter(notInherited).filter((doc) => {
         const raw = doc.get("startedAt");
         const startedAt =
           raw && typeof (raw as { toDate?: () => Date }).toDate === "function"
@@ -794,8 +799,9 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
       // re-logged/ad-hoc logs double-counted. The assignment `status` is the
       // single source of truth iOS maintains (transitionToCompleted on finish)
       // and what the client's own calendar shows.
-      const workoutsScheduledThisMonth = assignedThisMonthSnap.size;
-      const workoutsCompletedThisMonth = assignedThisMonthSnap.docs.filter(
+      const assignedThisMonth = assignedThisMonthSnap.docs.filter(notInherited);
+      const workoutsScheduledThisMonth = assignedThisMonth.length;
+      const workoutsCompletedThisMonth = assignedThisMonth.filter(
         (doc) => doc.get("status") === "completed",
       ).length;
 

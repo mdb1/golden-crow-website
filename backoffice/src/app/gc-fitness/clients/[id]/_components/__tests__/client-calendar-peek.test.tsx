@@ -154,6 +154,7 @@ function chip(overrides: Partial<MonthWorkoutChip> = {}): MonthWorkoutChip {
     seriesId: null,
     recurrenceKind: null,
     selfAssigned: false,
+    inherited: false,
     plannedExercises: 3,
     logged: null,
     ...overrides,
@@ -168,6 +169,7 @@ function habit(overrides: Partial<MonthHabitChip> = {}): MonthHabitChip {
     habitName: "Drink water",
     status: "done",
     clientOwned: false,
+    inherited: false,
     ...overrides,
   };
 }

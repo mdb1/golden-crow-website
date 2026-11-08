@@ -339,7 +339,7 @@ export default async function ClientDetailPage({
       span: "half",
       node: showsChart("habits") ? (
         <Suspense fallback={<WidgetSkeleton title={tSkeleton("habitTrends")} />}>
-          <HabitTrendsWidget clientId={id} timezone={timezone} />
+          <HabitTrendsWidget clientId={id} coachId={trainer.uid} timezone={timezone} />
         </Suspense>
       ) : null,
     },
@@ -440,6 +440,7 @@ export default async function ClientDetailPage({
       <ClientSummaryCard
         clientId={id}
         clientName={displayName}
+        coachId={trainer.uid}
         timezone={timezone}
         goals={goals}
       />

@@ -430,6 +430,45 @@ describe("listClientsForRoster", () => {
     });
   });
 
+  // gc-fitness#1504 — a coach swap leaves the former coach's plan on the client.
+  describe("what a former coach left on the plan (#1504)", () => {
+    function seedSwapped() {
+      seedClient("c1");
+      const assignment = (trainerId: string, scheduledFor: string, status = "scheduled") => ({
+        clientId: "c1",
+        trainerId,
+        scheduledFor,
+        status,
+      });
+      db.seed("workout_assignments/old-overdue-1", assignment("coach-old", "2026-06-15", "missed"));
+      db.seed("workout_assignments/old-overdue-2", assignment("coach-old", "2026-06-16"));
+      db.seed("workout_assignments/old-done", assignment("coach-old", "2026-06-14", "completed"));
+      db.seed("workout_assignments/mine", assignment(TRAINER.uid, "2026-06-16", "completed"));
+    }
+
+    it("doesn't count their overdue workouts in «faltó a N»", async () => {
+      seedSwapped();
+      expect((await rosterRow("c1")).missedWorkoutsLast7Days).toBe(1);
+    });
+
+    it("doesn't count their workouts in the month", async () => {
+      seedSwapped();
+      const row = await rosterRow("c1");
+      expect([row.workoutsCompletedThisMonth, row.workoutsScheduledThisMonth]).toEqual([1, 1]);
+    });
+
+    it("doesn't count their habits in compliance or the week's habit counts", async () => {
+      seedClient("c1");
+      seedHabit("old", "c1", { trainerId: "coach-old" });
+      seedHabit("mine", "c1", { trainerId: TRAINER.uid });
+      seedHabitLog("l-mine", "c1", "mine", "2026-06-17");
+      seedHabitLog("l-old", "c1", "old", "2026-06-17");
+      const row = await rosterRow("c1");
+      expect(row.habitsScheduledThisWeek).toBe(7);
+      expect(row.habitsCompletedThisWeek).toBe(1);
+    });
+  });
+
   describe("habits", () => {
     it("compliance = mean over live habits of (completed days / 7); deleted habits excluded", async () => {
       seedClient("c1");

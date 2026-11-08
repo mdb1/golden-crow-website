@@ -450,6 +450,7 @@
         "loadFailed": "Could not load this week.",
         "emptyDay": "No workouts or habits",
         "clientCreated": "Created by the client",
+        "inherited": "From the former coach",
         "workoutStatus": {
           "scheduled": "scheduled",
           "started": "in progress",
@@ -571,6 +572,15 @@
         "ariaLabel": "Body weight trend over {count} log points"
       },
       "summary": {
+        "inheritedPlan": {
+          "title": "Former coach's plan",
+          "counts": "{workouts, plural, one {# upcoming workout} other {# upcoming workouts}} · {habits, plural, one {# active habit} other {# active habits}}. They don't count in their numbers.",
+          "end": "End the former coach's plan",
+          "confirmBody": "Future workouts are deleted and that plan's habits end. The client's history stays.",
+          "confirm": "End plan",
+          "cancel": "Cancel",
+          "failed": "We couldn't end the plan. Try again."
+        },
         "title": "Summary",
         "subtitle": "Overview of client active assignments.",
         "workouts": "Assigned workouts",
@@ -1892,6 +1902,7 @@
       "habits": "Habits",
       "birthdayBadge": "Birthday",
       "clientCreatedBadge": "Created by the client",
+      "inheritedBadge": "From the former coach",
       "loggedExercises": "{count, plural, one {# exercise} other {# exercises}}",
       "loggedSets": "{count, plural, one {# set} other {# sets}}",
       "loggedMinutes": "{count} min",

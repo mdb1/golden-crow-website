@@ -18,7 +18,7 @@
 
 import { useState, useTransition } from "react";
 import { useLocale } from "next-intl";
-import { ChevronLeft, ChevronRight, Dumbbell, User } from "lucide-react";
+import { ChevronLeft, ChevronRight, Dumbbell, History, User } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -196,6 +196,8 @@ export function AdminReadOnlyCalendar({
                       >
                         {chip.selfAssigned ? (
                           <User className="size-3 shrink-0" aria-hidden />
+                        ) : chip.inherited ? (
+                          <History className="size-3 shrink-0" aria-hidden />
                         ) : (
                           <Dumbbell className="size-3 shrink-0" aria-hidden />
                         )}

@@ -10,6 +10,9 @@ import type { ClientGoalRow } from "@/lib/gc-fitness/client-goal-actions";
 import { Badge } from "@/components/ui/badge";
 import { ClientSummaryLists } from "./ClientSummaryLists";
 import { effectiveIsoWeekdays } from "@/lib/gc-fitness/habit-schedule";
+import { assignedBy, isEndableAssignment, isEndableHabit } from "@/lib/gc-fitness/assigned-by";
+import { computeWorkoutStreak } from "@/lib/gc-fitness/inherited-plan";
+import { InheritedPlanPanel } from "./InheritedPlanPanel";
 const WEEKDAY_LABELS_WORKOUT: Record<number, string> = {
   0: "Dom",
   1: "Lun",
@@ -23,11 +26,14 @@ const WEEKDAY_LABELS_WORKOUT: Record<number, string> = {
 export async function ClientSummaryCard({
   clientId,
   clientName,
+  coachId,
   timezone,
   goals,
 }: {
   clientId: string;
   clientName: string;
+  /** #1504 — `users/{client}.coachId`: what tells a live plan from an inherited one. */
+  coachId: string;
   timezone: string;
   goals: ClientGoalRow[];
 }) {
@@ -37,12 +43,27 @@ export async function ClientSummaryCard({
   // Fail-soft on summary data: this card must never break the whole
   // client detail route. Some projects can be temporarily missing the
   // compound index required by strict status+date filters.
-  const [assignmentsSnap, habitsSnap] = await Promise.all([
+  //
+  // #1504 — two windows around today instead of "the 80 oldest": a client who
+  // inherited hundreds of past workouts from a former coach filled that whole page
+  // with them, so the card showed only the old coach's overdue work and the streak
+  // never reached anything recent. (clientId, scheduledFor) exists in both directions.
+  const todayCivil = civilDateToday(timezone);
+  const [pastSnap, upcomingSnap, habitsSnap] = await Promise.all([
     db
       .collection(FirestoreCollections.workoutAssignments)
       .where("clientId", "==", clientId)
-      .orderBy("scheduledFor", "asc")
+      .where("scheduledFor", "<", todayCivil)
+      .orderBy("scheduledFor", "desc")
       .limit(80)
+      .get()
+      .catch(() => ({ docs: [] as Array<{ id: string; data: () => Record<string, unknown> }> })),
+    db
+      .collection(FirestoreCollections.workoutAssignments)
+      .where("clientId", "==", clientId)
+      .where("scheduledFor", ">=", todayCivil)
+      .orderBy("scheduledFor", "asc")
+      .limit(200)
       .get()
       .catch(() => ({ docs: [] as Array<{ id: string; data: () => Record<string, unknown> }> })),
     // Issue #437/#400: fetch by clientId only; filter `deleted === true` in
@@ -60,10 +81,17 @@ export async function ClientSummaryCard({
       .catch(() => ({ docs: [] as Array<{ id: string; data: () => Record<string, unknown> }> })),
   ]);
 
-  const workouts = assignmentsSnap.docs
+  const assignmentDocs = [...[...pastSnap.docs].reverse(), ...upcomingSnap.docs];
+  const assignmentRows = assignmentDocs.map((doc) => doc.data() as Record<string, unknown>);
+  const coach = { coachId };
+
+  const workouts = assignmentDocs
     .map((doc) => {
       const data = doc.data() as Record<string, unknown>;
       if (data.status !== "scheduled") return null;
+      // #1504 — the card answers "what is this client on with ME"; inherited work
+      // lives in the panel below and, marked, in the calendar.
+      if (assignedBy(data, coach) === "former") return null;
       const nameValue = (data.templateSnapshot as { name?: unknown } | undefined)?.name;
       const recurrence = recurrenceLabel(data.recurrence as Record<string, unknown> | undefined, t);
       return {
@@ -74,17 +102,25 @@ export async function ClientSummaryCard({
         isRecurring: isRecurringRecurrence(data.recurrence as Record<string, unknown> | undefined),
       };
     })
-    .filter((row): row is { id: string; name: string; recurrence: string; scheduledFor: string; isRecurring: boolean } => row !== null)
-    .slice(0, 30);
+    .filter((row): row is { id: string; name: string; recurrence: string; scheduledFor: string; isRecurring: boolean } => row !== null);
 
   // Overall workout streak — consecutive completed (no-miss) past
   // assignments. Mirrors the iOS dashboard chip's `workoutStreak` so
-  // trainer + client see the same number. Uses the SAME 80-doc fetch
-  // above (no extra query).
-  const todayCivil = civilDateToday(timezone);
-  const workoutStreak = computeWorkoutStreak(assignmentsSnap.docs, todayCivil);
-  const visibleWorkouts = workouts.filter((row) => row.isRecurring || row.scheduledFor >= todayCivil);
-  const pastWorkouts = workouts.filter((row) => !row.isRecurring && row.scheduledFor < todayCivil);
+  // trainer + client see the same number. Uses the SAME fetches above
+  // (no extra query).
+  const workoutStreak = computeWorkoutStreak(assignmentRows, todayCivil, coachId);
+  const visibleWorkouts = workouts
+    .filter((row) => row.isRecurring || row.scheduledFor >= todayCivil)
+    .slice(0, 30);
+  const pastWorkouts = workouts
+    .filter((row) => !row.isRecurring && row.scheduledFor < todayCivil)
+    .slice(0, 30);
+  const inheritedWorkouts = assignmentRows.filter((data) =>
+    isEndableAssignment(data, coach, todayCivil),
+  ).length;
+  const inheritedHabits = habitsSnap.docs.filter((doc) =>
+    isEndableHabit(doc.data() as Record<string, unknown>, coach, todayCivil),
+  ).length;
   const workoutsGrouped = groupWorkouts(visibleWorkouts);
 
   if (habitsSnap.docs.length >= 200) {
@@ -97,6 +133,7 @@ export async function ClientSummaryCard({
   }
   const habits = habitsSnap.docs
     .filter((doc) => isHabitNotDeleted(doc.data() as Record<string, unknown>))
+    .filter((doc) => assignedBy(doc.data() as Record<string, unknown>, coach) !== "former")
     .map((doc) => {
     const data = doc.data() as Record<string, unknown>;
     return {
@@ -152,6 +189,15 @@ export async function ClientSummaryCard({
           </Badge>
         ) : null}
       </div>
+      {inheritedWorkouts + inheritedHabits > 0 ? (
+        <div className="mb-3">
+          <InheritedPlanPanel
+            clientId={clientId}
+            workouts={inheritedWorkouts}
+            habits={inheritedHabits}
+          />
+        </div>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-3">
         {/* Workouts + Habits — interactive (tap a row to open its detail /
@@ -328,50 +374,6 @@ function habitCadenceLabel(
     return monthDays.length > 0 ? `${t("monthlyCount", { count: monthDays.length })} · ${monthDays.join(", ")}` : t("monthlyCount", { count: 1 });
   }
   return t("daily");
-}
-
-/**
- * Mirrors GCFitnessCore `DashboardAggregator.workoutStreak` (Swift).
- * Walks past-or-today assignments in DESC scheduledFor order:
- *   - `.completed` → streak += 1
- *   - `.missed`     → break
- *   - `.scheduled` / `.started` past their `scheduledFor` → treat as
- *                     missed (rule layer will eventually auto-flip them
- *                     to `missed` via the user-midnight Cloud Function,
- *                     but until then they read as past-due).
- *   - Today's not-yet-finished assignment is the grace window — skipped,
- *                     neither breaks nor counts.
- *
- * Future-scheduled rows are excluded — they don't contribute or break.
- */
-function computeWorkoutStreak(
-  docs: Array<{ data: () => Record<string, unknown> }>,
-  todayCivil: string,
-): number {
-  const rows = docs
-    .map((doc) => {
-      const data = doc.data();
-      return {
-        scheduledFor: typeof data.scheduledFor === "string" ? data.scheduledFor : "",
-        status: typeof data.status === "string" ? data.status : "",
-      };
-    })
-    .filter((row) => row.scheduledFor && row.scheduledFor <= todayCivil)
-    .sort((a, b) => b.scheduledFor.localeCompare(a.scheduledFor));
-
-  let streak = 0;
-  for (const row of rows) {
-    if (row.status === "completed") {
-      streak += 1;
-      continue;
-    }
-    if (row.status === "missed") return streak;
-    // .scheduled / .started past their date — treat as miss unless it's
-    // today (grace window).
-    if (row.scheduledFor === todayCivil) continue;
-    return streak;
-  }
-  return streak;
 }
 
 function groupWorkouts(

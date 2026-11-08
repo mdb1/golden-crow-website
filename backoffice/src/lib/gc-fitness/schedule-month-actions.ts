@@ -23,6 +23,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 
 import { getCurrentAdmin, getCurrentTrainer } from "./auth-helpers";
+import { assignedBy } from "./assigned-by";
 import { assertOwnsAndCoaches, coachesClientNow, NOT_YOUR_CLIENT } from "./coach-ownership";
 import { adminCanViewClientUnderCoach } from "./coachless-user-model";
 import { FirestoreCollections } from "./collections";
@@ -67,6 +68,9 @@ export interface MonthWorkoutChip {
    * Drives the calendar's "created by the client" badge and disables the
    * drag/edit affordances (the coach views but does not manage it). */
   selfAssigned: boolean;
+  /** gc-fitness#1504 — authored by a former coach of this client. Marked on the
+   * calendar and read-only, like `selfAssigned`: moveAssignment refuses it. */
+  inherited: boolean;
   /**
    * #785 — how many exercises the assignment PLANNED. Zero means a free
    * workout ("Entreno libre"): the athlete started with nothing and built it as
@@ -106,6 +110,8 @@ export interface MonthHabitChip {
    * assigning it. The calendar renders a "client-created" badge for these
    * (issue #437). */
   clientOwned: boolean;
+  /** gc-fitness#1504 — authored by a former coach of this client (see the workout chip). */
+  inherited: boolean;
 }
 
 export interface MonthCalendarPayload {
@@ -391,6 +397,8 @@ export interface AssignmentDetail {
    * (issue #392 shape: `trainerId === clientId`). The detail dialog renders
    * read-only for these (no edit / recurrence / delete CTAs). */
   selfAssigned: boolean;
+  /** gc-fitness#1504 — a former coach's: opens read-only, and names no coach. */
+  inherited: boolean;
 }
 
 export async function getAssignmentDetail(id: string): Promise<AssignmentDetail> {
@@ -409,12 +417,15 @@ export async function getAssignmentDetail(id: string): Promise<AssignmentDetail>
     typeof data.clientId === "string" &&
     data.clientId.length > 0 &&
     data.trainerId === data.clientId;
+  // gc-fitness#1504 — a former coach's doc on a client I coach NOW opens too, read-only.
+  // The check is the same point-read: it never admits anyone who isn't the current coach.
+  const isInherited = assignedBy(data, { coachId: trainer.uid }) === "former";
   if (data.trainerId !== trainer.uid) {
     let allowed = false;
-    if (isSelfAssigned) {
+    if ((isSelfAssigned || isInherited) && typeof data.clientId === "string") {
       const clientSnap = await db
         .collection(FirestoreCollections.users)
-        .doc(data.clientId as string)
+        .doc(data.clientId)
         .get();
       allowed = clientSnap.exists && clientSnap.get("coachId") === trainer.uid;
     }
@@ -458,8 +469,10 @@ export async function getAssignmentDetail(id: string): Promise<AssignmentDetail>
     .doc(trainer.uid)
     .get();
   const rawCoachName = trainerSnap.get("displayName");
+  // gc-fitness#1504 — the share card must not credit the current coach with a former
+  // coach's workout.
   const coachName =
-    typeof rawCoachName === "string" && rawCoachName.trim().length > 0
+    !isInherited && typeof rawCoachName === "string" && rawCoachName.trim().length > 0
       ? rawCoachName.trim()
       : null;
 
@@ -616,6 +629,7 @@ export async function getAssignmentDetail(id: string): Promise<AssignmentDetail>
     }),
     lastLoggedSetsByExerciseId,
     selfAssigned: isSelfAssigned,
+    inherited: isInherited,
   };
 }
 
@@ -909,13 +923,19 @@ async function loadMonthForClients(
     // `clientIds` from the coach's CURRENT roster (schedule page validates
     // against listClients' `coachId ==` query; getClientCalendarPeek checks
     // `client.coachId === trainer.uid`), so admitting these docs never leaks
-    // another coach's clients. Docs from a PREVIOUS coach have
-    // `trainerId === oldCoachUid !== clientId` and stay excluded (#446).
+    // another coach's clients.
+    //
+    // gc-fitness#1504 — docs from a PREVIOUS coach (`trainerId === oldCoachUid !==
+    // clientId`) were excluded (#446), so the new coach never saw what their client
+    // still had on the plan. They come through now, marked `inherited` and read-only.
+    // Same roster scoping, so the viewer is the client's coach here (or the client
+    // themselves on the admin's self-as-coach path, where a coach's doc IS former).
     const isSelfAssigned =
       typeof data.clientId === "string" &&
       data.clientId.length > 0 &&
       data.trainerId === data.clientId;
-    if (data.trainerId !== input.viewerUid && !isSelfAssigned) continue;
+    const isInherited = assignedBy(data, { coachId: input.viewerUid }) === "former";
+    if (data.trainerId !== input.viewerUid && !isSelfAssigned && !isInherited) continue;
     const clientId = typeof data.clientId === "string" ? data.clientId : "";
     const civil = typeof data.scheduledFor === "string" ? data.scheduledFor : "";
     if (!clientId || !civil) continue;
@@ -954,6 +974,7 @@ async function loadMonthForClients(
           ? data.recurrence.kind
           : null,
       selfAssigned: isSelfAssigned,
+      inherited: isInherited,
       plannedExercises: Array.isArray(data.templateSnapshot?.exercises)
         ? data.templateSnapshot.exercises.length
         : 0,
@@ -970,7 +991,7 @@ async function loadMonthForClients(
   const habitsByClient = new Map<string, Array<Record<string, unknown>>>();
   const habitMetaById = new Map<
     string,
-    { name: string; type: HabitType; targetValue: number | undefined; clientOwned: boolean }
+    { name: string; type: HabitType; targetValue: number | undefined; clientOwned: boolean; inherited: boolean }
   >();
   for (const doc of habitSnap.docs) {
     const data = doc.data() as Record<string, unknown>;
@@ -997,6 +1018,7 @@ async function loadMonthForClients(
       targetValue:
         typeof data.targetValue === "number" ? (data.targetValue as number) : undefined,
       clientOwned: data.clientOwned === true,
+      inherited: assignedBy(data, { coachId: input.viewerUid }) === "former",
     });
   }
 
@@ -1068,6 +1090,7 @@ async function loadMonthForClients(
           habitName: meta.name,
           status,
           clientOwned: meta.clientOwned,
+          inherited: meta.inherited,
         });
       }
     }

@@ -24,6 +24,7 @@ import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 
 import { getCurrentTrainer } from "./auth-helpers";
 import { civilDateFormat, civilDateToday } from "./civil-date";
+import { assignedBy } from "./assigned-by";
 import { FirestoreCollections } from "./collections";
 import { listClients } from "./client-roster";
 import { isHabitScheduledOn } from "./habit-schedule";
@@ -138,6 +139,8 @@ export async function listClientsWithNothingAssignedSoon(): Promise<
     for (const doc of snap.docs) {
       const habit = doc.data() as Record<string, unknown>;
       if (habit.deleted === true) continue;
+      // #1504 — a former coach's habit doesn't mean this client is covered.
+      if (assignedBy(habit, { coachId: trainer.uid }) === "former") continue;
       const activeInWindow = windowDays.some((d) =>
         isHabitScheduledOn(habit, d),
       );

@@ -108,15 +108,19 @@ describe("listMonthForClients", () => {
     expect(db.queries).toEqual([]);
   });
 
-  it("own client: own + self-assigned workouts, never a previous coach's", async () => {
+  it("own client: own + self-assigned workouts, and a previous coach's marked inherited (#1504)", async () => {
     const out = await listMonthForClients({ ...RANGE, clientIds: ["c1"] });
     const day = out.workoutsByDay["2026-06-15"];
-    expect(day.map((c) => [c.id, c.selfAssigned])).toEqual([
-      ["a-own", false],
-      ["a-self", true],
-    ]);
+    expect(day.map((c) => [c.id, c.selfAssigned, c.inherited])).toEqual(
+      expect.arrayContaining([
+        ["a-own", false, false],
+        ["a-self", true, false],
+        ["a-prev-coach", false, true],
+      ]),
+    );
+    expect(day).toHaveLength(3);
     expect(out.habitsByDay["2026-06-14"]).toEqual([
-      { id: "h-c1:2026-06-14", clientId: "c1", civilDate: "2026-06-14", habitName: "Water", status: "missed", clientOwned: false },
+      { id: "h-c1:2026-06-14", clientId: "c1", civilDate: "2026-06-14", habitName: "Water", status: "missed", clientOwned: false, inherited: false },
     ]);
   });
 
@@ -143,7 +147,7 @@ describe("listMonthForClients", () => {
       expect(q.filters[0]).toEqual({ field: "clientId", op: "in", value: ["c1"] });
     }
     const workoutIds = Object.values(out.workoutsByDay).flat().map((c) => c.id);
-    expect(workoutIds).toEqual(["a-own", "a-self"]);
+    expect(workoutIds).toEqual(["a-own", "a-prev-coach", "a-self"]);
     const habitClientIds = Object.values(out.habitsByDay).flat().map((h) => h.clientId);
     expect(new Set(habitClientIds)).toEqual(new Set(["c1"]));
   });
@@ -210,9 +214,14 @@ describe("listMonthForClientAsAdmin", () => {
 });
 
 describe("getAssignmentDetail", () => {
-  it("rejects another coach's, a previous coach's, and a foreign self-assigned assignment", async () => {
+  it("opens a previous coach's assignment on my client read-only (#1504)", async () => {
+    const detail = await getAssignmentDetail("a-prev-coach");
+    expect(detail.inherited).toBe(true);
+    expect(db.writes).toEqual([]);
+  });
+
+  it("rejects another coach's and a foreign self-assigned assignment", async () => {
     await expect(getAssignmentDetail("b-own")).rejects.toThrow("Not your assignment.");
-    await expect(getAssignmentDetail("a-prev-coach")).rejects.toThrow("Not your assignment.");
     await expect(getAssignmentDetail("x-self")).rejects.toThrow("Not your assignment.");
     await expect(getAssignmentDetail("missing")).rejects.toThrow("Not found");
     expect(db.writes).toEqual([]);
