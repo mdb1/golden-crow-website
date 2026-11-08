@@ -12,7 +12,7 @@ import {
   getLegacyPublisherAppColorCatalog,
   getPublisherAppColorCatalog,
 } from "@/lib/publisher-app-customization-catalog-server";
-import { createPublisherAppPaletteOverridePlan, createPublisherAppPreviousPaletteOverridePlan, createPublisherAppOverdarkenedPaletteOverridePlan, reconcilePublisherAppPaletteContrast } from "@/lib/publisher-app-palette-overrides";
+import { createPublisherAppPaletteOverridePlan, createPublisherAppPreviousPaletteOverridePlan, createPublisherAppOverdarkenedPaletteOverridePlan, createPublisherAppPreGenesRestorePaletteOverridePlan, reconcilePublisherAppPaletteContrast } from "@/lib/publisher-app-palette-overrides";
 import {
   createLegacyPublisherAppPaletteOverridePlan,
   legacyPublisherAppCounterpointColors,
@@ -119,7 +119,7 @@ export async function POST(request: Request) {
       ...publisherAppSupersededCounterpointColors(previous.primary).map(counterpoints => ({ ...previous, ...counterpoints })),
     ];
     for (const palette of previousPalettes) {
-      for (const generate of [createPublisherAppPaletteOverridePlan, createPublisherAppPreviousPaletteOverridePlan, createPublisherAppOverdarkenedPaletteOverridePlan]) {
+      for (const generate of [createPublisherAppPaletteOverridePlan, createPublisherAppPreviousPaletteOverridePlan, createPublisherAppOverdarkenedPaletteOverridePlan, createPublisherAppPreGenesRestorePaletteOverridePlan]) {
         infer(() => generate(
           palette, catalog.options, catalog.catalogVersion,
           catalog.alternativeTonalFlows, catalog.contrastPairs,

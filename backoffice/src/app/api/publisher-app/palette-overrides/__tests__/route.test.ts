@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { POST } from "../route";
 import { publisherAppColorsWithCounterpoints, publisherAppPreviousCounterpointColors, publisherAppSupersededCounterpointColors } from "@/lib/publisher-app-config";
 import { getLegacyPublisherAppColorCatalog, getPublisherAppColorCatalog } from "@/lib/publisher-app-customization-catalog-server";
-import { createPublisherAppPaletteOverridePlan, createPublisherAppPreviousPaletteOverridePlan, createPublisherAppOverdarkenedPaletteOverridePlan } from "@/lib/publisher-app-palette-overrides";
+import { createPublisherAppPaletteOverridePlan, createPublisherAppPreviousPaletteOverridePlan, createPublisherAppOverdarkenedPaletteOverridePlan, createPublisherAppPreGenesRestorePaletteOverridePlan } from "@/lib/publisher-app-palette-overrides";
 import { createLegacyPublisherAppPaletteOverridePlan, legacyPublisherAppCounterpointColors } from "@/lib/publisher-app-legacy-palette-overrides";
 
 jest.mock("next-auth", () => ({ getServerSession: jest.fn() }));
@@ -251,6 +251,35 @@ describe("custom app palette override route", () => {
     expect(body.colorOverrides["learn.background.leadingGlow"].light).toBe("#11223380");
     if (savedBaseline) expect(body.colorOverrides["learn.background.leadingGlow"].dark).toBeUndefined();
     expect(colors.primary).toBe("#A08000");
+  });
+
+  it.each([false, true])("restores fixed vivid Genes accents while retaining manual Genes RGBA (saved baseline: %s)", async (savedBaseline) => {
+    jest.mocked(getServerSession).mockResolvedValue({ user: { email: "admin@example.org" }, expires: "2099-01-01T00:00:00.000Z" });
+    const colors = publisherAppColorsWithCounterpoints({ primary: "#40FF00", secondary: "#2AEF47", tertiary: "#82F820" });
+    const catalog = getPublisherAppColorCatalog();
+    const oldPlan = createPublisherAppPreGenesRestorePaletteOverridePlan(colors, catalog.options, catalog.catalogVersion, catalog.alternativeTonalFlows, catalog.contrastPairs);
+    const newPlan = createPublisherAppPaletteOverridePlan(colors, catalog.options, catalog.catalogVersion, catalog.alternativeTonalFlows, catalog.contrastPairs);
+    expect(oldPlan.colorOverrides["community.genes.primary"].light).toBe("#00866E");
+    expect(newPlan.colorOverrides["community.genes.primary"].light).toBe("#00A88A");
+    const manualFocus = { light: "#147C6EF2", dark: "#2A9F8BCC" };
+    const current = {
+      ...oldPlan.colorOverrides,
+      "community.genes.focus.research": manualFocus,
+      "learn.background.leadingGlow": { light: "#11223380" },
+    };
+    const response = await POST(new Request("https://example.test/api/publisher-app/palette-overrides", {
+      method: "POST", body: JSON.stringify({
+        colors, previousColors: colors, colorOverrides: current,
+        ...(savedBaseline ? { generatedColorOverrides: oldPlan.colorOverrides } : {}),
+      }),
+    }));
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.colorOverrides["community.genes.primary"].light).toBe("#00A88A");
+    expect(body.generatedColorOverrides["community.genes.primary"].light).toBe("#00A88A");
+    expect(body.colorOverrides["community.genes.focus.research"]).toEqual(manualFocus);
+    expect(body.colorOverrides["learn.background.leadingGlow"].light).toBe("#11223380");
+    expect(body.generatedColorOverrides["community.genes.focus.research"]).toEqual(newPlan.colorOverrides["community.genes.focus.research"]);
   });
 
   it("reconciles automatic foreground contrast against a retained manual background and saves the corrected baseline", async () => {

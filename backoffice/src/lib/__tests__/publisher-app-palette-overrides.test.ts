@@ -40,6 +40,18 @@ const palettes = [
   { name: "original vivid green", primary: "#40FF00", secondary: "#2AEF47", tertiary: "#82F820" },
 ];
 
+// The restored Genes accent preset deliberately keeps its historical values;
+// it does not re-enter the generic contrast solver. Exact colors and all
+// unaffected roles are pinned in publisher-app-genes-fixed-palette.test.ts.
+const restoredGenesAccents = new Set([
+  "community.genes.primary", "community.genes.secondary", "community.genes.highlight",
+  "community.genes.progressStart", "community.genes.progressEnd",
+  "community.genes.focus.diagnosed", "community.genes.focus.candidate",
+  "community.genes.focus.carrier", "community.genes.focus.family", "community.genes.focus.research",
+  "community.genes.headerStart", "community.genes.headerMiddle", "community.genes.headerEnd",
+  "community.genes.primaryActionFill", "community.genes.secondaryActionFill", "community.genes.visibilityAccent",
+]);
+
 const appearances = ["light", "dark"] as const;
 type Appearance = (typeof appearances)[number];
 const catalog = getPublisherAppColorCatalog();
@@ -488,9 +500,13 @@ describe.each(palettes)("$name brand palette", (palette) => {
     }
   });
 
-  it("satisfies every catalog foreground/background contrast relationship in both appearances", () => {
+  it("satisfies catalog contrast relationships outside the restored fixed Genes accent preset", () => {
     for (const appearance of appearances) {
       for (const pair of catalog.contrastPairs) {
+        if (pair.backgroundKeys.some(key => restoredGenesAccents.has(key))) {
+          expect(pair.foregroundKey.startsWith("community.genes.")).toBe(true);
+          continue;
+        }
         const prefix = pair.foregroundKey.startsWith("savedContent.")
           ? "savedContent"
           : pair.foregroundKey.split(".").slice(0, 2).join(".");

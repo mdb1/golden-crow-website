@@ -167,6 +167,33 @@ const FLOW_ANCHORS: Record<string, string> = {
   savedContent: "savedContent.headerStart",
 };
 
+// This one fixed tonal flow keeps its original vivid cyan/green identity.
+// The first ten values are the exact colors emitted by the historical v5
+// palette. New header/action roles reuse that same ramp; surfaces and ink do
+// not inherit this exception, nor do the four community quick-action tiles.
+const RESTORED_GENES_ACCENTS: Record<string, string> = {
+  "community.genes.primary": "#00A88A",
+  "community.genes.secondary": "#008372",
+  "community.genes.highlight": "#009280",
+  "community.genes.progressStart": "#2CB899",
+  "community.genes.progressEnd": "#00B399",
+  "community.genes.focus.diagnosed": "#2CB899",
+  "community.genes.focus.candidate": "#00907E",
+  "community.genes.focus.carrier": "#09BB8F",
+  "community.genes.focus.family": "#00A894",
+  "community.genes.focus.research": "#00B399",
+  "community.genes.headerStart": "#00A88A",
+  "community.genes.headerMiddle": "#2CB899",
+  "community.genes.headerEnd": "#00B399",
+  "community.genes.primaryActionFill": "#00A88A",
+  "community.genes.secondaryActionFill": "#008372",
+  "community.genes.visibilityAccent": "#009280",
+};
+
+function restoresGenesAccent(key: string) {
+  return Object.hasOwn(RESTORED_GENES_ACCENTS, key);
+}
+
 function originalValue(option: PublisherAppColorCatalogOption, mode: Appearance) {
   return normalizedCatalogColor(mode === "light" ? option.defaultLightColor : option.defaultDarkColor);
 }
@@ -617,7 +644,9 @@ export function reconcilePublisherAppPaletteContrast({
     (colorOverrides[option.key]?.[mode] ?? originalValue(option, mode)) !==
       (generatedColorOverrides[option.key]?.[mode] ?? originalValue(option, mode)),
   ).map(option => option.key))]));
-  const relationships: ContrastPair[] = [...functionalContrastPairs(byKey), ...contrastPairs];
+  const relationships: ContrastPair[] = [...functionalContrastPairs(byKey), ...contrastPairs].filter(pair =>
+    !pair.backgroundKeys.some(restoresGenesAccent),
+  );
   const affectedPairs = relationships.flatMap(pair =>
     MODES.filter(mode => {
       if (pair.modes && !pair.modes.includes(mode)) return false;
@@ -704,6 +733,7 @@ function createPaletteOverridePlan(
   contrastPairs: PublisherAppColorContrastPair[],
   protectBrightSurfaces: boolean,
   selective = true,
+  restoreGenes = false,
 ): PublisherAppPaletteOverridePlan {
   if (options.length === 0) throw new Error("The color catalog is too small to build the palette plan.");
   const values = new Map<string, PublisherAppColorOverride>();
@@ -736,6 +766,14 @@ function createPaletteOverridePlan(
     }
   }
   applyContrastPairs(values, byKey, [...functionalContrastPairs(byKey, protectBrightSurfaces), ...contrastPairs], {}, protectBrightSurfaces, selective);
+  if (restoreGenes) {
+    const genesRoles = new Set(alternativeTonalFlows.find(flow => flow.id === "communityGenes")?.roleKeys ?? []);
+    for (const [key, color] of Object.entries(RESTORED_GENES_ACCENTS)) {
+      if (!genesRoles.has(key) || !byKey.has(key)) continue;
+      const option = byKey.get(key)!;
+      values.set(key, Object.fromEntries(MODES.map(mode => [mode, `${color}${parseColor(originalValue(option, mode)).alpha}`])));
+    }
+  }
   const colorOverrides = Object.fromEntries([...values.entries()].map(([key, value]) => [key, Object.fromEntries(MODES.filter(mode => value[mode] !== originalValue(byKey.get(key)!, mode)).map(mode => [mode, value[mode]]))] as const).filter(([, value]) => Object.keys(value).length > 0).sort(([a], [b]) => a.localeCompare(b)));
   return { catalogVersion, sourceCount: options.length, selectedCount: Object.keys(colorOverrides).length, colorOverrides };
 }
@@ -747,7 +785,7 @@ export function createPublisherAppPaletteOverridePlan(
   alternativeTonalFlows: PublisherAppAlternativeTonalFlow[] = [],
   contrastPairs: PublisherAppColorContrastPair[] = [],
 ): PublisherAppPaletteOverridePlan {
-  return createPaletteOverridePlan(colors, options, catalogVersion, alternativeTonalFlows, contrastPairs, true);
+  return createPaletteOverridePlan(colors, options, catalogVersion, alternativeTonalFlows, contrastPairs, true, true, true);
 }
 
 /** Recognize old automatic values when there is no saved generated baseline. */
@@ -770,4 +808,15 @@ export function createPublisherAppOverdarkenedPaletteOverridePlan(
   contrastPairs: PublisherAppColorContrastPair[] = [],
 ): PublisherAppPaletteOverridePlan {
   return createPaletteOverridePlan(colors, options, catalogVersion, alternativeTonalFlows, contrastPairs, true, false);
+}
+
+/** Frozen 3.632 results identify old automatic values without changing manual edits. */
+export function createPublisherAppPreGenesRestorePaletteOverridePlan(
+  colors: PublisherAppColors,
+  options: PublisherAppColorCatalogOption[],
+  catalogVersion: number,
+  alternativeTonalFlows: PublisherAppAlternativeTonalFlow[] = [],
+  contrastPairs: PublisherAppColorContrastPair[] = [],
+): PublisherAppPaletteOverridePlan {
+  return createPaletteOverridePlan(colors, options, catalogVersion, alternativeTonalFlows, contrastPairs, true);
 }
