@@ -36,6 +36,28 @@ describe("reporting OpenAPI contract", () => {
       baseContentVersion: "pg-core-v1",
       learn: { mode: "base" },
       textOverrides: [],
+      branding: {
+        colors: {
+          counterpointClockwise: "#D5F916",
+          counterpointAnticlockwise: "#F91663",
+        },
+      },
+    });
+    expect(operation?.responses?.["200"]?.content?.["application/json"]?.schema).toMatchObject({
+      properties: {
+        branding: {
+          required: ["colors"],
+          properties: {
+            colors: {
+              required: expect.arrayContaining(["counterpointClockwise", "counterpointAnticlockwise"]),
+              properties: {
+                counterpointClockwise: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
+                counterpointAnticlockwise: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
+              },
+            },
+          },
+        },
+      },
     });
   });
 

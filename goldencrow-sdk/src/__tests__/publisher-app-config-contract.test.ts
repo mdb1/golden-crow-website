@@ -5,6 +5,7 @@ import type {
   PublisherAppAdvancedConfiguration,
 } from "../types/sdk.types.js";
 import { buildRouteServer, makeAdminContext } from "./support/route-harness.js";
+import { derivePublisherAppSemanticColors } from "../lib/publisher-app-advanced-config.js";
 
 const FIXED_TIME = Date.parse("2026-10-30T15:00:00.000Z");
 
@@ -24,10 +25,11 @@ type MockDocumentReference = {
   delete: jest.Mock<Promise<void>, []>;
 };
 type MockQuery = {
+  where: jest.Mock<MockQuery, [string, string, unknown]>;
   orderBy: jest.Mock<MockQuery, []>;
   startAfter: jest.Mock<MockQuery, [MockSnapshot]>;
   limit: jest.Mock<MockQuery, [number]>;
-  get: jest.Mock<Promise<{ docs: MockSnapshot[] }>, []>;
+  get: jest.Mock<Promise<{ docs: MockSnapshot[]; empty: boolean }>, []>;
 };
 
 const collections = new Map<string, Map<string, StoredDocument>>();
@@ -115,7 +117,13 @@ function documentReferenceFor(
 function queryForCollection(name: string) {
   let afterId = "";
   let pageLimit = Number.POSITIVE_INFINITY;
+  const filters: Array<[string, unknown]> = [];
   const query = {} as MockQuery;
+  query.where = jest.fn((field: string, operator: string, value: unknown) => {
+    if (operator !== "==") throw new Error(`Unsupported mock operator ${operator}`);
+    filters.push([field, value]);
+    return query;
+  });
   query.orderBy = jest.fn(() => query);
   query.startAfter = jest.fn((snapshot: MockSnapshot) => {
     afterId = snapshot.id;
@@ -127,20 +135,21 @@ function queryForCollection(name: string) {
   });
   query.get = jest.fn(async () => {
     mockQueryReadCollections.push(name);
-    const records = [...collectionStore(name).entries()].sort((left, right) => {
-      const leftTime = new Date(String(left[1].updatedAt)).getTime();
-      const rightTime = new Date(String(right[1].updatedAt)).getTime();
-      return rightTime - leftTime || left[0].localeCompare(right[0]);
-    });
+    const records = [...collectionStore(name).entries()]
+      .filter(([, value]) => filters.every(([field, expected]) => value[field] === expected))
+      .sort((left, right) => {
+        const leftTime = new Date(String(left[1].updatedAt)).getTime();
+        const rightTime = new Date(String(right[1].updatedAt)).getTime();
+        return rightTime - leftTime || left[0].localeCompare(right[0]);
+      });
     const startIndex = afterId
       ? Math.max(0, records.findIndex(([id]) => id === afterId) + 1)
       : 0;
-    return {
-      docs: records.slice(startIndex, startIndex + pageLimit).map(([id]) => {
-        const ref = documentReferenceFor(name, id);
-        return snapshotFor(name, id, ref);
-      }),
-    };
+    const docs = records.slice(startIndex, startIndex + pageLimit).map(([id]) => {
+      const ref = documentReferenceFor(name, id);
+      return snapshotFor(name, id, ref);
+    });
+    return { docs, empty: docs.length === 0 };
   });
   return query;
 }
@@ -149,6 +158,7 @@ const mockCollection = jest.fn((name: string) => {
   const query = queryForCollection(name);
   return {
     doc: jest.fn((id: string) => documentReferenceFor(name, id)),
+    where: query.where,
     orderBy: query.orderBy,
   };
 });
@@ -442,6 +452,10 @@ describe("publisher app config contract", () => {
 
   it.each([
     {
+      label: "server-owned runtime publication metadata",
+      payload: { ...validBody, runtimeColorContractVersion: 1 },
+    },
+    {
       label: "server-owned identity and audit fields",
       payload: {
         ...validBody,
@@ -729,6 +743,8 @@ describe("publisher app config contract", () => {
           accentTextLight: expect.stringMatching(/^#[0-9A-F]{6}$/),
           accentTextDark: expect.stringMatching(/^#[0-9A-F]{6}$/),
           accentSurfaceLight: expect.stringMatching(/^#[0-9A-F]{6}$/),
+          counterpointClockwise: "#6639EF",
+          counterpointAnticlockwise: "#39EFC1",
         },
       },
       features: {
@@ -869,10 +885,62 @@ describe("publisher app config contract", () => {
         termsURL: "https://example.org/terms",
       },
     });
-    expect(runtimeResponse.json().branding.colors).toEqual(
-      advancedConfigurationBody.semanticColors,
-    );
+    expect(runtimeResponse.json().branding.colors).toEqual({
+      ...advancedConfigurationBody.semanticColors,
+      counterpointClockwise: "#6639EF",
+      counterpointAnticlockwise: "#39EFC1",
+    });
   });
+
+  it.each([false, true])(
+    "publishes configured counterpoints exactly and bumps a legacy runtime revision only once (stored semantic colors: %s)",
+    async (useStoredSemanticColors) => {
+      const created = await fastify.inject({
+        method: "POST",
+        url: "/publisher-app/config",
+        payload: {
+          ...validBody,
+          ...(useStoredSemanticColors ? { advancedConfiguration: advancedConfigurationBody } : {}),
+        },
+      });
+      expect(created.statusCode).toBe(201);
+      const activated = await fastify.inject({ method: "POST", url: "/publisher-app/config/identifier" });
+      expect(activated.statusCode).toBe(200);
+      const configId = created.json().config.id;
+      const original = collectionStore("app_configs").get(configId)!;
+      const legacy: StoredDocument = { ...original, runtimeRevision: 7 };
+      delete legacy.runtimeColorContractVersion;
+      collectionStore("app_configs").set(configId, legacy);
+      const expectedSemanticColors = useStoredSemanticColors
+        ? advancedConfigurationBody.semanticColors
+        : derivePublisherAppSemanticColors(created.json().config.colors);
+      const colors = created.json().config.colors;
+      const { getActivePublisherAppRuntimeConfig } = await import("../repositories/publisher-app-config.repository.js");
+      const first = await getActivePublisherAppRuntimeConfig(activated.json().config.appProviderIdentifier, "ios");
+      expect(first.revision).toBe(8);
+      expect(first.branding.colors).toEqual({
+        ...expectedSemanticColors,
+        counterpointClockwise: colors.counterpointClockwise,
+        counterpointAnticlockwise: colors.counterpointAnticlockwise,
+      });
+      expect(first.branding.colors.counterpointClockwise).toMatch(/^#[0-9A-F]{6}$/);
+      expect(first.branding.colors.counterpointAnticlockwise).toMatch(/^#[0-9A-F]{6}$/);
+      if (useStoredSemanticColors) {
+        expect(first.branding.colorOverrides).toEqual(advancedConfigurationBody.colorOverrides);
+      }
+      expect(collectionStore("app_configs").get(configId)).toEqual({
+        ...legacy,
+        runtimeRevision: 8,
+        runtimeColorContractVersion: 1,
+      });
+      expect(await getActivePublisherAppRuntimeConfig(activated.json().config.appProviderIdentifier, "android")).toEqual(first);
+      const repeated = await fastify.inject({ method: "GET", url: "/publisher-app/config/runtime" });
+      expect(repeated.json()).toEqual(first);
+      context = makeAdminContext({ isBootstrap: true });
+      const exported = await fastify.inject({ method: "GET", url: `/admin/publisher-app-configs/${configId}/runtime` });
+      expect(exported.json()).toEqual(first);
+    },
+  );
 
   it.each([
     {

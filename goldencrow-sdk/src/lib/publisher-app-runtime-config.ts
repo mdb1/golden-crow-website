@@ -97,13 +97,16 @@ export function buildPublisherAppRuntimeConfig(
       ...(config.iconImageUploadDataUrl
         ? { logoUploadDataUrl: config.iconImageUploadDataUrl }
         : {}),
-      colors:
-        advanced.semanticColors ??
-        derivePublisherAppSemanticColors({
-          primary,
-          secondary: config.colors.secondary,
-          tertiary: config.colors.tertiary,
-        }),
+      colors: {
+        ...(advanced.semanticColors ??
+          derivePublisherAppSemanticColors({
+            primary,
+            secondary: config.colors.secondary,
+            tertiary: config.colors.tertiary,
+          })),
+        counterpointClockwise: config.colors.counterpointClockwise,
+        counterpointAnticlockwise: config.colors.counterpointAnticlockwise,
+      },
       ...(Object.keys(advanced.colorOverrides).length > 0
         ? { colorOverrides: advanced.colorOverrides }
         : {}),

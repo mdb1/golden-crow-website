@@ -37,6 +37,8 @@ const CUSTOM_APPS_SNAPSHOT_COLLECTION = "custom_apps_snapshot";
 const CUSTOM_APPS_SNAPSHOT_DOCUMENT = "simple";
 const CUSTOM_APP_ICONS_COLLECTION = "custom_app_icons";
 const APP_CONFIG_SCHEMA_VERSION = 1 as const;
+const RUNTIME_COLOR_CONTRACT_VERSION = 1;
+const RUNTIME_COLOR_CONTRACT_VERSION_FIELD = "runtimeColorContractVersion";
 const CUSTOM_APPS_SNAPSHOT_SCHEMA_VERSION = 1 as const;
 const APP_TERMS_VERSION = "2026-10-31";
 const HEX_COLOR_PATTERN = /^#[0-9A-F]{6}$/;
@@ -1246,7 +1248,10 @@ export async function updatePublisherAppConfigById(
       transaction.update(ref, {
         ...update,
         ...(currentConfig.status === "active"
-          ? { runtimeRevision: (currentConfig.runtimeRevision ?? 1) + 1 }
+          ? {
+              runtimeRevision: (currentConfig.runtimeRevision ?? 1) + 1,
+              [RUNTIME_COLOR_CONTRACT_VERSION_FIELD]: RUNTIME_COLOR_CONTRACT_VERSION,
+            }
           : {}),
       });
       updateCatalogSnapshotInTransaction(
@@ -1265,7 +1270,10 @@ export async function updatePublisherAppConfigById(
     await ref.update({
       ...update,
       ...(config.status === "active"
-        ? { runtimeRevision: (config.runtimeRevision ?? 1) + 1 }
+        ? {
+            runtimeRevision: (config.runtimeRevision ?? 1) + 1,
+            [RUNTIME_COLOR_CONTRACT_VERSION_FIELD]: RUNTIME_COLOR_CONTRACT_VERSION,
+          }
         : {}),
     });
   }
@@ -1524,7 +1532,10 @@ export async function updatePublisherAppConfig(
         ...baseUpdate,
         status: currentConfig.status,
         ...(currentConfig.status === "active"
-          ? { runtimeRevision: (currentConfig.runtimeRevision ?? 1) + 1 }
+          ? {
+              runtimeRevision: (currentConfig.runtimeRevision ?? 1) + 1,
+              [RUNTIME_COLOR_CONTRACT_VERSION_FIELD]: RUNTIME_COLOR_CONTRACT_VERSION,
+            }
           : {}),
       });
       updateCatalogSnapshotInTransaction(
@@ -1545,7 +1556,10 @@ export async function updatePublisherAppConfig(
     await ref.update({
       ...baseUpdate,
       ...(config.status === "active"
-        ? { runtimeRevision: (config.runtimeRevision ?? 1) + 1 }
+        ? {
+            runtimeRevision: (config.runtimeRevision ?? 1) + 1,
+            [RUNTIME_COLOR_CONTRACT_VERSION_FIELD]: RUNTIME_COLOR_CONTRACT_VERSION,
+          }
         : {}),
     });
   }
@@ -1639,6 +1653,7 @@ export async function createPublisherAppIdentifier(
         appProviderIdentifier,
         runtimeRevision:
           config.status === "active" ? (config.runtimeRevision ?? 1) + 1 : 1,
+        [RUNTIME_COLOR_CONTRACT_VERSION_FIELD]: RUNTIME_COLOR_CONTRACT_VERSION,
         status: "active",
         activatedAt: timestamp,
         activatedByUserId: context.uid,
@@ -1718,22 +1733,52 @@ export async function deactivatePublisherAppIdentifier(
   return toPublisherAppConfigRecord(await ref.get());
 }
 
+// Existing published apps must not serve changed bytes under an old revision.
+// Publish the additive color contract once, atomically, before returning it.
+async function publishRuntimeColorContract(snapshot: DocumentSnapshot) {
+  const config = toPublisherAppConfigRecord(snapshot);
+  if (
+    config.status !== "active" ||
+    snapshot.data()?.[RUNTIME_COLOR_CONTRACT_VERSION_FIELD] === RUNTIME_COLOR_CONTRACT_VERSION
+  ) {
+    return config;
+  }
+  return adminDb.runTransaction(async (transaction) => {
+    const currentSnapshot = await transaction.get(snapshot.ref);
+    const current = toPublisherAppConfigRecord(currentSnapshot);
+    if (
+      current.status !== "active" ||
+      currentSnapshot.data()?.[RUNTIME_COLOR_CONTRACT_VERSION_FIELD] === RUNTIME_COLOR_CONTRACT_VERSION
+    ) {
+      return current;
+    }
+    const runtimeRevision = (current.runtimeRevision ?? 1) + 1;
+    transaction.update(snapshot.ref, {
+      runtimeRevision,
+      [RUNTIME_COLOR_CONTRACT_VERSION_FIELD]: RUNTIME_COLOR_CONTRACT_VERSION,
+    });
+    return { ...current, runtimeRevision };
+  });
+}
+
 export async function getPublisherAppRuntimeConfig(
   context: AdminContext,
 ): Promise<PublisherAppRuntimeConfig> {
-  const config = await getPublisherAppConfig(context);
-  if (!config) {
-    throw new AdminRepositoryError("Publisher app config not found.", 404);
-  }
-  return buildPublisherAppRuntimeConfig(config);
+  const scope = publisherScope(context);
+  const snapshot = await adminDb.collection(APP_CONFIGS_COLLECTION)
+    .doc(`${scope.kind}_${scope.id}`).get();
+  return buildPublisherAppRuntimeConfig(await publishRuntimeColorContract(snapshot));
 }
 
 export async function getPublisherAppRuntimeConfigById(
   configId: string,
 ): Promise<PublisherAppRuntimeConfig> {
-  return buildPublisherAppRuntimeConfig(
-    await getPublisherAppConfigById(configId),
-  );
+  const normalizedId = configId.trim();
+  if (!normalizedId) {
+    throw new AdminRepositoryError("Publisher app config id is required.", 400);
+  }
+  const snapshot = await adminDb.collection(APP_CONFIGS_COLLECTION).doc(normalizedId).get();
+  return buildPublisherAppRuntimeConfig(await publishRuntimeColorContract(snapshot));
 }
 
 export async function getActivePublisherAppRuntimeConfig(
@@ -1775,7 +1820,14 @@ export async function getActivePublisherAppRuntimeConfig(
     );
   }
 
-  return buildPublisherAppRuntimeConfig(config);
+  const published = await publishRuntimeColorContract(configSnapshot);
+  if (published.status !== "active" || published.appProviderIdentifier !== normalizedIdentifier) {
+    throw new AdminRepositoryError("App runtime config not found.", 404);
+  }
+  if (platform === "android" && published.platformOption !== "ios_android") {
+    throw new AdminRepositoryError("This app config is not compatible with Android.", 409);
+  }
+  return buildPublisherAppRuntimeConfig(published);
 }
 
 export async function deletePublisherAppConfig(

@@ -26,6 +26,7 @@ export type OpenApiOperation = {
         string,
         {
           example?: unknown;
+          schema?: Record<string, unknown>;
         }
       >;
     }
@@ -48,12 +49,13 @@ export type OpenApiDocument = {
   paths?: Record<string, Partial<Record<string, OpenApiOperation>>>;
 };
 
-function jsonResponse(description: string, example: unknown) {
+function jsonResponse(description: string, example: unknown, schema?: Record<string, unknown>) {
   return {
     description,
     content: {
       "application/json": {
         example,
+        ...(schema ? { schema } : {}),
       },
     },
   };
@@ -71,6 +73,11 @@ function errorResponses() {
 }
 
 const EXAMPLE_PATIENT_ID = "PAT-8F4K2Z9Q1M7X5C3V6B0N2R8T4Y1L9P5WA7D2";
+const RUNTIME_BRANDING_COLOR_KEYS = [
+  "primary", "primaryStrong", "primaryDeep", "primarySoft",
+  "secondary", "accent", "accentTextLight", "accentTextDark",
+  "accentSurfaceLight", "counterpointClockwise", "counterpointAnticlockwise",
+] as const;
 const EXAMPLE_CLIENT_ID = "gci_live_7zZKqYxG5bC2mR9wL4pN8tV1sH6aJ3dF";
 const EXAMPLE_CLIENT_SECRET = "gcs_live_Qn4xV9mL2pT7sA5kC8wR1yH6dE3jB0uZ";
 const EXAMPLE_ACCESS_TOKEN =
@@ -190,6 +197,8 @@ export function buildReportingOpenApiDocument(
                   accentTextLight: "#B34E10",
                   accentTextDark: "#FBA66F",
                   accentSurfaceLight: "#FEF1E8",
+                  counterpointClockwise: "#D5F916",
+                  counterpointAnticlockwise: "#F91663",
                 },
               },
               features: {
@@ -222,6 +231,25 @@ export function buildReportingOpenApiDocument(
                 supportEmail: "support@goldencrowvs.com",
                 privacyURL: "https://goldencrowvs.com/privacy/",
                 termsURL: "https://goldencrowvs.com/terms/",
+              },
+            }, {
+              type: "object",
+              required: ["branding"],
+              properties: {
+                branding: {
+                  type: "object",
+                  required: ["colors"],
+                  properties: {
+                    colors: {
+                      type: "object",
+                      additionalProperties: false,
+                      required: [...RUNTIME_BRANDING_COLOR_KEYS],
+                      properties: Object.fromEntries(RUNTIME_BRANDING_COLOR_KEYS.map(
+                        (key) => [key, { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" }],
+                      )),
+                    },
+                  },
+                },
               },
             }),
             "304": { description: "The caller already has this revision." },
