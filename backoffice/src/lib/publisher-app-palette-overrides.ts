@@ -153,6 +153,7 @@ type ContrastPair = Omit<PublisherAppColorContrastPair, "foregroundKey"> & {
   backgroundOpacities?: Partial<Record<Appearance, number[]>>;
   canvasColor?: string;
   modes?: Appearance[];
+  brightOnly?: boolean;
 };
 type OverrideLocks = Record<string, Partial<Record<Appearance, true>>>;
 const MODES: Appearance[] = ["light", "dark"];
@@ -352,7 +353,100 @@ function whiteInk(value: string) {
   return Math.min(rgb.red, rgb.green, rgb.blue) >= 0.98;
 }
 
-function applyContrastPairs(values: Map<string, PublisherAppColorOverride>, byKey: Map<string, PublisherAppColorCatalogOption>, inputPairs: ContrastPair[], locked: OverrideLocks = {}, protectBrightSurfaces = true) {
+function needsStructuralShade(value: string) {
+  const rgb = parseColor(value);
+  const maximum = Math.max(rgb.red, rgb.green, rgb.blue);
+  const minimum = Math.min(rgb.red, rgb.green, rgb.blue);
+  const delta = maximum - minimum;
+  if (maximum === 0 || delta / maximum < 0.1) return false;
+  const hue = normalizeHue(maximum === rgb.red
+    ? 60 * (((rgb.green - rgb.blue) / delta) % 6)
+    : maximum === rgb.green ? 60 * ((rgb.blue - rgb.red) / delta + 2)
+      : 60 * ((rgb.red - rgb.green) / delta + 4));
+  return hue >= 45 && hue <= 195 && contrast("#FFFFFF", value) < 2.5;
+}
+
+function applySelectiveStructuralShades(values: Map<string, PublisherAppColorOverride>, byKey: Map<string, PublisherAppColorCatalogOption>, pairs: ContrastPair[], locked: OverrideLocks) {
+  const effective = (key: string, mode: Appearance) => values.get(key)?.[mode] ?? originalValue(byKey.get(key)!, mode);
+  const isLocked = (key: string, mode: Appearance) => !!locked[key]?.[mode] ||
+    ["app.background", "app.surface", "app.groupedBackground", "app.profileBackground"].includes(key) ||
+    deepStructure(byKey.get(key)!, originalColor(byKey.get(key)!, mode), mode);
+  const active = new Map(pairs.map(pair => [pair, new Set(MODES.filter(mode =>
+    (!pair.modes || pair.modes.includes(mode)) &&
+    whiteInk(pair.foregroundKey ? effective(pair.foregroundKey, mode) : pair.foregroundColor!) &&
+    pair.backgroundKeys.some(key => !isLocked(key, mode) && needsStructuralShade(effective(key, mode))),
+  ))]));
+  // Preserve the pre-existing contrast behavior outside this narrowly opted-in
+  // treatment. A dark ochre must not acquire a new white-label constraint.
+  const ordinary = pairs.flatMap(pair => pair.foregroundKey && !pair.brightOnly
+    ? MODES.filter(mode => (!pair.modes || pair.modes.includes(mode)) && !active.get(pair)?.has(mode)).map(mode => ({ ...pair, modes: [mode] }))
+    : []);
+  applyContrastPairs(values, byKey, ordinary, locked, false, false);
+
+  for (const mode of MODES) for (const pair of pairs) {
+    if (!active.get(pair)?.has(mode)) continue;
+    const originals = pair.backgroundKeys.map(key => effective(key, mode));
+    const tones = originals.map(value => rgbToOklch(parseColor(value)));
+    const eligible = originals.map((value, index) => !isLocked(pair.backgroundKeys[index], mode) && needsStructuralShade(value));
+    // Unchanged darker stops are anchors. Compress only the bright interval
+    // above each anchor, rather than multiplying the entire gradient.
+    const anchors = tones.filter((_, index) => !eligible[index]).map(tone => tone.lightness).sort((a, b) => a - b);
+    const intervals = new Map<number, number[]>();
+    tones.forEach((tone, index) => {
+      if (!eligible[index]) return;
+      const lower = anchors.filter(anchor => anchor < tone.lightness).at(-1) ?? 0;
+      intervals.set(lower, [...(intervals.get(lower) ?? []), index]);
+    });
+    for (const [lower, indices] of intervals) {
+      const paint = (scale: number) => indices.map(index => {
+        const lightness = lower + (tones[index].lightness - lower) * scale;
+        return shadedControlColor(originals[index], Math.pow(lightness / tones[index].lightness, 3));
+      });
+      // Three is the native moderate target. If an untouched stop prevents
+      // reaching it without reversing the ramp, keep the corrected stop above
+      // that anchor with a small amount of the original spacing.
+      const minimumScale = lower === 0 ? 0 : 0.02;
+      const sufficient = (colors: string[]) => colors.every(color => contrast("#FFFFFF", color) >= 3.015);
+      let low = minimumScale, high = 1;
+      if (sufficient(paint(low))) {
+        for (let iteration = 0; iteration < 24; iteration += 1) {
+          const middle = (low + high) / 2;
+          if (sufficient(paint(middle))) low = middle; else high = middle;
+        }
+      }
+      let shades = paint(low);
+      // Avoid a byte-rounding tie or reversal against a preserved dark stop.
+      if (lower > 0 && shades.some(color => rgbToOklch(parseColor(color)).lightness <= lower)) {
+        shades = paint(Math.max(low, 0.15));
+      }
+      shades.forEach((value, position) => {
+        const key = pair.backgroundKeys[indices[position]];
+        values.set(key, { ...values.get(key), [mode]: value });
+      });
+    }
+    // An unrelated pale anchor can still prevent white ink from working.
+    // Adapt unlocked ink as before, never sacrifice a preserved background.
+    if (pair.foregroundKey && !locked[pair.foregroundKey]?.[mode] &&
+      pair.backgroundKeys.some(key => contrast("#FFFFFF", effective(key, mode)) < Math.min(2.5, pair.minimumRatio))) {
+      const inkLocks: OverrideLocks = { ...locked };
+      for (const key of pair.backgroundKeys) inkLocks[key] = { ...inkLocks[key], [mode]: true };
+      for (const minimumRatio of [pair.minimumRatio, Math.min(2.5, pair.minimumRatio)]) {
+        try {
+          applyContrastPairs(values, byKey, [{ ...pair, minimumRatio, modes: [mode] }], inkLocks, false, false);
+          break;
+        } catch (error) {
+          if (!(error instanceof Error) || !error.message.includes("preserve contrast")) throw error;
+        }
+      }
+    }
+  }
+}
+
+function applyContrastPairs(values: Map<string, PublisherAppColorOverride>, byKey: Map<string, PublisherAppColorCatalogOption>, inputPairs: ContrastPair[], locked: OverrideLocks = {}, protectBrightSurfaces = true, selective = true) {
+  if (protectBrightSurfaces && selective) {
+    applySelectiveStructuralShades(values, byKey, inputPairs, locked);
+    return;
+  }
   let valueRevision = 0;
   const foundations = new Set<string>();
   for (const option of byKey.values()) for (const mode of MODES) {
@@ -518,7 +612,25 @@ export function reconcilePublisherAppPaletteContrast({
 }) {
   const byKey = new Map(options.map(option => [option.key, option]));
   const values = new Map(options.map(option => [option.key, { ...colorOverrides[option.key] }]));
-  applyContrastPairs(values, byKey, [...functionalContrastPairs(byKey), ...contrastPairs], lockedOverrides);
+  const changed = new Map(MODES.map(mode => [mode, new Set(options.filter(option =>
+    lockedOverrides[option.key]?.[mode] ||
+    (colorOverrides[option.key]?.[mode] ?? originalValue(option, mode)) !==
+      (generatedColorOverrides[option.key]?.[mode] ?? originalValue(option, mode)),
+  ).map(option => option.key))]));
+  const relationships: ContrastPair[] = [...functionalContrastPairs(byKey), ...contrastPairs];
+  const affectedPairs = relationships.flatMap(pair =>
+    MODES.filter(mode => {
+      if (pair.modes && !pair.modes.includes(mode)) return false;
+      const translucent = pair.backgroundKeys.some(key =>
+        rgba(colorOverrides[key]?.[mode] ?? originalValue(byKey.get(key)!, mode)).opacity < 1 ||
+        rgba(generatedColorOverrides[key]?.[mode] ?? originalValue(byKey.get(key)!, mode)).opacity < 1,
+      );
+      const dependencies = [pair.foregroundKey, ...pair.backgroundKeys];
+      if (translucent) dependencies.push("app.background", `${(pair.foregroundKey ?? pair.backgroundKeys[0]).split(".").slice(0, -1).join(".")}.backgroundBase`);
+      return dependencies.some(key => key && changed.get(mode)?.has(key));
+    }).map(mode => ({ ...pair, modes: [mode] })),
+  );
+  applyContrastPairs(values, byKey, affectedPairs, lockedOverrides);
   const result = Object.fromEntries(Object.entries(colorOverrides).map(([key, value]) => [key, { ...value }]));
   const baseline = Object.fromEntries(Object.entries(generatedColorOverrides).map(([key, value]) => [key, { ...value }]));
   for (const [key, modes] of values) for (const mode of MODES) {
@@ -557,7 +669,7 @@ function functionalContrastPairs(byKey: Map<string, PublisherAppColorCatalogOpti
     pairs.push({ foregroundKey: "learn.header.foreground", backgroundKeys: levelKeys, minimumRatio: 2.5 });
   }
   if (protectBrightSurfaces) {
-    pairs.push({ foregroundKey: "discover.requestLauncher.foreground", backgroundKeys: ["Start", "Middle", "End"].map(stop => `discover.requestLauncher.ribbon${stop}`), minimumRatio: 4.5 });
+    pairs.push({ foregroundKey: "discover.requestLauncher.foreground", backgroundKeys: ["Start", "Middle", "End"].map(stop => `discover.requestLauncher.ribbon${stop}`), minimumRatio: 4.5, brightOnly: true });
     const whiteFill = (backgroundKeys: string[]): ContrastPair => ({ foregroundColor: "#FFFFFF", backgroundKeys, minimumRatio: 4.5 });
     pairs.push(
       whiteFill(["brand.primary", "brand.primaryStrong", "brand.primaryDeep"]),
@@ -591,6 +703,7 @@ function createPaletteOverridePlan(
   alternativeTonalFlows: PublisherAppAlternativeTonalFlow[],
   contrastPairs: PublisherAppColorContrastPair[],
   protectBrightSurfaces: boolean,
+  selective = true,
 ): PublisherAppPaletteOverridePlan {
   if (options.length === 0) throw new Error("The color catalog is too small to build the palette plan.");
   const values = new Map<string, PublisherAppColorOverride>();
@@ -622,7 +735,7 @@ function createPaletteOverridePlan(
       values.set(option.key, { ...values.get(option.key), [mode]: result });
     }
   }
-  applyContrastPairs(values, byKey, [...functionalContrastPairs(byKey, protectBrightSurfaces), ...contrastPairs], {}, protectBrightSurfaces);
+  applyContrastPairs(values, byKey, [...functionalContrastPairs(byKey, protectBrightSurfaces), ...contrastPairs], {}, protectBrightSurfaces, selective);
   const colorOverrides = Object.fromEntries([...values.entries()].map(([key, value]) => [key, Object.fromEntries(MODES.filter(mode => value[mode] !== originalValue(byKey.get(key)!, mode)).map(mode => [mode, value[mode]]))] as const).filter(([, value]) => Object.keys(value).length > 0).sort(([a], [b]) => a.localeCompare(b)));
   return { catalogVersion, sourceCount: options.length, selectedCount: Object.keys(colorOverrides).length, colorOverrides };
 }
@@ -646,4 +759,15 @@ export function createPublisherAppPreviousPaletteOverridePlan(
   contrastPairs: PublisherAppColorContrastPair[] = [],
 ): PublisherAppPaletteOverridePlan {
   return createPaletteOverridePlan(colors, options, catalogVersion, alternativeTonalFlows, contrastPairs, false);
+}
+
+/** Frozen 3.631 contrast policy, used only to recognize its generated values. */
+export function createPublisherAppOverdarkenedPaletteOverridePlan(
+  colors: PublisherAppColors,
+  options: PublisherAppColorCatalogOption[],
+  catalogVersion: number,
+  alternativeTonalFlows: PublisherAppAlternativeTonalFlow[] = [],
+  contrastPairs: PublisherAppColorContrastPair[] = [],
+): PublisherAppPaletteOverridePlan {
+  return createPaletteOverridePlan(colors, options, catalogVersion, alternativeTonalFlows, contrastPairs, true, false);
 }

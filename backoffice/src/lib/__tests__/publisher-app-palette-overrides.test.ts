@@ -3,7 +3,7 @@ import {
   publisherAppColorsWithCounterpoints,
   type PublisherAppColorCatalogOption,
 } from "@/lib/publisher-app-config";
-import { createPublisherAppPaletteOverridePlan, reconcilePublisherAppPaletteContrast } from "@/lib/publisher-app-palette-overrides";
+import { createPublisherAppPaletteOverridePlan, createPublisherAppPreviousPaletteOverridePlan, reconcilePublisherAppPaletteContrast } from "@/lib/publisher-app-palette-overrides";
 
 function channels(value: string) {
   return [1, 3, 5].map((offset) => Number.parseInt(value.slice(offset, offset + 2), 16) / 255);
@@ -64,6 +64,36 @@ function createPlan(palette = palettes[0]) {
     catalog.alternativeTonalFlows,
     catalog.contrastPairs,
   );
+}
+
+// The reference keeps palette transfer but removes structural contrast inputs.
+// This lets tests pin the tones that the narrow correction must leave exact.
+function unshadedStructuralPlan(colors: ReturnType<typeof publisherAppColorsWithCounterpoints>) {
+  return createPublisherAppPreviousPaletteOverridePlan(
+    colors, catalog.options.filter(option => option.key !== "learn.header.foreground"),
+    catalog.catalogVersion, catalog.alternativeTonalFlows, [],
+  );
+}
+
+function expectSelectiveStructuralGroup(plan: PalettePlan, reference: PalettePlan, keys: string[], appearance: Appearance, target = 3) {
+  const before = keys.map(key => effective(reference, key, appearance));
+  const after = keys.map(key => effective(plan, key, appearance));
+  const protectedTones = before.filter(value => !isLuminousStructuralTone(value)).map(perceptualColor);
+  for (let index = 0; index < keys.length; index += 1) {
+    if (!isLuminousStructuralTone(before[index])) {
+      expect({ key: keys[index], color: after[index] }).toEqual({ key: keys[index], color: before[index] });
+      continue;
+    }
+    const source = perceptualColor(before[index]);
+    expect(perceptualColor(after[index]).lightness).toBeLessThanOrEqual(source.lightness);
+    expect(hueDistance(after[index], before[index])).toBeLessThan(2);
+    expect(ratio(channels("#FFFFFF"), channels(after[index]))).toBeGreaterThanOrEqual(ratio(channels("#FFFFFF"), channels(before[index])) - 0.015);
+    // A fixed darker neighbor caps the correction: the formerly lighter stop
+    // must stay lighter. Unanchored intervals can reach the full gentle target.
+    if (!protectedTones.some(tone => tone.lightness < source.lightness)) {
+      expect(ratio(channels("#FFFFFF"), channels(after[index]))).toBeGreaterThanOrEqual(target - 0.015);
+    }
+  }
 }
 
 function expectLightnessProgression(plan: PalettePlan, keys: string[], appearance: Appearance) {
@@ -134,9 +164,13 @@ describe("publisher app automatic palette fidelity", () => {
     for (const appearance of appearances) {
       for (const [key, seed] of [["brand.primary", colors.primary], ["brand.secondary", colors.secondary], ["brand.accent", colors.tertiary]]) {
         const generated = effective(plan, key, appearance);
-        expectWhiteGradientContrast([generated]);
-        expect(hueDistance(generated, seed)).toBeLessThan(2);
-        expect(perceptualColor(generated).lightness).toBeLessThanOrEqual(perceptualColor(seed).lightness);
+        if (isLuminousStructuralTone(seed)) {
+          expectWhiteGradientContrast([generated]);
+          expect(hueDistance(generated, seed)).toBeLessThan(2);
+          expect(perceptualColor(generated).lightness).toBeLessThan(perceptualColor(seed).lightness);
+        } else {
+          expect(generated).toBe(seed);
+        }
       }
     }
   });
@@ -251,7 +285,7 @@ describe("publisher app automatic palette fidelity", () => {
     for (const appearance of appearances) {
       const primaryFill = effective(plan, "brand.primary", appearance);
       expect(perceptualColor(primaryFill).chroma).toBeLessThan(0.001);
-      expectWhiteGradientContrast([primaryFill]);
+      expect(primaryFill).toBe(primary);
       expect(palette.primary).toBe(primary);
       expect(perceptualColor(effective(plan, "discover.category.genomicDatabase.accent", appearance)).chroma).toBeLessThan(0.001);
       for (const keys of [
@@ -292,6 +326,7 @@ describe("publisher app automatic palette fidelity", () => {
 
 describe.each(palettes)("$name brand palette", (palette) => {
   const plan = createPlan(palette);
+  const unshaded = unshadedStructuralPlan(publisherAppColorsWithCounterpoints(palette));
 
   it("keeps functional UI accents tied to the brand and general tones in its analogous family", () => {
     for (const appearance of appearances) {
@@ -445,7 +480,10 @@ describe.each(palettes)("$name brand palette", (palette) => {
       for (const option of catalog.options.filter((entry) => /^learn\.level\..+\.(?:accent|gradientEnd)$/.test(entry.key))) {
         const sourceRatio = ratio(channels(original("learn.header.foreground", appearance)), channels(original(option.key, appearance)));
         const targetRatio = ratio(channels(effective(plan, "learn.header.foreground", appearance)), channels(effective(plan, option.key, appearance)));
-        expect(targetRatio).toBeGreaterThanOrEqual(Math.min(2.5, sourceRatio) - 0.015);
+        const levelKeys = catalog.options.filter(entry => /^learn\.level\..+\.(?:accent|gradientEnd)$/.test(entry.key)).map(entry => entry.key);
+        const selective = levelKeys.some(key => isLuminousStructuralTone(effective(unshaded, key, appearance)));
+        if (selective) expectSelectiveStructuralGroup(plan, unshaded, levelKeys, appearance, 2.5);
+        else expect(targetRatio).toBeGreaterThanOrEqual(Math.min(2.5, sourceRatio) - 0.015);
       }
     }
   });
@@ -467,7 +505,11 @@ describe.each(palettes)("$name brand palette", (palette) => {
             ));
           }
         }
-        for (const background of samples) {
+        const sourceWhite = channels(original(pair.foregroundKey, appearance)).every(channel => channel >= 0.98);
+        const selective = sourceWhite && pair.backgroundKeys.some(key => isLuminousStructuralTone(effective(unshaded, key, appearance)));
+        if (selective) expectSelectiveStructuralGroup(plan, unshaded, pair.backgroundKeys, appearance, Math.min(3, pair.minimumRatio));
+        const nativeWhite = channels(effective(plan, pair.foregroundKey, appearance)).every(channel => channel >= 0.98);
+        if (!selective || !nativeWhite) for (const background of samples) {
           const foreground = composite(effective(plan, pair.foregroundKey, appearance), background);
           expect(ratio(foreground, background)).toBeGreaterThanOrEqual(pair.minimumRatio - 0.015);
         }
@@ -490,7 +532,19 @@ function brightStructuralColors(color: string) {
   });
 }
 
-function expectWhiteGradientContrast(values: string[], opacities: number[] = [], label = "gradient") {
+function isLuminousStructuralTone(value: string) {
+  const [red, green, blue] = channels(value);
+  const maximum = Math.max(red, green, blue), minimum = Math.min(red, green, blue);
+  const delta = maximum - minimum;
+  if (maximum === 0 || delta / maximum < 0.1) return false;
+  const rawHue = maximum === red ? 60 * (((green - blue) / delta) % 6)
+    : maximum === green ? 60 * ((blue - red) / delta + 2)
+      : 60 * ((red - green) / delta + 4);
+  const hue = (rawHue + 360) % 360;
+  return hue >= 45 && hue <= 195 && ratio(channels("#FFFFFF"), channels(value)) < 2.5;
+}
+
+function expectWhiteGradientContrast(values: string[], opacities: number[] = [], label = "gradient", minimum = 3) {
   const backgrounds = values.map((value, index) => channels(value).map((channel) => {
     const opacity = opacities[index] ?? 1;
     return channel * opacity + 1 - opacity;
@@ -505,7 +559,7 @@ function expectWhiteGradientContrast(values: string[], opacities: number[] = [],
   }
   for (const background of samples) {
     try {
-      expect(ratio(channels("#FFFFFF"), background)).toBeGreaterThanOrEqual(4.485);
+      expect(ratio(channels("#FFFFFF"), background)).toBeGreaterThanOrEqual(minimum - 0.015);
     } catch (error) {
       throw new Error(`${label}: white text over ${values.join(", ")} at opacity ${opacities.join(", ") || "1"}`, { cause: error });
     }
@@ -515,37 +569,52 @@ function expectWhiteGradientContrast(values: string[], opacities: number[] = [],
 describe.each(brightStructuralPalettes)("readable $name structural fills", ({ color }) => {
   const colors = brightStructuralColors(color);
   const input = JSON.parse(JSON.stringify(colors));
+  const unshaded = unshadedStructuralPlan(colors);
   const plan = createPublisherAppPaletteOverridePlan(
     colors, catalog.options, catalog.catalogVersion,
     catalog.alternativeTonalFlows, catalog.contrastPairs,
   );
 
-  it("keeps white text on filled actions and category pills instead of changing it to dark ink", () => {
+  it("corrects only luminous action and category fills while retaining shaded and unrelated colors", () => {
     for (const foregroundKey of [
       "community.rareCircles.primaryActionForeground",
       "community.newPost.submitForeground",
       "community.newPost.selectedForeground",
     ]) {
       const pair = catalog.contrastPairs.find((entry) => entry.foregroundKey === foregroundKey)!;
-      expect(effective(plan, foregroundKey, "light")).toBe("#FFFFFF");
-      expectWhiteGradientContrast(pair.backgroundKeys.map((key) => effective(plan, key, "light")));
+      expectSelectiveStructuralGroup(plan, unshaded, pair.backgroundKeys, "light");
+      const paleProtected = pair.backgroundKeys.some(key => {
+        const value = effective(unshaded, key, "light");
+        return !isLuminousStructuralTone(value) && ratio(channels("#FFFFFF"), channels(value)) < 2.5;
+      });
+      const luminous = pair.backgroundKeys.some(key => isLuminousStructuralTone(effective(unshaded, key, "light")));
+      if (luminous && !paleProtected) expect({ foregroundKey, color: effective(plan, foregroundKey, "light") }).toEqual({ foregroundKey, color: "#FFFFFF" });
     }
   });
 
-  it("uses readable darker tab ramps and discovery ribbons in both appearances", () => {
+  it("corrects luminous tab and discovery tokens without changing already shaded or unrelated stops", () => {
+    const previous = createPublisherAppPreviousPaletteOverridePlan(
+      colors, catalog.options, catalog.catalogVersion,
+      catalog.alternativeTonalFlows, catalog.contrastPairs,
+    );
+    let corrected = 0;
     for (const appearance of appearances) {
-      for (const tab of ["reports", "learn", "discover", "community", "profile"]) {
-        expectWhiteGradientContrast(
-          ["start", "end"].map((stop) => effective(plan, `tabs.${tab}.${stop}`, appearance)),
-          appearance === "light" ? [0.78, 0.68] : [0.72, 0.62],
-          `${appearance} ${tab} tab`,
-        );
+      const groups = [
+        ...["reports", "learn", "discover", "community", "profile"].map(tab => ["start", "end"].map(stop => `tabs.${tab}.${stop}`)),
+        ["Start", "Middle", "End"].map(stop => `discover.requestLauncher.ribbon${stop}`),
+      ];
+      for (const keys of groups) for (const key of keys) {
+        const before = effective(previous, key, appearance);
+        const after = effective(plan, key, appearance);
+        if (!isLuminousStructuralTone(before)) expect(after).toBe(before);
+        else {
+          expect(perceptualColor(after).lightness).toBeLessThanOrEqual(perceptualColor(before).lightness);
+          expect(hueDistance(after, before)).toBeLessThan(2);
+          if (before !== after) corrected += 1;
+        }
       }
-      expect(effective(plan, "discover.requestLauncher.foreground", appearance)).toBe("#FFFFFF");
-      expectWhiteGradientContrast(["Start", "Middle", "End"].map((stop) =>
-        effective(plan, `discover.requestLauncher.ribbon${stop}`, appearance),
-      ));
     }
+    expect(corrected).toBeGreaterThan(0);
   });
 
   it("keeps the selected palette and foundations intact while shading shared white-pill backgrounds", () => {
@@ -591,8 +660,7 @@ it.each(brightStructuralPalettes)("keeps the $name hue, ramp shading and opacity
     expect(tones[1].lightness).toBeGreaterThan(tones[2].lightness);
     expect(new Set(values).size).toBe(3);
     for (const generated of values) expect(generated.slice(7)).toBe("E6");
-    const backgrounds = values.map((generated) => composite(generated, channels("#FFFFFF")));
-    for (const background of backgrounds) expect(ratio(channels("#FFFFFF"), background)).toBeGreaterThanOrEqual(4.485);
+    for (const generated of values) expect(ratio(channels("#FFFFFF"), channels(generated))).toBeGreaterThanOrEqual(2.485);
   }
 });
 
@@ -659,7 +727,7 @@ it("keeps manually chosen bright shared-pill and tab fills exact in their edited
   expect(result.generatedColorOverrides["tabs.learn.start"]).toEqual(plan.colorOverrides["tabs.learn.start"]);
   expectWhiteGradientContrast(
     [result.colorOverrides["tabs.learn.end"]?.light ?? original("tabs.learn.end", "light")],
-    [0.68], "automatic Learn tab end next to a manual start",
+    [], "automatic Learn tab end next to a manual start",
   );
   expect(current["brand.primary"].light).toBe("#FFFF00");
   expect(current["tabs.learn.start"].light).toBe("#00FFFF");
