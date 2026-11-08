@@ -73,7 +73,11 @@ function expectLightnessProgression(plan: PalettePlan, keys: string[], appearanc
     const targetDelta = perceptualColor(effective(plan, keys[index], appearance)).lightness -
       perceptualColor(effective(plan, keys[index - 1], appearance)).lightness;
     if (Math.abs(sourceDelta) < 0.004) continue;
-    expect(Math.sign(targetDelta)).toBe(Math.sign(sourceDelta));
+    try {
+      expect(Math.sign(targetDelta)).toBe(Math.sign(sourceDelta));
+    } catch (error) {
+      throw new Error(`${appearance} ${keys[index - 1]} → ${keys[index]}: ${effective(plan, keys[index - 1], appearance)} → ${effective(plan, keys[index], appearance)}`, { cause: error });
+    }
   }
 }
 
@@ -119,13 +123,21 @@ describe("publisher app automatic palette fidelity", () => {
     }
   });
 
-  it("uses the three operator-selected brand colors exactly", () => {
-    const palette = publisherAppColorsWithCounterpoints(palettes[0]);
-    const plan = createPlan();
+  it("uses the chosen palette hues for readable filled controls without changing the selected colors", () => {
+    const colors = publisherAppColorsWithCounterpoints(palettes[0]);
+    const selected = { ...colors };
+    const plan = createPublisherAppPaletteOverridePlan(
+      colors, catalog.options, catalog.catalogVersion,
+      catalog.alternativeTonalFlows, catalog.contrastPairs,
+    );
+    expect(colors).toEqual(selected);
     for (const appearance of appearances) {
-      expect(effective(plan, "brand.primary", appearance)).toBe(palette.primary);
-      expect(effective(plan, "brand.secondary", appearance)).toBe(palette.secondary);
-      expect(effective(plan, "brand.accent", appearance)).toBe(palette.tertiary);
+      for (const [key, seed] of [["brand.primary", colors.primary], ["brand.secondary", colors.secondary], ["brand.accent", colors.tertiary]]) {
+        const generated = effective(plan, key, appearance);
+        expectWhiteGradientContrast([generated]);
+        expect(hueDistance(generated, seed)).toBeLessThan(2);
+        expect(perceptualColor(generated).lightness).toBeLessThanOrEqual(perceptualColor(seed).lightness);
+      }
     }
   });
 
@@ -237,7 +249,10 @@ describe("publisher app automatic palette fidelity", () => {
       expect(colors[key]).toBe(primary);
     }
     for (const appearance of appearances) {
-      expect(effective(plan, "brand.primary", appearance)).toBe(primary);
+      const primaryFill = effective(plan, "brand.primary", appearance);
+      expect(perceptualColor(primaryFill).chroma).toBeLessThan(0.001);
+      expectWhiteGradientContrast([primaryFill]);
+      expect(palette.primary).toBe(primary);
       expect(perceptualColor(effective(plan, "discover.category.genomicDatabase.accent", appearance)).chroma).toBeLessThan(0.001);
       for (const keys of [
         ["learn.level.spider.accent", "learn.level.spider.gradientEnd"],
@@ -315,7 +330,11 @@ describe.each(palettes)("$name brand palette", (palette) => {
         const [start, end] = keys.map((key) => effective(plan, key, appearance));
         if (Math.min(perceptualColor(start).chroma, perceptualColor(end).chroma) <= 0.008) continue;
         const sourceDistance = hueDistance(original(keys[0], appearance), original(keys[1], appearance));
-        expect(Math.abs(hueDistance(start, end) - sourceDistance)).toBeLessThan(10);
+        try {
+          expect(Math.abs(hueDistance(start, end) - sourceDistance)).toBeLessThan(10);
+        } catch (error) {
+          throw new Error(`${appearance} ${keys.join(" → ")}: ${start} → ${end}`, { cause: error });
+        }
       }
     }
   });
@@ -455,4 +474,193 @@ describe.each(palettes)("$name brand palette", (palette) => {
       }
     }
   });
+});
+
+const brightStructuralPalettes = [
+  { name: "yellow", color: "#FFFF00" },
+  { name: "green", color: "#40FF00" },
+  { name: "cyan", color: "#00FFFF" },
+];
+
+function brightStructuralColors(color: string) {
+  return publisherAppColorsWithCounterpoints({
+    primary: color, secondary: color, tertiary: color,
+    counterpointClockwise: color, counterpointAnticlockwise: color,
+    counterpointFarClockwise: color, counterpointFarAnticlockwise: color,
+  });
+}
+
+function expectWhiteGradientContrast(values: string[], opacities: number[] = [], label = "gradient") {
+  const backgrounds = values.map((value, index) => channels(value).map((channel) => {
+    const opacity = opacities[index] ?? 1;
+    return channel * opacity + 1 - opacity;
+  }));
+  const samples = [...backgrounds];
+  for (let index = 1; index < backgrounds.length; index += 1) {
+    for (let step = 1; step < 32; step += 1) {
+      samples.push(backgrounds[index - 1].map((channel, component) =>
+        channel + (backgrounds[index][component] - channel) * step / 32,
+      ));
+    }
+  }
+  for (const background of samples) {
+    try {
+      expect(ratio(channels("#FFFFFF"), background)).toBeGreaterThanOrEqual(4.485);
+    } catch (error) {
+      throw new Error(`${label}: white text over ${values.join(", ")} at opacity ${opacities.join(", ") || "1"}`, { cause: error });
+    }
+  }
+}
+
+describe.each(brightStructuralPalettes)("readable $name structural fills", ({ color }) => {
+  const colors = brightStructuralColors(color);
+  const input = JSON.parse(JSON.stringify(colors));
+  const plan = createPublisherAppPaletteOverridePlan(
+    colors, catalog.options, catalog.catalogVersion,
+    catalog.alternativeTonalFlows, catalog.contrastPairs,
+  );
+
+  it("keeps white text on filled actions and category pills instead of changing it to dark ink", () => {
+    for (const foregroundKey of [
+      "community.rareCircles.primaryActionForeground",
+      "community.newPost.submitForeground",
+      "community.newPost.selectedForeground",
+    ]) {
+      const pair = catalog.contrastPairs.find((entry) => entry.foregroundKey === foregroundKey)!;
+      expect(effective(plan, foregroundKey, "light")).toBe("#FFFFFF");
+      expectWhiteGradientContrast(pair.backgroundKeys.map((key) => effective(plan, key, "light")));
+    }
+  });
+
+  it("uses readable darker tab ramps and discovery ribbons in both appearances", () => {
+    for (const appearance of appearances) {
+      for (const tab of ["reports", "learn", "discover", "community", "profile"]) {
+        expectWhiteGradientContrast(
+          ["start", "end"].map((stop) => effective(plan, `tabs.${tab}.${stop}`, appearance)),
+          appearance === "light" ? [0.78, 0.68] : [0.72, 0.62],
+          `${appearance} ${tab} tab`,
+        );
+      }
+      expect(effective(plan, "discover.requestLauncher.foreground", appearance)).toBe("#FFFFFF");
+      expectWhiteGradientContrast(["Start", "Middle", "End"].map((stop) =>
+        effective(plan, `discover.requestLauncher.ribbon${stop}`, appearance),
+      ));
+    }
+  });
+
+  it("keeps the selected palette and foundations intact while shading shared white-pill backgrounds", () => {
+    expect(colors).toEqual(input);
+    for (const appearance of appearances) {
+      for (const key of ["brand.primary", "brand.secondary", "brand.accent"]) {
+        const generated = effective(plan, key, appearance);
+        expectWhiteGradientContrast([generated]);
+        expect(hueDistance(generated, color)).toBeLessThan(2);
+        expect(perceptualColor(generated).lightness).toBeLessThan(perceptualColor(color).lightness);
+      }
+      expect(effective(plan, "app.background", appearance)).toBe(original("app.background", appearance));
+    }
+  });
+});
+
+it.each(brightStructuralPalettes)("keeps the $name hue, ramp shading and opacity when darkening a translucent filled control", ({ color }) => {
+  const option = (key: string, value: string): PublisherAppColorCatalogOption => ({
+    key, title: key, usageDescription: key, group: "Community composer",
+    defaultLightColor: value, defaultDarkColor: value, platforms: ["ios", "android"],
+  });
+  const options = [
+    option("brand.primary", "#F61C72"),
+    option("app.background", "#FFFFFF"),
+    option("community.newPost.submitStart", "#F61C72E6"),
+    option("community.newPost.submitMiddle", "#D20B5AE6"),
+    option("community.newPost.submitEnd", "#A20B45E6"),
+    option("community.newPost.submitForeground", "#FFFFFF"),
+  ];
+  const backgroundKeys = ["Start", "Middle", "End"].map((stop) => `community.newPost.submit${stop}`);
+  const plan = createPublisherAppPaletteOverridePlan(
+    brightStructuralColors(color), options, 99, [],
+    [{ foregroundKey: "community.newPost.submitForeground", backgroundKeys, minimumRatio: 4.5 }],
+  );
+  const value = (key: string, appearance: Appearance) => plan.colorOverrides[key]?.[appearance] ?? options.find((entry) => entry.key === key)!.defaultLightColor;
+  for (const appearance of appearances) {
+    expect(value("community.newPost.submitForeground", appearance)).toBe("#FFFFFF");
+    const values = backgroundKeys.map((key) => value(key, appearance));
+    const tones = values.map(perceptualColor);
+    expect(hueDistance(values[0], color)).toBeLessThan(2);
+    expect(tones[0].lightness).toBeLessThan(perceptualColor(color).lightness);
+    expect(tones[0].lightness).toBeGreaterThan(tones[1].lightness);
+    expect(tones[1].lightness).toBeGreaterThan(tones[2].lightness);
+    expect(new Set(values).size).toBe(3);
+    for (const generated of values) expect(generated.slice(7)).toBe("E6");
+    const backgrounds = values.map((generated) => composite(generated, channels("#FFFFFF")));
+    for (const background of backgrounds) expect(ratio(channels("#FFFFFF"), background)).toBeGreaterThanOrEqual(4.485);
+  }
+});
+
+it("preserves manual structural fill and foreground choices while adjusting the remaining automatic shades", () => {
+  const colors = brightStructuralColors("#FFFF00");
+  const plan = createPublisherAppPaletteOverridePlan(
+    colors, catalog.options, catalog.catalogVersion,
+    catalog.alternativeTonalFlows, catalog.contrastPairs,
+  );
+  const backgroundKey = "community.newPost.submitStart";
+  const foregroundKey = "community.newPost.submitForeground";
+  const current = {
+    ...plan.colorOverrides,
+    [backgroundKey]: { ...plan.colorOverrides[backgroundKey], light: "#6B5C12" },
+    [foregroundKey]: { ...plan.colorOverrides[foregroundKey], light: "#FFFFFFF2" },
+  };
+  const result = reconcilePublisherAppPaletteContrast({
+    colorOverrides: current,
+    generatedColorOverrides: plan.colorOverrides,
+    lockedOverrides: { [backgroundKey]: { light: true }, [foregroundKey]: { light: true } },
+    options: catalog.options, contrastPairs: catalog.contrastPairs,
+  });
+  expect(result.colorOverrides[backgroundKey].light).toBe("#6B5C12");
+  expect(result.colorOverrides[foregroundKey].light).toBe("#FFFFFFF2");
+  expect(current[backgroundKey].light).toBe("#6B5C12");
+  expect(current[foregroundKey].light).toBe("#FFFFFFF2");
+});
+
+it("leaves already readable independent palette fills unchanged when a bright secondary needs shading", () => {
+  const colors = publisherAppColorsWithCounterpoints({ primary: "#172554", secondary: "#FFFF00", tertiary: "#14532D" });
+  const selected = { ...colors };
+  const plan = createPublisherAppPaletteOverridePlan(
+    colors, catalog.options, catalog.catalogVersion,
+    catalog.alternativeTonalFlows, catalog.contrastPairs,
+  );
+  expect(colors).toEqual(selected);
+  for (const appearance of appearances) {
+    expect(effective(plan, "brand.primary", appearance)).toBe("#172554");
+    expect(effective(plan, "brand.accent", appearance)).toBe("#14532D");
+    expectWhiteGradientContrast([effective(plan, "brand.secondary", appearance)]);
+    expect(hueDistance(effective(plan, "brand.secondary", appearance), "#FFFF00")).toBeLessThan(2);
+  }
+});
+
+it("keeps manually chosen bright shared-pill and tab fills exact in their edited appearance", () => {
+  const plan = createPublisherAppPaletteOverridePlan(
+    brightStructuralColors("#40FF00"), catalog.options, catalog.catalogVersion,
+    catalog.alternativeTonalFlows, catalog.contrastPairs,
+  );
+  const current = {
+    ...plan.colorOverrides,
+    "brand.primary": { ...plan.colorOverrides["brand.primary"], light: "#FFFF00" },
+    "tabs.learn.start": { ...plan.colorOverrides["tabs.learn.start"], light: "#00FFFF" },
+  };
+  const result = reconcilePublisherAppPaletteContrast({
+    colorOverrides: current,
+    generatedColorOverrides: plan.colorOverrides,
+    lockedOverrides: { "brand.primary": { light: true }, "tabs.learn.start": { light: true } },
+    options: catalog.options, contrastPairs: catalog.contrastPairs,
+  });
+  expect(result.colorOverrides["brand.primary"]).toEqual(current["brand.primary"]);
+  expect(result.colorOverrides["tabs.learn.start"]).toEqual(current["tabs.learn.start"]);
+  expect(result.generatedColorOverrides["brand.primary"]).toEqual(plan.colorOverrides["brand.primary"]);
+  expect(result.generatedColorOverrides["tabs.learn.start"]).toEqual(plan.colorOverrides["tabs.learn.start"]);
+  expectWhiteGradientContrast(
+    [result.colorOverrides["tabs.learn.end"]?.light ?? original("tabs.learn.end", "light")],
+    [0.68], "automatic Learn tab end next to a manual start",
+  );
+  expect(current["brand.primary"].light).toBe("#FFFF00");
+  expect(current["tabs.learn.start"].light).toBe("#00FFFF");
 });

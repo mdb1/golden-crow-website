@@ -1,8 +1,8 @@
 import { getServerSession } from "next-auth";
 import { POST } from "../route";
-import { publisherAppColorsWithCounterpoints, publisherAppSupersededCounterpointColors } from "@/lib/publisher-app-config";
+import { publisherAppColorsWithCounterpoints, publisherAppPreviousCounterpointColors, publisherAppSupersededCounterpointColors } from "@/lib/publisher-app-config";
 import { getLegacyPublisherAppColorCatalog, getPublisherAppColorCatalog } from "@/lib/publisher-app-customization-catalog-server";
-import { createPublisherAppPaletteOverridePlan } from "@/lib/publisher-app-palette-overrides";
+import { createPublisherAppPaletteOverridePlan, createPublisherAppPreviousPaletteOverridePlan } from "@/lib/publisher-app-palette-overrides";
 import { createLegacyPublisherAppPaletteOverridePlan, legacyPublisherAppCounterpointColors } from "@/lib/publisher-app-legacy-palette-overrides";
 
 jest.mock("next-auth", () => ({ getServerSession: jest.fn() }));
@@ -200,6 +200,35 @@ describe("custom app palette override route", () => {
     expect(body.colorOverrides["learn.background.leadingGlow"].light).toBe("#11223380");
   });
 
+  it.each(["stored", "original HSL", "raw OKLCH", "paired OKLCH"] as const)(
+    "upgrades bright generated control fills from the old solver with %s seeds while preserving manual RGBA",
+    async (variant) => {
+      jest.mocked(getServerSession).mockResolvedValue({ user: { email: "admin@example.org" }, expires: "2099-01-01T00:00:00.000Z" });
+      const base = { primary: "#40FF00", secondary: "#2AEF47", tertiary: "#82F820" };
+      const colors = publisherAppColorsWithCounterpoints(base);
+      const previousColors = variant === "stored" ? colors : base;
+      const oldSeeds = variant === "stored" ? colors
+        : { ...base, ...(variant === "original HSL" ? publisherAppPreviousCounterpointColors(base.primary)
+          : publisherAppSupersededCounterpointColors(base.primary)[variant === "raw OKLCH" ? 0 : 1]!) };
+      const catalog = getPublisherAppColorCatalog();
+      const oldPlan = createPublisherAppPreviousPaletteOverridePlan(oldSeeds, catalog.options, catalog.catalogVersion, catalog.alternativeTonalFlows, catalog.contrastPairs);
+      const newPlan = createPublisherAppPaletteOverridePlan(colors, catalog.options, catalog.catalogVersion, catalog.alternativeTonalFlows, catalog.contrastPairs);
+      const background = "tabs.learn.start";
+      expect(colorContrast("#FFFFFF", oldPlan.colorOverrides[background].light!)).toBeLessThan(2.5);
+      expect(newPlan.colorOverrides[background]).not.toEqual(oldPlan.colorOverrides[background]);
+      const current = { ...oldPlan.colorOverrides, "learn.background.leadingGlow": { light: "#11223380" } };
+      const response = await POST(new Request("https://example.test/api/publisher-app/palette-overrides", {
+        method: "POST", body: JSON.stringify({ colors, previousColors, colorOverrides: current }),
+      }));
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.colorOverrides[background]).toEqual(body.generatedColorOverrides[background]);
+      expect(body.colorOverrides[background]).toEqual(newPlan.colorOverrides[background]);
+      expect(colorContrast("#FFFFFF", body.colorOverrides[background].light)).toBeGreaterThanOrEqual(4.5);
+      expect(body.colorOverrides["learn.background.leadingGlow"].light).toBe("#11223380");
+    },
+  );
+
   it("reconciles automatic foreground contrast against a retained manual background and saves the corrected baseline", async () => {
     jest.mocked(getServerSession).mockResolvedValue({ user: { email: "admin@example.org" }, expires: "2099-01-01T00:00:00.000Z" });
     const colors = publisherAppColorsWithCounterpoints({ primary: "#FF5500", secondary: "#FFB21F", tertiary: "#F58220" });
@@ -251,18 +280,18 @@ describe("custom app palette override route", () => {
     const generated = createPublisherAppPaletteOverridePlan(colors, catalog.options, catalog.catalogVersion, catalog.alternativeTonalFlows, catalog.contrastPairs).colorOverrides;
     const foregroundKey = "community.rareCircles.headerForeground";
     const backgroundKeys = ["community.rareCircles.headerStart", "community.rareCircles.headerMiddle", "community.rareCircles.headerEnd"];
-    expect(Math.min(...backgroundKeys.map(key => colorContrast("#FFFFFF", generated[key]?.light ?? catalog.options.find(option => option.key === key)!.defaultLightColor)))).toBeLessThan(4.5);
+    expect(Math.min(...backgroundKeys.map(key => colorContrast("#000000", generated[key]?.light ?? catalog.options.find(option => option.key === key)!.defaultLightColor)))).toBeLessThan(4.5);
     const response = await POST(new Request("https://example.test/api/publisher-app/palette-overrides", {
       method: "POST", body: JSON.stringify({ colors, previousColors: colors,
-        colorOverrides: { [foregroundKey]: { light: "#FFFFFF" } }, generatedColorOverrides: {},
+        colorOverrides: { [foregroundKey]: { light: "#000000" } }, generatedColorOverrides: {},
       }),
     }));
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.colorOverrides[foregroundKey].light).toBe("#FFFFFF");
+    expect(body.colorOverrides[foregroundKey].light).toBe("#000000");
     for (const key of backgroundKeys) {
       const effective = body.colorOverrides[key]?.light ?? catalog.options.find(option => option.key === key)!.defaultLightColor;
-      expect(colorContrast("#FFFFFF", effective)).toBeGreaterThanOrEqual(4.5);
+      expect(colorContrast("#000000", effective)).toBeGreaterThanOrEqual(4.5);
       expect(body.generatedColorOverrides[key]?.light).toBe(body.colorOverrides[key]?.light);
     }
   });

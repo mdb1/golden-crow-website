@@ -12,7 +12,7 @@ import {
   getLegacyPublisherAppColorCatalog,
   getPublisherAppColorCatalog,
 } from "@/lib/publisher-app-customization-catalog-server";
-import { createPublisherAppPaletteOverridePlan, reconcilePublisherAppPaletteContrast } from "@/lib/publisher-app-palette-overrides";
+import { createPublisherAppPaletteOverridePlan, createPublisherAppPreviousPaletteOverridePlan, reconcilePublisherAppPaletteContrast } from "@/lib/publisher-app-palette-overrides";
 import {
   createLegacyPublisherAppPaletteOverridePlan,
   legacyPublisherAppCounterpointColors,
@@ -113,21 +113,18 @@ export async function POST(request: Request) {
       legacyCatalog.options, legacyCatalog.catalogVersion,
       legacyCatalog.alternativeTonalFlows,
     ));
-    infer(() => createPublisherAppPaletteOverridePlan(
-      previous, catalog.options, catalog.catalogVersion,
-      catalog.alternativeTonalFlows, catalog.contrastPairs,
-    ));
-    infer(() => createPublisherAppPaletteOverridePlan(
+    const previousPalettes = [
+      previous,
       { ...previous, ...publisherAppPreviousCounterpointColors(previous.primary) },
-      catalog.options, catalog.catalogVersion,
-      catalog.alternativeTonalFlows, catalog.contrastPairs,
-    ));
-    for (const counterpoints of publisherAppSupersededCounterpointColors(previous.primary)) {
-      infer(() => createPublisherAppPaletteOverridePlan(
-        { ...previous, ...counterpoints },
-        catalog.options, catalog.catalogVersion,
-        catalog.alternativeTonalFlows, catalog.contrastPairs,
-      ));
+      ...publisherAppSupersededCounterpointColors(previous.primary).map(counterpoints => ({ ...previous, ...counterpoints })),
+    ];
+    for (const palette of previousPalettes) {
+      for (const generate of [createPublisherAppPaletteOverridePlan, createPublisherAppPreviousPaletteOverridePlan]) {
+        infer(() => generate(
+          palette, catalog.options, catalog.catalogVersion,
+          catalog.alternativeTonalFlows, catalog.contrastPairs,
+        ));
+      }
     }
   }
   const colorOverrides = mergePublisherAppPaletteOverrides({
