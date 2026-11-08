@@ -28,6 +28,7 @@ import {
   Mail,
   Moon,
   Palette,
+  Pencil,
   Pilcrow,
   Plus,
   Rocket,
@@ -374,6 +375,7 @@ function ColorValueControl({
           />
           <code className="min-w-0 flex-1 text-sm font-semibold">{value}</code>
           <Button type="button" variant="outline" onClick={openPicker}>
+            <Pencil className="size-3.5" />
             Cambiar color
           </Button>
         </div>
@@ -552,6 +554,7 @@ function ColorOverridesEditor({
                   setColorPicker({ mode, label });
                 }}
               >
+                <Pencil className="size-3.5" />
                 Cambiar color
               </Button>
             ) : (
@@ -562,6 +565,7 @@ function ColorOverridesEditor({
                   setEditing((current) => ({ ...current, [mode]: fallback }))
                 }
               >
+                <Pencil className="size-3.5" />
                 Personalizar
               </Button>
             )}
@@ -3690,11 +3694,11 @@ export function PublisherAppAdvancedConfigurationEditor({
                   : "Paleta automática"}
               </Badge>
             </div>
-            <div className="mt-4 flex h-16 overflow-hidden rounded-xl border bg-background">
+            <div className="mt-4 flex flex-wrap gap-3 rounded-2xl border bg-background p-4">
               {SEMANTIC_COLOR_FIELDS.map((field) => (
                 <div
                   key={field.key}
-                  className="flex-1 transition-all duration-300 hover:flex-[1.6]"
+                  className="size-10 shrink-0 rounded-full border-4 border-background shadow-sm ring-1 ring-border transition-transform duration-300 hover:-translate-y-1 hover:scale-110 motion-reduce:transform-none"
                   style={{
                     backgroundColor: effectiveSemanticColors[field.key],
                   }}

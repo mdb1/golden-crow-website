@@ -43,6 +43,7 @@ import {
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { PublisherAppPaletteComposition } from "@/components/publisher-app-palette-composition";
+import { PublisherAppColorPicker } from "@/components/publisher-app-color-picker";
 import { PublisherAppVisualIdentityEditor } from "@/components/publisher-app-visual-identity-editor";
 import {
   PublisherAppAdvancedConfigurationEditor,
@@ -1242,6 +1243,13 @@ function PublisherAppEditSheet({
 }) {
   const [activeDialog, setActiveDialog] =
     useState<PublisherAppEditDialog>(null);
+  const [identityStage, setIdentityStage] = useState<0 | 1 | 2>(0);
+  const [identityColor, setIdentityColor] = useState<ColorKey | null>(null);
+  function openIdentityEditor(key?: ColorKey) {
+    setIdentityStage(key ? (["primary", "secondary", "tertiary"].includes(key) ? 1 : 2) : 0);
+    setIdentityColor(key ?? null);
+    setActiveDialog("colors");
+  }
   const [dangerOpen, setDangerOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const optionalFeatures = [
@@ -1599,9 +1607,9 @@ function PublisherAppEditSheet({
               icon={<Palette className="size-5" />}
               title="Identidad visual"
               actionLabel="Editar paleta"
-              onAction={() => setActiveDialog("colors")}
+              onAction={() => openIdentityEditor()}
             >
-              <PublisherAppPaletteComposition colors={colors} />
+              <PublisherAppPaletteComposition colors={colors} onEditColor={openIdentityEditor} />
               {activeDialog !== "colors" ? <PaletteOverrideCalculationStatus calculation={paletteOverrideCalculation} /> : null}
             </PublisherAppEditSection>
 
@@ -2042,6 +2050,9 @@ function PublisherAppEditSheet({
                   disabled={paletteOverrideCalculation.status === "loading"}
                   onApply={onApplyPalette}
                   onApplied={() => setActiveDialog(null)}
+                  stage={identityStage}
+                  onStageChange={setIdentityStage}
+                  initialColor={identityColor}
                 />
                 {paletteOverrideCalculation.status === "loading" || paletteOverrideCalculation.status === "error" ? (
                   <PaletteOverrideCalculationStatus calculation={paletteOverrideCalculation} />
@@ -2165,10 +2176,13 @@ function PublisherAppEditSheet({
           <DialogFooter className="shrink-0 border-t border-violet-100 bg-violet-50/55 px-6 py-4 dark:border-violet-400/14 dark:bg-violet-950/18">
             {activeDialog === "colors" ? <>
               <Button type="button" variant="outline" disabled={paletteOverrideCalculation.status === "loading"} onClick={() => setActiveDialog(null)}>Cancelar</Button>
-              <Button type="submit" form="publisher-app-visual-identity" disabled={paletteOverrideCalculation.status === "loading"} className="h-11 min-w-28 rounded-xl bg-violet-600 text-white hover:bg-violet-700">
+              {identityStage > 0 ? <Button type="button" variant="ghost" disabled={paletteOverrideCalculation.status === "loading"} onClick={() => setIdentityStage(identityStage === 2 ? 1 : 0)}><ArrowLeft className="size-4" />{identityStage === 2 ? "Volver a colores principales" : "Volver a identidad"}</Button> : null}
+              {identityStage < 2 ? <Button key="identity-continue" type="button" onClick={(event) => { event.preventDefault(); setIdentityStage(identityStage === 0 ? 1 : 2); }}><ArrowRight className="size-4" />{identityStage === 0 ? "Continuar a colores principales" : "Continuar a contrapuntos"}</Button> : (
+              <Button key="identity-apply" type="submit" form="publisher-app-visual-identity" disabled={paletteOverrideCalculation.status === "loading"} className="h-11 min-w-28 rounded-xl bg-violet-600 text-white hover:bg-violet-700">
                 {paletteOverrideCalculation.status === "loading" ? <LoaderCircle className="size-4 animate-spin" /> : <Check className="size-4" />}
                 {paletteOverrideCalculation.status === "loading" ? "Aplicando…" : "Aplicar"}
               </Button>
+              )}
             </> : (
             <Button
               type="button"
@@ -3371,57 +3385,23 @@ export function PublisherAppConfigWorkbench({
                       Ajustá los tres colores base
                     </p>
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-4">
                     {EDITABLE_COLOR_FIELDS.map((field) => {
-                      const normalized =
-                        normalizePublisherAppColor(state.colors[field.key]) ??
-                        DEFAULT_PUBLISHER_APP_COLOR;
-                      return (
-                        <label
-                          key={field.key}
-                          className="group relative flex min-h-56 cursor-pointer flex-col items-center overflow-hidden rounded-[22px] border border-border/80 bg-card p-4 text-center transition duration-200 hover:-translate-y-0.5 hover:border-violet-400 hover:shadow-[0_18px_38px_-30px_rgba(109,40,217,0.72)]"
-                        >
-                          <input
-                            type="color"
-                            aria-label={`Elegir ${field.label.toLowerCase()}`}
-                            value={normalized}
-                            disabled={
-                              paletteOverrideCalculation.status === "loading"
-                            }
-                            onChange={(event) =>
-                              updateColor(
-                                field.key,
-                                event.target.value.toUpperCase(),
-                              )
-                            }
-                            className="absolute inset-0 z-20 size-full cursor-pointer opacity-0"
-                          />
-                          <span className="relative flex size-24 items-center justify-center">
-                            <span
-                              className="absolute inset-1 rounded-full border border-dashed border-violet-300 transition-transform duration-500 group-hover:rotate-45 group-hover:scale-105"
-                              aria-hidden="true"
-                            />
-                            <span
-                              className="relative flex size-[68px] items-center justify-center overflow-hidden rounded-[23px] border-4 border-white text-white shadow-[0_18px_32px_-18px_rgba(15,23,42,0.8)]"
-                              style={{
-                                backgroundColor: normalized,
-                              }}
-                            >
-                              <span className="absolute inset-x-2 top-1.5 h-1/3 rounded-full bg-white/25 blur-sm" />
-                              <Palette className="relative size-6 drop-shadow" />
-                            </span>
-                          </span>
-                          <span className="mt-2 text-sm font-semibold text-foreground">
-                            {field.label}
-                          </span>
-                          <span className="mt-1 text-xs leading-5 text-muted-foreground">
-                            {field.description}
-                          </span>
-                          <span className="mt-auto rounded-full bg-violet-100 px-3 py-1 text-[10px] font-bold text-violet-800 transition group-hover:bg-violet-600 group-hover:text-white dark:bg-violet-400/15 dark:text-violet-100">
-                            Cambiar color
-                          </span>
-                        </label>
-                      );
+                      const normalized = normalizePublisherAppColor(state.colors[field.key]) ?? DEFAULT_PUBLISHER_APP_COLOR;
+                      return <PublisherAppColorPicker
+                        key={field.key}
+                        label={field.label}
+                        value={normalized}
+                        disabled={paletteOverrideCalculation.status === "loading"}
+                        onChange={(value) => updateColor(field.key, value)}
+                        className="min-w-0 flex-col rounded-2xl px-1 py-4 hover:-translate-y-1 motion-reduce:transform-none"
+                      >
+                        <span aria-hidden="true" className="relative flex aspect-square w-24 max-w-full items-center justify-center rounded-full border border-dashed border-violet-300 transition duration-300 group-hover:rotate-6 sm:w-36 motion-reduce:transform-none">
+                          <span className="size-[82%] rounded-full border-4 border-background shadow-lg ring-1 ring-black/10" style={{ backgroundColor: normalized }} />
+                        </span>
+                        <span className="mt-2 text-xs font-semibold sm:text-sm">{field.label.replace("Color ", "")}</span>
+                        <span className="flex items-center gap-1 text-muted-foreground"><code className="text-[10px] sm:text-xs">{normalized}</code><Pencil className="size-3" /></span>
+                      </PublisherAppColorPicker>;
                     })}
                   </div>
                 </div>

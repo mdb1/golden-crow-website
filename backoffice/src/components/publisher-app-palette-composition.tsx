@@ -1,71 +1,100 @@
+import { Pencil } from "lucide-react";
 import type { PublisherAppColors } from "@/lib/publisher-app-config";
 import { cn } from "@/lib/utils";
 
 const MAIN_SWATCHES = [
-  { key: "primary", label: "Color principal", position: "z-30 flex-[1.15] -rotate-2" },
-  { key: "secondary", label: "Color secundario", position: "z-20 mt-4 flex-1 rotate-2 sm:mt-6" },
-  { key: "tertiary", label: "Color terciario", position: "z-10 mt-8 flex-1 -rotate-1 sm:mt-12" },
+  { key: "primary", label: "Color principal" },
+  { key: "secondary", label: "Color secundario" },
+  { key: "tertiary", label: "Color terciario" },
 ] as const;
 
 const COUNTERPOINT_SWATCHES = [
-  { key: "counterpointClockwise", label: "Horario" },
-  { key: "counterpointAnticlockwise", label: "Antihorario" },
-  { key: "counterpointFarClockwise", label: "Lejano horario" },
-  { key: "counterpointFarAnticlockwise", label: "Lejano antihorario" },
+  { key: "counterpointClockwise", label: "Horario", fullLabel: "Color de contrapunto horario" },
+  { key: "counterpointAnticlockwise", label: "Antihorario", fullLabel: "Color de contrapunto antihorario" },
+  { key: "counterpointFarClockwise", label: "Lejano horario", fullLabel: "Color de contrapunto lejano horario" },
+  { key: "counterpointFarAnticlockwise", label: "Lejano antihorario", fullLabel: "Color de contrapunto lejano antihorario" },
 ] as const;
 
-export function PublisherAppPaletteComposition({ colors }: { colors: PublisherAppColors }) {
+function PaletteBall({
+  label,
+  fullLabel = label,
+  value,
+  main = false,
+  onEdit,
+}: {
+  label: string;
+  fullLabel?: string;
+  value: string;
+  main?: boolean;
+  onEdit?: () => void;
+}) {
+  const content = (
+    <>
+      <span className={cn(
+        "relative mx-auto block aspect-square w-full shrink-0",
+        main ? "max-w-[88px] sm:max-w-[136px]" : "max-w-9 sm:max-w-[52px]",
+      )}>
+        {main ? (
+          <span aria-hidden="true" className="pointer-events-none absolute -inset-2 rounded-full border border-dashed border-violet-300/65 transition-transform duration-500 group-hover:rotate-45 group-focus-visible:rotate-45 motion-reduce:transform-none dark:border-violet-400/30" />
+        ) : null}
+        <span
+          aria-hidden="true"
+          className={cn(
+            "absolute inset-0 rounded-full border-background shadow-[0_12px_24px_-14px_rgba(15,23,42,0.65)] ring-1 ring-black/8 transition-transform duration-300 group-hover:-translate-y-1 group-hover:scale-105 group-focus-visible:-translate-y-1 group-active:scale-95 motion-reduce:transform-none dark:ring-white/10",
+            main ? "border-[5px] sm:border-[7px]" : "border-[3px]",
+          )}
+          style={{ backgroundColor: value }}
+        />
+      </span>
+      <span className={cn("mt-4 flex min-w-0 items-center justify-center gap-1.5", main ? "text-[11px] font-semibold sm:text-sm" : "text-[9px] font-medium sm:text-[11px]")}>
+        <span>{label}</span>
+        {onEdit ? <Pencil aria-hidden="true" className={cn("shrink-0 text-violet-600 transition-transform duration-300 group-hover:-rotate-12 motion-reduce:transform-none dark:text-violet-300", main ? "size-3.5" : "size-3")} /> : null}
+      </span>
+      <span className={cn("mt-1 block font-mono text-muted-foreground", main ? "text-[10px] sm:text-xs" : "text-[9px] sm:text-[10px]")}>{value}</span>
+    </>
+  );
+  const className = cn(
+    "group flex min-w-0 w-full flex-col items-center rounded-2xl px-1 text-center",
+    main ? "py-4 sm:py-5" : "py-2",
+    onEdit && "cursor-pointer outline-none transition-colors hover:bg-violet-50/60 focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:hover:bg-violet-500/8",
+  );
+
+  return onEdit ? (
+    <button type="button" className={className} aria-label={`Editar ${fullLabel.toLowerCase()}`} aria-description={`Color actual: ${value}`} onClick={onEdit}>
+      {content}
+    </button>
+  ) : <div className={className}>{content}</div>;
+}
+
+export function PublisherAppPaletteComposition({
+  colors,
+  onEditColor,
+}: {
+  colors: PublisherAppColors;
+  onEditColor?: (key: keyof PublisherAppColors) => void;
+}) {
   return (
     <div className="overflow-hidden rounded-[24px] border border-border/70 bg-background">
-      <section aria-label="Paleta principal" className="relative isolate overflow-hidden bg-[radial-gradient(ellipse_at_top_left,rgba(139,92,246,0.07),transparent_60%)] px-4 pt-5 pb-5 sm:px-6 sm:pt-6 sm:pb-7">
-        <h4 className="relative text-sm font-semibold text-foreground">Paleta principal</h4>
-        <div aria-hidden="true" className="pointer-events-none absolute -top-20 -right-20 size-64 rounded-full border border-violet-200/30 dark:border-violet-300/8" />
-        <div aria-hidden="true" className="pointer-events-none absolute top-5 -right-10 size-48 rounded-full border border-violet-200/30 dark:border-violet-300/8" />
-        <dl className="relative mt-6 flex items-start gap-2 pb-2 sm:mt-7 sm:gap-4">
-          {MAIN_SWATCHES.map((swatch, index) => (
-            <div
-              key={swatch.key}
-              className={cn(
-                "min-w-0 rounded-[14px] border border-black/5 bg-white p-1.5 shadow-[0_16px_30px_-18px_rgba(15,23,42,0.45)] sm:rounded-[18px] sm:p-2 dark:border-white/10 dark:bg-slate-900 dark:shadow-[0_18px_32px_-16px_rgba(0,0,0,0.65)]",
-                swatch.position,
-              )}
-            >
-              <dt>
-              <div
-                aria-hidden="true"
-                className="relative h-28 overflow-hidden rounded-[9px] ring-1 ring-black/5 sm:h-44 sm:rounded-xl"
-                style={{ backgroundColor: colors[swatch.key] }}
-              >
-                <span className="absolute top-2 left-2 font-mono text-[9px] font-medium text-black/65 sm:top-3 sm:left-3 sm:text-[10px]">
-                  <span className="rounded-full bg-white/85 px-2 py-1">0{index + 1}</span>
-                </span>
-                <span className="absolute right-3 bottom-3 left-3 border-t border-white/35" />
-              </div>
-              <span className="block min-h-8 px-1 pt-3 text-[10px] leading-4 font-semibold text-slate-900 sm:min-h-0 sm:px-2 sm:text-xs dark:text-slate-100">{swatch.label}</span>
-              </dt>
-              <dd className="mt-1 px-1 pb-2 font-mono text-[10px] text-slate-500 sm:mt-2 sm:px-2 sm:pb-3 sm:text-xs dark:text-slate-400">{colors[swatch.key]}</dd>
-            </div>
+      <section aria-label="Paleta principal" className="bg-[radial-gradient(ellipse_at_top,rgba(139,92,246,0.06),transparent_70%)] px-3 pt-5 pb-3 sm:px-6 sm:pt-6 sm:pb-5">
+        <h4 className="px-1 text-sm font-semibold text-foreground">Paleta principal</h4>
+        <ul className="mt-5 grid grid-cols-3 gap-2 sm:mt-6 sm:gap-4">
+          {MAIN_SWATCHES.map((swatch) => (
+            <li key={swatch.key} className="min-w-0">
+              <PaletteBall main label={swatch.label} value={colors[swatch.key]} onEdit={onEditColor ? () => onEditColor(swatch.key) : undefined} />
+            </li>
           ))}
-        </dl>
+        </ul>
       </section>
 
-      <section aria-label="Contrapuntos de contraste" className="border-t border-border/70 bg-muted/20 px-4 py-4 sm:px-6 sm:py-5">
-        <h4 className="text-xs font-semibold text-muted-foreground">Contrapuntos de contraste</h4>
-        <dl className="mt-4 flex flex-wrap gap-x-4 gap-y-4 sm:gap-x-3">
+      <section aria-label="Contrapuntos de contraste" className="border-t border-border/70 bg-muted/20 px-3 py-4 sm:px-6 sm:py-5">
+        <h4 className="px-1 text-xs font-semibold text-muted-foreground">Contrapuntos de contraste</h4>
+        <ul className="mt-3 grid grid-cols-4 gap-1 sm:mt-4 sm:gap-3">
           {COUNTERPOINT_SWATCHES.map((swatch) => (
-            <div key={swatch.key} className="flex min-w-0 basis-[calc(50%-0.5rem)] items-center gap-2.5 sm:basis-0 sm:flex-1">
-              <span
-                aria-hidden="true"
-                className="size-9 shrink-0 rounded-full border-[3px] border-background shadow-sm ring-1 ring-black/8 sm:size-10"
-                style={{ backgroundColor: colors[swatch.key] }}
-              />
-              <div className="min-w-0">
-                <dt className="text-[10px] leading-4 font-medium text-foreground">{swatch.label}</dt>
-                <dd className="mt-0.5 font-mono text-[10px] text-muted-foreground">{colors[swatch.key]}</dd>
-              </div>
-            </div>
+            <li key={swatch.key} className="min-w-0">
+              <PaletteBall label={swatch.label} fullLabel={swatch.fullLabel} value={colors[swatch.key]} onEdit={onEditColor ? () => onEditColor(swatch.key) : undefined} />
+            </li>
           ))}
-        </dl>
+        </ul>
       </section>
     </div>
   );
