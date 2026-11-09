@@ -203,9 +203,15 @@ const FIXED_QUICK_ACTION_TEXT_KEYS = [
   "community.quickActions.search.foreground",
 ] as const;
 const fixedQuickActionTextKeys = new Set<string>(FIXED_QUICK_ACTION_TEXT_KEYS);
+const GENES_PRIMARY_ACTION_FOREGROUND_KEY = "community.genes.primaryActionForeground";
+const FIXED_FOREGROUND_KEYS = [...FIXED_QUICK_ACTION_TEXT_KEYS, GENES_PRIMARY_ACTION_FOREGROUND_KEY];
 
 function isFixedQuickActionText(key: string) {
   return fixedQuickActionTextKeys.has(key);
+}
+
+function isFixedForeground(key: string) {
+  return isFixedQuickActionText(key) || key === GENES_PRIMARY_ACTION_FOREGROUND_KEY;
 }
 
 const QUICK_ACTION_BACKGROUND_SOURCES = [
@@ -714,7 +720,7 @@ export function reconcilePublisherAppPaletteContrast({
   ).map(option => option.key))]));
   const relationships: ContrastPair[] = [...functionalContrastPairs(byKey), ...contrastPairs].filter(pair =>
     !pair.backgroundKeys.some(restoresGenesAccent) &&
-    !(pair.foregroundKey && isFixedQuickActionText(pair.foregroundKey)),
+    !(pair.foregroundKey && isFixedForeground(pair.foregroundKey)),
   );
   const affectedPairs = relationships.flatMap(pair =>
     MODES.filter(mode => {
@@ -745,7 +751,7 @@ export function reconcilePublisherAppPaletteContrast({
   }
   // Fixed text wins even over an old manual dark/transparent text override.
   // This final assignment never reruns background or gradient corrections.
-  for (const key of FIXED_QUICK_ACTION_TEXT_KEYS) {
+  for (const key of FIXED_FOREGROUND_KEYS) {
     if (!byKey.has(key)) continue;
     result[key] = { light: "#FFFFFF", dark: "#FFFFFF" };
     baseline[key] = { light: "#FFFFFF", dark: "#FFFFFF" };
@@ -812,6 +818,7 @@ function createPaletteOverridePlan(
   restoreGenes = false,
   fixQuickActionText = false,
   anchorQuickActionBackgrounds = false,
+  fixGenesPrimaryActionForeground = false,
 ): PublisherAppPaletteOverridePlan {
   if (options.length === 0) throw new Error("The color catalog is too small to build the palette plan.");
   const values = new Map<string, PublisherAppColorOverride>();
@@ -858,11 +865,25 @@ function createPaletteOverridePlan(
       if (byKey.has(key)) values.set(key, { light: "#FFFFFF", dark: "#FFFFFF" });
     }
   }
-  const colorOverrides = Object.fromEntries([...values.entries()].map(([key, value]) => [key, Object.fromEntries(MODES.filter(mode => (fixQuickActionText && isFixedQuickActionText(key)) || value[mode] !== originalValue(byKey.get(key)!, mode)).map(mode => [mode, value[mode]]))] as const).filter(([, value]) => Object.keys(value).length > 0).sort(([a], [b]) => a.localeCompare(b)));
+  if (fixGenesPrimaryActionForeground && byKey.has(GENES_PRIMARY_ACTION_FOREGROUND_KEY)) {
+    values.set(GENES_PRIMARY_ACTION_FOREGROUND_KEY, { light: "#FFFFFF", dark: "#FFFFFF" });
+  }
+  const colorOverrides = Object.fromEntries([...values.entries()].map(([key, value]) => [key, Object.fromEntries(MODES.filter(mode => (fixQuickActionText && isFixedQuickActionText(key)) || (fixGenesPrimaryActionForeground && key === GENES_PRIMARY_ACTION_FOREGROUND_KEY) || value[mode] !== originalValue(byKey.get(key)!, mode)).map(mode => [mode, value[mode]]))] as const).filter(([, value]) => Object.keys(value).length > 0).sort(([a], [b]) => a.localeCompare(b)));
   return { catalogVersion, sourceCount: options.length, selectedCount: Object.keys(colorOverrides).length, colorOverrides };
 }
 
 export function createPublisherAppPaletteOverridePlan(
+  colors: PublisherAppColors,
+  options: PublisherAppColorCatalogOption[],
+  catalogVersion: number,
+  alternativeTonalFlows: PublisherAppAlternativeTonalFlow[] = [],
+  contrastPairs: PublisherAppColorContrastPair[] = [],
+): PublisherAppPaletteOverridePlan {
+  return createPaletteOverridePlan(colors, options, catalogVersion, alternativeTonalFlows, contrastPairs, true, true, true, true, true, true);
+}
+
+/** Frozen 3.637 results identify prior automatic values without changing manual edits. */
+export function createPublisherAppPreGenesForegroundPaletteOverridePlan(
   colors: PublisherAppColors,
   options: PublisherAppColorCatalogOption[],
   catalogVersion: number,

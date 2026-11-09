@@ -25,7 +25,8 @@ const derivedSemanticColors = {
   accentSurfaceLight: "#FFFCF8",
 };
 
-const fixedQuickActionText = {
+const fixedWhiteForegrounds = {
+  "community.genes.primaryActionForeground": { light: "#FFFFFF", dark: "#FFFFFF" },
   "community.quickActions.friends.foreground": { light: "#FFFFFF", dark: "#FFFFFF" },
   "community.quickActions.genes.foreground": { light: "#FFFFFF", dark: "#FFFFFF" },
   "community.quickActions.circles.foreground": { light: "#FFFFFF", dark: "#FFFFFF" },
@@ -68,33 +69,35 @@ describe.each([
     },
   };
 
-  it.each(["absent", "partial", "dark or translucent"])("publishes opaque white quick-action text with %s stored overrides without changing other colors", (caseName) => {
+  it.each(["absent", "partial", "dark or translucent"])("publishes opaque white fixed foregrounds with %s stored overrides without changing other colors", (caseName) => {
     const untouched = {
       "community.quickActions.friends.start": { light: "#A08000", dark: "#23456780" },
       "community.quickActions.genes.bezel": { light: "#004455", dark: "#004455" },
       "community.genes.primary": { light: "#00A88A", dark: "#00A88A" },
+      "community.genes.primaryActionFill": { light: "#00A88A", dark: "#5EEAD4" },
+      "community.genes.secondaryActionForeground": { light: "#123456", dark: "#65432180" },
       "illustration.primaryTone": { light: "#123456", dark: "#654321" },
     };
     const stored = caseName === "absent" ? {} : caseName === "partial"
-      ? { "community.quickActions.friends.foreground": { light: "#000000" } }
-      : Object.fromEntries(Object.keys(fixedQuickActionText).map(key => [key, { light: "#00000040", dark: "#11223380" }]));
+      ? { "community.quickActions.friends.foreground": { light: "#000000" }, "community.genes.primaryActionForeground": { dark: "#042F2E" } }
+      : Object.fromEntries(Object.keys(fixedWhiteForegrounds).map(key => [key, { light: "#00000040", dark: "#11223380" }]));
     const sourceWithOverrides = {
       ...source,
       advancedConfiguration: { ...source.advancedConfiguration, colorOverrides: { ...untouched, ...stored } },
     };
     const before = structuredClone(sourceWithOverrides);
     const runtime = buildPublisherAppRuntimeConfig(sourceWithOverrides);
-    expect(runtime.branding.colorOverrides).toEqual({ ...untouched, ...fixedQuickActionText });
+    expect(runtime.branding.colorOverrides).toEqual({ ...untouched, ...fixedWhiteForegrounds });
     expect(sourceWithOverrides).toEqual(before);
     expect(runtime.branding.colors).toEqual(storedSemanticColors ? semanticColors : derivedSemanticColors);
   });
 
-  it("includes the four fixed text overrides even when the stored override map is empty", () => {
+  it("includes all fixed foreground overrides even when the stored override map is empty", () => {
     const runtime = buildPublisherAppRuntimeConfig({
       ...source,
       advancedConfiguration: { ...source.advancedConfiguration, colorOverrides: {} },
     });
-    expect(runtime.branding.colorOverrides).toEqual(fixedQuickActionText);
+    expect(runtime.branding.colorOverrides).toEqual(fixedWhiteForegrounds);
   });
 
   it.each([

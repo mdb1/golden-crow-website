@@ -8,7 +8,8 @@ import { buildRouteServer, makeAdminContext } from "./support/route-harness.js";
 import { derivePublisherAppSemanticColors } from "../lib/publisher-app-advanced-config.js";
 import { derivePublisherAppCounterpointColors } from "../lib/publisher-app-color-identity.js";
 
-const fixedQuickActionText = {
+const fixedWhiteForegrounds = {
+  "community.genes.primaryActionForeground": { light: "#FFFFFF", dark: "#FFFFFF" },
   "community.quickActions.friends.foreground": { light: "#FFFFFF", dark: "#FFFFFF" },
   "community.quickActions.genes.foreground": { light: "#FFFFFF", dark: "#FFFFFF" },
   "community.quickActions.circles.foreground": { light: "#FFFFFF", dark: "#FFFFFF" },
@@ -447,7 +448,7 @@ describe("publisher app config contract", () => {
     await fastify.inject({ method: "POST", url: "/publisher-app/config/identifier" });
     const runtime = await fastify.inject({ method: "GET", url: "/publisher-app/config/runtime" });
     expect(runtime.statusCode).toBe(200);
-    expect(runtime.json().branding.colorOverrides).toEqual({ ...advanced.colorOverrides, ...fixedQuickActionText });
+    expect(runtime.json().branding.colorOverrides).toEqual({ ...advanced.colorOverrides, ...fixedWhiteForegrounds });
     expect(JSON.stringify(runtime.json())).not.toContain("generatedColorOverrides");
   });
 
@@ -796,7 +797,7 @@ describe("publisher app config contract", () => {
           counterpointClockwise: "#6639EF",
           counterpointAnticlockwise: "#39EFC1",
         },
-        colorOverrides: fixedQuickActionText,
+        colorOverrides: fixedWhiteForegrounds,
       },
       features: {
         catalogEnabled: true,
@@ -1011,29 +1012,31 @@ describe("publisher app config contract", () => {
     });
   });
 
-  it("republishes contract 5 once with fixed white quick-action text while preserving the stored configuration", async () => {
-    const advanced = structuredClone(advancedConfigurationBody);
+  it.each([[5, "active"], [5, "active_for_testing"], [6, "active"], [6, "active_for_testing"]] as const)("republishes contract %s once with fixed white foregrounds for %s while preserving the stored configuration", async (priorContract, status) => {
+    const advanced: PublisherAppAdvancedConfiguration = structuredClone(advancedConfigurationBody);
     advanced.colorOverrides = {
       ...advanced.colorOverrides,
-      ...Object.fromEntries(Object.keys(fixedQuickActionText).map(key => [key, { light: "#12345680", dark: "#000000" }])),
+      ...Object.fromEntries(Object.keys(fixedWhiteForegrounds).map(key => [key, { light: "#12345680", dark: "#000000" }])),
+      "community.genes.primaryActionFill": { light: "#00A88A", dark: "#5EEAD4" },
+      "community.genes.secondaryActionForeground": { light: "#123456", dark: "#65432180" },
     };
     const created = await fastify.inject({ method: "POST", url: "/publisher-app/config", payload: { ...validBody, advancedConfiguration: advanced } });
     expect(created.statusCode).toBe(201);
     const activated = await fastify.inject({ method: "POST", url: "/publisher-app/config/identifier" });
     const configId = created.json().config.id;
     const stored = collectionStore("app_configs").get(configId)!;
-    const legacy = { ...stored, runtimeRevision: 7, runtimeColorContractVersion: 5 };
+    const legacy = { ...stored, status, runtimeRevision: 7, runtimeColorContractVersion: priorContract };
     collectionStore("app_configs").set(configId, legacy);
     const { getActivePublisherAppRuntimeConfig } = await import("../repositories/publisher-app-config.repository.js");
     const first = await getActivePublisherAppRuntimeConfig(activated.json().config.appProviderIdentifier, "ios");
     expect(first.revision).toBe(8);
-    expect(first.branding.colorOverrides).toEqual({ ...advanced.colorOverrides, ...fixedQuickActionText });
-    expect(collectionStore("app_configs").get(configId)).toEqual({ ...legacy, runtimeRevision: 8, runtimeColorContractVersion: 6 });
+    expect(first.branding.colorOverrides).toEqual({ ...advanced.colorOverrides, ...fixedWhiteForegrounds });
+    expect(collectionStore("app_configs").get(configId)).toEqual({ ...legacy, runtimeRevision: 8, runtimeColorContractVersion: 7 });
     expect(await getActivePublisherAppRuntimeConfig(activated.json().config.appProviderIdentifier, "android")).toEqual(first);
     expect(collectionStore("app_configs").get(configId)?.runtimeRevision).toBe(8);
   });
 
-  it.each([3, 4, 5])("publishes restored missing-counterpoint defaults from contract %s with a new revision while preserving explicit manual colors", async (priorContract) => {
+  it.each([3, 4, 5, 6])("publishes restored missing-counterpoint defaults from contract %s with a new revision while preserving explicit manual colors", async (priorContract) => {
     const created = await fastify.inject({ method: "POST", url: "/publisher-app/config", payload: validBody });
     expect(created.statusCode).toBe(201);
     const activated = await fastify.inject({ method: "POST", url: "/publisher-app/config/identifier" });
@@ -1059,12 +1062,12 @@ describe("publisher app config contract", () => {
     });
     expect(first.branding.colors.counterpointClockwise).not.toBe("#524935");
     expect(collectionStore("app_configs").get(configId)).toMatchObject({
-      colors: legacyColors, runtimeRevision: 8, runtimeColorContractVersion: 6,
+      colors: legacyColors, runtimeRevision: 8, runtimeColorContractVersion: 7,
     });
     expect(await getActivePublisherAppRuntimeConfig(activated.json().config.appProviderIdentifier, "ios")).toEqual(first);
   });
 
-  it.each([[false, undefined], [true, undefined], [false, 1], [true, 1], [false, 2], [true, 2], [false, 3], [true, 3], [false, 4], [true, 4], [false, 5], [true, 5]] as const)(
+  it.each([[false, undefined], [true, undefined], [false, 1], [true, 1], [false, 2], [true, 2], [false, 3], [true, 3], [false, 4], [true, 4], [false, 5], [true, 5], [false, 6], [true, 6]] as const)(
     "publishes configured counterpoints exactly and bumps a legacy runtime revision only once (stored semantic colors: %s, prior contract: %s)",
     async (useStoredSemanticColors, priorContract) => {
       const created = await fastify.inject({
@@ -1099,12 +1102,12 @@ describe("publisher app config contract", () => {
       expect(first.branding.colors.counterpointClockwise).toMatch(/^#[0-9A-F]{6}$/);
       expect(first.branding.colors.counterpointAnticlockwise).toMatch(/^#[0-9A-F]{6}$/);
       if (useStoredSemanticColors) {
-        expect(first.branding.colorOverrides).toEqual({ ...advancedConfigurationBody.colorOverrides, ...fixedQuickActionText });
+        expect(first.branding.colorOverrides).toEqual({ ...advancedConfigurationBody.colorOverrides, ...fixedWhiteForegrounds });
       }
       expect(collectionStore("app_configs").get(configId)).toEqual({
         ...legacy,
         runtimeRevision: 8,
-        runtimeColorContractVersion: 6,
+        runtimeColorContractVersion: 7,
       });
       expect(await getActivePublisherAppRuntimeConfig(activated.json().config.appProviderIdentifier, "android")).toEqual(first);
       const repeated = await fastify.inject({ method: "GET", url: "/publisher-app/config/runtime" });

@@ -53,10 +53,10 @@ function effective(plan: Plan, key: string, mode: Appearance) {
 
 function unaffectedHash(plan: Plan, previous: Plan) {
   // Normalize only the subsequently fixed text and redesigned quick-action
-  // backgrounds before checking the original b91 fixture. Every other role,
-  // including Genes ink and foundations, remains protected by that fixture.
+  // backgrounds and the subsequently fixed Genes action foreground before
+  // checking the original b91 fixture. Every other role remains protected.
   const overrides = { ...plan.colorOverrides };
-  for (const key of laterQuickActionRoles) {
+  for (const key of [...laterQuickActionRoles, "community.genes.primaryActionForeground"]) {
     if (previous.colorOverrides[key]) overrides[key] = previous.colorOverrides[key];
     else delete overrides[key];
   }

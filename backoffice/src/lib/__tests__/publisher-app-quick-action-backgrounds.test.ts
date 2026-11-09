@@ -58,7 +58,8 @@ function planFor(colors: Colors, previous = false) {
 }
 
 function withoutBackgrounds(overrides: Record<string, PublisherAppColorOverride>) {
-  return Object.fromEntries(Object.entries(overrides).filter(([key]) => !backgrounds.has(key)));
+  // The later fixed Genes foreground has its own exact other-role regression.
+  return Object.fromEntries(Object.entries(overrides).filter(([key]) => !backgrounds.has(key) && key !== "community.genes.primaryActionForeground"));
 }
 
 const distinct = publisherAppColorsWithCounterpoints({

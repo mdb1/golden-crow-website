@@ -7,8 +7,11 @@ import { derivePublisherAppSemanticColors } from "./publisher-app-advanced-confi
 import { isPublisherAppRuntimeEnabled } from "./publisher-app-status.js";
 
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
-const QUICK_ACTION_TEXT_ROLES = ["friends", "genes", "circles", "search"]
-  .map(action => `community.quickActions.${action}.foreground`);
+const FIXED_WHITE_FOREGROUND_ROLES = [
+  ...["friends", "genes", "circles", "search"]
+    .map(action => `community.quickActions.${action}.foreground`),
+  "community.genes.primaryActionForeground",
+];
 
 type RuntimeConfigSource = Omit<PublisherAppConfigRecord, "colors"> & {
   colors: Pick<PublisherAppConfigRecord["colors"], "primary" | "secondary" | "tertiary"> &
@@ -45,10 +48,10 @@ export function buildPublisherAppRuntimeConfig(
   const primary = config.colors.primary;
   const publisherName = config.publisherName;
   const advanced = config.advancedConfiguration;
-  // These roles are consumed by the title and Open labels only. Illustrations
-  // retain their original rendering and all other overrides stay unchanged.
+  // Publish explicit white in both appearances for quick-action labels and
+  // Genes primary-action content, including existing app configurations.
   const colorOverrides = { ...advanced.colorOverrides };
-  for (const role of QUICK_ACTION_TEXT_ROLES) {
+  for (const role of FIXED_WHITE_FOREGROUND_ROLES) {
     colorOverrides[role] = { light: "#FFFFFF", dark: "#FFFFFF" };
   }
   const learn: PublisherAppRuntimeConfig["learn"] =
