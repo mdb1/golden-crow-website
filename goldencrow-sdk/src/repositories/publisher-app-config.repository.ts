@@ -706,7 +706,7 @@ function toPublisherAppCatalogSnapshot(
   });
   // Additive workflow states may be absent in an older catalog only when no
   // stored app uses that state. Other missing counts still fail validation.
-  for (const status of ["active_for_testing", "active_waiting_for_payment"] as const) {
+  for (const status of ["active_for_testing", "active_waiting_for_payment", "active_waiting_for_upload"] as const) {
     if (!statusCounts.some(item => item.status === status) && !apps.some(app => app.status === status)) {
       statusCounts.push({ status, count: 0 });
     }
@@ -1190,6 +1190,7 @@ export async function updatePublisherAppConfigById(
   configId: string,
   input: PublisherAppConfigAdminUpdateInput,
 ): Promise<PublisherAppConfigRecord> {
+  if (!context.isBootstrap) throw new AdminRepositoryError("GOD MODE access required", 403);
   const ref = adminDb.collection(APP_CONFIGS_COLLECTION).doc(configId.trim());
   const existing = await ref.get();
   const config = toPublisherAppConfigRecord(existing);
@@ -1746,6 +1747,7 @@ export async function requestPublisherAppPublicationById(context: AdminContext, 
 export async function deactivatePublisherAppIdentifier(
   context: AdminContext,
 ): Promise<PublisherAppConfigRecord> {
+  if (!context.isBootstrap) throw new AdminRepositoryError("GOD MODE access required", 403);
   const scope = publisherScope(context);
   const ref = adminDb
     .collection(APP_CONFIGS_COLLECTION)
@@ -1759,7 +1761,7 @@ export async function deactivatePublisherAppIdentifier(
     const config = toPublisherAppConfigRecord(snapshot);
     if (!isPublisherAppRuntimeEnabled(config.status) || !config.appProviderIdentifier) {
       throw new AdminRepositoryError(
-        "Only an active app or an app active for testing can deactivate its identifier.",
+        "Only a runtime-enabled app can deactivate its identifier.",
         409,
       );
     }

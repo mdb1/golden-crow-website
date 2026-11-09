@@ -637,6 +637,9 @@ export async function publisherAppConfigRoutes(
         .status(401)
         .send({ error: "No authenticated admin context" });
     }
+    if (!request.adminContext.isBootstrap) {
+      return reply.status(403).send({ error: "GOD MODE access required" });
+    }
     try {
       return reply.send({
         config: await deactivatePublisherAppIdentifier(request.adminContext),

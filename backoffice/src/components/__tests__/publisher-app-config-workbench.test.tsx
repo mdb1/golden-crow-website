@@ -15,6 +15,7 @@ import { PublisherAppConfigWorkbench } from "@/components/publisher-app-config-w
 import {
   publisherAppCounterpointColors,
   publisherAppSemanticColors,
+  publisherAppStatusLabel,
   type PublisherAppConfig,
   type PublisherAppColors,
   type PublisherAppPaletteOverridePlan,
@@ -569,7 +570,7 @@ describe("PublisherAppConfigWorkbench", () => {
     });
   });
 
-  it.each(["pending_revision", "active_waiting_for_payment", "active", "approved", "changes_requested", "rejected"] as const)("does not offer publication while the persisted status is %s", status => {
+  it.each(["pending_revision", "active_waiting_for_payment", "active_waiting_for_upload", "active", "approved", "changes_requested", "rejected"] as const)("does not offer publication while the persisted status is %s", status => {
     renderWorkbench({ mode: "edit", initialConfig: { ...savedConfig, status } });
     expect(screen.queryByRole("button", { name: "Publicar mi app" })).toBeNull();
   });
@@ -1330,44 +1331,92 @@ describe("PublisherAppConfigWorkbench", () => {
     });
   });
 
-  it("supports a GOD MODE endpoint, status editing, and a safe admin layout", async () => {
-    jest.mocked(sdkFetch).mockResolvedValue({
-      config: { ...savedConfig, status: "approved" },
-    });
-    renderWorkbench({
+  async function chooseStatus(value: string, label: string) {
+    const picker = screen.getByRole("combobox", { name: "Estado" });
+    if (picker instanceof HTMLSelectElement) {
+      await userEvent.selectOptions(picker, value);
+    } else {
+      await userEvent.click(picker);
+      await userEvent.click(await screen.findByRole("option", { name: label }));
+    }
+  }
+
+  function renderGodModeStatusEditor(config: PublisherAppConfig = savedConfig) {
+    return renderWorkbench({
       mode: "edit",
-      initialConfig: savedConfig,
+      initialConfig: config,
       apiPath: "/admin/publisher-app-configs/organization_org-1",
       backHref: "/god-mode/apps",
       backLabel: "Volver a Apps",
       allowStatusEditing: true,
       showDangerZone: false,
     });
+  }
 
-    expect(screen.getByRole("link", { name: "Volver a Apps" })).toHaveAttribute(
-      "href",
-      "/god-mode/apps",
-    );
-    expect(screen.getByTestId("publisher-app-edit-status")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Activa para pruebas" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Activa" })).toBeTruthy();
-    expect(
-      screen.getByTestId("publisher-app-danger-toggle").parentElement,
-    ).toHaveClass("hidden");
+  it("shows a status label and GOD MODE picker only after Cambiar estado is pressed", async () => {
+    jest.mocked(sdkFetch).mockResolvedValue({
+      config: { ...savedConfig, status: "active_waiting_for_upload" },
+    });
+    renderGodModeStatusEditor({ ...savedConfig, appProviderIdentifier: "app_org_pocket_genes_lab_48217" });
 
-    fireEvent.click(screen.getByRole("button", { name: "Aprobada" }));
-    fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+    expect(screen.getByRole("link", { name: "Volver a Apps" })).toHaveAttribute("href", "/god-mode/apps");
+    expect(screen.getAllByText("En revisión").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("combobox", { name: "Estado" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Activa para pruebas" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Activa" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Aprobada" })).toBeNull();
+    expect(screen.getByTestId("publisher-app-danger-toggle").parentElement).toHaveClass("hidden");
 
-    await waitFor(() =>
-      expect(sdkFetch).toHaveBeenCalledWith(
-        "/admin/publisher-app-configs/organization_org-1",
-        expect.objectContaining({ method: "PUT" }),
-      ),
-    );
-    const payload = JSON.parse(
-      String(jest.mocked(sdkFetch).mock.calls[0][1]?.body),
-    );
-    expect(payload.status).toBe("approved");
+    await userEvent.click(screen.getByRole("button", { name: "Cambiar estado" }));
+    const picker = screen.getByRole("combobox", { name: "Estado" });
+    expect(picker).toBeInTheDocument();
+    await userEvent.click(picker);
+    const listbox = await screen.findByRole("listbox");
+    expect(within(listbox).getAllByRole("option")).toHaveLength(8);
+    await userEvent.click(within(listbox).getByRole("option", { name: "Activa · Pendiente de subida" }));
+    expect(sdkFetch).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Aplicar estado" }));
+    expect(screen.queryByRole("combobox", { name: "Estado" })).toBeNull();
+    expect(screen.getAllByText("Activa · Pendiente de subida").length).toBeGreaterThan(0);
+    expect(sdkFetch).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    await waitFor(() => expect(sdkFetch).toHaveBeenCalledWith(
+      "/admin/publisher-app-configs/organization_org-1", expect.objectContaining({ method: "PUT" }),
+    ));
+    const payload = JSON.parse(String(jest.mocked(sdkFetch).mock.calls[0][1]?.body));
+    expect(payload.status).toBe("active_waiting_for_upload");
+    expect(payload.expectedStatus).toBe("pending_revision");
+  });
+
+  it("discards a cancelled GOD MODE status selection without changing the label or enabling save", async () => {
+    renderGodModeStatusEditor();
+    await userEvent.click(screen.getByRole("button", { name: "Cambiar estado" }));
+    await chooseStatus("approved", "Aprobada");
+    await userEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(screen.queryByRole("combobox", { name: "Estado" })).toBeNull();
+    expect(screen.getAllByText("En revisión").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Aprobada")).toBeNull();
+    expect(screen.getByRole("button", { name: "Guardar cambios" })).toBeDisabled();
+    expect(sdkFetch).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Cambiar estado" }));
+    const picker = screen.getByRole("combobox", { name: "Estado" });
+    if (picker instanceof HTMLSelectElement) expect(picker).toHaveValue("pending_revision");
+  });
+
+  it.each(["pending_revision", "active_for_testing", "active_waiting_for_payment", "active_waiting_for_upload", "active", "approved", "changes_requested", "rejected"] as const)("keeps the publisher's %s status read-only", status => {
+    renderWorkbench({ mode: "edit", initialConfig: { ...savedConfig, status } });
+    expect(screen.getAllByText(publisherAppStatusLabel(status)).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Cambiar estado" })).toBeNull();
+    expect(screen.queryByRole("combobox", { name: "Estado" })).toBeNull();
+    expect(screen.queryByTestId("publisher-app-edit-status")).toBeNull();
+  });
+
+  it("does not expose manual status editing on the publisher endpoint even if its prop is enabled", () => {
+    renderWorkbench({ mode: "edit", initialConfig: savedConfig, allowStatusEditing: true });
+    expect(screen.getAllByText("En revisión").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Cambiar estado" })).toBeNull();
+    expect(screen.queryByRole("combobox", { name: "Estado" })).toBeNull();
   });
 
   it("shows only the three editable colors throughout creation", async () => {
@@ -1792,7 +1841,7 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(previewIcon).toHaveStyle({ background: "#FFFFFF" });
   });
 
-  it.each(["active", "active_for_testing"] as const)("downloads the published runtime v3 config for %s instead of the administrative record", async (status) => {
+  it.each(["active", "active_for_testing", "active_waiting_for_payment", "active_waiting_for_upload"] as const)("downloads the published runtime v3 config for %s instead of the administrative record", async (status) => {
     const runtimeConfig = {
       schemaVersion: 3 as const,
       appProviderIdentifier: "app_org_pocket_genes_lab_48217",
@@ -1832,7 +1881,7 @@ describe("PublisherAppConfigWorkbench", () => {
       },
     });
 
-    expect(screen.getAllByText(status === "active_for_testing" ? "Activa para pruebas" : "Activa").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(publisherAppStatusLabel(status)).length).toBeGreaterThan(0);
     fireEvent.click(
       screen.getByRole("button", { name: "Descargar configuración" }),
     );
@@ -1847,36 +1896,12 @@ describe("PublisherAppConfigWorkbench", () => {
     clickSpy.mockRestore();
   });
 
-  it("creates the app identifier and activates the config for testing", async () => {
-    jest.mocked(sdkFetch).mockResolvedValue({
-      config: {
-        ...savedConfig,
-        status: "active_for_testing",
-        appProviderIdentifier: "app_org_pocket_genes_lab_48217",
-        runtimeRevision: 1,
-      },
-    });
+  it("does not let a publisher manually activate a pending app", () => {
     renderWorkbench({ mode: "edit", initialConfig: savedConfig });
-
-    expect(
-      screen.getByRole("button", { name: "Descargar configuración" }),
-    ).toBeDisabled();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Create app identifier" }),
-    );
-
-    await waitFor(() => {
-      expect(sdkFetch).toHaveBeenCalledWith(
-        "/publisher-app/config/identifier",
-        { method: "POST" },
-      );
-    });
-    expect(
-      await screen.findByText("app_org_pocket_genes_lab_48217"),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole("button", { name: "Descargar configuración" }),
-    ).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Descargar configuración" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Create app identifier" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Cambiar estado" })).toBeNull();
+    expect(sdkFetch).not.toHaveBeenCalled();
   });
 
   it.each(["active", "active_for_testing"] as const)("offers to replace a legacy %s identifier before downloading", (status) => {
@@ -1898,43 +1923,15 @@ describe("PublisherAppConfigWorkbench", () => {
     ).toBeDisabled();
   });
 
-  it.each(["active", "active_for_testing"] as const)("turns down an %s identifier and returns the edit screen to review", async (status) => {
-    jest.mocked(sdkFetch).mockResolvedValue({
-      config: {
-        ...savedConfig,
-        status: "pending_revision",
-      },
-    });
-    renderWorkbench({
-      mode: "edit",
-      initialConfig: {
-        ...savedConfig,
-        status,
-        appProviderIdentifier: "app_org_pocket_genes_lab_48217",
-        runtimeRevision: 1,
-      },
-    });
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Desactivar identificador" }),
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Desactivar para pruebas" }),
-    );
-
-    await waitFor(() =>
-      expect(sdkFetch).toHaveBeenCalledWith(
-        "/publisher-app/config/identifier",
-        { method: "DELETE" },
-      ),
-    );
-    expect(
-      await screen.findByRole("button", { name: "Create app identifier" }),
-    ).toBeEnabled();
-    expect(
-      screen.getByRole("button", { name: "Descargar configuración" }),
-    ).toBeDisabled();
-    expect(screen.getAllByText("En revisión")).toHaveLength(2);
+  it.each(["active", "active_for_testing", "active_waiting_for_payment", "active_waiting_for_upload"] as const)("does not let a publisher manually deactivate a %s app", status => {
+    renderWorkbench({ mode: "edit", initialConfig: {
+      ...savedConfig, status, appProviderIdentifier: "app_org_pocket_genes_lab_48217", runtimeRevision: 1,
+    } });
+    expect(screen.queryByRole("button", { name: "Desactivar identificador" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Desactivar para pruebas" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Cambiar estado" })).toBeNull();
+    expect(screen.getAllByText(publisherAppStatusLabel(status)).length).toBeGreaterThan(0);
+    expect(sdkFetch).not.toHaveBeenCalled();
   });
 
   it("deletes a pending app after expanding the danger zone", async () => {

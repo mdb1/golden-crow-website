@@ -30,7 +30,6 @@ import {
   Package,
   Palette,
   Pencil,
-  Power,
   RotateCcw,
   Save,
   SlidersHorizontal,
@@ -76,7 +75,15 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   DEFAULT_PUBLISHER_APP_COLOR,
+  PUBLISHER_APP_STATUSES,
   isCurrentPublisherAppIdentifier,
   isPublisherAppRuntimeEnabled,
   normalizePublisherAppColor,
@@ -1163,6 +1170,7 @@ function PublisherAppEditSheet({
   appProviderIdentifier,
   identifierIsCurrent,
   onUpdateStatus,
+  hasTermsSignature,
   backHref,
   backLabel,
   showDangerZone,
@@ -1186,7 +1194,6 @@ function PublisherAppEditSheet({
   onSave,
   onDownload,
   onCreateIdentifier,
-  onDeactivateIdentifier,
   onDelete,
   onPublish,
 }: {
@@ -1207,6 +1214,7 @@ function PublisherAppEditSheet({
   appProviderIdentifier?: string;
   identifierIsCurrent: boolean;
   onUpdateStatus?: (status: PublisherAppStatus) => void;
+  hasTermsSignature: boolean;
   backHref: string;
   backLabel: string;
   showDangerZone: boolean;
@@ -1230,12 +1238,13 @@ function PublisherAppEditSheet({
   onSave: () => void;
   onDownload: () => void;
   onCreateIdentifier?: () => void;
-  onDeactivateIdentifier?: () => void;
   onDelete: () => void;
   onPublish?: () => void;
 }) {
   const [activeDialog, setActiveDialog] =
     useState<PublisherAppEditDialog>(null);
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [statusDraft, setStatusDraft] = useState(status);
   const [identityStage, setIdentityStage] = useState<0 | 1 | 2>(0);
   const [identityColor, setIdentityColor] = useState<ColorKey | null>(null);
   function openIdentityEditor(key?: ColorKey) {
@@ -1327,6 +1336,22 @@ function PublisherAppEditSheet({
                   <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800 dark:border-amber-400/24 dark:bg-amber-500/12 dark:text-amber-100">
                     {statusLabel}
                   </span>
+                  {onUpdateStatus ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={pending || identifierPending}
+                      onClick={() => {
+                        setStatusDraft(status);
+                        setStatusDialogOpen(true);
+                      }}
+                      className="h-8 rounded-full text-xs"
+                    >
+                      <Pencil className="size-3.5" />
+                      Cambiar estado
+                    </Button>
+                  ) : null}
                   <HeaderUnclutterButton />
                 </div>
                 <p className="mt-0.5 truncate text-sm font-medium text-foreground">
@@ -1359,54 +1384,6 @@ function PublisherAppEditSheet({
                   )}
                   Create app identifier
                 </Button>
-              ) : null}
-              {onDeactivateIdentifier ? (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={changed || pending || identifierPending}
-                      className="h-9 rounded-xl border-amber-200 bg-amber-50/85 text-amber-900 shadow-sm hover:border-amber-300 hover:bg-amber-100 dark:border-amber-400/24 dark:bg-amber-500/10 dark:text-amber-100"
-                    >
-                      {identifierPending ? (
-                        <LoaderCircle className="size-3.5 animate-spin" />
-                      ) : (
-                        <Power className="size-3.5" />
-                      )}
-                      Desactivar identificador
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogMedia className="bg-amber-100 text-amber-800 dark:bg-amber-500/12 dark:text-amber-100">
-                        <Power className="size-5" />
-                      </AlertDialogMedia>
-                      <AlertDialogTitle>
-                        ¿Desactivar la app para pruebas?
-                      </AlertDialogTitle>
-                      <AlertDialogDescription>
-                        La app dejará de estar disponible para pruebas. Podrás
-                        generar un identificador nuevo cuando quieras volver a
-                        activarla.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel disabled={identifierPending}>
-                        Cancelar
-                      </AlertDialogCancel>
-                      <AlertDialogAction
-                        variant="destructive"
-                        disabled={identifierPending}
-                        onClick={onDeactivateIdentifier}
-                      >
-                        <Power className="size-4" />
-                        Desactivar para pruebas
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
               ) : null}
               <Button
                 type="button"
@@ -1448,59 +1425,6 @@ function PublisherAppEditSheet({
 
         <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_24rem]">
           <div className="flex flex-col gap-5 px-5 py-5">
-            {onUpdateStatus ? (
-              <section
-                data-testid="publisher-app-edit-status"
-                className="overflow-hidden rounded-2xl border border-violet-100/80 bg-white/78 p-4 shadow-[0_18px_56px_-48px_rgba(109,40,217,0.48)] sm:p-5 dark:border-violet-400/16 dark:bg-slate-950/32"
-              >
-                <div className="flex items-start gap-3">
-                  <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-violet-100 bg-violet-50 text-violet-700 shadow-inner dark:border-violet-400/16 dark:bg-violet-500/10 dark:text-violet-100">
-                    <FileCheck2 className="size-5" />
-                  </span>
-                  <div>
-                    <h3 className="font-heading text-lg font-semibold text-foreground">
-                      Estado de revisión
-                    </h3>
-                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                      Controlá el estado visible para el publicador.
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                  {(
-                    [
-                      "pending_revision",
-                      "active_for_testing",
-                      "active_waiting_for_payment",
-                      "active",
-                      "approved",
-                      "changes_requested",
-                      "rejected",
-                    ] as PublisherAppStatus[]
-                  ).map((option) => {
-                    const selected = status === option;
-                    return (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => onUpdateStatus(option)}
-                        disabled={option === "active_waiting_for_payment"}
-                        className={cn(
-                          "flex min-h-12 items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left text-sm font-semibold transition",
-                          selected
-                            ? "border-violet-500 bg-violet-600 text-white shadow-[0_12px_28px_-18px_rgba(109,40,217,0.9)]"
-                            : "border-violet-100 bg-white text-foreground hover:border-violet-300 hover:bg-violet-50 dark:border-violet-400/16 dark:bg-slate-950/28 dark:hover:bg-violet-500/10",
-                        )}
-                      >
-                        <span>{publisherAppStatusLabel(option)}</span>
-                        {selected ? <Check className="size-4" /> : null}
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-            ) : null}
-
             <PublisherAppEditSection
               testId="publisher-app-edit-platforms"
               icon={<Smartphone className="size-5" />}
@@ -1884,6 +1808,46 @@ function PublisherAppEditSheet({
           </div>
         </footer>
       </section>
+
+      {onUpdateStatus ? (
+        <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Cambiar estado</DialogTitle>
+              <DialogDescription>
+                El estado seleccionado se aplicará al guardar los cambios.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 py-3">
+              <Label htmlFor="publisher-app-status">Estado</Label>
+              <Select value={statusDraft} onValueChange={(value) => setStatusDraft(value as PublisherAppStatus)}>
+                <SelectTrigger id="publisher-app-status" className="h-11 w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PUBLISHER_APP_STATUSES.map((option) => (
+                    <SelectItem key={option} value={option} disabled={option === "active_waiting_for_payment" && !hasTermsSignature}>
+                      {publisherAppStatusLabel(option)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setStatusDialogOpen(false)}>Cancelar</Button>
+              <Button
+                disabled={pending || (statusDraft === "active_waiting_for_payment" && !hasTermsSignature)}
+                onClick={() => {
+                  onUpdateStatus(statusDraft);
+                  setStatusDialogOpen(false);
+                }}
+              >
+                Aplicar estado
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
 
       <Dialog
         open={Boolean(activeDialog)}
@@ -2386,6 +2350,7 @@ export function PublisherAppConfigWorkbench({
   showDangerZone = true,
 }: PublisherAppConfigWorkbenchProps) {
   const router = useRouter();
+  const canEditStatus = allowStatusEditing && /^\/admin\/publisher-app-configs\/[^/]+$/.test(apiPath);
   const [stepIndex, setStepIndex] = useState(0);
   const [state, setState] = useState(() =>
     initialState(initialConfig, publisherTint, publisherImageUrl),
@@ -2436,7 +2401,7 @@ export function PublisherAppConfigWorkbench({
   const changed =
     JSON.stringify(payload) !==
       JSON.stringify(normalizedPayload(persistedState)) ||
-    (allowStatusEditing && status !== persistedStatus);
+    (canEditStatus && status !== persistedStatus);
   const suggestedPalettes = useMemo(() => {
     const generated = publisherAppPaletteSuggestions(publisherTint);
     return PALETTE_SUGGESTION_COPY.map((copy, index) => ({
@@ -2701,6 +2666,7 @@ export function PublisherAppConfigWorkbench({
       identifierPending ||
       changed ||
       identifierIsCurrent ||
+      !isPublisherAppRuntimeEnabled(persistedStatus) ||
       apiPath !== "/publisher-app/config"
     ) {
       return;
@@ -2713,7 +2679,7 @@ export function PublisherAppConfigWorkbench({
         id: Date.now(),
         tone: "success",
         title: "Identificador creado",
-        message: `${activatedConfig.appProviderIdentifier} ya está activo para pruebas.`,
+        message: `${activatedConfig.appProviderIdentifier} · ${publisherAppStatusLabel(activatedConfig.status)}.`,
       });
       router.refresh();
     } catch (error) {
@@ -2741,50 +2707,6 @@ export function PublisherAppConfigWorkbench({
     setStatus(response.config.status);
     setPersistedStatus(response.config.status);
     return response.config;
-  }
-
-  async function deactivateIdentifier() {
-    if (
-      identifierPending ||
-      changed ||
-      !isPublisherAppRuntimeEnabled(status) ||
-      !persistedConfig?.appProviderIdentifier ||
-      apiPath !== "/publisher-app/config"
-    ) {
-      return;
-    }
-    setIdentifierPending(true);
-    setToast(null);
-    try {
-      const response = await sdkFetch<PublisherAppConfigResponse>(
-        `${apiPath}/identifier`,
-        { method: "DELETE" },
-      );
-      if (!response.config) {
-        throw new Error("El servidor no devolvió la configuración de la app.");
-      }
-      setPersistedConfig(response.config);
-      setStatus(response.config.status);
-      setPersistedStatus(response.config.status);
-      setToast({
-        id: Date.now(),
-        tone: "success",
-        title: "App desactivada para pruebas",
-        message:
-          "La configuración volvió a revisión y ya no está publicada para pruebas.",
-      });
-      router.refresh();
-    } catch (error) {
-      setToast({
-        id: Date.now(),
-        tone: "error",
-        title: "No pudimos desactivar el identificador",
-        message: error instanceof Error ? error.message : "Volvé a intentarlo.",
-        details: error instanceof SdkRequestError ? error.details : undefined,
-      });
-    } finally {
-      setIdentifierPending(false);
-    }
   }
 
   async function deleteApp() {
@@ -2916,7 +2838,7 @@ export function PublisherAppConfigWorkbench({
       const submissionPayload = normalizedPayload(state);
       const response = await sdkFetch<PublisherAppConfigResponse>(apiPath, {
         method: "PUT",
-          body: JSON.stringify(allowStatusEditing ? { ...submissionPayload, status, expectedStatus: persistedStatus } : submissionPayload),
+        body: JSON.stringify(canEditStatus ? { ...submissionPayload, status, expectedStatus: persistedStatus } : submissionPayload),
       });
       const saved = response.config;
       if (!saved)
@@ -2933,7 +2855,7 @@ export function PublisherAppConfigWorkbench({
         id: Date.now(),
         tone: "success",
         title: "Cambios guardados",
-        message: allowStatusEditing
+        message: canEditStatus
           ? `La configuración quedó actualizada con estado ${publisherAppStatusLabel(saved.status)}.`
           : `La configuración de tu app está actualizada. Estado: ${publisherAppStatusLabel(saved.status)}.`,
       });
@@ -2988,7 +2910,8 @@ export function PublisherAppConfigWorkbench({
           status={status}
           appProviderIdentifier={persistedConfig?.appProviderIdentifier}
           identifierIsCurrent={identifierIsCurrent}
-          onUpdateStatus={allowStatusEditing ? setStatus : undefined}
+          onUpdateStatus={canEditStatus ? setStatus : undefined}
+          hasTermsSignature={Boolean(persistedConfig?.termsAcceptedAt && persistedConfig.termsAcceptedByUserId && persistedConfig.termsVersion)}
           backHref={backHref}
           backLabel={backLabel}
           showDangerZone={showDangerZone}
@@ -3027,16 +2950,8 @@ export function PublisherAppConfigWorkbench({
           onDownload={() => void downloadConfig()}
           onCreateIdentifier={
             apiPath === "/publisher-app/config" &&
-            (status === "pending_revision" ||
-              (isPublisherAppRuntimeEnabled(status) && !identifierIsCurrent))
+            isPublisherAppRuntimeEnabled(persistedStatus) && !identifierIsCurrent
               ? () => void createIdentifier()
-              : undefined
-          }
-          onDeactivateIdentifier={
-            apiPath === "/publisher-app/config" &&
-            isPublisherAppRuntimeEnabled(status) &&
-            Boolean(persistedConfig?.appProviderIdentifier)
-              ? () => void deactivateIdentifier()
               : undefined
           }
           onDelete={() => void deleteApp()}

@@ -810,7 +810,7 @@ describe("publisher app config contract", () => {
     expect(fresh.json().config.status).toBe("active_waiting_for_payment");
   });
 
-  it.each(["pending_revision", "approved", "active", "changes_requested", "rejected"] as const)("refuses publication acceptance from %s", async (status) => {
+  it.each(["pending_revision", "approved", "active", "active_waiting_for_upload", "changes_requested", "rejected"] as const)("refuses publication acceptance from %s", async (status) => {
     const testing = await createTestingConfig();
     collectionStore("app_configs").set(testing.id, { ...collectionStore("app_configs").get(testing.id), status });
     const signed = await fastify.inject({ method: "POST", url: "/publisher-app/config/sign-terms-and-conditions", payload: { termsAccepted: true, expectedUpdatedAt: testing.updatedAt } });
@@ -1054,7 +1054,7 @@ describe("publisher app config contract", () => {
     });
   });
 
-  it.each(["active", "active_for_testing"] as const)(
+  it.each(["active", "active_for_testing", "active_waiting_for_upload"] as const)(
     "keeps %s apps available and revises their runtime when edited or moved to the other active state",
     async (status) => {
       const created = await fastify.inject({ method: "POST", url: "/publisher-app/config", payload: validBody });
@@ -1097,7 +1097,7 @@ describe("publisher app config contract", () => {
     },
   );
 
-  it.each(["active", "active_for_testing"] as const)("requires an identifier before an admin can set %s", async (status) => {
+  it.each(["active", "active_for_testing", "active_waiting_for_upload"] as const)("requires an identifier before an admin can set %s", async (status) => {
     const created = await fastify.inject({ method: "POST", url: "/publisher-app/config", payload: validBody });
     expect(created.statusCode).toBe(201);
     context = makeAdminContext({ isBootstrap: true });
@@ -1106,7 +1106,78 @@ describe("publisher app config contract", () => {
     expect(collectionStore("app_configs").get(created.json().config.id)?.status).toBe("pending_revision");
   });
 
-  it.each(["active", "active_for_testing"] as const)("revises the runtime when an admin re-enables a configured app as %s", async (status) => {
+  it("allows GOD MODE to move a signed app to waiting for upload while publishers can only read and preserve that status", async () => {
+    const testing = await createTestingConfig();
+    const signed = await fastify.inject({
+      method: "POST", url: "/publisher-app/config/sign-terms-and-conditions",
+      payload: { termsAccepted: true, expectedUpdatedAt: testing.updatedAt },
+    });
+    expect(signed.statusCode).toBe(200);
+    expect(signed.json().config.status).toBe("active_waiting_for_payment");
+    context = makeAdminContext({ isBootstrap: true, uid: "upload-operator" });
+    expect((await fastify.inject({ method: "PUT", url: "/admin/publisher-app-configs/snapshot" })).statusCode).toBe(200);
+    const changed = await fastify.inject({
+      method: "PUT", url: `/admin/publisher-app-configs/${testing.id}`,
+      payload: { ...validBody, termsAccepted: undefined, status: "active_waiting_for_upload", expectedStatus: "active_waiting_for_payment" },
+    });
+    expect(changed.statusCode).toBe(200);
+    expect(changed.json().config).toMatchObject({
+      status: "active_waiting_for_upload", appProviderIdentifier: testing.appProviderIdentifier,
+      termsAcceptedAt: signed.json().config.termsAcceptedAt,
+      termsAcceptedByUserId: signed.json().config.termsAcceptedByUserId,
+      runtimeRevision: signed.json().config.runtimeRevision + 1, updatedByUserId: "upload-operator",
+    });
+    const snapshot = collectionStore("custom_apps_snapshot").get("simple")!;
+    expect(snapshot).toMatchObject({ activeCount: 1, inactiveCount: 0 });
+    expect(snapshot.statusCounts).toEqual(expect.arrayContaining([
+      { status: "active_waiting_for_payment", count: 0 }, { status: "active_waiting_for_upload", count: 1 },
+    ]));
+    expect((snapshot.apps as StoredDocument[])[0]).toMatchObject({ status: "active_waiting_for_upload", isActive: true });
+    expect((await fastify.inject({ method: "GET", url: "/admin/publisher-app-configs/snapshot" })).statusCode).toBe(200);
+    collectionStore("custom_apps_snapshot").set("simple", {
+      ...snapshot, statusCounts: (snapshot.statusCounts as StoredDocument[]).filter(entry => entry.status !== "active_waiting_for_upload"),
+    });
+    expect((await fastify.inject({ method: "GET", url: "/admin/publisher-app-configs/snapshot" })).statusCode).toBe(500);
+    collectionStore("custom_apps_snapshot").set("simple", snapshot);
+
+    context = organizationContext();
+    const read = await fastify.inject({ method: "GET", url: "/publisher-app/config" });
+    expect(read.json().config.status).toBe("active_waiting_for_upload");
+    const edited = await fastify.inject({ method: "PUT", url: "/publisher-app/config", payload: { ...validBody, termsAccepted: undefined, connectEnabled: false } });
+    expect(edited.statusCode).toBe(200);
+    expect(edited.json().config).toMatchObject({ status: "active_waiting_for_upload", termsAcceptedAt: signed.json().config.termsAcceptedAt });
+    expect(mockSendPublisherAppPublicationNotificationEmails).toHaveBeenCalledTimes(1);
+    expect(mockSendPublisherAppCreationNotificationEmails).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects publisher manual status updates and identifier deactivation without touching config, catalog or identifier records", async () => {
+    const testing = await createTestingConfig();
+    context = makeAdminContext({ isBootstrap: true });
+    await fastify.inject({ method: "PUT", url: "/admin/publisher-app-configs/snapshot" });
+    context = organizationContext();
+    const before = structuredClone([...collections]);
+    for (const request of [
+      { method: "PUT" as const, url: "/publisher-app/config", payload: { ...validBody, termsAccepted: undefined, status: "active_waiting_for_upload" } },
+      { method: "PUT" as const, url: `/admin/publisher-app-configs/${testing.id}`, payload: { ...validBody, termsAccepted: undefined, status: "active_waiting_for_upload" } },
+      { method: "DELETE" as const, url: "/publisher-app/config/identifier" },
+    ]) {
+      const denied = await fastify.inject(request);
+      expect(denied.statusCode).toBe(request.url === "/publisher-app/config" ? 400 : 403);
+      expect([...collections]).toEqual(before);
+    }
+  });
+
+  it("enforces GOD MODE privileges at the repository boundary for status edits and deactivation", async () => {
+    const { updatePublisherAppConfigById, deactivatePublisherAppIdentifier } = await import("../repositories/publisher-app-config.repository.js");
+    mockCollection.mockClear();
+    await expect(updatePublisherAppConfigById(organizationContext(), "organization_shared-publisher-id", {
+      ...validBody, iconSource: "publisher", status: "active_waiting_for_upload",
+    })).rejects.toMatchObject({ statusCode: 403 });
+    await expect(deactivatePublisherAppIdentifier(organizationContext())).rejects.toMatchObject({ statusCode: 403 });
+    expect(mockCollection).not.toHaveBeenCalled();
+  });
+
+  it.each(["active", "active_for_testing", "active_waiting_for_upload"] as const)("revises the runtime when an admin re-enables a configured app as %s", async (status) => {
     await fastify.inject({ method: "POST", url: "/publisher-app/config", payload: validBody });
     const activated = await fastify.inject({ method: "POST", url: "/publisher-app/config/identifier" });
     const { id, appProviderIdentifier } = activated.json().config;
@@ -1408,7 +1479,7 @@ describe("publisher app config contract", () => {
     });
   });
 
-  it.each(["active", "active_for_testing"] as const)("turns down an %s identifier and returns the app to pending revision", async (status) => {
+  it.each(["active", "active_for_testing", "active_waiting_for_upload"] as const)("turns down an %s identifier and returns the app to pending revision", async (status) => {
     await fastify.inject({
       method: "POST",
       url: "/publisher-app/config",
@@ -1425,6 +1496,7 @@ describe("publisher app config contract", () => {
       status,
     });
 
+    context = organizationContext({ isBootstrap: true });
     const response = await fastify.inject({
       method: "DELETE",
       url: "/publisher-app/config/identifier",
@@ -1474,6 +1546,7 @@ describe("publisher app config contract", () => {
       payload: validBody,
     });
 
+    context = organizationContext({ isBootstrap: true });
     const response = await fastify.inject({
       method: "DELETE",
       url: "/publisher-app/config/identifier",
@@ -1481,7 +1554,7 @@ describe("publisher app config contract", () => {
 
     expect(response.statusCode).toBe(409);
     expect(response.json()).toEqual({
-      error: "Only an active app or an app active for testing can deactivate its identifier.",
+      error: "Only a runtime-enabled app can deactivate its identifier.",
     });
   });
 
@@ -2134,9 +2207,18 @@ describe("publisher app config contract", () => {
     expect(readResponse.json()).toEqual(updateResponse.json());
 
     const currentSnapshot = collectionStore("custom_apps_snapshot").get("simple")!;
+    const paymentEraSnapshot = {
+      ...currentSnapshot,
+      statusCounts: (currentSnapshot.statusCounts as StoredDocument[]).filter(entry => entry.status !== "active_waiting_for_upload"),
+    };
+    expect(paymentEraSnapshot.statusCounts).toHaveLength(7);
+    collectionStore("custom_apps_snapshot").set("simple", paymentEraSnapshot);
+    const paymentEraRead = await fastify.inject({ method: "GET", url: "/admin/publisher-app-configs/snapshot" });
+    expect(paymentEraRead.statusCode).toBe(200);
+    expect(paymentEraRead.json()).toEqual(updateResponse.json());
     const testingEraSnapshot = {
       ...currentSnapshot,
-      statusCounts: (currentSnapshot.statusCounts as StoredDocument[]).filter(entry => entry.status !== "active_waiting_for_payment"),
+      statusCounts: (currentSnapshot.statusCounts as StoredDocument[]).filter(entry => !["active_waiting_for_payment", "active_waiting_for_upload"].includes(String(entry.status))),
     };
     expect(testingEraSnapshot.statusCounts).toHaveLength(6);
     collectionStore("custom_apps_snapshot").set("simple", testingEraSnapshot);
@@ -2145,7 +2227,7 @@ describe("publisher app config contract", () => {
     expect(testingEraRead.json()).toEqual(updateResponse.json());
     const legacySnapshot = {
       ...currentSnapshot,
-      statusCounts: (currentSnapshot.statusCounts as StoredDocument[]).filter((entry) => !["active_for_testing", "active_waiting_for_payment"].includes(String(entry.status))),
+      statusCounts: (currentSnapshot.statusCounts as StoredDocument[]).filter((entry) => !["active_for_testing", "active_waiting_for_payment", "active_waiting_for_upload"].includes(String(entry.status))),
     };
     expect(legacySnapshot.statusCounts).toHaveLength(5);
     collectionStore("custom_apps_snapshot").set("simple", legacySnapshot);
@@ -2276,6 +2358,7 @@ describe("publisher app config contract", () => {
       { activeCount: 1, inactiveCount: 0, totalCount: 1 },
     );
 
+    context = organizationContext({ isBootstrap: true });
     const deactivation = await fastify.inject({
       method: "DELETE",
       url: "/publisher-app/config/identifier",

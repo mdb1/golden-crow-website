@@ -265,7 +265,7 @@ describe("publisher app publication signature", () => {
     expect(sdkFetch).toHaveBeenCalledTimes(2);
   });
 
-  it.each(["pending_revision", "active_waiting_for_payment", "active", "approved", "changes_requested", "rejected"] as const)("does not permit signing from %s", status => {
+  it.each(["pending_revision", "active_waiting_for_payment", "active_waiting_for_upload", "active", "approved", "changes_requested", "rejected"] as const)("does not permit signing from %s", status => {
     renderPublication({ config: { ...config, status } });
     expect(screen.queryByTestId("publisher-app-review")).toBeNull();
     expect(screen.getByRole("button", { name: "Aceptar condiciones y solicitar publicación" })).toBeDisabled();

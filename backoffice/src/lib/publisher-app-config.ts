@@ -3,10 +3,21 @@ import { supersededPublisherAppCounterpointPlan } from "./publisher-app-supersed
 export type PublisherAppPlatformOption = "ios" | "ios_android";
 export type PublisherAppIconSource = "publisher" | "custom";
 export type PublisherAppStatus =
-  "pending_revision" | "active_for_testing" | "active_waiting_for_payment" | "active" | "approved" | "changes_requested" | "rejected";
+  "pending_revision" | "active_for_testing" | "active_waiting_for_payment" | "active_waiting_for_upload" | "active" | "approved" | "changes_requested" | "rejected";
+
+export const PUBLISHER_APP_STATUSES = [
+  "pending_revision",
+  "active_for_testing",
+  "active_waiting_for_payment",
+  "active_waiting_for_upload",
+  "active",
+  "approved",
+  "changes_requested",
+  "rejected",
+] as const satisfies readonly PublisherAppStatus[];
 
 export function isPublisherAppRuntimeEnabled(status: PublisherAppStatus) {
-  return status === "active" || status === "active_for_testing" || status === "active_waiting_for_payment";
+  return status === "active" || status === "active_for_testing" || status === "active_waiting_for_payment" || status === "active_waiting_for_upload";
 }
 
 export function publisherAppStatusLabel(status: PublisherAppStatus) {
@@ -17,6 +28,8 @@ export function publisherAppStatusLabel(status: PublisherAppStatus) {
       return "Activa para pruebas";
     case "active_waiting_for_payment":
       return "Publicación solicitada · Pendiente de pago";
+    case "active_waiting_for_upload":
+      return "Activa · Pendiente de subida";
     case "approved":
       return "Aprobada";
     case "changes_requested":

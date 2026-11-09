@@ -144,11 +144,13 @@ describe("GodModePublisherAppsBrowser", () => {
     expect(sdkFetch).toHaveBeenCalledTimes(1);
   });
 
-  it("distinguishes testing apps from existing active apps", async () => {
+  it("distinguishes active, testing, payment, and upload states with read-only labels", async () => {
     jest.mocked(sdkFetch).mockResolvedValue({
       apps: [
         app("organization_active", "Active Lab", { status: "active" }),
         app("organization_testing", "Testing Lab", { status: "active_for_testing" }),
+        app("organization_payment", "Payment Lab", { status: "active_waiting_for_payment" }),
+        app("organization_upload", "Upload Lab", { status: "active_waiting_for_upload" }),
       ],
       nextCursor: null,
     });
@@ -156,6 +158,9 @@ describe("GodModePublisherAppsBrowser", () => {
     await screen.findByText("Testing Lab");
     expect(screen.getByText("Activa")).toBeInTheDocument();
     expect(screen.getByText("Activa para pruebas")).toBeInTheDocument();
+    expect(screen.getByText("Publicación solicitada · Pendiente de pago")).toBeInTheDocument();
+    expect(screen.getByText("Activa · Pendiente de subida")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Activa · Pendiente de subida" })).toBeNull();
   });
 
   it("shows and fully refreshes the single lightweight app snapshot", async () => {
@@ -172,6 +177,8 @@ describe("GodModePublisherAppsBrowser", () => {
       statusCounts: [
         { status: "pending_revision" as const, count: 0 },
         { status: "active_for_testing" as const, count: 1 },
+        { status: "active_waiting_for_payment" as const, count: 0 },
+        { status: "active_waiting_for_upload" as const, count: 0 },
         { status: "active" as const, count: 0 },
         { status: "approved" as const, count: 0 },
         { status: "changes_requested" as const, count: 0 },

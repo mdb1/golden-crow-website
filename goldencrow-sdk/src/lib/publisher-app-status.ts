@@ -4,6 +4,7 @@ export const PUBLISHER_APP_STATUSES = [
   "pending_revision",
   "active_for_testing",
   "active_waiting_for_payment",
+  "active_waiting_for_upload",
   "active",
   "approved",
   "changes_requested",
@@ -12,6 +13,6 @@ export const PUBLISHER_APP_STATUSES = [
 
 export function isPublisherAppRuntimeEnabled(
   status: PublisherAppStatus,
-): status is "active" | "active_for_testing" | "active_waiting_for_payment" {
-  return status === "active" || status === "active_for_testing" || status === "active_waiting_for_payment";
+): status is "active" | "active_for_testing" | "active_waiting_for_payment" | "active_waiting_for_upload" {
+  return status === "active" || status === "active_for_testing" || status === "active_waiting_for_payment" || status === "active_waiting_for_upload";
 }

@@ -37,6 +37,7 @@ describe.each([
   ["active", false], ["active", true],
   ["active_for_testing", false], ["active_for_testing", true],
   ["active_waiting_for_payment", false], ["active_waiting_for_payment", true],
+  ["active_waiting_for_upload", false], ["active_waiting_for_upload", true],
 ] as const)("runtime counterpoint transport (status: %s, stored semantic colors: %s)", (status, storedSemanticColors) => {
   const source: Parameters<typeof buildPublisherAppRuntimeConfig>[0] = {
     id: "organization_example",

@@ -146,7 +146,7 @@ describe("publisher app configuration pages", () => {
     await expect(PublisherAppSignTermsPage()).rejects.toThrow(`NEXT_REDIRECT:${PUBLISHER_PORTAL_APP_NEW_ROUTE}`);
   });
 
-  it.each(["pending_revision", "active_waiting_for_payment", "active", "approved", "changes_requested", "rejected"] as const)("redirects a %s app away from signing", async status => {
+  it.each(["pending_revision", "active_waiting_for_payment", "active_waiting_for_upload", "active", "approved", "changes_requested", "rejected"] as const)("redirects a %s app away from signing", async status => {
     jest.mocked(loadPublisherAppPageData).mockResolvedValue({ ...baseData, config: { ...config, status } });
     await expect(PublisherAppSignTermsPage()).rejects.toThrow(`NEXT_REDIRECT:${PUBLISHER_PORTAL_APP_EDIT_ROUTE}`);
   });
@@ -166,7 +166,7 @@ describe("publisher app configuration pages", () => {
     expect(sdkFetchServer).not.toHaveBeenCalled();
   });
 
-  it.each(["pending_revision", "active_waiting_for_payment", "active", "approved", "changes_requested", "rejected"] as const)("redirects GOD MODE signing for a %s app back to its selected edit page", async status => {
+  it.each(["pending_revision", "active_waiting_for_payment", "active_waiting_for_upload", "active", "approved", "changes_requested", "rejected"] as const)("redirects GOD MODE signing for a %s app back to its selected edit page", async status => {
     jest.mocked(getAdminContextServer).mockResolvedValue({ isBootstrap: true } as Awaited<ReturnType<typeof getAdminContextServer>>);
     jest.mocked(sdkFetchServer).mockResolvedValue({ config: { ...config, status } });
     await expect(GodModeAppSignTermsPage({ params: Promise.resolve({ configId: config.id }) })).rejects.toThrow(`NEXT_REDIRECT:/god-mode/apps/${config.id}`);
