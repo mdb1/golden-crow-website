@@ -265,11 +265,11 @@ const PALETTE_SUGGESTION_COPY = [
   },
   {
     name: "Destello vecino",
-    description: "Conserva la paleta y desplaza sólo el color secundario.",
+    description: "Conserva la paleta y desplaza sólo el color terciario.",
   },
   {
     name: "Acento cercano",
-    description: "Mantiene dos tonos y acerca el acento a la identidad.",
+    description: "Mantiene dos tonos y acerca el secundario a la identidad.",
   },
   {
     name: "Principal alternativo",

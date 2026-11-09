@@ -634,7 +634,11 @@ export function publisherAppPaletteSuggestions(
       secondary: basePalette.secondary,
       tertiary: basePalette.tertiary,
     }),
-  ];
+  ].map((palette) => ({
+    ...palette,
+    secondary: palette.tertiary,
+    tertiary: palette.secondary,
+  }));
 }
 
 export function publisherAppDefaultColors(tint?: string): PublisherAppColors {

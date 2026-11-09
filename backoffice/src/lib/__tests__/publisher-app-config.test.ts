@@ -120,8 +120,8 @@ describe("publisher app color palettes", () => {
   it("matches the bright closely related Medicgen orange palette", () => {
     expect(publisherAppDefaultColors("#FF5500")).toEqual({
       primary: "#FF5500",
-      secondary: "#EFBA2A",
-      tertiary: "#F4852A",
+      secondary: "#F4852A",
+      tertiary: "#EFBA2A",
       ...publisherAppCounterpointColors("#FF5500"),
     });
   });
