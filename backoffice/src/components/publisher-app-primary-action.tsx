@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { publisherAppIntensePalette } from "@/components/publisher-app-promo-banner";
+import "./publisher-app-primary-action.css";
 import type { PublisherAppStatus } from "@/lib/publisher-app-config";
 import {
   PUBLISHER_PORTAL_APP_EDIT_ROUTE,
@@ -37,17 +39,26 @@ export function PublisherAppPrimaryAction({
       href={action.href}
       prefetch={false}
       data-testid="publisher-app-primary-action"
-      className="group relative mt-4 flex min-h-24 w-full items-center gap-4 overflow-hidden whitespace-normal rounded-2xl border border-white/20 px-5 py-5 text-white shadow-[0_18px_40px_-24px_rgba(15,23,42,0.55)] transition duration-200 hover:-translate-y-0.5 hover:brightness-110 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transform-none sm:px-7"
-      style={{ backgroundImage: `linear-gradient(110deg, ${palette.accentDeep}, ${palette.ink})` }}
+      className="trial-cta group relative mt-4 flex min-h-24 w-full items-center gap-4 whitespace-normal rounded-2xl border border-transparent px-5 py-5 text-white transition duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transform-none sm:px-7"
+      style={{
+        "--trial-cta-hue": palette.sceneHue,
+        "--trial-cta-face-left": `hsl(${palette.sceneHue} 81% 36%)`,
+        "--trial-cta-face-middle": `hsl(${palette.sceneHue} 82% 26%)`,
+        "--trial-cta-face-right": `hsl(${palette.sceneHue} 84% 15%)`,
+      } as CSSProperties}
     >
-      <span aria-hidden="true" className="pointer-events-none absolute inset-x-5 top-0 h-px opacity-80" style={{ backgroundImage: `linear-gradient(90deg, transparent, ${palette.accent}, transparent)` }} />
-      <span aria-hidden="true" className="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/10 shadow-inner">
-        <Sparkles className="size-6" />
+      <span aria-hidden="true" className="trial-cta__halo" />
+      <span aria-hidden="true" className="trial-cta__surface" />
+      <span aria-hidden="true" className="trial-cta__reflection" />
+      <span className="trial-cta__content">
+        <span aria-hidden="true" className="trial-cta__icon flex size-12 shrink-0 items-center justify-center rounded-2xl border border-white/20">
+          <Sparkles className="size-6" />
+        </span>
+        <span className="min-w-0 flex-1 text-balance text-center font-heading text-lg font-semibold leading-snug sm:text-xl">
+          {action.label}
+        </span>
+        <ArrowRight aria-hidden="true" className="size-6 shrink-0 transition-transform group-hover:translate-x-1 motion-reduce:transform-none" />
       </span>
-      <span className="min-w-0 flex-1 text-balance text-center font-heading text-lg font-semibold leading-snug sm:text-xl">
-        {action.label}
-      </span>
-      <ArrowRight aria-hidden="true" className="size-6 shrink-0 transition-transform group-hover:translate-x-1 motion-reduce:transform-none" />
     </Link>
   );
 }
