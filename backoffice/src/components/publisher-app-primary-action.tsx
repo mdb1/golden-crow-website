@@ -27,7 +27,7 @@ export function PublisherAppPrimaryAction({
   const action = !hasConfig
     ? { label: "¡Quiero una prueba gratuita de mi app propia!", href: PUBLISHER_PORTAL_APP_NEW_ROUTE }
     : status === "active_for_testing"
-      ? { label: "¡Quiero subir de mi app propia al store!", href: PUBLISHER_PORTAL_APP_SIGN_TERMS_ROUTE }
+      ? { label: "¡Quiero subir mi app al store!", href: PUBLISHER_PORTAL_APP_SIGN_TERMS_ROUTE }
       : status === "active_waiting_for_payment"
         ? { label: "Completar información de pago", href: PUBLISHER_PORTAL_APP_PAYMENT_DETAILS_ROUTE }
         : status === "active_waiting_for_upload"

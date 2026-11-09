@@ -296,7 +296,7 @@ describe("PublisherPortalHomePage", () => {
 
   const appPrimaryActions = [
     { status: null, label: "¡Quiero una prueba gratuita de mi app propia!", href: PUBLISHER_PORTAL_APP_NEW_ROUTE },
-    { status: "active_for_testing", label: "¡Quiero subir de mi app propia al store!", href: PUBLISHER_PORTAL_APP_SIGN_TERMS_ROUTE },
+    { status: "active_for_testing", label: "¡Quiero subir mi app al store!", href: PUBLISHER_PORTAL_APP_SIGN_TERMS_ROUTE },
     { status: "active_waiting_for_payment", label: "Completar información de pago", href: PUBLISHER_PORTAL_APP_PAYMENT_DETAILS_ROUTE },
     { status: "active_waiting_for_upload", label: "Consultar estado de publicación", href: PUBLISHER_PORTAL_APP_UPLOAD_BUILD_DETAILS_ROUTE },
   ] as const;
@@ -354,7 +354,7 @@ describe("PublisherPortalHomePage", () => {
     } as unknown as MyAccountRecord;
     mockPublisherHomeData(false, false, individualAccount, false, false, true, "active_for_testing");
     render(await PublisherPortalHomePage());
-    expect(screen.getByTestId("publisher-app-primary-action")).toHaveAccessibleName("¡Quiero subir de mi app propia al store!");
+    expect(screen.getByTestId("publisher-app-primary-action")).toHaveAccessibleName("¡Quiero subir mi app al store!");
     expect(screen.getByTestId("publisher-app-primary-action")).toHaveAttribute("href", PUBLISHER_PORTAL_APP_SIGN_TERMS_ROUTE);
     expect(sdkFetchServer).toHaveBeenCalledWith("/discover/individuals/ind-1");
     expect(jest.mocked(sdkFetchServer).mock.calls.filter(([path]) => path === "/publisher-app/config")).toHaveLength(1);
