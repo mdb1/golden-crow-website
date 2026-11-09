@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PublisherAppPromoBanner } from "@/components/publisher-app-promo-banner";
+import { PublisherAppPrimaryAction } from "@/components/publisher-app-primary-action";
+import type { PublisherAppStatus } from "@/lib/publisher-app-config";
 import {
   PUBLISHER_PORTAL_ACCOUNT_ROUTE,
   PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
@@ -39,6 +41,7 @@ type PublisherPortalHomeProps = {
   publisherTint?: string;
   publisherImageUrl?: string;
   hasPublisherAppConfig: boolean;
+  publisherAppStatus?: PublisherAppStatus | null;
 };
 
 type QuickAccessCardProps = {
@@ -153,6 +156,7 @@ export function PublisherPortalHome({
   publisherTint,
   publisherImageUrl,
   hasPublisherAppConfig,
+  publisherAppStatus,
 }: PublisherPortalHomeProps) {
   const newFeedEntryHref = publisherPortalFeedEntryCreateRoute();
   const draftFeedEntriesHref = publisherPortalFeedEntriesByStatusRoute("draft");
@@ -334,6 +338,11 @@ export function PublisherPortalHome({
             ctaLabel={hasPublisherAppConfig ? "Editar mi app" : "Crear mi app"}
           />
         </Link>
+        <PublisherAppPrimaryAction
+          hasConfig={hasPublisherAppConfig}
+          status={publisherAppStatus}
+          tint={publisherTint}
+        />
       </section>
 
       <section

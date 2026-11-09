@@ -3,10 +3,14 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import PublisherPortalHomePage from "@/app/publisher-portal/(portal)/home/page";
 import type { MyAccountRecord } from "@/lib/admin-areas";
+import type { PublisherAppStatus } from "@/lib/publisher-app-config";
 import {
   PUBLISHER_PORTAL_ACCOUNT_ROUTE,
   PUBLISHER_PORTAL_APP_EDIT_ROUTE,
   PUBLISHER_PORTAL_APP_NEW_ROUTE,
+  PUBLISHER_PORTAL_APP_PAYMENT_DETAILS_ROUTE,
+  PUBLISHER_PORTAL_APP_SIGN_TERMS_ROUTE,
+  PUBLISHER_PORTAL_APP_UPLOAD_BUILD_DETAILS_ROUTE,
   PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
   PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE,
   PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE,
@@ -61,6 +65,7 @@ function mockPublisherHomeData(
   hasActiveServiceOffer = false,
   hasServiceOffer = hasActiveServiceOffer,
   hasPublisherAppConfig = false,
+  publisherAppStatus: PublisherAppStatus = "pending_revision",
 ) {
   jest.mocked(sdkFetchServer).mockImplementation(async (path) => {
     if (path === "/auth/my-account") {
@@ -112,6 +117,7 @@ function mockPublisherHomeData(
               publisherEmail: "publisher@example.org",
               publisherUsername: "pocketgenes",
               platformOption: "ios_android",
+              status: publisherAppStatus,
               connectEnabled: true,
               profileEnabled: true,
               learnCustomizationEnabled: true,
@@ -286,6 +292,72 @@ describe("PublisherPortalHomePage", () => {
       screen.getByTestId("publisher-app-banner"),
     );
     expect(screen.getByText("Editar mi app")).toBeTruthy();
+  });
+
+  const appPrimaryActions = [
+    { status: null, label: "¡Quiero una prueba gratuita de mi app propia!", href: PUBLISHER_PORTAL_APP_NEW_ROUTE },
+    { status: "active_for_testing", label: "¡Quiero subir de mi app propia al store!", href: PUBLISHER_PORTAL_APP_SIGN_TERMS_ROUTE },
+    { status: "active_waiting_for_payment", label: "Completar información de pago", href: PUBLISHER_PORTAL_APP_PAYMENT_DETAILS_ROUTE },
+    { status: "active_waiting_for_upload", label: "Consultar estado de publicación", href: PUBLISHER_PORTAL_APP_UPLOAD_BUILD_DETAILS_ROUTE },
+  ] as const;
+
+  it.each(appPrimaryActions)("opens the correct app flow from the action below the banner for $status", async ({ status, label, href }) => {
+    mockPublisherHomeData(false, false, account, false, false, status !== null, status ?? "pending_revision");
+
+    render(await PublisherPortalHomePage());
+
+    const action = screen.getByTestId("publisher-app-primary-action");
+    const bannerLink = screen.getByTestId("publisher-app-banner-link");
+    expect(action).toHaveAccessibleName(label);
+    expect(action).toHaveAttribute("href", href);
+    expect(action.parentElement).toBe(bannerLink.parentElement);
+    expect(bannerLink.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(bannerLink).not.toContainElement(action);
+    expect(action.querySelector("a")).toBeNull();
+    expect(action).toHaveClass("w-full", "whitespace-normal");
+    expect(jest.mocked(sdkFetchServer).mock.calls.filter(([path]) => path === "/publisher-app/config")).toHaveLength(1);
+    expect(bannerLink).toHaveAttribute("href", status ? PUBLISHER_PORTAL_APP_EDIT_ROUTE : PUBLISHER_PORTAL_APP_NEW_ROUTE);
+  });
+
+  it("keeps the large app action's format and styling identical across all four flows", async () => {
+    let actionClass: string | undefined;
+    let actionStyle: string | null | undefined;
+    for (const { status } of appPrimaryActions) {
+      mockPublisherHomeData(false, false, account, false, false, status !== null, status ?? "pending_revision");
+      render(await PublisherPortalHomePage());
+      const action = screen.getByTestId("publisher-app-primary-action");
+      if (actionClass === undefined) {
+        actionClass = action.className;
+        actionStyle = action.getAttribute("style");
+      } else {
+        expect(action.className).toBe(actionClass);
+        expect(action.getAttribute("style")).toBe(actionStyle);
+      }
+      cleanup();
+      jest.mocked(sdkFetchServer).mockReset();
+    }
+  });
+
+  it.each(["pending_revision", "active", "approved", "changes_requested", "rejected"] as const)("keeps the existing app editor available for $status without offering the wrong next step", async (status) => {
+    mockPublisherHomeData(false, false, account, false, false, true, status);
+    render(await PublisherPortalHomePage());
+    const action = screen.getByTestId("publisher-app-primary-action");
+    expect(action).toHaveAccessibleName("Ver mi app");
+    expect(action).toHaveAttribute("href", PUBLISHER_PORTAL_APP_EDIT_ROUTE);
+  });
+
+  it("uses the same testing-to-signature action for an individual publisher", async () => {
+    const individualAccount = {
+      ...account,
+      context: { ...account.context, role: "individual_publisher", organizationId: undefined, individualId: "ind-1" },
+      role: { ...account.role, role: "individual_publisher" },
+    } as unknown as MyAccountRecord;
+    mockPublisherHomeData(false, false, individualAccount, false, false, true, "active_for_testing");
+    render(await PublisherPortalHomePage());
+    expect(screen.getByTestId("publisher-app-primary-action")).toHaveAccessibleName("¡Quiero subir de mi app propia al store!");
+    expect(screen.getByTestId("publisher-app-primary-action")).toHaveAttribute("href", PUBLISHER_PORTAL_APP_SIGN_TERMS_ROUTE);
+    expect(sdkFetchServer).toHaveBeenCalledWith("/discover/individuals/ind-1");
+    expect(jest.mocked(sdkFetchServer).mock.calls.filter(([path]) => path === "/publisher-app/config")).toHaveLength(1);
   });
 
   it("shows view and create actions once the publisher has an active service offer", async () => {

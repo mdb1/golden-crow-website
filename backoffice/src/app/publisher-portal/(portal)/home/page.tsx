@@ -149,6 +149,7 @@ export default async function PublisherPortalHomePage() {
       publisherTint={publisherBrand.tint}
       publisherImageUrl={publisherBrand.imageUrl}
       hasPublisherAppConfig={Boolean(publisherAppConfig)}
+      publisherAppStatus={publisherAppConfig?.status ?? null}
     />
   );
 }
