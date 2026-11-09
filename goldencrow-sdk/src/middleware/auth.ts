@@ -42,6 +42,7 @@ const PUBLISHER_PORTAL_SDK_PATHS = new Set([
   "/auth/profile-setup",
   "/auth/profile-setup/publisher",
   "/publisher-app/config",
+  "/publisher-app/config/sign-terms-and-conditions",
   "/discover/organizations",
   "/discover/individuals",
   "/discover/feed-items",

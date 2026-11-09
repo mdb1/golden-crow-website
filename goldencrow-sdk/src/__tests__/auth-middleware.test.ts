@@ -45,6 +45,9 @@ describe("auth middleware", () => {
       isPublisherPortalSdkPath("/publisher-app/config/identifier"),
     ).toBe(true);
     expect(
+      isPublisherPortalSdkPath("/publisher-app/config/sign-terms-and-conditions"),
+    ).toBe(true);
+    expect(
       isPublisherPortalSdkPath("/admin/support-services/offers"),
     ).toBe(true);
     expect(
@@ -71,5 +74,13 @@ describe("auth middleware", () => {
         "/discover/organizations/org-1/submission-evaluation",
       ),
     ).toBe(false);
+  });
+
+  it.each([
+    "/publisher-app/config/sign-terms-and-conditions/other",
+    "/publisher-app/config/sign-terms-and-conditions-extra",
+    "/admin/publisher-app-configs/organization_org-1/sign-terms-and-conditions",
+  ])("does not broaden publisher access to %s", path => {
+    expect(isPublisherPortalSdkPath(path)).toBe(false);
   });
 });

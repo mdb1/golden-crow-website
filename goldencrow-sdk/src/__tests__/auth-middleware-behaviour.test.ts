@@ -281,6 +281,7 @@ describe.each([
       "/discover/individuals/ind-1",
       "/discover/feed-items/f-1/duplicate",
       "/publisher-app/config",
+      "/publisher-app/config/sign-terms-and-conditions",
       "/admin/support-services/offers",
       "/admin/support-services/offers/o-1",
       "/admin/support-services/transactions/t-1",
@@ -290,6 +291,9 @@ describe.each([
       "/auth/profile-setup/patient",
       "/pgflex/logistics",
       "/2pq/informed-consents",
+      "/publisher-app/config/sign-terms-and-conditions/other",
+      "/publisher-app/config/sign-terms-and-conditions-extra",
+      "/admin/publisher-app-configs/organization_org-1/sign-terms-and-conditions",
       // Publishers must never evaluate their own submissions.
       "/discover/organizations/org-1/submission-evaluation",
       "/discover/individuals/ind-1/submission-evaluation",
@@ -313,6 +317,33 @@ describe.each([
     });
   },
 );
+
+describe("authMiddleware — publisher publication command", () => {
+  it("allows a publisher POST with its selected portal session and query string", async () => {
+    asSession(contextFor(["publisher"]));
+    const res = await app.inject({
+      method: "POST",
+      url: "/publisher-app/config/sign-terms-and-conditions?request=publication",
+      cookies: { session: "publisher-session", auth_surface: "publisher-portal" },
+      payload: { termsAccepted: true, expectedUpdatedAt: "2026-11-09T20:58:33.941Z" },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ passed: true, uid: DECODED.uid });
+    expect(mockVerifySessionCookie).toHaveBeenCalledWith("publisher-session", true);
+    expect(mockResolveAdminContext).toHaveBeenCalledWith({ ...DECODED, surface: "publisher-portal" });
+  });
+
+  it.each(["patient", "pgflex"] as const)("does not grant the publication command to %s-only sessions", async surface => {
+    asSession(contextFor([surface]));
+    const res = await app.inject({
+      method: "POST", url: "/publisher-app/config/sign-terms-and-conditions",
+      cookies: { session: "valid-session" },
+      payload: { termsAccepted: true, expectedUpdatedAt: "2026-11-09T20:58:33.941Z" },
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).not.toHaveProperty("passed");
+  });
+});
 
 describe("authMiddleware — mixed-surface sessions", () => {
   it("backoffice + patient portal: the backoffice grant wins, backoffice paths pass", async () => {

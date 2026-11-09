@@ -1,4 +1,6 @@
-import type { FastifyInstance } from "fastify";
+import Fastify, { type FastifyInstance } from "fastify";
+import cookie from "@fastify/cookie";
+import { serializerCompiler, validatorCompiler } from "fastify-type-provider-zod";
 import { createHash } from "node:crypto";
 import type {
   AdminContext,
@@ -46,6 +48,8 @@ const DELETE_FIELD = Symbol("delete-field");
 const mockGetProfileSetupState = jest.fn();
 const mockSendPublisherAppCreationNotificationEmails = jest.fn();
 const mockSendPublisherAppPublicationNotificationEmails = jest.fn();
+const mockVerifySessionCookie = jest.fn();
+const mockResolveAdminContext = jest.fn();
 const mockQueryReadCollections: string[] = [];
 let timestampCallCount = 0;
 
@@ -221,10 +225,15 @@ jest.mock("firebase-admin/firestore", () => ({
 }));
 
 jest.mock("../config/firebase.js", () => ({
+  adminAuthFor: jest.fn(() => ({ verifySessionCookie: mockVerifySessionCookie })),
   adminDbFor: jest.fn(() => ({
     collection: mockCollection,
     runTransaction: mockRunTransaction,
   })),
+}));
+
+jest.mock("../repositories/roles.repository.js", () => ({
+  resolveAdminContext: mockResolveAdminContext,
 }));
 
 jest.mock("../repositories/profile-setup.repository.js", () => ({
@@ -411,15 +420,25 @@ function seedPublisher(
 describe("publisher app config contract", () => {
   let context: AdminContext | undefined;
   let fastify: FastifyInstance;
+  let publisherSessionServer: FastifyInstance;
 
   beforeAll(async () => {
     const { publisherAppConfigRoutes } =
       await import("../routes/publisher-app-config.routes.js");
     fastify = await buildRouteServer(publisherAppConfigRoutes, () => context);
+    const { authMiddleware } = await import("../middleware/auth.js");
+    publisherSessionServer = Fastify();
+    publisherSessionServer.setValidatorCompiler(validatorCompiler);
+    publisherSessionServer.setSerializerCompiler(serializerCompiler);
+    await publisherSessionServer.register(cookie);
+    publisherSessionServer.addHook("onRequest", authMiddleware);
+    await publisherSessionServer.register(publisherAppConfigRoutes);
+    await publisherSessionServer.ready();
   });
 
   afterAll(async () => {
     await fastify.close();
+    await publisherSessionServer.close();
   });
 
   beforeEach(() => {
@@ -430,6 +449,8 @@ describe("publisher app config contract", () => {
     mockQueryReadCollections.length = 0;
     timestampCallCount = 0;
     context = organizationContext();
+    mockVerifySessionCookie.mockImplementation(async () => ({ uid: context?.uid, email: context?.email }));
+    mockResolveAdminContext.mockImplementation(async () => context);
     seedPublisher("organization", "shared-publisher-id", {
       name: "Canonical Organization",
       contactEmail: "public-contact@example.net",
@@ -720,6 +741,68 @@ describe("publisher app config contract", () => {
     expect(activated.json().config.status).toBe("active_for_testing");
     return activated.json().config;
   }
+
+  it.each(["organization", "individual"] as const)("accepts an authenticated %s publisher portal signature through the real middleware and persists the payment state", async kind => {
+    context = kind === "organization" ? organizationContext() : individualContext();
+    if (kind === "individual") seedPublisher(kind, "shared-publisher-id", { name: "Canonical Individual" });
+    const publisherContext = context;
+    const session = {
+      cookies: { session: "publisher-session", auth_surface: "publisher-portal" },
+      headers: { "x-expected-session-uid": publisherContext.uid },
+    };
+    const created = await publisherSessionServer.inject({
+      ...session, method: "POST", url: "/publisher-app/config",
+      payload: { ...validBody, termsAccepted: undefined },
+    });
+    expect(created.statusCode).toBe(201);
+    const activated = await publisherSessionServer.inject({ ...session, method: "POST", url: "/publisher-app/config/identifier" });
+    expect(activated.statusCode).toBe(200);
+    const testing = activated.json().config;
+    expect(testing.status).toBe("active_for_testing");
+    expect(testing).not.toHaveProperty("termsAcceptedAt");
+
+    context = makeAdminContext({ isBootstrap: true });
+    expect((await fastify.inject({ method: "PUT", url: "/admin/publisher-app-configs/snapshot" })).statusCode).toBe(200);
+    context = publisherContext;
+    const payload = { termsAccepted: true, expectedUpdatedAt: testing.updatedAt };
+    const signed = await publisherSessionServer.inject({
+      ...session, method: "POST", url: "/publisher-app/config/sign-terms-and-conditions", payload,
+    });
+    expect(signed.statusCode).toBe(200);
+    const published = signed.json().config;
+    expect(mockVerifySessionCookie).toHaveBeenCalledWith("publisher-session", true);
+    expect(mockResolveAdminContext).toHaveBeenLastCalledWith({
+      uid: publisherContext.uid, email: publisherContext.email, surface: "publisher-portal",
+    });
+    expect(published).toMatchObject({
+      id: testing.id, status: "active_waiting_for_payment", appProviderIdentifier: testing.appProviderIdentifier,
+      runtimeRevision: testing.runtimeRevision + 1, termsVersion: "2026-10-31",
+      termsAcceptedAt: expect.any(String), termsAcceptedByUserId: publisherContext.uid, updatedByUserId: publisherContext.uid,
+    });
+    expect(collectionStore("app_configs").get(testing.id)).toMatchObject({
+      status: "active_waiting_for_payment", termsAcceptedAt: new Date(published.termsAcceptedAt),
+      termsAcceptedByUserId: publisherContext.uid, runtimeRevision: testing.runtimeRevision + 1,
+    });
+    const catalog = collectionStore("custom_apps_snapshot").get("simple")!;
+    expect((catalog.apps as StoredDocument[])[0]).toMatchObject({ id: testing.id, status: "active_waiting_for_payment", isActive: true });
+    expect(catalog.statusCounts).toEqual(expect.arrayContaining([
+      { status: "active_for_testing", count: 0 }, { status: "active_waiting_for_payment", count: 1 },
+    ]));
+    expect(mockSendPublisherAppPublicationNotificationEmails).toHaveBeenCalledTimes(1);
+    expect(mockSendPublisherAppPublicationNotificationEmails).toHaveBeenCalledWith(published);
+
+    const replay = await publisherSessionServer.inject({
+      ...session, method: "POST", url: "/publisher-app/config/sign-terms-and-conditions", payload,
+    });
+    expect(replay.statusCode).toBe(200);
+    expect(replay.json()).toEqual(signed.json());
+    expect(mockSendPublisherAppPublicationNotificationEmails).toHaveBeenCalledTimes(1);
+    const godMode = await publisherSessionServer.inject({
+      ...session, method: "POST", url: `/admin/publisher-app-configs/${testing.id}/sign-terms-and-conditions`, payload,
+    });
+    expect(godMode.statusCode).toBe(403);
+    expect(collectionStore("app_configs").get(testing.id)?.status).toBe("active_waiting_for_payment");
+  });
 
   it.each(["organization", "individual"] as const)("immediately migrates a signed %s app to waiting for payment, persists the signature and updates the catalog atomically", async (kind) => {
     context = kind === "organization" ? organizationContext() : individualContext();
