@@ -12,9 +12,10 @@ export function buildPublisherAppCreationNotificationEmail(
 ) {
   return {
     to: recipient,
-    subject: `Nueva app pendiente de revisión: ${config.publisherName}`,
+    subject: `App creada y lista para pruebas: ${config.publisherName}`,
     text: [
-      "Se creó una nueva configuración de app y está pendiente de revisión.",
+      "Se creó una nueva app y ya está activa para pruebas.",
+      "El publicador puede probarla y solicitar su publicación más adelante desde Publicar mi app.",
       "",
       `Publicador: ${config.publisherName}`,
       `Tipo: ${config.publisherKind === "organization" ? "organización" : "individual"}`,
@@ -23,13 +24,47 @@ export function buildPublisherAppCreationNotificationEmail(
       `Email: ${config.publisherEmail}`,
       `Plataformas: ${config.platformOption === "ios_android" ? "iOS + Android" : "iOS"}`,
       `Estado: ${config.status}`,
-      `Términos: ${config.termsVersion ?? "sin versión registrada"}`,
-      `Aceptados por: ${config.termsAcceptedByUserId ?? "sin registro"}`,
-      `Aceptados el: ${config.termsAcceptedAt ?? "sin registro"}`,
+      `Identificador para pruebas: ${config.appProviderIdentifier ?? "sin identificador"}`,
       "",
-      "Revisar en: https://golden-crow-backoffice.vercel.app/publisher-portal/app/edit",
+      `Revisar en: https://golden-crow-backoffice.vercel.app/god-mode/apps/${encodeURIComponent(config.id)}`,
     ].join("\n"),
   };
+}
+
+export function buildPublisherAppPublicationNotificationEmail(
+  config: PublisherAppConfigRecord,
+  recipient: (typeof PUBLISHER_APP_CREATION_NOTIFICATION_EMAILS)[number],
+) {
+  return {
+    to: recipient,
+    subject: `Publicación solicitada · Coordinar pago: ${config.publisherName}`,
+    text: [
+      "Se solicitó la publicación de la app en las tiendas y se aceptaron los términos y condiciones.",
+      "Próximo paso: contactar al publicador para coordinar el pago y la subida a las tiendas.",
+      "",
+      `Publicador: ${config.publisherName}`,
+      `Tipo: ${config.publisherKind === "organization" ? "organización" : "individual"}`,
+      `Publisher ID: ${config.publisherId}`,
+      `Usuario: @${config.publisherUsername}`,
+      `Email de contacto: ${config.publisherEmail}`,
+      `Plataformas: ${config.platformOption === "ios_android" ? "iOS + Android" : "iOS"}`,
+      `Estado: ${config.status}`,
+      `Identificador: ${config.appProviderIdentifier}`,
+      `Términos: ${config.termsVersion}`,
+      `Aceptados por: ${config.termsAcceptedByUserId}`,
+      `Aceptados el: ${config.termsAcceptedAt}`,
+      "",
+      `Revisar en: https://golden-crow-backoffice.vercel.app/god-mode/apps/${encodeURIComponent(config.id)}`,
+    ].join("\n"),
+  };
+}
+
+export async function sendPublisherAppPublicationNotificationEmails(config: PublisherAppConfigRecord) {
+  const results = await Promise.allSettled(PUBLISHER_APP_CREATION_NOTIFICATION_EMAILS.map(recipient =>
+    sendGmailMessage(buildPublisherAppPublicationNotificationEmail(config, recipient)),
+  ));
+  const failures = results.filter(result => result.status === "rejected").map(result => result.reason);
+  if (failures.length) throw new AggregateError(failures, "One or more publisher app publication notifications failed.");
 }
 
 export async function sendPublisherAppCreationNotificationEmails(

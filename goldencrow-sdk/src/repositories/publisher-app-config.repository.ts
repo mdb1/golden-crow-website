@@ -16,6 +16,7 @@ import type {
   PublisherAppConfigCreateInput,
   PublisherAppConfigInput,
   PublisherAppConfigRecord,
+  PublisherAppPublicationInput,
   PublisherAppRuntimeConfig,
   PublisherAppStatus,
   PublisherAppPublisherKind,
@@ -703,12 +704,12 @@ function toPublisherAppCatalogSnapshot(
       count: storedNonNegativeInteger(countData.count, "status count"),
     };
   });
-  // Earlier catalogs have the original five counts and no testing entry.
-  if (
-    statusCounts.length === PUBLISHER_APP_STATUSES.length - 1 &&
-    !statusCounts.some(({ status }) => status === "active_for_testing")
-  ) {
-    statusCounts.push({ status: "active_for_testing", count: 0 });
+  // Additive workflow states may be absent in an older catalog only when no
+  // stored app uses that state. Other missing counts still fail validation.
+  for (const status of ["active_for_testing", "active_waiting_for_payment"] as const) {
+    if (!statusCounts.some(item => item.status === status) && !apps.some(app => app.status === status)) {
+      statusCounts.push({ status, count: 0 });
+    }
   }
   const totalCount = storedNonNegativeInteger(data.totalCount, "total count");
   const activeCount = storedNonNegativeInteger(
@@ -1192,6 +1193,18 @@ export async function updatePublisherAppConfigById(
   const ref = adminDb.collection(APP_CONFIGS_COLLECTION).doc(configId.trim());
   const existing = await ref.get();
   const config = toPublisherAppConfigRecord(existing);
+  const statusForSave = (current: PublisherAppConfigRecord) => {
+    if ((input.expectedStatus !== undefined && input.expectedStatus !== current.status) ||
+        (input.status !== config.status && current.status !== config.status)) {
+      throw new AdminRepositoryError("The app status changed. Reload before saving.", 409);
+    }
+    return input.status === config.status ? current.status : input.status;
+  };
+  statusForSave(config);
+  if (input.status === "active_waiting_for_payment" &&
+      (config.status !== "active_waiting_for_payment" || !config.termsAcceptedAt || !config.termsAcceptedByUserId || !config.termsVersion)) {
+    throw new AdminRepositoryError("Accept the terms through the publication request before waiting for payment.", 409);
+  }
   const identity = await adminPublisherIdentity(config);
   const normalizedInput = normalizeInput(
     {
@@ -1236,10 +1249,12 @@ export async function updatePublisherAppConfigById(
     await adminDb.runTransaction(async (transaction) => {
       const currentConfigSnapshot = await transaction.get(ref);
       const currentConfig = toPublisherAppConfigRecord(currentConfigSnapshot);
+      const nextStatus = statusForSave(currentConfig);
       const catalogSnapshot = await transaction.get(snapshotRef);
       transaction.update(ref, {
         ...update,
-        ...((isPublisherAppRuntimeEnabled(currentConfig.status) || isPublisherAppRuntimeEnabled(input.status))
+        status: nextStatus,
+        ...((isPublisherAppRuntimeEnabled(currentConfig.status) || isPublisherAppRuntimeEnabled(nextStatus))
           ? {
               runtimeRevision: (currentConfig.runtimeRevision ?? 1) + 1,
               [RUNTIME_COLOR_CONTRACT_VERSION_FIELD]: RUNTIME_COLOR_CONTRACT_VERSION,
@@ -1252,6 +1267,8 @@ export async function updatePublisherAppConfigById(
         currentConfig.id,
         {
           ...nextSnapshotItem,
+          status: nextStatus,
+          isActive: isPublisherAppRuntimeEnabled(nextStatus),
           appProviderIdentifier:
             currentConfig.appProviderIdentifier ?? null,
         },
@@ -1259,14 +1276,19 @@ export async function updatePublisherAppConfigById(
       );
     });
   } else {
-    await ref.update({
-      ...update,
-      ...((isPublisherAppRuntimeEnabled(config.status) || isPublisherAppRuntimeEnabled(input.status))
-        ? {
-            runtimeRevision: (config.runtimeRevision ?? 1) + 1,
-            [RUNTIME_COLOR_CONTRACT_VERSION_FIELD]: RUNTIME_COLOR_CONTRACT_VERSION,
-          }
-        : {}),
+    await adminDb.runTransaction(async transaction => {
+      const current = toPublisherAppConfigRecord(await transaction.get(ref));
+      const nextStatus = statusForSave(current);
+      transaction.update(ref, {
+        ...update,
+        status: nextStatus,
+        ...((isPublisherAppRuntimeEnabled(current.status) || isPublisherAppRuntimeEnabled(nextStatus))
+          ? {
+              runtimeRevision: (current.runtimeRevision ?? 1) + 1,
+              [RUNTIME_COLOR_CONTRACT_VERSION_FIELD]: RUNTIME_COLOR_CONTRACT_VERSION,
+            }
+          : {}),
+      });
     });
   }
 
@@ -1383,12 +1405,6 @@ export async function createPublisherAppConfig(
 
   const identity = await publisherIdentity(context, scope);
   const normalizedInput = normalizeInput(input, identity);
-  if (input.termsAccepted !== true) {
-    throw new AdminRepositoryError(
-      "Accept the publisher app terms before creating the config.",
-      400,
-    );
-  }
   const timestamp = FieldValue.serverTimestamp();
   const document = {
     schemaVersion: APP_CONFIG_SCHEMA_VERSION,
@@ -1401,9 +1417,6 @@ export async function createPublisherAppConfig(
     feedEnabled: true,
     status: "pending_revision",
     ...normalizedInput,
-    termsVersion: APP_TERMS_VERSION,
-    termsAcceptedAt: timestamp,
-    termsAcceptedByUserId: context.uid,
     createdAt: timestamp,
     updatedAt: timestamp,
     createdByUserId: context.uid,
@@ -1545,14 +1558,18 @@ export async function updatePublisherAppConfig(
       );
     });
   } else {
-    await ref.update({
-      ...baseUpdate,
-      ...(isPublisherAppRuntimeEnabled(config.status)
-        ? {
-            runtimeRevision: (config.runtimeRevision ?? 1) + 1,
-            [RUNTIME_COLOR_CONTRACT_VERSION_FIELD]: RUNTIME_COLOR_CONTRACT_VERSION,
-          }
-        : {}),
+    await adminDb.runTransaction(async (transaction) => {
+      const current = toPublisherAppConfigRecord(await transaction.get(ref));
+      transaction.update(ref, {
+        ...baseUpdate,
+        status: current.status,
+        ...(isPublisherAppRuntimeEnabled(current.status)
+          ? {
+              runtimeRevision: (current.runtimeRevision ?? 1) + 1,
+              [RUNTIME_COLOR_CONTRACT_VERSION_FIELD]: RUNTIME_COLOR_CONTRACT_VERSION,
+            }
+          : {}),
+      });
     });
   }
 
@@ -1561,7 +1578,7 @@ export async function updatePublisherAppConfig(
 
 export async function createPublisherAppIdentifier(
   context: AdminContext,
-): Promise<PublisherAppConfigRecord> {
+): Promise<{ config: PublisherAppConfigRecord; createdForTesting: boolean }> {
   const scope = publisherScope(context);
   const ref = adminDb
     .collection(APP_CONFIGS_COLLECTION)
@@ -1579,7 +1596,7 @@ export async function createPublisherAppIdentifier(
       initialConfig.publisherKind,
     )
   ) {
-    return initialConfig;
+    return { config: initialConfig, createdForTesting: false };
   }
   if (
     initialConfig.status !== "pending_revision" &&
@@ -1592,13 +1609,14 @@ export async function createPublisherAppIdentifier(
   }
 
   let activated = false;
+  let createdForTesting = false;
   for (let attempt = 0; attempt < 20 && !activated; attempt += 1) {
     const appProviderIdentifier = appProviderIdentifierFor(initialConfig);
     const identifierRef = adminDb
       .collection(APP_CONFIG_IDENTIFIERS_COLLECTION)
       .doc(appProviderIdentifier);
 
-    activated = await adminDb.runTransaction(async (transaction) => {
+    const result = await adminDb.runTransaction(async (transaction) => {
       const snapshot = await transaction.get(ref);
       const config = toPublisherAppConfigRecord(snapshot);
       if (
@@ -1608,7 +1626,7 @@ export async function createPublisherAppIdentifier(
           config.publisherKind,
         )
       ) {
-        return true;
+        return { activated: true, createdForTesting: false };
       }
       if (config.status !== "pending_revision" && !isPublisherAppRuntimeEnabled(config.status)) {
         throw new AdminRepositoryError(
@@ -1619,7 +1637,7 @@ export async function createPublisherAppIdentifier(
 
       const identifierSnapshot = await transaction.get(identifierRef);
       if (identifierSnapshot.exists) {
-        return false;
+        return { activated: false, createdForTesting: false };
       }
 
       const activationStatus = isPublisherAppRuntimeEnabled(config.status) ? config.status : "active_for_testing";
@@ -1660,8 +1678,10 @@ export async function createPublisherAppIdentifier(
         nextSnapshotItem,
         context.uid,
       );
-      return true;
+      return { activated: true, createdForTesting: config.status === "pending_revision" };
     });
+    activated = result.activated;
+    createdForTesting = result.createdForTesting;
   }
 
   if (!activated) {
@@ -1671,7 +1691,56 @@ export async function createPublisherAppIdentifier(
     );
   }
 
-  return toPublisherAppConfigRecord(await ref.get());
+  return { config: toPublisherAppConfigRecord(await ref.get()), createdForTesting };
+}
+
+async function requestAppPublication(
+  context: AdminContext,
+  configId: string,
+  input: PublisherAppPublicationInput,
+): Promise<{ config: PublisherAppConfigRecord; submitted: boolean }> {
+  if (input.termsAccepted !== true) {
+    throw new AdminRepositoryError("Accept the publisher app terms before requesting publication.", 400);
+  }
+  const ref = adminDb.collection(APP_CONFIGS_COLLECTION).doc(configId);
+  const snapshotRef = adminDb.collection(CUSTOM_APPS_SNAPSHOT_COLLECTION).doc(CUSTOM_APPS_SNAPSHOT_DOCUMENT);
+  const submitted = await adminDb.runTransaction(async transaction => {
+    const config = toPublisherAppConfigRecord(await transaction.get(ref));
+    if (config.status === "active_waiting_for_payment" && config.termsVersion === APP_TERMS_VERSION && config.termsAcceptedAt && config.termsAcceptedByUserId) {
+      return false;
+    }
+    if (config.status !== "active_for_testing" || !isCurrentAppProviderIdentifier(config.appProviderIdentifier, config.publisherKind)) {
+      throw new AdminRepositoryError("Only an app active for testing can request publication.", 409);
+    }
+    if (input.expectedUpdatedAt !== config.updatedAt) {
+      throw new AdminRepositoryError("The app changed. Reload and review its configuration before accepting the terms.", 409);
+    }
+    const catalogSnapshot = await transaction.get(snapshotRef);
+    const timestamp = FieldValue.serverTimestamp();
+    transaction.update(ref, {
+      status: "active_waiting_for_payment",
+      termsVersion: APP_TERMS_VERSION,
+      termsAcceptedAt: timestamp,
+      termsAcceptedByUserId: context.uid,
+      runtimeRevision: (config.runtimeRevision ?? 1) + 1,
+      [RUNTIME_COLOR_CONTRACT_VERSION_FIELD]: RUNTIME_COLOR_CONTRACT_VERSION,
+      updatedAt: timestamp,
+      updatedByUserId: context.uid,
+    });
+    updateCatalogSnapshotInTransaction(transaction, catalogSnapshot, config.id,
+      publisherAppSnapshotItemPreservingDescription({ ...config, status: "active_waiting_for_payment" }, catalogSnapshot), context.uid);
+    return true;
+  });
+  return { config: toPublisherAppConfigRecord(await ref.get()), submitted };
+}
+
+export async function requestPublisherAppPublication(context: AdminContext, input: PublisherAppPublicationInput) {
+  return requestAppPublication(context, publisherAppConfigDocumentId(context), input);
+}
+
+export async function requestPublisherAppPublicationById(context: AdminContext, configId: string, input: PublisherAppPublicationInput) {
+  if (!context.isBootstrap) throw new AdminRepositoryError("GOD MODE access required", 403);
+  return requestAppPublication(context, configId.trim(), input);
 }
 
 export async function deactivatePublisherAppIdentifier(

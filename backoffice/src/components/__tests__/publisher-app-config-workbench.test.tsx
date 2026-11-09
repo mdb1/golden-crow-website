@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   fireEvent,
@@ -31,11 +31,13 @@ import { mergePublisherAppPaletteOverrides } from "@/lib/publisher-app-palette-o
 import { sdkFetch, SdkRequestError } from "@/lib/sdk-client";
 
 const mockRouterReplace = jest.fn();
+const mockRouterPush = jest.fn();
 const mockRouterRefresh = jest.fn();
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({
     replace: mockRouterReplace,
+    push: mockRouterPush,
     refresh: mockRouterRefresh,
   }),
 }));
@@ -183,14 +185,9 @@ function palettePlan(colors: PublisherAppColors) {
   );
 }
 
-function acceptCreationTerms() {
-  fireEvent.click(screen.getByRole("button", { name: /Paso 5 Revisión/i }));
-  fireEvent.click(screen.getByRole("checkbox", {
-    name: /Leí y acepto los términos y condiciones/i,
-  }));
-  fireEvent.click(screen.getByRole("button", {
-    name: "Aceptar condiciones y continuar",
-  }));
+function createTestingApp() {
+  advanceToIcon();
+  fireEvent.click(screen.getByRole("button", { name: "Crear app para pruebas" }));
 }
 
 function deferred<T>() {
@@ -205,7 +202,7 @@ describe("PublisherAppConfigWorkbench", () => {
     jest.mocked(fetchPublisherAppPaletteOverrides).mockImplementation(async (colors) => palettePlan(colors));
   });
 
-  it("reviews and accepts the five-step request before creating the app", async () => {
+  it("creates an app for testing after four steps without requiring a signature", async () => {
     const activatedConfig: PublisherAppConfig = {
       ...savedConfig,
       status: "active_for_testing",
@@ -297,170 +294,14 @@ describe("PublisherAppConfigWorkbench", () => {
     chooseColor("color principal", "#112233");
     await screen.findByText(/colores sensibles a la marca quedaron coordinados/i);
     advanceToIcon();
-    fireEvent.click(screen.getByRole("button", { name: "Revisar solicitud" }));
 
-    expect(screen.getByTestId("publisher-app-review")).toBeTruthy();
-    expect(
-      screen.getByRole("heading", {
-        name: "Revisión de configuración y condiciones",
-      }),
-    ).toBeTruthy();
-    expect(screen.getByText("Solo iOS")).toBeTruthy();
-    expect(screen.getByText("#112233")).toBeTruthy();
-    const subscriptionOffer = screen.getByTestId(
-      "publisher-app-subscription-offer",
-    );
-    expect(subscriptionOffer).toHaveClass(
-      "bg-white",
-      "text-black",
-      "dark:bg-[#0b0c0d]",
-      "dark:text-white",
-    );
-    expect(subscriptionOffer).toHaveTextContent(
-      "Monthly subscription per platform",
-    );
-    expect(subscriptionOffer).toHaveTextContent("$59.99");
-    expect(subscriptionOffer).toHaveTextContent("USD / month");
-    expect(subscriptionOffer).toHaveTextContent("for the first");
-    expect(subscriptionOffer).toHaveTextContent("six months");
-    expect(subscriptionOffer).toHaveTextContent("$99.99 USD");
-    const promotionalPrice = screen.getByTestId(
-      "publisher-app-promotional-price",
-    );
-    const promotionalAmount = screen.getByTestId(
-      "publisher-app-promotional-amount",
-    );
-    const promotionalUnit = screen.getByTestId(
-      "publisher-app-promotional-unit",
-    );
-    const promotionalDuration = screen.getByTestId(
-      "publisher-app-promotional-duration",
-    );
-    const standardPrice = screen.getByTestId("publisher-app-standard-price");
-    expect(promotionalPrice).toHaveClass("flex-col");
-    expect(promotionalAmount).toHaveClass("block", "text-5xl");
-    expect(promotionalUnit).toHaveClass("block");
-    expect(promotionalDuration.children).toHaveLength(3);
-    expect(promotionalDuration).toHaveTextContent("for the first");
-    expect(promotionalDuration).toHaveTextContent("six months");
-    expect(screen.getByText("six months")).toHaveClass("text-3xl");
-    expect(subscriptionOffer.textContent?.indexOf("$59.99")).toBeLessThan(
-      subscriptionOffer.textContent?.indexOf("$99.99 USD") ?? -1,
-    );
-    expect(standardPrice.querySelector("span")).toHaveClass("line-through");
-    expect(subscriptionOffer).toHaveTextContent("Managed service");
-    expect(subscriptionOffer).toHaveTextContent(
-      "Included while the subscription is active",
-    );
-    [
-      "Continued licensing of PocketGenesSDK.",
-      "Ongoing SDK maintenance and improvements.",
-      "Integration of SDK updates into your app.",
-      "New app builds and store submissions included.",
-      "Security and compatibility updates.",
-      "Technical support for SDK functionality.",
-    ].forEach((benefit) => {
-      expect(screen.getByText(benefit)).toBeTruthy();
-    });
-    expect(screen.getByText("Resumen comercial")).toBeTruthy();
-    expect(screen.getByText("Suscripción mensual")).toBeTruthy();
-    expect(
-      screen.getByText(
-        /USD 59,99 por mes · precio bonificado por 6 meses \(luego USD 99,99\)/i,
-      ),
-    ).toBeTruthy();
-    expect(screen.getByText(/USD 139,99 · pago único/i)).toBeTruthy();
-    expect(screen.queryByText("Usuario")).toBeNull();
-    expect(screen.queryByText("Estado inicial")).toBeNull();
-    expect(screen.queryByText("Revisión estimada")).toBeNull();
-    expect(screen.queryByText("Pending revision")).toBeNull();
-    expect(screen.queryByText("24 a 48 horas")).toBeNull();
-    expect(screen.queryByTestId("publisher-app-terms-document")).toBeNull();
-    expect(
-      screen.queryByTitle("Términos y condiciones de PocketGenesSDK"),
-    ).toBeNull();
-    expect(screen.queryByRole("link", { name: /Abrir PDF/i })).toBeNull();
-
-    const termsDisclosure = screen.getByRole("button", {
-      name: "See full terms and conditions",
-    });
-    expect(termsDisclosure).toHaveAttribute("aria-expanded", "false");
-    expect(termsDisclosure).toHaveAttribute(
-      "aria-controls",
-      "publisher-app-full-terms",
-    );
-    fireEvent.click(termsDisclosure);
-    expect(sdkFetch).not.toHaveBeenCalled();
-
-    const termsDocument = screen.getByTestId("publisher-app-terms-document");
-    const termsFrame = screen.getByTitle(
-      "Términos y condiciones de PocketGenesSDK",
-    );
-    expect(termsDocument).toContainElement(termsFrame);
-    expect(termsDocument).toHaveAttribute("id", "publisher-app-full-terms");
-    expect(
-      screen.getByRole("button", {
-        name: "Hide full terms and conditions",
-      }),
-    ).toHaveAttribute("aria-expanded", "true");
-    expect(termsFrame).toHaveAttribute(
-      "src",
-      "/PocketGenesSDK_Terminos_y_Condiciones.pdf#page=1&view=FitH&toolbar=0&navpanes=0",
-    );
-    expect(termsFrame).toHaveAttribute("scrolling", "yes");
-    expect(termsFrame.parentElement).toHaveClass(
-      "h-[360px]",
-      "overflow-hidden",
-      "sm:h-[440px]",
-    );
-    expect(screen.getByRole("link", { name: /Abrir PDF/i })).toHaveAttribute(
-      "href",
-      "/PocketGenesSDK_Terminos_y_Condiciones.pdf",
-    );
-    expect(screen.queryByText(/El pedido de/i)).toBeNull();
-    expect(screen.queryByText(/Anexo A · Rango razonable de uso/i)).toBeNull();
-    const termsPdfPath = join(
-      process.cwd(),
-      "public",
-      "PocketGenesSDK_Terminos_y_Condiciones.pdf",
-    );
-    expect(existsSync(termsPdfPath)).toBe(true);
-    expect(readFileSync(termsPdfPath).subarray(0, 5).toString("ascii")).toBe(
-      "%PDF-",
-    );
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Hide full terms and conditions",
-      }),
-    );
-    expect(
-      screen.getByRole("button", {
-        name: "See full terms and conditions",
-      }),
-    ).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByTestId("publisher-app-terms-document")).toBeNull();
-
-    const acceptButton = screen.getByRole("button", {
-      name: "Aceptar condiciones y continuar",
-    });
-    expect(acceptButton).toBeDisabled();
-    expect(sdkFetch).not.toHaveBeenCalled();
-
-    const termsAcceptance = screen.getByTestId(
-      "publisher-app-terms-acceptance",
-    );
-    const termsCheckbox = screen.getByRole("checkbox", {
-      name: /Leí y acepto los términos y condiciones/i,
-    });
-    expect(termsAcceptance).toHaveAttribute("data-selected", "false");
-    expect(termsCheckbox).toHaveClass("size-8");
-    expect(screen.getByText("Requerido")).toBeTruthy();
-
-    fireEvent.click(termsCheckbox);
-    expect(termsAcceptance).toHaveAttribute("data-selected", "true");
-    expect(screen.getByText("Aceptado")).toBeTruthy();
-    expect(acceptButton).toBeEnabled();
-    fireEvent.click(acceptButton);
+    expect(screen.queryByTestId("publisher-app-review")).toBeNull();
+    expect(screen.queryByRole("checkbox", { name: /Leí y acepto/i })).toBeNull();
+    expect(screen.getAllByRole("button", { name: /Paso \d/ })).toHaveLength(4);
+    expect(screen.queryByRole("button", { name: /Paso 5/i })).toBeNull();
+    const createButton = screen.getByRole("button", { name: "Crear app para pruebas" });
+    expect(createButton).toBeEnabled();
+    fireEvent.click(createButton);
 
     await waitFor(() => {
       expect(sdkFetch).toHaveBeenCalledWith("/publisher-app/config", expect.objectContaining({ method: "PUT" }));
@@ -479,7 +320,6 @@ describe("PublisherAppConfigWorkbench", () => {
         ...publisherAppCounterpointColors("#112233"),
       },
       iconSource: "publisher",
-      termsAccepted: true,
     });
     expect(payload).not.toHaveProperty("publisherId");
     expect(payload).not.toHaveProperty("publisherKind");
@@ -488,7 +328,9 @@ describe("PublisherAppConfigWorkbench", () => {
     expect(payload).not.toHaveProperty("status");
     expect(payload).not.toHaveProperty("catalogEnabled");
     expect(payload).not.toHaveProperty("feedEnabled");
-    expect(await screen.findByText(/próximas 24 a 48 horas/i)).toBeTruthy();
+    await screen.findByTestId("publisher-app-success-overlay");
+    expect(screen.queryByText(/próximas 24 a 48 horas/i)).toBeNull();
+    expect(payload).not.toHaveProperty("termsAccepted");
     const successOverlay = screen.getByTestId("publisher-app-success-overlay");
     expect(successOverlay).toHaveClass(
       "fixed",
@@ -562,12 +404,8 @@ describe("PublisherAppConfigWorkbench", () => {
       publisherId: "org-1",
     });
     expect(screen.getByRole("link", { name: "Volver a Apps" })).toHaveAttribute("href", "/god-mode/apps");
-    expect(screen.getAllByRole("button", { name: /Paso \d/ })).toHaveLength(5);
-    fireEvent.click(screen.getByRole("button", { name: /Paso 5 Revisión/i }));
-    const submit = screen.getByRole("button", { name: "Aceptar condiciones y continuar" });
-    expect(submit).toBeDisabled();
-    fireEvent.click(screen.getByRole("checkbox", { name: /Leí y acepto los términos y condiciones/i }));
-    fireEvent.click(submit);
+    expect(screen.getAllByRole("button", { name: /Paso \d/ })).toHaveLength(4);
+    createTestingApp();
     await screen.findByTestId("publisher-app-success-overlay");
     expect(sdkFetch).toHaveBeenCalledWith(apiPath, expect.objectContaining({ method: "POST" }));
     expect(screen.getByRole("link", { name: /Ver y editar mi app/i })).toHaveAttribute("href", editHref);
@@ -592,9 +430,7 @@ describe("PublisherAppConfigWorkbench", () => {
       editHref: "/god-mode/apps/organization_org-1",
       backHref: "/god-mode/apps",
     });
-    fireEvent.click(screen.getByRole("button", { name: /Paso 5 Revisión/i }));
-    fireEvent.click(screen.getByRole("checkbox", { name: /Leí y acepto los términos y condiciones/i }));
-    fireEvent.click(screen.getByRole("button", { name: "Aceptar condiciones y continuar" }));
+    createTestingApp();
     expect(await screen.findByRole("alert")).toHaveTextContent("A publisher app config already exists.");
     expect(mockRouterReplace).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Reintentar proceso" })).toBeEnabled();
@@ -619,11 +455,11 @@ describe("PublisherAppConfigWorkbench", () => {
         return calculation.promise;
       });
       renderWorkbench({ apiPath });
-      acceptCreationTerms();
+      createTestingApp();
       expect(await screen.findByRole("progressbar")).toHaveAttribute("aria-valuenow", "0");
       expect(operations).toEqual(["create"]);
       const createPayload = JSON.parse(String(jest.mocked(sdkFetch).mock.calls[0][1]?.body));
-      expect(createPayload).toHaveProperty("termsAccepted", true);
+      expect(createPayload).not.toHaveProperty("termsAccepted");
       expect(createPayload).not.toHaveProperty("advancedConfiguration");
       expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
       fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
@@ -677,7 +513,7 @@ describe("PublisherAppConfigWorkbench", () => {
         return palettePlan(colors);
       });
       renderWorkbench({ apiPath });
-      acceptCreationTerms();
+      createTestingApp();
       expect(await screen.findByRole("alert")).toHaveTextContent("Stage unavailable");
       expect(screen.getByText("Backend request error log")).toBeTruthy();
       const stageIndex = ["create", "calculate", "save-colors", "publish"].indexOf(failureStage);
@@ -692,39 +528,13 @@ describe("PublisherAppConfigWorkbench", () => {
     },
   );
 
-  it("doubles subscription and store setup prices for iOS and Android", () => {
-    renderWorkbench();
-
-    fireEvent.click(screen.getByRole("radio", { name: /iOS \+ Android/i }));
-    advanceToIcon();
-    fireEvent.click(screen.getByRole("button", { name: "Revisar solicitud" }));
-
-    expect(screen.getByText("iOS + Android")).toBeTruthy();
-    expect(
-      screen.getByText(
-        /USD 119,98 por mes · precio bonificado por 6 meses \(luego USD 199,98\)/i,
-      ),
-    ).toBeTruthy();
-    expect(screen.getByText(/USD 279,98 · pago único/i)).toBeTruthy();
-  });
-
-  it("uses the existing publisher icon when review is opened before step four", async () => {
+  it("uses the existing publisher icon when the final icon step is not customized", async () => {
     mockConfigRequests();
     renderWorkbench({
       publisherImageUrl: "https://example.org/existing-publisher-icon.png",
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /Paso 5 Revisión/i }));
-    fireEvent.click(
-      screen.getByRole("checkbox", {
-        name: /Leí y acepto los términos y condiciones/i,
-      }),
-    );
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Aceptar condiciones y continuar",
-      }),
-    );
+    createTestingApp();
 
     await screen.findByTestId("publisher-app-success-overlay");
     const payload = JSON.parse(
@@ -734,7 +544,6 @@ describe("PublisherAppConfigWorkbench", () => {
       iconSource: "publisher",
       iconImageUrl: "https://example.org/existing-publisher-icon.png",
       iconImageUploadDataUrl: null,
-      termsAccepted: true,
     });
   });
 
@@ -747,17 +556,7 @@ describe("PublisherAppConfigWorkbench", () => {
     });
     renderWorkbench({ publisherImageUrl: publisherIconDataUrl });
 
-    fireEvent.click(screen.getByRole("button", { name: /Paso 5 Revisión/i }));
-    fireEvent.click(
-      screen.getByRole("checkbox", {
-        name: /Leí y acepto los términos y condiciones/i,
-      }),
-    );
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Aceptar condiciones y continuar",
-      }),
-    );
+    createTestingApp();
 
     await screen.findByTestId("publisher-app-success-overlay");
     const payload = JSON.parse(
@@ -767,8 +566,46 @@ describe("PublisherAppConfigWorkbench", () => {
       iconSource: "publisher",
       iconImageUrl: null,
       iconImageUploadDataUrl: publisherIconDataUrl,
-      termsAccepted: true,
     });
+  });
+
+  it.each(["pending_revision", "active_waiting_for_payment", "active", "approved", "changes_requested", "rejected"] as const)("does not offer publication while the persisted status is %s", status => {
+    renderWorkbench({ mode: "edit", initialConfig: { ...savedConfig, status } });
+    expect(screen.queryByRole("button", { name: "Publicar mi app" })).toBeNull();
+  });
+
+  it.each([
+    { apiPath: "/publisher-app/config", href: "/publisher-portal/app/sign-terms-and-conditions" },
+    { apiPath: "/admin/publisher-app-configs/organization_org-1", href: "/god-mode/apps/organization_org-1/sign-terms-and-conditions" },
+  ])("opens the dedicated signature flow from testing without accepting terms in the edit view: $apiPath", ({ apiPath, href }) => {
+    renderWorkbench({ mode: "edit", apiPath, initialConfig: {
+      ...savedConfig, status: "active_for_testing", appProviderIdentifier: "app_org_pocket_genes_lab_48217",
+    } });
+    const saveBar = screen.getByTestId("publisher-app-edit-save-bar");
+    expect(within(saveBar).getByRole("button", { name: "Guardar cambios" })).toBeTruthy();
+    const publish = within(saveBar).getByRole("button", { name: "Publicar mi app" });
+    expect(publish).toBeEnabled();
+    expect(publish).toHaveClass("bg-emerald-600", "text-white");
+    expect(screen.queryByTestId("publisher-app-terms-acceptance")).toBeNull();
+    fireEvent.click(publish);
+    expect(mockRouterPush).toHaveBeenCalledWith(href);
+    expect(sdkFetch).not.toHaveBeenCalled();
+  });
+
+  it("requires saving pending edits before opening the signature's read-only review", async () => {
+    mockConfigRequests({ ...savedConfig, status: "active_for_testing", appProviderIdentifier: "app_org_pocket_genes_lab_48217" });
+    renderWorkbench({ mode: "edit", initialConfig: { ...savedConfig, status: "active_for_testing", appProviderIdentifier: "app_org_pocket_genes_lab_48217" } });
+    const publish = screen.getByRole("button", { name: "Publicar mi app" });
+    fireEvent.click(screen.getByRole("button", { name: "Editar funciones" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Sección Comunidad" }));
+    fireEvent.click(screen.getByRole("button", { name: "Listo" }));
+    expect(publish).toBeDisabled();
+    fireEvent.click(publish);
+    expect(mockRouterPush).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+    await waitFor(() => expect(publish).toBeEnabled());
+    fireEvent.click(publish);
+    expect(mockRouterPush).toHaveBeenCalledWith("/publisher-portal/app/sign-terms-and-conditions");
   });
 
   it("loads an existing configuration and saves only after it changes", async () => {
@@ -1570,10 +1407,9 @@ describe("PublisherAppConfigWorkbench", () => {
     chooseColor("color principal", "#445566");
     expect(primaryEdit).toHaveTextContent("#445566");
     await screen.findByText(/colores sensibles a la marca quedaron coordinados/i);
-    fireEvent.click(screen.getByRole("button", { name: /Paso 5 Revisión/i }));
-    expect(screen.queryByText(/contrapunto/i)).toBeNull();
-    const palette = screen.getByText("Paleta visual").closest("section")!;
-    expect(within(palette).getAllByRole("term")).toHaveLength(3);
+    advanceToIcon();
+    expect(screen.queryByTestId("publisher-app-review")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Paso 5/i })).toBeNull();
   });
 
   it.each([
@@ -1593,7 +1429,7 @@ describe("PublisherAppConfigWorkbench", () => {
         }
         await screen.findByText(/colores sensibles a la marca quedaron coordinados/i);
       }
-      acceptCreationTerms();
+      createTestingApp();
       await screen.findByTestId("publisher-app-success-overlay");
 
       expect(sdkFetch).toHaveBeenCalledWith(apiPath, expect.objectContaining({ method: "POST" }));
@@ -1614,13 +1450,13 @@ describe("PublisherAppConfigWorkbench", () => {
     },
   );
 
-  it("waits for palette calculation and persistence before publishing the created app", async () => {
+  it("waits for palette calculation and persistence before completing the test app creation", async () => {
     let resolvePlan!: (plan: PublisherAppPaletteOverridePlan) => void;
     jest.mocked(fetchPublisherAppPaletteOverrides).mockReturnValueOnce(new Promise((resolve) => { resolvePlan = resolve; }));
     mockConfigRequests();
     renderWorkbench();
-    acceptCreationTerms();
-    await screen.findByText(/Analizando qué colores adaptar a Tu marca, más viva/i);
+    createTestingApp();
+    await waitFor(() => expect(screen.getByText("Calcular los colores").closest("li")).toHaveAttribute("aria-current", "step"));
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "25");
     expect(sdkFetch).toHaveBeenCalledTimes(1);
     expect(jest.mocked(sdkFetch).mock.calls[0][1]?.method).toBe("POST");
@@ -1646,7 +1482,7 @@ describe("PublisherAppConfigWorkbench", () => {
       }
       mockConfigRequests();
       renderWorkbench();
-      acceptCreationTerms();
+      createTestingApp();
       await waitFor(() => expect(screen.getByRole("button", { name: "Reintentar proceso" })).toBeEnabled());
       expect(screen.getByRole("alert")).toHaveTextContent(
         failure === "network failure" ? "Palette service unavailable" : "cobertura incompleta",

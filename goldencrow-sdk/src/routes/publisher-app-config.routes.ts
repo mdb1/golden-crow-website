@@ -1,4 +1,4 @@
-import { FastifyInstance, type FastifyReply } from "fastify";
+import { FastifyInstance, type FastifyReply, type FastifyBaseLogger } from "fastify";
 import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
@@ -18,17 +18,29 @@ import {
   getPublisherAppRuntimeConfigById,
   listPublisherAppConfigsPage,
   refreshPublisherAppCatalogSnapshot,
+  requestPublisherAppPublication,
+  requestPublisherAppPublicationById,
   updatePublisherAppConfig,
   updatePublisherAppConfigById,
   updateOrganizationPublisherAppConfig,
 } from "../repositories/publisher-app-config.repository.js";
-import { sendPublisherAppCreationNotificationEmails } from "../lib/publisher-app-creation-notification-email.js";
+import { sendPublisherAppCreationNotificationEmails, sendPublisherAppPublicationNotificationEmails } from "../lib/publisher-app-creation-notification-email.js";
+import type { PublisherAppConfigRecord } from "../types/sdk.types.js";
 import { PUBLISHER_APP_STATUSES } from "../lib/publisher-app-status.js";
 import { derivePublisherAppCounterpointColors } from "../lib/publisher-app-color-identity.js";
 
 const APP_ICON_DATA_URL_PATTERN =
   /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
 const CUSTOM_APP_CONFIG_BODY_LIMIT_BYTES = 16 * 1024 * 1024;
+
+async function notifyPublisherAppState(config: PublisherAppConfigRecord, stage: "testing" | "publication", log: FastifyBaseLogger) {
+  try {
+    if (stage === "testing") await sendPublisherAppCreationNotificationEmails(config);
+    else await sendPublisherAppPublicationNotificationEmails(config);
+  } catch (error) {
+    log.error({ err: error, appConfigId: config.id }, `Failed to send publisher app ${stage} notification emails.`);
+  }
+}
 
 const HexColorSchema = z
   .string()
@@ -242,7 +254,7 @@ function validatePublisherAppIcon(
 const PublisherAppConfigCreateBodySchema = z
   .object({
     ...PublisherAppConfigBodyShape,
-    termsAccepted: z.literal(true),
+    termsAccepted: z.literal(true).optional(),
   })
   .strict()
   .superRefine(validatePublisherAppIcon);
@@ -259,6 +271,7 @@ const PublisherAppConfigAdminUpdateBodySchema = z
   .object({
     ...PublisherAppConfigBodyShape,
     status: z.enum(PUBLISHER_APP_STATUSES),
+    expectedStatus: z.enum(PUBLISHER_APP_STATUSES).optional(),
   })
   .strict()
   .superRefine(validatePublisherAppIcon);
@@ -266,6 +279,11 @@ const PublisherAppConfigAdminUpdateBodySchema = z
 const PublisherAppConfigAdminParamsSchema = z.object({
   configId: z.string().trim().min(1).max(300),
 });
+
+const PublisherAppPublicationBodySchema = z.object({
+  termsAccepted: z.literal(true),
+  expectedUpdatedAt: z.string().datetime({ offset: true }),
+}).strict();
 
 const OrganizationAppParamsSchema = z.object({
   organizationId: z.string().trim().min(1).max(300).regex(/^[^/]+$/),
@@ -370,14 +388,6 @@ export async function publisherAppConfigRoutes(
           request.params.organizationId,
           request.body,
         );
-        try {
-          await sendPublisherAppCreationNotificationEmails(config);
-        } catch (error) {
-          request.log.error(
-            { err: error, appConfigId: config.id },
-            "Failed to send publisher app creation notification emails.",
-          );
-        }
         return reply.status(201).send({ config });
       } catch (error) {
         return sendRepositoryError(reply, error);
@@ -396,17 +406,28 @@ export async function publisherAppConfigRoutes(
         return reply.status(403).send({ error: "GOD MODE access required" });
       }
       try {
-        return reply.send({
-          config: await createOrganizationPublisherAppIdentifier(
-            request.adminContext,
-            request.params.organizationId,
-          ),
-        });
+        const result = await createOrganizationPublisherAppIdentifier(request.adminContext, request.params.organizationId);
+        if (result.createdForTesting) await notifyPublisherAppState(result.config, "testing", request.log);
+        return reply.send({ config: result.config });
       } catch (error) {
         return sendRepositoryError(reply, error);
       }
     },
   );
+
+  f.post("/admin/publisher-app-configs/:configId/sign-terms-and-conditions", {
+    schema: { params: PublisherAppConfigAdminParamsSchema, body: PublisherAppPublicationBodySchema },
+  }, async (request, reply) => {
+    if (!request.adminContext) return reply.status(401).send({ error: "No authenticated admin context" });
+    if (!request.adminContext.isBootstrap) return reply.status(403).send({ error: "GOD MODE access required" });
+    try {
+      const result = await requestPublisherAppPublicationById(request.adminContext, request.params.configId, request.body);
+      if (result.submitted) await notifyPublisherAppState(result.config, "publication", request.log);
+      return reply.send({ config: result.config });
+    } catch (error) {
+      return sendRepositoryError(reply, error);
+    }
+  });
 
   f.get(
     "/admin/publisher-app-configs",
@@ -589,9 +610,22 @@ export async function publisherAppConfigRoutes(
         .send({ error: "No authenticated admin context" });
     }
     try {
-      return reply.send({
-        config: await createPublisherAppIdentifier(request.adminContext),
-      });
+      const result = await createPublisherAppIdentifier(request.adminContext);
+      if (result.createdForTesting) await notifyPublisherAppState(result.config, "testing", request.log);
+      return reply.send({ config: result.config });
+    } catch (error) {
+      return sendRepositoryError(reply, error);
+    }
+  });
+
+  f.post("/publisher-app/config/sign-terms-and-conditions", {
+    schema: { body: PublisherAppPublicationBodySchema },
+  }, async (request, reply) => {
+    if (!request.adminContext) return reply.status(401).send({ error: "No authenticated admin context" });
+    try {
+      const result = await requestPublisherAppPublication(request.adminContext, request.body);
+      if (result.submitted) await notifyPublisherAppState(result.config, "publication", request.log);
+      return reply.send({ config: result.config });
     } catch (error) {
       return sendRepositoryError(reply, error);
     }
@@ -630,14 +664,6 @@ export async function publisherAppConfigRoutes(
           request.adminContext,
           request.body,
         );
-        try {
-          await sendPublisherAppCreationNotificationEmails(config);
-        } catch (error) {
-          request.log.error(
-            { err: error, appConfigId: config.id },
-            "Failed to send publisher app creation notification emails.",
-          );
-        }
         return reply.status(201).send({ config });
       } catch (error) {
         return sendRepositoryError(reply, error);

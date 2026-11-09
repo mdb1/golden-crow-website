@@ -97,6 +97,7 @@ import {
 import { fetchPublisherAppPaletteOverrides } from "@/lib/publisher-app-palette-overrides-client";
 import {
   PUBLISHER_PORTAL_APP_EDIT_ROUTE,
+  PUBLISHER_PORTAL_APP_SIGN_TERMS_ROUTE,
   PUBLISHER_PORTAL_HOME_ROUTE,
 } from "@/lib/publisher-portal-routes";
 import { processSupportServiceImageUpload } from "@/lib/support-service-image-upload";
@@ -121,7 +122,7 @@ type PublisherAppConfigWorkbenchProps = {
   showDangerZone?: boolean;
 };
 
-type WizardStep = "platform" | "features" | "colors" | "icon" | "review";
+type WizardStep = "platform" | "features" | "colors" | "icon";
 type ColorKey = keyof PublisherAppColors;
 type EditableColorKey = "primary" | "secondary" | "tertiary";
 type DerivedColorKey = Exclude<ColorKey, EditableColorKey>;
@@ -184,14 +185,6 @@ const WIZARD_STEPS: Array<{
     icon: ImageIcon,
   },
 ];
-
-const REVIEW_STEP = {
-  id: "review",
-  title: "Revisá y confirmá tu solicitud",
-  shortTitle: "Revisión",
-  description: "Resumen y condiciones",
-  icon: FileCheck2,
-} satisfies (typeof WIZARD_STEPS)[number];
 
 type ColorField =
   | {
@@ -713,7 +706,7 @@ function ReviewSection({
   );
 }
 
-function PublisherAppReviewDocument({
+export function PublisherAppReviewDocument({
   publisherName,
   publisherEmail,
   state,
@@ -721,6 +714,7 @@ function PublisherAppReviewDocument({
   iconSource,
   termsAccepted,
   onTermsAcceptedChange,
+  disabled = false,
 }: {
   publisherName: string;
   publisherEmail: string;
@@ -729,6 +723,7 @@ function PublisherAppReviewDocument({
   iconSource?: string | null;
   termsAccepted: boolean;
   onTermsAcceptedChange: (accepted: boolean) => void;
+  disabled?: boolean;
 }) {
   const [showFullTerms, setShowFullTerms] = useState(false);
   const selectedFeatures = [
@@ -784,9 +779,8 @@ function PublisherAppReviewDocument({
                 Revisión de configuración y condiciones
               </h3>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-black/70">
-                Documento de revisión de solo lectura. Volvé a los pasos
-                anteriores si necesitás modificar alguna selección antes de
-                aceptar.
+                Revisá la configuración y las condiciones antes de solicitar
+                la publicación. Podés volver a la edición si necesitás hacer cambios.
               </p>
             </div>
             <AppIcon
@@ -1044,7 +1038,7 @@ function PublisherAppReviewDocument({
 
         <footer className="mt-10 border-t border-black/20 pt-5 text-xs leading-5 text-black/55">
           Versión de condiciones: 31 de octubre de 2026 · La aceptación será
-          registrada junto con la solicitud de creación.
+          registrada junto con la solicitud de publicación.
         </footer>
       </article>
 
@@ -1064,6 +1058,7 @@ function PublisherAppReviewDocument({
         >
           <Checkbox
             id="publisher-app-terms"
+            disabled={disabled}
             checked={termsAccepted}
             onCheckedChange={(checked) =>
               onTermsAcceptedChange(checked === true)
@@ -1193,6 +1188,7 @@ function PublisherAppEditSheet({
   onCreateIdentifier,
   onDeactivateIdentifier,
   onDelete,
+  onPublish,
 }: {
   publisherName: string;
   publisherEmail: string;
@@ -1236,6 +1232,7 @@ function PublisherAppEditSheet({
   onCreateIdentifier?: () => void;
   onDeactivateIdentifier?: () => void;
   onDelete: () => void;
+  onPublish?: () => void;
 }) {
   const [activeDialog, setActiveDialog] =
     useState<PublisherAppEditDialog>(null);
@@ -1474,6 +1471,7 @@ function PublisherAppEditSheet({
                     [
                       "pending_revision",
                       "active_for_testing",
+                      "active_waiting_for_payment",
                       "active",
                       "approved",
                       "changes_requested",
@@ -1486,6 +1484,7 @@ function PublisherAppEditSheet({
                         key={option}
                         type="button"
                         onClick={() => onUpdateStatus(option)}
+                        disabled={option === "active_waiting_for_payment"}
                         className={cn(
                           "flex min-h-12 items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left text-sm font-semibold transition",
                           selected
@@ -1848,6 +1847,7 @@ function PublisherAppEditSheet({
                 ? "Tenés cambios sin guardar."
                 : "Todos los cambios están guardados."}
             </p>
+            <div className="flex flex-col gap-3 sm:flex-row">
             <Button
               type="button"
               size="lg"
@@ -1869,6 +1869,18 @@ function PublisherAppEditSheet({
               )}
               {pending ? "Guardando…" : "Guardar cambios"}
             </Button>
+            {onPublish ? (
+              <Button
+                type="button"
+                size="lg"
+                onClick={onPublish}
+                disabled={changed || pending || iconUploadPending || paletteCalculationBlocking || !identifierIsCurrent}
+                className="h-14 rounded-xl bg-emerald-600 text-base font-semibold text-white hover:bg-emerald-700"
+              >
+                <FileCheck2 className="size-5" /> Publicar mi app
+              </Button>
+            ) : null}
+            </div>
           </div>
         </footer>
       </section>
@@ -2269,18 +2281,20 @@ function AppCreationProgressDialog({ progress, onRetry, editHref, backHref, back
   );
 }
 
-function SuccessCelebration({
+export function PublisherAppSuccessCelebration({
   publisherName,
   editHref,
   backHref,
   backLabel,
   appProviderIdentifier,
+  variant = "testing",
 }: {
   publisherName: string;
   editHref: string;
   backHref: string;
   backLabel: string;
   appProviderIdentifier: string;
+  variant?: "testing" | "publication";
 }) {
   return (
     <section
@@ -2308,17 +2322,15 @@ function SuccessCelebration({
         </div>
 
         <p className="mt-7 text-xs font-extrabold uppercase tracking-[0.2em] text-white/72">
-          Solicitud recibida
+          {variant === "testing" ? "App creada" : "Publicación solicitada"}
         </p>
         <h2 className="mx-auto mt-3 max-w-4xl font-heading text-4xl font-bold leading-[1.05] tracking-tight text-white sm:text-5xl lg:text-[3.4rem]">
-          ¡La app de {publisherName} ya está en marcha!
+          {variant === "testing" ? `¡La app de ${publisherName} ya está lista para probar!` : `¡Recibimos la solicitud de ${publisherName}!`}
         </h2>
         <p className="mx-auto mt-6 max-w-[720px] text-lg leading-[1.55] text-white/88 sm:text-xl">
-          Recibimos la configuración y nuestro equipo la va a revisar dentro de
-          las próximas 24 a 48 horas.
-          <br />
-          <br />
-          Te contactaremos si necesitamos algún detalle adicional.
+          {variant === "testing"
+            ? "Tu app está activa para pruebas. Probala y ajustá su configuración. Cuando quieras solicitar su publicación, elegí Publicar mi app desde la edición."
+            : "Aceptaste los términos y recibimos tu solicitud para subir la app a las tiendas. Te contactaremos para coordinar el pago y los próximos pasos de publicación."}
         </p>
 
         <div
@@ -2327,13 +2339,14 @@ function SuccessCelebration({
         >
           <div className="flex flex-col items-center justify-center gap-1 sm:flex-row sm:gap-2">
             <CheckCircle2 className="size-5 shrink-0" />
-            <span>La app está activa para pruebas con el identificador <strong className="break-all font-mono">{appProviderIdentifier}</strong>.</span>
+            <span>{variant === "testing" ? "La app está activa para pruebas con el identificador " : "Publicación solicitada · Pendiente de coordinar el pago. Identificador: "}<strong className="break-all font-mono">{appProviderIdentifier}</strong>.</span>
           </div>
         </div>
 
         <div className="mt-9 flex flex-col flex-wrap justify-center gap-4 sm:flex-row">
           <Link
             href={editHref}
+            prefetch={false}
             className="inline-grid min-h-[68px] place-items-center gap-0.5 rounded-full bg-white px-8 py-3 text-emerald-700 shadow-[0_20px_45px_-22px_rgba(0,0,0,0.42)] transition hover:-translate-y-0.5 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/45 motion-reduce:transform-none"
           >
             <span className="text-xs font-semibold text-slate-500">
@@ -2406,11 +2419,9 @@ export function PublisherAppConfigWorkbench({
     advancedConfiguration?: PublisherAppConfigInput["advancedConfiguration"];
     colorsSaved?: boolean;
   } | null>(null);
-  const [termsAccepted, setTermsAccepted] = useState(false);
   const [iconStepVisited, setIconStepVisited] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
-  const wizardSteps =
-    mode === "create" ? [...WIZARD_STEPS, REVIEW_STEP] : WIZARD_STEPS;
+  const wizardSteps = WIZARD_STEPS;
   const activeStep = wizardSteps[stepIndex] ?? wizardSteps[0];
   const statusLabel = publisherAppStatusLabel(status);
   const identifierIsCurrent = Boolean(
@@ -2486,7 +2497,6 @@ export function PublisherAppConfigWorkbench({
   );
 
   function updateState(patch: Partial<PublisherAppConfigInput>) {
-    setTermsAccepted(false);
     setState((current) => ({ ...current, ...patch }));
   }
   function updateColor(key: EditableColorKey, value: string) {
@@ -2497,15 +2507,14 @@ export function PublisherAppConfigWorkbench({
     });
     previewPalette(nextColors, "Paleta personalizada");
   }
-  function previewPalette(colors: PublisherAppColors, paletteName: string, resetTerms = true) {
-    void applyPalette(colors, paletteName, resetTerms).catch(() => {
+  function previewPalette(colors: PublisherAppColors, paletteName: string) {
+    void applyPalette(colors, paletteName).catch(() => {
       // Palette errors are displayed in the palette status; creation awaits this operation.
     });
   }
   async function applyPalette(
     colors: PublisherAppColors,
     paletteName: string,
-    resetTerms = true,
   ) {
     if (COLOR_FIELDS.some(({ key }) => !normalizePublisherAppColor(colors[key]))) {
       setPaletteOverrideCalculation({
@@ -2530,7 +2539,6 @@ export function PublisherAppConfigWorkbench({
       throw new Error("No pudimos identificar al publicador de esta app.");
     }
 
-    if (resetTerms) setTermsAccepted(false);
     if (mode === "create") setState((current) => ({ ...current, colors: nextColors }));
     paletteOverrideRequest.current?.controller.abort();
     const request = {
@@ -2834,7 +2842,7 @@ export function PublisherAppConfigWorkbench({
         advance(0);
         const response = await sdkFetch<PublisherAppConfigResponse>(apiPath, {
           method: "POST",
-          body: JSON.stringify({ ...checkpoint.input, advancedConfiguration: undefined, termsAccepted: true }),
+          body: JSON.stringify({ ...checkpoint.input, advancedConfiguration: undefined }),
         });
         if (!response.config) {
           throw new Error("El servidor no devolvió la app creada.");
@@ -2848,7 +2856,7 @@ export function PublisherAppConfigWorkbench({
           samePalette(checkpoint.input.colors, palette.colors),
         )?.name ?? "Paleta personalizada";
         const advancedConfiguration = await applyPalette(
-          checkpoint.input.colors, paletteName, false,
+          checkpoint.input.colors, paletteName,
         );
         if (!advancedConfiguration) {
           throw new Error("La coordinación de colores se interrumpió.");
@@ -2895,7 +2903,6 @@ export function PublisherAppConfigWorkbench({
       paletteCalculationBlocking ||
       pending ||
       iconUploadPending ||
-      (mode === "create" && !termsAccepted) ||
       (mode === "edit" && !changed)
     )
       return;
@@ -2909,7 +2916,7 @@ export function PublisherAppConfigWorkbench({
       const submissionPayload = normalizedPayload(state);
       const response = await sdkFetch<PublisherAppConfigResponse>(apiPath, {
         method: "PUT",
-        body: JSON.stringify(allowStatusEditing ? { ...submissionPayload, status } : submissionPayload),
+          body: JSON.stringify(allowStatusEditing ? { ...submissionPayload, status, expectedStatus: persistedStatus } : submissionPayload),
       });
       const saved = response.config;
       if (!saved)
@@ -2950,7 +2957,7 @@ export function PublisherAppConfigWorkbench({
   if (completed)
     return (
       <section className="pb-24">
-        <SuccessCelebration
+        <PublisherAppSuccessCelebration
           publisherName={publisherName}
           editHref={editHref}
           backHref={backHref}
@@ -3012,6 +3019,11 @@ export function PublisherAppConfigWorkbench({
             setStatus(persistedStatus);
           }}
           onSave={() => void save()}
+          onPublish={persistedStatus === "active_for_testing" ? () => router.push(
+            apiPath === "/publisher-app/config"
+              ? PUBLISHER_PORTAL_APP_SIGN_TERMS_ROUTE
+              : `/god-mode/apps/${encodeURIComponent(persistedConfig!.id)}/sign-terms-and-conditions`,
+          ) : undefined}
           onDownload={() => void downloadConfig()}
           onCreateIdentifier={
             apiPath === "/publisher-app/config" &&
@@ -3072,10 +3084,7 @@ export function PublisherAppConfigWorkbench({
 
       <ol
         aria-label="Progreso de configuración"
-        className={cn(
-          "mb-6 grid gap-3 md:grid-cols-2",
-          mode === "create" ? "xl:grid-cols-5" : "xl:grid-cols-4",
-        )}
+        className="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4"
       >
         {wizardSteps.map((step, index) => {
           const active = index === stepIndex;
@@ -3127,14 +3136,7 @@ export function PublisherAppConfigWorkbench({
         })}
       </ol>
 
-      <div
-        className={cn(
-          "grid items-start gap-6",
-          activeStep.id === "review"
-            ? "grid-cols-1"
-            : "xl:grid-cols-[minmax(0,1fr)_390px]",
-        )}
-      >
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
         <div className="overflow-hidden rounded-[28px] border border-border/80 bg-card shadow-[0_26px_68px_-48px_rgba(15,23,42,0.68)]">
           <div className="border-b border-violet-100 bg-[linear-gradient(135deg,rgba(109,40,217,0.08),rgba(139,92,246,0.03))] px-5 py-5 sm:px-7">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-violet-700 dark:text-violet-300">
@@ -3144,9 +3146,7 @@ export function PublisherAppConfigWorkbench({
               {activeStep.title}
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              {activeStep.id === "review"
-                ? "Revisá todas las selecciones y las condiciones antes de enviar la solicitud."
-                : "Podés tocar cualquier paso de arriba para avanzar o volver cuando quieras."}
+              Podés tocar cualquier paso de arriba para avanzar o volver cuando quieras.
             </p>
           </div>
 
@@ -3537,38 +3537,6 @@ export function PublisherAppConfigWorkbench({
               </div>
             ) : null}
 
-            {activeStep.id === "review" ? (
-              <div className="space-y-5">
-                <PaletteOverrideCalculationStatus
-                  calculation={paletteOverrideCalculation}
-                />
-                {paletteOverrideCalculation.status === "error" ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={pending}
-                    onClick={() =>
-                      previewPalette(
-                        state.colors,
-                        paletteOverrideCalculation.paletteName,
-                        false,
-                      )
-                    }
-                  >
-                    Reintentar coordinación
-                  </Button>
-                ) : null}
-                <PublisherAppReviewDocument
-                  publisherName={publisherName}
-                  publisherEmail={publisherEmail}
-                  state={state}
-                  colors={previewColors}
-                  iconSource={resolvedIconSource}
-                  termsAccepted={termsAccepted}
-                  onTermsAcceptedChange={setTermsAccepted}
-                />
-              </div>
-            ) : null}
           </div>
 
           <div className="flex flex-col gap-3 border-t border-border/70 bg-muted/15 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
@@ -3605,7 +3573,7 @@ export function PublisherAppConfigWorkbench({
                   }
                   className="h-11 rounded-xl bg-violet-600 px-5 text-white shadow-[0_14px_28px_-18px_rgba(109,40,217,0.9)] hover:bg-violet-700"
                 >
-                  {activeStep.id === "icon" ? "Revisar solicitud" : "Siguiente"}
+                  Siguiente
                   <ArrowRight className="size-4" />
                 </Button>
               ) : (
@@ -3616,24 +3584,22 @@ export function PublisherAppConfigWorkbench({
                     pending ||
                     paletteCalculationBlocking ||
                     iconUploadPending ||
-                    iconSelectionBlocksSubmission ||
-                    !termsAccepted
+                    iconSelectionBlocksSubmission
                   }
-                  className="h-14 rounded-xl bg-violet-600 px-6 text-base text-white shadow-[0_14px_28px_-18px_rgba(109,40,217,0.9)] hover:bg-violet-700"
+                  className="h-14 rounded-xl bg-emerald-600 px-6 text-base text-white shadow-[0_14px_28px_-18px_rgba(5,150,105,0.9)] hover:bg-emerald-700"
                 >
                   {pending ? (
                     <LoaderCircle className="size-4 animate-spin" />
                   ) : (
                     <CheckCircle2 className="size-5" />
                   )}
-                  {pending ? "Guardando…" : "Aceptar condiciones y continuar"}
+                  {pending ? "Creando app…" : "Crear app para pruebas"}
                 </Button>
               )}
             </div>
           </div>
         </div>
 
-        {activeStep.id !== "review" ? (
           <div className="xl:sticky xl:top-24">
             <PublisherAppLivePreview
               publisherName={publisherName}
@@ -3642,7 +3608,6 @@ export function PublisherAppConfigWorkbench({
               iconSource={resolvedIconSource}
             />
           </div>
-        ) : null}
       </div>
     </section>
   );

@@ -7,6 +7,8 @@ export const PUBLISHER_PORTAL_APP_NEW_ROUTE =
   `${PUBLISHER_PORTAL_APP_ROUTE}/new`;
 export const PUBLISHER_PORTAL_APP_EDIT_ROUTE =
   `${PUBLISHER_PORTAL_APP_ROUTE}/edit`;
+export const PUBLISHER_PORTAL_APP_SIGN_TERMS_ROUTE =
+  `${PUBLISHER_PORTAL_APP_ROUTE}/sign-terms-and-conditions`;
 export const PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE =
   "/publisher-portal/service-offers";
 export const PUBLISHER_PORTAL_SERVICE_OFFER_WIZARD_ROUTE =

@@ -45,6 +45,7 @@ const collections = new Map<string, Map<string, StoredDocument>>();
 const DELETE_FIELD = Symbol("delete-field");
 const mockGetProfileSetupState = jest.fn();
 const mockSendPublisherAppCreationNotificationEmails = jest.fn();
+const mockSendPublisherAppPublicationNotificationEmails = jest.fn();
 const mockQueryReadCollections: string[] = [];
 let timestampCallCount = 0;
 
@@ -234,6 +235,8 @@ jest.mock("../repositories/profile-setup.repository.js", () => ({
 jest.mock("../lib/publisher-app-creation-notification-email.js", () => ({
   sendPublisherAppCreationNotificationEmails: (...args: unknown[]) =>
     mockSendPublisherAppCreationNotificationEmails(...args),
+  sendPublisherAppPublicationNotificationEmails: (...args: unknown[]) =>
+    mockSendPublisherAppPublicationNotificationEmails(...args),
 }));
 
 const validBody = {
@@ -421,6 +424,8 @@ describe("publisher app config contract", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSendPublisherAppCreationNotificationEmails.mockReset().mockResolvedValue(undefined);
+    mockSendPublisherAppPublicationNotificationEmails.mockReset().mockResolvedValue(undefined);
     collections.clear();
     mockQueryReadCollections.length = 0;
     timestampCallCount = 0;
@@ -570,9 +575,6 @@ describe("publisher app config contract", () => {
         },
         learn: { mode: "base" },
       }),
-      termsVersion: "2026-10-31",
-      termsAcceptedAt: new Date("2026-10-30T15:00:00.000Z"),
-      termsAcceptedByUserId: "org-user-1",
       createdAt: new Date("2026-10-30T15:00:00.000Z"),
       updatedAt: new Date("2026-10-30T15:00:00.000Z"),
       createdByUserId: "org-user-1",
@@ -598,9 +600,6 @@ describe("publisher app config contract", () => {
         "iconImageUrl",
         "iconImageUploadDataUrl",
         "advancedConfiguration",
-        "termsVersion",
-        "termsAcceptedAt",
-        "termsAcceptedByUserId",
         "createdAt",
         "updatedAt",
         "createdByUserId",
@@ -633,13 +632,11 @@ describe("publisher app config contract", () => {
         feedEnabled: true,
         iconSource: "publisher",
         iconImageUrl: "https://example.org/canonical-icon.png",
-        termsVersion: "2026-10-31",
-        termsAcceptedByUserId: "org-user-1",
       },
     });
     expect(
       mockSendPublisherAppCreationNotificationEmails,
-    ).toHaveBeenCalledTimes(1);
+    ).not.toHaveBeenCalled();
   });
 
   it("derives counterpoints when reading a historical config without the new fields", async () => {
@@ -703,21 +700,231 @@ describe("publisher app config contract", () => {
     expect(runtime.json().branding.colors).toMatchObject({ counterpointClockwise: "#FF8800", counterpointAnticlockwise: "#123ABC" });
   });
 
-  it("requires explicit terms acceptance before creating an app config", async () => {
-    const { termsAccepted: _termsAccepted, ...payload } = validBody;
-
-    const response = await fastify.inject({
-      method: "POST",
-      url: "/publisher-app/config",
-      payload,
-    });
-
-    expect(response.statusCode).toBe(400);
-    expect(collectionStore("app_configs").size).toBe(0);
-    expect(mockGetProfileSetupState).not.toHaveBeenCalled();
+  it.each([undefined, true])("creates a testing draft without recording a signature (legacy flag: %s)", async (termsAccepted) => {
+    const response = await fastify.inject({ method: "POST", url: "/publisher-app/config", payload: { ...validBody, termsAccepted } });
+    expect(response.statusCode).toBe(201);
+    const stored = collectionStore("app_configs").get(response.json().config.id)!;
+    for (const key of ["termsAcceptedAt", "termsAcceptedByUserId", "termsVersion"]) {
+      expect(stored).not.toHaveProperty(key);
+      expect(response.json().config).not.toHaveProperty(key);
+    }
+    expect(mockSendPublisherAppCreationNotificationEmails).not.toHaveBeenCalled();
+    expect(mockSendPublisherAppPublicationNotificationEmails).not.toHaveBeenCalled();
   });
 
-  it("creates a stable runtime identifier, activates testing, and exports schema v2", async () => {
+  async function createTestingConfig() {
+    const created = await fastify.inject({ method: "POST", url: "/publisher-app/config", payload: { ...validBody, termsAccepted: undefined } });
+    expect(created.statusCode).toBe(201);
+    const activated = await fastify.inject({ method: "POST", url: "/publisher-app/config/identifier" });
+    expect(activated.statusCode).toBe(200);
+    expect(activated.json().config.status).toBe("active_for_testing");
+    return activated.json().config;
+  }
+
+  it.each(["organization", "individual"] as const)("immediately migrates a signed %s app to waiting for payment, persists the signature and updates the catalog atomically", async (kind) => {
+    context = kind === "organization" ? organizationContext() : individualContext();
+    if (kind === "individual") seedPublisher(kind, "shared-publisher-id", { name: "Canonical Individual" });
+    const publisherContext = context;
+    const testing = await createTestingConfig();
+    context = makeAdminContext({ isBootstrap: true });
+    expect((await fastify.inject({ method: "PUT", url: "/admin/publisher-app-configs/snapshot" })).statusCode).toBe(200);
+    context = publisherContext;
+    const snapshotBefore = collectionStore("custom_apps_snapshot").get("simple")!;
+    const payload = { termsAccepted: true, expectedUpdatedAt: testing.updatedAt };
+    const signed = await fastify.inject({ method: "POST", url: "/publisher-app/config/sign-terms-and-conditions", payload });
+    expect(signed.statusCode).toBe(200);
+    const published = signed.json().config;
+    expect(published).toMatchObject({
+      id: testing.id, status: "active_waiting_for_payment", appProviderIdentifier: testing.appProviderIdentifier,
+      runtimeRevision: testing.runtimeRevision + 1, colors: testing.colors,
+      termsVersion: "2026-10-31", termsAcceptedByUserId: publisherContext.uid, updatedByUserId: publisherContext.uid,
+      termsAcceptedAt: expect.any(String),
+    });
+    expect(published.termsAcceptedAt).toBe(published.updatedAt);
+    expect(published.updatedAt).not.toBe(testing.updatedAt);
+    expect(collectionStore("app_configs").get(testing.id)).toMatchObject({
+      status: "active_waiting_for_payment", termsAcceptedByUserId: publisherContext.uid,
+      termsAcceptedAt: new Date(published.termsAcceptedAt), runtimeRevision: testing.runtimeRevision + 1,
+    });
+    const snapshot = collectionStore("custom_apps_snapshot").get("simple")!;
+    expect(snapshot).toMatchObject({ totalCount: 1, activeCount: 1, inactiveCount: 0, updatedByUserId: publisherContext.uid });
+    expect(snapshot.updatedAt).not.toEqual(snapshotBefore.updatedAt);
+    expect((snapshot.apps as StoredDocument[])[0]).toMatchObject({ id: testing.id, status: "active_waiting_for_payment", isActive: true });
+    expect(snapshot.statusCounts).toEqual(expect.arrayContaining([
+      { status: "active_for_testing", count: 0 }, { status: "active_waiting_for_payment", count: 1 }, { status: "active", count: 0 },
+    ]));
+    expect(mockSendPublisherAppPublicationNotificationEmails).toHaveBeenCalledTimes(1);
+    expect(mockSendPublisherAppPublicationNotificationEmails).toHaveBeenCalledWith(published);
+    expect(mockSendPublisherAppCreationNotificationEmails).toHaveBeenCalledTimes(1);
+    const { getActivePublisherAppRuntimeConfig } = await import("../repositories/publisher-app-config.repository.js");
+    expect(await getActivePublisherAppRuntimeConfig(testing.appProviderIdentifier, "ios")).toMatchObject({ status: "published", revision: published.runtimeRevision });
+    const replay = await fastify.inject({ method: "POST", url: "/publisher-app/config/sign-terms-and-conditions", payload });
+    expect(replay.statusCode).toBe(200);
+    expect(replay.json()).toEqual(signed.json());
+    expect(collectionStore("custom_apps_snapshot").get("simple")).toEqual(snapshot);
+    expect(mockSendPublisherAppPublicationNotificationEmails).toHaveBeenCalledTimes(1);
+    const identifierReplay = await fastify.inject({ method: "POST", url: "/publisher-app/config/identifier" });
+    expect(identifierReplay.json()).toEqual(signed.json());
+    const edited = await fastify.inject({ method: "PUT", url: "/publisher-app/config", payload: { ...validBody, profileEnabled: true } });
+    expect(edited.statusCode).toBe(200);
+    expect(edited.json().config).toMatchObject({ status: "active_waiting_for_payment", termsAcceptedAt: published.termsAcceptedAt, termsAcceptedByUserId: publisherContext.uid, termsVersion: "2026-10-31" });
+  });
+
+  it("records the actual GOD MODE operator when signing for the selected organization", async () => {
+    context = makeAdminContext({ isBootstrap: true, uid: "god-signing-operator" });
+    const base = "/admin/publisher-app-configs/organizations/shared-publisher-id";
+    expect((await fastify.inject({ method: "POST", url: base, payload: { ...validBody, termsAccepted: undefined } })).statusCode).toBe(201);
+    const testing = (await fastify.inject({ method: "POST", url: `${base}/identifier` })).json().config;
+    const signed = await fastify.inject({ method: "POST", url: `/admin/publisher-app-configs/${testing.id}/sign-terms-and-conditions`, payload: { termsAccepted: true, expectedUpdatedAt: testing.updatedAt } });
+    expect(signed.statusCode).toBe(200);
+    expect(signed.json().config).toMatchObject({ status: "active_waiting_for_payment", termsAcceptedByUserId: "god-signing-operator", updatedByUserId: "god-signing-operator" });
+    expect(mockSendPublisherAppPublicationNotificationEmails).toHaveBeenCalledWith(signed.json().config);
+  });
+
+  it.each([
+    {}, { termsAccepted: false }, { termsAccepted: true },
+    { termsAccepted: true, expectedUpdatedAt: "not-a-date" },
+    { termsAccepted: true, expectedUpdatedAt: "2026-10-30T15:00:00.000Z", termsAcceptedByUserId: "forged-user" },
+    { termsAccepted: true, expectedUpdatedAt: "2026-10-30T15:00:00.000Z", status: "active" },
+  ])("rejects an incomplete or forged signature body without changing testing state: %j", async (payload) => {
+    const testing = await createTestingConfig();
+    const stored = structuredClone(collectionStore("app_configs").get(testing.id));
+    const result = await fastify.inject({ method: "POST", url: "/publisher-app/config/sign-terms-and-conditions", payload });
+    expect(result.statusCode).toBe(400);
+    expect(collectionStore("app_configs").get(testing.id)).toEqual(stored);
+    expect(mockSendPublisherAppPublicationNotificationEmails).not.toHaveBeenCalled();
+  });
+
+  it("rejects stale terms acceptance after the configuration changes", async () => {
+    const testing = await createTestingConfig();
+    const edited = await fastify.inject({ method: "PUT", url: "/publisher-app/config", payload: { ...validBody, connectEnabled: false } });
+    expect(edited.statusCode).toBe(200);
+    const stale = await fastify.inject({ method: "POST", url: "/publisher-app/config/sign-terms-and-conditions", payload: { termsAccepted: true, expectedUpdatedAt: testing.updatedAt } });
+    expect(stale.statusCode).toBe(409);
+    expect(stale.json().error).toContain("Reload and review");
+    expect(collectionStore("app_configs").get(testing.id)).toMatchObject({ status: "active_for_testing", connectEnabled: false });
+    expect(collectionStore("app_configs").get(testing.id)).not.toHaveProperty("termsAcceptedAt");
+    expect(mockSendPublisherAppPublicationNotificationEmails).not.toHaveBeenCalled();
+    const fresh = await fastify.inject({ method: "POST", url: "/publisher-app/config/sign-terms-and-conditions", payload: { termsAccepted: true, expectedUpdatedAt: edited.json().config.updatedAt } });
+    expect(fresh.statusCode).toBe(200);
+    expect(fresh.json().config.status).toBe("active_waiting_for_payment");
+  });
+
+  it.each(["pending_revision", "approved", "active", "changes_requested", "rejected"] as const)("refuses publication acceptance from %s", async (status) => {
+    const testing = await createTestingConfig();
+    collectionStore("app_configs").set(testing.id, { ...collectionStore("app_configs").get(testing.id), status });
+    const signed = await fastify.inject({ method: "POST", url: "/publisher-app/config/sign-terms-and-conditions", payload: { termsAccepted: true, expectedUpdatedAt: testing.updatedAt } });
+    expect(signed.statusCode).toBe(409);
+    expect(collectionStore("app_configs").get(testing.id)?.status).toBe(status);
+    expect(collectionStore("app_configs").get(testing.id)).not.toHaveProperty("termsAcceptedAt");
+    expect(mockSendPublisherAppPublicationNotificationEmails).not.toHaveBeenCalled();
+  });
+
+  it("requires a valid testing identifier before accepting terms", async () => {
+    const testing = await createTestingConfig();
+    collectionStore("app_configs").set(testing.id, { ...collectionStore("app_configs").get(testing.id), appProviderIdentifier: undefined });
+    const signed = await fastify.inject({ method: "POST", url: "/publisher-app/config/sign-terms-and-conditions", payload: { termsAccepted: true, expectedUpdatedAt: testing.updatedAt } });
+    expect(signed.statusCode).toBe(409);
+    expect(collectionStore("app_configs").get(testing.id)?.status).toBe("active_for_testing");
+    expect(mockSendPublisherAppPublicationNotificationEmails).not.toHaveBeenCalled();
+  });
+
+  it("prevents both ordinary updates and GOD MODE status changes from bypassing the terms signature", async () => {
+    const testing = await createTestingConfig();
+    const forged = await fastify.inject({ method: "PUT", url: "/publisher-app/config", payload: { ...validBody, status: "active_waiting_for_payment" } });
+    expect(forged.statusCode).toBe(400);
+    context = makeAdminContext({ isBootstrap: true });
+    const bypass = await fastify.inject({ method: "PUT", url: `/admin/publisher-app-configs/${testing.id}`, payload: { ...validBody, termsAccepted: undefined, status: "active_waiting_for_payment" } });
+    expect(bypass.statusCode).toBe(409);
+    expect(collectionStore("app_configs").get(testing.id)?.status).toBe("active_for_testing");
+    expect(collectionStore("app_configs").get(testing.id)).not.toHaveProperty("termsAcceptedAt");
+  });
+
+  it.each([
+    ["publisher", false], ["publisher", true], ["god", false], ["god", true],
+  ] as const)("preserves a concurrently signed payment state during an in-flight %s save (catalog change: %s)", async (surface, changesCatalog) => {
+    const testing = await createTestingConfig();
+    if (surface === "god") context = makeAdminContext({ isBootstrap: true });
+    const runNormally = mockRunTransaction.getMockImplementation()!;
+    mockRunTransaction.mockImplementationOnce(async operation => {
+      // Another request signs after the save's initial read and before its transaction starts.
+      collectionStore("app_configs").set(testing.id, {
+        ...collectionStore("app_configs").get(testing.id),
+        status: "active_waiting_for_payment", runtimeRevision: 2,
+        termsAcceptedAt: new Date(FIXED_TIME + 10_000), termsAcceptedByUserId: "concurrent-signing-user", termsVersion: "2026-10-31",
+      });
+      return runNormally(operation);
+    });
+    const payload = {
+      ...validBody, termsAccepted: undefined, connectEnabled: false,
+      ...(changesCatalog ? { advancedConfiguration: { ...advancedConfigurationBody, displayName: "Updated application name" } } : {}),
+      ...(surface === "god" ? { status: "active_for_testing", expectedStatus: "active_for_testing" } : {}),
+    };
+    const saved = await fastify.inject({ method: "PUT", url: surface === "god" ? `/admin/publisher-app-configs/${testing.id}` : "/publisher-app/config", payload });
+    expect(saved.statusCode).toBe(surface === "god" ? 409 : 200);
+    expect(collectionStore("app_configs").get(testing.id)).toMatchObject({
+      status: "active_waiting_for_payment", termsAcceptedByUserId: "concurrent-signing-user", termsVersion: "2026-10-31",
+      runtimeRevision: surface === "god" ? 2 : 3,
+    });
+    if (surface === "publisher") expect(saved.json().config.status).toBe("active_waiting_for_payment");
+  });
+
+  it.each([false, true])("rejects a stale GOD MODE testing save after signing and preserves the payment state (catalog: %s)", async (withCatalog) => {
+    const testing = await createTestingConfig();
+    if (withCatalog) {
+      context = makeAdminContext({ isBootstrap: true });
+      expect((await fastify.inject({ method: "PUT", url: "/admin/publisher-app-configs/snapshot" })).statusCode).toBe(200);
+      context = organizationContext();
+    }
+    const signed = await fastify.inject({ method: "POST", url: "/publisher-app/config/sign-terms-and-conditions", payload: { termsAccepted: true, expectedUpdatedAt: testing.updatedAt } });
+    expect(signed.statusCode).toBe(200);
+    const currentStored = structuredClone(collectionStore("app_configs").get(testing.id));
+    context = makeAdminContext({ isBootstrap: true });
+    const stale = await fastify.inject({
+      method: "PUT", url: `/admin/publisher-app-configs/${testing.id}`,
+      payload: { ...validBody, termsAccepted: undefined, status: "active_for_testing", expectedStatus: "active_for_testing" },
+    });
+    expect(stale.statusCode).toBe(409);
+    expect(collectionStore("app_configs").get(testing.id)).toEqual(currentStored);
+    const reviewedSave = await fastify.inject({
+      method: "PUT", url: `/admin/publisher-app-configs/${testing.id}`,
+      payload: { ...validBody, termsAccepted: undefined, status: "active_waiting_for_payment", expectedStatus: "active_waiting_for_payment" },
+    });
+    expect(reviewedSave.statusCode).toBe(200);
+    expect(reviewedSave.json().config).toMatchObject({ status: "active_waiting_for_payment", termsAcceptedAt: signed.json().config.termsAcceptedAt, termsAcceptedByUserId: "org-user-1" });
+    if (withCatalog) expect((collectionStore("custom_apps_snapshot").get("simple")?.apps as StoredDocument[])[0]?.status).toBe("active_waiting_for_payment");
+  });
+
+  it.each([undefined, organizationContext(), makeAdminContext({ isBootstrap: false })])("protects GOD MODE signing before reading another publisher's configuration (%j)", async (actor) => {
+    context = actor;
+    const signed = await fastify.inject({ method: "POST", url: "/admin/publisher-app-configs/organization_shared-publisher-id/sign-terms-and-conditions", payload: { termsAccepted: true, expectedUpdatedAt: "2026-10-30T15:00:00.000Z" } });
+    expect(signed.statusCode).toBe(actor ? 403 : 401);
+    expect(mockCollection).not.toHaveBeenCalled();
+  });
+
+  it("limits portal signing to the authenticated publisher's own app", async () => {
+    const testing = await createTestingConfig();
+    context = organizationContext({ organizationId: "another-org", uid: "another-user" });
+    const signed = await fastify.inject({ method: "POST", url: "/publisher-app/config/sign-terms-and-conditions", payload: { termsAccepted: true, expectedUpdatedAt: testing.updatedAt } });
+    expect(signed.statusCode).toBe(404);
+    expect(collectionStore("app_configs").get(testing.id)?.status).toBe("active_for_testing");
+    expect(mockSendPublisherAppPublicationNotificationEmails).not.toHaveBeenCalled();
+  });
+
+  it("keeps the committed payment state on notification failure and never repeats the transition", async () => {
+    const testing = await createTestingConfig();
+    mockSendPublisherAppPublicationNotificationEmails.mockRejectedValueOnce(new Error("Notification delivery failed"));
+    const payload = { termsAccepted: true, expectedUpdatedAt: testing.updatedAt };
+    const first = await fastify.inject({ method: "POST", url: "/publisher-app/config/sign-terms-and-conditions", payload });
+    expect(first.statusCode).toBe(200);
+    expect(first.json().config.status).toBe("active_waiting_for_payment");
+    expect(collectionStore("app_configs").get(testing.id)?.status).toBe("active_waiting_for_payment");
+    const retried = await fastify.inject({ method: "POST", url: "/publisher-app/config/sign-terms-and-conditions", payload });
+    expect(retried.json()).toEqual(first.json());
+    expect(mockSendPublisherAppPublicationNotificationEmails).toHaveBeenCalledTimes(1);
+  });
+
+  it("creates a stable runtime identifier, activates testing, and exports schema v3", async () => {
     const createResponse = await fastify.inject({
       method: "POST",
       url: "/publisher-app/config",
@@ -764,6 +971,9 @@ describe("publisher app config contract", () => {
     });
     expect(collectionStore("app_configs").get(createResponse.json().config.id)?.status).toBe("active_for_testing");
     expect(collectionStore("app_config_identifiers").size).toBe(1);
+    expect(mockSendPublisherAppCreationNotificationEmails).toHaveBeenCalledTimes(1);
+    expect(mockSendPublisherAppCreationNotificationEmails).toHaveBeenCalledWith(identifierResponse.json().config);
+    expect(mockSendPublisherAppPublicationNotificationEmails).not.toHaveBeenCalled();
 
     const runtimeResponse = await fastify.inject({
       method: "GET",
@@ -1507,9 +1717,6 @@ describe("publisher app config contract", () => {
       status: "pending_revision",
       catalogEnabled: true,
       feedEnabled: true,
-      termsVersion: "2026-10-31",
-      termsAcceptedAt: new Date("2026-10-30T15:00:00.000Z"),
-      termsAcceptedByUserId: "org-user-1",
     });
   });
 
@@ -1656,13 +1863,12 @@ describe("publisher app config contract", () => {
       iconImageUrl: "https://example.org/canonical-icon.png",
       status: "pending_revision",
       createdByUserId: context.uid,
-      termsAcceptedByUserId: context.uid,
       advancedConfiguration: {
         discoverScope: { mode: "organization", publisherOrganizationId: "shared-publisher-id" },
         serviceScope: { mode: "provider", providerId: "shared-publisher-id", providerKind: "organization" },
       },
     });
-    expect(mockSendPublisherAppCreationNotificationEmails).toHaveBeenCalledWith(created.json().config);
+    expect(mockSendPublisherAppCreationNotificationEmails).not.toHaveBeenCalled();
     expect(collectionStore("custom_apps_snapshot").get("simple")).toMatchObject({
       totalCount: 1,
       updatedByUserId: context.uid,
@@ -1671,7 +1877,7 @@ describe("publisher app config contract", () => {
     const duplicate = await fastify.inject({ method: "POST", url: base, payload: validBody });
     expect(duplicate.statusCode).toBe(409);
     expect(collectionStore("app_configs").size).toBe(1);
-    expect(mockSendPublisherAppCreationNotificationEmails).toHaveBeenCalledTimes(1);
+    expect(mockSendPublisherAppCreationNotificationEmails).not.toHaveBeenCalled();
 
     const colorsUpdated = await fastify.inject({
       method: "PUT",
@@ -1683,7 +1889,6 @@ describe("publisher app config contract", () => {
       id: created.json().config.id,
       status: "pending_revision",
       publisherEmail: context.email.toLowerCase(),
-      termsAcceptedByUserId: context.uid,
       advancedConfiguration: { colorOverrides: advancedConfigurationBody.colorOverrides },
     });
 
@@ -1701,6 +1906,10 @@ describe("publisher app config contract", () => {
     expect((collectionStore("custom_apps_snapshot").get("simple")?.apps as StoredDocument[])[0]).toMatchObject({
       status: "active_for_testing", isActive: true,
     });
+    expect(mockSendPublisherAppCreationNotificationEmails).toHaveBeenCalledTimes(1);
+    expect(mockSendPublisherAppCreationNotificationEmails).toHaveBeenCalledWith(activated.json().config);
+    expect(activated.json().config).not.toHaveProperty("termsAcceptedAt");
+    expect(mockSendPublisherAppPublicationNotificationEmails).not.toHaveBeenCalled();
     const existing = await fastify.inject({ method: "GET", url: base });
     expect(existing.json().config.id).toBe("organization_shared-publisher-id");
   });
@@ -1925,9 +2134,18 @@ describe("publisher app config contract", () => {
     expect(readResponse.json()).toEqual(updateResponse.json());
 
     const currentSnapshot = collectionStore("custom_apps_snapshot").get("simple")!;
+    const testingEraSnapshot = {
+      ...currentSnapshot,
+      statusCounts: (currentSnapshot.statusCounts as StoredDocument[]).filter(entry => entry.status !== "active_waiting_for_payment"),
+    };
+    expect(testingEraSnapshot.statusCounts).toHaveLength(6);
+    collectionStore("custom_apps_snapshot").set("simple", testingEraSnapshot);
+    const testingEraRead = await fastify.inject({ method: "GET", url: "/admin/publisher-app-configs/snapshot" });
+    expect(testingEraRead.statusCode).toBe(200);
+    expect(testingEraRead.json()).toEqual(updateResponse.json());
     const legacySnapshot = {
       ...currentSnapshot,
-      statusCounts: (currentSnapshot.statusCounts as StoredDocument[]).filter((entry) => entry.status !== "active_for_testing"),
+      statusCounts: (currentSnapshot.statusCounts as StoredDocument[]).filter((entry) => !["active_for_testing", "active_waiting_for_payment"].includes(String(entry.status))),
     };
     expect(legacySnapshot.statusCounts).toHaveLength(5);
     collectionStore("custom_apps_snapshot").set("simple", legacySnapshot);

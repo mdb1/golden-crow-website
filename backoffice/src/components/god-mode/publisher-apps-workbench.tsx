@@ -51,6 +51,8 @@ function statusClassName(status: PublisherAppConfig["status"]) {
     case "active":
     case "active_for_testing":
       return "border-violet-200 bg-violet-50 text-violet-800 dark:border-violet-400/25 dark:bg-violet-500/10 dark:text-violet-100";
+    case "active_waiting_for_payment":
+      return "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-400/25 dark:bg-emerald-500/10 dark:text-emerald-100";
     case "approved":
       return "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-400/25 dark:bg-emerald-500/10 dark:text-emerald-100";
     case "changes_requested":

@@ -3,10 +3,10 @@ import { supersededPublisherAppCounterpointPlan } from "./publisher-app-supersed
 export type PublisherAppPlatformOption = "ios" | "ios_android";
 export type PublisherAppIconSource = "publisher" | "custom";
 export type PublisherAppStatus =
-  "pending_revision" | "active_for_testing" | "active" | "approved" | "changes_requested" | "rejected";
+  "pending_revision" | "active_for_testing" | "active_waiting_for_payment" | "active" | "approved" | "changes_requested" | "rejected";
 
 export function isPublisherAppRuntimeEnabled(status: PublisherAppStatus) {
-  return status === "active" || status === "active_for_testing";
+  return status === "active" || status === "active_for_testing" || status === "active_waiting_for_payment";
 }
 
 export function publisherAppStatusLabel(status: PublisherAppStatus) {
@@ -15,6 +15,8 @@ export function publisherAppStatusLabel(status: PublisherAppStatus) {
       return "Activa";
     case "active_for_testing":
       return "Activa para pruebas";
+    case "active_waiting_for_payment":
+      return "Publicación solicitada · Pendiente de pago";
     case "approved":
       return "Aprobada";
     case "changes_requested":
