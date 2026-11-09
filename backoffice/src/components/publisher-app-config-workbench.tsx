@@ -261,11 +261,11 @@ const EDITABLE_COLOR_FIELDS = COLOR_FIELDS.filter((field) => field.editable);
 const PALETTE_SUGGESTION_COPY = [
   {
     name: "Tu marca, más viva",
-    description: "La recomendada: intensifica tu identidad sin perderla.",
+    description: "La recomendada: una transición uniforme del principal al terciario.",
   },
   {
     name: "Destello vecino",
-    description: "Conserva la paleta y desplaza sólo el color terciario.",
+    description: "Un destello vecino en el color terciario.",
   },
   {
     name: "Acento cercano",
@@ -273,7 +273,7 @@ const PALETTE_SUGGESTION_COPY = [
   },
   {
     name: "Principal alternativo",
-    description: "Cambia sólo el principal por un matiz vecino y brillante.",
+    description: "Un matiz vecino y brillante para el principal.",
   },
 ] as const;
 

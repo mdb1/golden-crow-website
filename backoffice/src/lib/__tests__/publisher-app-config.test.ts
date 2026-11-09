@@ -120,7 +120,7 @@ describe("publisher app color palettes", () => {
   it("matches the bright closely related Medicgen orange palette", () => {
     expect(publisherAppDefaultColors("#FF5500")).toEqual({
       primary: "#FF5500",
-      secondary: "#F4852A",
+      secondary: "#F78D15",
       tertiary: "#EFBA2A",
       ...publisherAppCounterpointColors("#FF5500"),
     });
@@ -230,20 +230,57 @@ describe("publisher app color palettes", () => {
     },
   );
 
-  it("changes exactly one color in each alternative palette", () => {
-    const suggestions = publisherAppPaletteSuggestions("#526D49");
-    const [base, ...alternatives] = suggestions;
+  it.each(["#FF5500", "#FF0087", "#40FF00", "#FF0004", "#808080"])(
+    "places only the first suggestion's secondary halfway along the HSL ramp for %s",
+    (source) => {
+      const [first] = publisherAppPaletteSuggestions(source);
+      const start = hslFromHex(first.primary);
+      const middle = hslFromHex(first.secondary);
+      const end = hslFromHex(first.tertiary);
+      const hueStep = (from: number, to: number) => ((to - from + 540) % 360) - 180;
+      const span = hueStep(start.hue, end.hue);
+
+      // The endpoint colors and midpoint are encoded as 8-bit sRGB. Allow
+      // their final byte rounding without accepting the previous uneven ramp.
+      expect(Math.abs(hueStep(start.hue, middle.hue) - span / 2)).toBeLessThan(0.35);
+      expect(Math.abs(hueStep(middle.hue, end.hue) - span / 2)).toBeLessThan(0.35);
+      expect(Math.abs(middle.saturation - (start.saturation + end.saturation) / 2)).toBeLessThan(0.5);
+      expect(Math.abs(middle.lightness - (start.lightness + end.lightness) / 2)).toBeLessThan(0.2);
+      expect(middle.lightness).toBeGreaterThan(start.lightness);
+      expect(middle.lightness).toBeLessThan(end.lightness);
+      expect(middle.saturation).toBeLessThan(start.saturation);
+      expect(middle.saturation).toBeGreaterThan(end.saturation);
+    },
+  );
+
+  it("preserves the other three suggested palettes exactly", () => {
+    const suggestions = publisherAppPaletteSuggestions("#FF5500");
+    const alternatives = suggestions.slice(1);
 
     expect(suggestions).toHaveLength(4);
-    expect(suggestions[0]).toEqual(publisherAppDefaultColors("#526D49"));
+    expect(suggestions[0]).toEqual(publisherAppDefaultColors("#FF5500"));
     expect(
       new Set(suggestions.map((palette) => JSON.stringify(palette))).size,
     ).toBe(4);
+    expect(alternatives).toEqual([
+      {
+        primary: "#FF5500", secondary: "#F4852A", tertiary: "#F6E01E",
+        counterpointClockwise: "#EAFF00", counterpointAnticlockwise: "#FF006A",
+        counterpointFarClockwise: "#6AFF00", counterpointFarAnticlockwise: "#FF00EA",
+      },
+      {
+        primary: "#FF5500", secondary: "#F83D20", tertiary: "#EFBA2A",
+        counterpointClockwise: "#EAFF00", counterpointAnticlockwise: "#FF006A",
+        counterpointFarClockwise: "#6AFF00", counterpointFarAnticlockwise: "#FF00EA",
+      },
+      {
+        primary: "#FF8000", secondary: "#F4852A", tertiary: "#EFBA2A",
+        counterpointClockwise: "#BFFF00", counterpointAnticlockwise: "#FF003F",
+        counterpointFarClockwise: "#3FFF00", counterpointFarAnticlockwise: "#FF00BF",
+      },
+    ]);
 
     for (const palette of alternatives) {
-      expect(
-        BASE_COLOR_KEYS.filter((key) => base![key] !== palette[key]),
-      ).toHaveLength(1);
       expect(palette.primary).toMatch(/^#[0-9A-F]{6}$/);
       expect(palette.secondary).toMatch(/^#[0-9A-F]{6}$/);
       expect(palette.tertiary).toMatch(/^#[0-9A-F]{6}$/);

@@ -634,11 +634,26 @@ export function publisherAppPaletteSuggestions(
       secondary: basePalette.secondary,
       tertiary: basePalette.tertiary,
     }),
-  ].map((palette) => ({
-    ...palette,
-    secondary: palette.tertiary,
-    tertiary: palette.secondary,
-  }));
+  ].map((palette, index) => {
+    const suggestion = {
+      ...palette,
+      secondary: palette.tertiary,
+      tertiary: palette.secondary,
+    };
+    if (index !== 0) return suggestion;
+
+    // Only the recommended option uses an evenly spaced transition. Build
+    // the midpoint from its displayed endpoints, including hue wrap at 360°.
+    const start = rgbToHsl(hexToRgb(suggestion.primary));
+    const end = rgbToHsl(hexToRgb(suggestion.tertiary));
+    const hueDistance = ((end.hue - start.hue + 540) % 360) - 180;
+    suggestion.secondary = hslToHex(
+      start.hue + hueDistance / 2,
+      (start.saturation + end.saturation) / 2,
+      (start.lightness + end.lightness) / 2,
+    );
+    return suggestion;
+  });
 }
 
 export function publisherAppDefaultColors(tint?: string): PublisherAppColors {
