@@ -56,7 +56,7 @@ function unaffectedHash(plan: Plan, previous: Plan) {
   // backgrounds and the subsequently fixed Genes action foreground before
   // checking the original b91 fixture. Every other role remains protected.
   const overrides = { ...plan.colorOverrides };
-  for (const key of [...laterQuickActionRoles, "community.genes.primaryActionForeground"]) {
+  for (const key of [...laterQuickActionRoles, "community.genes.primaryActionForeground", ...catalog.options.filter(option => /^learn\.level\.[^.]+\.(accent|gradientEnd)$/.test(option.key) || /^learn\.header\.sheen(Start|End)$/.test(option.key)).map(option => option.key)]) {
     if (previous.colorOverrides[key]) overrides[key] = previous.colorOverrides[key];
     else delete overrides[key];
   }

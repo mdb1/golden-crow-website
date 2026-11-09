@@ -46,7 +46,7 @@ describe.each(palettes)("fixed quick-action text with a $name palette", palette 
   it("preserves Genes and unrelated roles outside the separately redesigned quick-action backgrounds", () => {
     // Genes primary-action white is a later, separately verified exception.
     const unrelated = (overrides: Record<string, PublisherAppColorOverride>) => Object.fromEntries(
-      Object.entries(withoutText(overrides)).filter(([key]) => !redesignedBackgroundRoles.has(key) && key !== "community.genes.primaryActionForeground"),
+      Object.entries(withoutText(overrides)).filter(([key]) => !redesignedBackgroundRoles.has(key) && key !== "community.genes.primaryActionForeground" && !/^learn\.level\.[^.]+\.(accent|gradientEnd)$/.test(key) && !/^learn\.header\.sheen(Start|End)$/.test(key)),
     );
     expect(unrelated(plan.colorOverrides)).toEqual(unrelated(planFor(palette, true).colorOverrides));
   });

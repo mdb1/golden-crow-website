@@ -398,6 +398,39 @@ function buildFamilies(colors: PublisherAppColors, options: PublisherAppColorCat
   return { primary, secondary, tertiary, learn, firstLevel, interfaceFamily, roleFamilies, gradientMembers, gradientFamilies };
 }
 
+function transformLearnHeader(
+  original: OklchColor,
+  alpha: string,
+  option: PublisherAppColorCatalogOption,
+  mode: Appearance,
+  byKey: Map<string, PublisherAppColorCatalogOption>,
+  projectedFamily: Family,
+  primary: Family,
+) {
+  // Headers use a vivid identity anchor. Reusing the original brown/gray level's
+  // intensity turns a chromatic custom identity into a dull brown or gray cell.
+  // This exception is deliberately separate from Learn atmosphere and tab tones.
+  if (primary.target.chroma <= ACHROMATIC_CHROMA) return transform(original, alpha, projectedFamily, false);
+  const anchorKey = option.key.replace(/\.(accent|gradientEnd)$/, ".accent");
+  const anchor = byKey.get(anchorKey);
+  if (!anchor) return transform(original, alpha, projectedFamily, false);
+  const source = originalColor(anchor, mode);
+  const neutralSource = source.chroma <= ACHROMATIC_CHROMA;
+  const target = {
+    lightness: clamp(primary.target.lightness, 0.62, 0.72),
+    chroma: Math.max(primary.target.chroma, 0.16),
+    hue: neutralSource ? primary.target.hue : normalizeHue(source.hue + signedHueDifference(projectedFamily.target.hue, projectedFamily.source.hue)),
+  };
+  if (neutralSource) {
+    // A neutral original has no hue/chroma ratio to transfer. Keep its relative
+    // shading while assigning the chromatic brand anchor to both local stops.
+    return transform({ ...original, chroma: original.lightness / Math.max(source.lightness, 1e-6), hue: 0 }, alpha, {
+      source: { ...source, chroma: 1, hue: 0 }, target,
+    }, false);
+  }
+  return transform(original, alpha, { source, target }, false);
+}
+
 function rgba(hex: string) {
   const value = parseColor(hex);
   return { ...value, opacity: value.alpha ? Number.parseInt(value.alpha, 16) / 255 : 1 };
@@ -718,7 +751,7 @@ export function reconcilePublisherAppPaletteContrast({
     (colorOverrides[option.key]?.[mode] ?? originalValue(option, mode)) !==
       (generatedColorOverrides[option.key]?.[mode] ?? originalValue(option, mode)),
   ).map(option => option.key))]));
-  const relationships: ContrastPair[] = [...functionalContrastPairs(byKey), ...contrastPairs].filter(pair =>
+  const relationships: ContrastPair[] = [...functionalContrastPairs(byKey, true, false), ...learnHeaderContrastPairs(byKey), ...contrastPairs].filter(pair =>
     !pair.backgroundKeys.some(restoresGenesAccent) &&
     !(pair.foregroundKey && isFixedForeground(pair.foregroundKey)),
   );
@@ -734,7 +767,12 @@ export function reconcilePublisherAppPaletteContrast({
       return dependencies.some(key => key && changed.get(mode)?.has(key));
     }).map(mode => ({ ...pair, modes: [mode] })),
   );
-  applyContrastPairs(values, byKey, affectedPairs, lockedOverrides);
+  applyContrastPairs(values, byKey, affectedPairs, {
+    ...lockedOverrides,
+    // Automatic white ink and explicit manual ink both stay stable while each
+    // affected level is checked independently. Manual backgrounds remain locked.
+    "learn.header.foreground": { light: true, dark: true },
+  });
   const result = Object.fromEntries(Object.entries(colorOverrides).map(([key, value]) => [key, { ...value }]));
   const baseline = Object.fromEntries(Object.entries(generatedColorOverrides).map(([key, value]) => [key, { ...value }]));
   for (const [key, modes] of values) for (const mode of MODES) {
@@ -760,7 +798,27 @@ export function reconcilePublisherAppPaletteContrast({
   return { colorOverrides: nonempty(result), generatedColorOverrides: nonempty(baseline) };
 }
 
-function functionalContrastPairs(byKey: Map<string, PublisherAppColorCatalogOption>, protectBrightSurfaces = true): ContrastPair[] {
+const LEARN_HEADER_SHEEN = {
+  "learn.header.sheenStart": "#FFFFFF1A",
+  "learn.header.sheenEnd": "#FFFFFF08",
+} as const;
+
+function learnHeaderContrastPairs(byKey: Map<string, PublisherAppColorCatalogOption>): ContrastPair[] {
+  if (!byKey.has("learn.header.foreground")) return [];
+  const levels = new Map<string, string[]>();
+  for (const key of byKey.keys()) {
+    const match = /^(learn\.level\.[^.]+)\.(accent|gradientEnd)$/.exec(key);
+    if (!match) continue;
+    levels.set(match[1], [...(levels.get(match[1]) ?? []), key]);
+  }
+  return [...levels.values()].map(backgroundKeys => ({
+    foregroundKey: "learn.header.foreground",
+    backgroundKeys: backgroundKeys.sort((left, right) => Number(left.endsWith("gradientEnd")) - Number(right.endsWith("gradientEnd"))),
+    minimumRatio: 2.5,
+  }));
+}
+
+function functionalContrastPairs(byKey: Map<string, PublisherAppColorCatalogOption>, protectBrightSurfaces = true, includeLearnHeaders = true): ContrastPair[] {
   const pairs: ContrastPair[] = [
     { foregroundKey: "app.accent", backgroundKeys: ["app.background", "app.surface"], minimumRatio: 4.5, preserveOriginal: true },
     { foregroundKey: "app.profileAccent", backgroundKeys: ["app.profileBackground"], minimumRatio: 4.5, preserveOriginal: true },
@@ -774,7 +832,7 @@ function functionalContrastPairs(byKey: Map<string, PublisherAppColorCatalogOpti
     ...["friends", "genes", "circles", "search"].map(name => ({ foregroundKey: `community.quickActions.${name}.foreground`, backgroundKeys: ["start", "middle", "end"].map(stop => `community.quickActions.${name}.${stop}`), minimumRatio: 4.5, preserveOriginal: true })),
   ];
   const levelKeys = [...byKey.keys()].filter(key => /^learn\.level\.[^.]+\.(accent|gradientEnd)$/.test(key));
-  if (levelKeys.length) {
+  if (includeLearnHeaders && levelKeys.length) {
     // Learn's native colored-header contrast policy targets 2.5. Include
     // neutral custom brands too, for which a hue-based native check cannot help.
     pairs.push({ foregroundKey: "learn.header.foreground", backgroundKeys: levelKeys, minimumRatio: 2.5 });
@@ -819,6 +877,7 @@ function createPaletteOverridePlan(
   fixQuickActionText = false,
   anchorQuickActionBackgrounds = false,
   fixGenesPrimaryActionForeground = false,
+  localLearnHeaders = false,
 ): PublisherAppPaletteOverridePlan {
   if (options.length === 0) throw new Error("The color catalog is too small to build the palette plan.");
   const values = new Map<string, PublisherAppColorOverride>();
@@ -833,6 +892,11 @@ function createPaletteOverridePlan(
       const baseDirect = option.key === "brand.primary" || option.key === "android.material.primary" ? "primary" : option.key === "brand.secondary" || option.key === "android.material.secondary" ? "secondary" : option.key === "brand.accent" || option.key === "android.material.tertiary" ? "tertiary" : null;
       let result = original;
       if (baseDirect) result = `${seeds[baseDirect]}${rgb.alpha}`;
+      else if (localLearnHeaders && /^learn\.level\.[^.]+\.(accent|gradientEnd)$/.test(option.key)) {
+        result = transformLearnHeader(tone, rgb.alpha, option, mode, byKey,
+          option.key.startsWith("learn.level.bacteria.") ? families.firstLevel : family,
+          families.primary);
+      }
       // Illustration destinations already resolve the exact brand/counterpoint
       // candidates natively. A generic automatic override would mask that
       // resolver; explicit manual illustration overrides are merged afterwards.
@@ -850,7 +914,21 @@ function createPaletteOverridePlan(
       values.set(option.key, { ...values.get(option.key), [mode]: result });
     }
   }
-  applyContrastPairs(values, byKey, [...functionalContrastPairs(byKey, protectBrightSurfaces), ...contrastPairs], {}, protectBrightSurfaces, selective);
+  applyContrastPairs(values, byKey, [...functionalContrastPairs(byKey, protectBrightSurfaces, !localLearnHeaders), ...contrastPairs], {}, protectBrightSurfaces, selective);
+  if (localLearnHeaders) {
+    // Each level is its own header, not another stop in one enormous gradient.
+    // Keep white ink stable and shade only a local ramp that actually needs it.
+    if (byKey.has("learn.header.foreground")) {
+      values.set("learn.header.foreground", { light: "#FFFFFF", dark: "#FFFFFF" });
+      applyContrastPairs(values, byKey, learnHeaderContrastPairs(byKey), {
+        "learn.header.foreground": { light: true, dark: true },
+      }, true, false);
+    }
+    // Strong white lighting bleaches otherwise saturated brand colors.
+    for (const [key, color] of Object.entries(LEARN_HEADER_SHEEN)) {
+      if (byKey.has(key)) values.set(key, { light: color, dark: color });
+    }
+  }
   if (restoreGenes) {
     const genesRoles = new Set(alternativeTonalFlows.find(flow => flow.id === "communityGenes")?.roleKeys ?? []);
     for (const [key, color] of Object.entries(RESTORED_GENES_ACCENTS)) {
@@ -873,6 +951,17 @@ function createPaletteOverridePlan(
 }
 
 export function createPublisherAppPaletteOverridePlan(
+  colors: PublisherAppColors,
+  options: PublisherAppColorCatalogOption[],
+  catalogVersion: number,
+  alternativeTonalFlows: PublisherAppAlternativeTonalFlow[] = [],
+  contrastPairs: PublisherAppColorContrastPair[] = [],
+): PublisherAppPaletteOverridePlan {
+  return createPaletteOverridePlan(colors, options, catalogVersion, alternativeTonalFlows, contrastPairs, true, true, true, true, true, true, true);
+}
+
+/** Frozen 3.638 values retain the former cross-level contrast and header lighting. */
+export function createPublisherAppPreLearnHeaderPaletteOverridePlan(
   colors: PublisherAppColors,
   options: PublisherAppColorCatalogOption[],
   catalogVersion: number,

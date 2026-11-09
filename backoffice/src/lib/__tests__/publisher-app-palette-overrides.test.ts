@@ -469,6 +469,7 @@ describe.each(palettes)("$name brand palette", (palette) => {
       expect(effective(plan, key, "dark")).toBe(original(key, "dark"));
     }
     for (const option of catalog.options) {
+      if (/^learn\.header\.sheen(Start|End)$/.test(option.key)) continue;
       for (const appearance of appearances) {
         expect(effective(plan, option.key, appearance).slice(7)).toBe(original(option.key, appearance).slice(7));
       }
@@ -490,15 +491,11 @@ describe.each(palettes)("$name brand palette", (palette) => {
     }
   });
 
-  it("keeps Learn header text readable over all level gradients", () => {
+  it("keeps white Learn header text readable over each independent level gradient", () => {
     for (const appearance of appearances) {
       for (const option of catalog.options.filter((entry) => /^learn\.level\..+\.(?:accent|gradientEnd)$/.test(entry.key))) {
-        const sourceRatio = ratio(channels(original("learn.header.foreground", appearance)), channels(original(option.key, appearance)));
-        const targetRatio = ratio(channels(effective(plan, "learn.header.foreground", appearance)), channels(effective(plan, option.key, appearance)));
-        const levelKeys = catalog.options.filter(entry => /^learn\.level\..+\.(?:accent|gradientEnd)$/.test(entry.key)).map(entry => entry.key);
-        const selective = levelKeys.some(key => isLuminousStructuralTone(effective(unshaded, key, appearance)));
-        if (selective) expectSelectiveStructuralGroup(plan, unshaded, levelKeys, appearance, 2.5);
-        else expect(targetRatio).toBeGreaterThanOrEqual(Math.min(2.5, sourceRatio) - 0.015);
+        expect(effective(plan, "learn.header.foreground", appearance)).toBe("#FFFFFF");
+        expect(ratio(channels("#FFFFFF"), channels(effective(plan, option.key, appearance)))).toBeGreaterThanOrEqual(2.5);
       }
     }
   });

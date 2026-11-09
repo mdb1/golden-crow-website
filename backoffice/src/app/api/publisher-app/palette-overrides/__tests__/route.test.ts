@@ -8,6 +8,7 @@ import {
   createPublisherAppOverdarkenedPaletteOverridePlan,
   createPublisherAppPreGenesRestorePaletteOverridePlan,
   createPublisherAppPreQuickBackgroundPaletteOverridePlan,
+  createPublisherAppPreLearnHeaderPaletteOverridePlan,
 } from "@/lib/publisher-app-palette-overrides";
 import { createLegacyPublisherAppPaletteOverridePlan, legacyPublisherAppCounterpointColors } from "@/lib/publisher-app-legacy-palette-overrides";
 
@@ -324,6 +325,34 @@ describe("custom app palette override route", () => {
     for (const action of ["friends", "genes", "circles", "search"]) {
       expect(body.colorOverrides[`community.quickActions.${action}.foreground`]).toEqual({ light: "#FFFFFF", dark: "#FFFFFF" });
     }
+  });
+
+  it.each([false, true])("replaces old automatic dull Learn colors while keeping manual header colors and lighting (saved baseline: %s)", async (savedBaseline) => {
+    jest.mocked(getServerSession).mockResolvedValue({ user: { email: "admin@example.org" }, expires: "2099-01-01T00:00:00.000Z" });
+    const colors = publisherAppColorsWithCounterpoints({ primary: "#FF5500", secondary: "#F78D15", tertiary: "#EFBA2A" });
+    const catalog = getPublisherAppColorCatalog();
+    const previous = createPublisherAppPreLearnHeaderPaletteOverridePlan(colors, catalog.options, catalog.catalogVersion, catalog.alternativeTonalFlows, catalog.contrastPairs);
+    const manualSheen = { light: "#FFFFFF66", dark: "#CCAAFF44" };
+    const response = await POST(new Request("https://example.test/api/publisher-app/palette-overrides", {
+      method: "POST", body: JSON.stringify({
+        colors, previousColors: colors,
+        colorOverrides: {
+          ...previous.colorOverrides,
+          "learn.level.bacteria.accent": { ...previous.colorOverrides["learn.level.bacteria.accent"], light: "#E95F00" },
+          "learn.header.sheenStart": manualSheen,
+          "learn.background.leadingGlow": { light: "#11223380" },
+        },
+        ...(savedBaseline ? { generatedColorOverrides: previous.colorOverrides } : {}),
+      }),
+    }));
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.colorOverrides["learn.level.bacteria.accent"]).toEqual({ light: "#E95F00", dark: "#FF5500" });
+    expect(body.generatedColorOverrides["learn.level.bacteria.accent"]).toEqual({ light: "#FF5500", dark: "#FF5500" });
+    expect(body.colorOverrides["learn.header.sheenStart"]).toEqual(manualSheen);
+    expect(body.generatedColorOverrides["learn.header.sheenStart"]).toEqual({ light: "#FFFFFF1A", dark: "#FFFFFF1A" });
+    expect(body.colorOverrides["learn.background.leadingGlow"].light).toBe("#11223380");
+    expect(body.colorOverrides["tabs.learn.start"]).toEqual(previous.colorOverrides["tabs.learn.start"]);
   });
 
   it("reconciles automatic foreground contrast against a retained manual background and saves the corrected baseline", async () => {
