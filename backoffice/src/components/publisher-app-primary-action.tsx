@@ -24,6 +24,8 @@ export function PublisherAppPrimaryAction({
   tint?: string;
 }) {
   const palette = publisherAppIntensePalette(tint);
+  const faceHue = (palette.sceneHue + 5) % 360;
+  const needsDarkerFace = faceHue >= 30 && faceHue <= 205;
   const action = !hasConfig
     ? { label: "¡Quiero una prueba gratuita de mi app propia!", href: PUBLISHER_PORTAL_APP_NEW_ROUTE }
     : status === "active_for_testing"
@@ -42,14 +44,20 @@ export function PublisherAppPrimaryAction({
       className="trial-cta group relative mt-4 flex min-h-24 w-full items-center gap-4 whitespace-normal rounded-2xl border border-transparent px-5 py-5 text-white transition duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transform-none sm:px-7"
       style={{
         "--trial-cta-hue": palette.sceneHue,
-        "--trial-cta-face-left": `hsl(${palette.sceneHue} 81% 36%)`,
-        "--trial-cta-face-middle": `hsl(${palette.sceneHue} 82% 26%)`,
-        "--trial-cta-face-right": `hsl(${palette.sceneHue} 84% 15%)`,
+        "--trial-cta-light-hue": palette.sceneHue - 18,
+        "--trial-cta-depth-hue": palette.sceneHue + 14,
+        "--trial-cta-face-left": `hsl(${palette.sceneHue - 4} 100% ${needsDarkerFace ? 33 : 48}%)`,
+        "--trial-cta-face-middle": `hsl(${faceHue} 100% ${needsDarkerFace ? 27 : 46}%)`,
+        "--trial-cta-face-right": `hsl(${palette.sceneHue + 14} 100% ${needsDarkerFace ? 23 : 44}%)`,
       } as CSSProperties}
     >
       <span aria-hidden="true" className="trial-cta__halo" />
-      <span aria-hidden="true" className="trial-cta__surface" />
+      <span aria-hidden="true" className="trial-cta__surface">
+        <span className="trial-cta__bezel" />
+        <span className="trial-cta__face" />
+      </span>
       <span aria-hidden="true" className="trial-cta__reflection" />
+      <span aria-hidden="true" className="trial-cta__glints" />
       <span className="trial-cta__content">
         <span aria-hidden="true" className="trial-cta__icon flex size-12 shrink-0 items-center justify-center rounded-2xl border border-white/20">
           <Sparkles className="size-6" />
