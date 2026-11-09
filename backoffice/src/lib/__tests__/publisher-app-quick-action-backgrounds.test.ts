@@ -59,7 +59,7 @@ function planFor(colors: Colors, previous = false) {
 
 function withoutBackgrounds(overrides: Record<string, PublisherAppColorOverride>) {
   // The later fixed Genes foreground has its own exact other-role regression.
-  return Object.fromEntries(Object.entries(overrides).filter(([key]) => !backgrounds.has(key) && key !== "community.genes.primaryActionForeground" && !/^learn\.level\.[^.]+\.(accent|gradientEnd)$/.test(key) && !/^learn\.header\.sheen(Start|End)$/.test(key)));
+  return Object.fromEntries(Object.entries(overrides).filter(([key]) => !backgrounds.has(key) && key !== "community.genes.primaryActionForeground" && !/^learn\.level\.[^.]+\.(accent|gradientEnd)$/.test(key) && !/^learn\.header\.sheen(Start|End)$/.test(key) && !key.startsWith("community.rareCircles.") && key !== "community.newPost.circleHeaderAccent"));
 }
 
 const distinct = publisherAppColorsWithCounterpoints({

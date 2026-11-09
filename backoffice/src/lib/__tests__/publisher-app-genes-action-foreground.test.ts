@@ -27,7 +27,7 @@ function planFor(palette = palettes[0], previous = false) {
 }
 
 function withoutForeground(overrides: Record<string, PublisherAppColorOverride>) {
-  return Object.fromEntries(Object.entries(overrides).filter(([key]) => key !== foregroundKey && !/^learn\.level\.[^.]+\.(accent|gradientEnd)$/.test(key) && !/^learn\.header\.sheen(Start|End)$/.test(key)));
+  return Object.fromEntries(Object.entries(overrides).filter(([key]) => key !== foregroundKey && !/^learn\.level\.[^.]+\.(accent|gradientEnd)$/.test(key) && !/^learn\.header\.sheen(Start|End)$/.test(key) && !key.startsWith("community.rareCircles.") && key !== "community.newPost.circleHeaderAccent"));
 }
 
 it.each(palettes)("emits an explicit white Genes action foreground in both modes without changing other automatic overrides: %j", palette => {

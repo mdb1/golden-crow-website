@@ -19,7 +19,7 @@ const palettes = [
   { primary: "#FFFFFF", secondary: "#FFFFFF", tertiary: "#FFFFFF" },
 ];
 const changedRole = (key: string) => /^learn\.level\.[^.]+\.(accent|gradientEnd)$/.test(key) || /^learn\.header\.sheen(Start|End)$/.test(key);
-const withoutHeader = (overrides: Record<string, PublisherAppColorOverride>) => Object.fromEntries(Object.entries(overrides).filter(([key]) => !changedRole(key)));
+const withoutHeader = (overrides: Record<string, PublisherAppColorOverride>) => Object.fromEntries(Object.entries(overrides).filter(([key]) => !changedRole(key) && !key.startsWith("community.rareCircles.") && key !== "community.newPost.circleHeaderAccent"));
 function planFor(palette = palettes[0], previous = false, unshaded = false) {
   return (previous ? createPublisherAppPreLearnHeaderPaletteOverridePlan : createPublisherAppPaletteOverridePlan)(
     publisherAppColorsWithCounterpoints(palette),

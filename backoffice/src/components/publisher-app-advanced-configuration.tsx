@@ -752,11 +752,9 @@ function ColorOverridesEditor({
           <section className="rounded-3xl border bg-muted/15 p-5">
             <h4 className="font-semibold">Flujos tonales alternativos</h4>
             <p className="mt-1 text-sm text-muted-foreground">
-              Estas experiencias usan una familia local coordinada. Rare
-              Circles, Community Composer y Saved Content parten de
-              contrapuntos; Genes conserva su propio verde aqua tecnológico sin
-              depender de la paleta de la app. Los valores se guardan como
-              overrides independientes, no como colores globales.
+              Rare Circles conserva su identidad rojiza y Genes su verde aqua.
+              Community Composer y Saved Content se coordinan con los
+              contrapuntos de la app.
             </p>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               {catalog.alternativeTonalFlows.map((flow) => {
@@ -776,7 +774,9 @@ function ColorOverridesEditor({
                       : undefined;
                 const centerLabel =
                   center?.kind === "fixed"
-                    ? "Verde aqua tecnológico"
+                    ? flow.id === "rareCircles"
+                      ? "Rojo original"
+                      : "Verde aqua tecnológico"
                     : centerKey === "counterpointClockwise"
                       ? "Contrapunto horario"
                       : centerKey === "counterpointAnticlockwise"

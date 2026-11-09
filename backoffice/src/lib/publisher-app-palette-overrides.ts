@@ -194,6 +194,10 @@ function restoresGenesAccent(key: string) {
   return Object.hasOwn(RESTORED_GENES_ACCENTS, key);
 }
 
+function isOriginalCirclesRole(key: string) {
+  return key.startsWith("community.rareCircles.") || key === "community.newPost.circleHeaderAccent";
+}
+
 // These roles color only the quick-action title and Open labels. The original
 // illustration artwork and every background role keep their existing behavior.
 const FIXED_QUICK_ACTION_TEXT_KEYS = [
@@ -322,7 +326,7 @@ function analogousFamilyForHue(sourceHue: number, primary: Family): Family {
   };
 }
 
-function buildFamilies(colors: PublisherAppColors, options: PublisherAppColorCatalogOption[], flows: PublisherAppAlternativeTonalFlow[], mode: Appearance) {
+function buildFamilies(colors: PublisherAppColors, options: PublisherAppColorCatalogOption[], flows: PublisherAppAlternativeTonalFlow[], mode: Appearance, fixedCircles = false) {
   const byKey = new Map(options.map(option => [option.key, option]));
   const sourceFor = (key: string, fallback = "#F61C72") => {
     const option = byKey.get(key);
@@ -351,7 +355,11 @@ function buildFamilies(colors: PublisherAppColors, options: PublisherAppColorCat
   };
   const roleFamilies = new Map<string, Family>();
   for (const flow of flows) {
-    const definition = (PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTERS as Record<string, PublisherAppAlternativeTonalFlowCenter>)[flow.id];
+    // Frozen generators retain the former counterpoint coordinates for exact
+    // recognition of old automatic values when a palette is applied again.
+    const definition: PublisherAppAlternativeTonalFlowCenter | undefined = flow.id === "rareCircles" && !fixedCircles
+      ? { kind: "counterpoint", key: "counterpointAnticlockwise" }
+      : (PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTERS as Record<string, PublisherAppAlternativeTonalFlowCenter>)[flow.id];
     if (!definition) continue;
     // Older/synthetic catalogs may not contain the new Rare Circles anchor.
     const anchorKey = byKey.has(FLOW_ANCHORS[flow.id]) ? FLOW_ANCHORS[flow.id] : flow.roleKeys.find(key => byKey.has(key));
@@ -878,20 +886,22 @@ function createPaletteOverridePlan(
   anchorQuickActionBackgrounds = false,
   fixGenesPrimaryActionForeground = false,
   localLearnHeaders = false,
+  fixedCircles = false,
 ): PublisherAppPaletteOverridePlan {
   if (options.length === 0) throw new Error("The color catalog is too small to build the palette plan.");
   const values = new Map<string, PublisherAppColorOverride>();
   const byKey = new Map(options.map(option => [option.key, option]));
   const seeds = { primary: normalizedSeed(colors.primary), secondary: normalizedSeed(colors.secondary), tertiary: normalizedSeed(colors.tertiary) };
   for (const mode of MODES) {
-    const families = buildFamilies(colors, options, alternativeTonalFlows, mode);
+    const families = buildFamilies(colors, options, alternativeTonalFlows, mode, fixedCircles);
     for (const option of options) {
       const original = originalValue(option, mode), rgb = parseColor(original), tone = rgbToOklch(rgb);
       const local = families.roleFamilies.get(option.key);
       let family = local ?? families.gradientFamilies.get(option.key) ?? analogousFamilyForHue(tone.hue, families.primary);
       const baseDirect = option.key === "brand.primary" || option.key === "android.material.primary" ? "primary" : option.key === "brand.secondary" || option.key === "android.material.secondary" ? "secondary" : option.key === "brand.accent" || option.key === "android.material.tertiary" ? "tertiary" : null;
       let result = original;
-      if (baseDirect) result = `${seeds[baseDirect]}${rgb.alpha}`;
+      if (fixedCircles && isOriginalCirclesRole(option.key)) result = original;
+      else if (baseDirect) result = `${seeds[baseDirect]}${rgb.alpha}`;
       else if (localLearnHeaders && /^learn\.level\.[^.]+\.(accent|gradientEnd)$/.test(option.key)) {
         result = transformLearnHeader(tone, rgb.alpha, option, mode, byKey,
           option.key.startsWith("learn.level.bacteria.") ? families.firstLevel : family,
@@ -914,7 +924,10 @@ function createPaletteOverridePlan(
       values.set(option.key, { ...values.get(option.key), [mode]: result });
     }
   }
-  applyContrastPairs(values, byKey, [...functionalContrastPairs(byKey, protectBrightSurfaces, !localLearnHeaders), ...contrastPairs], {}, protectBrightSurfaces, selective);
+  const relationships = [...functionalContrastPairs(byKey, protectBrightSurfaces, !localLearnHeaders), ...contrastPairs].filter(pair =>
+    !fixedCircles || ![pair.foregroundKey, ...pair.backgroundKeys].some(key => key && isOriginalCirclesRole(key)),
+  );
+  applyContrastPairs(values, byKey, relationships, {}, protectBrightSurfaces, selective);
   if (localLearnHeaders) {
     // Each level is its own header, not another stop in one enormous gradient.
     // Keep white ink stable and shade only a local ramp that actually needs it.
@@ -946,11 +959,22 @@ function createPaletteOverridePlan(
   if (fixGenesPrimaryActionForeground && byKey.has(GENES_PRIMARY_ACTION_FOREGROUND_KEY)) {
     values.set(GENES_PRIMARY_ACTION_FOREGROUND_KEY, { light: "#FFFFFF", dark: "#FFFFFF" });
   }
-  const colorOverrides = Object.fromEntries([...values.entries()].map(([key, value]) => [key, Object.fromEntries(MODES.filter(mode => (fixQuickActionText && isFixedQuickActionText(key)) || (fixGenesPrimaryActionForeground && key === GENES_PRIMARY_ACTION_FOREGROUND_KEY) || value[mode] !== originalValue(byKey.get(key)!, mode)).map(mode => [mode, value[mode]]))] as const).filter(([, value]) => Object.keys(value).length > 0).sort(([a], [b]) => a.localeCompare(b)));
+  const colorOverrides = Object.fromEntries([...values.entries()].map(([key, value]) => [key, Object.fromEntries(MODES.filter(mode => (fixedCircles && isOriginalCirclesRole(key)) || (fixQuickActionText && isFixedQuickActionText(key)) || (fixGenesPrimaryActionForeground && key === GENES_PRIMARY_ACTION_FOREGROUND_KEY) || value[mode] !== originalValue(byKey.get(key)!, mode)).map(mode => [mode, value[mode]]))] as const).filter(([, value]) => Object.keys(value).length > 0).sort(([a], [b]) => a.localeCompare(b)));
   return { catalogVersion, sourceCount: options.length, selectedCount: Object.keys(colorOverrides).length, colorOverrides };
 }
 
 export function createPublisherAppPaletteOverridePlan(
+  colors: PublisherAppColors,
+  options: PublisherAppColorCatalogOption[],
+  catalogVersion: number,
+  alternativeTonalFlows: PublisherAppAlternativeTonalFlow[] = [],
+  contrastPairs: PublisherAppColorContrastPair[] = [],
+): PublisherAppPaletteOverridePlan {
+  return createPaletteOverridePlan(colors, options, catalogVersion, alternativeTonalFlows, contrastPairs, true, true, true, true, true, true, true, true);
+}
+
+/** Frozen 3.639 values recognize the former counterpoint-based Circles flow. */
+export function createPublisherAppPreFixedCirclesPaletteOverridePlan(
   colors: PublisherAppColors,
   options: PublisherAppColorCatalogOption[],
   catalogVersion: number,

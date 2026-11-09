@@ -19,6 +19,7 @@ import {
   createPublisherAppPreGenesRestorePaletteOverridePlan,
   createPublisherAppPreQuickBackgroundPaletteOverridePlan,
   createPublisherAppPreLearnHeaderPaletteOverridePlan,
+  createPublisherAppPreFixedCirclesPaletteOverridePlan,
   reconcilePublisherAppPaletteContrast,
 } from "@/lib/publisher-app-palette-overrides";
 import {
@@ -127,7 +128,7 @@ export async function POST(request: Request) {
       ...publisherAppSupersededCounterpointColors(previous.primary).map(counterpoints => ({ ...previous, ...counterpoints })),
     ];
     for (const palette of previousPalettes) {
-      for (const generate of [createPublisherAppPaletteOverridePlan, createPublisherAppPreviousPaletteOverridePlan, createPublisherAppOverdarkenedPaletteOverridePlan, createPublisherAppPreGenesRestorePaletteOverridePlan, createPublisherAppPreQuickBackgroundPaletteOverridePlan, createPublisherAppPreLearnHeaderPaletteOverridePlan]) {
+      for (const generate of [createPublisherAppPaletteOverridePlan, createPublisherAppPreviousPaletteOverridePlan, createPublisherAppOverdarkenedPaletteOverridePlan, createPublisherAppPreGenesRestorePaletteOverridePlan, createPublisherAppPreQuickBackgroundPaletteOverridePlan, createPublisherAppPreLearnHeaderPaletteOverridePlan, createPublisherAppPreFixedCirclesPaletteOverridePlan]) {
         infer(() => generate(
           palette, catalog.options, catalog.catalogVersion,
           catalog.alternativeTonalFlows, catalog.contrastPairs,

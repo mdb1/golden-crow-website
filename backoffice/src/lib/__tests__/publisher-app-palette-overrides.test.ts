@@ -154,6 +154,10 @@ describe("publisher app automatic palette fidelity", () => {
         expect(override).toEqual({ light: "#FFFFFF", dark: "#FFFFFF" });
         continue;
       }
+      if (key.startsWith("community.rareCircles.") || key === "community.newPost.circleHeaderAccent") {
+        expect(override).toEqual({ light: original(key, "light"), dark: original(key, "dark") });
+        continue;
+      }
       expect(appearances.some((appearance) =>
         override[appearance] !== undefined && override[appearance] !== original(key, appearance),
       )).toBe(true);
@@ -522,7 +526,8 @@ describe.each(palettes)("$name brand palette", (palette) => {
           }
         }
         const sourceWhite = channels(original(pair.foregroundKey, appearance)).every(channel => channel >= 0.98);
-        const selective = sourceWhite && pair.backgroundKeys.some(key => isLuminousStructuralTone(effective(unshaded, key, appearance)));
+        const fixedCircles = pair.backgroundKeys.some(key => key.startsWith("community.rareCircles.") || key === "community.newPost.circleHeaderAccent");
+        const selective = !fixedCircles && sourceWhite && pair.backgroundKeys.some(key => isLuminousStructuralTone(effective(unshaded, key, appearance)));
         if (selective) expectSelectiveStructuralGroup(plan, unshaded, pair.backgroundKeys, appearance, Math.min(3, pair.minimumRatio));
         const nativeWhite = channels(effective(plan, pair.foregroundKey, appearance)).every(channel => channel >= 0.98);
         if (!selective || !nativeWhite) for (const background of samples) {
@@ -598,6 +603,12 @@ describe.each(brightStructuralPalettes)("readable $name structural fills", ({ co
       "community.newPost.selectedForeground",
     ]) {
       const pair = catalog.contrastPairs.find((entry) => entry.foregroundKey === foregroundKey)!;
+      if (foregroundKey.startsWith("community.rareCircles.")) {
+        for (const key of [foregroundKey, ...pair.backgroundKeys]) {
+          expect(effective(plan, key, "light")).toBe(original(key, "light"));
+        }
+        continue;
+      }
       expectSelectiveStructuralGroup(plan, unshaded, pair.backgroundKeys, "light");
       const paleProtected = pair.backgroundKeys.some(key => {
         const value = effective(unshaded, key, "light");

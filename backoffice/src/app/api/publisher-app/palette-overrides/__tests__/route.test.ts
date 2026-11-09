@@ -9,6 +9,7 @@ import {
   createPublisherAppPreGenesRestorePaletteOverridePlan,
   createPublisherAppPreQuickBackgroundPaletteOverridePlan,
   createPublisherAppPreLearnHeaderPaletteOverridePlan,
+  createPublisherAppPreFixedCirclesPaletteOverridePlan,
 } from "@/lib/publisher-app-palette-overrides";
 import { createLegacyPublisherAppPaletteOverridePlan, legacyPublisherAppCounterpointColors } from "@/lib/publisher-app-legacy-palette-overrides";
 
@@ -355,6 +356,44 @@ describe("custom app palette override route", () => {
     expect(body.colorOverrides["tabs.learn.start"]).toEqual(previous.colorOverrides["tabs.learn.start"]);
   });
 
+  it.each([false, true])("restores original Circles colors while retaining manual modes and unrelated colors (saved baseline: %s)", async (savedBaseline) => {
+    jest.mocked(getServerSession).mockResolvedValue({ user: { email: "admin@example.org" }, expires: "2099-01-01T00:00:00.000Z" });
+    const colors = {
+      ...publisherAppColorsWithCounterpoints({ primary: "#40FF00", secondary: "#2AEF47", tertiary: "#82F820" }),
+      counterpointAnticlockwise: "#22CCFF",
+    };
+    const catalog = getPublisherAppColorCatalog();
+    const flow = catalog.alternativeTonalFlows.find(item => item.id === "rareCircles")!;
+    const originalByKey = new Map(catalog.options.map(option => [option.key, option]));
+    const previous = createPublisherAppPreFixedCirclesPaletteOverridePlan(colors, catalog.options, catalog.catalogVersion, catalog.alternativeTonalFlows, catalog.contrastPairs);
+    const manualGlow = { light: "#CC336644", dark: "#DD447755" };
+    const response = await POST(new Request("https://example.test/api/publisher-app/palette-overrides", {
+      method: "POST", body: JSON.stringify({
+        colors, previousColors: colors,
+        colorOverrides: {
+          ...previous.colorOverrides,
+          "community.rareCircles.accent": { ...previous.colorOverrides["community.rareCircles.accent"], light: "#AF1234" },
+          "community.rareCircles.headerGlow": manualGlow,
+          "community.quickActions.circles.middle": { light: "#225588" },
+          "learn.background.leadingGlow": { light: "#11223380" },
+        },
+        ...(savedBaseline ? { generatedColorOverrides: previous.colorOverrides } : {}),
+      }),
+    }));
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    for (const key of flow.roleKeys) {
+      const original = originalByKey.get(key)!;
+      const expected = { light: original.defaultLightColor, dark: original.defaultDarkColor };
+      expect(body.generatedColorOverrides[key]).toEqual(expected);
+      if (key === "community.rareCircles.accent") expect(body.colorOverrides[key]).toEqual({ ...expected, light: "#AF1234" });
+      else if (key === "community.rareCircles.headerGlow") expect(body.colorOverrides[key]).toEqual(manualGlow);
+      else expect(body.colorOverrides[key]).toEqual(expected);
+    }
+    expect(body.colorOverrides["community.quickActions.circles.middle"].light).toBe("#225588");
+    expect(body.colorOverrides["learn.background.leadingGlow"].light).toBe("#11223380");
+  });
+
   it("reconciles automatic foreground contrast against a retained manual background and saves the corrected baseline", async () => {
     jest.mocked(getServerSession).mockResolvedValue({ user: { email: "admin@example.org" }, expires: "2099-01-01T00:00:00.000Z" });
     const colors = publisherAppColorsWithCounterpoints({ primary: "#FF5500", secondary: "#FFB21F", tertiary: "#F58220" });
@@ -406,18 +445,19 @@ describe("custom app palette override route", () => {
     const generated = createPublisherAppPaletteOverridePlan(colors, catalog.options, catalog.catalogVersion, catalog.alternativeTonalFlows, catalog.contrastPairs).colorOverrides;
     const foregroundKey = "community.rareCircles.headerForeground";
     const backgroundKeys = ["community.rareCircles.headerStart", "community.rareCircles.headerMiddle", "community.rareCircles.headerEnd"];
-    expect(Math.min(...backgroundKeys.map(key => colorContrast("#FFFFFF", generated[key]?.light ?? catalog.options.find(option => option.key === key)!.defaultLightColor)))).toBeLessThan(4.5);
+    const manualInk = "#000000";
+    expect(Math.min(...backgroundKeys.map(key => colorContrast(manualInk, generated[key]?.light ?? catalog.options.find(option => option.key === key)!.defaultLightColor)))).toBeLessThan(4.5);
     const response = await POST(new Request("https://example.test/api/publisher-app/palette-overrides", {
       method: "POST", body: JSON.stringify({ colors, previousColors: colors,
-        colorOverrides: { [foregroundKey]: { light: "#FFFFFF" } }, generatedColorOverrides: {},
+        colorOverrides: { [foregroundKey]: { light: manualInk } }, generatedColorOverrides: {},
       }),
     }));
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.colorOverrides[foregroundKey].light).toBe("#FFFFFF");
+    expect(body.colorOverrides[foregroundKey].light).toBe(manualInk);
     for (const key of backgroundKeys) {
       const effective = body.colorOverrides[key]?.light ?? catalog.options.find(option => option.key === key)!.defaultLightColor;
-      expect(colorContrast("#FFFFFF", effective)).toBeGreaterThanOrEqual(4.5);
+      expect(colorContrast(manualInk, effective)).toBeGreaterThanOrEqual(4.5);
       expect(body.generatedColorOverrides[key]?.light).toBe(body.colorOverrides[key]?.light);
     }
   });

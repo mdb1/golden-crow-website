@@ -67,13 +67,14 @@ export type PublisherAppAlternativeTonalFlowCenter =
     };
 
 export const PUBLISHER_APP_GENES_TONAL_CENTER = "#00A88A";
+export const PUBLISHER_APP_CIRCLES_TONAL_CENTER = "#DB2777";
 
 // Discovery metadata stays in the catalog; only the resulting exact role keys
 // and light/dark values are persisted under branding.colorOverrides.
 export const PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTERS = {
   rareCircles: {
-    kind: "counterpoint",
-    key: "counterpointAnticlockwise",
+    kind: "fixed",
+    color: PUBLISHER_APP_CIRCLES_TONAL_CENTER,
   },
   communityComposer: {
     kind: "counterpoint",

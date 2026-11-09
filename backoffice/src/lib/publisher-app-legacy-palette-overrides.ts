@@ -425,12 +425,16 @@ function alternativeTonalFlowCenter(
   id: string,
   counterpoints: PublisherAppCounterpointColors,
 ) {
-  const definition = (
+  // This is the frozen v5 generator, whose Circles flow used the anticlockwise
+  // accessory. Current public metadata must not alter legacy recognition.
+  const definition: PublisherAppAlternativeTonalFlowCenter | undefined = id === "rareCircles"
+    ? { kind: "counterpoint", key: "counterpointAnticlockwise" }
+    : (
     PUBLISHER_APP_ALTERNATIVE_TONAL_FLOW_CENTERS as Record<
       string,
       PublisherAppAlternativeTonalFlowCenter
     >
-  )[id];
+    )[id];
   if (!definition) return undefined;
   const centerHex = normalizePublisherAppColor(
     definition.kind === "fixed"
