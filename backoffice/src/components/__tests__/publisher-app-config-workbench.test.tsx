@@ -572,7 +572,7 @@ describe("PublisherAppConfigWorkbench", () => {
 
   it.each(["pending_revision", "active_waiting_for_payment", "active_waiting_for_upload", "active", "approved", "changes_requested", "rejected"] as const)("does not offer publication while the persisted status is %s", status => {
     renderWorkbench({ mode: "edit", initialConfig: { ...savedConfig, status } });
-    expect(screen.queryByRole("button", { name: "Publicar mi app" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Publicar mi app en el store" })).toBeNull();
   });
 
   it.each([
@@ -584,7 +584,7 @@ describe("PublisherAppConfigWorkbench", () => {
     } });
     const saveBar = screen.getByTestId("publisher-app-edit-save-bar");
     expect(within(saveBar).getByRole("button", { name: "Guardar cambios" })).toBeTruthy();
-    const publish = within(saveBar).getByRole("button", { name: "Publicar mi app" });
+    const publish = within(saveBar).getByRole("button", { name: "Publicar mi app en el store" });
     expect(publish).toBeEnabled();
     expect(publish).toHaveClass("bg-emerald-600", "text-white");
     expect(screen.queryByTestId("publisher-app-terms-acceptance")).toBeNull();
@@ -596,7 +596,7 @@ describe("PublisherAppConfigWorkbench", () => {
   it("requires saving pending edits before opening the signature's read-only review", async () => {
     mockConfigRequests({ ...savedConfig, status: "active_for_testing", appProviderIdentifier: "app_org_pocket_genes_lab_48217" });
     renderWorkbench({ mode: "edit", initialConfig: { ...savedConfig, status: "active_for_testing", appProviderIdentifier: "app_org_pocket_genes_lab_48217" } });
-    const publish = screen.getByRole("button", { name: "Publicar mi app" });
+    const publish = screen.getByRole("button", { name: "Publicar mi app en el store" });
     fireEvent.click(screen.getByRole("button", { name: "Editar funciones" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Sección Comunidad" }));
     fireEvent.click(screen.getByRole("button", { name: "Listo" }));

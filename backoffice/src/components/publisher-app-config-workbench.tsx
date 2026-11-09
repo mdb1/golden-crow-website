@@ -1765,13 +1765,13 @@ function PublisherAppEditSheet({
           data-testid="publisher-app-edit-save-bar"
           className="publisher-app-edit-save-bar fixed inset-x-0 bottom-0 z-40 border-t border-violet-100/80 bg-white/92 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-20px_60px_rgba(109,40,217,0.10)] backdrop-blur-2xl dark:border-violet-400/14 dark:bg-slate-950/88 sm:px-5 lg:px-6"
         >
-          <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <p className="text-sm text-muted-foreground">
               {changed
                 ? "Tenés cambios sin guardar."
                 : "Todos los cambios están guardados."}
             </p>
-            <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
             <Button
               type="button"
               size="lg"
@@ -1799,9 +1799,9 @@ function PublisherAppEditSheet({
                 size="lg"
                 onClick={onPublish}
                 disabled={changed || pending || iconUploadPending || paletteCalculationBlocking || !identifierIsCurrent}
-                className="h-14 rounded-xl bg-emerald-600 text-base font-semibold text-white hover:bg-emerald-700"
+                className="h-auto min-h-14 min-w-[min(100%,19rem)] justify-center whitespace-normal rounded-xl bg-emerald-600 px-8 py-4 text-center text-base font-semibold text-white shadow-[0_16px_42px_rgba(5,150,105,0.28)] hover:bg-emerald-700 sm:px-10"
               >
-                <FileCheck2 className="size-5" /> Publicar mi app
+                <FileCheck2 className="size-5" /> Publicar mi app en el store
               </Button>
             ) : null}
             </div>
@@ -2293,7 +2293,7 @@ export function PublisherAppSuccessCelebration({
         </h2>
         <p className="mx-auto mt-6 max-w-[720px] text-lg leading-[1.55] text-white/88 sm:text-xl">
           {variant === "testing"
-            ? "Tu app está activa para pruebas. Probala y ajustá su configuración. Cuando quieras solicitar su publicación, elegí Publicar mi app desde la edición."
+            ? "Tu app está activa para pruebas. Probala y ajustá su configuración. Cuando quieras solicitar su publicación, elegí Publicar mi app en el store desde la edición."
             : "Aceptaste los términos y recibimos tu solicitud para subir la app a las tiendas. Te contactaremos para coordinar el pago y los próximos pasos de publicación."}
         </p>
 
@@ -2891,7 +2891,7 @@ export function PublisherAppConfigWorkbench({
 
   if (mode === "edit") {
     return (
-      <section className="pb-32" data-testid="publisher-app-config-workbench">
+      <section className="pb-56 lg:pb-32" data-testid="publisher-app-config-workbench">
         <ActionToast
           toast={toast}
           onDismiss={() => setToast(null)}
