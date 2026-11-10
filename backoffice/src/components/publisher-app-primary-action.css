@@ -2,6 +2,8 @@
   --trial-cta-radius: calc(var(--radius, 0.95rem) * 1.8);
   isolation: isolate;
   overflow: visible;
+  transform-origin: center;
+  transition: transform 380ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 380ms ease;
 }
 
 .trial-cta__surface,
@@ -136,11 +138,13 @@
 }
 
 .trial-cta__reflection::before {
-  clip-path: polygon(0 0, 43% 0, 8% 90%, 0 96%);
-  background: linear-gradient(142deg,
-    rgb(255 255 255 / 26%) 0%,
-    hsl(var(--trial-cta-light-hue) 100% 60% / 65%) 42%,
-    hsl(var(--trial-cta-light-hue) 100% 68% / 0%) 80%);
+  clip-path: polygon(0 0, 100% 0, 100% 42%, 0 98%);
+  background: linear-gradient(100deg,
+    hsl(var(--trial-cta-light-hue) 100% var(--trial-cta-sheen-side) / 90%) 0%,
+    hsl(calc(var(--trial-cta-hue) - 5) 100% var(--trial-cta-sheen-main) / 82%) 14%,
+    hsl(calc(var(--trial-cta-hue) + 5) 100% var(--trial-cta-sheen-main) / 76%) 30%,
+    hsl(calc(var(--trial-cta-hue) + 5) 100% var(--trial-cta-sheen-main) / 70%) 70%,
+    hsl(var(--trial-cta-depth-hue) 100% var(--trial-cta-sheen-end) / 68%) 100%);
 }
 
 .trial-cta__reflection::after {
@@ -148,6 +152,23 @@
   background: linear-gradient(155deg,
     hsl(var(--trial-cta-light-hue) 100% 85% / 30%),
     hsl(var(--trial-cta-hue) 100% 66% / 10%) 58%, transparent);
+}
+
+.trial-cta__sweep {
+  position: absolute;
+  z-index: 1;
+  inset: -50% auto -50% 0;
+  width: 28%;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(-180%) skewX(-22deg);
+  background: linear-gradient(90deg,
+    transparent,
+    hsl(var(--trial-cta-light-hue) 100% 86% / 12%) 28%,
+    rgb(255 255 255 / 38%) 50%,
+    hsl(var(--trial-cta-light-hue) 100% 86% / 12%) 72%,
+    transparent);
+  mask-image: linear-gradient(180deg, black 0%, black 30%, transparent 78%);
 }
 
 .trial-cta__glints {
@@ -202,4 +223,137 @@
     inset 0 1px 1px rgb(255 255 255 / 78%),
     inset 0 -2px 4px hsl(var(--trial-cta-depth-hue) 100% 26% / 32%),
     0 2px 4px hsl(var(--trial-cta-depth-hue) 100% 12% / 18%);
+  transition: transform 380ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.trial-cta__label {
+  transition: transform 380ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.trial-cta__arrow {
+  position: relative;
+  overflow: hidden;
+}
+
+.trial-cta__arrow svg {
+  position: absolute;
+  inset: 0;
+}
+
+.trial-cta__arrow-incoming {
+  opacity: 0;
+  transform: translateX(-150%);
+}
+
+.trial-cta:is(:hover, :focus-visible) {
+  transform: scale(1.012);
+}
+
+.trial-cta:is(:hover, :focus-visible) .trial-cta__halo {
+  animation: trial-cta-halo-breathe 2.4s ease-in-out infinite;
+}
+
+.trial-cta:is(:hover, :focus-visible) .trial-cta__reflection::before {
+  animation: trial-cta-glass-drift 3.6s ease-in-out infinite;
+}
+
+.trial-cta:is(:hover, :focus-visible) .trial-cta__sweep {
+  animation: trial-cta-light-sweep 2.6s ease-in-out infinite;
+}
+
+.trial-cta:is(:hover, :focus-visible) .trial-cta__glints::before {
+  animation: trial-cta-top-glint 2.8s linear infinite;
+}
+
+.trial-cta:is(:hover, :focus-visible) .trial-cta__glints::after {
+  animation: trial-cta-bottom-glint 3.2s linear 350ms infinite both;
+}
+
+.trial-cta:is(:hover, :focus-visible) .trial-cta__icon {
+  transform: translateY(-1px) rotate(-4deg) scale(1.05);
+}
+
+.trial-cta:is(:hover, :focus-visible) .trial-cta__label {
+  transform: translateY(-3px);
+  animation: trial-cta-label-float 2.6s ease-in-out 400ms infinite;
+}
+
+.trial-cta:is(:hover, :focus-visible) .trial-cta__arrow-outgoing {
+  animation: trial-cta-arrow-out 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.trial-cta:is(:hover, :focus-visible) .trial-cta__arrow-incoming {
+  animation: trial-cta-arrow-in 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes trial-cta-halo-breathe {
+  0%, 100% { opacity: 1; filter: blur(7px); }
+  50% { opacity: 0.8; filter: blur(10px); }
+}
+
+@keyframes trial-cta-glass-drift {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(2%) scale(1.025); }
+}
+
+@keyframes trial-cta-light-sweep {
+  0%, 8% { transform: translateX(-180%) skewX(-22deg); opacity: 0; }
+  18% { opacity: 0.8; }
+  54% { transform: translateX(520%) skewX(-22deg); opacity: 1; }
+  68%, 100% { transform: translateX(560%) skewX(-22deg); opacity: 0; }
+}
+
+@keyframes trial-cta-top-glint {
+  0% { left: 11%; opacity: 1; transform: translate(-50%, -50%) scale(0.8); }
+  16% { opacity: 1; transform: translate(-50%, -50%) scale(1.35) rotate(12deg); }
+  30% { left: 35%; opacity: 0.25; transform: translate(-50%, -50%) scale(0.65); }
+  45% { opacity: 1; transform: translate(-50%, -50%) scale(1.2) rotate(-8deg); }
+  64% { left: 65%; opacity: 0.3; transform: translate(-50%, -50%) scale(0.8); }
+  80% { opacity: 1; transform: translate(-50%, -50%) scale(1.25); }
+  100% { left: 91%; opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+}
+
+@keyframes trial-cta-bottom-glint {
+  0% { left: 88%; opacity: 1; transform: translate(-50%, -50%) scale(0.85); }
+  20% { opacity: 0.25; transform: translate(-50%, -50%) scale(0.6); }
+  38% { left: 58%; opacity: 1; transform: translate(-50%, -50%) scale(1.3) rotate(-12deg); }
+  55% { opacity: 0.3; transform: translate(-50%, -50%) scale(0.7); }
+  76% { left: 27%; opacity: 1; transform: translate(-50%, -50%) scale(1.15) rotate(8deg); }
+  100% { left: 9%; opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+}
+
+@keyframes trial-cta-label-float {
+  0%, 100% { transform: translateY(-3px); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes trial-cta-arrow-out {
+  0%, 12% { transform: translateX(0); opacity: 1; }
+  42%, 78% { transform: translateX(150%); opacity: 0; }
+  79% { transform: translateX(-150%); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes trial-cta-arrow-in {
+  0%, 12% { transform: translateX(-150%); opacity: 0; }
+  42%, 76% { transform: translateX(0); opacity: 1; }
+  100% { transform: translateX(150%); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trial-cta,
+  .trial-cta *,
+  .trial-cta::before,
+  .trial-cta::after,
+  .trial-cta *::before,
+  .trial-cta *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .trial-cta:is(:hover, :focus-visible),
+  .trial-cta:is(:hover, :focus-visible) .trial-cta__icon,
+  .trial-cta:is(:hover, :focus-visible) .trial-cta__label {
+    transform: none;
+  }
 }

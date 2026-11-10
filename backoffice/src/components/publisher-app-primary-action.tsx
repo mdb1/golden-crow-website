@@ -41,7 +41,7 @@ export function PublisherAppPrimaryAction({
       href={action.href}
       prefetch={false}
       data-testid="publisher-app-primary-action"
-      className="trial-cta group relative mt-4 flex min-h-24 w-full items-center gap-4 whitespace-normal rounded-2xl border border-transparent px-5 py-5 text-white transition duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transform-none sm:px-7"
+      className="trial-cta group relative mt-4 flex min-h-24 w-full items-center gap-4 whitespace-normal rounded-2xl border border-transparent px-5 py-5 text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:px-7"
       style={{
         "--trial-cta-hue": palette.sceneHue,
         "--trial-cta-light-hue": palette.sceneHue - 18,
@@ -49,6 +49,9 @@ export function PublisherAppPrimaryAction({
         "--trial-cta-face-left": `hsl(${palette.sceneHue - 4} 100% ${needsDarkerFace ? 33 : 48}%)`,
         "--trial-cta-face-middle": `hsl(${faceHue} 100% ${needsDarkerFace ? 27 : 46}%)`,
         "--trial-cta-face-right": `hsl(${palette.sceneHue + 14} 100% ${needsDarkerFace ? 23 : 44}%)`,
+        "--trial-cta-sheen-main": `${needsDarkerFace ? 30 : 51}%`,
+        "--trial-cta-sheen-side": `${needsDarkerFace ? 36 : 62}%`,
+        "--trial-cta-sheen-end": `${needsDarkerFace ? 30 : 53}%`,
       } as CSSProperties}
     >
       <span aria-hidden="true" className="trial-cta__halo" />
@@ -56,16 +59,21 @@ export function PublisherAppPrimaryAction({
         <span className="trial-cta__bezel" />
         <span className="trial-cta__face" />
       </span>
-      <span aria-hidden="true" className="trial-cta__reflection" />
+      <span aria-hidden="true" className="trial-cta__reflection">
+        <span className="trial-cta__sweep" />
+      </span>
       <span aria-hidden="true" className="trial-cta__glints" />
       <span className="trial-cta__content">
         <span aria-hidden="true" className="trial-cta__icon flex size-12 shrink-0 items-center justify-center rounded-2xl border border-white/20">
           <Sparkles className="size-6" />
         </span>
-        <span className="min-w-0 flex-1 text-balance text-center font-heading text-lg font-semibold leading-snug sm:text-xl">
+        <span className="trial-cta__label min-w-0 flex-1 text-balance text-center font-heading text-xl font-semibold leading-snug sm:text-2xl">
           {action.label}
         </span>
-        <ArrowRight aria-hidden="true" className="size-6 shrink-0 transition-transform group-hover:translate-x-1 motion-reduce:transform-none" />
+        <span aria-hidden="true" className="trial-cta__arrow size-6 shrink-0">
+          <ArrowRight className="trial-cta__arrow-outgoing size-6" />
+          <ArrowRight className="trial-cta__arrow-incoming size-6" />
+        </span>
       </span>
     </Link>
   );
