@@ -41,10 +41,10 @@ const roleRecord: RoleManagementRecord = {
   updatedAt: "2026-09-28T12:00:00.000Z",
 };
 
-function renderDialog(onFinished = jest.fn()) {
+function renderDialog(onFinished = jest.fn(), context = adminContext) {
   render(
     <AppLanguageProvider initialLanguage="en">
-      <AdminContextProvider value={adminContext}>
+      <AdminContextProvider value={context}>
         <RoleDeleteDialog roleRecord={roleRecord} onFinished={onFinished} />
       </AdminContextProvider>
     </AppLanguageProvider>,
@@ -55,6 +55,26 @@ function renderDialog(onFinished = jest.fn()) {
 describe("RoleDeleteDialog", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it("allows scoped institution admins to remove only the local role", async () => {
+    const user = userEvent.setup();
+    renderDialog(jest.fn(), {
+      ...adminContext,
+      role: "institution_admin",
+      institutionId: roleRecord.institutionId,
+    });
+    (sdkFetch as jest.Mock).mockResolvedValue({ step: "role", status: "deleted", deletedCount: 1 });
+
+    await user.click(screen.getByRole("button", { name: "Delete role" }));
+    const dialog = screen.getByRole("dialog", { name: "Delete role" });
+    expect(within(dialog).queryByText("Delete the whole account too")).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Delete role" }));
+    await waitFor(() => expect(sdkFetch).toHaveBeenCalledTimes(1));
+    expect(sdkFetch).toHaveBeenCalledWith(
+      "/roles/doctor%40example.com/deletion/role",
+      { method: "DELETE" },
+    );
   });
 
   it("runs the complete account cleanup sequentially and reports every outcome", async () => {

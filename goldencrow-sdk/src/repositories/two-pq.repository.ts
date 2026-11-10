@@ -17,7 +17,12 @@ import {
   type TwoPQStudyRequestFormSource,
 } from "./support-services.repository.js";
 import { isGlobalAdminRole } from "../lib/admin-roles.js";
+import { resolveTwoPQRequestedStudyTest } from "../lib/two-pq-study-summary.js";
 import { resolveMissingTwoPQAssignedEntities } from "../lib/two-pq-assignment-integrity.js";
+import {
+  prepareTwoPQCaseCodeReservation,
+  retainTwoPQCaseCode,
+} from "./two-pq-code-registry.repository.js";
 import type {
   AdminContext,
   DoctorListItem,
@@ -429,22 +434,48 @@ function normalizeThreeLetterCode(value: unknown) {
   return uppercased;
 }
 
-function caseThreeLetterCodeForServiceTransaction(record: TwoPQRecord) {
-  const storedCode = normalizeThreeLetterCode(record.three_letter_code);
-  if (storedCode) {
+function caseThreeLetterCode(record: TwoPQRecord) {
+  const storedCode = normalizeOptionalString(record.three_letter_code)?.toUpperCase();
+  if (storedCode && /^[A-Z]{3}$/.test(storedCode)) {
     return storedCode;
   }
 
   const caseLabel = normalizeOptionalString(record.caseLabel)?.toUpperCase();
-  const caseLabelMatch = caseLabel?.match(/^([A-Z]{3})XXX$/);
+  const caseLabelMatch = caseLabel?.match(/^([A-Z]{3})(?:XXX)?$/);
   if (caseLabelMatch?.[1]) {
     return caseLabelMatch[1];
   }
 
+  return undefined;
+}
+
+function caseThreeLetterCodeForServiceTransaction(record: TwoPQRecord) {
+  const code = caseThreeLetterCode(record);
+  if (code) return code;
   throw new AdminRepositoryError(
     "The 2PQ case must have a valid three-letter code before creating its service transaction.",
     400,
   );
+}
+
+function validateCaseReportLabel(record: TwoPQRecord) {
+  const reportLabelCode = record.caseLabel?.trim().toUpperCase().match(/^([A-Z]{3})XXX$/)?.[1];
+  if (reportLabelCode && record.three_letter_code && reportLabelCode !== record.three_letter_code.toUpperCase()) {
+    throw new AdminRepositoryError(
+      "A 2PQ case label ending in XXX must match its three-letter code.",
+      400,
+    );
+  }
+}
+
+async function preserveCaseCodeOnEdit(existing: TwoPQRecord, next: TwoPQRecord, actorEmail: string) {
+  if (existing.caseLabel !== next.caseLabel || existing.three_letter_code !== next.three_letter_code) {
+    validateCaseReportLabel(next);
+  }
+  const previousCode = caseThreeLetterCode(existing);
+  if (previousCode !== caseThreeLetterCode(next)) {
+    await retainTwoPQCaseCode(previousCode, existing.id, actorEmail);
+  }
 }
 
 function normalizeFieldValue(field: keyof TwoPQMutationInput, value: unknown) {
@@ -486,28 +517,6 @@ function validateAreaSpecificPayload(areaKey: TwoPQAreaKey, payload: TwoPQMutati
     throw new AdminRepositoryError(
       "should_automatically_sync_files_and_codes is only supported for 2PQ case records.",
       400
-    );
-  }
-}
-
-async function ensureUniqueCaseThreeLetterCode(
-  threeLetterCode?: string,
-  recordIdToExclude?: string
-) {
-  if (!threeLetterCode) {
-    return;
-  }
-
-  const snapshot = await adminDb
-    .collection(AREA_CONFIG.cases.collectionKey)
-    .where("three_letter_code", "==", threeLetterCode)
-    .get();
-
-  const conflict = snapshot.docs.find((doc) => doc.id !== recordIdToExclude);
-  if (conflict) {
-    throw new AdminRepositoryError(
-      `three_letter_code ${threeLetterCode} is already assigned to case ${conflict.id}.`,
-      409
     );
   }
 }
@@ -1684,6 +1693,87 @@ async function validateCurrentRelationsForRecord(areaKey: TwoPQAreaKey, record: 
   }
 }
 
+export async function listTwoPQRecordsPageForContext(
+  context: AdminContext,
+  areaKey: TwoPQAreaKey,
+  filters: { institutionId?: string; doctorId?: string; patientId?: string; parentBatchId?: string; query?: string; limit?: number; cursor?: string } = {},
+): Promise<{ records: TwoPQListItem[]; nextCursor: string | null; hasMore: boolean }> {
+  const config = AREA_CONFIG[areaKey];
+  const pageSize = Math.min(Math.max(filters.limit ?? 20, 1), 50);
+  const search = filters.query?.trim().toLowerCase() ?? "";
+  const records: TwoPQListItem[] = [];
+  let cursor = filters.cursor;
+  let scanned = 0;
+  let hasMore = false;
+  while (records.length < pageSize && scanned < 200) {
+    let query = adminDb.collection(config.collectionKey).orderBy("__name__", "desc") as FirebaseFirestore.Query;
+    if (!isGlobalAdminRole(context.role)) query = query.where("institutionId", "==", context.institutionId ?? "__none__");
+    else if (filters.institutionId) query = query.where("institutionId", "==", filters.institutionId);
+    if (cursor) query = query.startAfter(cursor);
+    const windowSize = Math.min(pageSize * 2, 50);
+    const snapshot = await query.limit(windowSize).get();
+    if (snapshot.empty) { hasMore = false; break; }
+    scanned += snapshot.size;
+    const windowRecords = snapshot.docs.map((doc) => toTwoPQRecord(doc.id, areaKey, doc.data() as Record<string, unknown>))
+      .filter((record) => (!filters.institutionId || record.institutionId === filters.institutionId)
+        && (!filters.doctorId || record.doctorId === filters.doctorId)
+        && (!filters.patientId || record.patientId === filters.patientId)
+        && (!filters.parentBatchId || (areaKey === "cases" && record.parent_batch === filters.parentBatchId)));
+    const items = await buildListItemsForRecords(context, windowRecords);
+    const byId = new Map(items.map((item) => [item.id, item]));
+    for (const document of snapshot.docs) {
+      cursor = document.id;
+      const item = byId.get(document.id);
+      if (!item) continue;
+      if (search && ![item.id, item.institutionName, item.doctorName, item.patientName, ...config.searchableFields.map((key) => item[key])].filter(Boolean).join(" ").toLowerCase().includes(search)) continue;
+      records.push(item);
+      if (records.length === pageSize) break;
+    }
+    hasMore = snapshot.size === windowSize || cursor !== snapshot.docs[snapshot.docs.length - 1]?.id;
+    if (!hasMore) break;
+  }
+  if (areaKey === "cases") {
+    await Promise.all(records.map(async (record) => {
+      if (!record.linkedStudyRequestFormId) return;
+      const study = await adminDb.collection("2pq_forms").doc(record.linkedStudyRequestFormId).get();
+      if (!study.exists) return;
+      const data = study.data() ?? {};
+      if (
+        data.formType !== "study_request" ||
+        data.institutionId !== record.institutionId ||
+        data.doctorId !== record.doctorId
+      ) return;
+      const requested = data.requestedTest && typeof data.requestedTest === "object" ? data.requestedTest as Record<string, unknown> : {};
+      record.requestedTestName = normalizeOptionalString(data.requestedTestName) ?? normalizeOptionalString(requested.testName);
+      record.requestedStudyTest = resolveTwoPQRequestedStudyTest(requested, record.requestedTestName);
+      record.estimatedTreatmentDate = normalizeOptionalString(data.estimatedTreatmentDate) ?? normalizeOptionalString(requested.estimatedTreatmentDate);
+      const biopsyId = normalizeOptionalString(data.linkedBiopsyForm);
+      if (!biopsyId) return;
+      const biopsy = await adminDb.collection("2pq_forms").doc(biopsyId).get();
+      const biopsyData = biopsy.data();
+      if (
+        biopsyData?.formType !== "sample" ||
+        biopsyData.institutionId !== record.institutionId ||
+        biopsyData.doctorId !== record.doctorId
+      ) return;
+      const biopsyTest = biopsyData.requestedTest && typeof biopsyData.requestedTest === "object"
+        ? biopsyData.requestedTest as Record<string, unknown>
+        : {};
+      const biopsyTestName = normalizeOptionalString(biopsyData.requestedTestName) ?? normalizeOptionalString(biopsyTest.testName);
+      const biopsyStudy = resolveTwoPQRequestedStudyTest(biopsyTest, biopsyTestName);
+      if (biopsyStudy) {
+        record.requestedStudyTest = biopsyStudy;
+        record.requestedTestName = biopsyTestName ?? record.requestedTestName;
+      }
+      const storedCount = biopsyData.sampleInformation?.biopsyCount;
+      if (typeof storedCount !== "number" && !normalizeOptionalString(storedCount)) return;
+      const count = Number(storedCount);
+      if (Number.isInteger(count) && count >= 0) record.biopsyCount = count;
+    }));
+  }
+  return { records, nextCursor: hasMore ? cursor ?? null : null, hasMore };
+}
+
 export async function listTwoPQRecordsForContext(
   context: AdminContext,
   areaKey: TwoPQAreaKey,
@@ -1856,7 +1946,10 @@ export async function createTwoPQRecordForContext(
     },
     "replace"
   );
-  await ensureUniqueCaseThreeLetterCode(document.three_letter_code);
+  if (areaKey === "cases") {
+    document.three_letter_code = caseThreeLetterCodeForServiceTransaction(document);
+    validateCaseReportLabel(document);
+  }
   setCaseLastUpdatedDate(document, now);
 
   const requestedBatchId =
@@ -1876,8 +1969,11 @@ export async function createTwoPQRecordForContext(
   };
   const recordRef = getTwoPQRecordRef(areaKey, recordId);
 
-  if (requestedBatchId || requestedCaseId) {
+  if (areaKey === "cases" || requestedCaseId) {
     await adminDb.runTransaction(async (transaction) => {
+      const reserveCode = areaKey === "cases"
+        ? await prepareTwoPQCaseCodeReservation(transaction, document.three_letter_code, recordId, context.email)
+        : undefined;
       if (requestedBatchId) {
         await linkCaseToBatchInTransaction(
           transaction,
@@ -1908,6 +2004,7 @@ export async function createTwoPQRecordForContext(
         );
       }
 
+      reserveCode?.();
       transaction.set(recordRef, writeDocument);
     });
   } else {
@@ -2114,15 +2211,21 @@ export async function replaceTwoPQRecordForContext(
   nextRecord.updatedByEmail = context.email;
   setCaseLastUpdatedDate(nextRecord, nextRecord.updatedAt);
 
-  await ensureUniqueCaseThreeLetterCode(nextRecord.three_letter_code, existing.id);
   await validateCurrentRelationsForRecord(areaKey, nextRecord);
+  if (areaKey === "cases") {
+    await preserveCaseCodeOnEdit(existing, nextRecord, context.email);
+  }
 
   const now = nextRecord.updatedAt;
   const recordRef = adminDb.collection(AREA_CONFIG[areaKey].collectionKey).doc(recordId);
 
   if (areaKey === "cases" || areaKey === "sampling") {
     await adminDb.runTransaction(async (transaction) => {
+      const reserveCode = areaKey === "cases"
+        ? await prepareTwoPQCaseCodeReservation(transaction, caseThreeLetterCode(nextRecord), existing.id, context.email)
+        : undefined;
       await syncParentRelationForRecord(transaction, context, areaKey, existing, nextRecord, now);
+      reserveCode?.();
       transaction.set(recordRef, buildStoredRecordDocument(nextRecord));
     });
   } else {
@@ -2226,14 +2329,19 @@ export async function updateTwoPQRecordForContext(
     }
   }
 
-  await ensureUniqueCaseThreeLetterCode(nextRecord.three_letter_code, existing.id);
   await validateCurrentRelationsForRecord(areaKey, nextRecord);
+  if (areaKey === "cases") {
+    await preserveCaseCodeOnEdit(existing, nextRecord, context.email);
+  }
 
   const recordRef = adminDb.collection(AREA_CONFIG[areaKey].collectionKey).doc(recordId);
   const writeDocument = buildMergeWriteDocument(nextRecord, payload);
 
   if (areaKey === "cases" || areaKey === "sampling") {
     await adminDb.runTransaction(async (transaction) => {
+      const reserveCode = areaKey === "cases"
+        ? await prepareTwoPQCaseCodeReservation(transaction, caseThreeLetterCode(nextRecord), existing.id, context.email)
+        : undefined;
       await syncParentRelationForRecord(
         transaction,
         context,
@@ -2242,6 +2350,7 @@ export async function updateTwoPQRecordForContext(
         nextRecord,
         nextRecord.updatedAt
       );
+      reserveCode?.();
       transaction.set(recordRef, writeDocument, { merge: true });
     });
   } else {
@@ -2630,6 +2739,7 @@ export async function deleteTwoPQRecordForContext(
   }
 
   if (areaKey === "cases") {
+    await retainTwoPQCaseCode(caseThreeLetterCode(record), record.id, context.email);
     const linkedSamplings = await loadLinkedSamplingsForCase(record);
     const ownedLinkedSamplings = linkedSamplings.filter(
       (linkedSampling) => linkedSampling.parent_case === record.id

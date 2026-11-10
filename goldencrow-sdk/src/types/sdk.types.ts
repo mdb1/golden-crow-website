@@ -509,6 +509,10 @@ export interface TwoPQRecord {
 }
 
 export interface TwoPQListItem extends TwoPQRecord {
+  requestedStudyTest?: "pgtAUltraFast" | "pgtAFast" | "pgtAStandard" | "pgtSr";
+  requestedTestName?: string;
+  estimatedTreatmentDate?: string;
+  biopsyCount?: number;
   institutionName?: string;
   doctorName?: string;
   patientName?: string;
@@ -589,6 +593,7 @@ export interface TwoPQFormRecord {
   institutionName?: string;
   requestedTestName?: string;
   maximumResultDeliveryAt?: string;
+  estimatedTreatmentDate?: string;
   linkedStudyRequestFormId?: string | null;
   studyRequestForm?: string | null;
   suggestedStudyRequestForm?: string | null;

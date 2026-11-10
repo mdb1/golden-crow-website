@@ -13,25 +13,21 @@ const WORKFLOW_STEPS: Array<{
   number: number;
   formType: TwoPQFormType;
   label: string;
-  audience: string;
 }> = [
   {
     number: 1,
     formType: "study_request",
     label: "Complete study request form",
-    audience: "All enabled profiles",
   },
   {
     number: 2,
     formType: "sample",
     label: "Complete sample form (biopsies)",
-    audience: "Laboratory staff only",
   },
   {
     number: 3,
     formType: "withdrawal_request",
     label: "Complete withdrawal request form",
-    audience: "All enabled profiles",
   },
 ];
 
@@ -53,9 +49,6 @@ export function TwoPQFormWorkflowActions({
         >
           {t("Complete the forms in this order")}
         </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t("Each step stays visible; unavailable actions are disabled for the current profile.")}
-        </p>
       </div>
 
       <ol className="grid gap-3 lg:grid-cols-3">
@@ -75,9 +68,6 @@ export function TwoPQFormWorkflowActions({
               </p>
               <p className="mt-2 text-sm font-semibold text-foreground">
                 {t(step.label)}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {t(step.audience)}
               </p>
 
               {enabled ? (

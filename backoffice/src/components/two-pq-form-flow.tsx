@@ -87,13 +87,8 @@ import {
   type TwoPQFormRecord,
   type TwoPQFormType,
 } from "@/lib/two-pq-forms";
-import {
-  isRequestedStudyTestKey,
-  maximumResultDeliveryAt,
-  maximumResultDeliveryWindowLabel,
-  REQUESTED_STUDY_TEST_OPTIONS,
-  type RequestedStudyTestKey,
-} from "@/lib/two-pq-requested-test";
+import { REQUESTED_STUDY_TEST_OPTIONS } from "@/lib/two-pq-requested-test";
+import { formatTwoPQCivilDate } from "@/lib/two-pq-study-summary";
 
 type StepKey = TwoPQFormDraftStepKey;
 type FlowState = TwoPQFormDraftState;
@@ -227,6 +222,7 @@ const VALIDATION_FIELD_LABELS: Record<string, string> = {
   "requestedTest.reportsSex": "Reports sex",
   "requestedTest.requestReason": "Request reason",
   "requestedTest.requestDate": "Date",
+  "requestedTest.estimatedTreatmentDate": "Estimated treatment date",
   "institutionInformation.name": "Institution name",
   "institutionInformation.contactEmail": "Contact email",
   "institutionInformation.address": "Address",
@@ -254,7 +250,6 @@ const VALIDATION_FIELD_LABELS: Record<string, string> = {
   "samplingInformation.internalCode": "Internal code",
   "samplingInformation.embryoStageDay": "Stage day 5, 6 or 7",
   "samplingInformation.morphology": "Morphology",
-  "samplingInformation.sentUl": "Sent uL",
   "samplingInformation.biopsiedCells": "Biopsied cells",
   "samplingInformation.cellsVisualized": "Cells visualized?",
   "samplingInformation.notes": "Comments",
@@ -291,25 +286,24 @@ const SAMPLE_TYPE_OPTIONS = [
 ];
 
 const SAMPLE_CASE_TYPE_OPTIONS = [
+  { value: "PGT ULTRA FAST", label: "Ultra-fast PGT" },
   { value: "PGT FAST", label: "PGT FAST" },
   { value: "PGT SR", label: "PGT SR" },
   { value: "PGT A STANDARD", label: "PGT A STANDARD" },
 ];
 
 const REQUESTED_TEST_TO_CASE_TYPE: Record<string, string> = {
-  pgtAUltraFast: "PGT FAST",
+  pgtAUltraFast: "PGT ULTRA FAST",
   pgtSr: "PGT SR",
   pgtAStandard: "PGT A STANDARD",
   pgtAFast: "PGT FAST",
 };
 
-const MORPHOLOGY_PATTERN = /^[a-zA-Z0-9]{1,3}$/;
 const BIOPSY_EMPTY_FIELD_FALLBACK_VALUE = "Not set";
 
 const REQUIRED_BIOPSY_TABLE_COLUMNS = [
   "embryoStageDay",
   "morphology",
-  "sentUl",
   "biopsiedCells",
   "cellsVisualized",
 ] as const satisfies readonly (keyof SamplingInformationFormState)[];
@@ -739,7 +733,9 @@ function newCaseDefaultsForBoxCode(boxCode: string): CaseInformationFormState {
 }
 
 function priorityForSampleCaseType(caseType: string) {
-  return caseType === "PGT FAST" ? "urgent" : caseType ? "routine" : "";
+  return caseType === "PGT FAST" || caseType === "PGT ULTRA FAST"
+    ? "urgent"
+    : caseType ? "routine" : "";
 }
 
 function withCaseDefaultsForBoxCode(flowState: FlowState): FlowState {
@@ -785,7 +781,6 @@ function emptySampling(): SamplingInformationFormState {
     internalCode: "",
     embryoStageDay: "",
     morphology: "",
-    sentUl: "",
     biopsiedCells: "",
     cellsVisualized: "",
     notes: "",
@@ -802,13 +797,13 @@ function generatedSamplingSampleId(
     return "";
   }
   if (index === rowCount - 2) {
-    return `${normalizedBoxCode}0CT`;
+    return `${normalizedBoxCode}-CT`;
   }
   if (index === rowCount - 1) {
-    return `${normalizedBoxCode}0BL`;
+    return `${normalizedBoxCode}-BL`;
   }
 
-  return `${normalizedBoxCode}${String(index + 1).padStart(3, "0")}`;
+  return `${normalizedBoxCode}-${String(index + 1).padStart(2, "0")}`;
 }
 
 function isEmbryoSamplingRow(index: number, biopsyCountValue: string) {
@@ -897,16 +892,6 @@ function validateBiopsyTableRequiredCells(
           column,
           kind: BiopsyTableCellValidationKind.InvalidValue,
           message: `${row}: ${t("Stage day must be 5, 6 or 7.")}`,
-        });
-      }
-
-      if (column === "morphology" && !MORPHOLOGY_PATTERN.test(value)) {
-        issues.push({
-          fieldKey,
-          rowIndex: index,
-          column,
-          kind: BiopsyTableCellValidationKind.InvalidValue,
-          message: `${row}: ${t("Morphology must be 1 to 3 alphanumeric characters.")}`,
         });
       }
 
@@ -1065,9 +1050,9 @@ function requestedTestToFormState(
     reason: stringField(record, "reason") || fallback.reason,
     notes: stringField(record, "notes") || fallback.notes,
     requestDate: stringField(record, "requestDate") || fallback.requestDate,
-    maximumResultDeliveryAt:
-      stringField(record, "maximumResultDeliveryAt") ||
-      fallback.maximumResultDeliveryAt,
+    estimatedTreatmentDate:
+      stringField(record, "estimatedTreatmentDate") ||
+      fallback.estimatedTreatmentDate,
   };
 }
 
@@ -1109,7 +1094,6 @@ function withRequestedStudyTestSelection(
     pgtSr: selectedKey ? (pgtSrSelected ? "si" : "no") : "",
     pgtSrReportsMosaicism: pgtSrSelected ? current.pgtSrReportsMosaicism : "",
     pgtSrReportsSex: pgtSrSelected ? current.pgtSrReportsSex : "",
-    maximumResultDeliveryAt: "",
   };
 }
 
@@ -1286,7 +1270,7 @@ export function buildInitialState(
       reportsSex: "",
       requestReason: "",
       requestDate: todayDateInputValue(),
-      maximumResultDeliveryAt: "",
+      estimatedTreatmentDate: "",
     },
     institutionInformation: emptyInstitution(),
     sampleInformation: {
@@ -1455,13 +1439,12 @@ function mergeSamplingInformationDraft(
   const merged = mergeDraftSection(emptySampling(), value);
 
   return {
-    sampleId: merged.sampleId,
+    sampleId: formatBiopsySampleIdForDisplay(merged.sampleId),
     sampleType: merged.sampleType,
     processingStatus: merged.processingStatus,
     internalCode: merged.internalCode,
     embryoStageDay: merged.embryoStageDay,
     morphology: merged.morphology,
-    sentUl: merged.sentUl,
     biopsiedCells: merged.biopsiedCells,
     cellsVisualized: merged.cellsVisualized,
     notes: merged.notes,
@@ -1477,6 +1460,10 @@ function hydrateDraftState(
   }
 
   const draftState = draft.state;
+  const draftRequestedTest: Record<string, unknown> = isRecord(draftState.requestedTest)
+    ? { ...draftState.requestedTest }
+    : {};
+  delete draftRequestedTest.maximumResultDeliveryAt;
   return {
     ...defaultState,
     linkedWithdrawalCaseIds: Array.isArray(draftState.linkedWithdrawalCaseIds)
@@ -1519,7 +1506,7 @@ function hydrateDraftState(
     ),
     requestedTest: mergeDraftSection(
       defaultState.requestedTest,
-      draftState.requestedTest,
+      draftRequestedTest,
     ),
     institutionInformation: mergeInstitutionInformationDraft(
       defaultState.institutionInformation,
@@ -1720,6 +1707,11 @@ function validateStepFields(
   }
 
   if (step === "requestedTest") {
+    if (!optionalValidDateInput(flowState.requestedTest.estimatedTreatmentDate)) {
+      errors["requestedTest.estimatedTreatmentDate"] = t(
+        "Estimated treatment date must be a valid date.",
+      );
+    }
     const requestedStudyTests = [
       {
         key: "pgtAUltraFast",
@@ -2486,7 +2478,10 @@ function withLinkedStudyRequestSelection(
     linkedForm.selectedPatientId ||
     stringField(linkedForm.patientInformation, "patientId");
   const linkedRequestedTest = requestedTestToFormState(
-    linkedForm.requestedTest,
+    {
+      ...linkedForm.requestedTest,
+      estimatedTreatmentDate: linkedForm.estimatedTreatmentDate ?? linkedForm.requestedTest?.estimatedTreatmentDate,
+    },
     buildInitialState(defaultInstitutionId, defaultDoctorId).requestedTest,
   );
   const linkedRequestedTestKey = selectedRequestedTestKey(linkedRequestedTest);
@@ -2513,9 +2508,7 @@ function withLinkedStudyRequestSelection(
       }).caseInformation,
       caseType: linkedCaseType,
       priority: priorityForSampleCaseType(linkedCaseType),
-      dueAt: toDateInputValue(
-        linkedRequestedTest.maximumResultDeliveryAt || "",
-      ),
+      dueAt: "",
     },
   };
 }
@@ -3719,23 +3712,6 @@ export function TwoPQFormFlow({
     label: t(option.label),
   }));
   const selectedRequestedTest = selectedRequestedTestKey(state.requestedTest);
-  const maximumDeliveryAt = useMemo(() => {
-    if (state.requestedTest.maximumResultDeliveryAt) {
-      const persisted = new Date(state.requestedTest.maximumResultDeliveryAt);
-      if (!Number.isNaN(persisted.getTime())) {
-        return persisted;
-      }
-    }
-    return isRequestedStudyTestKey(selectedRequestedTest)
-      ? maximumResultDeliveryAt(selectedRequestedTest, new Date())
-      : null;
-  }, [selectedRequestedTest, state.requestedTest.maximumResultDeliveryAt]);
-  const formattedMaximumDeliveryAt = maximumDeliveryAt
-    ? new Intl.DateTimeFormat(language === "es" ? "es-AR" : "en-US", {
-        dateStyle: "long",
-        timeStyle: "short",
-      }).format(maximumDeliveryAt)
-    : "";
   const selectedStudyRequestOriginalTest = requestedTestKeyFromRecord(
     selectedStudyRequestForm?.requestedTest,
   );
@@ -4029,8 +4005,10 @@ export function TwoPQFormFlow({
           ),
         },
         {
-          label: t("Maximum result delivery date"),
-          value: formattedMaximumDeliveryAt || notProvidedLabel,
+          label: t("Estimated treatment date"),
+          value: state.requestedTest.estimatedTreatmentDate
+            ? formatTwoPQCivilDate(state.requestedTest.estimatedTreatmentDate, language)
+            : notProvidedLabel,
         },
         ...(selectedRequestedTest === "pgtSr"
           ? [
@@ -4667,16 +4645,12 @@ export function TwoPQFormFlow({
         current.requestedTest,
         selectedKey,
       );
-      const maximumDeliveryAt = isRequestedStudyTestKey(selectedKey)
-        ? maximumResultDeliveryAt(selectedKey, new Date()).toISOString()
-        : "";
       const caseType = caseTypeForRequestedTestKey(selectedKey);
       return {
         ...current,
         requestedTest: {
           ...requestedTest,
           requestDate: current.requestedTest.requestDate || todayDateInputValue(),
-          maximumResultDeliveryAt: maximumDeliveryAt,
         },
         previousGeneticTests:
           selectedKey === "pgtSr"
@@ -4696,9 +4670,7 @@ export function TwoPQFormFlow({
                 ...current.caseInformation,
                 caseType,
                 priority: priorityForSampleCaseType(caseType),
-                dueAt: maximumDeliveryAt
-                  ? toDateInputValue(maximumDeliveryAt)
-                  : "",
+                dueAt: "",
               }
             : current.caseInformation,
       };
@@ -4882,8 +4854,7 @@ export function TwoPQFormFlow({
       [
         "embryoStageDay",
         "morphology",
-        "sentUl",
-        "biopsiedCells",
+              "biopsiedCells",
         "cellsVisualized",
       ].forEach((key) => {
         delete next[`samplingInformation.${index}.${key}`];
@@ -6598,7 +6569,7 @@ export function TwoPQFormFlow({
               <div className="border-b border-border/70 pb-5">
                 <div className="mb-4">
                   <h3 className="font-heading text-lg font-semibold text-foreground">
-                    {t("Gamete donation")}
+                    {t("Gamete origin")}
                   </h3>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
@@ -6756,6 +6727,16 @@ export function TwoPQFormFlow({
                 />
                 <FieldError message={errorFor("requestedTest")} />
               </div>
+              <Field
+                id="form-estimated-treatment-date"
+                label={t("Estimated treatment date")}
+                type="date"
+                value={state.requestedTest.estimatedTreatmentDate}
+                onChange={(estimatedTreatmentDate) =>
+                  updateRequestedTest({ estimatedTreatmentDate })
+                }
+                error={errorFor("requestedTest.estimatedTreatmentDate")}
+              />
               {selectedRequestedTest ? (
                 <>
                   <YesNoField
@@ -6808,24 +6789,6 @@ export function TwoPQFormFlow({
                     options={yesNoOptions}
                     placeholder={t("Select")}
                   />
-                  {maximumDeliveryAt &&
-                  isRequestedStudyTestKey(selectedRequestedTest) ? (
-                    <div className="md:col-span-2 rounded-xl border border-indigo-200 bg-indigo-50/80 px-4 py-3 dark:border-indigo-300/24 dark:bg-indigo-950/24">
-                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-indigo-700 dark:text-indigo-300">
-                        {t("Maximum result delivery date")}
-                      </p>
-                      <p className="mt-1 text-base font-semibold text-indigo-950 dark:text-indigo-50">
-                        {formattedMaximumDeliveryAt}
-                      </p>
-                      <p className="mt-1 text-xs text-indigo-800/75 dark:text-indigo-100/70">
-                        {t("Automatically calculated from the request creation time using a maximum window of")} {t(
-                          maximumResultDeliveryWindowLabel(
-                            selectedRequestedTest as RequestedStudyTestKey,
-                          ),
-                        )}.
-                      </p>
-                    </div>
-                  ) : null}
                 </>
               ) : null}
               {selectedRequestedTest === "pgtSr" ? (
@@ -7193,9 +7156,6 @@ export function TwoPQFormFlow({
                               {t("Morphology")}
                             </th>
                             <th className="border border-black/20 px-3 py-2">
-                              {t("Sent uL")}
-                            </th>
-                            <th className="border border-black/20 px-3 py-2">
                               {t("Biopsied cells")}
                             </th>
                             <th className="border border-black/20 px-3 py-2">
@@ -7218,7 +7178,6 @@ export function TwoPQFormFlow({
                                 sampling.internalCode,
                                 sampling.embryoStageDay,
                                 sampling.morphology,
-                                sampling.sentUl,
                                 sampling.biopsiedCells,
                                 previewOptionValue(
                                   yesNoOptions,
@@ -7481,9 +7440,6 @@ export function TwoPQFormFlow({
                         <th className="min-w-40 border border-slate-300 px-3 py-2">
                           {t("Morphology")} *
                         </th>
-                        <th className="min-w-36 border border-slate-300 px-3 py-2">
-                          {t("Sent uL")} *
-                        </th>
                         <th className="min-w-44 border border-slate-300 px-3 py-2">
                           {t("Biopsied cells")} *
                         </th>
@@ -7622,9 +7578,6 @@ export function TwoPQFormFlow({
                               <Input
                                 id={`form-sampling-morphology-${index}`}
                                 value={sampling.morphology}
-                                maxLength={
-                                  BIOPSY_EMPTY_FIELD_FALLBACK_VALUE.length
-                                }
                                 onChange={(event) =>
                                   updateSamplingInformation(index, {
                                     morphology: event.target.value,
@@ -7639,34 +7592,6 @@ export function TwoPQFormFlow({
                                 message={biopsyTableCellFieldError(
                                   index,
                                   "morphology",
-                                )}
-                              />
-                            </td>
-                            <td
-                              className={samplingCellClass(index, "sentUl")}
-                              data-biopsy-cell={`${index}:sentUl`}
-                              onKeyDownCapture={(event) =>
-                                handleBiopsyCellKeyDown(event, index, "sentUl")
-                              }
-                            >
-                              <Input
-                                id={`form-sampling-sent-ul-${index}`}
-                                value={sampling.sentUl}
-                                inputMode="decimal"
-                                onChange={(event) =>
-                                  updateSamplingInformation(index, {
-                                    sentUl: event.target.value,
-                                  })
-                                }
-                                className={spreadsheetInputClass(
-                                  index,
-                                  "sentUl",
-                                )}
-                              />
-                              <FieldError
-                                message={biopsyTableCellFieldError(
-                                  index,
-                                  "sentUl",
                                 )}
                               />
                             </td>

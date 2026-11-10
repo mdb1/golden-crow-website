@@ -75,13 +75,20 @@ function documentReference(
 function collectionReference(name: string) {
   return {
     doc: (id: string) => documentReference(name, id),
-    where: (field: string, _operator: string, value: unknown) => ({
-      get: async () => ({
+    where: (field: string, operator: string, value: unknown) => {
+      const read = async (limit = Number.POSITIVE_INFINITY) => ({
         docs: [...collectionStore(name).entries()]
-          .filter(([, data]) => data[field] === value)
+          .filter(([, data]) => operator === "in" && Array.isArray(value)
+            ? value.includes(data[field])
+            : data[field] === value)
+          .slice(0, limit)
           .map(([id]) => snapshot(name, id)),
-      }),
-    }),
+      });
+      return {
+        get: read,
+        limit: (count: number) => ({ get: () => read(count).then((result) => ({ ...result, empty: result.docs.length === 0 })) }),
+      };
+    },
     get: async () => ({
       docs: [...collectionStore(name).keys()].map((id) => snapshot(name, id)),
     }),
@@ -113,6 +120,7 @@ const mockDb = {
   runTransaction: async (
     callback: (transaction: {
       get: (reference: MockDocumentReference) => Promise<ReturnType<typeof snapshot>>;
+      create: (reference: MockDocumentReference, data: MockData) => void;
       set: (
         reference: MockDocumentReference,
         data: MockData,
@@ -123,6 +131,9 @@ const mockDb = {
   ) =>
     callback({
       get: (reference) => reference.get(),
+      create: (reference, data) => {
+        void reference.set(data);
+      },
       set: (reference, data, options) => {
         void reference.set(data, options);
       },
@@ -224,7 +235,7 @@ describe("2PQ case status update orchestration", () => {
       collectionKey: "2pq_case",
       institutionId: "INST-00001",
       doctorId: "DOC-00001",
-      caseLabel: "ABCXXX",
+      caseLabel: "OLDXXX",
       caseStatus: "samples_received",
       children_sampling: ["SAMP-00001"],
       createdAt: "2026-09-28T10:00:00.000Z",
@@ -376,8 +387,12 @@ describe("2PQ case status update orchestration", () => {
       doctorId: "DOC-00001",
       institutionId: "INST-00001",
       patientId: "PAT-00001",
+      three_letter_code: "ABC",
       linkedStudyRequestFormId: "FORM-00041",
       should_automatically_sync_files_and_codes: true,
+    });
+    expect(collectionStore("2pq_case_code_reservations").get("ABC")).toMatchObject({
+      caseId: "CASE-00002",
     });
     expect(created.stored_file_id).toBe("stored-case-2");
   });
@@ -415,6 +430,27 @@ describe("2PQ case status update orchestration", () => {
     expect(mockCreateTwoPQCaseServiceTransaction).not.toHaveBeenCalled();
   });
 
+  it("rejects a report-shaped label that conflicts with the case code before any case or service write", async () => {
+    collectionStore("admin_sequences").set("2pq_case", { current: 1 });
+    const { createTwoPQRecordForContext } = await import("../repositories/two-pq.repository.js");
+    await expect(createTwoPQRecordForContext(
+      {
+        email: "admin@example.com", uid: "admin-1", role: "full_admin", isBootstrap: false,
+        canAccessBackoffice: true, canAccessPatientPortal: false, canAccessPGFlex: false,
+        projectAccess: ["mydnamap"],
+      },
+      "cases",
+      {
+        institutionId: "INST-00001", doctorId: "DOC-00001", patientId: "PAT-00001",
+        caseLabel: "ABCXXX", caseStatus: "intake", three_letter_code: "DEF",
+      },
+      { studyRequestForm: linkedStudyRequestForm },
+    )).rejects.toMatchObject({ statusCode: 400 });
+    expect(collectionStore("2pq_case").has("CASE-00002")).toBe(false);
+    expect(collectionStore("2pq_case_code_reservations").size).toBe(0);
+    expect(mockCreateTwoPQCaseServiceTransaction).not.toHaveBeenCalled();
+  });
+
   it("rolls a new case back when its mandatory service transaction fails", async () => {
     collectionStore("admin_sequences").set("2pq_case", { current: 1 });
     mockCreateTwoPQCaseServiceTransaction.mockRejectedValueOnce(
@@ -448,6 +484,7 @@ describe("2PQ case status update orchestration", () => {
       ),
     ).rejects.toThrow("Configured 2PQ offer is unavailable");
     expect(collectionStore("2pq_case").has("CASE-00002")).toBe(false);
+    expect(collectionStore("2pq_case_code_reservations").get("ABC")?.caseId).toBe("CASE-00002");
     expect(mockSynchronizeTwoPQCasesFilesAndCodes).not.toHaveBeenCalled();
     expect(mockLinkTwoPQCaseServiceTransactionReport).not.toHaveBeenCalled();
   });

@@ -120,6 +120,23 @@ describe("TwoPQFormDetail", () => {
     mockSdkFetch.mockReset();
   });
 
+  it("shows only the requested study with its treatment estimate and current phase", () => {
+    render(
+      <AppLanguageProvider initialLanguage="en" forcedLanguage="en">
+        <TwoPQFormDetail form={{
+          ...studyRequestForm,
+          estimatedTreatmentDate: "2026-11-25",
+          requestedTest: { pgtAUltraFast: true, pgtAFast: false, pgtAStandard: false, pgtSr: false },
+        }} />
+      </AppLanguageProvider>,
+    );
+
+    expect(screen.getByRole("heading", { name: "Ultra-fast PGT (<8hs)" })).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Fast PGT (24-72hs)" })).not.toBeInTheDocument();
+    expect(screen.getByText("Estimated treatment date: 11/25/2026")).toBeVisible();
+    expect(screen.getByText("Biopsy", { selector: "[data-slot=badge]" })).toBeVisible();
+  });
+
   it("renders every interactive sample panel after all document details", () => {
     render(
       <AppLanguageProvider initialLanguage="en">

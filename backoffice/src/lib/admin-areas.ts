@@ -374,8 +374,6 @@ export function getAssignableRoleOptions(role: AdminRole) {
   if (role === "institution_operator") {
     return ROLE_OPTIONS.filter(
       (option) =>
-        option.value === "institution_operator" ||
-        option.value === "institution_laboratory_staff" ||
         option.value === "institution_doctor" ||
         option.value === "patient",
     );
@@ -423,13 +421,21 @@ const TWO_PQ_ADMIN_VISIBLE_ROLES = new Set<AdminRole>([
 ]);
 
 export function canDeleteRoleRecord(
-  context: Pick<AdminContextRecord, "email" | "role">,
-  record: Pick<RoleManagementRecord, "email" | "bootstrap">,
+  context: Pick<AdminContextRecord, "email" | "role"> &
+    Partial<Pick<AdminContextRecord, "institutionId">>,
+  record: Pick<RoleManagementRecord, "email" | "bootstrap"> &
+    Partial<Pick<RoleManagementRecord, "role" | "institutionId">>,
 ) {
+  if (record.bootstrap || record.email.toLowerCase() === context.email.toLowerCase()) {
+    return false;
+  }
+
   return (
-    isGlobalAdminRole(context.role) &&
-    !record.bootstrap &&
-    record.email.toLowerCase() !== context.email.toLowerCase()
+    isGlobalAdminRole(context.role) ||
+    (context.role === "institution_admin" &&
+      Boolean(context.institutionId) &&
+      record.institutionId === context.institutionId &&
+      getAssignableRoleOptions("institution_admin").some((option) => option.value === record.role))
   );
 }
 

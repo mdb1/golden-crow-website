@@ -51,52 +51,24 @@ function renderDashboard(
 }
 
 describe("2PQ dashboard form access", () => {
-  it("shows the sample action disabled and suppresses sample drafts for institution operators", () => {
-    renderDashboard(
-      "institution_operator",
-      { formType: "sample" } as TwoPQFormDraftRecord,
-    );
+  it.each(["institution_operator", "institution_laboratory_staff"] as const)(
+    "offers all forms and resumes biopsy drafts for %s", (role) => {
+      renderDashboard(role, { formType: "sample" } as TwoPQFormDraftRecord);
+      expect(screen.getByRole("link", { name: "Completar formulario de muestras (biopsias)" }))
+        .toHaveAttribute("href", "/2pq-dashboard/forms/sample/new");
+      expect(screen.getByRole("link", { name: "Completar formulario de solicitud de estudio" }))
+        .toHaveAttribute("href", "/2pq-dashboard/forms/study-request/new");
+      expect(screen.getByRole("link", { name: "Completar formulario de solicitud de retiro" }))
+        .toHaveAttribute("href", "/2pq-dashboard/forms/withdrawal-request/new");
+      expect(screen.getByRole("link", { name: /Continuar desde borrador/i }))
+        .toHaveAttribute("href", "/2pq-dashboard/forms/sample/new?draft=1");
+    },
+  );
 
-    expect(
-      screen.queryByRole("link", { name: "Completar formulario de muestra" }),
-    ).toBeNull();
-    expect(
-      screen.getByRole("button", {
-        name: "Completar formulario de muestras (biopsias)",
-      }),
-    ).toBeDisabled();
-    expect(
-      screen.queryByRole("link", { name: /Continuar desde borrador/i }),
-    ).toBeNull();
-    expect(
-      screen.getByRole("link", {
-        name: "Completar formulario de solicitud de estudio",
-      }),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole("link", {
-        name: "Completar formulario de solicitud de retiro",
-      }),
-    ).toBeTruthy();
-  });
-
-  it("keeps sample forms available to institution laboratory staff", () => {
-    renderDashboard("institution_laboratory_staff");
-
-    expect(
-      screen.getByRole("link", {
-        name: "Completar formulario de muestras (biopsias)",
-      }),
-    ).toHaveAttribute("href", "/2pq-dashboard/forms/sample/new");
-    expect(
-      screen.getByRole("button", {
-        name: "Completar formulario de solicitud de estudio",
-      }),
-    ).toBeDisabled();
-    expect(
-      screen.getByRole("button", {
-        name: "Completar formulario de solicitud de retiro",
-      }),
-    ).toBeDisabled();
+  it("gives operators doctor and patient shortcuts without staff-management actions", () => {
+    renderDashboard("institution_operator");
+    expect(screen.getByRole("link", { name: /Alta de médico/ })).toHaveAttribute("href", "/areas/doctors/new");
+    expect(screen.getByRole("link", { name: /Alta de paciente/ })).toHaveAttribute("href", "/areas/patients/new");
+    expect(screen.queryByRole("link", { name: /Alta de operario|Alta de personal de laboratorio/ })).toBeNull();
   });
 });

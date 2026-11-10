@@ -36,6 +36,7 @@ import {
   TWO_PQ_FORM_LABELS,
   TWO_PQ_FORM_ROUTES,
   getTwoPQFormDisplayTitle,
+  formatBiopsySampleIdForDisplay,
   type TwoPQFormRecord,
 } from "@/lib/two-pq-forms";
 import {
@@ -43,6 +44,10 @@ import {
   type TwoPQListItem,
 } from "@/lib/two-pq-areas";
 import { compactList } from "@/lib/moderation-utils";
+import {
+  formatTwoPQCivilDate,
+  getTwoPQStudySummary,
+} from "@/lib/two-pq-study-summary";
 import { appText, type AppLanguage } from "@/lib/language";
 import { sdkFetch } from "@/lib/sdk-client";
 
@@ -175,7 +180,6 @@ const SAMPLING_INFORMATION_FIELDS: FieldSpec[] = [
   { key: "internalCode", label: "Internal code" },
   { key: "embryoStageDay", label: "Stage day 5, 6 or 7" },
   { key: "morphology", label: "Morphology" },
-  { key: "sentUl", label: "Sent uL" },
   { key: "biopsiedCells", label: "Biopsied cells" },
   { key: "cellsVisualized", label: "Cells visualized?", type: "boolean" },
   { key: "notes", label: "Comments" },
@@ -228,6 +232,13 @@ const REQUESTED_TEST_SEGMENTS = [
     requestedKey: "pgtAStandard",
     mosaicismKey: "pgtAStandardReportsMosaicism",
     sexKey: "pgtAStandardReportsSex",
+  },
+  {
+    key: "pgtA",
+    title: "PGT-A",
+    requestedKey: "pgtA",
+    mosaicismKey: "reportsMosaicism",
+    sexKey: "reportsSex",
   },
   {
     key: "pgtSr",
@@ -385,9 +396,6 @@ function DetailSection({
   return (
     <section className="rounded-sm bg-white px-6 py-6 text-black shadow-[0_18px_48px_rgba(15,23,42,0.12)] ring-1 ring-black/10 sm:px-8">
       <div className="border-b border-black/12 pb-4">
-        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-black/45">
-          2pq_forms
-        </p>
         <h2 className="mt-1 font-heading text-lg font-semibold text-black">
           {title}
         </h2>
@@ -430,79 +438,69 @@ function RequestedTestDetailSection({
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const selectedKey = selectedRequestedTestKeyFromRecord(data);
+  const segment = REQUESTED_TEST_SEGMENTS.find((test) => test.key === selectedKey);
+  const estimatedTreatmentDate = getTextValue(data, "estimatedTreatmentDate");
 
   return (
     <section className="rounded-sm bg-white px-6 py-6 text-black shadow-[0_18px_48px_rgba(15,23,42,0.12)] ring-1 ring-black/10 sm:px-8">
       <div className="border-b border-black/12 pb-4">
-        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-black/45">
-          2pq_forms
-        </p>
         <h2 className="mt-1 font-heading text-lg font-semibold text-black">
           {t("Requested test")}
         </h2>
       </div>
-      <div className="mt-5 grid gap-6 lg:grid-cols-4">
-        {REQUESTED_TEST_SEGMENTS.map((segment) => (
-          <section
-            key={segment.key}
-            className="border-t border-black/12 pt-4 first:border-t-0 first:pt-0 lg:border-t-0 lg:border-l lg:pl-5 lg:first:border-l-0 lg:first:pl-0"
-          >
-            <h3 className="font-heading text-sm font-semibold text-black">
-              {segment.title}
-            </h3>
-            <dl className="mt-4 grid gap-y-4">
-              {[
-                {
-                  label: t("Requested"),
-                  value: requestedTestSegmentRequestedValue(
-                    data,
-                    segment,
-                    selectedKey,
-                  ),
-                },
-                {
-                  label: t("Would you like to receive information about mosaicism?"),
-                  value: requestedTestSegmentReportValue(
-                    data,
-                    segment,
-                    selectedKey,
-                    "Mosaicism",
-                  ),
-                },
-                {
-                  label: t("Would you like to receive information about the sex of the embryo(s)?"),
-                  value: requestedTestSegmentReportValue(
-                    data,
-                    segment,
-                    selectedKey,
-                    "Sex",
-                  ),
-                },
-              ].map((field) => (
-                <div key={`${segment.key}-${field.label}`}>
-                  <dt className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-black/55">
-                    {field.label}
-                  </dt>
-                  <dd className="mt-1 min-h-8 whitespace-pre-wrap break-words border-b border-black/12 pb-2 text-sm leading-6 text-black">
-                    {formatValue(field.value, language, t, "boolean")}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-        ))}
-      </div>
-      {getTextValue(data, "maximumResultDeliveryAt") ? (
+      {segment ? (
+        <section className="mt-5">
+          <h3 className="font-heading text-sm font-semibold text-black">
+            {segment.title}
+          </h3>
+          <dl className="mt-4 grid gap-y-4">
+            {[
+              {
+                label: t("Requested"),
+                value: requestedTestSegmentRequestedValue(
+                  data,
+                  segment,
+                  selectedKey,
+                ),
+              },
+              {
+                label: t("Would you like to receive information about mosaicism?"),
+                value: requestedTestSegmentReportValue(
+                  data,
+                  segment,
+                  selectedKey,
+                  "Mosaicism",
+                ),
+              },
+              {
+                label: t("Would you like to receive information about the sex of the embryo(s)?"),
+                value: requestedTestSegmentReportValue(
+                  data,
+                  segment,
+                  selectedKey,
+                  "Sex",
+                ),
+              },
+            ].map((field) => (
+              <div key={`${segment.key}-${field.label}`}>
+                <dt className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-black/55">
+                  {field.label}
+                </dt>
+                <dd className="mt-1 min-h-8 whitespace-pre-wrap break-words border-b border-black/12 pb-2 text-sm leading-6 text-black">
+                  {formatValue(field.value, language, t, "boolean")}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      ) : null}
+      {estimatedTreatmentDate ? (
         <div className="mt-5 border-t border-black/12 pt-4">
           <p className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-black/55">
-            {t("Maximum result delivery date")}
+            {t("Estimated treatment date")}
           </p>
           <p className="mt-1 text-sm font-semibold text-black">
-            {formatDate(
-              getTextValue(data, "maximumResultDeliveryAt") ?? "",
-              language,
-              true,
-            )}
+            {formatTwoPQCivilDate(estimatedTreatmentDate, language)}
           </p>
         </div>
       ) : null}
@@ -525,9 +523,6 @@ function SamplingInformationTableSection({
   return (
     <section className="rounded-sm bg-white px-6 py-6 text-black shadow-[0_18px_48px_rgba(15,23,42,0.12)] ring-1 ring-black/10 sm:px-8">
       <div className="border-b border-black/12 pb-4">
-        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-black/45">
-          2pq_forms
-        </p>
         <h2 className="mt-1 font-heading text-lg font-semibold text-black">
           {t("Biopsy rows")}
         </h2>
@@ -561,7 +556,9 @@ function SamplingInformationTableSection({
                       className="min-w-36 whitespace-pre-wrap break-words border border-black/20 px-3 py-2 align-top text-black"
                     >
                       {formatValue(
-                        sampling[field.key],
+                        field.key === "sampleId"
+                          ? formatBiopsySampleIdForDisplay(String(sampling.sampleId ?? ""))
+                          : sampling[field.key],
                         language,
                         t,
                         field.type,
@@ -677,7 +674,9 @@ function LinkedRecordsSection({ form }: { form: TwoPQFormRecord }) {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-emerald-950 dark:text-emerald-50">
-                    {getTextValue(sampling, "sampleId") ?? samplingId}
+                    {formatBiopsySampleIdForDisplay(
+                      getTextValue(sampling, "sampleId") ?? samplingId,
+                    )}
                   </p>
                   <dl className="mt-3 grid gap-2 text-sm md:grid-cols-3">
                     {SAMPLING_INFORMATION_FIELDS.filter(
@@ -2819,6 +2818,18 @@ export function TwoPQFormDetail({
       getTextValue(form.patientInformation, "institutionId"),
   };
   const formTitle = getTwoPQFormDisplayTitle(form, language);
+  const studySummary = getTwoPQStudySummary(form);
+  const workflowStage =
+    form.formType === "withdrawal_request" ||
+    form.linkedWithdrawalRequest ||
+    form.withdrawalRequest
+      ? t("Withdrawal")
+      : form.formType === "sample" || form.linkedBiopsyForm
+        ? t("Biopsy")
+        : t("Request");
+  const estimatedTreatmentDate =
+    form.estimatedTreatmentDate ||
+    getTextValue(form.requestedTest, "estimatedTreatmentDate");
 
   return (
     <div className="flex flex-col gap-5">
@@ -2845,7 +2856,6 @@ export function TwoPQFormDetail({
             <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
               {compactList([
                 TWO_PQ_FORM_LABELS[form.formType],
-                form.requestedTestName,
                 form.institutionName,
                 form.patientEmail,
               ])}
@@ -2855,9 +2865,17 @@ export function TwoPQFormDetail({
             <Badge variant="outline">
               <span className="font-mono">{form.id}</span>
             </Badge>
-            <Badge variant="brand">
-              {t(TWO_PQ_FORM_LABELS[form.formType])}
-            </Badge>
+            <Badge variant="brand">{workflowStage}</Badge>
+            {studySummary ? (
+              <Badge className={studySummary.className}>{studySummary.label}</Badge>
+            ) : form.requestedTestName ? (
+              <Badge variant="outline">{form.requestedTestName}</Badge>
+            ) : null}
+            {estimatedTreatmentDate ? (
+              <Badge variant="outline">
+                {t("Estimated treatment date")}: {formatTwoPQCivilDate(estimatedTreatmentDate, language)}
+              </Badge>
+            ) : null}
             <Badge variant="outline">
               <CalendarDays className="mr-1 size-3.5" />
               {formatDate(form.createdAt, language, true)}
@@ -2868,10 +2886,6 @@ export function TwoPQFormDetail({
                 {authorEmail}
               </Badge>
             ) : null}
-            <Badge variant="outline">
-              <FileText className="mr-1 size-3.5" />
-              2pq_forms
-            </Badge>
           </div>
         </div>
       </section>

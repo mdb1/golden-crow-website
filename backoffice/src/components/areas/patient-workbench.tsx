@@ -63,7 +63,6 @@ import { appText } from "@/lib/language";
 import { compactList } from "@/lib/moderation-utils";
 
 const CONSENT_EMAIL_SENDER_EMAIL = "dopazoh+admin@gmail.com";
-const PATIENT_FULL_NAME_PATTERN = /^\S{3,}(?:\s+\S+)*\s+\S{3,}$/u;
 
 type PatientFormState = {
   institutionId: string;
@@ -269,19 +268,6 @@ export function PatientWorkbench({
 
     if (!state.fullName.trim()) {
       const message = t("Patient full name is required.");
-      setFullNameError(message);
-      setToast({
-        id: Date.now(),
-        tone: "error",
-        message,
-      });
-      return;
-    }
-
-    if (!PATIENT_FULL_NAME_PATTERN.test(state.fullName.trim())) {
-      const message = t(
-        "The full name must include at least two words, with the first and last word containing at least 3 characters each.",
-      );
       setFullNameError(message);
       setToast({
         id: Date.now(),

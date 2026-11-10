@@ -94,9 +94,13 @@ describe.each(ALL)("%s", (_name, roleAccess) => {
 });
 
 describe("explicit surface pins", () => {
-  it("roles: nobody can delete role records from this matrix", () => {
-    for (const e of getSurfaceSpec("roles")!.roleAccess) {
-      expect(e.capabilities).not.toContain("delete");
+  it("roles: global and institution administrators can remove memberships", () => {
+    const roles = getSurfaceSpec("roles")!.roleAccess;
+    for (const role of ["full_admin", "2pq_admin", "institution_admin"]) {
+      expect(entry(roles, role)!.capabilities).toContain("delete");
+    }
+    for (const role of ["institution_operator", "institution_laboratory_staff", "institution_doctor"]) {
+      expect(entry(roles, role)!.capabilities).not.toContain("delete");
     }
   });
 

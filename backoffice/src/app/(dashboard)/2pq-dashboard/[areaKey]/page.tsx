@@ -37,8 +37,8 @@ export default async function TwoPQAreaPage({
   const translatedArea = translateTwoPQAreaConfig(area, language);
 
   const adminContext = await getAdminContextServer();
-  const { records } = await sdkFetchServer<{ records: TwoPQListItem[] }>(
-    `/2pq/${area.key}`,
+  const { records, nextCursor, hasMore } = await sdkFetchServer<{ records: TwoPQListItem[]; nextCursor: string | null; hasMore: boolean }>(
+    `/2pq/${area.key}?paginated=1&limit=20`,
   );
   const canCreate = area.roleAccess.some(
     (entry) =>
@@ -78,6 +78,8 @@ export default async function TwoPQAreaPage({
         <TwoPQAreaBrowser
           areaKey={area.key}
           initialRecords={records}
+          initialCursor={nextCursor}
+          initialHasMore={hasMore}
           createdId={createdId}
         />
       </HeaderUnclutterScope>

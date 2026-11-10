@@ -1275,8 +1275,8 @@ const BASE_ADMIN_SURFACE_SPECS: AdminSurfaceSpec[] = [
       {
         role: "full_admin",
         scope: "global",
-        capabilities: ["create", "read", "update"],
-        note: "Full admins can create or change any non-bootstrap role record.",
+        capabilities: ["create", "read", "update", "delete"],
+        note: "Full admins can create, change, or delete any non-bootstrap role record.",
       },
       {
         role: "transport_dispatcher",
@@ -1287,14 +1287,14 @@ const BASE_ADMIN_SURFACE_SPECS: AdminSurfaceSpec[] = [
       {
         role: "institution_admin",
         scope: "institution",
-        capabilities: ["create", "read", "update"],
-        note: "Institution admins can create and edit local institution admin, institution operator, institution laboratory staff, institution doctor, and patient roles inside their own scope.",
+        capabilities: ["create", "read", "update", "delete"],
+        note: "Institution admins can create, edit, and remove local member, doctor, and patient roles inside their own institution.",
       },
       {
         role: "institution_operator",
         scope: "institution",
         capabilities: ["read", "update"],
-        note: "Institution operators can update existing local institution operator, institution laboratory staff, institution doctor, and patient roles inside their own scope, but new role assignments must be requested from the institution administrator.",
+        note: "Institution operators can inspect and update linked doctor and patient roles inside their own institution. Creating a doctor also provisions its linked role; institution staff roles remain managed by the institution administrator.",
       },
       {
         role: "institution_laboratory_staff",

@@ -195,22 +195,18 @@ describe("PatientWorkbench portal credentials", () => {
     expect(screen.getByText(/Response: database unavailable/)).toBeTruthy();
   });
 
-  it("rejects a single-word patient name before creating the patient", async () => {
+  it.each(["Madonna", "Li Wu"])("allows the existing patient name %s without an arbitrary word-length restriction", async (name) => {
     const user = userEvent.setup();
+    (sdkFetch as jest.Mock).mockResolvedValue({ patient: { id: "PAT-00002" } });
     renderCreateWorkbench();
 
     await user.type(screen.getByLabelText("Email"), "patient@example.com");
-    await user.type(screen.getByLabelText("Full name"), "Madonna");
+    await user.type(screen.getByLabelText("Full name"), name);
     await user.click(screen.getByRole("button", { name: "Create patient" }));
 
-    const message =
-      "The full name must include at least two words, with the first and last word containing at least 3 characters each.";
-    expect(screen.getAllByText(message)).toHaveLength(2);
-    expect(screen.getByLabelText("Full name")).toHaveAttribute(
-      "aria-invalid",
-      "true",
-    );
-    expect(sdkFetch).not.toHaveBeenCalled();
+    expect(sdkFetch).toHaveBeenCalledWith("/areas/patients", expect.objectContaining({
+      body: expect.stringContaining(name),
+    }));
   });
 
   it("reveals an existing temporary password only after the scoped request", async () => {

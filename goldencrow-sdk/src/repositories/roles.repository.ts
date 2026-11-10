@@ -196,12 +196,7 @@ const ROLE_ASSIGNMENT_TREE: Record<AdminRole, AdminRole[]> = {
     "institution_doctor",
     "patient",
   ],
-  institution_operator: [
-    "institution_operator",
-    "institution_laboratory_staff",
-    "institution_doctor",
-    "patient",
-  ],
+  institution_operator: ["institution_doctor", "patient"],
   institution_laboratory_staff: [],
   institution_doctor: ["patient"],
   organization_publisher: [],
@@ -549,9 +544,9 @@ export async function deleteRoleUserForContext(
 }
 
 async function getRoleDeletionTarget(context: AdminContext, email: string) {
-  if (!isGlobalAdminRole(context.role)) {
+  if (!isGlobalAdminRole(context.role) && context.role !== "institution_admin") {
     throw new AdminRepositoryError(
-      "Only full admins and 2PQ admins can delete role assignments.",
+      "Only full admins, 2PQ admins, and institution admins can delete role assignments.",
       403,
     );
   }
@@ -590,6 +585,18 @@ async function getRoleDeletionTarget(context: AdminContext, email: string) {
   if (record.createdAt === BOOTSTRAP_TIMESTAMP) {
     throw new AdminRepositoryError(
       "Bootstrap role users cannot be deleted.",
+      403,
+    );
+  }
+
+  if (
+    !isGlobalAdminRole(context.role) &&
+    (!context.institutionId ||
+      record.institutionId !== context.institutionId ||
+      !ROLE_ASSIGNMENT_TREE.institution_admin.includes(record.role))
+  ) {
+    throw new AdminRepositoryError(
+      "You cannot delete role assignments outside your institution.",
       403,
     );
   }
@@ -1261,6 +1268,12 @@ export async function deleteRoleAccountStepForContext(
   email: string,
   step: RoleAccountDeletionStep,
 ): Promise<RoleAccountDeletionStepResult> {
+  if (step !== "role" && !isGlobalAdminRole(context.role)) {
+    throw new AdminRepositoryError(
+      "Only full admins and 2PQ admins can delete accounts.",
+      403,
+    );
+  }
   const target = await getRoleDeletionTarget(context, email);
 
   if (step === "role") {
@@ -1989,6 +2002,13 @@ export function canViewRoleRecord(
     return false;
   }
 
+  if (context.role === "institution_operator") {
+    return (
+      (record.role === "institution_doctor" || record.role === "patient") &&
+      record.institutionId === context.institutionId
+    );
+  }
+
   if (isInstitutionManagerRole(context.role)) {
     return (
       !isGlobalAdminRole(record.role) &&
@@ -2012,11 +2032,13 @@ export function canAssignRole(context: AdminContext, targetRole: AdminRole) {
   return ROLE_ASSIGNMENT_TREE[context.role].includes(targetRole);
 }
 
-export function canCreateRoleAssignment(context: AdminContext) {
+export function canCreateRoleAssignment(context: AdminContext, targetRole?: AdminRole) {
   return (
     isGlobalAdminRole(context.role) ||
     context.role === "institution_admin" ||
-    context.role === "institution_doctor"
+    context.role === "institution_doctor" ||
+    (context.role === "institution_operator" &&
+      (targetRole === "institution_doctor" || targetRole === "patient"))
   );
 }
 
@@ -2644,7 +2666,7 @@ export async function upsertUserRoleForContext(
 ): Promise<UserRoleRecord> {
   const normalizedEmail = normalizeRoleEmail(email);
   const existing = await getUserRoleByEmail(normalizedEmail);
-  if (!existing && !canCreateRoleAssignment(context)) {
+  if (!existing && !canCreateRoleAssignment(context, payload.role)) {
     throw new AdminRepositoryError(
       "Ask the institution administrator to add a new role.",
       403,

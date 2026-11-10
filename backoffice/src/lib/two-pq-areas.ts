@@ -111,6 +111,10 @@ export type TwoPQMutableFieldKey = Exclude<
 >;
 
 export interface TwoPQListItem extends TwoPQRecord {
+  requestedStudyTest?: "pgtAUltraFast" | "pgtAFast" | "pgtAStandard" | "pgtSr";
+  requestedTestName?: string;
+  estimatedTreatmentDate?: string;
+  biopsyCount?: number;
   institutionName?: string;
   doctorName?: string;
   patientName?: string;

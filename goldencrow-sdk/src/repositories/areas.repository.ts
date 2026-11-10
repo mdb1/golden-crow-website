@@ -1265,10 +1265,19 @@ export async function updateDoctorForContext(
     throw new AdminRepositoryError("Doctor auth email is required.", 400);
   }
 
+  const doctorWriteDocument: Record<string, unknown> = Object.fromEntries(
+    Object.entries(updatedDoctor).filter(([, value]) => value !== undefined),
+  );
+  for (const key of ["authUid", "specialty", "licenseNumber", "contactPhone", "notes"] as const) {
+    if (hasOwnKey(payload, key) && updatedDoctor[key] === undefined) {
+      doctorWriteDocument[key] = FieldValue.delete();
+    }
+  }
+
   await adminDb
     .collection(DOCTORS_COLLECTION)
     .doc(doctorId)
-    .set(updatedDoctor, {
+    .set(doctorWriteDocument, {
       merge: true,
     });
   await syncDoctorRoleRecord(updatedDoctor, previousEmail);
@@ -1367,20 +1376,45 @@ export async function listPatientsForContext(
     .sort((left, right) => left.fullName.localeCompare(right.fullName));
 }
 
+type PatientCreationInput = {
+  institutionId: string;
+  doctorId: string;
+  email: string;
+  fullName: string;
+  medicalRecordNumber?: string;
+  birthDate?: string;
+  sex?: string;
+  status?: "active" | "inactive";
+  notes?: string;
+  additionalInformation?: Record<string, unknown>;
+};
+
 export async function createPatientForContext(
   context: AdminContext,
-  payload: {
-    institutionId: string;
-    doctorId: string;
-    email: string;
-    fullName: string;
-    medicalRecordNumber?: string;
-    birthDate?: string;
-    sex?: string;
-    status?: "active" | "inactive";
-    notes?: string;
-    additionalInformation?: Record<string, unknown>;
-  },
+  payload: PatientCreationInput,
+): Promise<PatientRecord> {
+  return createPatientRecordForContext(context, payload, false);
+}
+
+// This command is used only by the authenticated 2PQ workflow. Laboratory
+// staff still cannot create patients through the generic /areas endpoint.
+export async function createPatientForTwoPQForm(
+  context: AdminContext,
+  payload: PatientCreationInput,
+): Promise<PatientRecord> {
+  if (
+    context.role === "institution_laboratory_staff" &&
+    (!context.institutionId || payload.institutionId !== context.institutionId)
+  ) {
+    throw new AdminRepositoryError("You cannot create a form patient outside your institution.", 403);
+  }
+  return createPatientRecordForContext(context, payload, true);
+}
+
+async function createPatientRecordForContext(
+  context: AdminContext,
+  payload: PatientCreationInput,
+  fromTwoPQForm: boolean,
 ): Promise<PatientRecord> {
   const institutionId =
     isInstitutionManagerRole(context.role) ||
@@ -1395,7 +1429,9 @@ export async function createPatientForContext(
   if (
     !institutionId ||
     !doctorId ||
-    !canCreatePatient(context, institutionId, doctorId)
+    (!canCreatePatient(context, institutionId, doctorId) &&
+      !(fromTwoPQForm && context.role === "institution_laboratory_staff" &&
+        context.institutionId === institutionId))
   ) {
     throw new AdminRepositoryError(
       "You cannot create patients in this scope.",
@@ -1539,6 +1575,21 @@ export async function grantPatientPortalAccessForNewPatient(
     );
   }
 
+  return provisionPatientPortalAccess(context, patient);
+}
+
+export async function grantPatientPortalAccessForTwoPQForm(
+  context: AdminContext,
+  patientId: string,
+): Promise<PatientPortalAccessGrant> {
+  if (context.role !== "institution_laboratory_staff") {
+    return grantPatientPortalAccessForNewPatient(context, patientId);
+  }
+  const patient = await ensurePatientExists(patientId);
+  if (!context.institutionId || patient.institutionId !== context.institutionId) {
+    throw new AdminRepositoryError("You cannot provision portal access outside your institution.", 403);
+  }
+  await validateDoctorInstitutionLink(patient.institutionId, patient.doctorId);
   return provisionPatientPortalAccess(context, patient);
 }
 
@@ -1756,9 +1807,13 @@ export async function updatePatientForContext(
     throw new AdminRepositoryError("Patient email is required.", 400);
   }
 
-  const patientWriteDocument: Record<string, unknown> = { ...updatedPatient };
-  if (hasOwnKey(payload, "birthDate") && !updatedPatient.birthDate) {
-    patientWriteDocument.birthDate = FieldValue.delete();
+  const patientWriteDocument: Record<string, unknown> = Object.fromEntries(
+    Object.entries(updatedPatient).filter(([, value]) => value !== undefined),
+  );
+  for (const key of ["medicalRecordNumber", "birthDate", "sex", "notes"] as const) {
+    if (hasOwnKey(payload, key) && updatedPatient[key] === undefined) {
+      patientWriteDocument[key] = FieldValue.delete();
+    }
   }
 
   await adminDb

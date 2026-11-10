@@ -58,6 +58,7 @@ import {
 import { compactList } from "@/lib/moderation-utils";
 import { appText } from "@/lib/language";
 import { cn } from "@/lib/utils";
+import { formatTwoPQCivilDate, getTwoPQStudySummary } from "@/lib/two-pq-study-summary";
 
 const DEFAULT_PAGE_SIZE = 20;
 
@@ -68,6 +69,11 @@ type FormsFilterState = {
   createdFrom: string;
   createdTo: string;
   order: TwoPQFormsOrder;
+  institution?: string;
+  workflowStage?: string;
+  requestedStudyTest?: string;
+  treatmentFrom?: string;
+  treatmentTo?: string;
 };
 
 type FormsPageResponse = {
@@ -83,6 +89,11 @@ const DEFAULT_FILTERS: FormsFilterState = {
   createdFrom: "",
   createdTo: "",
   order: "newest",
+  institution: "",
+  workflowStage: "",
+  requestedStudyTest: "",
+  treatmentFrom: "",
+  treatmentTo: "",
 };
 
 function formatDate(value: string, language: "en" | "es") {
@@ -125,6 +136,10 @@ function buildFormsQuery(
   if (filters.order !== "newest") {
     params.set("order", filters.order);
   }
+  for (const key of ["institution", "workflowStage", "requestedStudyTest", "treatmentFrom", "treatmentTo"] as const) {
+    const value = filters[key]?.trim();
+    if (value) params.set(key, value);
+  }
   if (cursor) {
     params.set("cursor", cursor);
   }
@@ -146,7 +161,8 @@ function hasActiveFilters(filters: FormsFilterState) {
     Boolean(filters.search.trim()) ||
     Boolean(filters.createdFrom) ||
     Boolean(filters.createdTo) ||
-    filters.order !== "newest"
+    filters.order !== "newest" ||
+    Boolean(filters.institution || filters.workflowStage || filters.requestedStudyTest || filters.treatmentFrom || filters.treatmentTo)
   );
 }
 
@@ -182,7 +198,7 @@ function CoJoinedFormSequence({
   const steps = [
     {
       number: 1,
-      label: t("Study"),
+      label: t("Request"),
       formId: form.id,
     },
     {
@@ -623,6 +639,48 @@ export function TwoPQFormsList({
           </div>
         </div>
 
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          {isGlobalAdminRole(adminContext.role) ? (
+            <div className="grid gap-1.5">
+              <Label htmlFor="two-pq-form-institution">{t("Institution")}</Label>
+              <Input id="two-pq-form-institution" value={draftFilters.institution ?? ""} placeholder={t("Institution name or ID")} onChange={(event) => setDraftFilters((current) => ({ ...current, institution: event.target.value }))} />
+            </div>
+          ) : null}
+          <div className="grid gap-1.5">
+            <Label htmlFor="two-pq-form-stage">{t("Workflow stage")}</Label>
+            <Select value={draftFilters.workflowStage || "all"} onValueChange={(value) => setDraftFilters((current) => ({ ...current, workflowStage: value === "all" ? "" : value }))}>
+              <SelectTrigger id="two-pq-form-stage" className="w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("All stages")}</SelectItem>
+                <SelectItem value="request">{t("Request")}</SelectItem>
+                <SelectItem value="biopsy">{t("Biopsy")}</SelectItem>
+                <SelectItem value="withdrawal">{t("Withdrawal")}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="two-pq-form-study">{t("Study type")}</Label>
+            <Select value={draftFilters.requestedStudyTest || "all"} onValueChange={(value) => setDraftFilters((current) => ({ ...current, requestedStudyTest: value === "all" ? "" : value }))}>
+              <SelectTrigger id="two-pq-form-study" className="w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("All study types")}</SelectItem>
+                <SelectItem value="pgtAUltraFast">Ultra-fast PGT</SelectItem>
+                <SelectItem value="pgtAFast">Fast PGT</SelectItem>
+                <SelectItem value="pgtAStandard">Standard PGT</SelectItem>
+                <SelectItem value="pgtSr">SR PGT</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="two-pq-form-treatment-from">{t("Estimated treatment from")}</Label>
+            <Input id="two-pq-form-treatment-from" type="date" value={draftFilters.treatmentFrom ?? ""} onChange={(event) => setDraftFilters((current) => ({ ...current, treatmentFrom: event.target.value }))} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="two-pq-form-treatment-to">{t("Estimated treatment to")}</Label>
+            <Input id="two-pq-form-treatment-to" type="date" value={draftFilters.treatmentTo ?? ""} onChange={(event) => setDraftFilters((current) => ({ ...current, treatmentTo: event.target.value }))} />
+          </div>
+        </div>
+
         <div className="flex flex-wrap items-center gap-2">
           <Button type="submit" size="sm" disabled={isLoading}>
             {isLoading ? (
@@ -687,15 +745,19 @@ export function TwoPQFormsList({
       <div className="grid gap-3">
         {visibleForms.length === 0 ? (
           <div className={emptyClass}>
-            {activeFilters
-              ? t("No forms match these filters.")
-              : t("No stored forms yet.")}
+            {hasMore
+              ? t("No matches on this page. Load more to continue.")
+              : activeFilters
+                ? t("No forms match these filters.")
+                : t("No stored forms yet.")}
           </div>
         ) : (
           visibleForms.map((form) => {
             const authorEmail = form.authorEmail ?? form.createdByEmail;
             const isArchived = Boolean(form.archivedAt);
             const displayTitle = getTwoPQFormDisplayTitle(form, language);
+            const study = getTwoPQStudySummary(form);
+            const estimatedTreatmentDate = form.estimatedTreatmentDate || String(form.requestedTest.estimatedTreatmentDate ?? "");
             const formVisuals = FORM_TYPE_VISUALS[form.formType];
             const FormIcon = formVisuals.Icon;
             const showCoJoinedSequence =
@@ -719,7 +781,7 @@ export function TwoPQFormsList({
                       <FormIcon className="size-4" />
                     </span>
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-foreground">
+                      <p className="truncate text-xl font-semibold text-foreground sm:text-2xl">
                         {displayTitle}
                       </p>
                       <p className="font-mono text-xs text-muted-foreground">
@@ -730,7 +792,6 @@ export function TwoPQFormsList({
                   <p className="mt-2 text-sm text-muted-foreground">
                     {compactList([
                       formTypeLabel(form.formType, t),
-                      form.requestedTestName,
                       form.institutionName,
                       form.patientEmail,
                       authorEmail
@@ -738,6 +799,14 @@ export function TwoPQFormsList({
                         : undefined,
                     ])}
                   </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {study ? (
+                      <Badge className={study.className}>{study.label}</Badge>
+                    ) : form.requestedTestName ? (
+                      <Badge variant="outline">{form.requestedTestName}</Badge>
+                    ) : null}
+                    {estimatedTreatmentDate ? <span className="text-sm font-medium"><CalendarDays className="mr-1 inline size-4" />{t("Estimated treatment date")}: {formatTwoPQCivilDate(estimatedTreatmentDate, language)}</span> : null}
+                  </div>
                   {showCoJoinedSequence ? (
                     <CoJoinedFormSequence form={form} t={t} />
                   ) : null}

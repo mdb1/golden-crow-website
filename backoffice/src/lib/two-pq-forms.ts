@@ -34,9 +34,8 @@ export function normalizeObservationsValue(value: string | null | undefined) {
 }
 
 export function formatBiopsySampleIdForDisplay(sampleId: string) {
-  return sampleId.length === 6 && sampleId[3] === "0"
-    ? `${sampleId.slice(0, 3)}-${sampleId.slice(4)}`
-    : sampleId;
+  const legacy = /^([A-Z]{3})0(\d{2}|CT|BL)$/i.exec(sampleId);
+  return legacy ? `${legacy[1].toUpperCase()}-${legacy[2].toUpperCase()}` : sampleId;
 }
 
 export type PatientInformationFormState = {
@@ -114,7 +113,7 @@ export type RequestedTestFormState = {
   reportsSex: string;
   requestReason: string;
   requestDate: string;
-  maximumResultDeliveryAt: string;
+  estimatedTreatmentDate: string;
 };
 
 export type SampleInformationFormState = {
@@ -154,7 +153,7 @@ export type SamplingInformationFormState = {
   internalCode: string;
   embryoStageDay: string;
   morphology: string;
-  sentUl: string;
+
   biopsiedCells: string;
   cellsVisualized: string;
   notes: string;
@@ -205,6 +204,7 @@ export interface TwoPQFormRecord {
   institutionName?: string;
   requestedTestName?: string;
   maximumResultDeliveryAt?: string;
+  estimatedTreatmentDate?: string;
   linkedStudyRequestFormId?: string | null;
   studyRequestForm?: string | null;
   suggestedStudyRequestForm?: string | null;
@@ -283,14 +283,10 @@ export const TWO_PQ_FORM_ROUTES: Record<TwoPQFormType, string> = {
 };
 
 export function canCreateTwoPQFormType(
-  role: AdminRole,
-  formType: TwoPQFormType,
+  _role: AdminRole,
+  _formType: TwoPQFormType,
 ) {
-  if (role === "institution_laboratory_staff") {
-    return formType === "sample";
-  }
-
-  return !(role === "institution_operator" && formType === "sample");
+  return true;
 }
 
 export function canArchiveTwoPQForms(role: AdminRole) {

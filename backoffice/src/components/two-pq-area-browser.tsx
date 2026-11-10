@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { ArrowRight, RefreshCcw, Search } from "lucide-react";
 import { useAdminContext } from "@/components/admin-context-provider";
 import { useAppLanguage } from "@/components/app-language-provider";
@@ -26,31 +26,58 @@ import { appText } from "@/lib/language";
 import { formatDateTime } from "@/lib/moderation-utils";
 import { cn } from "@/lib/utils";
 import { isGlobalAdminRole } from "@/lib/admin-areas";
+import { getTwoPQStudySummary } from "@/lib/two-pq-study-summary";
+
+type RecordsPage = { records: TwoPQListItem[]; nextCursor: string | null; hasMore: boolean };
+
+function caseBoxCode(record: TwoPQListItem) {
+  const code = record.three_letter_code?.trim().toUpperCase() ?? "";
+  if (/^[A-Z]{3}$/.test(code)) return code;
+  const label = record.caseLabel?.trim().toUpperCase() ?? "";
+  return /^[A-Z]{3}(?:XXX)?$/.test(label) ? label.slice(0, 3) : "—";
+}
 
 export function TwoPQAreaBrowser({
   areaKey,
   initialRecords,
   createdId,
+  initialCursor = null,
+  initialHasMore = false,
 }: {
   areaKey: TwoPQAreaKey;
   initialRecords: TwoPQListItem[];
   createdId?: string;
+  initialCursor?: string | null;
+  initialHasMore?: boolean;
 }) {
   const adminContext = useAdminContext();
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
   const area = translateTwoPQAreaConfig(getTwoPQAreaConfig(areaKey)!, language);
   const [query, setQuery] = useState("");
+  const [appliedQuery, setAppliedQuery] = useState("");
+  useEffect(() => {
+    const timer = window.setTimeout(() => setAppliedQuery(query.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [query]);
   const [animatedRecordId, setAnimatedRecordId] = useState<string | null>(null);
   const previousRecordIdsRef = useRef<Set<string>>(new Set(initialRecords.map((record) => record.id)));
   const recordRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const { data, isFetching, isLoading, refetch, error } = useQuery({
-    queryKey: ["2pq", area.key],
-    queryFn: () => sdkFetch<{ records: TwoPQListItem[] }>(`/2pq/${area.key}`),
-    initialData: { records: initialRecords },
+  const { data, isFetching, isLoading, refetch, error, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+    queryKey: ["2pq", area.key, appliedQuery],
+    queryFn: ({ pageParam }) => {
+      const params = new URLSearchParams({ paginated: "1", limit: "20" });
+      if (appliedQuery) params.set("query", appliedQuery);
+      if (pageParam) params.set("cursor", pageParam);
+      return sdkFetch<RecordsPage>(`/2pq/${area.key}?${params.toString()}`);
+    },
+    initialPageParam: null as string | null,
+    getNextPageParam: (page) => page.hasMore ? page.nextCursor : undefined,
+    initialData: appliedQuery ? undefined : { pages: [{ records: initialRecords, nextCursor: initialCursor, hasMore: initialHasMore }], pageParams: [null] },
   });
+  const records = useMemo(() => data?.pages.flatMap((page) => page.records) ?? [], [data?.pages]);
   const createdRecordPresent = Boolean(
-    createdId && data?.records.some((record) => record.id === createdId)
+    createdId && records.some((record) => record.id === createdId)
   );
 
   useEffect(() => {
@@ -71,7 +98,7 @@ export function TwoPQAreaBrowser({
   }, [createdId, createdRecordPresent, refetch]);
 
   useEffect(() => {
-    const nextIds = new Set((data?.records ?? []).map((record) => record.id));
+    const nextIds = new Set(records.map((record) => record.id));
     const previousIds = previousRecordIdsRef.current;
 
     if (createdId && nextIds.has(createdId) && !previousIds.has(createdId)) {
@@ -94,57 +121,7 @@ export function TwoPQAreaBrowser({
     }
 
     previousRecordIdsRef.current = nextIds;
-  }, [createdId, data?.records]);
-
-  const filteredRecords = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    const records = data?.records ?? [];
-
-    if (!normalizedQuery) {
-      return records;
-    }
-
-    return records.filter((record) => {
-      const haystack = [
-        record.id,
-        getTwoPQRecordTitle(area, record),
-        getTwoPQRecordSubtitle(area, record),
-        record.institutionName,
-        record.doctorName,
-        record.patientName,
-        ...getTwoPQStatusPills(record),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      return haystack.includes(normalizedQuery);
-    });
-  }, [area, data?.records, query]);
-
-  if (isLoading) {
-    return (
-      <div className="flex flex-col gap-3">
-        <Skeleton className="h-10 w-full max-w-lg" />
-        {Array.from({ length: 4 }).map((_, index) => (
-          <Skeleton key={index} className="h-28 w-full rounded-2xl" />
-        ))}
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="glass-panel flex flex-col gap-3 px-4 py-4">
-        <p className="text-sm text-destructive">
-          {t("Failed to load records. Confirm the SDK is running and retry.")}
-        </p>
-        <Button variant="outline" size="sm" onClick={() => refetch()}>
-          {t("Retry")}
-        </Button>
-      </div>
-    );
-  }
+  }, [createdId, records]);
 
   return (
     <section className="flex flex-col gap-4">
@@ -160,7 +137,7 @@ export function TwoPQAreaBrowser({
         </label>
 
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-          <span>{t("Showing")} {filteredRecords.length} {t("records")}</span>
+          <span>{t("Showing")} {records.length} {t("records")}</span>
           {createdId && !createdRecordPresent ? (
             <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/28 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-emerald-100">
               <RefreshCcw className="h-3 w-3 animate-spin" />
@@ -180,31 +157,60 @@ export function TwoPQAreaBrowser({
       </div>
 
       <div className="glass-panel overflow-hidden">
-        <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)_180px_auto] gap-4 border-b border-border/80 px-4 py-3 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground lg:grid">
+        {area.key === "cases" ? (
+          <div className="hidden grid-cols-[90px_140px_80px_minmax(110px,1fr)_minmax(150px,1.5fr)_minmax(150px,1.5fr)_auto] gap-3 border-b border-border/80 px-4 py-3 text-xs font-medium text-muted-foreground xl:grid">
+            <span>{t("Code")}</span><span>{t("Study type")}</span><span>{t("Biopsy count")}</span><span>{t("State")}</span><span>{t("Patient")}</span><span>{t("Referring institution")}</span><span>{t("Action")}</span>
+          </div>
+        ) : <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)_180px_auto] gap-4 border-b border-border/80 px-4 py-3 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground lg:grid">
           <span>{area.label}</span>
           <span>{t("State")}</span>
           <span>{t("Updated")}</span>
           <span className="text-right">{t("Action")}</span>
-        </div>
+        </div>}
 
-        {filteredRecords.length === 0 ? (
+        {error ? (
+          <div className="flex flex-col items-start gap-3 px-4 py-4">
+            <p className="text-sm text-destructive">
+              {t("Failed to load records. Confirm the SDK is running and retry.")}
+            </p>
+            <Button variant="outline" size="sm" onClick={() => void refetch()}>{t("Retry")}</Button>
+          </div>
+        ) : isLoading ? (
+          <div className="grid gap-3 p-4" aria-label={t("Loading...")}>
+            {Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-14 w-full" />)}
+          </div>
+        ) : records.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-muted-foreground">
-            {t("No records match the current filter.")}
+            {hasNextPage ? t("No matches on this page. Load more to continue.") : t("No records match the current filter.")}
           </div>
         ) : (
-          filteredRecords.map((record) => (
+          records.map((record) => {
+            const study = area.key === "cases" ? getTwoPQStudySummary(record) : null;
+            return (
             <div
               key={record.id}
               ref={(node) => {
                 recordRefs.current[record.id] = node;
               }}
               className={cn(
-                "grid gap-3 border-b border-border/70 px-4 py-4 last:border-b-0 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)_180px_auto] lg:items-center",
+                "grid gap-3 border-b border-border/70 px-4 py-4 last:border-b-0 lg:items-center",
+                area.key === "cases" ? "xl:grid-cols-[90px_140px_80px_minmax(110px,1fr)_minmax(150px,1.5fr)_minmax(150px,1.5fr)_auto]" : "lg:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)_180px_auto]",
                 animatedRecordId === record.id
                   ? "animate-in fade-in-0 slide-in-from-bottom-4 zoom-in-95 duration-700 bg-emerald-500/8 ring-1 ring-inset ring-emerald-400/35"
                   : ""
               )}
             >
+              {area.key === "cases" ? <>
+                <h3 className="font-mono text-lg font-semibold">{caseBoxCode(record)}</h3>
+                <div>{study ? <Badge className={study.className}>{study.label}</Badge> : record.requestedTestName || record.caseType || "—"}</div>
+                <div className="text-sm"><span className="mr-1 text-muted-foreground xl:hidden">{t("Biopsy count")}:</span>{record.biopsyCount ?? "—"}</div>
+                <div className="flex flex-wrap gap-1">
+                  <Badge variant="outline">{t(record.caseStatus || "Unknown")}</Badge>
+                  {!record.canUpdate ? <Badge variant="warning">{t("Read only")}</Badge> : null}
+                </div>
+                <div className="text-base font-semibold">{record.patientName || record.patientId || "—"}</div>
+                <div className="text-sm">{record.institutionName || record.institutionId}</div>
+              </> : <>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="font-medium text-foreground">
@@ -242,6 +248,7 @@ export function TwoPQAreaBrowser({
                 {formatDateTime(record.updatedAt) ?? t("No timestamp")}
               </div>
 
+              </>}
               <div className="flex items-center gap-2 lg:justify-end">
                 <Button variant="outline" size="sm" asChild>
                   <Link href={`${area.route}/${record.id}`}>
@@ -270,9 +277,11 @@ export function TwoPQAreaBrowser({
                 ) : null}
               </div>
             </div>
-          ))
+            );
+          })
         )}
       </div>
+      {hasNextPage ? <Button variant="outline" onClick={() => void fetchNextPage()} disabled={isFetchingNextPage}>{isFetchingNextPage ? t("Loading...") : t("Load more")}</Button> : null}
     </section>
   );
 }

@@ -11,11 +11,13 @@ type MockDocumentRef = {
 type MockQueryOperation =
   | { type: "where"; fieldPath: string; operator: string; value: unknown }
   | { type: "limit"; count: number }
+  | { type: "startAfter"; id: string }
   | { type: "orderBy"; fieldPath: string; direction: "asc" | "desc" };
 type MockQuery = {
   doc: (id: string) => MockDocumentRef;
   where: jest.Mock;
   orderBy: jest.Mock;
+  startAfter: jest.Mock;
   limit: jest.Mock;
   get: jest.Mock;
 };
@@ -134,6 +136,12 @@ function applyQueryOperations(
     });
   }
 
+  const cursor = operations.find((operation) => operation.type === "startAfter");
+  if (cursor) {
+    const index = docs.findIndex((doc) => doc.id === cursor.id);
+    docs = docs.slice(index + 1);
+  }
+
   const limitOperation = operations.find(
     (operation): operation is Extract<MockQueryOperation, { type: "limit" }> =>
       operation.type === "limit",
@@ -177,6 +185,9 @@ function makeQuery(
         };
         return makeQuery(collectionName, [...operations, operation]);
       },
+    ),
+    startAfter: jest.fn((snapshot: { id: string }): MockQuery =>
+      makeQuery(collectionName, [...operations, { type: "startAfter", id: snapshot.id }]),
     ),
     limit: jest.fn((count: number): MockQuery => {
       const operation: MockQueryOperation = { type: "limit", count };
@@ -273,12 +284,12 @@ jest.mock("../config/firebase.js", () => ({
 }));
 
 jest.mock("../repositories/areas.repository.js", () => ({
-  createPatientForContext: jest.fn(),
-  grantPatientPortalAccessForNewPatient: jest.fn(),
+  createPatientForTwoPQForm: jest.fn(),
+  grantPatientPortalAccessForTwoPQForm: jest.fn(),
 }));
 
 jest.mock("../repositories/roles.repository.js", () => ({
-  canCreatePatient: jest.fn(() => true),
+  canCreatePatient: jest.fn((context: { role: string }) => context.role !== "institution_laboratory_staff"),
   canViewDoctor: jest.fn(() => true),
   canViewInstitution: jest.fn(() => true),
   canViewPatient: jest.fn(() => true),
@@ -463,7 +474,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
     jest.useRealTimers();
   });
 
-  it("initializes the study-request relationship fields as null", async () => {
+  it("stores a civil treatment estimate without a results deadline and initializes relationship fields", async () => {
     const { createTwoPQFormForContext } =
       await import("../repositories/two-pq-forms.repository");
 
@@ -486,6 +497,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
       },
       previousGeneticTests: { karyotype: false },
       requestedTest: {
+        estimatedTreatmentDate: "2026-11-25",
         pgtAFast: true,
         pgtAFastReportsMosaicism: false,
         pgtAFastReportsSex: false,
@@ -497,7 +509,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
     expect(form).toMatchObject({
       id: "FORM-00041",
       requestedTestName: "Fast PGT (24-72hs)",
-      maximumResultDeliveryAt: "2026-09-03T15:45:00.000Z",
+      estimatedTreatmentDate: "2026-11-25",
       linkedBiopsyForm: null,
       linkedWithdrawalRequest: null,
       "2pq_case": null,
@@ -507,16 +519,18 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
         pgtAFast: true,
         testName: "Fast PGT (24-72hs)",
         requestDate: "2026-08-31T15:45:00.000Z",
-        maximumResultDeliveryAt: "2026-09-03T15:45:00.000Z",
+        estimatedTreatmentDate: "2026-11-25",
       },
-      maximumResultDeliveryAt: "2026-09-03T15:45:00.000Z",
+      estimatedTreatmentDate: "2026-11-25",
       linkedBiopsyForm: null,
       linkedWithdrawalRequest: null,
       "2pq_case": null,
     });
+    expect(mockDocs.get("2pq_forms/FORM-00041")).not.toHaveProperty("maximumResultDeliveryAt");
+    expect(mockDocs.get("2pq_forms/FORM-00041")).not.toHaveProperty("requestedTest.maximumResultDeliveryAt");
   });
 
-  it("stores the Ultra-fast deadline and keeps karyotype disabled", async () => {
+  it("keeps the selected Ultra-fast study and keeps karyotype disabled", async () => {
     const { createTwoPQFormForContext } =
       await import("../repositories/two-pq-forms.repository");
 
@@ -550,7 +564,6 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
 
     expect(form).toMatchObject({
       requestedTestName: "Ultra-fast PGT (<8hs)",
-      maximumResultDeliveryAt: "2026-08-31T23:45:00.000Z",
       requestedTest: {
         pgtAUltraFast: true,
         pgtAUltraFastReportsMosaicism: true,
@@ -996,7 +1009,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
     });
   });
 
-  it("claims the study request when creating a biopsy form and rejects a second biopsy", async () => {
+  it("lets laboratory staff submit a scoped biopsy and prevents a second biopsy", async () => {
     const { createTwoPQFormForContext } =
       await import("../repositories/two-pq-forms.repository");
 
@@ -1086,15 +1099,24 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
           sampleType: "biopsia de trofoectodermo",
           processingStatus: "awaiting_reception",
           embryoStageDay: "5",
-          morphology: "AA",
-          sentUl: "5",
+          morphology: "AA / 5BB (+) — revisión",
           biopsiedCells: "6",
           cellsVisualized: true,
         },
       ],
     };
 
-    const form = await createTwoPQFormForContext(fullAdminContext, input);
+    const laboratoryContext = {
+      ...fullAdminContext,
+      role: "institution_laboratory_staff" as const,
+      institutionId: "inst-1",
+    };
+    await expect(createTwoPQFormForContext(laboratoryContext, {
+      ...input,
+      patientInformation: { ...input.patientInformation, institutionId: "inst-other" },
+    })).rejects.toMatchObject({ statusCode: 403 });
+
+    const form = await createTwoPQFormForContext(laboratoryContext, input);
 
     expect(form.id).toBe("FORM-00041");
     expect(mockDocs.get("2pq_forms/FORM-00040")).toMatchObject({
@@ -1106,15 +1128,14 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
       linkedStudyRequestFormId: "FORM-00040",
       studyRequestForm: "FORM-00040",
       withdrawalRequest: null,
-      maximumResultDeliveryAt: "2026-09-02T10:00:00.000Z",
-      requestedTest: expect.objectContaining({
-        maximumResultDeliveryAt: "2026-09-02T10:00:00.000Z",
-      }),
+      samplingInformation: [expect.objectContaining({ sampleId: "ABC-01", morphology: "AA / 5BB (+) — revisión" })],
     });
+    expect(mockDocs.get("2pq_forms/FORM-00041")).not.toHaveProperty("maximumResultDeliveryAt");
+    expect(mockDocs.get("2pq_forms/FORM-00041")).not.toHaveProperty("samplingInformation.0.sentUl");
     expect(mockCreateTwoPQRecordForContext).toHaveBeenCalledWith(
-      fullAdminContext,
+      laboratoryContext,
       "cases",
-      expect.objectContaining({ dueAt: "2026-09-02T00:00:00.000Z" }),
+      expect.objectContaining({ dueAt: "2099-01-01T00:00:00.000Z" }),
       expect.anything(),
     );
 
@@ -1727,5 +1748,48 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
     expect(mockDocs.get("2pq_forms/FORM-00031")).not.toHaveProperty(
       "linkedCaseLabel",
     );
+  });
+
+  it("combines workflow filters across Firestore windows and resumes after the last match", async () => {
+    const { listTwoPQFormsForContext } = await import("../repositories/two-pq-forms.repository");
+    const base = {
+      formType: "study_request",
+      institutionId: "inst-1",
+      doctorId: "doctor-1",
+      institutionName: "Clínica Norte",
+      patientName: "Ada Patient",
+      patientInformation: {},
+      requestedTest: { pgtAUltraFast: true },
+      estimatedTreatmentDate: "2026-12-06",
+      linkedBiopsyForm: "FORM-BIOPSY",
+    };
+    for (let index = 0; index < 35; index += 1) {
+      const id = `FILTER-SKIP-${index}`;
+      mockDocs.set(`2pq_forms/${id}`, {
+        ...base,
+        requestedTest: { pgtAFast: true },
+        createdAt: `2026-11-15T10:00:${String(index).padStart(2, "0")}.000Z`,
+      });
+    }
+    mockDocs.set("2pq_forms/FILTER-FIRST", { ...base, createdAt: "2026-11-14T10:00:00.000Z" });
+    mockDocs.set("2pq_forms/FILTER-SECOND", { ...base, estimatedTreatmentDate: "2026-12-07", createdAt: "2026-11-13T10:00:00.000Z" });
+    mockDocs.set("2pq_forms/FILTER-OUTSIDE-DATE", { ...base, estimatedTreatmentDate: "2026-12-10", createdAt: "2026-11-12T10:00:00.000Z" });
+    const filters = {
+      formType: "study_request",
+      workflowStage: "biopsy",
+      requestedStudyTest: "pgtAUltraFast",
+      treatmentFrom: "2026-12-06",
+      treatmentTo: "2026-12-07",
+      institution: "clinica norte",
+      search: "ada",
+      limit: 1,
+    } as const;
+    const first = await listTwoPQFormsForContext(fullAdminContext, filters);
+    expect(first.forms.map(({ id }) => id)).toEqual(["FILTER-FIRST"]);
+    expect(first).toMatchObject({ hasMore: true, nextCursor: "FILTER-FIRST" });
+    const second = await listTwoPQFormsForContext(fullAdminContext, { ...filters, cursor: first.nextCursor! });
+    expect(second.forms.map(({ id }) => id)).toEqual(["FILTER-SECOND"]);
+    const third = await listTwoPQFormsForContext(fullAdminContext, { ...filters, cursor: second.nextCursor! });
+    expect(third).toEqual({ forms: [], hasMore: false, nextCursor: null });
   });
 });

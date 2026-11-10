@@ -1391,6 +1391,17 @@ const SPANISH_TEXT: Record<string, string> = {
   "Enrollment status": "Estado de inscripción",
   "Eligible population": "Población elegible",
   "Study identifier": "Identificador del estudio",
+  "Request": "Solicitud",
+  "Workflow stage": "Etapa",
+  "All study types": "Todos los tipos de estudio",
+  "No matches on this page. Load more to continue.": "No hay coincidencias en esta página. Cargá más para continuar.",
+  "Institution name or ID": "Nombre o ID de institución",
+  "Estimated treatment from": "Tratamiento estimado desde",
+  "Estimated treatment to": "Tratamiento estimado hasta",
+  "Estimated treatment date": "Fecha estimada de tratamiento",
+  "Gamete origin": "Origen de los gametos",
+  "Biopsy count": "Cantidad de biopsias",
+  "Referring institution": "Institución derivante",
   "Study type": "Tipo de estudio",
   "Eligibility summary": "Resumen de elegibilidad",
   "Participation mode": "Modalidad de participación",
@@ -5111,6 +5122,18 @@ const SPANISH_TEXT: Record<string, string> = {
     "Los operarios de institución pueden crear y editar roles locales de administrador de institución, operario de institución, médico de institución y paciente dentro de su propio alcance.",
   "Institution admins can create and edit local institution admin, institution operator, institution laboratory staff, institution doctor, and patient roles inside their own scope.":
     "Los administradores de institución pueden crear y editar roles locales de administrador de institución, operario de institución, personal de laboratorio de institución, médico de institución y paciente dentro de su propio alcance.",
+  "Full admins can create, change, or delete any non-bootstrap role record.":
+    "Los administradores totales pueden crear, modificar o eliminar cualquier rol que no esté protegido por la configuración del sistema.",
+  "Institution admins can create, edit, and remove local member, doctor, and patient roles inside their own institution.":
+    "Los administradores de institución pueden crear, editar y eliminar roles de miembros, médicos y pacientes de su propia institución.",
+  "Institution operators can inspect and update linked doctor and patient roles inside their own institution. Creating a doctor also provisions its linked role; institution staff roles remain managed by the institution administrator.":
+    "Los operarios pueden consultar y actualizar los roles vinculados de médicos y pacientes de su institución. Dar de alta a un médico también crea su rol; los roles del personal siguen a cargo del administrador de la institución.",
+  "Can provision and update linked doctor and patient access inside that institution only.":
+    "Puede configurar y actualizar el acceso vinculado de médicos y pacientes solo dentro de su institución.",
+  "Cannot manage institution-admin, operator, or laboratory-staff roles.":
+    "No puede administrar roles de administrador, operario ni personal de laboratorio de institución.",
+  "Institution operators can modify only doctor and patient role assignments.":
+    "Los operarios de institución solo pueden modificar las asignaciones de roles de médicos y pacientes.",
   "Institution operators can create and edit local institution operator, institution doctor, and patient roles inside their own scope, but cannot assign institution admin roles.":
     "Los operarios de institución pueden crear y editar roles locales de operario de institución, médico de institución y paciente dentro de su propio alcance, pero no pueden asignar roles de administrador de institución.",
   "Institution operators can create and edit local institution operator, institution laboratory staff, institution doctor, and patient roles inside their own scope, but cannot assign institution admin roles.":

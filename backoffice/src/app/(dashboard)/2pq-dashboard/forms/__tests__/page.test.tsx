@@ -99,7 +99,7 @@ describe("2PQ forms page actions", () => {
     ).toHaveAttribute("href", "/2pq-dashboard/forms/withdrawal-request/new");
   });
 
-  it("keeps unavailable actions visible and gray for laboratory staff", async () => {
+  it("lets laboratory staff open all three forms within their institution", async () => {
     jest.mocked(getAdminContextServer).mockResolvedValue({
       ...adminContext,
       role: "institution_laboratory_staff",
@@ -109,19 +109,19 @@ describe("2PQ forms page actions", () => {
     render(await TwoPQFormsPage({ searchParams: Promise.resolve({}) }));
 
     expect(
-      screen.getByRole("button", {
+      screen.getByRole("link", {
         name: "Completar formulario de solicitud de estudio",
       }),
-    ).toBeDisabled();
+    ).toHaveAttribute("href", "/2pq-dashboard/forms/study-request/new");
     expect(
       screen.getByRole("link", {
         name: "Completar formulario de muestras (biopsias)",
       }),
     ).toHaveAttribute("href", "/2pq-dashboard/forms/sample/new");
     expect(
-      screen.getByRole("button", {
+      screen.getByRole("link", {
         name: "Completar formulario de solicitud de retiro",
       }),
-    ).toBeDisabled();
+    ).toHaveAttribute("href", "/2pq-dashboard/forms/withdrawal-request/new");
   });
 });

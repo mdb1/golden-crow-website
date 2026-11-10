@@ -43,6 +43,9 @@ type ScopeCardKey =
   | "roles";
 
 function canSeeScopeCard(role: AdminContextRecord["role"], key: ScopeCardKey) {
+  if (role === "institution_operator") {
+    return key === "doctors" || key === "patients";
+  }
   if (key === "transportDispatchers") {
     return isGlobalAdminRole(role);
   }
@@ -87,8 +90,7 @@ export function TwoPQDashboardHome({
     isDoctorDashboard ||
     isInstitutionOperatorDashboard ||
     isLaboratoryStaffDashboard;
-  const showScopeSection =
-    !isInstitutionOperatorDashboard && !isLaboratoryStaffDashboard;
+  const showScopeSection = !isLaboratoryStaffDashboard;
   const showLinkedSection = !isInstitutionOperatorDashboard;
   const visibleLinkedEntityKeys = new Set(
     isDoctorDashboard || isLaboratoryStaffDashboard
@@ -157,7 +159,7 @@ export function TwoPQDashboardHome({
       browseHref: "/areas/doctors",
       canCreate: canCreateDoctorUi(adminContext),
       disabledTitle:
-        "Only full admins, institution admins, institution operators, and institution laboratory staff can create doctors.",
+        "Only full admins, institution admins, and institution operators can create doctors.",
     },
     {
       key: "patients",
@@ -169,7 +171,7 @@ export function TwoPQDashboardHome({
       browseHref: "/areas/patients",
       canCreate: canCreatePatientUi(adminContext),
       disabledTitle:
-        "Only full admins, institution admins, institution operators, institution laboratory staff, and scoped institution doctors can create patients.",
+        "Only full admins, institution admins, institution operators, and scoped institution doctors can create patients.",
     },
     {
       key: "administrativeOperators",

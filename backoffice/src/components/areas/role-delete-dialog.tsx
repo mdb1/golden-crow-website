@@ -34,6 +34,7 @@ import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   canDeleteRoleRecord,
+  isGlobalAdminRole,
   type RoleManagementRecord,
 } from "@/lib/admin-areas";
 import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
@@ -401,8 +402,9 @@ export function RoleDeleteDialog({
     null,
   );
   const canDelete = canDeleteRoleRecord(adminContext, roleRecord);
-  const steps =
-    scope === "account" ? ACCOUNT_DELETION_STEPS : (["role"] as const);
+  const canDeleteAccount = isGlobalAdminRole(adminContext.role);
+  const isAccountDeletion = canDeleteAccount && scope === "account";
+  const steps = isAccountDeletion ? ACCOUNT_DELETION_STEPS : (["role"] as const);
   const failed = results.some((result) => result.status === "failed");
   const progress = steps.length > 0 ? (results.length / steps.length) * 100 : 0;
   const resultByStep = useMemo(
@@ -850,7 +852,7 @@ export function RoleDeleteDialog({
                     ? failed
                       ? copy.partialTitle
                       : copy.completeTitle
-                    : copy.title}
+                    : canDeleteAccount ? copy.title : copy.trigger}
               </DialogTitle>
               <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
                 {roleRecord.email}
@@ -864,11 +866,11 @@ export function RoleDeleteDialog({
                 ? failed
                   ? copy.partialBody
                   : copy.completeBody
-                : copy.description}
+                : canDeleteAccount ? copy.description : copy.roleOnlyBody}
           </DialogDescription>
         </DialogHeader>
 
-        {!running && !finished ? (
+        {canDeleteAccount && !running && !finished ? (
           <RadioGroup
             value={scope}
             onValueChange={(value) => setScope(value as DeletionScope)}
@@ -913,7 +915,7 @@ export function RoleDeleteDialog({
           </RadioGroup>
         ) : null}
 
-        {scope === "account" && !running && !finished ? (
+        {isAccountDeletion && !running && !finished ? (
           <div className="flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-400/25 dark:bg-amber-400/8 dark:text-amber-100">
             <UserRoundX className="mt-0.5 h-4 w-4 shrink-0" />
             <span>{copy.sharedOrganization}</span>
@@ -1100,7 +1102,7 @@ export function RoleDeleteDialog({
                 ) : (
                   <Trash2 className="h-4 w-4" />
                 )}
-                {scope === "account" ? copy.startAccount : copy.startRole}
+                {isAccountDeletion ? copy.startAccount : copy.startRole}
               </Button>
             </>
           )}

@@ -1,3 +1,4 @@
+import { resolveTwoPQRequestedStudyTest } from "../lib/two-pq-study-summary.js";
 import { FieldPath } from "firebase-admin/firestore";
 import { adminAuthFor, adminDbFor } from "../config/firebase.js";
 
@@ -7,8 +8,8 @@ import { adminAuthFor, adminDbFor } from "../config/firebase.js";
 const adminDb = adminDbFor("mydnamap");
 import { AdminRepositoryError } from "./admin-errors.js";
 import {
-  createPatientForContext,
-  grantPatientPortalAccessForNewPatient,
+  createPatientForTwoPQForm,
+  grantPatientPortalAccessForTwoPQForm,
 } from "./areas.repository.js";
 import { shouldAutomaticallyGrantPatientPortalAccess } from "../lib/patient-portal-credentials.js";
 import { isGlobalAdminRole } from "../lib/admin-roles.js";
@@ -34,7 +35,6 @@ import {
   canCreateTwoPQFormType,
 } from "../lib/two-pq-form-access.js";
 import {
-  maximumResultDeliveryAt,
   type RequestedStudyTestKey,
 } from "../lib/two-pq-requested-test.js";
 import type {
@@ -158,6 +158,7 @@ type RequestedTestInput = {
   reportsSex?: boolean | string;
   requestReason?: string;
   requestDate?: string;
+  estimatedTreatmentDate?: string;
   testName?: string;
   testCode?: string;
   priority?: string;
@@ -210,7 +211,6 @@ type SamplingInformationInput = {
   internalCode?: string;
   embryoStageDay?: string;
   morphology?: string;
-  sentUl?: string;
   biopsiedCells?: string;
   cellsVisualized?: boolean | string;
   notes?: string;
@@ -251,6 +251,11 @@ type ListTwoPQFormsOptions = {
   createdFrom?: string;
   createdTo?: string;
   order?: "newest" | "oldest";
+  institution?: string;
+  workflowStage?: "request" | "biopsy" | "withdrawal";
+  requestedStudyTest?: RequestedStudyTestKey;
+  treatmentFrom?: string;
+  treatmentTo?: string;
 };
 
 type ListTwoPQFormsPage = {
@@ -509,6 +514,28 @@ function formMatchesListFilters(
   if (options.formType && form.formType !== options.formType) {
     return false;
   }
+  const institution = normalizeSearchText(options.institution);
+  if (
+    institution &&
+    !normalizeSearchText(`${form.institutionId} ${form.institutionName ?? ""}`)?.includes(institution)
+  ) {
+    return false;
+  }
+  const stage = form.formType === "withdrawal_request" || form.linkedWithdrawalRequest
+    ? "withdrawal"
+    : form.formType === "sample" || form.linkedBiopsyForm
+      ? "biopsy"
+      : "request";
+  if (options.workflowStage && stage !== options.workflowStage) return false;
+  if (
+    options.requestedStudyTest &&
+    resolveTwoPQRequestedStudyTest(form.requestedTest, form.requestedTestName) !== options.requestedStudyTest
+  ) {
+    return false;
+  }
+  const treatmentDate = form.estimatedTreatmentDate ?? normalizeOptionalString(form.requestedTest.estimatedTreatmentDate);
+  if (options.treatmentFrom && (!treatmentDate || treatmentDate < options.treatmentFrom)) return false;
+  if (options.treatmentTo && (!treatmentDate || treatmentDate > options.treatmentTo)) return false;
   if (
     options.availableForBiopsy &&
     (form.formType !== "study_request" ||
@@ -575,6 +602,38 @@ function normalizeIsoDateString(value: unknown) {
   }
 
   return candidate.toISOString();
+}
+
+function normalizeEstimatedTreatmentDate(value: unknown) {
+  const date = normalizeOptionalString(value);
+  if (!date) return undefined;
+  const candidate = /^\d{4}-\d{2}-\d{2}$/.test(date)
+    ? new Date(`${date}T12:00:00Z`)
+    : null;
+  if (
+    !candidate ||
+    Number.isNaN(candidate.getTime()) ||
+    candidate.toISOString().slice(0, 10) !== date
+  ) {
+    throw new AdminRepositoryError(
+      "Estimated treatment date must be a valid date.",
+      400,
+    );
+  }
+  return date;
+}
+
+function normalizeBiopsySampleId(value: unknown) {
+  let sampleId = normalizeRequiredString(value, "2PQ sample ID").toUpperCase();
+  const legacy = /^([A-Z]{3})0(\d{2}|CT|BL)$/.exec(sampleId);
+  if (legacy) sampleId = `${legacy[1]}-${legacy[2]}`;
+  if (!/^[A-Z]{3}-(?:0[1-9]|[1-9]\d|CT|BL)$/.test(sampleId)) {
+    throw new AdminRepositoryError(
+      "Sample ID must use XXX-01, XXX-CT, or XXX-BL format.",
+      400,
+    );
+  }
+  return sampleId;
 }
 
 function normalizeRequiredIsoDateString(value: unknown, label: string) {
@@ -827,6 +886,9 @@ function toTwoPQFormRecord(
     patientEmail: normalizeOptionalString(data.patientEmail),
     institutionName: normalizeOptionalString(data.institutionName),
     requestedTestName: normalizeOptionalString(data.requestedTestName),
+    estimatedTreatmentDate:
+      normalizeOptionalString(data.estimatedTreatmentDate) ??
+      normalizeOptionalString(toPlainRecord(data.requestedTest).estimatedTreatmentDate),
     maximumResultDeliveryAt: normalizeOptionalString(
       data.maximumResultDeliveryAt,
     ),
@@ -1312,10 +1374,7 @@ function normalizeRequestedTest(
       ),
       testName: selectedName,
       requestDate: requestedAt.toISOString(),
-      maximumResultDeliveryAt: maximumResultDeliveryAt(
-        selectedKey,
-        requestedAt,
-      ).toISOString(),
+      estimatedTreatmentDate: normalizeEstimatedTreatmentDate(input.estimatedTreatmentDate),
     });
   }
 
@@ -1464,7 +1523,7 @@ function normalizeSamplingInformation(
 
   return {
     caseLabel: fallbackCaseLabel,
-    sampleId: normalizeRequiredString(input.sampleId, "2PQ sample ID"),
+    sampleId: normalizeBiopsySampleId(input.sampleId),
     sampleType: normalizeRequiredString(input.sampleType, "2PQ sample type"),
     processingStatus,
     internalCode: normalizeOptionalString(input.internalCode),
@@ -1474,9 +1533,6 @@ function normalizeSamplingInformation(
     morphology: isDiscarded
       ? normalizeOptionalString(input.morphology)
       : normalizeRequiredString(input.morphology, "Morfologia"),
-    sentUl: isDiscarded
-      ? normalizeOptionalString(input.sentUl)
-      : normalizeRequiredString(input.sentUl, "uL enviados"),
     biopsiedCells: isDiscarded
       ? normalizeOptionalString(input.biopsiedCells)
       : normalizeRequiredString(input.biopsiedCells, "Celulas biopsiadas"),
@@ -1497,6 +1553,7 @@ function normalizeSamplingInformation(
 function normalizeSamplingInformationList(
   input: SamplingInformationInput[] | undefined,
   fallbackCaseLabel: string,
+  boxCode: string,
 ) {
   if (!Array.isArray(input) || input.length === 0) {
     throw new AdminRepositoryError(
@@ -1505,9 +1562,17 @@ function normalizeSamplingInformationList(
     );
   }
 
-  return input.map((entry) =>
+  const entries = input.map((entry) =>
     normalizeSamplingInformation(entry, fallbackCaseLabel),
   );
+  if (entries.some((entry) => !entry.sampleId.startsWith(`${boxCode}-`))) {
+    throw new AdminRepositoryError("Sample ID must match the box code.", 400);
+  }
+  const sampleIds = new Set(entries.map((entry) => entry.sampleId));
+  if (sampleIds.size !== entries.length) {
+    throw new AdminRepositoryError("Sample ID must be unique in this form.", 400);
+  }
+  return entries;
 }
 
 function caseRecordToFormInformation(record: {
@@ -1546,7 +1611,6 @@ function samplingRecordToFormInformation(record: {
   internalCode?: string;
   embryoStageDay?: string;
   morphology?: string;
-  sentUl?: string;
   biopsiedCells?: string;
   cellsVisualized?: boolean | string;
   collectionDate?: string;
@@ -1565,7 +1629,6 @@ function samplingRecordToFormInformation(record: {
     internalCode: normalizeOptionalString(record.internalCode),
     embryoStageDay: normalizeOptionalString(record.embryoStageDay),
     morphology: normalizeOptionalString(record.morphology),
-    sentUl: normalizeOptionalString(record.sentUl),
     biopsiedCells: normalizeOptionalString(record.biopsiedCells),
     cellsVisualized:
       typeof record.cellsVisualized === "boolean"
@@ -4538,14 +4601,30 @@ export async function upsertTwoPQFormDraftForContext(
   const stepIndex = Number.isInteger(payload.stepIndex)
     ? Math.max(0, payload.stepIndex)
     : 0;
+  const draftState = { ...toPlainRecord(payload.state) };
+  if (draftState.requestedTest && typeof draftState.requestedTest === "object") {
+    const requestedTest = { ...toPlainRecord(draftState.requestedTest) };
+    delete requestedTest.maximumResultDeliveryAt;
+    draftState.requestedTest = {
+      ...requestedTest,
+      estimatedTreatmentDate:
+        normalizeEstimatedTreatmentDate(requestedTest.estimatedTreatmentDate) ?? "",
+    };
+  }
+  if (Array.isArray(draftState.samplingInformation)) {
+    draftState.samplingInformation = draftState.samplingInformation.map((entry) => {
+      const sampling = { ...toPlainRecord(entry) };
+      delete sampling.sentUl;
+      return sampling;
+    });
+  }
   const document = {
     id: authorUid,
     formType: payload.formType,
     collectionKey: FORM_DRAFTS_COLLECTION,
     currentStep: payload.currentStep,
     stepIndex,
-    state:
-      payload.state && typeof payload.state === "object" ? payload.state : {},
+    state: draftState,
     createdAt: normalizeOptionalString(snapshot.data()?.createdAt) ?? now,
     updatedAt: now,
     authorEmail,
@@ -5031,11 +5110,14 @@ export async function createTwoPQFormForContext(
       ? (context.doctorId ?? patientInformation.doctorId)
       : patientInformation.doctorId;
 
-  if (
-    !institutionId ||
-    !doctorId ||
-    !canCreatePatient(context, institutionId, doctorId)
-  ) {
+  const canUseFormScope = context.role === "institution_laboratory_staff"
+    ? Boolean(
+        context.institutionId &&
+        context.institutionId === institutionId &&
+        patientInformation.institutionId === institutionId,
+      )
+    : canCreatePatient(context, institutionId, doctorId);
+  if (!institutionId || !doctorId || !canUseFormScope) {
     throw new AdminRepositoryError(
       "You cannot create forms in this scope.",
       403,
@@ -5147,11 +5229,28 @@ export async function createTwoPQFormForContext(
     }
   }
 
+  const linkedRequestedTest = toPlainRecord(linkedStudyRequestForm?.requestedTest);
+  const requestedTest = normalizeRequestedTest(
+    {
+      ...payload.requestedTest,
+      estimatedTreatmentDate: payload.formType === "sample"
+        ? linkedStudyRequestForm?.estimatedTreatmentDate ??
+          normalizeOptionalString(linkedRequestedTest.estimatedTreatmentDate)
+        : payload.requestedTest?.estimatedTreatmentDate,
+    },
+    payload.formType,
+  );
+  const requestedTestRecord = requestedTest as Record<string, unknown>;
+  const linkedRequestDate = normalizeOptionalString(linkedRequestedTest.requestDate);
+  if (linkedRequestDate) {
+    requestedTestRecord.requestDate = linkedRequestDate;
+  }
+
   if (!selectedPatientId) {
     const additionalInformation =
       buildPatientAdditionalInformation(patientInformation);
 
-    selectedPatient = await createPatientForContext(context, {
+    selectedPatient = await createPatientForTwoPQForm(context, {
       institutionId,
       doctorId,
       email: patientInformation.email,
@@ -5178,7 +5277,7 @@ export async function createTwoPQFormForContext(
     selectedPatientId = selectedPatient.id;
 
     if (shouldGrantNewPatientPortalAccess) {
-      const accessGrant = await grantPatientPortalAccessForNewPatient(
+      const accessGrant = await grantPatientPortalAccessForTwoPQForm(
         context,
         selectedPatient.id,
       );
@@ -5224,33 +5323,6 @@ export async function createTwoPQFormForContext(
     );
   }
 
-  const linkedRequestedTest = toPlainRecord(
-    linkedStudyRequestForm?.requestedTest,
-  );
-  const linkedMaximumResultDeliveryAt =
-    payload.formType === "sample"
-      ? normalizeOptionalString(
-          linkedStudyRequestForm?.maximumResultDeliveryAt,
-        ) ??
-        normalizeOptionalString(
-          linkedRequestedTest.maximumResultDeliveryAt,
-        )
-      : undefined;
-  const normalizedRequestedTest = normalizeRequestedTest(
-    payload.requestedTest ?? {},
-    payload.formType,
-  );
-  const requestedTest =
-    payload.formType === "sample" && linkedMaximumResultDeliveryAt
-      ? {
-          ...normalizedRequestedTest,
-          requestDate:
-            normalizeOptionalString(linkedRequestedTest.requestDate) ??
-            (normalizedRequestedTest as Record<string, unknown>).requestDate,
-          maximumResultDeliveryAt: linkedMaximumResultDeliveryAt,
-        }
-      : normalizedRequestedTest;
-  const requestedTestRecord = requestedTest as Record<string, unknown>;
   const formId = await getNextFormId();
   let claimedStudyRequestFormId: string | null = null;
   if (payload.formType === "sample") {
@@ -5342,18 +5414,17 @@ export async function createTwoPQFormForContext(
         normalizedSamplingInformation = normalizeSamplingInformationList(
           payload.samplingInformation,
           linkedCaseLabel,
+          sampleBoxCode,
         );
       } else {
         const normalizedCaseInformation = normalizeCaseInformation({
           ...payload.caseInformation,
-          ...(linkedMaximumResultDeliveryAt
-            ? { dueAt: linkedMaximumResultDeliveryAt.slice(0, 10) }
-            : {}),
         });
         linkedCaseLabel = normalizedCaseInformation.caseLabel;
         normalizedSamplingInformation = normalizeSamplingInformationList(
           payload.samplingInformation,
           linkedCaseLabel,
+          sampleBoxCode,
         );
         const createdCase = await createTwoPQRecordForContext(
           context,
@@ -5408,10 +5479,8 @@ export async function createTwoPQFormForContext(
       patientEmail: patientInformation.email,
       institutionName: selectedInstitution?.name ?? null,
       requestedTestName: getRequestedTestName(requestedTest, payload.formType),
-      maximumResultDeliveryAt:
-        normalizeOptionalString(
-          requestedTestRecord.maximumResultDeliveryAt,
-        ) ?? null,
+      estimatedTreatmentDate:
+        normalizeOptionalString(requestedTestRecord.estimatedTreatmentDate) ?? null,
       linkedStudyRequestFormId: linkedStudyRequestFormId ?? null,
       selectedCaseId: selectedCaseId ?? null,
       linkedCaseId: linkedCaseId ?? null,

@@ -29,6 +29,7 @@ import {
   linkCaseToBatchForContext,
   linkSamplingToCaseForContext,
   listTwoPQRecordsForContext,
+  listTwoPQRecordsPageForContext,
   replaceTwoPQRecordForContext,
   unlinkCaseFromBatchForContext,
   unlinkSamplingFromCaseForContext,
@@ -198,6 +199,7 @@ const TwoPQRequestedTestSchema = z.object({
   reportsSex: TwoPQBooleanAnswerSchema.optional(),
   requestReason: z.string().optional(),
   requestDate: z.string().optional(),
+  estimatedTreatmentDate: z.string().optional(),
   testName: z.string().optional(),
   testCode: z.string().optional(),
   priority: z.string().optional(),
@@ -250,7 +252,6 @@ const TwoPQSamplingInformationSchema = z.object({
   internalCode: z.string().optional(),
   embryoStageDay: z.string().optional(),
   morphology: z.string().optional(),
-  sentUl: z.string().optional(),
   biopsiedCells: z.string().optional(),
   cellsVisualized: TwoPQBooleanAnswerSchema.optional(),
   notes: z.string().optional(),
@@ -341,6 +342,11 @@ const TwoPQFormsQuerySchema = z.object({
   createdFrom: z.string().optional(),
   createdTo: z.string().optional(),
   order: z.enum(["newest", "oldest"]).optional(),
+  institution: z.string().optional(),
+  workflowStage: z.enum(["request", "biopsy", "withdrawal"]).optional(),
+  requestedStudyTest: z.enum(["pgtAUltraFast", "pgtAFast", "pgtAStandard", "pgtSr"]).optional(),
+  treatmentFrom: z.iso.date().optional(),
+  treatmentTo: z.iso.date().optional(),
 });
 
 function parseBooleanQueryFlag(value: string | undefined) {
@@ -508,6 +514,11 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
           createdFrom: request.query.createdFrom,
           createdTo: request.query.createdTo,
           order: request.query.order,
+          institution: request.query.institution,
+          workflowStage: request.query.workflowStage,
+          requestedStudyTest: request.query.requestedStudyTest,
+          treatmentFrom: request.query.treatmentFrom,
+          treatmentTo: request.query.treatmentTo,
         });
         return reply.send(forms);
       } catch (error) {
@@ -821,6 +832,9 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
           patientId: z.string().optional(),
           parentBatchId: z.string().optional(),
           query: z.string().optional(),
+          paginated: z.string().optional(),
+          limit: z.string().optional(),
+          cursor: z.string().optional(),
         }),
       },
     },
@@ -831,6 +845,12 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
           .send({ error: "No authenticated admin context" });
       }
 
+      if (parseBooleanQueryFlag(request.query.paginated)) {
+        return reply.send(await listTwoPQRecordsPageForContext(request.adminContext, request.params.areaKey, {
+          ...request.query,
+          limit: parseQueryLimit(request.query.limit),
+        }));
+      }
       const records = await listTwoPQRecordsForContext(
         request.adminContext,
         request.params.areaKey,

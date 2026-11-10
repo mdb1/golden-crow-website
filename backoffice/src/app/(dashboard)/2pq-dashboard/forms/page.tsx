@@ -66,6 +66,11 @@ export default async function TwoPQFormsPage({
     createdFrom?: string;
     createdTo?: string;
     order?: string;
+    institution?: string;
+    workflowStage?: string;
+    requestedStudyTest?: string;
+    treatmentFrom?: string;
+    treatmentTo?: string;
   }>;
 }) {
   const {
@@ -76,7 +81,7 @@ export default async function TwoPQFormsPage({
     search,
     createdFrom,
     createdTo,
-    order,
+    order, institution, workflowStage, requestedStudyTest, treatmentFrom, treatmentTo,
   } = await searchParams;
   const language = await getServerAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -99,6 +104,11 @@ export default async function TwoPQFormsPage({
     createdFrom: createdFrom ?? "",
     createdTo: createdTo ?? "",
     order: formsOrder,
+    institution: institution ?? "",
+    workflowStage: workflowStage ?? "",
+    requestedStudyTest: requestedStudyTest ?? "",
+    treatmentFrom: treatmentFrom ?? "",
+    treatmentTo: treatmentTo ?? "",
   } as const;
   const [formsPage, formDraft, adminContext] = await Promise.all([
     getTwoPQFormsPage({
@@ -109,6 +119,7 @@ export default async function TwoPQFormsPage({
       createdFrom,
       createdTo,
       order: formsOrder,
+      institution, workflowStage, requestedStudyTest, treatmentFrom, treatmentTo,
     }),
     getTwoPQFormDraft(),
     getAdminContextServer(),

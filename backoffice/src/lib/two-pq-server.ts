@@ -86,6 +86,11 @@ export async function getTwoPQForms(
     createdTo?: string;
     order?: TwoPQFormsOrder;
     cursor?: string;
+    institution?: string;
+    workflowStage?: string;
+    requestedStudyTest?: string;
+    treatmentFrom?: string;
+    treatmentTo?: string;
   } = {},
 ) {
   const payload = await getTwoPQFormsPage(options);
@@ -102,6 +107,11 @@ export async function getTwoPQFormsPage(
     createdTo?: string;
     order?: TwoPQFormsOrder;
     cursor?: string;
+    institution?: string;
+    workflowStage?: string;
+    requestedStudyTest?: string;
+    treatmentFrom?: string;
+    treatmentTo?: string;
   } = {},
 ) {
   const params = new URLSearchParams();
@@ -128,6 +138,9 @@ export async function getTwoPQFormsPage(
   }
   if (options.cursor) {
     params.set("cursor", options.cursor);
+  }
+  for (const key of ["institution", "workflowStage", "requestedStudyTest", "treatmentFrom", "treatmentTo"] as const) {
+    if (options[key]) params.set(key, options[key]);
   }
   const query = params.size > 0 ? `?${params.toString()}` : "";
   const payload = await sdkFetchServer<TwoPQFormsPage>(`/2pq/forms${query}`);

@@ -244,7 +244,7 @@ describe("StudyRequestSelectionTable", () => {
     expect(screen.getByText("ABC")).toBeInTheDocument();
   });
 
-  it("shows the requested tests, explicit consent labels, deadline, and PGT-SR-only karyotype", async () => {
+  it("shows the requested tests, explicit consent labels, treatment estimate, and PGT-SR-only karyotype", async () => {
     const user = userEvent.setup();
     const draft = {
       id: "admin-uid",
@@ -292,9 +292,10 @@ describe("StudyRequestSelectionTable", () => {
         "Would you like to receive information about the sex of the embryo(s)?",
       ),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText("Maximum result delivery date"),
-    ).toBeInTheDocument();
+    expect(screen.queryByText("Maximum result delivery date")).not.toBeInTheDocument();
+    const estimate = screen.getByLabelText("Estimated treatment date");
+    fireEvent.change(estimate, { target: { value: "2026-11-25" } });
+    expect(estimate).toHaveValue("2026-11-25");
     expect(
       screen.queryByText("Do you want to attach a karyotype?"),
     ).not.toBeInTheDocument();
@@ -303,6 +304,7 @@ describe("StudyRequestSelectionTable", () => {
     await user.click(
       screen.getByRole("option", { name: "PGT SR (>15 days)" }),
     );
+    expect(screen.getByLabelText("Estimated treatment date")).toHaveValue("2026-11-25");
     expect(
       screen.getByText("Do you want to attach a karyotype?"),
     ).toBeInTheDocument();

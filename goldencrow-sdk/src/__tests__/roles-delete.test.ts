@@ -1207,24 +1207,63 @@ describe("role user deletion", () => {
     expect(mockDocs.has("user_roles/driver@example.com")).toBe(false);
   });
 
-  it("rejects role deletion for non-global administrators", async () => {
-    const { deleteRoleUserForContext } =
-      await import("../repositories/roles.repository");
-
-    await expect(
-      deleteRoleUserForContext(
-        {
-          ...godModeContext,
-          role: "institution_admin",
-          isBootstrap: false,
-          institutionId: "INST-00001",
-        },
-        "driver@example.com",
-      ),
-    ).rejects.toMatchObject({
-      message: "Only full admins and 2PQ admins can delete role assignments.",
-      statusCode: 403,
+  it("lets institution admins remove a local member's role but not their account", async () => {
+    const { deleteRoleAccountStepForContext } = await import("../repositories/roles.repository");
+    const context = { ...godModeContext, role: "institution_admin" as const, isBootstrap: false, institutionId: "INST-00001" };
+    mockDocs.set("user_roles/member@example.com", {
+      role: "institution_operator", institutionId: "INST-00001", firebaseUid: "member-uid",
+      isActive: true, createdAt: "2026-08-31T12:00:00.000Z", updatedAt: "2026-08-31T12:00:00.000Z",
     });
+
+    await expect(deleteRoleAccountStepForContext(context, "member@example.com", "firebase_auth"))
+      .rejects.toMatchObject({ statusCode: 403 });
+    await expect(deleteRoleAccountStepForContext(context, "member@example.com", "role"))
+      .resolves.toMatchObject({ status: "deleted", deletedCount: 1 });
+    expect(mockDeleteUser).not.toHaveBeenCalled();
+    expect(mockDocs.has("user_roles/member@example.com")).toBe(false);
+  });
+
+  it("rejects role deletion by operators or outside an institution admin's scope", async () => {
+    const { deleteRoleUserForContext } = await import("../repositories/roles.repository");
+    mockDocs.set("user_roles/member@example.com", {
+      role: "institution_operator", institutionId: "INST-00002", isActive: true,
+      createdAt: "2026-08-31T12:00:00.000Z", updatedAt: "2026-08-31T12:00:00.000Z",
+    });
+    for (const [role, institutionId] of [["institution_admin", "INST-00001"], ["institution_operator", "INST-00002"]] as const) {
+      await expect(deleteRoleUserForContext({ ...godModeContext, role, isBootstrap: false, institutionId }, "member@example.com"))
+        .rejects.toMatchObject({ statusCode: 403 });
+    }
+    expect(mockDocs.has("user_roles/member@example.com")).toBe(true);
+  });
+
+  it.each(["institution_admin", "institution_operator"] as const)(
+    "provisions the linked doctor role in scope for %s without crossing institutions", async (role) => {
+      const { upsertUserRoleForContext } = await import("../repositories/roles.repository");
+      const context = { ...godModeContext, role, isBootstrap: false, institutionId: "INST-00001" };
+      mockDocs.set("institutions/INST-00001", { name: "Clinic" });
+      mockDocs.set("doctors/DOC-00001", { institutionId: "INST-00001", authEmail: "doctor@example.com" });
+      const payload = { role: "institution_doctor" as const, institutionId: "INST-00001", doctorId: "DOC-00001", isActive: true };
+      await expect(upsertUserRoleForContext(context, "doctor@example.com", payload)).resolves.toMatchObject({
+        role: "institution_doctor", doctorId: "DOC-00001", institutionId: "INST-00001",
+      });
+      await expect(upsertUserRoleForContext(context, "other@example.com", { ...payload, institutionId: "INST-00002" }))
+        .rejects.toMatchObject({ statusCode: 400 });
+      expect(mockDocs.has("user_roles/other@example.com")).toBe(false);
+    },
+  );
+
+  it("blocks operators from creating or modifying institution staff roles", async () => {
+    const { upsertUserRoleForContext } = await import("../repositories/roles.repository");
+    const context = { ...godModeContext, role: "institution_operator" as const, isBootstrap: false, institutionId: "INST-00001" };
+    mockDocs.set("institutions/INST-00001", { name: "Clinic" });
+    mockDocs.set("user_roles/staff@example.com", {
+      role: "institution_laboratory_staff", institutionId: "INST-00001", isActive: true,
+      createdAt: "2026-08-31T12:00:00.000Z", updatedAt: "2026-08-31T12:00:00.000Z",
+    });
+    const payload = { role: "institution_laboratory_staff" as const, institutionId: "INST-00001", isActive: false };
+    await expect(upsertUserRoleForContext(context, "new@example.com", payload)).rejects.toMatchObject({ statusCode: 403 });
+    await expect(upsertUserRoleForContext(context, "staff@example.com", payload)).rejects.toMatchObject({ statusCode: 400 });
+    expect(mockDocs.get("user_roles/staff@example.com")?.isActive).toBe(true);
   });
 
   it("rejects self-deletion and bootstrap role users", async () => {

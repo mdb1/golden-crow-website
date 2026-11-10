@@ -193,8 +193,8 @@ describe("TwoPQFormsList actions", () => {
     expect(
       screen.queryByText("Study request", { selector: '[data-slot="badge"]' }),
     ).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Study: Linked")).toHaveTextContent("1");
-    expect(screen.getByLabelText("Study: Linked")).toHaveAttribute(
+    expect(screen.getByLabelText("Request: Linked")).toHaveTextContent("1");
+    expect(screen.getByLabelText("Request: Linked")).toHaveAttribute(
       "data-state",
       "linked",
     );
@@ -242,7 +242,7 @@ describe("TwoPQFormsList actions", () => {
   it("shows empty biopsy and withdrawal circles when those forms are absent", () => {
     renderList([form], "full_admin", "study_request_cojoined");
 
-    expect(screen.getByLabelText("Study: Linked")).toBeInTheDocument();
+    expect(screen.getByLabelText("Request: Linked")).toBeInTheDocument();
     expect(screen.getByLabelText("Biopsy: Not linked")).toHaveTextContent("2");
     expect(screen.getByLabelText("Biopsy: Not linked")).toHaveAttribute(
       "data-state",
@@ -285,7 +285,7 @@ describe("TwoPQFormsList actions", () => {
       "study_request_cojoined",
     );
 
-    expect(screen.getByLabelText("Study: Linked")).toHaveAttribute(
+    expect(screen.getByLabelText("Request: Linked")).toHaveAttribute(
       "data-state",
       "linked",
     );
@@ -321,4 +321,32 @@ describe("TwoPQFormsList actions", () => {
       ).toBeInTheDocument();
     },
   );
+
+  it("keeps patient, institution and treatment filters when loading the next result page", async () => {
+    const user = userEvent.setup();
+    const urgentForm = {
+      ...form,
+      institutionName: "Clínica Norte",
+      requestedTest: { pgtAUltraFast: true },
+      estimatedTreatmentDate: "2026-12-06",
+    };
+    (sdkFetch as jest.Mock)
+      .mockResolvedValueOnce({ forms: [urgentForm], nextCursor: "FORM-00001", hasMore: true })
+      .mockResolvedValueOnce({ forms: [{ ...urgentForm, id: "FORM-00002", patientName: "Ada Second" }], nextCursor: null, hasMore: false });
+    renderList();
+
+    await user.type(screen.getByLabelText("Search by patient"), "Ada");
+    await user.type(screen.getByLabelText("Institution"), "Clínica Norte");
+    await user.type(screen.getByLabelText("Estimated treatment from"), "2026-12-06");
+    await user.click(screen.getByRole("button", { name: "Apply filters" }));
+    expect(await screen.findByText("Ultra-fast PGT", { selector: '[data-slot="badge"]' })).toHaveClass("bg-red-100");
+    expect(screen.getByText(/Estimated treatment date:/)).toHaveTextContent("12/06/2026");
+    await user.click(screen.getByRole("button", { name: "Load more" }));
+    expect(await screen.findByText("Ada Second")).toBeInTheDocument();
+
+    const first = new URL((sdkFetch as jest.Mock).mock.calls[0][0], "https://test.local");
+    const next = new URL((sdkFetch as jest.Mock).mock.calls[1][0], "https://test.local");
+    expect(Object.fromEntries(first.searchParams)).toMatchObject({ search: "Ada", institution: "Clínica Norte", treatmentFrom: "2026-12-06" });
+    expect(Object.fromEntries(next.searchParams)).toEqual({ ...Object.fromEntries(first.searchParams), cursor: "FORM-00001" });
+  });
 });

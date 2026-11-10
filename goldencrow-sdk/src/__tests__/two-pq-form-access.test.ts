@@ -4,35 +4,14 @@ import {
 } from "../lib/two-pq-form-access";
 
 describe("2PQ form creation access", () => {
-  it("blocks sample forms for institution operators", () => {
-    expect(canCreateTwoPQFormType("institution_operator", "sample")).toBe(false);
-    expect(
-      canCreateTwoPQFormType("institution_operator", "study_request"),
-    ).toBe(true);
-    expect(
-      canCreateTwoPQFormType("institution_operator", "withdrawal_request"),
-    ).toBe(true);
-  });
-
-  it("keeps sample forms available to laboratory staff and administrators", () => {
-    expect(
-      canCreateTwoPQFormType("institution_laboratory_staff", "sample"),
-    ).toBe(true);
-    expect(canCreateTwoPQFormType("institution_admin", "sample")).toBe(true);
-    expect(canCreateTwoPQFormType("full_admin", "sample")).toBe(true);
-  });
-
-  it("limits laboratory staff to the biopsy step", () => {
-    expect(
-      canCreateTwoPQFormType("institution_laboratory_staff", "study_request"),
-    ).toBe(false);
-    expect(
-      canCreateTwoPQFormType(
-        "institution_laboratory_staff",
-        "withdrawal_request",
-      ),
-    ).toBe(false);
-  });
+  it.each(["institution_admin", "institution_operator", "institution_laboratory_staff", "full_admin", "2pq_admin"] as const)(
+    "allows every form for %s so linked-request saves use the same permissions",
+    (role) => {
+      for (const formType of ["study_request", "sample", "withdrawal_request"] as const) {
+        expect(canCreateTwoPQFormType(role, formType)).toBe(true);
+      }
+    },
+  );
 });
 
 describe("2PQ form archive access", () => {
