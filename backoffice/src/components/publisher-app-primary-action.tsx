@@ -59,9 +59,7 @@ export function PublisherAppPrimaryAction({
         <span className="trial-cta__bezel" />
         <span className="trial-cta__face" />
       </span>
-      <span aria-hidden="true" className="trial-cta__reflection">
-        <span className="trial-cta__sweep" />
-      </span>
+      <span aria-hidden="true" className="trial-cta__reflection" />
       <span aria-hidden="true" className="trial-cta__glints" />
       <span className="trial-cta__content">
         <span aria-hidden="true" className="trial-cta__icon flex size-12 shrink-0 items-center justify-center rounded-2xl border border-white/20">
@@ -71,8 +69,7 @@ export function PublisherAppPrimaryAction({
           {action.label}
         </span>
         <span aria-hidden="true" className="trial-cta__arrow size-6 shrink-0">
-          <ArrowRight className="trial-cta__arrow-outgoing size-6" />
-          <ArrowRight className="trial-cta__arrow-incoming size-6" />
+          <ArrowRight className="size-6" />
         </span>
       </span>
     </Link>
