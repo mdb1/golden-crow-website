@@ -53,10 +53,13 @@ import type {
 } from "@/lib/two-pq-forms";
 import {
   canArchiveTwoPQForms,
+  canPlanTreatmentForStudyRequest,
   getTwoPQFormDisplayTitle,
+  TWO_PQ_FORM_ROUTES,
 } from "@/lib/two-pq-forms";
 import { compactList } from "@/lib/moderation-utils";
 import { appText } from "@/lib/language";
+import { getPGFlexStatusLabel } from "@/lib/pgflex-logistics";
 import { cn } from "@/lib/utils";
 import { formatTwoPQCivilDate, getTwoPQStudySummary } from "@/lib/two-pq-study-summary";
 
@@ -176,6 +179,9 @@ function formTypeLabel(
   if (type === "study_request") {
     return t("Study request");
   }
+  if (type === "treatment_start") {
+    return t("Treatment start form");
+  }
   if (type === "sample") {
     return t("Biopsy form");
   }
@@ -192,9 +198,17 @@ function CoJoinedFormSequence({
   form: TwoPQFormRecord;
   t: (text: string) => string;
 }) {
+  const linkedTreatmentStartFormId = form.linkedTreatmentStartFormId ?? null;
   const linkedBiopsyFormId = form.linkedBiopsyForm ?? null;
   const linkedWithdrawalRequestId = form.linkedWithdrawalRequest ?? null;
+  const linkedCaseId = form["2pq_case"] ?? null;
   const linkedCaseLabel = form.linkedCaseLabel?.trim() || null;
+  const pickup = form.pickup;
+  const transportEventId = pickup?.id ?? form.transportEventId;
+  const pickupDetailFormId = linkedBiopsyFormId ?? linkedTreatmentStartFormId;
+  const pickupHref = transportEventId && pickupDetailFormId
+    ? `/2pq-dashboard/forms/${encodeURIComponent(pickupDetailFormId)}#pickup-confirmation`
+    : null;
   const steps = [
     {
       number: 1,
@@ -203,44 +217,63 @@ function CoJoinedFormSequence({
     },
     {
       number: 2,
+      label: t("Treatment start"),
+      formId: linkedTreatmentStartFormId,
+    },
+    {
+      number: 3,
       label: t("Biopsy"),
       formId: linkedBiopsyFormId,
     },
     {
-      number: 3,
+      number: 4,
       label: t("Withdrawal"),
-      formId: linkedWithdrawalRequestId,
+      formId: transportEventId ? null : linkedWithdrawalRequestId,
     },
   ];
-  const nextAction = !linkedBiopsyFormId && !linkedWithdrawalRequestId
-    ? {
+  let nextAction: { stepNumber: number; href: string } | null = null;
+  if (!form.archivedAt && !linkedWithdrawalRequestId) {
+    if (linkedBiopsyFormId && !transportEventId) {
+      const query = new URLSearchParams({ studyRequestFormId: form.id });
+      if (linkedCaseId) query.set("caseId", linkedCaseId);
+      nextAction = {
+        stepNumber: 4,
+        href: `${TWO_PQ_FORM_ROUTES.withdrawal_request}?${query}`,
+      };
+    } else if (!linkedBiopsyFormId && linkedTreatmentStartFormId && !linkedCaseId) {
+      const query = new URLSearchParams({ studyRequestFormId: form.id });
+      nextAction = {
+        stepNumber: 3,
+        href: `${TWO_PQ_FORM_ROUTES.sample}?${query}`,
+      };
+    } else if (canPlanTreatmentForStudyRequest(form)) {
+      const query = new URLSearchParams({ linkedStudyRequestFormId: form.id });
+      nextAction = {
         stepNumber: 2,
-        href: `/2pq-dashboard/forms/sample/new?${new URLSearchParams({
-          studyRequestFormId: form.id,
-        }).toString()}`,
-      }
-    : linkedBiopsyFormId && !linkedWithdrawalRequestId
-      ? {
-          stepNumber: 3,
-          href: `/2pq-dashboard/forms/withdrawal-request/new?${new URLSearchParams({
-            studyRequestFormId: form.id,
-            ...(form["2pq_case"] ? { caseId: form["2pq_case"] } : {}),
-          }).toString()}`,
-        }
-      : null;
+        href: `${TWO_PQ_FORM_ROUTES.treatment_start}?${query}`,
+      };
+    }
+  }
 
   return (
     <div
       aria-label={t("Co-joined form sequence")}
       className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-700 dark:bg-slate-950"
     >
-      <div className="grid grid-cols-3 gap-1">
+      <div className="grid grid-cols-2 gap-1 lg:grid-cols-4">
         {steps.map((step, index) => {
-          const isLinked = Boolean(step.formId);
-          const isNextAction = nextAction?.stepNumber === step.number;
+          const isPickupStep = step.number === 4 && Boolean(transportEventId);
+          const href = isPickupStep ? pickupHref : step.formId ? `/2pq-dashboard/forms/${encodeURIComponent(step.formId)}` : null;
+          const isLinked = Boolean(href);
+          const stepAction = nextAction?.stepNumber === step.number ? nextAction : null;
+          const pickupStatus = isPickupStep && pickup ? pickup.status : undefined;
+          const pickupStatusLabel = pickupStatus ? t(getPGFlexStatusLabel(pickupStatus)) : undefined;
+          const isInactivePickup = pickupStatus === "planned" || pickupStatus === "cancelled";
           const segmentClass = cn(
             "flex min-h-20 min-w-0 flex-col items-center justify-center px-2 py-3 text-center outline-none transition-[filter,transform] focus-visible:brightness-110 sm:min-h-24 sm:px-4 lg:px-8",
-            isLinked
+            pickupStatus === "planned"
+              ? "bg-amber-100 text-amber-950 hover:bg-amber-200 dark:bg-amber-900 dark:text-amber-100"
+              : isLinked && !isInactivePickup
               ? "bg-emerald-600 text-white shadow-[0_8px_22px_rgba(5,150,105,0.2)] hover:bg-emerald-500 active:scale-[0.99] dark:bg-emerald-500 dark:hover:bg-emerald-400"
               : "cursor-default bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-300",
           );
@@ -263,16 +296,16 @@ function CoJoinedFormSequence({
               <span
                 className={cn(
                   "mt-1 max-w-full truncate font-mono text-[9px] sm:text-xs",
-                  isLinked
+                  isLinked && !isInactivePickup
                     ? "text-white/82"
                     : "text-slate-500 dark:text-slate-300",
                 )}
               >
-                {step.formId ?? t("Not linked")}
+                {pickupStatusLabel ?? step.formId ?? t(isPickupStep && isLinked ? "Linked" : "Not linked")}
               </span>
-              {isNextAction ? (
+              {stepAction ? (
                 <Link
-                  href={nextAction.href}
+                  href={stepAction.href}
                   aria-label={`${t("Complete")} ${step.label}`}
                   className="mt-2 inline-flex h-7 cursor-pointer items-center justify-center rounded-md bg-sky-600 px-2.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-sky-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-2 dark:bg-sky-500 dark:hover:bg-sky-400 sm:h-8 sm:px-3 sm:text-xs"
                 >
@@ -282,11 +315,11 @@ function CoJoinedFormSequence({
             </>
           );
 
-          const accessibilityLabel = `${step.label}: ${isLinked ? t("Linked") : t("Not linked")}`;
-          return step.formId ? (
+          const accessibilityLabel = `${step.label}: ${pickupStatusLabel ?? t(isLinked ? "Linked" : "Not linked")}`;
+          return href ? (
             <Link
               key={step.number}
-              href={`/2pq-dashboard/forms/${encodeURIComponent(step.formId)}`}
+              href={href}
               aria-label={accessibilityLabel}
               data-state="linked"
               className={segmentClass}
@@ -307,10 +340,10 @@ function CoJoinedFormSequence({
           );
         })}
       </div>
-      {form["2pq_case"] ? (
+      {linkedCaseId ? (
         <div className="flex flex-wrap items-center justify-end gap-2 px-2 pb-2 pt-3">
           <Link
-            href={`/2pq-dashboard/cases/${encodeURIComponent(form["2pq_case"])}`}
+            href={`/2pq-dashboard/cases/${encodeURIComponent(linkedCaseId)}`}
             aria-label={`${t("Open 2PQ case")} ${linkedCaseLabel ?? t("Case without a label")}`}
             className="inline-flex max-w-full items-center gap-3 rounded-xl border border-emerald-200/90 bg-white/78 px-3 py-2 text-emerald-950 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 dark:border-emerald-300/20 dark:bg-emerald-950/24 dark:text-emerald-50 dark:hover:bg-emerald-950/36"
           >
@@ -347,6 +380,14 @@ const FORM_TYPE_VISUALS: Record<
     badgeVariant: "brand",
     iconClass:
       "flex size-9 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-700 dark:bg-sky-400/14 dark:text-sky-100",
+  },
+  treatment_start: {
+    Icon: CalendarDays,
+    articleClass:
+      "border-indigo-200/90 bg-indigo-50/70 shadow-[0_12px_32px_rgba(129,140,248,0.14)] dark:border-indigo-300/18 dark:bg-indigo-500/8",
+    badgeVariant: "brand",
+    iconClass:
+      "flex size-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 dark:bg-indigo-400/14 dark:text-indigo-100",
   },
   sample: {
     Icon: CircleDot,
@@ -630,6 +671,9 @@ export function TwoPQFormsList({
                 <SelectItem value="study_request">
                   {t("Study request")}
                 </SelectItem>
+                <SelectItem value="treatment_start">
+                  {t("Treatment start form")}
+                </SelectItem>
                 <SelectItem value="sample">{t("Biopsy form")}</SelectItem>
                 <SelectItem value="withdrawal_request">
                   {t("Withdrawal request")}
@@ -653,6 +697,7 @@ export function TwoPQFormsList({
               <SelectContent>
                 <SelectItem value="all">{t("All stages")}</SelectItem>
                 <SelectItem value="request">{t("Request")}</SelectItem>
+                <SelectItem value="treatment_start">{t("Treatment start")}</SelectItem>
                 <SelectItem value="biopsy">{t("Biopsy")}</SelectItem>
                 <SelectItem value="withdrawal">{t("Withdrawal")}</SelectItem>
               </SelectContent>
@@ -756,8 +801,11 @@ export function TwoPQFormsList({
             const authorEmail = form.authorEmail ?? form.createdByEmail;
             const isArchived = Boolean(form.archivedAt);
             const displayTitle = getTwoPQFormDisplayTitle(form, language);
-            const study = getTwoPQStudySummary(form);
-            const estimatedTreatmentDate = form.estimatedTreatmentDate || String(form.requestedTest.estimatedTreatmentDate ?? "");
+            const treatmentStart = form.treatmentStart;
+            const study = getTwoPQStudySummary(treatmentStart
+              ? { requestedStudyTest: treatmentStart.studyType }
+              : form);
+            const treatmentDate = treatmentStart?.treatmentDate || form.estimatedTreatmentDate || String(form.requestedTest.estimatedTreatmentDate ?? "");
             const formVisuals = FORM_TYPE_VISUALS[form.formType];
             const FormIcon = formVisuals.Icon;
             const showCoJoinedSequence =
@@ -805,7 +853,12 @@ export function TwoPQFormsList({
                     ) : form.requestedTestName ? (
                       <Badge variant="outline">{form.requestedTestName}</Badge>
                     ) : null}
-                    {estimatedTreatmentDate ? <span className="text-sm font-medium"><CalendarDays className="mr-1 inline size-4" />{t("Estimated treatment date")}: {formatTwoPQCivilDate(estimatedTreatmentDate, language)}</span> : null}
+                    {treatmentDate ? (
+                      <span className="text-sm font-medium">
+                        <CalendarDays className="mr-1 inline size-4" />
+                        {t(treatmentStart ? "Treatment start date" : "Estimated treatment date")}: {formatTwoPQCivilDate(treatmentDate, language)}
+                      </span>
+                    ) : null}
                   </div>
                   {showCoJoinedSequence ? (
                     <CoJoinedFormSequence form={form} t={t} />

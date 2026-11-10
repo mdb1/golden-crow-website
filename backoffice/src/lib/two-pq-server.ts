@@ -4,6 +4,7 @@ import type {
   PatientListItem,
 } from "@/lib/admin-areas";
 import type { TwoPQDetailRecord, TwoPQListItem } from "@/lib/two-pq-areas";
+import { canUseStudyRequestForBiopsy } from "@/lib/two-pq-forms";
 import type {
   TwoPQFormDraftRecord,
   TwoPQFormRecord,
@@ -70,15 +71,14 @@ export async function getTwoPQFormLookupData(
     doctors: doctorsPayload.doctors,
     patients: patientsPayload.patients,
     cases: casesPayload.records,
-    studyRequestForms: studyRequestFormsPayload.forms.filter(
-      (form) => !form.linkedBiopsyForm,
-    ),
+    studyRequestForms: studyRequestFormsPayload.forms.filter(canUseStudyRequestForBiopsy),
   };
 }
 
 export async function getTwoPQForms(
   options: {
     includeArchived?: boolean;
+    availableForTreatmentStart?: boolean;
     formType?: TwoPQFormType;
     limit?: number;
     search?: string;
@@ -100,6 +100,7 @@ export async function getTwoPQForms(
 export async function getTwoPQFormsPage(
   options: {
     includeArchived?: boolean;
+    availableForTreatmentStart?: boolean;
     formType?: TwoPQFormType;
     limit?: number;
     search?: string;
@@ -117,6 +118,9 @@ export async function getTwoPQFormsPage(
   const params = new URLSearchParams();
   if (options.includeArchived) {
     params.set("includeArchived", "1");
+  }
+  if (options.availableForTreatmentStart) {
+    params.set("availableForTreatmentStart", "1");
   }
   if (options.formType) {
     params.set("formType", options.formType);

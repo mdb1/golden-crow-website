@@ -92,6 +92,25 @@ describe("PGFlexLogisticsBrowser", () => {
     });
   });
 
+  it("loads planned pickups and displays their schedule and readiness", async () => {
+    (sdkFetch as jest.Mock).mockResolvedValue({
+      items: [logisticsItem({
+        status: "planned", pickupDate: "2026-11-30", pickupWindowStart: "09:00",
+        pickupWindowEnd: "11:00", expectedCaseCount: 3, readyCaseCount: 1, temperatureC: -20,
+      })],
+      nextCursor: null,
+      scope: "planned",
+    });
+    renderBrowser();
+    await userEvent.setup().click(screen.getByRole("tab", { name: "Retiros previstos" }));
+
+    expect(sdkFetch).toHaveBeenCalledWith("/pgflex/logistics?limit=20&scope=planned");
+    const pickup = await screen.findByRole("link", { name: /PGF-001/ });
+    expect(pickup).toHaveTextContent("Retiro previsto");
+    expect(pickup).toHaveTextContent("30/11/2026 · 09:00 – 11:00");
+    expect(pickup).toHaveTextContent("Casos listos para retiro 1 / 3 · -20 °C");
+  });
+
   it("does not show the dispatcher email as a status pill", () => {
     renderBrowser([
       logisticsItem({

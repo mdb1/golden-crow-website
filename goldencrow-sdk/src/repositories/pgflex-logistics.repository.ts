@@ -20,6 +20,7 @@ import { AdminRepositoryError } from "./admin-errors.js";
 import { getUserRoleByEmail, normalizeRoleEmail } from "./roles.repository.js";
 import { synchronizeTwoPQCasesFilesAndCodes } from "./two-pq-auto-sync.repository.js";
 import { cascadeTwoPQCaseStatusToSamplingChildren } from "./two-pq-sampling-status.repository.js";
+import { TREATMENT_PICKUP_SOURCE } from "./two-pq-pickup.repository.js";
 
 const adminDb = adminDbFor("mydnamap");
 const USER_ROLES_COLLECTION = "user_roles";
@@ -38,6 +39,9 @@ export const PGFLEX_LOGISTICS_SHIPMENT_TYPES = [
 ] as const satisfies readonly PGFlexLogisticsShipmentType[];
 
 export const PGFLEX_LOGISTICS_STATUSES = [
+  "planned",
+  "confirmed",
+  "cancelled",
   "awaiting_pick_up",
   "in_transit",
   "arrived",
@@ -45,16 +49,19 @@ export const PGFLEX_LOGISTICS_STATUSES = [
 ] as const satisfies readonly PGFlexLogisticsStatus[];
 
 export const PGFLEX_LOGISTICS_LIST_SCOPES = [
+  "planned",
   "active",
   "finished",
 ] as const satisfies readonly PGFlexLogisticsListScope[];
 
 const PGFLEX_ACTIVE_LOGISTICS_STATUSES: readonly PGFlexLogisticsStatus[] = [
+  "confirmed",
   "awaiting_pick_up",
   "in_transit",
 ];
 
 const PGFLEX_FINISHED_LOGISTICS_STATUSES: readonly PGFlexLogisticsStatus[] = [
+  "cancelled",
   "arrived",
   "lost",
 ];
@@ -174,6 +181,7 @@ function normalizeListScope(value: unknown): PGFlexLogisticsListScope {
 function statusesForScope(
   scope: PGFlexLogisticsListScope,
 ): readonly PGFlexLogisticsStatus[] {
+  if (scope === "planned") return ["planned"];
   return scope === "finished"
     ? PGFLEX_FINISHED_LOGISTICS_STATUSES
     : PGFLEX_ACTIVE_LOGISTICS_STATUSES;
@@ -341,11 +349,13 @@ async function syncTwoPQCasesForPGFlexStatusChange({
   existing,
   now,
   updated,
+  linkedCaseIds,
 }: {
   context: AdminContext;
   existing: PGFlexLogisticsRecord;
   now: string;
   updated: PGFlexLogisticsRecord;
+  linkedCaseIds?: string[];
 }) {
   if (existing.status === updated.status || updated.shipmentType !== "2pq") {
     return;
@@ -356,15 +366,15 @@ async function syncTwoPQCasesForPGFlexStatusChange({
     return;
   }
 
-  const linkedCodes = linkedCodesFromNormalizedCsv(updated.linked_codes);
-  if (linkedCodes.length === 0) {
+  const caseIds = linkedCaseIds ?? await Promise.all(
+    linkedCodesFromNormalizedCsv(updated.linked_codes).map(getTwoPQCaseIdForLinkedCode),
+  );
+  if (caseIds.length === 0) {
     return;
   }
 
   const synchronizedCaseIds = await Promise.all(
-    linkedCodes.map(async (linkedCode) => {
-      const caseId = await getTwoPQCaseIdForLinkedCode(linkedCode);
-
+    caseIds.map(async (caseId) => {
       if (!caseId) {
         return null;
       }
@@ -373,6 +383,10 @@ async function syncTwoPQCasesForPGFlexStatusChange({
         .collection(TWO_PQ_CASES_COLLECTION)
         .doc(caseId);
       const caseSnapshot = await caseRef.get();
+      if (!caseSnapshot.exists ||
+        (linkedCaseIds && caseSnapshot.data()?.transportEventId !== updated.id)) {
+        return null;
+      }
       const previousCaseStatus = caseSnapshot.data()?.caseStatus;
       const actorEmail = normalizeRoleEmail(context.email);
       await caseRef.set(
@@ -511,7 +525,7 @@ function operationalTransitionPatch(
     return {};
   }
 
-  if (existing.status === "awaiting_pick_up" && nextStatus === "in_transit") {
+  if ((existing.status === "awaiting_pick_up" || existing.status === "confirmed") && nextStatus === "in_transit") {
     return { item_was_picked_date_at: now };
   }
 
@@ -571,6 +585,13 @@ function toPGFlexLogisticsRecord(
       optionalString(data.createdAt) ??
       now,
     pickupTime: legacyPickupTime,
+    pickupDate: optionalString(data.pickupDate),
+    pickupWindowStart: optionalString(data.pickupWindowStart),
+    pickupWindowEnd: optionalString(data.pickupWindowEnd),
+    temperatureC: data.temperatureC === 4 || data.temperatureC === -20 ? data.temperatureC : undefined,
+    expectedCaseCount: typeof data.expectedCaseCount === "number" ? data.expectedCaseCount : undefined,
+    readyCaseCount: typeof data.readyCaseCount === "number" ? data.readyCaseCount : undefined,
+    source: optionalString(data.source),
     status,
     item_was_picked_date_at: optionalString(data.item_was_picked_date_at),
     item_was_delivered_at: optionalString(data.item_was_delivered_at),
@@ -594,6 +615,14 @@ function withCapabilities(
   context: AdminContext,
   record: PGFlexLogisticsRecord,
 ): PGFlexLogisticsListItem {
+  if (record.source === TREATMENT_PICKUP_SOURCE) {
+    return {
+      ...record,
+      canUpdate: (isGlobalAdminRole(context.role) || isAssignedDispatcher(context, record)) &&
+        (record.status === "confirmed" || record.status === "in_transit"),
+      canDelete: false,
+    };
+  }
   const dispatcherCanUpdate =
     isAssignedDispatcher(context, record) &&
     (record.status === "awaiting_pick_up" || record.status === "in_transit");
@@ -603,6 +632,18 @@ function withCapabilities(
     canUpdate: isGlobalAdminRole(context.role) || dispatcherCanUpdate,
     canDelete: isGlobalAdminRole(context.role),
   };
+}
+
+function assertManualLogisticsStatus(status: unknown) {
+  if (status === "planned" || status === "confirmed" || status === "cancelled") {
+    throw new AdminRepositoryError("This status is managed by the 2PQ form workflow.", 400);
+  }
+}
+
+function assertCanReplaceOrDeleteLogistics(record: PGFlexLogisticsRecord) {
+  if (record.source === TREATMENT_PICKUP_SOURCE) {
+    throw new AdminRepositoryError("Manage this pickup from its 2PQ form.", 409);
+  }
 }
 
 function extractDispatcherFields(payload: PGFlexLogisticsInput) {
@@ -1110,6 +1151,7 @@ export async function createPGFlexLogisticsItemForContext(
   payload: PGFlexLogisticsInput,
 ): Promise<PGFlexLogisticsListItem> {
   assertCanCreatePGFlexLogistics(context);
+  assertManualLogisticsStatus(payload.status);
   const now = new Date().toISOString();
   const { document, assignment } = await fullDocumentFromInput(
     payload,
@@ -1143,6 +1185,8 @@ export async function replacePGFlexLogisticsItemForContext(
 ): Promise<PGFlexLogisticsListItem> {
   assertCanCreatePGFlexLogistics(context);
   const existing = await getPGFlexLogisticsItemForContext(context, itemId);
+  assertCanReplaceOrDeleteLogistics(existing);
+  assertManualLogisticsStatus(payload.status);
   const { document, assignment } = await fullDocumentFromInput(
     payload,
     context,
@@ -1198,6 +1242,10 @@ export async function updatePGFlexLogisticsItemForContext(
   assertDispatcherPatchIsStatusOnly(context, payload);
   const existing = await getPGFlexLogisticsItemForContext(context, itemId);
   assertCanUpdatePGFlexLogistics(context, existing);
+  if (existing.source === TREATMENT_PICKUP_SOURCE) {
+    return updateManagedTreatmentPickupStatus(context, itemId, payload);
+  }
+  assertManualLogisticsStatus(payload.status);
   const now = new Date().toISOString();
   const { document: patch, assignment } = await patchDocumentFromInput(
     payload,
@@ -1234,8 +1282,52 @@ export async function deletePGFlexLogisticsItemForContext(
   itemId: string,
 ) {
   assertCanDeletePGFlexLogistics(context);
-  await getPGFlexLogisticsItemForContext(context, itemId);
+  const existing = await getPGFlexLogisticsItemForContext(context, itemId);
+  assertCanReplaceOrDeleteLogistics(existing);
   await adminDb.collection(PGFLEX_EVENTS_COLLECTION).doc(itemId).delete();
 
   return { deleted: true, itemId };
+}
+
+async function updateManagedTreatmentPickupStatus(
+  context: AdminContext,
+  itemId: string,
+  payload: PGFlexLogisticsInput,
+) {
+  if (Object.keys(payload).some((key) => key !== "status") || !payload.status) {
+    throw new AdminRepositoryError("Manage this pickup schedule from its 2PQ form.", 409);
+  }
+  const reference = adminDb.collection(PGFLEX_EVENTS_COLLECTION).doc(itemId);
+  const now = new Date().toISOString();
+  const nextStatus = payload.status;
+  const { existing, updated, linkedCaseIds } = await adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(reference);
+    const data = snapshot.data();
+    if (data?.source !== TREATMENT_PICKUP_SOURCE) {
+      throw new AdminRepositoryError("PGFlex logistics item not found.", 404);
+    }
+    const existing = toPGFlexLogisticsRecord(itemId, data);
+    assertCanViewPGFlexLogistics(context, existing);
+    const active = existing.status === "confirmed" || existing.status === "in_transit";
+    const permitted = (existing.status === "confirmed" && nextStatus === "in_transit") ||
+      (existing.status === "in_transit" && nextStatus === "arrived") ||
+      (active && nextStatus === "lost" && isGlobalAdminRole(context.role));
+    const linkedCaseIds = Array.isArray(data.linkedCaseIds)
+      ? data.linkedCaseIds.filter((id): id is string => typeof id === "string")
+      : [];
+    if (existing.status === nextStatus) return { existing, updated: existing, linkedCaseIds };
+    if (!permitted) {
+      throw new AdminRepositoryError("Only confirmed pickups can move into transit.", 409);
+    }
+    const patch = {
+      status: nextStatus,
+      ...operationalTransitionPatch(context, existing, nextStatus, now),
+      updatedAt: now,
+      updatedByEmail: normalizeRoleEmail(context.email),
+    };
+    transaction.set(reference, patch, { merge: true });
+    return { existing, updated: toPGFlexLogisticsRecord(itemId, { ...data, ...patch }), linkedCaseIds };
+  });
+  await syncTwoPQCasesForPGFlexStatusChange({ context, existing, updated, linkedCaseIds, now });
+  return withCapabilities(context, updated);
 }

@@ -3849,6 +3849,11 @@ export function TwoPQRecordWorkbench({
 
   const canManageRelations =
     mode === "create" ? true : Boolean(detail?.record.canUpdate);
+  const linkedCaseForms = [
+    { id: detail?.record.linkedStudyRequestFormId, label: "Study request form" },
+    { id: detail?.record.linkedTreatmentStartFormId, label: "Treatment start form" },
+    { id: detail?.record.linkedBiopsyForm, label: "Biopsy form" },
+  ];
 
   return (
     <div className="flex flex-col gap-5">
@@ -6322,6 +6327,21 @@ export function TwoPQRecordWorkbench({
             mode === "create" ? "grid gap-4 pb-40 md:pb-44" : "grid gap-4"
           }
         >
+          {areaKey === "cases" && linkedCaseForms.some(({ id }) => id) ? (
+            <section className="glass-panel space-y-3 px-5 py-4" aria-label={t("Linked forms")}>
+              <h3 className="font-heading text-base font-semibold">{t("Linked forms")}</h3>
+              <div className="flex flex-wrap gap-2">
+                {linkedCaseForms.map(({ id, label }) => id ? (
+                  <Button key={label} variant="outline" size="sm" asChild>
+                    <Link href={`/2pq-dashboard/forms/${encodeURIComponent(id)}`}>
+                      <Link2 className="h-4 w-4" />
+                      {t(label)}
+                    </Link>
+                  </Button>
+                ) : null)}
+              </div>
+            </section>
+          ) : null}
           {areaKey === "cases" &&
           mode !== "create" &&
           initialConsentTraceability ? (

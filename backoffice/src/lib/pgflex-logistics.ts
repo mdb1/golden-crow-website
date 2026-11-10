@@ -4,11 +4,17 @@ import {
 } from "@/lib/admin-areas";
 
 export type PGFlexLogisticsStatus =
-  "awaiting_pick_up" | "in_transit" | "arrived" | "lost";
+  | "planned"
+  | "confirmed"
+  | "cancelled"
+  | "awaiting_pick_up"
+  | "in_transit"
+  | "arrived"
+  | "lost";
 
 export type PGFlexLogisticsShipmentType = "2pq" | "other";
 
-export type PGFlexLogisticsListScope = "active" | "finished";
+export type PGFlexLogisticsListScope = "planned" | "active" | "finished";
 
 export interface PGFlexLogisticsRecord {
   id: string;
@@ -23,6 +29,13 @@ export interface PGFlexLogisticsRecord {
   destination: string;
   timeRequested: string;
   pickupTime?: string;
+  pickupDate?: string;
+  pickupWindowStart?: string;
+  pickupWindowEnd?: string;
+  temperatureC?: number;
+  expectedCaseCount?: number;
+  readyCaseCount?: number;
+  source?: string;
   status: PGFlexLogisticsStatus;
   item_was_picked_date_at?: string;
   item_was_delivered_at?: string;
@@ -114,6 +127,7 @@ export const PGFLEX_LOGISTICS_SCOPE_OPTIONS: Array<{
   value: PGFlexLogisticsListScope;
   label: string;
 }> = [
+  { value: "planned", label: "Planned pickups" },
   { value: "active", label: "Active" },
   { value: "finished", label: "Finished" },
 ];
@@ -139,6 +153,9 @@ export function canCreatePGFlexLogistics(context: AdminContextRecord) {
 }
 
 export function getPGFlexStatusLabel(status: PGFlexLogisticsStatus) {
+  if (status === "planned") return "Planned pickup";
+  if (status === "confirmed") return "Confirmed pickup";
+  if (status === "cancelled") return "Cancelled pickup";
   return (
     PGFLEX_LOGISTICS_STATUS_OPTIONS.find((option) => option.value === status)
       ?.label ?? "Awaiting pick up"
@@ -146,7 +163,7 @@ export function getPGFlexStatusLabel(status: PGFlexLogisticsStatus) {
 }
 
 export function getPGFlexStatusBadgeVariant(status: PGFlexLogisticsStatus) {
-  if (status === "arrived") {
+  if (status === "arrived" || status === "confirmed") {
     return "success" as const;
   }
 
@@ -157,6 +174,8 @@ export function getPGFlexStatusBadgeVariant(status: PGFlexLogisticsStatus) {
   if (status === "in_transit") {
     return "brand" as const;
   }
+
+  if (status === "cancelled") return "outline" as const;
 
   return "warning" as const;
 }

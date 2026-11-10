@@ -1,8 +1,12 @@
 import { notFound } from "next/navigation";
 import { TwoPQFormFlow } from "@/components/two-pq-form-flow";
+import { TwoPQTreatmentStartForm } from "@/components/two-pq-treatment-start-form";
 import { getAdminContextServer } from "@/lib/admin-context-server";
 import {
   canCreateTwoPQFormType,
+  canGroupWithTwoPQPickup,
+  canPlanTreatmentForStudyRequest,
+  canUseStudyRequestForBiopsy,
   getTwoPQFormTypeFromSlug,
 } from "@/lib/two-pq-forms";
 import {
@@ -10,6 +14,7 @@ import {
   getTwoPQForm,
   getTwoPQFormDraft,
   getTwoPQFormLookupData,
+  getTwoPQFormsPage,
 } from "@/lib/two-pq-server";
 
 function one(value: string | string[] | undefined) {
@@ -25,6 +30,7 @@ export default async function NewTwoPQFormPage({
   searchParams: Promise<{
     draft?: string | string[];
     studyRequestFormId?: string | string[];
+    linkedStudyRequestFormId?: string | string[];
     caseId?: string | string[];
   }>;
 }) {
@@ -32,6 +38,7 @@ export default async function NewTwoPQFormPage({
   const {
     draft: draftParam,
     studyRequestFormId: studyRequestFormIdParam,
+    linkedStudyRequestFormId: linkedStudyRequestFormIdParam,
     caseId: caseIdParam,
   } = await searchParams;
   const formType = getTwoPQFormTypeFromSlug(formKind);
@@ -49,9 +56,57 @@ export default async function NewTwoPQFormPage({
     normalizedDraftParam === "1" ||
     normalizedDraftParam === "true" ||
     normalizedDraftParam === "yes";
+  const linkedStudyRequestFormId = one(linkedStudyRequestFormIdParam) ?? one(studyRequestFormIdParam);
+
+  if (formType === "treatment_start") {
+    const [requestsPage, formDraft] = await Promise.all([
+      getTwoPQFormsPage({
+        formType: "study_request",
+        availableForTreatmentStart: true,
+        limit: 20,
+      }),
+      shouldRestoreDraft ? getTwoPQFormDraft() : Promise.resolve(null),
+    ]);
+    const initialDraft = formDraft?.formType === "treatment_start" ? formDraft : null;
+    const requestedId = initialDraft?.state.linkedStudyRequestFormId ?? linkedStudyRequestFormId;
+    const exactRequest = requestedId
+      ? requestsPage.forms.find((form) => form.id === requestedId) ??
+        await getTwoPQForm(requestedId).catch(() => null)
+      : null;
+    const selectedRequest = exactRequest && canPlanTreatmentForStudyRequest(exactRequest)
+      ? exactRequest
+      : null;
+    const forms = selectedRequest && !requestsPage.forms.some((form) => form.id === selectedRequest.id)
+      ? [selectedRequest, ...requestsPage.forms]
+      : requestsPage.forms;
+    const draftStudyType = initialDraft?.state.treatmentStart.studyType;
+    const groupId = draftStudyType === "pgtAStandard" || draftStudyType === "pgtSr"
+      ? initialDraft?.state.groupWithTreatmentStartFormId
+      : undefined;
+    const group = selectedRequest && groupId
+      ? await getTwoPQForm(groupId).catch(() => null)
+      : null;
+    const initialPickupGroup = selectedRequest && group && canGroupWithTwoPQPickup(group, selectedRequest.institutionId)
+      ? group
+      : null;
+
+    return (
+      <div className="flex w-full min-w-0 max-w-full flex-col overflow-x-hidden">
+        <TwoPQTreatmentStartForm
+          initialRequestsPage={{ ...requestsPage, forms }}
+          initialDraft={initialDraft}
+          initialStudyRequestId={selectedRequest?.id}
+          unavailableStudyRequest={Boolean(requestedId && !selectedRequest)}
+          initialPickupGroup={initialPickupGroup}
+          unavailablePickupGroup={Boolean(groupId && !initialPickupGroup)}
+        />
+      </div>
+    );
+  }
+
   const requestedStudyRequestFormId =
     formType === "sample" || formType === "withdrawal_request"
-      ? one(studyRequestFormIdParam)
+      ? linkedStudyRequestFormId
       : undefined;
   const requestedCaseId =
     formType === "withdrawal_request" ? one(caseIdParam) : undefined;
@@ -69,17 +124,21 @@ export default async function NewTwoPQFormPage({
         : Promise.resolve(null),
     ]);
   const initialDraft = formDraft?.formType === formType ? formDraft : null;
-  const preselectedStudyRequest = requestedStudyRequestFormId
-    ? exactStudyRequest?.id === requestedStudyRequestFormId
+  const resumeStudyRequestId = initialDraft?.formType === "sample"
+    ? initialDraft.state.linkedStudyRequestFormId || requestedStudyRequestFormId
+    : requestedStudyRequestFormId;
+  const preselectedStudyRequest = resumeStudyRequestId
+    ? exactStudyRequest?.id === resumeStudyRequestId
       ? exactStudyRequest
-      : lookupData.studyRequestForms.find(
-          (form) => form.id === requestedStudyRequestFormId,
-        )
+      : lookupData.studyRequestForms.find((form) => form.id === resumeStudyRequestId) ??
+        (resumeStudyRequestId !== requestedStudyRequestFormId
+          ? await getTwoPQForm(resumeStudyRequestId).catch(() => null)
+          : null)
     : undefined;
   const canPreselectStudyRequest = Boolean(
     formType === "sample" &&
       preselectedStudyRequest?.formType === "study_request" &&
-      !preselectedStudyRequest.linkedBiopsyForm,
+      canUseStudyRequestForBiopsy(preselectedStudyRequest),
   );
   const resolvedCaseId =
     requestedCaseId ??

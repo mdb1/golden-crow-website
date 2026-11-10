@@ -1,6 +1,7 @@
 import {
   buildPGFlexDispatcherInviteEmailMessage,
   buildPGFlexLogisticsAssignmentEmailMessage,
+  buildTreatmentPickupEmailMessage,
 } from "../lib/pgflex-dispatcher-email.js";
 import { formatPGFlexReadableDateTime } from "../lib/pgflex-readable-date.js";
 
@@ -70,5 +71,34 @@ describe("PGFlex dispatcher email", () => {
     expect(message.html).toContain("ENV-123");
     expect(message.html).toContain("31-08-2026-12:00PM");
     expect(message.html).not.toContain("2026-08-31T12:00:00.000Z");
+  });
+
+  it("sends distinguishable planned and confirmed messages for the same 2PQ pickup", () => {
+    const recipient = { email: "driver@example.com" };
+    const pickup = {
+      id: "pgflex_treatment_form-00022",
+      identifier: "Clínica · FORM-00022",
+      origin: "Clínica <Norte>",
+      destination: "Laboratorio 2PQ",
+      pickupDate: "2026-11-29",
+      pickupWindowStart: "09:00",
+      pickupWindowEnd: "11:00",
+      temperatureC: 4 as const,
+      expectedCaseCount: 1,
+      codes: [],
+    };
+    const planned = buildTreatmentPickupEmailMessage("planned", recipient, pickup);
+    const confirmed = buildTreatmentPickupEmailMessage("confirmed", recipient, { ...pickup, codes: ["ABC"] });
+
+    expect(planned.subject).toContain("planificado");
+    expect(confirmed.subject).toContain("confirmado");
+    expect(planned.text).toContain("29/11/2026, 09:00–11:00");
+    expect(planned.html).toContain("Clínica &lt;Norte&gt;");
+    expect(planned.text).not.toContain("Códigos:");
+    expect(confirmed.text).toContain("Códigos: ABC");
+    for (const message of [planned, confirmed]) {
+      expect(message.to).toBe(recipient.email);
+      expect(message.text).toContain("callbackUrl=%2Fpgflex%2Flogistics%2Fpgflex_treatment_form-00022");
+    }
   });
 });

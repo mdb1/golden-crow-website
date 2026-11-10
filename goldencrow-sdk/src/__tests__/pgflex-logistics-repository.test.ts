@@ -1,5 +1,7 @@
 export {};
 
+import type { Transaction } from "firebase-admin/firestore";
+
 type MockDocData = Record<string, unknown>;
 type MockDocumentRef = {
   id: string;
@@ -30,6 +32,7 @@ const mockCollection = jest.fn((collectionName: string) =>
   makeQuery(collectionName),
 );
 const mockSendPGFlexLogisticsAssignmentEmail = jest.fn();
+const mockSendTreatmentPickupEmail = jest.fn();
 const mockGetUserRoleByEmail = jest.fn();
 const mockSynchronizeTwoPQCasesFilesAndCodes = jest.fn();
 const mockCascadeTwoPQCaseStatusToSamplingChildren = jest.fn();
@@ -48,21 +51,35 @@ function makeDocRef(collectionName: string, id?: string): MockDocumentRef {
       return {
         exists: Boolean(data),
         id: documentId,
+        ref,
         data: () => data,
       };
     }),
     set: jest.fn(async (data: MockDocData, options?: { merge?: boolean }) => {
       const current = mockDocs.get(docKey(ref)) ?? {};
-      mockDocs.set(
-        docKey(ref),
-        options?.merge ? { ...current, ...data } : { ...data },
-      );
+      const next = options?.merge ? { ...current, ...data } : { ...data };
+      if (options?.merge && data.notifications) {
+        next.notifications = {
+          ...(current.notifications as MockDocData | undefined),
+          ...(data.notifications as MockDocData),
+        };
+      }
+      mockDocs.set(docKey(ref), next);
     }),
     delete: jest.fn(async () => {
       mockDocs.delete(docKey(ref));
     }),
   };
   return ref;
+}
+
+function runTestTransaction<T>(callback: (transaction: Transaction) => Promise<T>) {
+  return callback({
+    get: (ref: MockDocumentRef) => ref.get(),
+    set: (ref: MockDocumentRef, data: MockDocData, options?: { merge?: boolean }) => {
+      void ref.set(data, options);
+    },
+  } as unknown as Transaction);
 }
 
 function docsIn(collectionName: string) {
@@ -253,6 +270,7 @@ jest.mock("../config/firebase.js", () => ({
   adminAuthFor: jest.fn(() => ({})),
   adminDbFor: jest.fn(() => ({
     collection: mockCollection,
+    runTransaction: runTestTransaction,
   })),
 }));
 
@@ -263,6 +281,7 @@ jest.mock("../repositories/roles.repository.js", () => ({
 
 jest.mock("../lib/pgflex-dispatcher-email.js", () => ({
   sendPGFlexLogisticsAssignmentEmail: mockSendPGFlexLogisticsAssignmentEmail,
+  sendTreatmentPickupEmail: mockSendTreatmentPickupEmail,
 }));
 
 jest.mock("../repositories/two-pq-auto-sync.repository.js", () => ({
@@ -309,11 +328,124 @@ describe("PGFlex logistics repository", () => {
     mockSynchronizeTwoPQCasesFilesAndCodes.mockClear();
     mockCascadeTwoPQCaseStatusToSamplingChildren.mockClear();
     mockSendPGFlexLogisticsAssignmentEmail.mockReset();
+    mockSendTreatmentPickupEmail.mockReset();
   });
 
   afterEach(() => {
     jest.useRealTimers();
     jest.restoreAllMocks();
+  });
+
+  it("plans a shared frozen pickup, waits for all biopsies, and dispatches the same request", async () => {
+    const {
+      prepareTreatmentPickup,
+      prepareBiopsyPickupConfirmation,
+      prepareTreatmentPickupCaseDetachment,
+      deliverTreatmentPickupNotifications,
+      updateTreatmentPickupForContext,
+    } = await import("../repositories/two-pq-pickup.repository.js");
+    const { listPGFlexLogisticsForContext, updatePGFlexLogisticsItemForContext } =
+      await import("../repositories/pgflex-logistics.repository.js");
+    const now = "2026-11-29T12:00:00.000Z";
+    const planned = {
+      institutionId: "INST-1",
+      institutionName: "Clínica",
+      doctorId: "DOC-1",
+      actorRole: "institution_operator" as const,
+      actorEmail: "operator@example.com",
+      now,
+      dispatcher: { email: transportDispatcherContext.email, firebaseUid: transportDispatcherContext.uid },
+      treatmentStart: {
+        studyType: "pgtAStandard" as const,
+        treatmentDate: "2026-11-25",
+        estimatedBiopsyDate: "2026-11-29",
+        estimatedEmbryoCount: 5,
+        pickupDate: "2026-11-30",
+        pickupWindowStart: "09:00",
+        pickupWindowEnd: "11:00",
+        pickupOrigin: "Clínica",
+        pickupDestination: "Laboratorio 2PQ",
+        temperatureC: -20 as const,
+        notes: "Sin observaciones",
+      },
+    };
+    async function savePlan(formId: string, groupWithTreatmentStartFormId?: string) {
+      const id = await runTestTransaction(async (transaction) => {
+        const plan = await prepareTreatmentPickup(transaction, { ...planned, formId, groupWithTreatmentStartFormId });
+        plan.write();
+        return plan.id;
+      });
+      mockDocs.set(`2pq_forms/${formId}`, {
+        formType: "treatment_start",
+        institutionId: "INST-1",
+        transportEventId: id,
+        linkedStudyRequestFormId: `REQUEST-${formId}`,
+      });
+      await deliverTreatmentPickupNotifications(id);
+      return id;
+    }
+    const id = await savePlan("FORM-1");
+    await deliverTreatmentPickupNotifications(id);
+    expect(mockSendTreatmentPickupEmail.mock.calls.map(([kind]) => kind)).toEqual(["planned"]);
+    expect(await savePlan("FORM-2", "FORM-1")).toBe(id);
+    expect(docsIn("pgflex_events")).toHaveLength(1);
+    expect(await listPGFlexLogisticsForContext(transportDispatcherContext, { scope: "planned" }))
+      .toMatchObject({ items: [{ id, status: "planned", expectedCaseCount: 2, canUpdate: false }] });
+    expect(await listPGFlexLogisticsForContext(transportDispatcherContext))
+      .toMatchObject({ items: [] });
+    await expect(updatePGFlexLogisticsItemForContext(transportDispatcherContext, id, { status: "in_transit" }))
+      .rejects.toMatchObject({ statusCode: 409 });
+
+    async function saveBiopsy(formId: string, caseId: string, threeLetterCode: string) {
+      return runTestTransaction(async (transaction) => {
+        const result = await prepareBiopsyPickupConfirmation(transaction, {
+          eventId: id, formId, caseId, threeLetterCode, biopsyDate: "2026-11-29", actorEmail: planned.actorEmail, now,
+        });
+        result.write();
+        return result.confirmedCaseIds;
+      });
+    }
+    expect(await saveBiopsy("FORM-1", "CASE-1", "ABC")).toEqual([]);
+    await deliverTreatmentPickupNotifications(id);
+    expect(mockSendTreatmentPickupEmail.mock.calls.map(([kind]) => kind)).toEqual(["planned", "planned"]);
+    expect(await saveBiopsy("FORM-2", "CASE-2", "DEF")).toEqual(["CASE-1", "CASE-2"]);
+    await deliverTreatmentPickupNotifications(id);
+    await deliverTreatmentPickupNotifications(id);
+    expect(mockSendTreatmentPickupEmail.mock.calls.map(([kind]) => kind)).toEqual(["planned", "planned", "confirmed"]);
+    expect(mockSendTreatmentPickupEmail).toHaveBeenLastCalledWith("confirmed",
+      expect.objectContaining({ email: "driver@example.com" }),
+      expect.objectContaining({ id, expectedCaseCount: 2, codes: ["ABC", "DEF"] }),
+    );
+
+    for (const caseId of ["CASE-1", "CASE-2"]) {
+      mockDocs.set(`2pq_case/${caseId}`, { transportEventId: id, caseStatus: "awaiting_pick_up" });
+    }
+    expect(await updateTreatmentPickupForContext(fullAdminContext, "FORM-1", { action: "cancel" }))
+      .toMatchObject({ id, status: "cancelled", latestEmailStatus: "sent" });
+    expect(mockDocs.get("2pq_case/CASE-1")?.caseStatus).toBe("intake");
+    expect(await updateTreatmentPickupForContext(fullAdminContext, "FORM-1", {
+      action: "reschedule",
+      pickupDate: "2026-12-01",
+      pickupWindowStart: "10:00",
+      pickupWindowEnd: "12:00",
+      pickupOrigin: "Clínica",
+      pickupDestination: "Laboratorio 2PQ",
+    })).toMatchObject({ id, status: "confirmed", pickupDate: "2026-12-01" });
+    expect(mockDocs.get("2pq_case/CASE-1")?.caseStatus).toBe("awaiting_pick_up");
+    await runTestTransaction(async (transaction) => {
+      const detach = await prepareTreatmentPickupCaseDetachment(transaction, {
+        eventId: id, formId: "FORM-1", caseId: "CASE-1", actorEmail: planned.actorEmail, now,
+      });
+      detach?.write();
+      mockDocs.delete("2pq_case/CASE-1");
+    });
+    expect(mockDocs.get(`pgflex_events/${id}`)).toMatchObject({
+      linkedCaseIds: ["CASE-2"], linked_codes: "DEF", expectedCaseCount: 1, readyCaseCount: 1,
+    });
+    expect(await updatePGFlexLogisticsItemForContext(transportDispatcherContext, id, { status: "in_transit" }))
+      .toMatchObject({ id, status: "in_transit" });
+    expect(mockDocs.get("2pq_case/CASE-1")).toBeUndefined();
+    expect(mockDocs.get("2pq_case/CASE-2")?.caseStatus).toBe("in_transit");
   });
 
   it("stores a created logistics item only in pgflex_events", async () => {
@@ -476,7 +608,7 @@ describe("PGFlex logistics repository", () => {
           type: "where",
           fieldPath: "status",
           operator: "in",
-          value: ["awaiting_pick_up", "in_transit"],
+          value: ["confirmed", "awaiting_pick_up", "in_transit"],
         },
         {
           type: "orderBy",

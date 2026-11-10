@@ -16,7 +16,8 @@ import { sdkFetchServer } from "@/lib/sdk-server";
 function normalizePGFlexLogisticsScope(
   value: string | string[] | undefined,
 ): PGFlexLogisticsListScope {
-  return value === "finished" ? "finished" : "active";
+  const scope = Array.isArray(value) ? value[0] : value;
+  return scope === "finished" || scope === "planned" ? scope : "active";
 }
 
 export default async function PGFlexLogisticsPage({

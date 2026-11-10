@@ -119,6 +119,33 @@ describe("2PQ case-status progress modal", () => {
     jest.clearAllMocks();
   });
 
+  it("links to the request, treatment start, and biopsy from the case", () => {
+    renderWorkbench(
+      {
+        ...detail,
+        record: {
+          ...detail.record,
+          linkedStudyRequestFormId: "FORM-00010",
+          linkedTreatmentStartFormId: "FORM-00011",
+          linkedBiopsyForm: "FORM-00012",
+        },
+      },
+      false,
+      "institution_doctor",
+    );
+
+    const forms = within(screen.getByRole("region", { name: "Linked forms" }));
+    for (const [name, id] of [
+      ["Study request form", "FORM-00010"],
+      ["Treatment start form", "FORM-00011"],
+      ["Biopsy form", "FORM-00012"],
+    ]) {
+      expect(forms.getByRole("link", { name }).getAttribute("href")).toBe(
+        `/2pq-dashboard/forms/${id}`,
+      );
+    }
+  });
+
   it("shows an optional empty state when the case has no linked service transaction", () => {
     renderWorkbench();
 

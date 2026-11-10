@@ -21,11 +21,16 @@ const WORKFLOW_STEPS: Array<{
   },
   {
     number: 2,
+    formType: "treatment_start",
+    label: "Complete treatment start form",
+  },
+  {
+    number: 3,
     formType: "sample",
     label: "Complete sample form (biopsies)",
   },
   {
-    number: 3,
+    number: 4,
     formType: "withdrawal_request",
     label: "Complete withdrawal request form",
   },
@@ -51,7 +56,7 @@ export function TwoPQFormWorkflowActions({
         </h2>
       </div>
 
-      <ol className="grid gap-3 lg:grid-cols-3">
+      <ol className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {WORKFLOW_STEPS.map((step) => {
           const enabled = canCreateTwoPQFormType(role, step.formType);
           const buttonClassName = enabled

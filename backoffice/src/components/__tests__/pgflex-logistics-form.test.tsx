@@ -149,6 +149,20 @@ describe("PGFlexLogisticsForm", () => {
     }
   });
 
+  it("shows a managed planned pickup as read-only until biopsies confirm it", () => {
+    renderForm({ item: pgflexItem({
+      source: "2pq_treatment_start", status: "planned", pickupDate: "2026-11-30",
+      pickupWindowStart: "09:00", pickupWindowEnd: "11:00", expectedCaseCount: 2,
+      readyCaseCount: 1, temperatureC: -20,
+    }) });
+
+    expect(screen.getByText("Planned pickup")).toBeVisible();
+    expect(screen.getByText("09:00 – 11:00")).toBeVisible();
+    expect(screen.getByText("1 / 2")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Mark as picked up" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Save$/ })).not.toBeInTheDocument();
+  });
+
   it("keeps generated create-only PGFlex fields and email copy out of the new dispatch form", async () => {
     const user = userEvent.setup();
     renderCreateForm();

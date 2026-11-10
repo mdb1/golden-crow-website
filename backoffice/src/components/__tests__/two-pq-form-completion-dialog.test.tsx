@@ -59,4 +59,13 @@ describe("TwoPQFormCompletionDialog", () => {
     expect(screen.getByText("2pq_forms")).toBeTruthy();
     expect(screen.queryByText(/casilla de spam/i)).toBeNull();
   });
+
+  it("confirms that treatment planning was saved without a patient email message", () => {
+    renderDialog("treatment_start");
+
+    expect(screen.getByRole("heading", {
+      name: "El formulario de inicio de tratamiento se guardó",
+    })).toBeTruthy();
+    expect(screen.queryByText(/mail de acceso|casilla de spam/i)).toBeNull();
+  });
 });

@@ -32,9 +32,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useAppLanguage } from "@/components/app-language-provider";
+import { TwoPQPickupPanel } from "@/components/two-pq-pickup-panel";
 import {
   TWO_PQ_FORM_LABELS,
   TWO_PQ_FORM_ROUTES,
+  canPlanTreatmentForStudyRequest,
   getTwoPQFormDisplayTitle,
   formatBiopsySampleIdForDisplay,
   type TwoPQFormRecord,
@@ -2791,6 +2793,123 @@ function RequestingDoctorLinkSection({ form }: { form: TwoPQFormRecord }) {
   );
 }
 
+function LinkedTreatmentStartSection({ form }: { form: TwoPQFormRecord }) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const treatmentStartFormId = form.linkedTreatmentStartFormId;
+  const canPlan = canPlanTreatmentForStudyRequest(form);
+
+  if (!treatmentStartFormId && !canPlan) return null;
+
+  return (
+    <section className="glass-panel flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+      <div>
+        <h2 className="font-heading text-lg font-semibold">{t("Treatment start form")}</h2>
+        {treatmentStartFormId ? (
+          <p className="font-mono text-xs text-muted-foreground">{treatmentStartFormId}</p>
+        ) : null}
+      </div>
+      <Button variant="outline" size="sm" asChild>
+        {treatmentStartFormId ? (
+          <Link href={`/2pq-dashboard/forms/${encodeURIComponent(treatmentStartFormId)}`}>
+            {t("Open treatment start form")}
+            <ArrowRight className="size-3.5" />
+          </Link>
+        ) : (
+          <Link href={`${TWO_PQ_FORM_ROUTES.treatment_start}?${new URLSearchParams({ linkedStudyRequestFormId: form.id })}`}>
+            {t("Complete treatment start form")}
+            <ArrowRight className="size-3.5" />
+          </Link>
+        )}
+      </Button>
+    </section>
+  );
+}
+
+function TreatmentStartDetails({ form }: { form: TwoPQFormRecord }) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const planning = form.treatmentStart;
+  const studyRequestFormId = form.linkedStudyRequestFormId;
+  const canStartBiopsy = !form.archivedAt && !form.linkedCaseId && !form.linkedBiopsyForm;
+
+  return (
+    <>
+      <DetailSection
+        title={t("Treatment schedule")}
+        fields={[
+          { key: "treatmentDate", label: "Treatment start date", type: "date" },
+          { key: "estimatedBiopsyDate", label: "Estimated biopsy date", type: "date" },
+          { key: "estimatedEmbryoCount", label: "Estimated embryos to biopsy" },
+          { key: "notes", label: "Observaciones" },
+        ]}
+        data={planning ? {
+          ...planning,
+          estimatedBiopsyDate: form.pickup?.estimatedBiopsyDate ?? planning.estimatedBiopsyDate,
+        } : undefined}
+      />
+      {!form.pickup ? <DetailSection
+        title={t("Planned transport")}
+        fields={[
+          { key: "pickupDate", label: "Expected pickup date", type: "date" },
+          { key: "pickupWindow", label: "Pickup window" },
+          { key: "pickupOrigin", label: "Pickup origin" },
+          { key: "pickupDestination", label: "Pickup destination" },
+          { key: "temperature", label: "Transport temperature" },
+        ]}
+        data={planning ? {
+          ...planning,
+          pickupWindow: `${planning.pickupWindowStart} – ${planning.pickupWindowEnd}`,
+          temperature: `${planning.temperatureC} °C`,
+        } : undefined}
+      /> : null}
+      <section className="glass-panel grid gap-3 px-5 py-4">
+        <h2 className="font-heading text-lg font-semibold">{t("Linked forms")}</h2>
+        <div className="flex flex-wrap gap-2">
+          {studyRequestFormId ? (
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/2pq-dashboard/forms/${encodeURIComponent(studyRequestFormId)}`}>
+                {t("Open study request")}
+                <ArrowRight className="size-3.5" />
+              </Link>
+            </Button>
+          ) : null}
+          {form.linkedBiopsyForm ? (
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/2pq-dashboard/forms/${encodeURIComponent(form.linkedBiopsyForm)}`}>
+                {t("Open biopsy form")}
+                <ArrowRight className="size-3.5" />
+              </Link>
+            </Button>
+          ) : canStartBiopsy && studyRequestFormId ? (
+            <Button size="sm" asChild>
+              <Link href={`${TWO_PQ_FORM_ROUTES.sample}?${new URLSearchParams({ studyRequestFormId })}`}>
+                {t("Complete biopsy form")}
+                <ArrowRight className="size-3.5" />
+              </Link>
+            </Button>
+          ) : null}
+          {form.linkedCaseId ? (
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/2pq-dashboard/cases/${encodeURIComponent(form.linkedCaseId)}`}>
+                {t("Open 2PQ case")}
+                <ArrowRight className="size-3.5" />
+              </Link>
+            </Button>
+          ) : null}
+        </div>
+        {!form.linkedCaseId && !form.linkedBiopsyForm && !form.archivedAt ? (
+          <p className="text-sm text-muted-foreground">
+            {t("Case will be linked after the biopsy is saved.")}
+          </p>
+        ) : null}
+      </section>
+
+      {form.pickup ? <TwoPQPickupPanel formId={form.id} pickup={form.pickup} /> : null}
+    </>
+  );
+}
+
 export function TwoPQFormDetail({
   form,
   linkedCase = null,
@@ -2818,16 +2937,22 @@ export function TwoPQFormDetail({
       getTextValue(form.patientInformation, "institutionId"),
   };
   const formTitle = getTwoPQFormDisplayTitle(form, language);
-  const studySummary = getTwoPQStudySummary(form);
+  const isTreatmentStart = form.formType === "treatment_start";
+  const treatmentStart = form.treatmentStart;
+  const studySummary = getTwoPQStudySummary(treatmentStart
+    ? { requestedStudyTest: treatmentStart.studyType }
+    : form);
+  const pickupHasAdvanced = ["confirmed", "in_transit", "arrived", "lost"].includes(form.pickup?.status ?? "");
   const workflowStage =
-    form.formType === "withdrawal_request" ||
-    form.linkedWithdrawalRequest ||
-    form.withdrawalRequest
-      ? t("Withdrawal")
-      : form.formType === "sample" || form.linkedBiopsyForm
-        ? t("Biopsy")
-        : t("Request");
-  const estimatedTreatmentDate =
+    isTreatmentStart
+      ? t("Treatment start")
+      : form.formType === "withdrawal_request" || form.linkedWithdrawalRequest || form.withdrawalRequest || pickupHasAdvanced
+        ? t("Withdrawal")
+        : form.formType === "sample" || form.linkedBiopsyForm
+          ? t("Biopsy")
+          : form.linkedTreatmentStartFormId ? t("Treatment start") : t("Request");
+  const treatmentDate =
+    treatmentStart?.treatmentDate ||
     form.estimatedTreatmentDate ||
     getTextValue(form.requestedTest, "estimatedTreatmentDate");
 
@@ -2855,7 +2980,7 @@ export function TwoPQFormDetail({
             </h1>
             <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
               {compactList([
-                TWO_PQ_FORM_LABELS[form.formType],
+                isTreatmentStart ? t("Treatment start form") : TWO_PQ_FORM_LABELS[form.formType],
                 form.institutionName,
                 form.patientEmail,
               ])}
@@ -2871,9 +2996,9 @@ export function TwoPQFormDetail({
             ) : form.requestedTestName ? (
               <Badge variant="outline">{form.requestedTestName}</Badge>
             ) : null}
-            {estimatedTreatmentDate ? (
+            {treatmentDate ? (
               <Badge variant="outline">
-                {t("Estimated treatment date")}: {formatTwoPQCivilDate(estimatedTreatmentDate, language)}
+                {t(treatmentStart ? "Treatment start date" : "Estimated treatment date")}: {formatTwoPQCivilDate(treatmentDate, language)}
               </Badge>
             ) : null}
             <Badge variant="outline">
@@ -2890,7 +3015,9 @@ export function TwoPQFormDetail({
         </div>
       </section>
 
-      {form.formType === "withdrawal_request" ? (
+      {isTreatmentStart ? (
+        <TreatmentStartDetails form={form} />
+      ) : form.formType === "withdrawal_request" ? (
         <>
           <DetailSection
             title={t("Institution information")}
@@ -2916,6 +3043,7 @@ export function TwoPQFormDetail({
         </>
       ) : form.formType === "sample" ? (
         <>
+          {form.pickup ? <TwoPQPickupPanel formId={form.id} pickup={form.pickup} /> : null}
           <DetailSection
             title={t("Form timeline")}
             fields={SAMPLE_TIMELINE_FIELDS}
@@ -2948,6 +3076,7 @@ export function TwoPQFormDetail({
             samplings={form.samplingInformation}
           />
           <BiopsyRelationshipSection form={form} kind="study_request" />
+          <LinkedTreatmentStartSection form={form} />
           <BiopsyRelationshipSection form={form} kind="withdrawal_request" />
           <LinkedRecordsSection form={form} />
           <PatientLinkSection form={form} />
@@ -2978,6 +3107,7 @@ export function TwoPQFormDetail({
             fields={INSTITUTION_FIELDS}
             data={form.institutionInformation}
           />
+          <LinkedTreatmentStartSection form={form} />
           <LinkedBiopsyFormSection form={form} />
           <LinkedTwoPQCaseSection form={form} linkedCase={linkedCase} />
           <LinkedWithdrawalRequestSection form={form} />

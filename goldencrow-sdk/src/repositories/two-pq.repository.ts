@@ -23,6 +23,10 @@ import {
   prepareTwoPQCaseCodeReservation,
   retainTwoPQCaseCode,
 } from "./two-pq-code-registry.repository.js";
+import {
+  deliverTreatmentPickupNotifications,
+  prepareTreatmentPickupCaseDetachment,
+} from "./two-pq-pickup.repository.js";
 import type {
   AdminContext,
   DoctorListItem,
@@ -725,6 +729,9 @@ function toTwoPQRecord(
   if (areaKey === "cases") {
     record.linkedStudyRequestFormId =
       normalizeOptionalString(data.linkedStudyRequestFormId) ?? null;
+    record.linkedTreatmentStartFormId = normalizeOptionalString(data.linkedTreatmentStartFormId) ?? null;
+    record.linkedBiopsyForm = normalizeOptionalString(data.linkedBiopsyForm) ?? null;
+    record.transportEventId = normalizeOptionalString(data.transportEventId) ?? null;
     record.informedConsentId =
       normalizeOptionalString(data.informedConsentId) ?? null;
     record.should_automatically_sync_files_and_codes =
@@ -1001,6 +1008,12 @@ function buildMergeWriteDocument(
   payload: TwoPQMutationInput
 ): Record<string, unknown> {
   const document: Record<string, unknown> = buildStoredRecordDocument(nextRecord);
+
+  if (nextRecord.areaKey === "cases") {
+    delete document.linkedTreatmentStartFormId;
+    delete document.linkedBiopsyForm;
+    delete document.transportEventId;
+  }
 
   for (const field of MUTABLE_FIELDS) {
     if (!hasOwnKey(payload, field)) {
@@ -2221,6 +2234,14 @@ export async function replaceTwoPQRecordForContext(
 
   if (areaKey === "cases" || areaKey === "sampling") {
     await adminDb.runTransaction(async (transaction) => {
+      if (areaKey === "cases") {
+        const latest = (await transaction.get(recordRef)).data();
+        if (!latest) throw new AdminRepositoryError("Record not found.", 404);
+        nextRecord.linkedStudyRequestFormId = normalizeOptionalString(latest.linkedStudyRequestFormId) ?? null;
+        nextRecord.linkedTreatmentStartFormId = normalizeOptionalString(latest.linkedTreatmentStartFormId) ?? null;
+        nextRecord.linkedBiopsyForm = normalizeOptionalString(latest.linkedBiopsyForm) ?? null;
+        nextRecord.transportEventId = normalizeOptionalString(latest.transportEventId) ?? null;
+      }
       const reserveCode = areaKey === "cases"
         ? await prepareTwoPQCaseCodeReservation(transaction, caseThreeLetterCode(nextRecord), existing.id, context.email)
         : undefined;
@@ -2342,6 +2363,12 @@ export async function updateTwoPQRecordForContext(
       const reserveCode = areaKey === "cases"
         ? await prepareTwoPQCaseCodeReservation(transaction, caseThreeLetterCode(nextRecord), existing.id, context.email)
         : undefined;
+      if (areaKey === "cases") {
+        const latest = (await transaction.get(recordRef)).data();
+        if (!latest) throw new AdminRepositoryError("Record not found.", 404);
+        nextRecord.linkedStudyRequestFormId = normalizeOptionalString(latest.linkedStudyRequestFormId) ?? null;
+        writeDocument.linkedStudyRequestFormId = nextRecord.linkedStudyRequestFormId;
+      }
       await syncParentRelationForRecord(
         transaction,
         context,
@@ -2780,37 +2807,40 @@ export async function deleteTwoPQRecordForContext(
         }
       }
 
-      const batch = adminDb.batch();
+      const caseRef = getTwoPQRecordRef(areaKey, recordId);
+      const pickupId = await adminDb.runTransaction(async (transaction) => {
+        const detachTreatmentForms = await prepareTreatmentFormDetachment(transaction, caseRef, context, now);
 
-      if (record.parent_batch) {
-        batch.set(
-          getTwoPQRecordRef("sequencing", record.parent_batch),
-          {
-            children_cases: FieldValue.arrayRemove(record.id),
-            linkedCaseIds: FieldValue.arrayRemove(record.id),
-            updatedAt: now,
-            updatedByEmail: context.email,
-          },
-          { merge: true }
-        );
-      }
+        if (record.parent_batch) {
+          transaction.set(
+            getTwoPQRecordRef("sequencing", record.parent_batch),
+            {
+              children_cases: FieldValue.arrayRemove(record.id),
+              linkedCaseIds: FieldValue.arrayRemove(record.id),
+              updatedAt: now,
+              updatedByEmail: context.email,
+            },
+            { merge: true },
+          );
+        }
 
-      for (const linkedSampling of ownedLinkedSamplings) {
-        batch.delete(getTwoPQRecordRef("sampling", linkedSampling.id));
-      }
+        for (const linkedSampling of ownedLinkedSamplings) {
+          transaction.delete(getTwoPQRecordRef("sampling", linkedSampling.id));
+        }
 
-      if (record.informedConsentId) {
-        batch.set(
-          adminDb
-            .collection(INFORMED_CONSENTS_COLLECTION)
-            .doc(record.informedConsentId),
-          { caseId: null, updatedAt: now },
-          { merge: true },
-        );
-      }
+        if (record.informedConsentId) {
+          transaction.set(
+            adminDb.collection(INFORMED_CONSENTS_COLLECTION).doc(record.informedConsentId),
+            { caseId: null, updatedAt: now },
+            { merge: true },
+          );
+        }
 
-      batch.delete(getTwoPQRecordRef(areaKey, recordId));
-      await batch.commit();
+        detachTreatmentForms.write();
+        transaction.delete(caseRef);
+        return detachTreatmentForms.pickupId;
+      });
+      if (pickupId) await deliverTreatmentPickupNotifications(pickupId);
 
       return {
         success: true,
@@ -2820,7 +2850,9 @@ export async function deleteTwoPQRecordForContext(
       };
     }
 
-    await adminDb.runTransaction(async (transaction) => {
+    const pickupId = await adminDb.runTransaction(async (transaction) => {
+      const caseRef = getTwoPQRecordRef(areaKey, recordId);
+      const detachTreatmentForms = await prepareTreatmentFormDetachment(transaction, caseRef, context, now);
       if (record.parent_batch) {
         await unlinkCaseFromBatchInTransaction(transaction, context, record.parent_batch, record, now);
       }
@@ -2848,8 +2880,11 @@ export async function deleteTwoPQRecordForContext(
         );
       }
 
-      transaction.delete(getTwoPQRecordRef(areaKey, recordId));
+      detachTreatmentForms.write();
+      transaction.delete(caseRef);
+      return detachTreatmentForms.pickupId;
     });
+    if (pickupId) await deliverTreatmentPickupNotifications(pickupId);
 
     return {
       success: true,
@@ -2875,4 +2910,56 @@ export async function deleteTwoPQRecordForContext(
 
   await getTwoPQRecordRef(areaKey, recordId).delete();
   return { success: true, recordId };
+}
+
+async function prepareTreatmentFormDetachment(
+  transaction: Transaction,
+  caseRef: FirebaseFirestore.DocumentReference,
+  context: AdminContext,
+  now: string,
+) {
+  const caseData = (await transaction.get(caseRef)).data();
+  const planId = normalizeOptionalString(caseData?.linkedTreatmentStartFormId);
+  const eventId = normalizeOptionalString(caseData?.transportEventId);
+  const pickup = planId && eventId
+    ? await prepareTreatmentPickupCaseDetachment(transaction, {
+        eventId,
+        formId: planId,
+        caseId: caseRef.id,
+        actorEmail: context.email,
+        now,
+      })
+    : null;
+  const forms = adminDb.collection("2pq_forms");
+  const relatedForms = planId ? [
+    { id: planId, type: "treatment_start", field: "linkedCaseId" },
+    { id: normalizeOptionalString(caseData?.linkedStudyRequestFormId), type: "study_request", field: "2pq_case" },
+    { id: normalizeOptionalString(caseData?.linkedBiopsyForm), type: "sample", field: "linkedCaseId" },
+  ] : [];
+  const updates = await Promise.all(relatedForms.map(async ({ id, type, field }) => {
+    if (!id) return null;
+    const snapshot = await transaction.get(forms.doc(id));
+    const data = snapshot.data();
+    if (data?.formType !== type || (type !== "treatment_start" && data.linkedTreatmentStartFormId !== planId)) return null;
+    const update: Record<string, unknown> = {};
+    if (data[field] === caseRef.id) update[field] = null;
+    if (type === "sample" && data.selectedCaseId === caseRef.id) update.selectedCaseId = null;
+    if (Object.keys(update).length === 0) return null;
+    return { reference: snapshot.ref, update };
+  }));
+  return {
+    pickupId: pickup?.id,
+    write() {
+      pickup?.write();
+      for (const entry of updates) {
+        if (!entry) continue;
+        transaction.set(entry.reference, {
+          ...entry.update,
+          updatedAt: now,
+          updatedByEmail: context.email,
+          updatedByUid: context.uid,
+        }, { merge: true });
+      }
+    },
+  };
 }

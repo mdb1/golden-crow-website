@@ -87,6 +87,11 @@ describe("2PQ forms page actions", () => {
         name: "Completar formulario de solicitud de estudio",
       }),
     ).toHaveAttribute("href", "/2pq-dashboard/forms/study-request/new");
+    const treatmentStart = within(workflow as HTMLElement).getByRole("link", {
+      name: "Completar formulario de inicio de tratamiento",
+    });
+    expect(treatmentStart).toHaveAttribute("href", "/2pq-dashboard/forms/treatment-start/new");
+    expect(treatmentStart.closest("li")).toHaveTextContent("Paso 2");
     expect(
       within(workflow as HTMLElement).getByRole("link", {
         name: "Completar formulario de muestras (biopsias)",
@@ -99,7 +104,7 @@ describe("2PQ forms page actions", () => {
     ).toHaveAttribute("href", "/2pq-dashboard/forms/withdrawal-request/new");
   });
 
-  it("lets laboratory staff open all three forms within their institution", async () => {
+  it("lets laboratory staff open all four forms within their institution", async () => {
     jest.mocked(getAdminContextServer).mockResolvedValue({
       ...adminContext,
       role: "institution_laboratory_staff",
@@ -113,6 +118,8 @@ describe("2PQ forms page actions", () => {
         name: "Completar formulario de solicitud de estudio",
       }),
     ).toHaveAttribute("href", "/2pq-dashboard/forms/study-request/new");
+    expect(screen.getByRole("link", { name: "Completar formulario de inicio de tratamiento" }))
+      .toHaveAttribute("href", "/2pq-dashboard/forms/treatment-start/new");
     expect(
       screen.getByRole("link", {
         name: "Completar formulario de muestras (biopsias)",
@@ -123,5 +130,15 @@ describe("2PQ forms page actions", () => {
         name: "Completar formulario de solicitud de retiro",
       }),
     ).toHaveAttribute("href", "/2pq-dashboard/forms/withdrawal-request/new");
+  });
+
+  it("loads stored treatment starts from the URL filters", async () => {
+    render(await TwoPQFormsPage({
+      searchParams: Promise.resolve({ formType: "treatment_start", workflowStage: "treatment_start" }),
+    }));
+    expect(getTwoPQFormsPage).toHaveBeenCalledWith(expect.objectContaining({
+      formType: "treatment_start",
+      workflowStage: "treatment_start",
+    }));
   });
 });

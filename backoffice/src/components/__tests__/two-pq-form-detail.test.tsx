@@ -6,7 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { TwoPQFormDetail } from "@/components/two-pq-form-detail";
 import type { TwoPQListItem } from "@/lib/two-pq-areas";
-import type { TwoPQFormRecord } from "@/lib/two-pq-forms";
+import type { TwoPQFormRecord, TwoPQPickupSummary } from "@/lib/two-pq-forms";
 
 const mockRefresh = jest.fn();
 const mockSdkFetch = jest.fn();
@@ -70,6 +70,44 @@ const studyRequestForm: TwoPQFormRecord = {
   updatedAt: "2026-10-08T12:00:00.000Z",
 };
 
+const treatmentStartForm: TwoPQFormRecord = {
+  ...studyRequestForm,
+  id: "FORM-00054",
+  formType: "treatment_start",
+  linkedStudyRequestFormId: studyRequestForm.id,
+  linkedBiopsyForm: null,
+  linkedCaseId: null,
+  requestedTest: { pgtAFast: true },
+  treatmentStart: {
+    studyType: "pgtAStandard",
+    treatmentDate: "2026-11-25",
+    estimatedBiopsyDate: "2026-11-29",
+    estimatedEmbryoCount: 5,
+    pickupDate: "2026-11-30",
+    pickupWindowStart: "09:00",
+    pickupWindowEnd: "11:00",
+    pickupOrigin: "Clínica Norte",
+    pickupDestination: "Laboratorio 2PQ",
+    temperatureC: -20,
+    notes: "Sin observaciones",
+  },
+};
+
+const plannedPickup: TwoPQPickupSummary = {
+  id: "pickup-1",
+  status: "planned",
+  expectedCaseCount: 2,
+  readyCaseCount: 1,
+  pickupDate: "2026-11-30",
+  pickupWindowStart: "09:00",
+  pickupWindowEnd: "11:00",
+  origin: "Clínica Norte",
+  destination: "Laboratorio 2PQ",
+  temperatureC: -20,
+  plannedEmailStatus: "sent",
+  canManage: true,
+};
+
 const linkedCase: TwoPQListItem = {
   id: "CASE-00024",
   areaKey: "cases",
@@ -118,6 +156,71 @@ describe("TwoPQFormDetail", () => {
   beforeEach(() => {
     mockRefresh.mockReset();
     mockSdkFetch.mockReset();
+  });
+
+  it("shows the saved treatment schedule and routes to biopsy before a case exists", () => {
+    render(
+      <AppLanguageProvider forcedLanguage="en">
+        <TwoPQFormDetail form={treatmentStartForm} />
+      </AppLanguageProvider>,
+    );
+
+    expect(screen.getByRole("heading", { name: "Planned transport" })).toBeVisible();
+    expect(screen.getByText("Standard PGT")).toBeVisible();
+    expect(screen.getByText("09:00 – 11:00")).toBeVisible();
+    expect(screen.getByText("-20 °C")).toBeVisible();
+    expect(screen.getByText("Case will be linked after the biopsy is saved.")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Open study request" })).toHaveAttribute(
+      "href", "/2pq-dashboard/forms/FORM-00047",
+    );
+    expect(screen.getByRole("link", { name: "Complete biopsy form" })).toHaveAttribute(
+      "href", "/2pq-dashboard/forms/sample/new?studyRequestFormId=FORM-00047",
+    );
+    expect(screen.queryByRole("link", { name: "Open 2PQ case" })).not.toBeInTheDocument();
+  });
+
+  it("links the treatment start to the saved biopsy and its case", () => {
+    render(
+      <AppLanguageProvider forcedLanguage="en">
+        <TwoPQFormDetail form={{
+          ...treatmentStartForm,
+          linkedBiopsyForm: sampleForm.id,
+          linkedCaseId: linkedCase.id,
+        }} />
+      </AppLanguageProvider>,
+    );
+
+    expect(screen.getByRole("link", { name: "Open biopsy form" })).toHaveAttribute(
+      "href", "/2pq-dashboard/forms/FORM-00053",
+    );
+    expect(screen.getByRole("link", { name: "Open 2PQ case" })).toHaveAttribute(
+      "href", "/2pq-dashboard/cases/CASE-00024",
+    );
+    expect(screen.queryByRole("link", { name: "Complete biopsy form" })).not.toBeInTheDocument();
+  });
+
+  it("shows grouped pickup readiness on the biopsy and cancels via the pickup endpoint", async () => {
+    const user = userEvent.setup();
+    mockSdkFetch.mockResolvedValueOnce({ pickup: { ...plannedPickup, status: "cancelled" } });
+    render(
+      <AppLanguageProvider forcedLanguage="en">
+        <TwoPQFormDetail form={{ ...sampleForm, pickup: plannedPickup }} />
+      </AppLanguageProvider>,
+    );
+
+    const panel = screen.getByRole("region", { name: "Pickup confirmation" });
+    expect(panel).toHaveAttribute("id", "pickup-confirmation");
+    expect(within(panel).getByText("Planned pickup")).toBeVisible();
+    expect(within(panel).getByText("1 / 2")).toBeVisible();
+    await user.click(within(panel).getByRole("button", { name: "Cancel pickup" }));
+    await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Cancel pickup" }));
+
+    expect(mockSdkFetch).toHaveBeenCalledWith("/2pq/forms/FORM-00053/pickup", {
+      method: "PATCH", body: JSON.stringify({ action: "cancel" }),
+    });
+    expect(await within(panel).findByText("Cancelled pickup")).toBeVisible();
+    expect(within(panel).queryByRole("button", { name: "Cancel pickup" })).not.toBeInTheDocument();
+    expect(within(panel).getByRole("button", { name: "Reschedule pickup" })).toBeInTheDocument();
   });
 
   it("shows only the requested study with its treatment estimate and current phase", () => {

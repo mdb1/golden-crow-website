@@ -43,6 +43,7 @@ const mockCollection = jest.fn((collectionName: string) =>
 const mockGetUser = jest.fn();
 const mockGetUserByEmail = jest.fn();
 const mockSendPGFlexLogisticsAssignmentEmail = jest.fn();
+const mockSendTreatmentPickupEmail = jest.fn();
 const mockSynchronizeTwoPQCasesFilesAndCodes = jest.fn();
 const mockCascadeTwoPQCaseStatusToSamplingChildren = jest.fn();
 const mockCreateTwoPQRecordForContext = jest.fn();
@@ -260,7 +261,8 @@ const mockDb = {
           data: MockDocData,
           options?: { merge?: boolean },
         ) => void;
-      }) => Promise<string>,
+        delete: (ref: MockDocumentRef) => void;
+      }) => Promise<unknown>,
     ) =>
       handler({
         get: (ref) => ref.get(),
@@ -271,6 +273,7 @@ const mockDb = {
             options?.merge ? { ...current, ...data } : data,
           );
         },
+        delete: (ref) => { mockDocs.delete(docKey(ref)); },
       }),
   ),
 };
@@ -311,6 +314,7 @@ jest.mock("../lib/patient-portal-credentials.js", () => ({
 
 jest.mock("../lib/pgflex-dispatcher-email.js", () => ({
   sendPGFlexLogisticsAssignmentEmail: mockSendPGFlexLogisticsAssignmentEmail,
+  sendTreatmentPickupEmail: mockSendTreatmentPickupEmail,
 }));
 
 jest.mock("../repositories/two-pq-auto-sync.repository.js", () => ({
@@ -333,7 +337,42 @@ const fullAdminContext = {
   projectAccess: ["mydnamap" as const],
 };
 
-describe("2PQ withdrawal forms PGFlex automation", () => {
+const planningRequestId = "FORM-00040";
+const treatmentStartInput = {
+  formType: "treatment_start" as const,
+  linkedStudyRequestFormId: planningRequestId,
+  treatmentStart: {
+    studyType: "pgtAFast" as const,
+    treatmentDate: "2026-08-27",
+    estimatedBiopsyDate: "2026-08-31",
+    estimatedEmbryoCount: 5,
+    pickupDate: "2026-08-31",
+    pickupWindowStart: "09:00",
+    pickupWindowEnd: "11:00",
+    pickupOrigin: "Av. Corrientes 123",
+    pickupDestination: "Humboldt 2433",
+    notes: "  ",
+  },
+};
+
+function seedPlanningRequest() {
+  mockDocs.set(`2pq_forms/${planningRequestId}`, {
+    id: planningRequestId,
+    formType: "study_request",
+    institutionId: "inst-1",
+    doctorId: "doctor-1",
+    selectedPatientId: "patient-1",
+    patientName: "Paciente Uno",
+    patientInformation: { patientId: "patient-1", fullName: "Paciente Uno" },
+    requestedTest: { pgtAStandard: true },
+    requiresTreatmentStart: true,
+    linkedTreatmentStartFormId: null,
+    createdAt: "2026-08-26T10:00:00.000Z",
+    updatedAt: "2026-08-26T10:00:00.000Z",
+  });
+}
+
+describe("2PQ form workflow and PGFlex automation", () => {
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(new Date("2026-08-31T15:45:00.000Z"));
     mockDocs.clear();
@@ -344,6 +383,7 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
     mockGetUser.mockReset();
     mockGetUserByEmail.mockReset();
     mockSendPGFlexLogisticsAssignmentEmail.mockReset();
+    mockSendTreatmentPickupEmail.mockReset();
     mockSynchronizeTwoPQCasesFilesAndCodes.mockClear();
     mockCascadeTwoPQCaseStatusToSamplingChildren.mockClear();
     mockCreateTwoPQRecordForContext.mockReset();
@@ -472,6 +512,126 @@ describe("2PQ withdrawal forms PGFlex automation", () => {
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  it("saves treatment planning and its draft without creating a case, and unlocks biopsy eligibility", async () => {
+    const { createTwoPQFormForContext, listTwoPQFormsForContext, upsertTwoPQFormDraftForContext, getTwoPQFormForContext } =
+      await import("../repositories/two-pq-forms.repository");
+    seedPlanningRequest();
+
+    expect((await listTwoPQFormsForContext(fullAdminContext, { availableForBiopsy: true })).forms).toHaveLength(0);
+    expect((await listTwoPQFormsForContext(fullAdminContext, { availableForTreatmentStart: true })).forms.map(({ id }) => id))
+      .toEqual([planningRequestId]);
+    const draft = await upsertTwoPQFormDraftForContext(fullAdminContext, {
+      formType: "treatment_start",
+      currentStep: "treatmentStart",
+      stepIndex: 0,
+      state: {
+        linkedStudyRequestFormId: planningRequestId,
+        treatmentStart: { pickupDate: "", notes: " " },
+      },
+    });
+    expect(draft).toMatchObject({ formType: "treatment_start", state: { treatmentStart: { notes: "Sin observaciones" } } });
+
+    const form = await createTwoPQFormForContext(fullAdminContext, treatmentStartInput);
+    expect(form).toMatchObject({
+      formType: "treatment_start",
+      linkedStudyRequestFormId: planningRequestId,
+      linkedCaseId: null,
+      linkedBiopsyForm: null,
+      treatmentStart: { ...treatmentStartInput.treatmentStart, notes: "Sin observaciones", temperatureC: 4 },
+      pickup: { status: "planned", expectedCaseCount: 1, readyCaseCount: 0 },
+    });
+    expect(mockDocs.get(`2pq_forms/${planningRequestId}`)).toMatchObject({
+      linkedTreatmentStartFormId: form.id,
+      transportEventId: form.transportEventId,
+      requestedTest: { pgtAStandard: true },
+    });
+    expect(mockDocs.has("2pq-form-drafts/admin-uid")).toBe(false);
+    expect(mockCreateTwoPQRecordForContext).not.toHaveBeenCalled();
+    expect((await getTwoPQFormForContext(fullAdminContext, form.id)).linkedCaseId).toBeNull();
+    expect((await listTwoPQFormsForContext(fullAdminContext, { availableForBiopsy: true })).forms).toMatchObject([
+      { id: planningRequestId, treatmentStart: { studyType: "pgtAFast" } },
+    ]);
+    await expect(createTwoPQFormForContext(fullAdminContext, treatmentStartInput)).rejects.toMatchObject({ statusCode: 409 });
+  });
+
+  it("rejects incorrect planning dates, times, and doctor scope before writing a treatment form", async () => {
+    const { createTwoPQFormForContext } = await import("../repositories/two-pq-forms.repository");
+    seedPlanningRequest();
+    for (const overrides of [
+      { pickupDate: "2026-09-01" },
+      { treatmentDate: "2026-08-31" },
+      { estimatedEmbryoCount: 0 },
+      { pickupWindowEnd: "08:00" },
+    ]) {
+      await expect(createTwoPQFormForContext(fullAdminContext, {
+        ...treatmentStartInput,
+        treatmentStart: { ...treatmentStartInput.treatmentStart, ...overrides },
+      })).rejects.toMatchObject({ statusCode: 400 });
+    }
+    await expect(createTwoPQFormForContext({
+      ...fullAdminContext,
+      role: "institution_doctor",
+      institutionId: "inst-1",
+      doctorId: "doctor-other",
+    }, treatmentStartInput)).rejects.toMatchObject({ statusCode: 403 });
+    expect(mockDocs.get(`2pq_forms/${planningRequestId}`)?.linkedTreatmentStartFormId).toBeNull();
+    expect(docsIn("pgflex_events")).toHaveLength(0);
+  });
+
+  it("gates new biopsies on treatment planning and links the saved biopsy, case, and pickup", async () => {
+    const { createTwoPQFormForContext } = await import("../repositories/two-pq-forms.repository");
+    seedPlanningRequest();
+    const biopsy = {
+      formType: "sample" as const,
+      linkedStudyRequestFormId: planningRequestId,
+      selectedPatientId: "patient-1",
+      patientInformation: {
+        institutionId: "inst-1", doctorId: "doctor-1", email: "patient@example.com", fullName: "Paciente Uno",
+      },
+      requestedTest: {
+        pgtAFast: true, pgtAFastReportsMosaicism: false, pgtAFastReportsSex: false,
+        pgtAStandard: false, pgtSr: false,
+      },
+      sampleInformation: {
+        sampleType: "biopsia de trofoectodermo", processedByFirstName: "Ana", processedByLastName: "Lab",
+        processDate: "2026-08-31", boxCode: "NEW", biopsyCount: "1",
+      },
+      caseInformation: { caseLabel: "NEWXXX", caseStatus: "intake" },
+      samplingInformation: [{
+        sampleId: "NEW-01", sampleType: "biopsia de trofoectodermo", processingStatus: "awaiting_reception",
+        embryoStageDay: "5", morphology: "AA", biopsiedCells: "6", cellsVisualized: true,
+      }],
+    };
+    await expect(createTwoPQFormForContext(fullAdminContext, biopsy)).rejects.toThrow(
+      "Save the treatment start form before submitting the biopsy form.",
+    );
+    expect(mockCreateTwoPQRecordForContext).not.toHaveBeenCalled();
+
+    const plan = await createTwoPQFormForContext(fullAdminContext, treatmentStartInput);
+    mockCreateTwoPQRecordForContext.mockImplementation(async (_context, area, input) => {
+      const record = { id: area === "cases" ? "case-planned" : "sample-planned", ...input };
+      if (area === "cases") {
+        mockDocs.set(`2pq_case/${record.id}`, { ...record, linkedStudyRequestFormId: planningRequestId });
+      }
+      return record;
+    });
+    const form = await createTwoPQFormForContext(fullAdminContext, biopsy);
+    expect(form).toMatchObject({
+      linkedTreatmentStartFormId: plan.id,
+      linkedCaseId: "case-planned",
+      transportEventId: plan.transportEventId,
+      pickup: { status: "confirmed", readyCaseCount: 1 },
+    });
+    expect(mockDocs.get(`2pq_forms/${plan.id}`)).toMatchObject({ linkedCaseId: "case-planned", linkedBiopsyForm: form.id });
+    expect(mockDocs.get(`2pq_forms/${planningRequestId}`)).toMatchObject({
+      linkedTreatmentStartFormId: plan.id, linkedBiopsyForm: form.id, "2pq_case": "case-planned",
+    });
+    expect(mockDocs.get("2pq_case/case-planned")).toMatchObject({
+      linkedTreatmentStartFormId: plan.id, linkedBiopsyForm: form.id, caseStatus: "awaiting_pick_up",
+    });
+    expect(mockSendTreatmentPickupEmail).toHaveBeenCalledWith("confirmed", expect.anything(), expect.anything());
   });
 
   it("stores a civil treatment estimate without a results deadline and initializes relationship fields", async () => {

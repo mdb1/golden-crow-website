@@ -10,6 +10,7 @@ import {
   getTwoPQForm,
   getTwoPQFormDraft,
   getTwoPQFormLookupData,
+  getTwoPQFormsPage,
 } from "@/lib/two-pq-server";
 
 jest.mock("next/navigation", () => ({
@@ -27,6 +28,7 @@ jest.mock("@/lib/two-pq-server", () => ({
   getTwoPQForm: jest.fn(),
   getTwoPQFormDraft: jest.fn(),
   getTwoPQFormLookupData: jest.fn(),
+  getTwoPQFormsPage: jest.fn(),
 }));
 
 const adminContext: AdminContextRecord = {
@@ -107,6 +109,38 @@ describe("new 2PQ form query preselection", () => {
     expect(props.initialLinkedStudyRequestFormId).toBe(studyRequest.id);
     expect(props.studyRequestForms).toEqual([studyRequest]);
     expect(props.initialWithdrawalCaseId).toBeUndefined();
+  });
+
+  it("opens treatment planning from a saved request without loading cases or unbounded lookups", async () => {
+    const requestWithoutCase = { ...studyRequest, "2pq_case": null };
+    jest.mocked(getTwoPQForm).mockResolvedValue(requestWithoutCase);
+    jest.mocked(getTwoPQFormsPage).mockResolvedValue({
+      forms: [],
+      nextCursor: "first-page-cursor",
+      hasMore: true,
+    });
+
+    const page = await NewTwoPQFormPage({
+      params: Promise.resolve({ formKind: "treatment-start" }),
+      searchParams: Promise.resolve({ linkedStudyRequestFormId: studyRequest.id }),
+    });
+
+    expect(getTwoPQFormsPage).toHaveBeenCalledWith({
+      formType: "study_request",
+      availableForTreatmentStart: true,
+      limit: 20,
+    });
+    expect(getTwoPQForm).toHaveBeenCalledWith(studyRequest.id);
+    expect(getTwoPQCase).not.toHaveBeenCalled();
+    expect(getTwoPQFormLookupData).not.toHaveBeenCalled();
+    expect(flowProps(page)).toMatchObject({
+      initialStudyRequestId: studyRequest.id,
+      initialRequestsPage: {
+        forms: [requestWithoutCase],
+        nextCursor: "first-page-cursor",
+        hasMore: true,
+      },
+    });
   });
 
   it("accepts caseId and studyRequestFormId and preselects the exact case in the withdrawal wizard", async () => {

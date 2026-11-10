@@ -33,6 +33,8 @@ export interface TwoPQRecord {
   patientId?: string;
   informedConsentId?: string | null;
   linkedStudyRequestFormId?: string | null;
+  linkedTreatmentStartFormId?: string | null;
+  linkedBiopsyForm?: string | null;
   parent_batch?: string;
   parent_case?: string;
   children_cases?: string[];
@@ -95,6 +97,8 @@ export type TwoPQMutableFieldKey = Exclude<
   | "areaKey"
   | "collectionKey"
   | "linkedStudyRequestFormId"
+  | "linkedTreatmentStartFormId"
+  | "linkedBiopsyForm"
   | "informedConsentId"
   | "parent_batch"
   | "parent_case"

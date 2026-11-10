@@ -17,6 +17,7 @@ import {
   listTwoPQStudyRequestCaseCandidatesForContext,
   updateTwoPQBiopsyStudyRequestLinkForContext,
   updateTwoPQBiopsyWithdrawalLinkForContext,
+  updateTwoPQFormPickupForContext,
   updateTwoPQStudyRequestBiopsyLinkForContext,
   updateTwoPQStudyRequestCaseLinkForContext,
   updateTwoPQStudyRequestWithdrawalLinkForContext,
@@ -260,6 +261,7 @@ const TwoPQSamplingInformationSchema = z.object({
 const TwoPQFormDraftStepSchema = z.enum([
   "linkedWithdrawalCases",
   "linkedStudyRequest",
+  "treatmentStart",
   "patientInformation",
   "medicalInformation",
   "previousGeneticTests",
@@ -272,6 +274,8 @@ const TwoPQFormDraftStepSchema = z.enum([
   "samplingInformation",
 ]);
 
+const TwoPQFormTypeSchema = z.enum(["study_request", "treatment_start", "sample", "withdrawal_request"]);
+
 const TwoPQFormMutationSchema = z.discriminatedUnion("formType", [
   z.object({
     formType: z.literal("study_request"),
@@ -282,6 +286,23 @@ const TwoPQFormMutationSchema = z.discriminatedUnion("formType", [
     previousGeneticTests: TwoPQPreviousGeneticTestsSchema,
     requestedTest: TwoPQRequestedTestSchema,
     institutionInformation: TwoPQInstitutionInformationSchema,
+  }),
+  z.object({
+    formType: z.literal("treatment_start"),
+    linkedStudyRequestFormId: z.string().trim().min(1),
+    groupWithTreatmentStartFormId: z.string().trim().min(1).optional(),
+    treatmentStart: z.object({
+      studyType: z.enum(["pgtAUltraFast", "pgtAFast", "pgtAStandard", "pgtSr"]),
+      treatmentDate: z.iso.date(),
+      estimatedBiopsyDate: z.iso.date(),
+      estimatedEmbryoCount: z.number().int().positive(),
+      pickupDate: z.iso.date(),
+      pickupWindowStart: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+      pickupWindowEnd: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+      pickupOrigin: z.string().trim().min(1),
+      pickupDestination: z.string().trim().min(1),
+      notes: z.string().optional(),
+    }),
   }),
   z.object({
     formType: z.literal("sample"),
@@ -303,8 +324,21 @@ const TwoPQFormMutationSchema = z.discriminatedUnion("formType", [
   }),
 ]);
 
+const TreatmentPickupPatchSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("cancel") }),
+  z.object({ action: z.literal("retry_notifications") }),
+  z.object({
+    action: z.literal("reschedule"),
+    pickupDate: z.iso.date(),
+    pickupWindowStart: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+    pickupWindowEnd: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+    pickupOrigin: z.string().trim().min(1),
+    pickupDestination: z.string().trim().min(1),
+  }),
+]);
+
 const TwoPQFormDraftMutationSchema = z.object({
-  formType: z.enum(["study_request", "sample", "withdrawal_request"]),
+  formType: TwoPQFormTypeSchema,
   currentStep: TwoPQFormDraftStepSchema,
   stepIndex: z.number().int().min(0),
   state: z.record(z.string(), z.unknown()),
@@ -332,18 +366,17 @@ const TwoPQBiopsyWithdrawalLinkMutationSchema = z.object({
 
 const TwoPQFormsQuerySchema = z.object({
   includeArchived: z.string().optional(),
-  formType: z
-    .enum(["study_request", "sample", "withdrawal_request"])
-    .optional(),
+  formType: TwoPQFormTypeSchema.optional(),
   limit: z.string().optional(),
   cursor: z.string().optional(),
   search: z.string().optional(),
   availableForBiopsy: z.string().optional(),
+  availableForTreatmentStart: z.string().optional(),
   createdFrom: z.string().optional(),
   createdTo: z.string().optional(),
   order: z.enum(["newest", "oldest"]).optional(),
   institution: z.string().optional(),
-  workflowStage: z.enum(["request", "biopsy", "withdrawal"]).optional(),
+  workflowStage: z.enum(["request", "treatment_start", "biopsy", "withdrawal"]).optional(),
   requestedStudyTest: z.enum(["pgtAUltraFast", "pgtAFast", "pgtAStandard", "pgtSr"]).optional(),
   treatmentFrom: z.iso.date().optional(),
   treatmentTo: z.iso.date().optional(),
@@ -508,6 +541,9 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
           availableForBiopsy: parseBooleanQueryFlag(
             request.query.availableForBiopsy,
           ),
+          availableForTreatmentStart: parseBooleanQueryFlag(
+            request.query.availableForTreatmentStart,
+          ),
           limit: parseQueryLimit(request.query.limit),
           cursor: request.query.cursor,
           search: request.query.search,
@@ -607,6 +643,32 @@ export async function twoPQRoutes(fastify: FastifyInstance): Promise<void> {
           request.query.search,
         );
         return reply.send({ cases });
+      } catch (error) {
+        return sendTwoPQRouteError(request, reply, error);
+      }
+    },
+  );
+
+  f.patch(
+    "/2pq/forms/:formId/pickup",
+    {
+      schema: {
+        params: z.object({ formId: z.string().trim().min(1) }),
+        body: TreatmentPickupPatchSchema,
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated admin context" });
+      }
+
+      try {
+        const pickup = await updateTwoPQFormPickupForContext(
+          request.adminContext,
+          request.params.formId,
+          request.body,
+        );
+        return reply.send({ pickup });
       } catch (error) {
         return sendTwoPQRouteError(request, reply, error);
       }

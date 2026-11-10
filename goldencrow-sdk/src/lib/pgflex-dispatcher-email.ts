@@ -237,3 +237,76 @@ export async function sendPGFlexLogisticsAssignmentEmail(
     buildPGFlexLogisticsAssignmentEmailMessage(recipient, item),
   );
 }
+
+export type TreatmentPickupEmailKind = "planned" | "confirmed" | "rescheduled" | "cancelled";
+
+export interface TreatmentPickupEmailDetails {
+  id: string;
+  identifier: string;
+  origin: string;
+  destination: string;
+  pickupDate: string;
+  pickupWindowStart: string;
+  pickupWindowEnd: string;
+  temperatureC: 4 | -20;
+  expectedCaseCount: number;
+  codes: string[];
+}
+
+const TREATMENT_PICKUP_EMAIL_COPY = {
+  planned: {
+    title: "Retiro 2PQ planificado",
+    message: "Reservá esta fecha y horario. Te avisaremos cuando las biopsias estén listas para retirar.",
+  },
+  confirmed: {
+    title: "Retiro 2PQ confirmado",
+    message: "Las biopsias están listas. Podés retirar el material en el horario indicado.",
+  },
+  rescheduled: {
+    title: "Plan de retiro 2PQ actualizado",
+    message: "Revisá la fecha, el horario y los destinos actualizados en PGFlex.",
+  },
+  cancelled: {
+    title: "Retiro 2PQ cancelado",
+    message: "Este retiro fue cancelado. Liberá el horario que tenías reservado.",
+  },
+} as const;
+
+export function buildTreatmentPickupEmailMessage(
+  kind: TreatmentPickupEmailKind,
+  recipient: PGFlexDispatcherEmailRecipient,
+  pickup: TreatmentPickupEmailDetails,
+): EmailMessage {
+  const { title, message } = TREATMENT_PICKUP_EMAIL_COPY[kind];
+  const date = pickup.pickupDate.split("-").reverse().join("/");
+  const url = pgflexLoginUrl(recipient.email, `${PGFLEX_LOGISTICS_PATH}/${encodeURIComponent(pickup.id)}`);
+  const details: [string, string][] = [
+    ["Retiro", pickup.identifier],
+    ["Origen", pickup.origin],
+    ["Destino", pickup.destination],
+    ["Horario local", `${date}, ${pickup.pickupWindowStart}–${pickup.pickupWindowEnd}`],
+    ["Temperatura", `${pickup.temperatureC} °C`],
+    ["Cantidad de casos", String(pickup.expectedCaseCount)],
+  ];
+  if (pickup.codes.length) details.push(["Códigos", pickup.codes.join(", ")]);
+  return {
+    to: recipient.email,
+    subject: `${title} · ${pickup.identifier}`,
+    text: [
+      `Hola ${displayName(recipient)},`, "", message, "",
+      ...details.map(([label, value]) => `${label}: ${value}`), "", `Abrir en PGFlex: ${url}`,
+    ].join("\n"),
+    html: `<h1>${escapeHtml(title)}</h1><p>Hola ${escapeHtml(displayName(recipient))},</p>` +
+      `<p>${escapeHtml(message)}</p><dl>${details.map(([label, value]) =>
+        `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd>`,
+      ).join("")}</dl><p><a href="${escapeHtml(url)}">Abrir en PGFlex</a></p>`,
+  };
+}
+
+export async function sendTreatmentPickupEmail(
+  kind: TreatmentPickupEmailKind,
+  recipient: PGFlexDispatcherEmailRecipient,
+  pickup: TreatmentPickupEmailDetails,
+) {
+  await sendGmailMessage(buildTreatmentPickupEmailMessage(kind, recipient, pickup));
+}

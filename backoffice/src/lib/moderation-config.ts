@@ -1315,7 +1315,7 @@ export function getChromeMetadata(pathname: string): ChromeMetadata {
 
     return {
       eyebrow: "2PQ",
-      title: "New form",
+      title: segments[2] === "treatment-start" ? "Treatment start form" : "New form",
       description: "Guided form flow stored in 2pq_forms.",
     };
   }

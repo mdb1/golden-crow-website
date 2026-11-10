@@ -17,6 +17,7 @@ import type {
   InstitutionListItem,
 } from "@/lib/admin-areas";
 import type { TwoPQListItem } from "@/lib/two-pq-areas";
+import { sdkFetch } from "@/lib/sdk-client";
 import type {
   TwoPQFormDraftRecord,
   TwoPQFormRecord,
@@ -224,6 +225,48 @@ describe("StudyRequestSelectionTable", () => {
       }),
     ).toBeChecked();
     expect(screen.getByText("Selected")).toBeInTheDocument();
+  });
+
+  it("starts a biopsy with the planned study type while retaining the original request", () => {
+    jest.mocked(sdkFetch).mockClear();
+    const plannedRequest: TwoPQFormRecord = {
+      ...studyRequest,
+      requiresTreatmentStart: true,
+      linkedTreatmentStartFormId: "FORM-00048",
+      treatmentStart: {
+        studyType: "pgtAFast",
+        treatmentDate: "2026-11-25",
+        estimatedBiopsyDate: "2026-11-29",
+        estimatedEmbryoCount: 4,
+        pickupDate: "2026-11-29",
+        pickupWindowStart: "09:00",
+        pickupWindowEnd: "11:00",
+        pickupOrigin: "Clínica Norte",
+        pickupDestination: "Laboratorio",
+        temperatureC: 4,
+      },
+    };
+    renderFlow(
+      <TwoPQFormFlow
+        formType="sample"
+        institutions={[institution]}
+        doctors={[doctor]}
+        patients={[]}
+        studyRequestForms={[plannedRequest]}
+        initialLinkedStudyRequestFormId={plannedRequest.id}
+      />,
+    );
+
+    const [, init] = jest.mocked(sdkFetch).mock.calls[0]!;
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      formType: "sample",
+      state: {
+        linkedStudyRequestFormId: plannedRequest.id,
+        requestedTest: { pgtAFast: "si", pgtAStandard: "no" },
+        caseInformation: { caseType: "PGT FAST", priority: "urgent" },
+      },
+    });
+    expect(plannedRequest.requestedTest).toEqual({ pgtAStandard: "si" });
   });
 
   it("initializes the withdrawal wizard with a query-selected 2PQ case", () => {

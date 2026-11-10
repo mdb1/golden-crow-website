@@ -1,3 +1,5 @@
+import type { TreatmentPickupSummary } from "../repositories/two-pq-pickup.repository.js";
+
 // SourceKey — matches report_codes.source field values
 export type SourceKey = "myDNAMap" | "ActyonGenomics" | "vcf" | "2pq";
 export type ModerationCollectionKey =
@@ -426,6 +428,7 @@ export type TwoPQCollectionKey =
 export type TwoPQFormDraftStepKey =
   | "linkedWithdrawalCases"
   | "linkedStudyRequest"
+  | "treatmentStart"
   | "patientInformation"
   | "medicalInformation"
   | "previousGeneticTests"
@@ -446,6 +449,9 @@ export interface TwoPQRecord {
   patientId?: string;
   informedConsentId?: string | null;
   linkedStudyRequestFormId?: string | null;
+  linkedTreatmentStartFormId?: string | null;
+  linkedBiopsyForm?: string | null;
+  transportEventId?: string | null;
   parent_batch?: string;
   parent_case?: string;
   children_cases?: string[];
@@ -556,7 +562,21 @@ export interface TwoPQDetailRecord {
   missingAssignedEntities: TwoPQMissingAssignedEntity[];
 }
 
-export type TwoPQFormType = "study_request" | "sample" | "withdrawal_request";
+export type TwoPQFormType = "study_request" | "treatment_start" | "sample" | "withdrawal_request";
+
+export interface TwoPQTreatmentStartInformation {
+  studyType: "pgtAUltraFast" | "pgtAFast" | "pgtAStandard" | "pgtSr";
+  treatmentDate: string;
+  estimatedBiopsyDate: string;
+  estimatedEmbryoCount: number;
+  pickupDate: string;
+  pickupWindowStart: string;
+  pickupWindowEnd: string;
+  pickupOrigin: string;
+  pickupDestination: string;
+  temperatureC: 4 | -20;
+  notes: string;
+}
 export type TwoPQBiopsyLinkState =
   | "none"
   | "cohesive"
@@ -595,6 +615,11 @@ export interface TwoPQFormRecord {
   maximumResultDeliveryAt?: string;
   estimatedTreatmentDate?: string;
   linkedStudyRequestFormId?: string | null;
+  linkedTreatmentStartFormId?: string | null;
+  requiresTreatmentStart?: boolean;
+  treatmentStart?: TwoPQTreatmentStartInformation;
+  transportEventId?: string | null;
+  pickup?: TreatmentPickupSummary;
   studyRequestForm?: string | null;
   suggestedStudyRequestForm?: string | null;
   studyRequestLinkState?: TwoPQStudyRequestLinkState;
@@ -610,7 +635,7 @@ export interface TwoPQFormRecord {
   linkedCaseIds?: string[];
   selectedCaseId?: string;
   selectedRequestingDoctorId?: string;
-  linkedCaseId?: string;
+  linkedCaseId?: string | null;
   linkedSamplingIds?: string[];
   patientInformation: Record<string, unknown>;
   medicalInformation?: Record<string, unknown>;
@@ -652,11 +677,11 @@ export interface TwoPQFormDraftRecord {
 }
 
 export type PGFlexLogisticsStatus =
-  "awaiting_pick_up" | "in_transit" | "arrived" | "lost";
+  "planned" | "confirmed" | "cancelled" | "awaiting_pick_up" | "in_transit" | "arrived" | "lost";
 
 export type PGFlexLogisticsShipmentType = "2pq" | "other";
 
-export type PGFlexLogisticsListScope = "active" | "finished";
+export type PGFlexLogisticsListScope = "planned" | "active" | "finished";
 
 export interface PGFlexLogisticsRecord {
   id: string;
@@ -671,6 +696,13 @@ export interface PGFlexLogisticsRecord {
   destination: string;
   timeRequested: string;
   pickupTime?: string;
+  pickupDate?: string;
+  pickupWindowStart?: string;
+  pickupWindowEnd?: string;
+  temperatureC?: 4 | -20;
+  expectedCaseCount?: number;
+  readyCaseCount?: number;
+  source?: string;
   status: PGFlexLogisticsStatus;
   item_was_picked_date_at?: string;
   item_was_delivered_at?: string;

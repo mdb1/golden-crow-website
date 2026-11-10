@@ -70,6 +70,7 @@ import {
   type TwoPQListItem,
 } from "@/lib/two-pq-areas";
 import {
+  canUseStudyRequestForBiopsy,
   formatBiopsySampleIdForDisplay,
   normalizeObservationsValue,
   shouldShowAutomaticPatientPortalAccessStep,
@@ -86,6 +87,8 @@ import {
   type TwoPQFormDraftStepKey,
   type TwoPQFormRecord,
   type TwoPQFormType,
+  type TwoPQWizardFormDraftRecord,
+  type TwoPQWizardFormType,
 } from "@/lib/two-pq-forms";
 import { REQUESTED_STUDY_TEST_OPTIONS } from "@/lib/two-pq-requested-test";
 import { formatTwoPQCivilDate } from "@/lib/two-pq-study-summary";
@@ -1453,7 +1456,7 @@ function mergeSamplingInformationDraft(
 
 function hydrateDraftState(
   defaultState: FlowState,
-  draft: TwoPQFormDraftRecord | null | undefined,
+  draft: TwoPQWizardFormDraftRecord | null | undefined,
 ): FlowState {
   if (!draft?.state || !isRecord(draft.state)) {
     return defaultState;
@@ -1559,7 +1562,7 @@ function withDefaultObservations(
 }
 
 function resolveDraftStepIndex(
-  draft: TwoPQFormDraftRecord | null | undefined,
+  draft: TwoPQWizardFormDraftRecord | null | undefined,
   steps: StepKey[],
 ) {
   if (!draft) {
@@ -2477,13 +2480,16 @@ function withLinkedStudyRequestSelection(
   const linkedPatientId =
     linkedForm.selectedPatientId ||
     stringField(linkedForm.patientInformation, "patientId");
-  const linkedRequestedTest = requestedTestToFormState(
+  const originalRequestedTest = requestedTestToFormState(
     {
       ...linkedForm.requestedTest,
       estimatedTreatmentDate: linkedForm.estimatedTreatmentDate ?? linkedForm.requestedTest?.estimatedTreatmentDate,
     },
     buildInitialState(defaultInstitutionId, defaultDoctorId).requestedTest,
   );
+  const linkedRequestedTest = linkedForm.treatmentStart
+    ? withRequestedStudyTestSelection(originalRequestedTest, linkedForm.treatmentStart.studyType)
+    : originalRequestedTest;
   const linkedRequestedTestKey = selectedRequestedTestKey(linkedRequestedTest);
   const linkedCaseType = caseTypeForRequestedTestKey(linkedRequestedTestKey);
 
@@ -3366,7 +3372,7 @@ export function TwoPQFormFlow({
   initialLinkedStudyRequestFormId,
   initialWithdrawalCaseId,
 }: {
-  formType: TwoPQFormType;
+  formType: TwoPQWizardFormType;
   institutions: InstitutionListItem[];
   doctors: DoctorListItem[];
   patients: PatientListItem[];
@@ -3380,11 +3386,11 @@ export function TwoPQFormFlow({
   const { language } = useAppLanguage();
   const router = useRouter();
   const t = (text: string) => appText(language, text);
-  const availableStudyRequestForms = studyRequestForms.filter(
-    (form) => !form.linkedBiopsyForm,
-  );
+  const availableStudyRequestForms = studyRequestForms.filter(canUseStudyRequestForBiopsy);
   const matchingDraft =
-    initialDraft?.formType === formType ? initialDraft : null;
+    initialDraft?.formType !== "treatment_start" && initialDraft?.formType === formType
+      ? initialDraft
+      : null;
   const scopedInstitutionId =
     isInstitutionManagerRole(adminContext.role) ||
     adminContext.role === "institution_doctor"
@@ -3525,7 +3531,7 @@ export function TwoPQFormFlow({
       !matchingDraft && initialLinkedStudyRequestFormId
         ? studyRequestForms.find(
             (form) =>
-              !form.linkedBiopsyForm &&
+              canUseStudyRequestForBiopsy(form) &&
               form.id === initialLinkedStudyRequestFormId,
           )
         : undefined;
@@ -5590,7 +5596,9 @@ export function TwoPQFormFlow({
       });
       await wait(700);
       router.push(
-        `/2pq-dashboard/forms?createdId=${response.form.id}&createdType=${formType}`,
+        formType === "sample" && response.form.transportEventId
+          ? `/2pq-dashboard/forms/${encodeURIComponent(response.form.id)}?pickup=1#pickup-confirmation`
+          : `/2pq-dashboard/forms?createdId=${encodeURIComponent(response.form.id)}&createdType=${formType}`,
       );
       router.refresh();
     } catch (error) {

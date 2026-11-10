@@ -58,6 +58,8 @@ describe("2PQ dashboard form access", () => {
         .toHaveAttribute("href", "/2pq-dashboard/forms/sample/new");
       expect(screen.getByRole("link", { name: "Completar formulario de solicitud de estudio" }))
         .toHaveAttribute("href", "/2pq-dashboard/forms/study-request/new");
+      expect(screen.getByRole("link", { name: "Completar formulario de inicio de tratamiento" }))
+        .toHaveAttribute("href", "/2pq-dashboard/forms/treatment-start/new");
       expect(screen.getByRole("link", { name: "Completar formulario de solicitud de retiro" }))
         .toHaveAttribute("href", "/2pq-dashboard/forms/withdrawal-request/new");
       expect(screen.getByRole("link", { name: /Continuar desde borrador/i }))

@@ -29,8 +29,9 @@ describe("getTwoPQFormLookupData", () => {
       ) {
         return {
           forms: [
-            { id: "FORM-00047", linkedBiopsyForm: null },
-            { id: "FORM-00048", linkedBiopsyForm: "FORM-00055" },
+            { id: "FORM-00047", formType: "study_request", linkedBiopsyForm: null },
+            { id: "FORM-00048", formType: "study_request", linkedBiopsyForm: "FORM-00055" },
+            { id: "FORM-00049", formType: "study_request", requiresTreatmentStart: true },
           ],
         };
       }
@@ -43,7 +44,7 @@ describe("getTwoPQFormLookupData", () => {
     });
 
     expect(result.studyRequestForms).toEqual([
-      { id: "FORM-00047", linkedBiopsyForm: null },
+      { id: "FORM-00047", formType: "study_request", linkedBiopsyForm: null },
     ]);
     expect(mockSdkFetchServer).toHaveBeenCalledWith(
       "/2pq/forms?formType=study_request&availableForBiopsy=1&limit=20",

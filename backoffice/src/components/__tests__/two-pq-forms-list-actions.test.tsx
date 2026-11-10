@@ -43,6 +43,7 @@ const form: TwoPQFormRecord = {
   collectionKey: "2pq_forms",
   institutionId: "INST-00001",
   doctorId: "DOC-00001",
+  selectedPatientId: "PAT-00001",
   patientName: "Ada Patient",
   patientEmail: "ada@example.com",
   requestedTestName: "PGT-A",
@@ -171,6 +172,7 @@ describe("TwoPQFormsList actions", () => {
     const user = userEvent.setup();
     const coJoinedForm = {
       ...form,
+      linkedTreatmentStartFormId: "FORM-00004",
       linkedBiopsyForm: "FORM-00002",
       linkedWithdrawalRequest: "FORM-00003",
       "2pq_case": "CASE-00025",
@@ -198,12 +200,17 @@ describe("TwoPQFormsList actions", () => {
       "data-state",
       "linked",
     );
-    expect(screen.getByLabelText("Biopsy: Linked")).toHaveTextContent("2");
+    expect(screen.getByLabelText("Treatment start: Linked")).toHaveTextContent("2");
+    expect(screen.getByLabelText("Treatment start: Linked")).toHaveAttribute(
+      "href",
+      "/2pq-dashboard/forms/FORM-00004",
+    );
+    expect(screen.getByLabelText("Biopsy: Linked")).toHaveTextContent("3");
     expect(screen.getByLabelText("Biopsy: Linked")).toHaveAttribute(
       "data-state",
       "linked",
     );
-    expect(screen.getByLabelText("Withdrawal: Linked")).toHaveTextContent("3");
+    expect(screen.getByLabelText("Withdrawal: Linked")).toHaveTextContent("4");
     expect(screen.getByLabelText("Withdrawal: Linked")).toHaveAttribute(
       "data-state",
       "linked",
@@ -239,36 +246,50 @@ describe("TwoPQFormsList actions", () => {
     );
   });
 
-  it("shows empty biopsy and withdrawal circles when those forms are absent", () => {
-    renderList([form], "full_admin", "study_request_cojoined");
+  it("opens a prefilled treatment start before offering the biopsy", () => {
+    renderList([{ ...form, requiresTreatmentStart: true }], "full_admin", "study_request_cojoined");
 
     expect(screen.getByLabelText("Request: Linked")).toBeInTheDocument();
-    expect(screen.getByLabelText("Biopsy: Not linked")).toHaveTextContent("2");
+    expect(screen.getByLabelText("Treatment start: Not linked")).toHaveTextContent("2");
+    expect(screen.getByRole("link", { name: "Complete Treatment start" })).toHaveAttribute(
+      "href",
+      "/2pq-dashboard/forms/treatment-start/new?linkedStudyRequestFormId=FORM-00001",
+    );
+    expect(screen.getByLabelText("Biopsy: Not linked")).toHaveTextContent("3");
     expect(screen.getByLabelText("Biopsy: Not linked")).toHaveAttribute(
       "data-state",
       "empty",
     );
     expect(screen.getByLabelText("Withdrawal: Not linked")).toHaveTextContent(
-      "3",
+      "4",
     );
     expect(screen.getByLabelText("Withdrawal: Not linked")).toHaveAttribute(
       "data-state",
       "empty",
     );
-    const biopsySegment = screen.getByLabelText("Biopsy: Not linked");
-    const biopsyAction = within(biopsySegment).getByRole("link", {
-      name: "Complete Biopsy",
-    });
-    expect(biopsyAction).toHaveTextContent(/^Complete$/);
-    expect(biopsyAction).toHaveAttribute(
-      "href",
-      "/2pq-dashboard/forms/sample/new?studyRequestFormId=FORM-00001",
-    );
+    expect(screen.queryByRole("link", { name: "Complete Biopsy" })).not.toBeInTheDocument();
     expect(
       within(screen.getByLabelText("Withdrawal: Not linked")).queryByRole(
         "link",
       ),
     ).not.toBeInTheDocument();
+  });
+
+  it("opens the prefilled biopsy after treatment planning is saved", () => {
+    renderList(
+      [{ ...form, requiresTreatmentStart: true, linkedTreatmentStartFormId: "FORM-00004" }],
+      "full_admin",
+      "study_request_cojoined",
+    );
+
+    expect(screen.getByLabelText("Treatment start: Linked")).toHaveAttribute(
+      "href",
+      "/2pq-dashboard/forms/FORM-00004",
+    );
+    expect(screen.getByRole("link", { name: "Complete Biopsy" })).toHaveAttribute(
+      "href",
+      "/2pq-dashboard/forms/sample/new?studyRequestFormId=FORM-00001",
+    );
   });
 
   it("links a study and biopsy row to a prefilled withdrawal form", () => {
@@ -293,6 +314,7 @@ describe("TwoPQFormsList actions", () => {
       "data-state",
       "linked",
     );
+    expect(screen.queryByRole("link", { name: "Complete Treatment start" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("Withdrawal: Not linked")).toHaveAttribute(
       "data-state",
       "empty",
@@ -306,6 +328,25 @@ describe("TwoPQFormsList actions", () => {
       "href",
       "/2pq-dashboard/forms/withdrawal-request/new?studyRequestFormId=FORM-00001&caseId=CASE-00025",
     );
+  });
+
+  it("links stage four to managed pickup confirmation instead of a second withdrawal", () => {
+    renderList([{
+      ...form,
+      linkedTreatmentStartFormId: "FORM-00004",
+      linkedBiopsyForm: "FORM-00002",
+      transportEventId: "pickup-1",
+      pickup: {
+        id: "pickup-1", status: "confirmed", expectedCaseCount: 1, readyCaseCount: 1,
+        pickupDate: "2026-11-30", pickupWindowStart: "09:00", pickupWindowEnd: "11:00",
+        origin: "Clinic", destination: "Lab", temperatureC: 4, canManage: false,
+      },
+    }], "full_admin", "study_request_cojoined");
+
+    expect(screen.getByRole("link", { name: "Withdrawal: Confirmed pickup" })).toHaveAttribute(
+      "href", "/2pq-dashboard/forms/FORM-00002#pickup-confirmation",
+    );
+    expect(screen.queryByRole("link", { name: "Complete Withdrawal" })).not.toBeInTheDocument();
   });
 
   it.each(["study_request", "all"] as const)(

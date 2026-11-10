@@ -81,6 +81,7 @@ import {
   type PGFlexTransportDispatcherOption,
 } from "@/lib/pgflex-logistics";
 import { sdkFetch } from "@/lib/sdk-client";
+import { formatTwoPQCivilDate } from "@/lib/two-pq-study-summary";
 import { cn } from "@/lib/utils";
 
 const UNASSIGNED_DISPATCHER_VALUE = "__unassigned__";
@@ -173,7 +174,7 @@ function normalizeLinkedCode(value: string) {
 }
 
 function dispatcherActionForStatus(status: PGFlexLogisticsStatus) {
-  if (status === "awaiting_pick_up") {
+  if (status === "awaiting_pick_up" || status === "confirmed") {
     return {
       nextStatus: "in_transit" as const,
       label: "Mark as picked up",
@@ -296,20 +297,29 @@ function DispatcherReadOnlyField({
   );
 }
 
+const markLostAction = {
+  nextStatus: "lost",
+  label: "Mark as lost",
+  savingLabel: "Saving status...",
+  Icon: AlertTriangle,
+} as const;
+
 type OperationalAdvanceAction = NonNullable<
   ReturnType<typeof dispatcherActionForStatus>
->;
+> | typeof markLostAction;
 
 function PGFlexOperationalAdvanceDock({
   action,
   canUpdate,
   onAdvance,
+  onReportLost,
   pending,
   t,
 }: {
   action: OperationalAdvanceAction;
   canUpdate: boolean;
   onAdvance: (nextStatus: PGFlexLogisticsStatus) => void;
+  onReportLost?: () => void;
   pending: "save" | "delete" | null;
   t: (text: string) => string;
 }) {
@@ -319,7 +329,13 @@ function PGFlexOperationalAdvanceDock({
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 md:px-0">
       <div className="pointer-events-auto mx-auto md:ml-[calc(var(--sidebar-width)+1rem)] md:mr-6 lg:mr-8">
         <div className="rounded-[1.7rem] border border-white/12 bg-background/72 p-4 shadow-[0_-10px_38px_rgba(7,16,24,0.12),0_20px_48px_rgba(7,16,24,0.18)] backdrop-blur-2xl supports-[backdrop-filter]:bg-background/54">
-          <div className="flex justify-end">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {onReportLost ? (
+              <Button variant="outline" onClick={onReportLost} disabled={!canUpdate || pending !== null}>
+                <AlertTriangle className="size-4" />
+                {t("Mark as lost")}
+              </Button>
+            ) : null}
             <Button
               onClick={() => onAdvance(action.nextStatus)}
               disabled={!canUpdate || pending !== null}
@@ -341,6 +357,7 @@ function PGFlexOperationalAdvanceDock({
 
 function PGFlexOperationalAdvanceConfirmationDialog({
   action,
+  managedPickup = false,
   onConfirm,
   onOpenChange,
   open,
@@ -348,6 +365,7 @@ function PGFlexOperationalAdvanceConfirmationDialog({
   t,
 }: {
   action: OperationalAdvanceAction | null;
+  managedPickup?: boolean;
   onConfirm: () => void;
   onOpenChange: (open: boolean) => void;
   open: boolean;
@@ -366,7 +384,9 @@ function PGFlexOperationalAdvanceConfirmationDialog({
           <AlertDialogTitle>{t("Are you sure?")}</AlertDialogTitle>
           <AlertDialogDescription>
             {t(
-              "This action is irreversible. It will log the time and notify the client.",
+              managedPickup
+                ? "This action records the new transport status for this pickup."
+                : "This action is irreversible. It will log the time and notify the client.",
             )}
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -403,8 +423,11 @@ export function PGFlexLogisticsForm({
   const router = useRouter();
   const isFullAdmin = isGlobalAdminRole(adminContext.role);
   const isTransportDispatcher = adminContext.role === "transport_dispatcher";
-  const canUpdate = mode === "create" ? isFullAdmin : Boolean(item?.canUpdate);
-  const canEditAllFields = isFullAdmin;
+  const isTreatmentPickup = item?.source === "2pq_treatment_start";
+  const canUpdate = mode === "create"
+    ? isFullAdmin
+    : Boolean(item?.canUpdate && item.status !== "planned" && item.status !== "cancelled");
+  const canEditAllFields = isFullAdmin && !isTreatmentPickup;
   const sourceState = useMemo(() => toFormState(item), [item]);
   const sourceOriginParts = useMemo(
     () => splitPGFlexRouteOrigin(sourceState.origin),
@@ -434,7 +457,7 @@ export function PGFlexLogisticsForm({
       sdkFetch<{ dispatchers: PGFlexTransportDispatcherOption[] }>(
         "/roles/transport-dispatchers/options",
       ),
-    enabled: isFullAdmin,
+    enabled: canEditAllFields,
     staleTime: 60_000,
   });
   const dispatcherOptions = dispatcherOptionsPayload?.dispatchers ?? [];
@@ -739,7 +762,7 @@ export function PGFlexLogisticsForm({
     }
   }
 
-  if (mode === "edit" && item && isTransportDispatcher) {
+  if (mode === "edit" && item && (isTransportDispatcher || isTreatmentPickup)) {
     const linkedCodes = linkedCodesFromCsv(item.linked_codes);
 
     return (
@@ -753,6 +776,7 @@ export function PGFlexLogisticsForm({
         <ActionToast toast={toast} onDismiss={() => setToast(null)} />
         <PGFlexOperationalAdvanceConfirmationDialog
           action={operationalAdvanceConfirmation}
+          managedPickup={isTreatmentPickup}
           onConfirm={() => void handleConfirmOperationalAdvance()}
           onOpenChange={(open) => {
             if (!open && pending === null) {
@@ -774,6 +798,7 @@ export function PGFlexLogisticsForm({
           <span className="font-mono text-xs text-muted-foreground">
             {item.id}
           </span>
+          {isTreatmentPickup ? <HeaderUnclutterButton /> : null}
         </div>
 
         <section className="glass-panel flex flex-col gap-6 px-5 py-5">
@@ -823,6 +848,30 @@ export function PGFlexLogisticsForm({
               label={t("Status")}
               value={t(getPGFlexStatusLabel(item.status))}
             />
+            {item.pickupDate ? (
+              <DispatcherReadOnlyField
+                label={t("Expected pickup date")}
+                value={formatTwoPQCivilDate(item.pickupDate, language)}
+              />
+            ) : null}
+            {item.pickupWindowStart && item.pickupWindowEnd ? (
+              <DispatcherReadOnlyField
+                label={t("Pickup window")}
+                value={`${item.pickupWindowStart} – ${item.pickupWindowEnd}`}
+              />
+            ) : null}
+            {item.expectedCaseCount !== undefined ? (
+              <DispatcherReadOnlyField
+                label={t("Cases ready for pickup")}
+                value={`${item.readyCaseCount ?? 0} / ${item.expectedCaseCount}`}
+              />
+            ) : null}
+            {item.temperatureC !== undefined ? (
+              <DispatcherReadOnlyField
+                label={t("Transport temperature")}
+                value={`${item.temperatureC} °C`}
+              />
+            ) : null}
             {item.item_was_picked_date_at ? (
               <DispatcherReadOnlyField
                 label={t("Picked up at")}
@@ -857,6 +906,7 @@ export function PGFlexLogisticsForm({
             action={operationalAdvanceAction}
             canUpdate={canUpdate}
             onAdvance={handleOperationalAdvanceRequest}
+            onReportLost={isTreatmentPickup ? () => setOperationalAdvanceConfirmation(markLostAction) : undefined}
             pending={pending}
             t={t}
           />

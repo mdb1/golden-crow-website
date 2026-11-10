@@ -1,6 +1,8 @@
 import type { AdminRole } from "@/lib/admin-areas";
+import type { RequestedStudyTestKey } from "@/lib/two-pq-requested-test";
 
-export type TwoPQFormType = "study_request" | "sample" | "withdrawal_request";
+export type TwoPQWizardFormType = "study_request" | "sample" | "withdrawal_request";
+export type TwoPQFormType = TwoPQWizardFormType | "treatment_start";
 export type TwoPQBiopsyLinkState =
   | "none"
   | "cohesive"
@@ -116,6 +118,43 @@ export type RequestedTestFormState = {
   estimatedTreatmentDate: string;
 };
 
+export type TwoPQTreatmentStartInput = {
+  studyType: RequestedStudyTestKey;
+  treatmentDate: string;
+  estimatedBiopsyDate: string;
+  estimatedEmbryoCount: number;
+  pickupDate: string;
+  pickupWindowStart: string;
+  pickupWindowEnd: string;
+  pickupOrigin: string;
+  pickupDestination: string;
+  notes?: string;
+};
+
+export type TwoPQTreatmentStartInformation = TwoPQTreatmentStartInput & {
+  temperatureC: 4 | -20;
+};
+
+type TwoPQPickupEmailStatus = "pending" | "sending" | "sent" | "failed" | "unassigned";
+
+export type TwoPQPickupSummary = {
+  id: string;
+  status: "planned" | "confirmed" | "cancelled" | "in_transit" | "arrived" | "lost";
+  expectedCaseCount: number;
+  readyCaseCount: number;
+  estimatedBiopsyDate?: string;
+  pickupDate: string;
+  pickupWindowStart: string;
+  pickupWindowEnd: string;
+  origin: string;
+  destination: string;
+  temperatureC: 4 | -20;
+  plannedEmailStatus?: TwoPQPickupEmailStatus;
+  confirmedEmailStatus?: TwoPQPickupEmailStatus;
+  latestEmailStatus?: TwoPQPickupEmailStatus;
+  canManage: boolean;
+};
+
 export type SampleInformationFormState = {
   fivCenter: string;
   centerCode: string;
@@ -205,7 +244,12 @@ export interface TwoPQFormRecord {
   requestedTestName?: string;
   maximumResultDeliveryAt?: string;
   estimatedTreatmentDate?: string;
+  requiresTreatmentStart?: boolean;
   linkedStudyRequestFormId?: string | null;
+  linkedTreatmentStartFormId?: string | null;
+  treatmentStart?: TwoPQTreatmentStartInformation;
+  transportEventId?: string | null;
+  pickup?: TwoPQPickupSummary | null;
   studyRequestForm?: string | null;
   suggestedStudyRequestForm?: string | null;
   studyRequestLinkState?: TwoPQStudyRequestLinkState;
@@ -221,7 +265,7 @@ export interface TwoPQFormRecord {
   linkedCaseIds?: string[];
   selectedCaseId?: string;
   selectedRequestingDoctorId?: string;
-  linkedCaseId?: string;
+  linkedCaseId?: string | null;
   linkedSamplingIds?: string[];
   patientInformation: Record<string, unknown>;
   medicalInformation?: Record<string, unknown>;
@@ -253,13 +297,10 @@ export interface TwoPQFormsPage {
   hasMore: boolean;
 }
 
-export interface TwoPQFormDraftRecord {
+interface TwoPQFormDraftMetadata {
   id: string;
-  formType: TwoPQFormType;
   collectionKey: "2pq-form-drafts";
-  currentStep: TwoPQFormDraftStepKey;
   stepIndex: number;
-  state: TwoPQFormDraftState;
   createdAt: string;
   updatedAt: string;
   authorEmail?: string;
@@ -270,14 +311,34 @@ export interface TwoPQFormDraftRecord {
   updatedByUid?: string;
 }
 
+export interface TwoPQWizardFormDraftRecord extends TwoPQFormDraftMetadata {
+  formType: TwoPQWizardFormType;
+  currentStep: TwoPQFormDraftStepKey;
+  state: TwoPQFormDraftState;
+}
+
+export interface TwoPQTreatmentStartDraftRecord extends TwoPQFormDraftMetadata {
+  formType: "treatment_start";
+  currentStep: "treatmentStart";
+  state: {
+    linkedStudyRequestFormId: string;
+    groupWithTreatmentStartFormId?: string;
+    treatmentStart: Partial<TwoPQTreatmentStartInput>;
+  };
+}
+
+export type TwoPQFormDraftRecord = TwoPQWizardFormDraftRecord | TwoPQTreatmentStartDraftRecord;
+
 export const TWO_PQ_FORM_LABELS: Record<TwoPQFormType, string> = {
   study_request: "Solicitud de estudio",
+  treatment_start: "Formulario de inicio de tratamiento",
   sample: "Formulario de biopsias",
   withdrawal_request: "Solicitud de retiro",
 };
 
 export const TWO_PQ_FORM_ROUTES: Record<TwoPQFormType, string> = {
   study_request: "/2pq-dashboard/forms/study-request/new",
+  treatment_start: "/2pq-dashboard/forms/treatment-start/new",
   sample: "/2pq-dashboard/forms/sample/new",
   withdrawal_request: "/2pq-dashboard/forms/withdrawal-request/new",
 };
@@ -306,9 +367,48 @@ export function shouldShowAutomaticPatientPortalAccessStep(
 
 export function getTwoPQFormTypeFromSlug(slug: string): TwoPQFormType | null {
   if (slug === "study-request") return "study_request";
+  if (slug === "treatment-start") return "treatment_start";
   if (slug === "sample") return "sample";
   if (slug === "withdrawal-request") return "withdrawal_request";
   return null;
+}
+
+export function canPlanTreatmentForStudyRequest(form: TwoPQFormRecord) {
+  return (
+    form.formType === "study_request" &&
+    !form.archivedAt &&
+    !form.linkedTreatmentStartFormId &&
+    !form.linkedBiopsyForm &&
+    !form.suggestedBiopsyForm &&
+    !form.linkedWithdrawalRequest &&
+    !form.suggestedWithdrawalRequest &&
+    !form["2pq_case"] &&
+    Boolean(form.institutionId && form.doctorId && (
+      form.selectedPatientId || getStringField(form.patientInformation, "patientId")
+    ))
+  );
+}
+
+export function canUseStudyRequestForBiopsy(form: TwoPQFormRecord) {
+  return (
+    form.formType === "study_request" &&
+    !form.archivedAt &&
+    !form.linkedBiopsyForm &&
+    (!form.requiresTreatmentStart || Boolean(form.treatmentStart))
+  );
+}
+
+export function canGroupWithTwoPQPickup(
+  form: TwoPQFormRecord,
+  institutionId: string,
+): form is TwoPQFormRecord & { pickup: TwoPQPickupSummary } {
+  return (
+    form.formType === "treatment_start" &&
+    !form.archivedAt &&
+    form.institutionId === institutionId &&
+    form.pickup?.status === "planned" &&
+    form.pickup.temperatureC === -20
+  );
 }
 
 type FormDisplayLanguage = "en" | "es";

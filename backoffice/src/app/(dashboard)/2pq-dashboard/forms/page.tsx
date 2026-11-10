@@ -34,6 +34,7 @@ function formTypeFromParam(
 ): TwoPQFormType | undefined {
   const normalized = one(value);
   return normalized === "study_request" ||
+    normalized === "treatment_start" ||
     normalized === "sample" ||
     normalized === "withdrawal_request"
     ? normalized
@@ -163,7 +164,7 @@ export default async function TwoPQFormsPage({
             eyebrow="2PQ"
             title={t("Forms")}
             description={t(
-              "Stored 2PQ study request, biopsy, and withdrawal forms.",
+              "Stored 2PQ study requests, treatment starts, biopsies, and withdrawal forms.",
             )}
             actions={renderPageActions()}
           />

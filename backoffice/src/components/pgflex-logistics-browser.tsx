@@ -24,6 +24,7 @@ import {
   type PGFlexLogisticsPage,
 } from "@/lib/pgflex-logistics";
 import { cn } from "@/lib/utils";
+import { formatTwoPQCivilDate } from "@/lib/two-pq-study-summary";
 
 function buildLogisticsPath(
   scope: PGFlexLogisticsListScope,
@@ -183,7 +184,7 @@ export function PGFlexLogisticsBrowser({
           <Tabs value={scope} onValueChange={handleScopeChange}>
             <TabsList
               aria-label={t("Dispatch status group")}
-              className="grid h-11 w-full grid-cols-2 sm:w-80"
+              className="grid h-11 w-full grid-cols-3 sm:w-96"
             >
               {PGFLEX_LOGISTICS_SCOPE_OPTIONS.map((option) => (
                 <TabsTrigger
@@ -228,11 +229,15 @@ export function PGFlexLogisticsBrowser({
           </div>
         ) : (
           filteredItems.map((item) => {
-            const requestedAt =
+            const pickupSchedule = [
+              item.pickupDate && formatTwoPQCivilDate(item.pickupDate, language),
+              item.pickupWindowStart && item.pickupWindowEnd && `${item.pickupWindowStart} – ${item.pickupWindowEnd}`,
+            ].filter(Boolean).join(" · ");
+            const requestedAt = pickupSchedule || (
               formatPGFlexReadableDateTime(item.timeRequested) ??
               item.timeRequested ??
               formatPGFlexReadableDateTime(item.pickupTime) ??
-              item.pickupTime;
+              item.pickupTime);
 
             return (
               <Link
@@ -259,6 +264,13 @@ export function PGFlexLogisticsBrowser({
                     {item.description ? (
                       <p className="mt-1.5 text-sm leading-5 text-muted-foreground">
                         {item.description}
+                      </p>
+                    ) : null}
+
+                    {item.expectedCaseCount !== undefined ? (
+                      <p className="mt-1.5 text-sm text-muted-foreground">
+                        {t("Cases ready for pickup")} {item.readyCaseCount ?? 0} / {item.expectedCaseCount}
+                        {item.temperatureC !== undefined ? ` · ${item.temperatureC} °C` : ""}
                       </p>
                     ) : null}
 
