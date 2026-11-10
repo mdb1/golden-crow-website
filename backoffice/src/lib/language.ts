@@ -20,6 +20,23 @@ export function toggleAppLanguage(language: AppLanguage): AppLanguage {
 }
 
 const SPANISH_TEXT: Record<string, string> = {
+  Partners: "Partners",
+  "New partner": "Nuevo partner",
+  "Edit partner": "Editar partner",
+  "Back to Partners": "Volver a Partners",
+  "Company name": "Nombre de la empresa",
+  "Phone number": "Número de teléfono",
+  "Meeting date": "Fecha de reunión",
+  "Select partner": "Seleccionar partner",
+  "Select loaded partners": "Seleccionar partners cargados",
+  "Select up to 500 partners at a time.": "Seleccioná hasta 500 partners por vez.",
+  "Loading partners...": "Cargando partners...",
+  "No partners yet.": "Todavía no hay partners.",
+  "Delete selected partners?": "¿Eliminar los partners seleccionados?",
+  "These contacts will be permanently deleted. This cannot be undone.": "Estos contactos se eliminarán de forma permanente. Esta acción no se puede deshacer.",
+  "Could not load partners.": "No se pudieron cargar los partners.",
+  "Could not delete partners.": "No se pudieron eliminar los partners.",
+  "Could not save partner.": "No se pudo guardar el partner.",
   "Golden Crow": "Golden Crow",
   "Pocket Gyms": "Pocket Gyms",
   Corvo: "Corvo",

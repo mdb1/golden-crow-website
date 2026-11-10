@@ -141,6 +141,18 @@ describe("AppSidebar PGFlex section", () => {
 });
 
 describe("AppSidebar GOD MODE actions", () => {
+  it("places Partners immediately below Apps and limits it to GOD MODE", () => {
+    pathname = "/god-mode/partners/one/edit";
+    const view = renderSidebar(godModeContext);
+    const apps = screen.getByRole("link", { name: /^Apps$/ });
+    const partners = screen.getByRole("link", { name: /^Partners$/ });
+    expect(partners).toHaveAttribute("href", "/god-mode/partners");
+    expect(apps.closest("li")?.nextElementSibling).toBe(partners.closest("li"));
+    expect(partners).toHaveAttribute("data-active", "true");
+    view.unmount();
+    renderSidebar(fullAdminContext);
+    expect(screen.queryByRole("link", { name: /^Partners$/ })).not.toBeInTheDocument();
+  });
   it("shows the global Apps section only in GOD MODE", () => {
     const godModeRender = renderSidebar(godModeContext);
     expect(screen.getByRole("link", { name: /^Apps$/ })).toHaveAttribute(

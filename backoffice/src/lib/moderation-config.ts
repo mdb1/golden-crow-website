@@ -1758,6 +1758,15 @@ export function getChromeMetadata(pathname: string): ChromeMetadata {
   if (pathname === "/god-mode/apps") {
     return { eyebrow: "GOD MODE", title: "Apps", description: "All publisher app configurations." };
   }
+  if (pathname === "/god-mode/partners/new") {
+    return { eyebrow: "GOD MODE", title: "New partner", description: "Create a partner contact card." };
+  }
+  if (pathname.startsWith("/god-mode/partners/")) {
+    return { eyebrow: "GOD MODE", title: "Edit partner", description: "Edit a partner contact card." };
+  }
+  if (pathname === "/god-mode/partners") {
+    return { eyebrow: "GOD MODE", title: "Partners", description: "Partner contact cards." };
+  }
   if (pathname === "/god-mode/service-offers/new") {
     return { eyebrow: "GOD MODE", title: "Alta de service offer", description: "Create a Pocket Genes pgs_* service definition." };
   }
