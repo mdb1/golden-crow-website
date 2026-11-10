@@ -7,6 +7,8 @@ import { AppLanguageProvider } from "@/components/app-language-provider";
 import { TwoPQFormDetail } from "@/components/two-pq-form-detail";
 import type { TwoPQListItem } from "@/lib/two-pq-areas";
 import type { TwoPQFormRecord, TwoPQPickupSummary } from "@/lib/two-pq-forms";
+import type { InformedConsentStudyRequest } from "@/lib/informed-consents";
+import { SdkRequestError } from "@/lib/sdk-client";
 
 const mockRefresh = jest.fn();
 const mockSdkFetch = jest.fn();
@@ -16,6 +18,7 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock("@/lib/sdk-client", () => ({
+  ...jest.requireActual("@/lib/sdk-client"),
   sdkFetch: (...args: unknown[]) => mockSdkFetch(...args),
 }));
 
@@ -77,6 +80,7 @@ const treatmentStartForm: TwoPQFormRecord = {
   linkedStudyRequestFormId: studyRequestForm.id,
   linkedBiopsyForm: null,
   linkedCaseId: null,
+  consent: { id: "CONS-00001", status: "ready" },
   requestedTest: { pgtAFast: true },
   treatmentStart: {
     studyType: "pgtAStandard",
@@ -91,6 +95,19 @@ const treatmentStartForm: TwoPQFormRecord = {
     temperatureC: -20,
     notes: "Sin observaciones",
   },
+};
+
+const consentRequest: InformedConsentStudyRequest = {
+  id: studyRequestForm.id,
+  patientId: "patient-1",
+  patientName: "Study Patient",
+  patientEmail: "current-patient@example.com",
+  institutionId: "institution-1",
+  doctorId: "doctor-1",
+  canApprove: false,
+  canUpload: true,
+  canResend: true,
+  consent: { id: null, status: "pending" },
 };
 
 const plannedPickup: TwoPQPickupSummary = {
@@ -177,6 +194,109 @@ describe("TwoPQFormDetail", () => {
       "href", "/2pq-dashboard/forms/sample/new?studyRequestFormId=FORM-00047",
     );
     expect(screen.queryByRole("link", { name: "Open 2PQ case" })).not.toBeInTheDocument();
+  });
+
+  it("directs staff to the linked consent review instead of starting an unapproved biopsy", () => {
+    render(
+      <AppLanguageProvider forcedLanguage="en">
+        <TwoPQFormDetail form={{ ...treatmentStartForm, consent: { id: null, status: "pending" } }} />
+      </AppLanguageProvider>,
+    );
+
+    expect(screen.getByText("Consent pending")).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Complete biopsy form" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Review consent" })).toHaveAttribute(
+      "href", `/2pq-dashboard/forms/${studyRequestForm.id}#informed-consent`,
+    );
+  });
+
+  it("resends the invitation for the specific request to the current patient email before any case exists", async () => {
+    const user = userEvent.setup();
+    mockSdkFetch.mockResolvedValueOnce({ ok: true, patientEmail: consentRequest.patientEmail });
+    render(
+      <AppLanguageProvider forcedLanguage="en">
+        <TwoPQFormDetail
+          form={{ ...studyRequestForm, linkedBiopsyForm: null, patientEmail: "stale@example.com" }}
+          consentRequest={consentRequest}
+        />
+      </AppLanguageProvider>,
+    );
+
+    const panel = screen.getByRole("region", { name: "Informed consent" });
+    expect(within(panel).getByText(/current-patient@example.com/)).toBeVisible();
+    expect(within(panel).getByRole("link", { name: "Upload signed consent" })).toHaveAttribute(
+      "href", `/2pq-dashboard/consents/new?studyRequestFormId=${studyRequestForm.id}`,
+    );
+    await user.click(within(panel).getByRole("button", { name: "Resend consent invitation" }));
+    expect(mockSdkFetch).toHaveBeenCalledWith(
+      `/2pq/informed-consents/study-requests/${studyRequestForm.id}/resend`,
+      { method: "POST" },
+    );
+    expect(await within(panel).findByRole("status")).toHaveTextContent("Invitation sent to current-patient@example.com");
+  });
+
+  it("approves the exact uploaded version and reports the consent as ready", async () => {
+    const user = userEvent.setup();
+    const uploadedAt = "2026-10-09T13:00:00.000Z";
+    const consent = { id: "CONS-00001", status: "needs_review" as const, uploadedAt };
+    mockSdkFetch.mockResolvedValueOnce({
+      request: { ...consentRequest, consent: { ...consent, status: "ready" }, canUpload: false, canResend: false },
+    });
+    render(
+      <AppLanguageProvider forcedLanguage="en">
+        <TwoPQFormDetail form={studyRequestForm} consentRequest={{ ...consentRequest, consent, canApprove: true }} />
+      </AppLanguageProvider>,
+    );
+
+    const panel = screen.getByRole("region", { name: "Informed consent" });
+    expect(within(panel).getByText("Consent needs review")).toBeVisible();
+    expect(within(panel).getByRole("link", { name: "Open signed consent" })).toHaveAttribute(
+      "href", "/2pq-dashboard/consents/CONS-00001",
+    );
+    await user.click(within(panel).getByRole("button", { name: "Approve consent" }));
+    await user.click(screen.getByRole("button", { name: "Confirm approval" }));
+    expect(mockSdkFetch).toHaveBeenCalledWith(
+      `/2pq/informed-consents/study-requests/${studyRequestForm.id}/approve`,
+      { method: "POST", body: JSON.stringify({ expectedUploadedAt: uploadedAt }) },
+    );
+    expect(await within(panel).findByText("Consent ready")).toBeVisible();
+    expect(within(panel).queryByRole("link", { name: "Replace signed consent" })).not.toBeInTheDocument();
+  });
+
+  it("keeps a replacement awaiting review when approval was for an older upload", async () => {
+    const user = userEvent.setup();
+    const message = "The consent file changed. Open the current file before approving it.";
+    mockSdkFetch.mockRejectedValueOnce(new SdkRequestError({
+      status: 409,
+      method: "POST",
+      path: `/2pq/informed-consents/study-requests/${studyRequestForm.id}/approve`,
+      message,
+      details: "",
+    }));
+    render(
+      <AppLanguageProvider forcedLanguage="en">
+        <TwoPQFormDetail
+          form={studyRequestForm}
+          consentRequest={{
+            ...consentRequest,
+            canApprove: true,
+            consent: {
+              id: "CONS-00001",
+              status: "needs_review",
+              uploadedAt: "2026-10-09T13:00:00.000Z",
+            },
+          }}
+        />
+      </AppLanguageProvider>,
+    );
+
+    const panel = screen.getByRole("region", { name: "Informed consent" });
+    await user.click(within(panel).getByRole("button", { name: "Approve consent" }));
+    await user.click(screen.getByRole("button", { name: "Confirm approval" }));
+
+    expect(await within(panel).findByRole("alert")).toHaveTextContent(message);
+    expect(within(panel).getByText("Consent needs review")).toBeVisible();
+    expect(mockRefresh).toHaveBeenCalledTimes(1);
   });
 
   it("links the treatment start to the saved biopsy and its case", () => {

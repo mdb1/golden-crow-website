@@ -39,8 +39,8 @@ function consentActionForStatus(
   if (status.hasDraft) {
     return {
       actionLabel: "Continuar desde borrador",
-      body: "Retomá el proceso exactamente donde lo dejaste. Tu avance guardado sigue disponible.",
-      href: "/patient-portal/consents/new?draft=1",
+      body: "Abrí la solicitud de estudio para retomar el avance guardado.",
+      href: "/patient-portal/consents",
       icon: FileClock,
       title: "Continuar firma de consentimiento informado",
     };
@@ -59,7 +59,7 @@ function consentActionForStatus(
   return {
     actionLabel: "Comenzar firma",
     body: "Completá el proceso guiado para leer, firmar y presentar tu consentimiento de forma segura.",
-    href: "/patient-portal/consents/new",
+    href: "/patient-portal/consents",
     icon: FilePenLine,
     title: "Firmar consentimiento informado",
   };

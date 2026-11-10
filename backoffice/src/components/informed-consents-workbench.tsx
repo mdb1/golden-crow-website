@@ -1,22 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
   CalendarDays,
   ExternalLink,
   Eye,
   FileCheck2,
-  FileClock,
   FileUp,
   Link2,
   Loader2,
-  RotateCcw,
   Search,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { useAdminContext } from "@/components/admin-context-provider";
+import { ConsentRequestStatusBadge } from "@/components/consent-request-status-badge";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,7 +35,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type {
-  InformedConsentDraftSummary,
   InformedConsentPage,
   InformedConsentRecord,
 } from "@/lib/informed-consents";
@@ -67,7 +64,7 @@ function BackofficeConsentDeleteAction({
   onFinished: () => void;
 }) {
   const adminContext = useAdminContext();
-  if (!isGlobalAdminRole(adminContext.role)) return null;
+  if (!isGlobalAdminRole(adminContext.role) || record.reviewStatus === "ready") return null;
 
   return (
     <TwoPQRecordDeleteDialog
@@ -82,15 +79,10 @@ function BackofficeConsentDeleteAction({
 export function InformedConsentsWorkbench({
   surface,
   initialPage,
-  initialDraftSummary = null,
-  draftLookupFailed = false,
 }: {
   surface: "backoffice" | "patient-portal";
   initialPage: InformedConsentPage;
-  initialDraftSummary?: InformedConsentDraftSummary | null;
-  draftLookupFailed?: boolean;
 }) {
-  const router = useRouter();
   const isPatientPortal = surface === "patient-portal";
   const t = (text: string) => (isPatientPortal ? appText("es", text) : text);
   const [records, setRecords] = useState(initialPage.records);
@@ -114,6 +106,7 @@ export function InformedConsentsWorkbench({
           record.patientId,
           record.createdByEmail,
           record.caseId,
+          record.studyRequestFormId,
         ]
           .filter(Boolean)
           .join(" ")
@@ -121,7 +114,10 @@ export function InformedConsentsWorkbench({
           .includes(query);
       const matchesLink =
         linkFilter === "all" ||
-        (linkFilter === "linked" ? Boolean(record.caseId) : !record.caseId);
+        (linkFilter === "linked" && Boolean(record.caseId)) ||
+        (linkFilter === "unlinked" && !record.caseId) ||
+        (linkFilter === "request-linked" && Boolean(record.studyRequestFormId)) ||
+        (linkFilter === "request-unlinked" && !record.studyRequestFormId);
       const createdDate = record.createdAt.slice(0, 10);
       const matchesFrom = !dateFrom || createdDate >= dateFrom;
       const matchesTo = !dateTo || createdDate <= dateTo;
@@ -172,67 +168,22 @@ export function InformedConsentsWorkbench({
 
   return (
     <div className="space-y-8">
-      {isPatientPortal ? (
-        <section className="flex flex-col gap-4 border-b border-border/70 pb-6 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <h2 className="font-heading text-lg font-semibold">
-              Consentimientos 2PQ
-            </h2>
-            <HeaderUnclutterButton />
-          </div>
-          {records.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-2">
-              {initialDraftSummary ? (
-                <Button variant="outline" asChild>
-                  <Link href="/patient-portal/consents/new?draft=1">
-                    <FileClock className="size-4" />
-                    Continuar desde borrador
-                  </Link>
-                </Button>
-              ) : null}
-              <Button asChild>
-                <Link href="/patient-portal/consents/new">
-                  <FileUp className="size-4" />
-                  {t("Upload consent")}
-                </Link>
-              </Button>
-            </div>
-          ) : null}
-        </section>
-      ) : (
-        <section className="flex flex-col gap-4 border-b border-border/70 pb-6 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <h2 className="font-heading text-lg font-semibold">
-              Consentimientos 2PQ
-            </h2>
-            <HeaderUnclutterButton />
-          </div>
+      <section className="flex flex-col gap-4 border-b border-border/70 pb-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          <h2 className="font-heading text-lg font-semibold">
+            Consentimientos 2PQ
+          </h2>
+          <HeaderUnclutterButton />
+        </div>
+        {!isPatientPortal ? (
           <Button asChild>
             <Link href="/2pq-dashboard/consents/new">
               <FileUp className="size-4" />
               Subir consentimiento
             </Link>
           </Button>
-        </section>
-      )}
-
-      {isPatientPortal && draftLookupFailed ? (
-        <div
-          role="alert"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-100"
-        >
-          <p>No se pudo verificar si existe un borrador guardado.</p>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={() => router.refresh()}
-          >
-            <RotateCcw className="size-4" />
-            Recargar
-          </Button>
-        </div>
-      ) : null}
+        ) : null}
+      </section>
 
       <section>
         {!isPatientPortal ? (
@@ -242,7 +193,7 @@ export function InformedConsentsWorkbench({
               <Input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Buscar archivo, paciente, caso o ID"
+                placeholder="Buscar archivo, paciente, solicitud o caso"
                 className="pl-9"
               />
             </div>
@@ -252,6 +203,8 @@ export function InformedConsentsWorkbench({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos los vínculos</SelectItem>
+                <SelectItem value="request-linked">Con solicitud vinculada</SelectItem>
+                <SelectItem value="request-unlinked">Sin solicitud vinculada</SelectItem>
                 <SelectItem value="linked">Con caso vinculado</SelectItem>
                 <SelectItem value="unlinked">Sin caso vinculado</SelectItem>
               </SelectContent>
@@ -302,35 +255,6 @@ export function InformedConsentsWorkbench({
               <h3 className="mt-5 font-heading text-xl font-semibold text-foreground">
                 Todavía no subiste un consentimiento
               </h3>
-              <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-                Completá el proceso guiado para firmar y presentar tu
-                consentimiento informado.
-              </p>
-              <div className="mt-6 flex flex-wrap justify-center gap-3">
-                {initialDraftSummary ? (
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="h-14 rounded-xl px-8 text-base font-semibold"
-                    asChild
-                  >
-                    <Link href="/patient-portal/consents/new?draft=1">
-                      <FileClock className="size-5" />
-                      Continuar desde borrador
-                    </Link>
-                  </Button>
-                ) : null}
-                <Button
-                  size="lg"
-                  className="h-14 rounded-xl bg-violet-600 px-8 text-base font-semibold text-white shadow-[0_16px_38px_rgba(109,40,217,0.28)] hover:bg-violet-700"
-                  asChild
-                >
-                  <Link href="/patient-portal/consents/new">
-                    <FileUp className="size-5" />
-                    {t("Upload consent")}
-                  </Link>
-                </Button>
-              </div>
             </div>
           ) : (
             <p className="mt-4 text-sm text-muted-foreground">
@@ -348,6 +272,7 @@ export function InformedConsentsWorkbench({
                 <TableRow>
                   <TableHead>Consentimiento</TableHead>
                   <TableHead>Paciente</TableHead>
+                  <TableHead>Solicitud de estudio</TableHead>
                   <TableHead>Caso 2PQ</TableHead>
                   <TableHead>Fecha de carga</TableHead>
                   <TableHead>Última actualización</TableHead>
@@ -367,6 +292,11 @@ export function InformedConsentsWorkbench({
                           <p className="mt-1 font-mono text-xs text-muted-foreground">
                             {record.id} · {formatFileSize(record.file.size)}
                           </p>
+                          {record.reviewStatus ? (
+                            <div className="mt-2">
+                              <ConsentRequestStatusBadge status={record.reviewStatus} language="es" />
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     </TableCell>
@@ -377,6 +307,19 @@ export function InformedConsentsWorkbench({
                       <p className="mt-1 font-mono text-xs text-muted-foreground">
                         {record.patientId}
                       </p>
+                    </TableCell>
+                    <TableCell>
+                      {record.studyRequestFormId ? (
+                        <Link
+                          href={`/2pq-dashboard/forms/${encodeURIComponent(record.studyRequestFormId)}#informed-consent`}
+                          className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                        >
+                          <Link2 className="size-4" />
+                          {record.studyRequestFormId}
+                        </Link>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">Sin solicitud vinculada</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       {record.caseId ? (

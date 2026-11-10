@@ -19,6 +19,7 @@ import {
 import { isGlobalAdminRole } from "../lib/admin-roles.js";
 import { resolveTwoPQRequestedStudyTest } from "../lib/two-pq-study-summary.js";
 import { resolveMissingTwoPQAssignedEntities } from "../lib/two-pq-assignment-integrity.js";
+import { INFORMED_CONSENTS_COLLECTION } from "../lib/study-request-consent.js";
 import {
   prepareTwoPQCaseCodeReservation,
   retainTwoPQCaseCode,
@@ -44,7 +45,6 @@ import type {
 const INSTITUTIONS_COLLECTION = "institutions";
 const DOCTORS_COLLECTION = "doctors";
 const PATIENTS_COLLECTION = "patients";
-const INFORMED_CONSENTS_COLLECTION = "2pq-informed-consent";
 const SEQUENCES_COLLECTION = "admin_sequences";
 
 type TwoPQMutationInput = {
@@ -2238,6 +2238,7 @@ export async function replaceTwoPQRecordForContext(
         const latest = (await transaction.get(recordRef)).data();
         if (!latest) throw new AdminRepositoryError("Record not found.", 404);
         nextRecord.linkedStudyRequestFormId = normalizeOptionalString(latest.linkedStudyRequestFormId) ?? null;
+        nextRecord.informedConsentId = normalizeOptionalString(latest.informedConsentId) ?? null;
         nextRecord.linkedTreatmentStartFormId = normalizeOptionalString(latest.linkedTreatmentStartFormId) ?? null;
         nextRecord.linkedBiopsyForm = normalizeOptionalString(latest.linkedBiopsyForm) ?? null;
         nextRecord.transportEventId = normalizeOptionalString(latest.transportEventId) ?? null;
@@ -2367,7 +2368,9 @@ export async function updateTwoPQRecordForContext(
         const latest = (await transaction.get(recordRef)).data();
         if (!latest) throw new AdminRepositoryError("Record not found.", 404);
         nextRecord.linkedStudyRequestFormId = normalizeOptionalString(latest.linkedStudyRequestFormId) ?? null;
+        nextRecord.informedConsentId = normalizeOptionalString(latest.informedConsentId) ?? null;
         writeDocument.linkedStudyRequestFormId = nextRecord.linkedStudyRequestFormId;
+        writeDocument.informedConsentId = nextRecord.informedConsentId;
       }
       await syncParentRelationForRecord(
         transaction,

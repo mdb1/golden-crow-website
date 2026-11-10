@@ -9,6 +9,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { ConsentCaseTraceabilityCard } from "@/components/consent-case-traceability";
+import { ConsentRequestStatusBadge } from "@/components/consent-request-status-badge";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -65,9 +66,11 @@ export function InformedConsentDetailWorkbench({
               <h1 className="break-words font-heading text-xl font-semibold">
                 {record.file.name}
               </h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Detalle del consentimiento informado
-              </p>
+              {record.reviewStatus ? (
+                <div className="mt-2">
+                  <ConsentRequestStatusBadge status={record.reviewStatus} language="es" />
+                </div>
+              ) : null}
             </div>
           </div>
           <div className="flex gap-2">

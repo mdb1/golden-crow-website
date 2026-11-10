@@ -10,11 +10,36 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { PatientConsentUploadWizard } from "@/components/patient-consent-upload-wizard";
+import { PatientConsentUploadWizard as ConsentWizard } from "@/components/patient-consent-upload-wizard";
+import type { ComponentProps } from "react";
 import { applySignaturesToConsentPdf } from "@/lib/consent-pdf";
-import type { InformedConsentDraftRecord } from "@/lib/informed-consents";
+import type { InformedConsentDraftRecord, InformedConsentStudyRequest } from "@/lib/informed-consents";
 import { processSignatureImageDataUrl } from "@/lib/signature-image";
 import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
+
+const portalStudyRequest: InformedConsentStudyRequest = {
+  id: "FORM-00001",
+  patientId: "PAT-00001",
+  patientName: "Ada Paciente",
+  patientEmail: "ada@example.com",
+  institutionId: "INST-00001",
+  doctorId: "DOC-00001",
+  canUpload: true,
+  canApprove: false,
+  canResend: false,
+  consent: { id: null, status: "pending" },
+};
+
+const portalDraftPath = "/2pq/informed-consents/draft?studyRequestFormId=FORM-00001";
+
+function PatientConsentUploadWizard(props: ComponentProps<typeof ConsentWizard>) {
+  return (
+    <ConsentWizard
+      initialStudyRequest={props.surface === "backoffice" ? undefined : portalStudyRequest}
+      {...props}
+    />
+  );
+}
 
 const mockRouterPush = jest.fn();
 const mockRouterRefresh = jest.fn();
@@ -61,6 +86,7 @@ function consentDraft(
     schemaVersion: 1,
     revision: 4,
     patientId: "PAT-00001",
+    studyRequestFormId: portalStudyRequest.id,
     mode: "guided",
     activeStepId: "data",
     visitedStepIds: ["method", "download", "data"],
@@ -169,7 +195,7 @@ function mockPatientPortalSdk({
     path: string,
     options?: RequestInit,
   ) => {
-    if (path === "/2pq/informed-consents/draft") {
+    if (path === portalDraftPath) {
       revision += 1;
       return Promise.resolve({ draft: { revision } });
     }
@@ -347,7 +373,7 @@ describe("PatientConsentUploadWizard", () => {
           .mocked(sdkFetch)
           .mock.calls.some(
             ([path, options]) =>
-              path === "/2pq/informed-consents/draft" &&
+              path === portalDraftPath &&
               options?.method === "PUT",
           ),
       ).toBe(true),
@@ -356,7 +382,7 @@ describe("PatientConsentUploadWizard", () => {
       .mocked(sdkFetch)
       .mock.calls.find(
         ([path, options]) =>
-          path === "/2pq/informed-consents/draft" && options?.method === "PUT",
+          path === portalDraftPath && options?.method === "PUT",
       );
     expect(JSON.parse(String(firstDraftCall?.[1]?.body))).toMatchObject({
       expectedRevision: null,
@@ -384,7 +410,7 @@ describe("PatientConsentUploadWizard", () => {
         .mocked(sdkFetch)
         .mock.calls.filter(
           ([path, options]) =>
-            path === "/2pq/informed-consents/draft" &&
+            path === portalDraftPath &&
             options?.method === "PUT",
         );
       expect(draftCalls.length).toBeGreaterThanOrEqual(2);
@@ -496,7 +522,7 @@ describe("PatientConsentUploadWizard", () => {
         .mocked(sdkFetch)
         .mock.calls.find(
           ([path, options]) =>
-            path === "/2pq/informed-consents/draft" &&
+            path === portalDraftPath &&
             options?.method === "PUT",
         );
       expect(JSON.parse(String(draftCall?.[1]?.body))).toMatchObject({
@@ -704,7 +730,7 @@ describe("PatientConsentUploadWizard", () => {
 
   it("stops autosaving and final submission when the draft revision conflicts", async () => {
     jest.mocked(sdkFetch).mockImplementation((async (path: string) => {
-      if (path === "/2pq/informed-consents/draft") {
+      if (path === portalDraftPath) {
         throw new SdkRequestError({
           status: 409,
           method: "PUT",
@@ -730,7 +756,7 @@ describe("PatientConsentUploadWizard", () => {
         name: "Volver a consentimientos",
       }),
     ).toHaveAttribute("href", "/patient-portal/consents");
-    expect(screen.getByText(/elegí “Continuar desde borrador”/i)).toBeVisible();
+    expect(screen.getByText(/volvé a abrir esta solicitud/i)).toBeVisible();
 
     const sidebar = screen.getByTestId("consent-wizard-sidebar");
     await user.click(
@@ -751,7 +777,7 @@ describe("PatientConsentUploadWizard", () => {
         .mocked(sdkFetch)
         .mock.calls.filter(
           ([path, options]) =>
-            path === "/2pq/informed-consents/draft" &&
+            path === portalDraftPath &&
             options?.method === "PUT",
         ),
     ).toHaveLength(1);
@@ -772,7 +798,7 @@ describe("PatientConsentUploadWizard", () => {
       options?: RequestInit,
     ) => {
       if (
-        path === "/2pq/informed-consents/draft" &&
+        path === portalDraftPath &&
         options?.method === "PUT"
       ) {
         draftCallCount += 1;
@@ -795,7 +821,7 @@ describe("PatientConsentUploadWizard", () => {
       .mocked(sdkFetch)
       .mock.calls.find(
         ([path, options]) =>
-          path === "/2pq/informed-consents/draft" && options?.method === "PUT",
+          path === portalDraftPath && options?.method === "PUT",
       )?.[1]?.body;
 
     act(() => window.dispatchEvent(new Event("pagehide")));
@@ -805,7 +831,7 @@ describe("PatientConsentUploadWizard", () => {
       .mocked(sdkFetch)
       .mock.calls.filter(
         ([path, options]) =>
-          path === "/2pq/informed-consents/draft" && options?.method === "PUT",
+          path === portalDraftPath && options?.method === "PUT",
       );
     expect(draftCalls[1]?.[1]?.body).toBe(firstDraftBody);
     await waitFor(() =>
@@ -830,7 +856,7 @@ describe("PatientConsentUploadWizard", () => {
       options?: RequestInit,
     ) => {
       if (
-        path === "/2pq/informed-consents/draft" &&
+        path === portalDraftPath &&
         options?.method === "PUT"
       ) {
         draftCallCount += 1;
@@ -929,7 +955,7 @@ describe("PatientConsentUploadWizard", () => {
               .mocked(sdkFetch)
               .mock.calls.filter(
                 ([path, options]) =>
-                  path === "/2pq/informed-consents/draft" &&
+                  path === portalDraftPath &&
                   options?.method === "PUT",
               ),
           ).toHaveLength(1);
@@ -946,7 +972,7 @@ describe("PatientConsentUploadWizard", () => {
               .mocked(sdkFetch)
               .mock.calls.filter(
                 ([path, options]) =>
-                  path === "/2pq/informed-consents/draft" &&
+                  path === portalDraftPath &&
                   options?.method === "PUT",
               ),
           ).toHaveLength(2);
@@ -966,7 +992,7 @@ describe("PatientConsentUploadWizard", () => {
             .mocked(sdkFetch)
             .mock.calls.filter(
               ([path, options]) =>
-                path === "/2pq/informed-consents/draft" &&
+                path === portalDraftPath &&
                 options?.method === "PUT",
             );
           expect(draftCalls).toHaveLength(3);
@@ -1121,7 +1147,7 @@ describe("PatientConsentUploadWizard", () => {
           .mocked(sdkFetch)
           .mock.calls.filter(
             ([path, options]) =>
-              path === "/2pq/informed-consents/draft" &&
+              path === portalDraftPath &&
               options?.method === "PUT",
           )
           .map(([, options]) => JSON.parse(String(options?.body)))
@@ -1509,33 +1535,32 @@ describe("PatientConsentUploadWizard", () => {
     }>((resolve) => {
       resolveAdaSavedSignature = resolve;
     });
-    const adaCase = {
-      id: "CASE-ADA",
+    const adaRequest = {
+      id: "FORM-ADA",
       institutionId: "INST-00001",
       doctorId: "DOC-00001",
       patientId: "PAT-ADA",
       patientName: "Ada Paciente",
-      caseLabel: "Caso Ada",
-      informedConsentId: null,
+      canUpload: true,
+      consent: { id: null, status: "pending" },
       createdAt: "2026-10-16T00:00:00.000Z",
       updatedAt: "2026-10-16T00:00:00.000Z",
     };
-    const beaCase = {
-      ...adaCase,
-      id: "CASE-BEA",
+    const beaRequest = {
+      ...adaRequest,
+      id: "FORM-BEA",
       patientId: "PAT-BEA",
       patientName: "Bea Paciente",
-      caseLabel: "Caso Bea",
     };
     jest.mocked(sdkFetch).mockImplementation(((path: string) => {
-      if (path === "/2pq/informed-consents/cases?patientId=PAT-ADA") {
-        return Promise.resolve({ cases: [adaCase] });
+      if (path === "/2pq/informed-consents/study-requests?patientId=PAT-ADA&limit=20") {
+        return Promise.resolve({ requests: [adaRequest] });
       }
       if (path === "/2pq/informed-consents/saved-signature?patientId=PAT-ADA") {
         return adaSavedSignature;
       }
-      if (path === "/2pq/informed-consents/cases?patientId=PAT-BEA") {
-        return Promise.resolve({ cases: [beaCase] });
+      if (path === "/2pq/informed-consents/study-requests?patientId=PAT-BEA&limit=20") {
+        return Promise.resolve({ requests: [beaRequest] });
       }
       if (path === "/2pq/informed-consents/saved-signature?patientId=PAT-BEA") {
         return Promise.resolve({ savedSignature: null });
@@ -1568,9 +1593,9 @@ describe("PatientConsentUploadWizard", () => {
     await user.click(
       screen.getByRole("option", { name: "Ada Paciente - PAT-ADA" }),
     );
-    await user.click(await screen.findByRole("combobox", { name: "Caso 2PQ" }));
+    await user.click(await screen.findByRole("combobox", { name: "Solicitud de estudio" }));
     await user.click(
-      screen.getByRole("option", { name: "Caso Ada - CASE-ADA" }),
+      screen.getByRole("option", { name: "FORM-ADA" }),
     );
     await user.click(screen.getByRole("button", { name: "Continuar" }));
     await user.click(
@@ -1610,9 +1635,9 @@ describe("PatientConsentUploadWizard", () => {
     await user.click(
       screen.getByRole("option", { name: "Bea Paciente - PAT-BEA" }),
     );
-    await user.click(await screen.findByRole("combobox", { name: "Caso 2PQ" }));
+    await user.click(await screen.findByRole("combobox", { name: "Solicitud de estudio" }));
     await user.click(
-      screen.getByRole("option", { name: "Caso Bea - CASE-BEA" }),
+      screen.getByRole("option", { name: "FORM-BEA" }),
     );
     await user.click(screen.getByRole("button", { name: "Continuar" }));
     await user.click(
@@ -1885,6 +1910,7 @@ describe("PatientConsentUploadWizard", () => {
     await user.click(
       screen.getByRole("button", { name: "Continuar con los datos" }),
     );
+    await user.clear(screen.getByLabelText("Nombre y apellido del paciente"));
     await user.clear(screen.getByLabelText("Fecha de firma"));
     await user.click(
       screen.getByRole("button", { name: "Continuar para firmar" }),
@@ -2029,6 +2055,7 @@ describe("PatientConsentUploadWizard", () => {
       .mocked(sdkFetch)
       .mock.calls.find(([path]) => path === "/2pq/informed-consents");
     expect(JSON.parse(String(patientUploadCall?.[1]?.body))).toEqual({
+      studyRequestFormId: portalStudyRequest.id,
       flowMode: "direct",
       expectedDraftRevision: expect.any(Number),
       file: expect.objectContaining({
@@ -2052,17 +2079,17 @@ describe("PatientConsentUploadWizard", () => {
     ).toBeVisible();
   });
 
-  it("adds an administrative destination step and loads cases for the selected patient", async () => {
+  it("adds an administrative destination step and loads study requests for the selected patient", async () => {
     jest.mocked(sdkFetch).mockResolvedValueOnce({
-      cases: [
+      requests: [
         {
-          id: "CASE-00001",
+          id: "FORM-00001",
           institutionId: "INST-00001",
           doctorId: "DOC-00001",
           patientId: "PAT-00001",
           patientName: "Ada Paciente",
-          caseLabel: "Caso Ada",
-          informedConsentId: null,
+          canUpload: true,
+          consent: { id: null, status: "pending" },
           createdAt: "2026-10-16T00:00:00.000Z",
           updatedAt: "2026-10-16T00:00:00.000Z",
         },
@@ -2091,11 +2118,11 @@ describe("PatientConsentUploadWizard", () => {
     expectActiveSidebarStep("Elegir cómo continuar");
     expect(
       within(screen.getByTestId("consent-wizard-sidebar")).queryByText(
-        "Seleccionar paciente y caso 2PQ",
+        "Seleccionar paciente y solicitud de estudio",
       ),
     ).toBeNull();
     await chooseGuidedFlow(user);
-    expectActiveSidebarStep("Seleccionar paciente y caso 2PQ");
+    expectActiveSidebarStep("Seleccionar paciente y solicitud de estudio");
     expectSidebarSteps([
       "method",
       "destination",
@@ -2113,12 +2140,12 @@ describe("PatientConsentUploadWizard", () => {
 
     await waitFor(() =>
       expect(sdkFetch).toHaveBeenCalledWith(
-        "/2pq/informed-consents/cases?patientId=PAT-00001",
+        "/2pq/informed-consents/study-requests?patientId=PAT-00001&limit=20",
       ),
     );
-    await user.click(screen.getByRole("combobox", { name: "Caso 2PQ" }));
+    await user.click(screen.getByRole("combobox", { name: "Solicitud de estudio" }));
     await user.click(
-      screen.getByRole("option", { name: "Caso Ada - CASE-00001" }),
+      screen.getByRole("option", { name: "FORM-00001" }),
     );
     await user.click(
       screen.getByRole("button", {
@@ -2174,15 +2201,15 @@ describe("PatientConsentUploadWizard", () => {
     jest
       .mocked(sdkFetch)
       .mockResolvedValueOnce({
-        cases: [
+        requests: [
           {
-            id: "CASE-ADA",
+            id: "FORM-ADA",
             institutionId: "INST-00001",
             doctorId: "DOC-00001",
             patientId: "PAT-ADA",
             patientName: "Ada Paciente",
-            caseLabel: "Caso Ada",
-            informedConsentId: null,
+            canUpload: true,
+            consent: { id: null, status: "pending" },
             createdAt: "2026-10-16T00:00:00.000Z",
             updatedAt: "2026-10-16T00:00:00.000Z",
           },
@@ -2190,15 +2217,17 @@ describe("PatientConsentUploadWizard", () => {
       })
       .mockResolvedValueOnce({ savedSignature: null })
       .mockResolvedValueOnce({
-        cases: [
+        requests: [
           {
-            id: "CASE-BEA",
+            id: "FORM-BEA",
             institutionId: "INST-00001",
-            doctorId: "DOC-00001",
+            doctorId: "DOC-00002",
+            doctorName: "Dra. Lucía Méndez",
+            doctorLicenseNumber: "MN 202",
             patientId: "PAT-BEA",
             patientName: "Bea Paciente",
-            caseLabel: "Caso Bea",
-            informedConsentId: null,
+            canUpload: true,
+            consent: { id: null, status: "pending" },
             createdAt: "2026-10-16T00:00:00.000Z",
             updatedAt: "2026-10-16T00:00:00.000Z",
           },
@@ -2236,12 +2265,12 @@ describe("PatientConsentUploadWizard", () => {
       );
       await waitFor(() =>
         expect(sdkFetch).toHaveBeenCalledWith(
-          "/2pq/informed-consents/cases?patientId=PAT-ADA",
+          "/2pq/informed-consents/study-requests?patientId=PAT-ADA&limit=20",
         ),
       );
-      await user.click(screen.getByRole("combobox", { name: "Caso 2PQ" }));
+      await user.click(screen.getByRole("combobox", { name: "Solicitud de estudio" }));
       await user.click(
-        screen.getByRole("option", { name: "Caso Ada - CASE-ADA" }),
+        screen.getByRole("option", { name: "FORM-ADA" }),
       );
       await user.click(screen.getByRole("button", { name: "Continuar" }));
       await user.click(
@@ -2326,12 +2355,12 @@ describe("PatientConsentUploadWizard", () => {
       );
       await waitFor(() =>
         expect(sdkFetch).toHaveBeenCalledWith(
-          "/2pq/informed-consents/cases?patientId=PAT-BEA",
+          "/2pq/informed-consents/study-requests?patientId=PAT-BEA&limit=20",
         ),
       );
-      await user.click(screen.getByRole("combobox", { name: "Caso 2PQ" }));
+      await user.click(screen.getByRole("combobox", { name: "Solicitud de estudio" }));
       await user.click(
-        screen.getByRole("option", { name: "Caso Bea - CASE-BEA" }),
+        screen.getByRole("option", { name: "FORM-BEA - Dra. Lucía Méndez" }),
       );
       await user.click(screen.getByRole("button", { name: "Continuar" }));
       await user.click(
@@ -2384,6 +2413,8 @@ describe("PatientConsentUploadWizard", () => {
       await user.click(
         screen.getByRole("button", { name: "Guardar firma y continuar" }),
       );
+      expect(screen.getByText("Dra. Lucía Méndez")).toBeVisible();
+      expect(screen.getByText("Matrícula: MN 202")).toBeVisible();
       await user.click(
         screen.getByRole("button", { name: "Aplicar firmas y continuar" }),
       );
@@ -2424,7 +2455,7 @@ describe("PatientConsentUploadWizard", () => {
         .mock.calls.find(([path]) => path === "/2pq/informed-consents");
       expect(JSON.parse(String(uploadCall?.[1]?.body))).toMatchObject({
         patientId: "PAT-BEA",
-        caseId: "CASE-BEA",
+        studyRequestFormId: "FORM-BEA",
         flowMode: "guided",
         savedSignature: newPatientSignature,
         signatureAttestationAccepted: true,
@@ -2442,6 +2473,7 @@ describe("PatientConsentUploadWizard", () => {
             placement: { x: 0.72, y: 0.445, width: 0.16 },
           }),
         ],
+        { name: "Dra. Lucía Méndez", licenseNumber: "MN 202" },
       );
     } finally {
       getContext.mockRestore();
@@ -2473,15 +2505,15 @@ describe("PatientConsentUploadWizard", () => {
     jest
       .mocked(sdkFetch)
       .mockResolvedValueOnce({
-        cases: [
+        requests: [
           {
-            id: "CASE-00001",
+            id: "FORM-00001",
             institutionId: "INST-00001",
             doctorId: "DOC-00001",
             patientId: "PAT-00001",
             patientName: "Ada Paciente",
-            caseLabel: "Caso Ada",
-            informedConsentId: null,
+            canUpload: true,
+            consent: { id: null, status: "pending" },
             createdAt: "2026-10-16T00:00:00.000Z",
             updatedAt: "2026-10-16T00:00:00.000Z",
           },
@@ -2509,7 +2541,7 @@ describe("PatientConsentUploadWizard", () => {
     expect(
       screen.queryByTestId("guided-signing-security-banner"),
     ).not.toBeInTheDocument();
-    expectActiveSidebarStep("Seleccionar paciente y caso 2PQ");
+    expectActiveSidebarStep("Seleccionar paciente y solicitud de estudio");
     expect(screen.getByText("Preparación del recorrido manual")).toBeVisible();
     expectSidebarSteps([
       "method",
@@ -2531,12 +2563,12 @@ describe("PatientConsentUploadWizard", () => {
     );
     await waitFor(() =>
       expect(sdkFetch).toHaveBeenCalledWith(
-        "/2pq/informed-consents/cases?patientId=PAT-00001",
+        "/2pq/informed-consents/study-requests?patientId=PAT-00001&limit=20",
       ),
     );
-    await user.click(screen.getByRole("combobox", { name: "Caso 2PQ" }));
+    await user.click(screen.getByRole("combobox", { name: "Solicitud de estudio" }));
     await user.click(
-      screen.getByRole("option", { name: "Caso Ada - CASE-00001" }),
+      screen.getByRole("option", { name: "FORM-00001" }),
     );
     await user.click(
       screen.getByRole("button", {
@@ -2600,7 +2632,7 @@ describe("PatientConsentUploadWizard", () => {
       .mock.calls.find(([path]) => path === "/2pq/informed-consents");
     expect(JSON.parse(String(adminUploadCall?.[1]?.body))).toEqual({
       patientId: "PAT-00001",
-      caseId: "CASE-00001",
+      studyRequestFormId: "FORM-00001",
       flowMode: "direct",
       file: expect.objectContaining({
         name: "admin-consent.pdf",
@@ -2732,10 +2764,11 @@ describe("PatientConsentUploadWizard", () => {
         .mocked(sdkFetch)
         .mock.calls.filter(
           ([path, options]) =>
-            path === "/2pq/informed-consents/draft" &&
+            path === portalDraftPath &&
             options?.method === "PUT",
         ).length;
       expect(uploadBody).toMatchObject({
+        studyRequestFormId: portalStudyRequest.id,
         flowMode: "guided",
         savedSignature: TRANSPARENT_SIGNATURE_DATA_URL,
         signatureAttestationAccepted: true,
@@ -2827,7 +2860,7 @@ describe("PatientConsentUploadWizard", () => {
         .mocked(sdkFetch)
         .mock.calls.filter(
           ([path, options]) =>
-            path === "/2pq/informed-consents/draft" &&
+            path === portalDraftPath &&
             options?.method === "PUT",
         ).length;
       await user.click(
@@ -2856,7 +2889,7 @@ describe("PatientConsentUploadWizard", () => {
           .mocked(sdkFetch)
           .mock.calls.filter(
             ([path, options]) =>
-              path === "/2pq/informed-consents/draft" &&
+              path === portalDraftPath &&
               options?.method === "PUT",
           );
         expect(draftCalls).toHaveLength(draftSavesBeforeUpload + 1);

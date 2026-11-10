@@ -138,4 +138,40 @@ describe("consent and 2PQ case traceability", () => {
       ),
     );
   });
+
+  it("links a consent to its study request before the case exists", () => {
+    render(
+      <ConsentCaseTraceabilityCard initialPayload={{
+        record: { ...record, caseId: null, studyRequestFormId: "FORM-00001" },
+        linkedCase: null,
+        caseOptions: [caseOption],
+      }} />,
+    );
+
+    expect(screen.getByRole("link", { name: /Abrir solicitud de estudio/ })).toHaveAttribute(
+      "href", "/2pq-dashboard/forms/FORM-00001#informed-consent",
+    );
+    expect(screen.getByText("La solicitud aún no tiene un caso 2PQ.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Vincular caso" })).toBeNull();
+  });
+
+  it("keeps the consent on its study request after the case is created", () => {
+    render(
+      <CaseConsentTraceabilityCard
+        initialPayload={{
+          ...casePayload,
+          case: { ...caseOption, linkedStudyRequestFormId: "FORM-00001" },
+          linkedConsent: { ...record, studyRequestFormId: "FORM-00001", reviewStatus: "ready" },
+        }}
+        canManage
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: /Abrir solicitud de estudio/ })).toHaveAttribute(
+      "href", "/2pq-dashboard/forms/FORM-00001#informed-consent",
+    );
+    expect(screen.getByText("Consentimiento listo")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Cambiar" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Quitar" })).toBeNull();
+  });
 });

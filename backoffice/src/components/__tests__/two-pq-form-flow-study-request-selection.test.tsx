@@ -86,6 +86,7 @@ const studyRequest: TwoPQFormRecord = {
   patientEmail: "ana@example.test",
   requestedTestName: "PGT A standard",
   linkedBiopsyForm: null,
+  consent: { id: "CONS-00047", status: "ready" },
   patientInformation: {
     fullName: "Ana Paciente",
     email: "ana@example.test",

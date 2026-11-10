@@ -13,7 +13,8 @@ import {
 } from "./areas.repository.js";
 import { shouldAutomaticallyGrantPatientPortalAccess } from "../lib/patient-portal-credentials.js";
 import { isGlobalAdminRole } from "../lib/admin-roles.js";
-import { sendInformedConsentEmail } from "../lib/informed-consent-email.js";
+import { getStudyRequestConsentStatus, INFORMED_CONSENTS_COLLECTION } from "../lib/study-request-consent.js";
+import { sendStudyRequestConsentInvitationForContext } from "./informed-consents.repository.js";
 import { sendPGFlexLogisticsAssignmentEmail } from "../lib/pgflex-dispatcher-email.js";
 import { formatPGFlexReadableDateTime } from "../lib/pgflex-readable-date.js";
 import { normalizePGFlexInstitutionAddress } from "../lib/pgflex-address.js";
@@ -556,6 +557,7 @@ function formMatchesListFilters(
       Boolean(form.archivedAt) ||
       Boolean(form.linkedBiopsyForm) ||
       Boolean(form["2pq_case"]) ||
+      form.consent?.status !== "ready" ||
       (form.requiresTreatmentStart && !form.treatmentStart))
   ) {
     return false;
@@ -984,6 +986,7 @@ function toTwoPQFormRecord(
     maximumResultDeliveryAt: normalizeOptionalString(
       data.maximumResultDeliveryAt,
     ),
+    informedConsentId: normalizeOptionalString(data.informedConsentId) ?? null,
     linkedStudyRequestFormId:
       normalizeOptionalString(data.linkedStudyRequestFormId) ?? null,
     linkedTreatmentStartFormId: normalizeOptionalString(data.linkedTreatmentStartFormId) ??
@@ -2392,6 +2395,55 @@ function studyRequestPatientId(form: TwoPQFormRecord) {
   return form.selectedPatientId ?? normalizeOptionalString(form.patientInformation.patientId);
 }
 
+function studyRequestConsentScope(form: TwoPQFormRecord) {
+  return {
+    patientId: studyRequestPatientId(form) ?? "",
+    institutionId: form.institutionId,
+    doctorId: form.doctorId,
+  };
+}
+
+async function withStudyRequestConsents(context: AdminContext, forms: TwoPQFormRecord[]) {
+  const consentIds = new Set(forms.flatMap((form) =>
+    form.formType === "study_request" && canViewTwoPQForm(context, form) && form.informedConsentId
+      ? [form.informedConsentId]
+      : [],
+  ));
+  const collection = adminDb.collection(INFORMED_CONSENTS_COLLECTION);
+  const consents = consentIds.size > 0
+    ? await adminDb.getAll(...[...consentIds].map((id) => collection.doc(id)), {
+        fieldMask: [
+          "studyRequestFormId", "patientId", "institutionId", "doctorId",
+          "file.name", "file.type", "file.size", "reviewStatus", "reviewedAt", "reviewedByEmail",
+        ],
+      })
+    : [];
+  const records = new Map(consents.map((snapshot) => [snapshot.id, snapshot.data()]));
+  return forms.map((form) => {
+    if (form.formType !== "study_request" || !canViewTwoPQForm(context, form)) return form;
+    const data = form.informedConsentId ? records.get(form.informedConsentId) : undefined;
+    const status = getStudyRequestConsentStatus(data, form.id, studyRequestConsentScope(form));
+    return {
+      ...form,
+      consent: {
+        id: status === "pending" ? null : form.informedConsentId ?? null,
+        status,
+        reviewedAt: status === "ready" ? normalizeOptionalString(data?.reviewedAt) : undefined,
+      },
+    };
+  });
+}
+
+async function readApprovedStudyConsent(transaction: FirebaseFirestore.Transaction, request: TwoPQFormRecord) {
+  const consentId = request.informedConsentId;
+  const reference = consentId ? adminDb.collection(INFORMED_CONSENTS_COLLECTION).doc(consentId) : null;
+  const data = reference ? (await transaction.get(reference)).data() : undefined;
+  if (!reference || !data || getStudyRequestConsentStatus(data, request.id, studyRequestConsentScope(request)) !== "ready") {
+    throw new AdminRepositoryError("Approve the informed consent for this study request before submitting the biopsy.", 409);
+  }
+  return { reference, data };
+}
+
 function canStartTreatment(form: TwoPQFormRecord) {
   return form.formType === "study_request" &&
     !form.archivedAt &&
@@ -3469,6 +3521,7 @@ async function claimStudyRequestForBiopsyForm(
   context: AdminContext,
   studyRequest: TwoPQFormRecord,
   biopsyFormId: string,
+  selectedCaseId?: string,
 ) {
   const legacyLinks = await legacyLinkedBiopsyFormsByStudyRequestId([
     studyRequest,
@@ -3527,6 +3580,10 @@ async function claimStudyRequestForBiopsyForm(
       return { biopsyFormId: existingBiopsyFormId, treatmentPlan: null };
     }
 
+    const consent = await readApprovedStudyConsent(transaction, current);
+    if (consent.data.caseId && consent.data.caseId !== selectedCaseId) {
+      throw new AdminRepositoryError("The informed consent is already linked to another 2PQ case.", 409);
+    }
     const treatmentPlan = await readActiveTreatmentPlan(transaction, current);
     if (treatmentPlan?.linkedCaseId || treatmentPlan?.linkedBiopsyForm) {
       throw new AdminRepositoryError("This treatment start form already has a linked biopsy or case.", 409);
@@ -3573,7 +3630,7 @@ async function readActiveTreatmentPlan(
   return plan;
 }
 
-async function saveBiopsyWithTreatmentPlan({
+async function saveBiopsyForStudyRequest({
   document,
   formId,
   studyRequestId,
@@ -3588,7 +3645,7 @@ async function saveBiopsyWithTreatmentPlan({
   document: Record<string, unknown>;
   formId: string;
   studyRequestId: string;
-  treatmentPlan: TwoPQFormRecord;
+  treatmentPlan: TwoPQFormRecord | null;
   caseId: string;
   threeLetterCode: string;
   biopsyDate: string;
@@ -3600,34 +3657,40 @@ async function saveBiopsyWithTreatmentPlan({
   const cases = adminDb.collection(CASES_COLLECTION);
   const caseRef = cases.doc(caseId);
   const requestRef = forms.doc(studyRequestId);
-  const planRef = forms.doc(treatmentPlan.id);
+  const planRef = treatmentPlan ? forms.doc(treatmentPlan.id) : null;
 
   return adminDb.runTransaction(async (transaction) => {
     const [requestSnapshot, planSnapshot, caseSnapshot] = await Promise.all([
       transaction.get(requestRef),
-      transaction.get(planRef),
+      planRef ? transaction.get(planRef) : Promise.resolve(null),
       transaction.get(caseRef),
     ]);
     const requestData = requestSnapshot.data();
-    const planData = planSnapshot.data();
+    const planData = planSnapshot?.data();
     const caseData = caseSnapshot.data();
-    if (!requestData || !planData || !caseData) {
+    if (!requestData || !caseData || (planRef && !planData)) {
       throw new AdminRepositoryError("A study request, treatment start form, or case was removed during biopsy submission.", 409);
     }
     const request = toTwoPQFormRecord(studyRequestId, requestData);
-    const plan = toTwoPQFormRecord(treatmentPlan.id, planData);
+    const plan = planRef && planData ? toTwoPQFormRecord(planRef.id, planData) : null;
     const caseCandidate = caseDocumentToStudyRequestCandidate(caseId, caseData);
-    if (request.linkedBiopsyForm !== formId || !treatmentStartMatchesRequest(plan, request) ||
-      plan.archivedAt || plan.linkedBiopsyForm || plan.linkedCaseId ||
-      plan.transportEventId !== treatmentPlan.transportEventId ||
+    if (request.archivedAt || request.linkedBiopsyForm !== formId ||
       !caseMatchesStudyRequestScope(caseCandidate, request) ||
       (caseCandidate.linkedStudyRequestFormId && caseCandidate.linkedStudyRequestFormId !== studyRequestId) ||
-      (caseData.linkedTreatmentStartFormId && caseData.linkedTreatmentStartFormId !== plan.id) ||
-      (caseData.transportEventId && caseData.transportEventId !== plan.transportEventId)) {
-      throw new AdminRepositoryError("The treatment or case linkage changed during biopsy submission.", 409);
+      (caseData.linkedTreatmentStartFormId && caseData.linkedTreatmentStartFormId !== plan?.id) ||
+      (caseData.transportEventId && caseData.transportEventId !== plan?.transportEventId) ||
+      (plan && (!treatmentStartMatchesRequest(plan, request) || plan.archivedAt ||
+        plan.linkedBiopsyForm || plan.linkedCaseId ||
+        plan.transportEventId !== treatmentPlan?.transportEventId))) {
+      throw new AdminRepositoryError("The study request or case linkage changed during biopsy submission.", 409);
     }
 
-    const pickup = plan.transportEventId
+    const consent = await readApprovedStudyConsent(transaction, request);
+    if ((consent.data.caseId && consent.data.caseId !== caseId) ||
+      (caseData.informedConsentId && caseData.informedConsentId !== consent.reference.id)) {
+      throw new AdminRepositoryError("The case already has a different informed consent linkage.", 409);
+    }
+    const pickup = plan?.transportEventId
       ? await prepareBiopsyPickupConfirmation(transaction, {
           eventId: plan.transportEventId,
           formId: plan.id,
@@ -3644,7 +3707,7 @@ async function saveBiopsyWithTreatmentPlan({
     const statusChanges = confirmedCases.flatMap((snapshot) => {
       const data = snapshot.data();
       if (!data || data.institutionId !== request.institutionId ||
-        (snapshot.id !== caseId && data.transportEventId !== plan.transportEventId) ||
+        (snapshot.id !== caseId && data.transportEventId !== plan?.transportEventId) ||
         data.caseStatus !== "intake") {
         return [];
       }
@@ -3654,12 +3717,18 @@ async function saveBiopsyWithTreatmentPlan({
 
     transaction.set(forms.doc(formId), document);
     transaction.set(requestRef, { "2pq_case": caseId, ...updated }, { merge: true });
-    transaction.set(planRef, { linkedCaseId: caseId, linkedBiopsyForm: formId, ...updated }, { merge: true });
+    if (planRef) {
+      transaction.set(planRef, { linkedCaseId: caseId, linkedBiopsyForm: formId, ...updated }, { merge: true });
+    }
+    transaction.set(consent.reference, { caseId, updatedAt: now }, { merge: true });
     transaction.set(caseRef, {
       linkedStudyRequestFormId: studyRequestId,
-      linkedTreatmentStartFormId: plan.id,
+      informedConsentId: consent.reference.id,
       linkedBiopsyForm: formId,
-      transportEventId: plan.transportEventId ?? null,
+      ...(plan ? {
+        linkedTreatmentStartFormId: plan.id,
+        transportEventId: plan.transportEventId ?? null,
+      } : {}),
       last_updated_date: now,
       ...updated,
     }, { merge: true });
@@ -3776,9 +3845,12 @@ export async function listTwoPQFormsForContext(
       const formsWithPlans = options.availableForBiopsy || options.requestedStudyTest || options.treatmentFrom || options.treatmentTo
         ? await withTreatmentStartPlans(context, formsWithLegacyLinks)
         : formsWithLegacyLinks;
-      const resolvedForms = options.workflowStage
+      const formsWithPickup = options.workflowStage
         ? await withTreatmentPickups(context, formsWithPlans)
         : formsWithPlans;
+      const resolvedForms = options.availableForBiopsy
+        ? await withStudyRequestConsents(context, formsWithPickup)
+        : formsWithPickup;
       for (const form of resolvedForms) {
         if (
           formMatchesListFilters(
@@ -3817,7 +3889,10 @@ export async function listTwoPQFormsForContext(
     }
 
     const formsWithPlans = await withTreatmentStartPlans(context, accepted.map((entry) => entry.form));
-    const forms = await withLinkedCaseLabels(await withTreatmentPickups(context, formsWithPlans));
+    const formsWithConsent = options.availableForBiopsy
+      ? formsWithPlans
+      : await withStudyRequestConsents(context, formsWithPlans);
+    const forms = await withLinkedCaseLabels(await withTreatmentPickups(context, formsWithConsent));
     const nextCursor =
       forms.length > 0
         ? (accepted[accepted.length - 1]?.cursor ?? null)
@@ -3879,7 +3954,19 @@ export async function getTwoPQFormForContext(
     formWithStudyRequestDiagnostics,
   );
   const resolved = await withResolvedWithdrawalCaseLinks(formWithWithdrawalDiagnostics);
-  const [result] = await withTreatmentPickups(context, await withTreatmentStartPlans(context, [resolved]));
+  const withPlans = await withTreatmentStartPlans(context, [resolved]);
+  const [result] = await withTreatmentPickups(context, await withStudyRequestConsents(context, withPlans));
+  if (result?.formType === "treatment_start" && result.linkedStudyRequestFormId) {
+    const requestSnapshot = await adminDb.collection(FORMS_COLLECTION).doc(result.linkedStudyRequestFormId).get();
+    const requestData = requestSnapshot.data();
+    if (requestData) {
+      const request = toTwoPQFormRecord(requestSnapshot.id, requestData);
+      if (treatmentStartMatchesRequest(result, request)) {
+        const [requestWithConsent] = await withStudyRequestConsents(context, [request]);
+        return { ...result, consent: requestWithConsent?.consent };
+      }
+    }
+  }
   return result!;
 }
 
@@ -5128,6 +5215,12 @@ export async function archiveTwoPQFormForContext(
     if (form.formType === "treatment_start" && !form.linkedBiopsyForm) {
       throw new AdminRepositoryError("The active treatment start form can be archived after biopsy.", 409);
     }
+    if (form.formType === "study_request" && form.linkedBiopsyForm && !form["2pq_case"]) {
+      const biopsy = await transaction.get(adminDb.collection(FORMS_COLLECTION).doc(form.linkedBiopsyForm));
+      if (!biopsy.exists) {
+        throw new AdminRepositoryError("This study request is being used for a biopsy submission.", 409);
+      }
+    }
     if (form.formType === "study_request" && form.linkedTreatmentStartFormId) {
       const plan = await transaction.get(adminDb.collection(FORMS_COLLECTION).doc(form.linkedTreatmentStartFormId));
       if (plan.exists && !normalizeOptionalString(plan.data()?.linkedBiopsyForm)) {
@@ -5172,6 +5265,9 @@ export async function deleteTwoPQFormForContext(
     throw new AdminRepositoryError("Forms linked to treatment planning are retained as workflow history. Archive the form after biopsy.", 409);
   }
   if (form.formType === "study_request") {
+    if (form.informedConsentId) {
+      throw new AdminRepositoryError("Study requests with a signed informed consent are retained as workflow history. Archive the study request instead.", 409);
+    }
     const resolvedForm = await getTwoPQFormForContext(
       context,
       normalizedFormId,
@@ -5266,8 +5362,12 @@ export async function deleteTwoPQFormForContext(
   if (form.formType === "study_request" || form.formType === "sample") {
     await adminDb.runTransaction(async (transaction) => {
       const latest = await transaction.get(reference);
-      if (normalizeOptionalString(latest.data()?.linkedTreatmentStartFormId)) {
+      const latestData = latest.data();
+      if (normalizeOptionalString(latestData?.linkedTreatmentStartFormId)) {
         throw new AdminRepositoryError("Forms linked to treatment planning are retained as workflow history. Archive the form after biopsy.", 409);
+      }
+      if (form.formType === "study_request" && normalizeOptionalString(latestData?.informedConsentId)) {
+        throw new AdminRepositoryError("Study requests with a signed informed consent are retained as workflow history. Archive the study request instead.", 409);
       }
       transaction.delete(reference);
     });
@@ -5665,10 +5765,6 @@ export async function createTwoPQFormForContext(
   }
 
   let selectedPatient: PatientRecord | null = null;
-  let automaticConsentEmail: {
-    patient: PatientRecord;
-    temporaryPassword: string;
-  } | null = null;
   if (selectedPatientId) {
     selectedPatient = await getPatientById(selectedPatientId);
     if (!selectedPatient) {
@@ -5755,14 +5851,7 @@ export async function createTwoPQFormForContext(
     selectedPatientId = selectedPatient.id;
 
     if (shouldGrantNewPatientPortalAccess) {
-      const accessGrant = await grantPatientPortalAccessForTwoPQForm(
-        context,
-        selectedPatient.id,
-      );
-      automaticConsentEmail = {
-        patient: selectedPatient,
-        temporaryPassword: accessGrant.temporaryPassword,
-      };
+      await grantPatientPortalAccessForTwoPQForm(context, selectedPatient.id);
     }
   }
 
@@ -5815,6 +5904,7 @@ export async function createTwoPQFormForContext(
       context,
       linkedStudyRequestForm,
       formId,
+      normalizeOptionalString(payload.selectedCaseId),
     );
     claimedStudyRequestFormId = linkedStudyRequestForm.id;
   }
@@ -5878,6 +5968,9 @@ export async function createTwoPQFormForContext(
             `Selected 2PQ case is already linked to study request form ${caseRecord.linkedStudyRequestFormId}.`,
             409,
           );
+        }
+        if (caseRecord.informedConsentId && caseRecord.informedConsentId !== linkedStudyRequestForm?.informedConsentId) {
+          throw new AdminRepositoryError("The case already has a different informed consent linkage.", 409);
         }
 
         linkedCaseId = caseRecord.id;
@@ -5995,6 +6088,7 @@ export async function createTwoPQFormForContext(
         ? {
             ...baseDocument,
             requiresTreatmentStart: true,
+            informedConsentId: null,
             linkedTreatmentStartFormId: null,
             linkedBiopsyForm: null,
             linkedWithdrawalRequest: null,
@@ -6033,8 +6127,11 @@ export async function createTwoPQFormForContext(
           };
 
     let pickupStatusChanges: Array<{ id: string; previousCaseStatus?: string }> = [];
-    if (treatmentPlan && linkedStudyRequestForm && linkedCaseId && normalizedSampleInformation) {
-      pickupStatusChanges = await saveBiopsyWithTreatmentPlan({
+    if (payload.formType === "sample") {
+      if (!linkedStudyRequestForm || !linkedCaseId || !normalizedSampleInformation) {
+        throw new AdminRepositoryError("The biopsy could not be linked to its study request and case.", 409);
+      }
+      pickupStatusChanges = await saveBiopsyForStudyRequest({
         document,
         formId,
         studyRequestId: linkedStudyRequestForm.id,
@@ -6049,18 +6146,6 @@ export async function createTwoPQFormForContext(
     } else {
       const batch = adminDb.batch();
       batch.set(adminDb.collection(FORMS_COLLECTION).doc(formId), document);
-      if (payload.formType === "sample" && linkedStudyRequestForm && linkedCaseId) {
-        batch.set(
-          adminDb.collection(FORMS_COLLECTION).doc(linkedStudyRequestForm.id),
-          {
-            "2pq_case": linkedCaseId,
-            updatedAt: now,
-            updatedByEmail: authorEmail,
-            updatedByUid: authorUid,
-          },
-          { merge: true },
-        );
-      }
       batch.delete(adminDb.collection(FORM_DRAFTS_COLLECTION).doc(authorUid));
       await batch.commit();
     }
@@ -6082,12 +6167,9 @@ export async function createTwoPQFormForContext(
       }
     }
 
-    if (automaticConsentEmail) {
+    if (payload.formType === "study_request") {
       try {
-        await sendInformedConsentEmail(
-          automaticConsentEmail.patient,
-          automaticConsentEmail.temporaryPassword,
-        );
+        await sendStudyRequestConsentInvitationForContext(context, formId);
       } catch (error) {
         console.error(
           "Unable to send automatic informed consent email after study request submission.",
@@ -6096,7 +6178,11 @@ export async function createTwoPQFormForContext(
       }
     }
 
-    return withPickupAfterSave(context, toTwoPQFormRecord(formId, document));
+    const saved = toTwoPQFormRecord(formId, document);
+    if (saved.formType === "study_request") {
+      return { ...saved, consent: { id: null, status: "pending" } };
+    }
+    return withPickupAfterSave(context, saved);
   } catch (error) {
     if (claimedStudyRequestFormId) {
       try {

@@ -3,12 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import {
-  AlertTriangle,
-  ArrowRight,
-  CheckCircle2,
-  ClipboardList,
-} from "lucide-react";
+import { ArrowRight, CheckCircle2, ClipboardList } from "lucide-react";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { Button } from "@/components/ui/button";
 import { appText } from "@/lib/language";
@@ -81,24 +76,12 @@ export function TwoPQFormCompletionDialog({
               ? t("The biopsy form is ready and stored")
               : createdType === "withdrawal_request"
                 ? t("The withdrawal request form is ready and stored")
-              : t("The access email was sent to the patient")}
+              : t("The study request was saved")}
           </h3>
           {isStudyRequestCompletion ? (
-            <>
-              <p className="mt-2 max-w-lg text-sm text-indigo-50/84">
-                {t(
-                  "An email with the access key was sent to the patient's email. The patient must review it to upload the file."
-                )}
-              </p>
-              <div className="mt-4 flex max-w-lg items-start gap-2 rounded-xl border border-amber-200/35 bg-amber-200/12 px-3 py-2 text-left text-xs font-medium leading-relaxed text-amber-50">
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <span>
-                  {t(
-                    "Ask the patient to check the spam folder too; sometimes this email arrives there."
-                  )}
-                </span>
-              </div>
-            </>
+            <p className="mt-2 max-w-lg text-sm text-indigo-50/84">
+              {t("Open the request to check the consent status or resend the invitation to the patient.")}
+            </p>
           ) : (
             <p className="mt-2 max-w-lg text-sm text-indigo-50/84">
               {t("Form")} <span className="font-mono text-indigo-50">{createdId}</span>{" "}
@@ -111,7 +94,7 @@ export function TwoPQFormCompletionDialog({
               className="h-12 rounded-[1.1rem] border border-indigo-100/12 bg-white px-6 text-sm font-semibold text-indigo-950 shadow-[0_18px_48px_rgba(199,210,254,0.22)] hover:bg-indigo-50"
               asChild
             >
-              <Link href={`/2pq-dashboard/forms/${encodeURIComponent(createdId)}`}>
+              <Link href={`/2pq-dashboard/forms/${encodeURIComponent(createdId)}${isStudyRequestCompletion ? "#informed-consent" : ""}`}>
                 <ClipboardList className="h-4 w-4" />
                 {t("Open completed form")}
               </Link>

@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { AdminContextProvider } from "@/components/admin-context-provider";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { InformedConsentsWorkbench } from "@/components/informed-consents-workbench";
@@ -23,18 +23,9 @@ const consentRecord = {
   createdByEmail: "patient@example.com",
 };
 
-const draftSummary = {
-  mode: "guided" as const,
-  activeStepId: "data" as const,
-  updatedAt: "2026-10-16T12:00:00.000Z",
-  revision: 3,
-};
-
-const mockRouterRefresh = jest.fn();
-
 jest.mock("next/navigation", () => ({
   useRouter: () => ({
-    refresh: mockRouterRefresh,
+    refresh: jest.fn(),
   }),
 }));
 
@@ -48,11 +39,7 @@ jest.mock("@/lib/sdk-client", () => ({
 }));
 
 describe("patient portal consents", () => {
-  beforeEach(() => {
-    mockRouterRefresh.mockReset();
-  });
-
-  it("centers a large upload action in the empty state", () => {
+  it("shows the empty saved-file state without an unscoped upload or draft link", () => {
     render(
       <InformedConsentsWorkbench
         surface="patient-portal"
@@ -64,76 +51,11 @@ describe("patient portal consents", () => {
       screen.getByRole("heading", { name: "Consentimientos 2PQ" }),
     ).toBeTruthy();
     const emptyState = screen.getByTestId("patient-consent-empty-state");
-    const uploadLinks = screen.getAllByRole("link", {
-      name: "Subir consentimiento",
-    });
-    expect(uploadLinks).toHaveLength(1);
-    expect(uploadLinks[0]).toHaveAttribute(
-      "href",
-      "/patient-portal/consents/new",
-    );
-    expect(uploadLinks[0]).toHaveClass("h-14", "px-8", "text-base");
+    expect(screen.queryByRole("link", { name: "Subir consentimiento" })).toBeNull();
     expect(emptyState).toHaveTextContent(
       "Todavía no subiste un consentimiento",
     );
     expect(screen.queryByText("Archivo de consentimiento")).toBeNull();
-    expect(
-      screen.queryByRole("link", { name: "Continuar desde borrador" }),
-    ).toBeNull();
-  });
-
-  it("shows the resume action inside the patient empty state only when a draft exists", () => {
-    render(
-      <InformedConsentsWorkbench
-        surface="patient-portal"
-        initialPage={{ records: [] }}
-        initialDraftSummary={draftSummary}
-      />,
-    );
-
-    expect(
-      screen.getByRole("link", { name: "Continuar desde borrador" }),
-    ).toHaveAttribute("href", "/patient-portal/consents/new?draft=1");
-    expect(
-      screen.getByRole("link", { name: "Subir consentimiento" }),
-    ).toHaveAttribute("href", "/patient-portal/consents/new");
-  });
-
-  it("shows the resume action beside the new-upload action when records exist", () => {
-    render(
-      <InformedConsentsWorkbench
-        surface="patient-portal"
-        initialPage={{ records: [consentRecord] }}
-        initialDraftSummary={draftSummary}
-      />,
-    );
-
-    expect(
-      screen.getByRole("link", { name: "Continuar desde borrador" }),
-    ).toHaveAttribute("href", "/patient-portal/consents/new?draft=1");
-    expect(
-      screen.getByRole("link", { name: "Subir consentimiento" }),
-    ).toHaveAttribute("href", "/patient-portal/consents/new");
-  });
-
-  it("keeps the consent page usable and offers reload when draft detection fails", () => {
-    render(
-      <InformedConsentsWorkbench
-        surface="patient-portal"
-        initialPage={{ records: [] }}
-        draftLookupFailed
-      />,
-    );
-
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "No se pudo verificar si existe un borrador guardado.",
-    );
-    const reloadButton = screen.getByRole("button", { name: "Recargar" });
-    fireEvent.click(reloadButton);
-    expect(mockRouterRefresh).toHaveBeenCalledTimes(1);
-    expect(
-      screen.getByRole("link", { name: "Subir consentimiento" }),
-    ).toBeInTheDocument();
     expect(
       screen.queryByRole("link", { name: "Continuar desde borrador" }),
     ).toBeNull();
@@ -150,9 +72,7 @@ describe("patient portal consents", () => {
     );
 
     expect(screen.getByRole("link", { name: "Abrir archivo" })).toBeTruthy();
-    expect(
-      screen.getByRole("link", { name: "Subir consentimiento" }),
-    ).toHaveAttribute("href", "/patient-portal/consents/new");
+    expect(screen.queryByRole("link", { name: "Subir consentimiento" })).toBeNull();
     expect(screen.queryByTestId("patient-consent-empty-state")).toBeNull();
     expect(
       screen.queryByRole("button", { name: "Eliminar consentimiento" }),

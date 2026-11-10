@@ -3,12 +3,11 @@
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import PatientPortalNewConsentPage from "@/app/patient-portal/(portal)/consents/new/page";
+import type { InformedConsentStudyRequest } from "@/lib/informed-consents";
 import { sdkFetchServer } from "@/lib/sdk-server";
 
 const mockPatientConsentUploadWizard = jest.fn(
-  (props: Record<string, unknown>) => (
-    <div data-testid="consent-wizard" data-props={JSON.stringify(props)} />
-  ),
+  (_props: Record<string, unknown>) => <div data-testid="consent-wizard" />,
 );
 
 jest.mock("@/components/patient-consent-upload-wizard", () => ({
@@ -20,233 +19,126 @@ jest.mock("@/lib/sdk-server", () => ({
   sdkFetchServer: jest.fn(),
 }));
 
-const account = {
-  auth: { displayName: "Nombre Auth" },
-  profile: { fullName: "Ada Paciente" },
-  role: {
-    patientName: "Ada Perfil",
-    patientMedicalRecordNumber: "31.234.567",
-  },
+const request: InformedConsentStudyRequest = {
+  id: "FORM-101",
+  patientId: "PAT-101",
+  patientName: "Ada Paciente",
+  patientEmail: "ada@example.com",
+  institutionId: "INST-101",
+  doctorId: "DOC-101",
+  doctorName: "Dra. Lucía Méndez",
+  doctorLicenseNumber: "MN 101",
+  canUpload: true,
+  canApprove: false,
+  canResend: false,
+  consent: { id: null, status: "pending" },
 };
 
-const draft = {
-  id: "patient-uid",
-  collectionKey: "2pq-informed-consent-drafts" as const,
-  schemaVersion: 1 as const,
-  surface: "patient-portal" as const,
-  mode: "guided" as const,
-  activeStepId: "data" as const,
-  revision: 2,
-  state: {},
-  createdAt: "2026-10-16T11:00:00.000Z",
-  updatedAt: "2026-10-16T12:00:00.000Z",
-};
+const account = { role: { patientMedicalRecordNumber: " 31.234.567 " } };
+const requestPath = "/2pq/informed-consents/study-requests/FORM-101";
+const draftPath = "/2pq/informed-consents/draft?studyRequestFormId=FORM-101";
+
+async function openRequest() {
+  render(await PatientPortalNewConsentPage({
+    searchParams: Promise.resolve({ studyRequestFormId: request.id }),
+  }));
+}
 
 describe("patient portal new consent page", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
+  });
+
+  it("directs the patient to select a request before opening the wizard", async () => {
+    render(await PatientPortalNewConsentPage({ searchParams: Promise.resolve({}) }));
+
+    expect(screen.getByRole("link", { name: "Volver a consentimientos" }))
+      .toHaveAttribute("href", "/patient-portal/consents");
+    expect(sdkFetchServer).not.toHaveBeenCalled();
+  });
+
+  it("loads the authorized request before opening its scoped draft", async () => {
+    const draft = {
+      studyRequestFormId: request.id,
+      patientId: request.patientId,
+      revision: 2,
+    };
     jest.mocked(sdkFetchServer).mockImplementation(async (path) => {
+      if (path === requestPath) return { request };
+      if (path === draftPath) return { draft };
       if (path === "/auth/my-account") return { account };
-      if (path === "/2pq/informed-consents/draft/status") {
-        return { draft: null };
-      }
       throw new Error(`Unexpected SDK path: ${path}`);
+    });
+
+    await openRequest();
+
+    expect(sdkFetchServer).toHaveBeenNthCalledWith(1, requestPath);
+    expect(sdkFetchServer).toHaveBeenCalledWith(draftPath);
+    expect(mockPatientConsentUploadWizard).toHaveBeenCalledWith({
+      initialStudyRequest: request,
+      initialPatientName: request.patientName,
+      initialPatientDocument: "31.234.567",
+      initialDraft: draft,
     });
   });
 
-  it("uses only the lightweight draft revision during a fresh start", async () => {
+  it("starts with a blank document when the account has no stored number", async () => {
     jest.mocked(sdkFetchServer).mockImplementation(async (path) => {
-      if (path === "/auth/my-account") return { account };
-      if (path === "/2pq/informed-consents/draft/status") {
-        return {
-          draft: {
-            mode: "guided",
-            activeStepId: "data",
-            updatedAt: "2026-10-16T12:00:00.000Z",
-            revision: 8,
-          },
-        };
-      }
+      if (path === requestPath) return { request };
+      if (path === draftPath) return { draft: null };
+      if (path === "/auth/my-account") return { account: { role: {} } };
       throw new Error(`Unexpected SDK path: ${path}`);
     });
 
-    render(
-      await PatientPortalNewConsentPage({
-        searchParams: Promise.resolve({}),
-      }),
-    );
+    await openRequest();
 
-    expect(sdkFetchServer).toHaveBeenCalledTimes(2);
-    expect(sdkFetchServer).toHaveBeenCalledWith("/auth/my-account");
-    expect(sdkFetchServer).toHaveBeenCalledWith(
-      "/2pq/informed-consents/draft/status",
-    );
-    expect(sdkFetchServer).not.toHaveBeenCalledWith(
-      "/2pq/informed-consents/draft",
-    );
-    expect(mockPatientConsentUploadWizard).toHaveBeenCalledWith(
-      expect.objectContaining({
-        initialPatientName: "Ada Perfil",
-        initialPatientDocument: "31.234.567",
-        initialDraft: null,
-        initialDraftRevision: 8,
-      }),
-    );
+    expect(mockPatientConsentUploadWizard).toHaveBeenCalledWith(expect.objectContaining({
+      initialPatientDocument: "",
+      initialDraft: null,
+    }));
   });
 
-  it("keeps manual document entry available when the patient has no stored document", async () => {
+  it("keeps a draft from a different request out of the wizard", async () => {
     jest.mocked(sdkFetchServer).mockImplementation(async (path) => {
-      if (path === "/auth/my-account") {
-        return {
-          account: {
-            ...account,
-            role: {
-              ...account.role,
-              patientMedicalRecordNumber: "   ",
-            },
-          },
-        };
+      if (path === requestPath) return { request };
+      if (path === draftPath) {
+        return { draft: { studyRequestFormId: "FORM-202", patientId: request.patientId } };
       }
-      if (path === "/2pq/informed-consents/draft/status") {
-        return { draft: null };
-      }
+      if (path === "/auth/my-account") return { account };
       throw new Error(`Unexpected SDK path: ${path}`);
     });
 
-    render(
-      await PatientPortalNewConsentPage({
-        searchParams: Promise.resolve({}),
-      }),
-    );
+    await openRequest();
 
-    expect(mockPatientConsentUploadWizard).toHaveBeenCalledWith(
-      expect.objectContaining({
-        initialPatientDocument: "",
-        initialDraft: null,
-      }),
-    );
+    expect(screen.getByRole("alert")).toHaveTextContent("No se pudo recuperar el borrador");
+    expect(screen.getByRole("link", { name: "Reintentar" }))
+      .toHaveAttribute("href", "/patient-portal/consents/new?studyRequestFormId=FORM-101");
+    expect(mockPatientConsentUploadWizard).not.toHaveBeenCalled();
   });
 
-  it.each(["1", "true", "yes", ["YES"]])(
-    "restores the full draft only for an explicit %p query",
-    async (draftParam) => {
-      jest.mocked(sdkFetchServer).mockImplementation(async (path) => {
-        if (path === "/auth/my-account") return { account };
-        if (path === "/2pq/informed-consents/draft") return { draft };
-        throw new Error(`Unexpected SDK path: ${path}`);
-      });
+  it("does not retrieve a draft for a request that is unavailable to the patient", async () => {
+    jest.mocked(sdkFetchServer).mockRejectedValueOnce(new Error("not found"));
 
-      render(
-        await PatientPortalNewConsentPage({
-          searchParams: Promise.resolve({ draft: draftParam }),
-        }),
-      );
+    await openRequest();
 
-      expect(sdkFetchServer).toHaveBeenCalledWith(
-        "/2pq/informed-consents/draft",
-      );
-      expect(mockPatientConsentUploadWizard).toHaveBeenCalledWith(
-        expect.objectContaining({
-          initialDraft: draft,
-          initialDraftRevision: draft.revision,
-        }),
-      );
-      expect(screen.queryByRole("status")).toBeNull();
-      expect(screen.queryByRole("alert")).toBeNull();
-    },
-  );
-
-  it("explains when the requested draft no longer exists and leaves fresh start available", async () => {
-    jest.mocked(sdkFetchServer).mockImplementation(async (path) => {
-      if (path === "/auth/my-account") return { account };
-      if (path === "/2pq/informed-consents/draft") return { draft: null };
-      throw new Error(`Unexpected SDK path: ${path}`);
-    });
-
-    render(
-      await PatientPortalNewConsentPage({
-        searchParams: Promise.resolve({ draft: "1" }),
-      }),
-    );
-
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "El borrador que intentó retomar ya no existe.",
-    );
-    expect(screen.getByTestId("consent-wizard")).toBeInTheDocument();
-    expect(mockPatientConsentUploadWizard).toHaveBeenCalledWith(
-      expect.objectContaining({
-        initialDraft: null,
-        initialDraftRevision: null,
-      }),
-    );
+    expect(screen.getByRole("alert")).toHaveTextContent("No se pudo abrir esta solicitud");
+    expect(sdkFetchServer).toHaveBeenCalledTimes(1);
+    expect(mockPatientConsentUploadWizard).not.toHaveBeenCalled();
   });
 
-  it("blocks restore when only the lightweight draft status can load", async () => {
-    jest.mocked(sdkFetchServer).mockImplementation(async (path) => {
-      if (path === "/auth/my-account") return { account };
-      if (path === "/2pq/informed-consents/draft") {
-        throw new Error("draft unavailable");
-      }
-      if (path === "/2pq/informed-consents/draft/status") {
-        return {
-          draft: {
-            mode: "guided",
-            activeStepId: "data",
-            updatedAt: "2026-10-16T12:00:00.000Z",
-            revision: 9,
-          },
-        };
-      }
-      throw new Error(`Unexpected SDK path: ${path}`);
+  it("shows the current status without opening the wizard when upload is closed", async () => {
+    jest.mocked(sdkFetchServer).mockResolvedValueOnce({
+      request: {
+        ...request,
+        canUpload: false,
+        consent: { id: "CONSENT-101", status: "ready" },
+      },
     });
 
-    render(
-      await PatientPortalNewConsentPage({
-        searchParams: Promise.resolve({ draft: "1" }),
-      }),
-    );
+    await openRequest();
 
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Pudimos verificar que el borrador sigue existiendo, pero no recuperar su contenido completo.",
-    );
-    expect(screen.queryByTestId("consent-wizard")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Reintentar" })).toHaveAttribute(
-      "href",
-      "/patient-portal/consents/new?draft=1",
-    );
-    expect(sdkFetchServer).toHaveBeenCalledWith(
-      "/2pq/informed-consents/draft/status",
-    );
-  });
-
-  it("blocks an unsafe fresh start when both draft lookups fail", async () => {
-    jest.mocked(sdkFetchServer).mockImplementation(async (path) => {
-      if (path === "/auth/my-account") return { account };
-      if (
-        path === "/2pq/informed-consents/draft" ||
-        path === "/2pq/informed-consents/draft/status"
-      ) {
-        throw new Error("draft unavailable");
-      }
-      throw new Error(`Unexpected SDK path: ${path}`);
-    });
-
-    render(
-      await PatientPortalNewConsentPage({
-        searchParams: Promise.resolve({ draft: "1" }),
-      }),
-    );
-
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Tampoco pudimos verificar su última revisión.",
-    );
-    expect(screen.queryByTestId("consent-wizard")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Reintentar" })).toHaveAttribute(
-      "href",
-      "/patient-portal/consents/new?draft=1",
-    );
-    expect(
-      screen.getByRole("link", { name: "Volver a consentimientos" }),
-    ).toHaveAttribute("href", "/patient-portal/consents");
+    expect(screen.getByText("Consentimiento informado · Listo")).toBeVisible();
+    expect(sdkFetchServer).toHaveBeenCalledTimes(1);
+    expect(mockPatientConsentUploadWizard).not.toHaveBeenCalled();
   });
 });

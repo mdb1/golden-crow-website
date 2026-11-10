@@ -244,6 +244,8 @@ export interface TwoPQFormRecord {
   requestedTestName?: string;
   maximumResultDeliveryAt?: string;
   estimatedTreatmentDate?: string;
+  informedConsentId?: string | null;
+  consent?: { id: string | null; status: "pending" | "needs_review" | "ready"; reviewedAt?: string };
   requiresTreatmentStart?: boolean;
   linkedStudyRequestFormId?: string | null;
   linkedTreatmentStartFormId?: string | null;
@@ -394,6 +396,9 @@ export function canUseStudyRequestForBiopsy(form: TwoPQFormRecord) {
     form.formType === "study_request" &&
     !form.archivedAt &&
     !form.linkedBiopsyForm &&
+    !form.suggestedBiopsyForm &&
+    !form["2pq_case"] &&
+    form.consent?.status === "ready" &&
     (!form.requiresTreatmentStart || Boolean(form.treatmentStart))
   );
 }

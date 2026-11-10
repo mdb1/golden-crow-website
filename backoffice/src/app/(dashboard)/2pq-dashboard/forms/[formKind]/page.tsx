@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { TwoPQFormDetail } from "@/components/two-pq-form-detail";
-import type { TwoPQListItem } from "@/lib/two-pq-areas";
 import type { TwoPQFormRecord } from "@/lib/two-pq-forms";
+import type { InformedConsentStudyRequest } from "@/lib/informed-consents";
+import { sdkFetchServer } from "@/lib/sdk-server";
 import { getTwoPQCase, getTwoPQForm } from "@/lib/two-pq-server";
 
 export default async function TwoPQFormDetailPage({
@@ -18,14 +19,14 @@ export default async function TwoPQFormDetailPage({
     notFound();
   }
 
-  let linkedCase: TwoPQListItem | null = null;
-  if (form["2pq_case"]) {
-    try {
-      linkedCase = await getTwoPQCase(form["2pq_case"]);
-    } catch {
-      linkedCase = null;
-    }
-  }
+  const [linkedCase, consentRequest] = await Promise.all([
+    form["2pq_case"] ? getTwoPQCase(form["2pq_case"]).catch(() => null) : Promise.resolve(null),
+    form.formType === "study_request"
+      ? sdkFetchServer<{ request: InformedConsentStudyRequest }>(
+          `/2pq/informed-consents/study-requests/${encodeURIComponent(form.id)}`,
+        ).then(({ request }) => request).catch(() => null)
+      : Promise.resolve(null),
+  ]);
 
-  return <TwoPQFormDetail form={form} linkedCase={linkedCase} />;
+  return <TwoPQFormDetail form={form} linkedCase={linkedCase} consentRequest={consentRequest} />;
 }

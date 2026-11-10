@@ -36,4 +36,13 @@ describe("PatientProfileCompletion", () => {
       expect(replace).toHaveBeenCalledWith("/patient-portal/consents"),
     );
   });
+
+  it("opens the invited study request after completing the patient profile", async () => {
+    jest.mocked(sdkFetch).mockResolvedValue({ state: {} });
+    const destination = "/patient-portal/consents/new?studyRequestFormId=FORM-101";
+
+    render(<PatientProfileCompletion destination={destination} />);
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(destination));
+  });
 });

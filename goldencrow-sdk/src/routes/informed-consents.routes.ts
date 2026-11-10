@@ -4,6 +4,7 @@ import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
   INFORMED_CONSENT_FILE_MAX_BYTES,
+  approveStudyRequestConsentForContext,
   createInformedConsentForContext,
   deleteInformedConsentForContext,
   getCaseConsentTraceabilityForContext,
@@ -13,16 +14,22 @@ import {
   getInformedConsentDetailForContext,
   getInformedConsentFileForContext,
   getSavedInformedConsentSignatureForContext,
+  getStudyRequestConsentForContext,
   listInformedConsentCasesForContext,
   listInformedConsentPatientsForContext,
   listInformedConsentsForContext,
+  listStudyRequestConsentsForContext,
   sendInformedConsentEmailForContext,
+  sendStudyRequestConsentInvitationForContext,
   setInformedConsentCaseForContext,
   upsertInformedConsentDraftForContext,
 } from "../repositories/informed-consents.repository.js";
 import { SAVED_SIGNATURE_MAX_DATA_URL_LENGTH } from "../lib/saved-signature.js";
 
 const CursorSchema = z.object({ cursor: z.string().min(1).optional() });
+const DocumentIdSchema = z.string().trim().min(1).max(200).regex(/^[^/]+$/);
+const StudyRequestParamsSchema = z.object({ formId: DocumentIdSchema });
+const ConsentDraftQuerySchema = z.object({ studyRequestFormId: DocumentIdSchema.optional() });
 const PatientCaseCursorSchema = CursorSchema.extend({
   patientId: z.string().min(1),
 });
@@ -210,19 +217,113 @@ export async function informedConsentRoutes(fastify: FastifyInstance) {
     },
   );
 
-  f.get("/2pq/informed-consents/draft/status", async (request, reply) => {
-    if (!request.adminContext) {
-      return reply.status(401).send({ error: "No authenticated context" });
-    }
-    try {
-      const draft = await getInformedConsentDraftStatusForContext(
-        request.adminContext,
-      );
-      return reply.header("Cache-Control", "private, no-store").send({ draft });
-    } catch (error) {
-      return sendError(reply, error);
-    }
-  });
+  f.get(
+    "/2pq/informed-consents/study-requests",
+    {
+      schema: {
+        querystring: CursorSchema.extend({
+          patientId: DocumentIdSchema.optional(),
+          limit: z.coerce.number().int().min(1).max(20).optional(),
+        }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated context" });
+      }
+      try {
+        const result = await listStudyRequestConsentsForContext(
+          request.adminContext,
+          request.query,
+        );
+        return reply.header("Cache-Control", "private, no-store").send(result);
+      } catch (error) {
+        return sendError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/2pq/informed-consents/study-requests/:formId",
+    { schema: { params: StudyRequestParamsSchema } },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated context" });
+      }
+      try {
+        const result = await getStudyRequestConsentForContext(
+          request.adminContext,
+          request.params.formId,
+        );
+        return reply.header("Cache-Control", "private, no-store").send({ request: result });
+      } catch (error) {
+        return sendError(reply, error);
+      }
+    },
+  );
+
+  f.post(
+    "/2pq/informed-consents/study-requests/:formId/approve",
+    {
+      schema: {
+        params: StudyRequestParamsSchema,
+        body: z.object({ expectedUploadedAt: z.iso.datetime() }),
+      },
+    },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated context" });
+      }
+      try {
+        const result = await approveStudyRequestConsentForContext(
+          request.adminContext,
+          request.params.formId,
+          request.body.expectedUploadedAt,
+        );
+        return reply.header("Cache-Control", "private, no-store").send({ request: result });
+      } catch (error) {
+        return sendError(reply, error);
+      }
+    },
+  );
+
+  f.post(
+    "/2pq/informed-consents/study-requests/:formId/resend",
+    { schema: { params: StudyRequestParamsSchema } },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated context" });
+      }
+      try {
+        const result = await sendStudyRequestConsentInvitationForContext(
+          request.adminContext,
+          request.params.formId,
+        );
+        return reply.header("Cache-Control", "private, no-store").send(result);
+      } catch (error) {
+        return sendError(reply, error);
+      }
+    },
+  );
+
+  f.get(
+    "/2pq/informed-consents/draft/status",
+    { schema: { querystring: ConsentDraftQuerySchema } },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated context" });
+      }
+      try {
+        const draft = await getInformedConsentDraftStatusForContext(
+          request.adminContext,
+          request.query.studyRequestFormId,
+        );
+        return reply.header("Cache-Control", "private, no-store").send({ draft });
+      } catch (error) {
+        return sendError(reply, error);
+      }
+    },
+  );
 
   f.get("/2pq/informed-consents/home-status", async (request, reply) => {
     if (!request.adminContext) {
@@ -238,25 +339,30 @@ export async function informedConsentRoutes(fastify: FastifyInstance) {
     }
   });
 
-  f.get("/2pq/informed-consents/draft", async (request, reply) => {
-    if (!request.adminContext) {
-      return reply.status(401).send({ error: "No authenticated context" });
-    }
-    try {
-      const draft = await getInformedConsentDraftForContext(
-        request.adminContext,
-      );
-      return reply.header("Cache-Control", "private, no-store").send({ draft });
-    } catch (error) {
-      return sendError(reply, error);
-    }
-  });
+  f.get(
+    "/2pq/informed-consents/draft",
+    { schema: { querystring: ConsentDraftQuerySchema } },
+    async (request, reply) => {
+      if (!request.adminContext) {
+        return reply.status(401).send({ error: "No authenticated context" });
+      }
+      try {
+        const draft = await getInformedConsentDraftForContext(
+          request.adminContext,
+          request.query.studyRequestFormId,
+        );
+        return reply.header("Cache-Control", "private, no-store").send({ draft });
+      } catch (error) {
+        return sendError(reply, error);
+      }
+    },
+  );
 
   f.put(
     "/2pq/informed-consents/draft",
     {
       bodyLimit: 450_000,
-      schema: { body: ConsentDraftMutationSchema },
+      schema: { body: ConsentDraftMutationSchema, querystring: ConsentDraftQuerySchema },
     },
     async (request, reply) => {
       if (!request.adminContext) {
@@ -266,6 +372,7 @@ export async function informedConsentRoutes(fastify: FastifyInstance) {
         const savedDraft = await upsertInformedConsentDraftForContext(
           request.adminContext,
           request.body,
+          request.query.studyRequestFormId,
         );
         const draft = {
           mode: savedDraft.mode,
@@ -289,6 +396,7 @@ export async function informedConsentRoutes(fastify: FastifyInstance) {
           .object({
             patientId: z.string().min(1).optional(),
             caseId: z.string().min(1).optional(),
+            studyRequestFormId: DocumentIdSchema.optional(),
             flowMode: z.enum(["guided", "direct"]).optional(),
             expectedDraftRevision: z
               .number()

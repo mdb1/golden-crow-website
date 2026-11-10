@@ -1672,6 +1672,41 @@ const SPANISH_TEXT: Record<string, string> = {
   "Bootstrap account emails are read only here.":
     "El email de esta cuenta es de solo lectura.",
   "Upload consent": "Subir consentimiento",
+  "Informed consent": "Consentimiento informado",
+  "Consent pending": "Consentimiento pendiente",
+  "Consent needs review": "Consentimiento por revisar",
+  "Consent ready": "Consentimiento listo",
+  "Review consent": "Revisar consentimiento",
+  "Open signed consent": "Abrir consentimiento firmado",
+  "Upload signed consent": "Subir consentimiento firmado",
+  "Replace signed consent": "Reemplazar consentimiento firmado",
+  "Approve consent": "Aprobar consentimiento",
+  "Confirm approval": "Confirmar aprobación",
+  "Confirm that you reviewed the uploaded document and verified the required signatures for this study request.":
+    "Confirmá que revisaste el documento y verificaste las firmas requeridas para esta solicitud de estudio.",
+  "Consent approved.": "Consentimiento aprobado.",
+  "Unable to approve consent.": "No se pudo aprobar el consentimiento.",
+  "The consent file changed. Open the current file before approving it.":
+    "El archivo del consentimiento cambió. Abrí el archivo actual antes de aprobarlo.",
+  "Consent for this study request can no longer be changed.":
+    "Ya no se puede modificar el consentimiento de esta solicitud de estudio.",
+  "Resend consent invitation": "Reenviar invitación de consentimiento",
+  "Sending invitation…": "Enviando invitación…",
+  "Invitation sent to": "Invitación enviada a",
+  "Unable to resend consent invitation.": "No se pudo reenviar la invitación de consentimiento.",
+  "Set a valid email for the active patient before sending the invitation.":
+    "Ingresá un mail válido para el paciente activo antes de enviar la invitación.",
+  "Enable patient portal access at the patient's current email before sending the invitation.":
+    "Habilitá el acceso al portal con el mail actual del paciente antes de enviar la invitación.",
+  "Unable to send the consent invitation.": "No se pudo enviar la invitación de consentimiento.",
+  "Consent must be approved before completing the biopsy form.":
+    "El consentimiento debe estar aprobado para completar el formulario de biopsia.",
+  "Approve the informed consent for this study request before submitting the biopsy.":
+    "Aprobá el consentimiento informado de esta solicitud antes de guardar la biopsia.",
+  "Consent actions are unavailable. Reload the request to try again.":
+    "Las acciones de consentimiento no están disponibles. Recargá la solicitud para volver a intentar.",
+  "Study requests with a signed informed consent are retained as workflow history. Archive the study request instead.":
+    "Las solicitudes de estudio con consentimiento informado firmado se conservan como parte del historial. Podés archivar la solicitud.",
   "Consent file": "Archivo de consentimiento",
   "Select one PDF or image file.": "Seleccioná un archivo PDF o una imagen.",
   "Select a PDF or supported image file.":
@@ -3683,12 +3718,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "Unable to update this form.": "No se pudo actualizar este formulario.",
   "Form completed": "Formulario completado",
   "The 2PQ form is stored and ready": "El formulario 2PQ está guardado y listo",
-  "The access email was sent to the patient":
-    "El mail de acceso fue enviado al paciente",
-  "An email with the access key was sent to the patient's email. The patient must review it to upload the file.":
-    "Se envió un mail con la clave de acceso al correo del paciente. El paciente debe revisarlo para poder subir el archivo.",
-  "Ask the patient to check the spam folder too; sometimes this email arrives there.":
-    "Pedile al paciente que revise también la casilla de spam; a veces este mail llega ahí.",
+  "The study request was saved": "La solicitud de estudio se guardó",
+  "Open the request to check the consent status or resend the invitation to the patient.":
+    "Abrí la solicitud para consultar el estado del consentimiento o reenviar la invitación al paciente.",
   "The biopsy form is ready and stored":
     "El formulario de biopsias está listo y guardado",
   "is now in": "ahora está en",

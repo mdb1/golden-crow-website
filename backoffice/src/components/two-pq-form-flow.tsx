@@ -3370,6 +3370,7 @@ export function TwoPQFormFlow({
   studyRequestForms = [],
   initialDraft = null,
   initialLinkedStudyRequestFormId,
+  consentBlockedStudyRequestId,
   initialWithdrawalCaseId,
 }: {
   formType: TwoPQWizardFormType;
@@ -3380,6 +3381,7 @@ export function TwoPQFormFlow({
   studyRequestForms?: TwoPQFormRecord[];
   initialDraft?: TwoPQFormDraftRecord | null;
   initialLinkedStudyRequestFormId?: string;
+  consentBlockedStudyRequestId?: string;
   initialWithdrawalCaseId?: string;
 }) {
   const adminContext = useAdminContext();
@@ -6150,14 +6152,26 @@ export function TwoPQFormFlow({
         ) : null}
 
         {currentStep === "linkedStudyRequest" ? (
-          <StudyRequestSelectionTable
-            forms={availableStudyRequestForms}
-            doctors={doctors}
-            selectedFormId={state.linkedStudyRequestFormId}
-            onSelect={selectLinkedStudyRequestForm}
-            language={language}
-            error={errorFor("linkedStudyRequestFormId")}
-          />
+          <>
+            {consentBlockedStudyRequestId ? (
+              <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-300/60 px-4 py-3 text-sm">
+                <span>{t("Approve the informed consent for this study request before submitting the biopsy.")}</span>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/2pq-dashboard/forms/${encodeURIComponent(consentBlockedStudyRequestId)}#informed-consent`}>
+                    {t("Review consent")}
+                  </Link>
+                </Button>
+              </div>
+            ) : null}
+            <StudyRequestSelectionTable
+              forms={availableStudyRequestForms}
+              doctors={doctors}
+              selectedFormId={state.linkedStudyRequestFormId}
+              onSelect={selectLinkedStudyRequestForm}
+              language={language}
+              error={errorFor("linkedStudyRequestFormId")}
+            />
+          </>
         ) : null}
 
         {currentStep === "patientInformation" ? (

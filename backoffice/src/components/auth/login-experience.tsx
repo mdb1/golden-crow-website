@@ -1913,23 +1913,25 @@ export function LoginExperience({
     const projectAccess = getLegacyProjectAccess(
       contextData.context?.projectAccess,
     );
-    const redirectTo = profileSetupData.state?.needsCompletion
+    const patientCallback = isPatientPortal ? patientPortalCallbackUrl() : undefined;
+    const needsCompletion = profileSetupData.state?.needsCompletion;
+    const redirectTo = needsCompletion
       ? isPatientPortal
-        ? "/patient-portal/complete-profile"
+        ? `/patient-portal/complete-profile${patientCallback ? `?callbackUrl=${encodeURIComponent(patientCallback)}` : ""}`
         : isPGFlexPortal
           ? "/pgflex/complete-profile"
           : isPublisherPortal
             ? "/publisher-portal/complete-profile"
             : "/complete-profile"
       : isPatientPortal
-        ? (patientPortalCallbackUrl() ?? PATIENT_PORTAL_ENTRY_ROUTE)
+        ? (patientCallback ?? PATIENT_PORTAL_ENTRY_ROUTE)
         : isPGFlexPortal
           ? (pgflexCallbackUrl() ?? PGFLEX_ENTRY_ROUTE)
           : isPublisherPortal
             ? (publisherPortalCallbackUrl() ?? PUBLISHER_PORTAL_ENTRY_ROUTE)
             : "/2pq-dashboard";
 
-    if (redirectTo.endsWith("/complete-profile")) {
+    if (needsCompletion) {
       const fallbackProject = projectAccess.includes("mydnamap")
         ? "mydnamap"
         : (projectAccess[0] ?? "mydnamap");

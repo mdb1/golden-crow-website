@@ -1,26 +1,29 @@
 import { InformedConsentsWorkbench } from "@/components/informed-consents-workbench";
+import { PatientConsentStudyRequests } from "@/components/patient-consent-study-requests";
 import type {
-  InformedConsentDraftSummary,
   InformedConsentPage,
+  InformedConsentStudyRequestPage,
 } from "@/lib/informed-consents";
 import { sdkFetchServer } from "@/lib/sdk-server";
 
 export default async function PatientPortalConsentsPage() {
-  const [initialPage, draftStatus] = await Promise.all([
+  const [initialPage, requestsPage] = await Promise.all([
     sdkFetchServer<InformedConsentPage>("/2pq/informed-consents"),
-    sdkFetchServer<{ draft: InformedConsentDraftSummary | null }>(
-      "/2pq/informed-consents/draft/status",
-    )
-      .then(({ draft }) => ({ draft, failed: false as const }))
-      .catch(() => ({ draft: null, failed: true as const })),
+    sdkFetchServer<InformedConsentStudyRequestPage>(
+      "/2pq/informed-consents/study-requests?limit=20",
+    ).catch(() => null),
   ]);
 
   return (
-    <InformedConsentsWorkbench
-      surface="patient-portal"
-      initialPage={initialPage}
-      initialDraftSummary={draftStatus.draft}
-      draftLookupFailed={draftStatus.failed}
-    />
+    <div className="space-y-6">
+      {requestsPage ? (
+        <PatientConsentStudyRequests initialPage={requestsPage} />
+      ) : (
+        <p role="alert" className="rounded-lg border p-4 text-sm text-destructive">
+          No se pudieron cargar las solicitudes de estudio.
+        </p>
+      )}
+      <InformedConsentsWorkbench surface="patient-portal" initialPage={initialPage} />
+    </div>
   );
 }

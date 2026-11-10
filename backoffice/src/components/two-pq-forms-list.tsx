@@ -22,6 +22,7 @@ import {
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { useAdminContext } from "@/components/admin-context-provider";
 import { useAppLanguage } from "@/components/app-language-provider";
+import { ConsentRequestStatusBadge } from "@/components/consent-request-status-badge";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -54,6 +55,7 @@ import type {
 import {
   canArchiveTwoPQForms,
   canPlanTreatmentForStudyRequest,
+  canUseStudyRequestForBiopsy,
   getTwoPQFormDisplayTitle,
   TWO_PQ_FORM_ROUTES,
 } from "@/lib/two-pq-forms";
@@ -231,7 +233,7 @@ function CoJoinedFormSequence({
       formId: transportEventId ? null : linkedWithdrawalRequestId,
     },
   ];
-  let nextAction: { stepNumber: number; href: string } | null = null;
+  let nextAction: { stepNumber: number; href: string; label?: string } | null = null;
   if (!form.archivedAt && !linkedWithdrawalRequestId) {
     if (linkedBiopsyFormId && !transportEventId) {
       const query = new URLSearchParams({ studyRequestFormId: form.id });
@@ -240,12 +242,19 @@ function CoJoinedFormSequence({
         stepNumber: 4,
         href: `${TWO_PQ_FORM_ROUTES.withdrawal_request}?${query}`,
       };
-    } else if (!linkedBiopsyFormId && linkedTreatmentStartFormId && !linkedCaseId) {
-      const query = new URLSearchParams({ studyRequestFormId: form.id });
-      nextAction = {
-        stepNumber: 3,
-        href: `${TWO_PQ_FORM_ROUTES.sample}?${query}`,
-      };
+    } else if (!linkedBiopsyFormId && !form.suggestedBiopsyForm && linkedTreatmentStartFormId && !linkedCaseId) {
+      if (canUseStudyRequestForBiopsy(form)) {
+        nextAction = {
+          stepNumber: 3,
+          href: `${TWO_PQ_FORM_ROUTES.sample}?${new URLSearchParams({ studyRequestFormId: form.id })}`,
+        };
+      } else if (form.consent?.status !== "ready") {
+        nextAction = {
+          stepNumber: 3,
+          href: `/2pq-dashboard/forms/${encodeURIComponent(form.id)}#informed-consent`,
+          label: t("Review consent"),
+        };
+      }
     } else if (canPlanTreatmentForStudyRequest(form)) {
       const query = new URLSearchParams({ linkedStudyRequestFormId: form.id });
       nextAction = {
@@ -306,10 +315,10 @@ function CoJoinedFormSequence({
               {stepAction ? (
                 <Link
                   href={stepAction.href}
-                  aria-label={`${t("Complete")} ${step.label}`}
+                  aria-label={stepAction.label ?? `${t("Complete")} ${step.label}`}
                   className="mt-2 inline-flex h-7 cursor-pointer items-center justify-center rounded-md bg-sky-600 px-2.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-sky-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-2 dark:bg-sky-500 dark:hover:bg-sky-400 sm:h-8 sm:px-3 sm:text-xs"
                 >
-                  {t("Complete")}
+                  {stepAction.label ?? t("Complete")}
                 </Link>
               ) : null}
             </>
@@ -800,6 +809,7 @@ export function TwoPQFormsList({
           visibleForms.map((form) => {
             const authorEmail = form.authorEmail ?? form.createdByEmail;
             const isArchived = Boolean(form.archivedAt);
+            const hasSignedConsent = form.formType === "study_request" && Boolean(form.informedConsentId);
             const displayTitle = getTwoPQFormDisplayTitle(form, language);
             const treatmentStart = form.treatmentStart;
             const study = getTwoPQStudySummary(treatmentStart
@@ -848,6 +858,9 @@ export function TwoPQFormsList({
                     ])}
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {form.formType === "study_request" ? (
+                      <ConsentRequestStatusBadge status={form.consent?.status ?? "pending"} language={language} />
+                    ) : null}
                     {study ? (
                       <Badge className={study.className}>{study.label}</Badge>
                     ) : form.requestedTestName ? (
@@ -885,7 +898,7 @@ export function TwoPQFormsList({
                       <ArrowRight className="size-3.5" />
                     </Link>
                   </Button>
-                  {allowMutations && canDeleteForms ? (
+                  {allowMutations && canDeleteForms && !hasSignedConsent ? (
                     <Button
                       type="button"
                       variant="destructive"

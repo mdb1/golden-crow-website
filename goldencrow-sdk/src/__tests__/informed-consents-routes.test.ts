@@ -22,9 +22,11 @@ const mockListInformedConsentsForContext = jest.fn();
 const mockSendInformedConsentEmailForContext = jest.fn();
 const mockSetInformedConsentCaseForContext = jest.fn();
 const mockUpsertInformedConsentDraftForContext = jest.fn();
+const mockApproveStudyRequestConsentForContext = jest.fn();
 
 jest.mock("../repositories/informed-consents.repository.js", () => ({
   INFORMED_CONSENT_FILE_MAX_BYTES: 750_000,
+  approveStudyRequestConsentForContext: mockApproveStudyRequestConsentForContext,
   createInformedConsentForContext: mockCreateInformedConsentForContext,
   deleteInformedConsentForContext: mockDeleteInformedConsentForContext,
   getCaseConsentTraceabilityForContext:
@@ -49,6 +51,7 @@ jest.mock("../repositories/informed-consents.repository.js", () => ({
 }));
 
 const repositoryMocks = [
+  mockApproveStudyRequestConsentForContext,
   mockCreateInformedConsentForContext,
   mockDeleteInformedConsentForContext,
   mockGetCaseConsentTraceabilityForContext,
@@ -270,7 +273,7 @@ describe("patient informed consent draft routes", () => {
     expect(response.json()).toEqual({
       draft: { id: "patient-uid", revision: 2 },
     });
-    expect(mockGetInformedConsentDraftForContext).toHaveBeenCalledWith(PATIENT);
+    expect(mockGetInformedConsentDraftForContext).toHaveBeenCalledWith(PATIENT, undefined);
   });
 
   it("returns only the private draft status summary", async () => {
@@ -321,6 +324,7 @@ describe("patient informed consent draft routes", () => {
     expect(mockUpsertInformedConsentDraftForContext).toHaveBeenCalledWith(
       PATIENT,
       payload,
+      undefined,
     );
     expect(response.json()).toEqual({
       draft: {
@@ -404,6 +408,28 @@ describe("patient informed consent draft routes", () => {
   });
 });
 
+describe("study request consent routes", () => {
+  it("approves a specific request only when the reviewed upload version is provided", async () => {
+    const url = "/2pq/informed-consents/study-requests/FORM-1/approve";
+    const expectedUploadedAt = "2026-11-10T10:00:00.000Z";
+    const request = { id: "FORM-1", consent: { status: "ready" } };
+    mockApproveStudyRequestConsentForContext.mockResolvedValue(request);
+
+    const rejected = await fastify.inject({ method: "POST", url, payload: {} });
+    expect(rejected.statusCode).toBe(400);
+    expect(mockApproveStudyRequestConsentForContext).not.toHaveBeenCalled();
+
+    const approved = await fastify.inject({
+      method: "POST", url, payload: { expectedUploadedAt },
+    });
+    expect(approved.statusCode).toBe(200);
+    expect(approved.json()).toEqual({ request });
+    expect(mockApproveStudyRequestConsentForContext).toHaveBeenCalledWith(
+      currentContext, "FORM-1", expectedUploadedAt,
+    );
+  });
+});
+
 describe("POST /2pq/informed-consents", () => {
   const savedSignature =
     "data:image/png;base64," +
@@ -462,11 +488,12 @@ describe("POST /2pq/informed-consents", () => {
   });
 
   it.each([null, 3])(
-    "forwards an explicit patient draft revision expectation (%s)",
+    "forwards the study request with an explicit patient draft revision expectation (%s)",
     async (expectedDraftRevision) => {
       currentContext = PATIENT;
       mockCreateInformedConsentForContext.mockResolvedValue({ id: "IC-1" });
       const payload = {
+        studyRequestFormId: "FORM-1",
         flowMode: "direct" as const,
         expectedDraftRevision,
         file: validFile(),

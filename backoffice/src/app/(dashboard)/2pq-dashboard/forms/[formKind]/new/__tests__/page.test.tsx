@@ -97,6 +97,12 @@ describe("new 2PQ form query preselection", () => {
   });
 
   it("accepts studyRequestFormId and preselects the exact study in the biopsy wizard", async () => {
+    const eligibleRequest: TwoPQFormRecord = {
+      ...studyRequest,
+      "2pq_case": null,
+      consent: { id: "CONS-54", status: "ready" },
+    };
+    jest.mocked(getTwoPQForm).mockResolvedValue(eligibleRequest);
     const page = await NewTwoPQFormPage({
       params: Promise.resolve({ formKind: "sample" }),
       searchParams: Promise.resolve({
@@ -107,8 +113,26 @@ describe("new 2PQ form query preselection", () => {
 
     expect(getTwoPQForm).toHaveBeenCalledWith(studyRequest.id);
     expect(props.initialLinkedStudyRequestFormId).toBe(studyRequest.id);
-    expect(props.studyRequestForms).toEqual([studyRequest]);
+    expect(props.studyRequestForms).toEqual([eligibleRequest]);
     expect(props.initialWithdrawalCaseId).toBeUndefined();
+  });
+
+  it("passes the exact request to the consent blocker when approval is pending", async () => {
+    jest.mocked(getTwoPQForm).mockResolvedValue({
+      ...studyRequest,
+      "2pq_case": null,
+      consent: { id: "CONS-54", status: "needs_review" },
+    });
+
+    const page = await NewTwoPQFormPage({
+      params: Promise.resolve({ formKind: "sample" }),
+      searchParams: Promise.resolve({ studyRequestFormId: studyRequest.id }),
+    });
+
+    expect(flowProps(page)).toMatchObject({
+      consentBlockedStudyRequestId: studyRequest.id,
+      studyRequestForms: [],
+    });
   });
 
   it("opens treatment planning from a saved request without loading cases or unbounded lookups", async () => {

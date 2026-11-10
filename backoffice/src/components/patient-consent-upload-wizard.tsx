@@ -59,6 +59,9 @@ import {
   CONSENT_TEMPLATE_LAST_PAGE_INDEX,
   CONSENT_TEMPLATE_PREVIEW_URLS,
   CONSENT_TEMPLATE_URL,
+  getConsentDoctorText,
+  prefillConsentPdfDoctor,
+  type ConsentPdfDoctor,
   type ConsentSignerRole,
   type ConsentSignaturePlacement,
   SIGNED_CONSENT_FILE_NAME,
@@ -70,13 +73,14 @@ import type {
   InformedConsentDraftSignatureMethod,
   InformedConsentDraftStepId,
   InformedConsentDraftSummary,
-  InformedConsentCaseOption,
-  InformedConsentCasePage,
+  InformedConsentStudyRequest,
+  InformedConsentStudyRequestPage,
   InformedConsentPatientOption,
   InformedConsentPatientPage,
   InformedConsentRecord,
   InformedConsentSavedSignaturePayload,
 } from "@/lib/informed-consents";
+import { informedConsentDraftPath } from "@/lib/informed-consents";
 import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
 import { cn } from "@/lib/utils";
 
@@ -210,9 +214,9 @@ const CONSENT_STEPS: Record<ConsentStepId, ConsentWizardStep> = {
   },
   destination: {
     id: "destination",
-    title: "Seleccionar paciente y caso 2PQ",
+    title: "Seleccionar paciente y solicitud de estudio",
     description:
-      "Elija a quién pertenece el consentimiento y el caso 2PQ que debe quedar vinculado.",
+      "Seleccione la solicitud de estudio que corresponde a este consentimiento.",
     icon: Link2,
   },
   download: {
@@ -792,6 +796,7 @@ function SignatureMethodField({
 function SignaturePagePreview({
   pageIndex,
   signatures,
+  doctor,
   selectedRole,
   editable = false,
   onPlacementChange,
@@ -799,6 +804,7 @@ function SignaturePagePreview({
 }: {
   pageIndex: number;
   signatures: PreviewSignature[];
+  doctor?: ConsentPdfDoctor;
   selectedRole?: ConsentSignerRole;
   editable?: boolean;
   onPlacementChange?: (
@@ -868,6 +874,23 @@ function SignaturePagePreview({
         className="block h-auto w-full select-none"
         draggable={false}
       />
+      {pageIndex === CONSENT_TEMPLATE_LAST_PAGE_INDEX
+        ? getConsentDoctorText(doctor).map(({ text, x, baselineFromTop, maxWidth }) =>
+            text ? (
+              <span
+                key={x}
+                className="pointer-events-none absolute overflow-hidden whitespace-nowrap font-sans text-[clamp(5px,1vw,9px)] text-slate-950"
+                style={{
+                  left: `${x * 100}%`,
+                  top: `${(baselineFromTop - 0.012) * 100}%`,
+                  width: `${maxWidth * 100}%`,
+                }}
+              >
+                {text}
+              </span>
+            ) : null,
+          )
+        : null}
       {signatures.map((signature) => {
         const namePlacement = CONSENT_SIGNER_NAME_PLACEMENTS[signature.role];
         const documentPlacement =
@@ -1074,6 +1097,7 @@ export function PatientConsentUploadWizard({
   initialPatientDocument = "",
   surface = "patient-portal",
   initialPatientPage,
+  initialStudyRequest,
   initialDraft = null,
   initialDraftRevision = null,
 }: {
@@ -1081,16 +1105,21 @@ export function PatientConsentUploadWizard({
   initialPatientDocument?: string;
   surface?: "patient-portal" | "backoffice";
   initialPatientPage?: InformedConsentPatientPage;
+  initialStudyRequest?: InformedConsentStudyRequest;
   initialDraft?: InformedConsentDraftRecord | null;
   initialDraftRevision?: number | null;
 }) {
   const router = useRouter();
   const isBackoffice = surface === "backoffice";
-  const restoredDraft = isBackoffice ? null : initialDraft;
+  const restoredDraft = !isBackoffice &&
+    initialDraft?.studyRequestFormId === initialStudyRequest?.id &&
+    initialDraft?.patientId === initialStudyRequest?.patientId
+    ? initialDraft
+    : null;
   const restoredMode = restoredDraft?.mode ?? null;
   const restoredStepId = normalizedDraftStep(restoredDraft);
   const restoredHasPartner = restoredDraft?.hasPartner ?? false;
-  const casesRequestRef = useRef(0);
+  const studyRequestsFetchRef = useRef(0);
   const savedSignatureRequestRef = useRef(0);
   const patientSignaturePadRef = useRef<SignaturePadHandle>(null);
   const partnerSignaturePadRef = useRef<SignaturePadHandle>(null);
@@ -1137,14 +1166,22 @@ export function PatientConsentUploadWizard({
   const [patientCursor, setPatientCursor] = useState(
     initialPatientPage?.nextCursor,
   );
-  const [patientId, setPatientId] = useState("");
-  const [cases, setCases] = useState<InformedConsentCaseOption[]>([]);
-  const [caseCursor, setCaseCursor] = useState<string | undefined>();
-  const [caseId, setCaseId] = useState("");
+  const [patientId, setPatientId] = useState(initialStudyRequest?.patientId ?? "");
+  const [studyRequests, setStudyRequests] = useState<InformedConsentStudyRequest[]>([]);
+  const [studyRequestCursor, setStudyRequestCursor] = useState<string | null>();
+  const [studyRequestFormId, setStudyRequestFormId] = useState(initialStudyRequest?.id ?? "");
+  const selectedStudyRequest = initialStudyRequest ??
+    studyRequests.find((request) => request.id === studyRequestFormId);
+  const doctor = selectedStudyRequest?.doctorName || selectedStudyRequest?.doctorLicenseNumber ? {
+    name: selectedStudyRequest.doctorName,
+    licenseNumber: selectedStudyRequest.doctorLicenseNumber,
+  } : undefined;
+  const draftPath = initialStudyRequest ? informedConsentDraftPath(initialStudyRequest.id) : null;
   const [loadingPatients, setLoadingPatients] = useState(false);
-  const [loadingCases, setLoadingCases] = useState(false);
+  const [loadingStudyRequests, setLoadingStudyRequests] = useState(false);
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [patientName, setPatientName] = useState(
-    restoredDraft ? restoredDraft.patientName : initialPatientName.trim(),
+    restoredDraft?.patientName ?? (initialStudyRequest?.patientName || initialPatientName).trim(),
   );
   const [patientNameError, setPatientNameError] = useState("");
   const [patientDocument, setPatientDocument] = useState(
@@ -1281,7 +1318,7 @@ export function PatientConsentUploadWizard({
 
   function enqueuePendingDraftSave() {
     const pendingDraft = pendingDraftRef.current;
-    if (!pendingDraft || draftSavingStoppedRef.current || isBackoffice) return;
+    if (!pendingDraft || draftSavingStoppedRef.current || isBackoffice || !draftPath) return;
     pendingDraftRef.current = undefined;
     const { snapshot, sequence } = pendingDraft;
 
@@ -1292,7 +1329,7 @@ export function PatientConsentUploadWizard({
         try {
           const response = await sdkFetch<{
             draft: InformedConsentDraftSummary;
-          }>("/2pq/informed-consents/draft", {
+          }>(draftPath, {
             method: "PUT",
             body: JSON.stringify({
               ...snapshot,
@@ -1728,7 +1765,7 @@ export function PatientConsentUploadWizard({
   async function prepareSignedConsent() {
     if (isBackoffice && !destinationComplete) {
       navigateToStep("destination");
-      setInlineError("Seleccione un paciente y uno de sus casos 2PQ.");
+      setInlineError("Seleccione un paciente y una de sus solicitudes de estudio.");
       return;
     }
     if (!validateNames()) {
@@ -1766,6 +1803,7 @@ export function PatientConsentUploadWizard({
           signatureDataUrl: signature.dataUrl,
           placement: signature.placement,
         })),
+        doctor,
       );
       if (!preparationIsCurrent()) {
         if (mountedRef.current) {
@@ -1811,16 +1849,16 @@ export function PatientConsentUploadWizard({
     uploadMode: ConsentFlowMode,
   ) {
     if (!file || saving || uploadInFlightRef.current) return;
+    if (!selectedStudyRequest?.canUpload) {
+      if (isBackoffice) navigateToStep("destination");
+      setInlineError("Seleccione una solicitud de estudio disponible para cargar el consentimiento.");
+      return;
+    }
     if (!isBackoffice && draftConflictRef.current) {
       markDraftConflict();
       return;
     }
     if (uploadMode === "guided") {
-      if (isBackoffice && !destinationComplete) {
-        navigateToStep("destination");
-        setInlineError("Seleccione un paciente y uno de sus casos 2PQ.");
-        return;
-      }
       if (!validateNames()) {
         navigateToStep("data");
         setInlineError(
@@ -1866,8 +1904,9 @@ export function PatientConsentUploadWizard({
         {
           method: "POST",
           body: JSON.stringify({
+            studyRequestFormId: selectedStudyRequest.id,
             ...(isBackoffice
-              ? { patientId, caseId }
+              ? { patientId: selectedStudyRequest.patientId }
               : { expectedDraftRevision: draftRevisionRef.current }),
             flowMode: uploadMode,
             ...(uploadMode === "guided"
@@ -1910,36 +1949,32 @@ export function PatientConsentUploadWizard({
     }
   }
 
-  async function loadCasesForPatient(
+  async function loadStudyRequestsForPatient(
     selectedPatientId: string,
-    cursor?: string,
+    cursor?: string | null,
   ) {
     if (!selectedPatientId) return;
-    const requestId = casesRequestRef.current + 1;
-    casesRequestRef.current = requestId;
-    setLoadingCases(true);
+    const fetchId = ++studyRequestsFetchRef.current;
+    setLoadingStudyRequests(true);
     setInlineError(null);
     try {
-      const query = new URLSearchParams({ patientId: selectedPatientId });
+      const query = new URLSearchParams({ patientId: selectedPatientId, limit: "20" });
       if (cursor) query.set("cursor", cursor);
-      const page = await sdkFetch<InformedConsentCasePage>(
-        `/2pq/informed-consents/cases?${query.toString()}`,
+      const page = await sdkFetch<InformedConsentStudyRequestPage>(
+        `/2pq/informed-consents/study-requests?${query}`,
       );
-      if (requestId !== casesRequestRef.current) return;
-      setCases((current) =>
-        cursor ? mergeById(current, page.cases) : page.cases,
+      if (fetchId !== studyRequestsFetchRef.current) return;
+      const matching = page.requests.filter(
+        (request) => request.patientId === selectedPatientId && request.canUpload,
       );
-      setCaseCursor(page.nextCursor);
-    } catch (error) {
-      if (requestId !== casesRequestRef.current) return;
-      setInlineError(
-        error instanceof Error
-          ? error.message
-          : "No se pudieron cargar los casos 2PQ del paciente.",
-      );
+      setStudyRequests((current) => cursor ? mergeById(current, matching) : matching);
+      setStudyRequestCursor(page.nextCursor);
+    } catch {
+      if (fetchId !== studyRequestsFetchRef.current) return;
+      setInlineError("No se pudieron cargar las solicitudes de estudio del paciente.");
     } finally {
-      if (requestId === casesRequestRef.current) {
-        setLoadingCases(false);
+      if (fetchId === studyRequestsFetchRef.current) {
+        setLoadingStudyRequests(false);
       }
     }
   }
@@ -1965,12 +2000,8 @@ export function PatientConsentUploadWizard({
     }
   }
 
-  function selectPatient(nextPatientId: string) {
-    const patient = patients.find(
-      (candidate) => candidate.id === nextPatientId,
-    );
-    setPatientId(nextPatientId);
-    setPatientName(patient?.fullName.trim() ?? "");
+  function resetSignerData(nextPatientName: string) {
+    setPatientName(nextPatientName.trim());
     setPatientNameError("");
     setPatientDocument("");
     setPatientDocumentError("");
@@ -1992,22 +2023,35 @@ export function PatientConsentUploadWizard({
     setDirectFile(null);
     setDirectFileError("");
     setLegalAttestationAccepted(false);
-    setCaseId("");
-    setCases([]);
-    setCaseCursor(undefined);
-    void loadCasesForPatient(nextPatientId);
+  }
+
+  function selectPatient(nextPatientId: string) {
+    const patient = patients.find((candidate) => candidate.id === nextPatientId);
+    setPatientId(nextPatientId);
+    resetSignerData(patient?.fullName ?? "");
+    setStudyRequestFormId("");
+    setStudyRequests([]);
+    setStudyRequestCursor(undefined);
+    void loadStudyRequestsForPatient(nextPatientId);
+  }
+
+  function selectStudyRequest(nextRequestId: string) {
+    if (nextRequestId === studyRequestFormId) return;
+    const request = studyRequests.find((candidate) => candidate.id === nextRequestId);
+    if (!request || request.patientId !== patientId || !request.canUpload) return;
+    setStudyRequestFormId(nextRequestId);
+    resetSignerData(request.patientName);
   }
 
   function continueFromDestination() {
-    if (!patientId || !caseId) {
-      setInlineError("Seleccione un paciente y uno de sus casos 2PQ.");
+    if (!destinationComplete) {
+      setInlineError("Seleccione un paciente y una de sus solicitudes de estudio.");
       return;
     }
     navigateToStep(mode === "direct" ? "direct-download" : "download");
   }
 
-  const selectedCase = cases.find((candidate) => candidate.id === caseId);
-  const destinationComplete = Boolean(patientId && caseId);
+  const destinationComplete = Boolean(selectedStudyRequest?.canUpload);
   const signerDataComplete = Boolean(
     patientName.trim() &&
     patientDocument.trim() &&
@@ -2048,7 +2092,72 @@ export function PatientConsentUploadWizard({
     router.refresh();
   }
 
+  async function downloadTemplate() {
+    if (!doctor || downloadingTemplate) return;
+    const version = documentVersionRef.current;
+    setDownloadingTemplate(true);
+    setInlineError(null);
+    try {
+      const response = await fetch(CONSENT_TEMPLATE_URL);
+      if (!response.ok) {
+        throw new Error("No se pudo abrir la plantilla de consentimiento.");
+      }
+      const bytes = await prefillConsentPdfDoctor(await response.arrayBuffer(), doctor);
+      if (!mountedRef.current || version !== documentVersionRef.current) return;
+      const link = document.createElement("a");
+      link.href = bytesToPdfDataUrl(bytes);
+      link.download = "consentimiento-informado-2pq.pdf";
+      link.click();
+    } catch {
+      if (mountedRef.current && version === documentVersionRef.current) {
+        setInlineError("No se pudo descargar la plantilla de consentimiento. Vuelva a intentarlo.");
+      }
+    } finally {
+      if (mountedRef.current) setDownloadingTemplate(false);
+    }
+  }
+
+  function renderTemplateDownload(label: string, className?: string) {
+    if (!doctor) {
+      return (
+        <Button className={className} variant="outline" asChild>
+          <a href={CONSENT_TEMPLATE_URL} download="consentimiento-informado-2pq.pdf">
+            <Download className="size-4" />
+            {label}
+          </a>
+        </Button>
+      );
+    }
+
+    return (
+      <Button
+        className={className}
+        type="button"
+        variant="outline"
+        disabled={downloadingTemplate}
+        onClick={() => void downloadTemplate()}
+      >
+        {downloadingTemplate ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+        {label}
+      </Button>
+    );
+  }
+
   function renderDestinationFields() {
+    if (initialStudyRequest) {
+      return (
+        <dl className="grid max-w-3xl gap-3 rounded-xl border bg-card p-4 sm:grid-cols-2">
+          <div>
+            <dt className="text-sm text-muted-foreground">Paciente</dt>
+            <dd className="font-medium">{initialStudyRequest.patientName}</dd>
+          </div>
+          <div>
+            <dt className="text-sm text-muted-foreground">Solicitud de estudio</dt>
+            <dd className="font-medium">{initialStudyRequest.id}</dd>
+          </div>
+        </dl>
+      );
+    }
     return (
       <div className="max-w-3xl space-y-5">
         <div className="space-y-2">
@@ -2082,67 +2191,55 @@ export function PatientConsentUploadWizard({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="consent-owner-case">Caso 2PQ</Label>
+          <Label htmlFor="consent-study-request">Solicitud de estudio</Label>
           <Select
-            value={caseId}
-            disabled={!patientId || loadingCases}
-            onValueChange={(nextCaseId) => {
-              setCaseId(nextCaseId);
-              invalidateAfter();
-            }}
+            value={studyRequestFormId}
+            disabled={!patientId || loadingStudyRequests}
+            onValueChange={selectStudyRequest}
           >
-            <SelectTrigger id="consent-owner-case" className="w-full">
+            <SelectTrigger id="consent-study-request" className="w-full">
               <SelectValue
                 placeholder={
-                  loadingCases
-                    ? "Cargando casos..."
+                  loadingStudyRequests
+                    ? "Cargando solicitudes..."
                     : patientId
-                      ? "Seleccionar caso 2PQ"
+                      ? "Seleccionar solicitud de estudio"
                       : "Primero seleccione un paciente"
                 }
               />
             </SelectTrigger>
             <SelectContent align="start">
-              {cases.map((caseOption) => (
-                <SelectItem key={caseOption.id} value={caseOption.id}>
-                  {caseOption.caseLabel} - {caseOption.id}
-                  {caseOption.threeLetterCode
-                    ? ` - ${caseOption.threeLetterCode}`
-                    : ""}
+              {studyRequests.map((request) => (
+                <SelectItem key={request.id} value={request.id}>
+                  {request.id}
+                  {request.doctorName ? ` - ${request.doctorName}` : ""}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          {patientId && !loadingCases && cases.length === 0 ? (
+          {patientId && !loadingStudyRequests && studyRequests.length === 0 && !studyRequestCursor ? (
             <p className="text-sm text-muted-foreground">
-              Este paciente no tiene casos 2PQ disponibles.
+              Este paciente no tiene solicitudes disponibles para cargar un consentimiento.
             </p>
           ) : null}
-          {caseCursor ? (
+          {studyRequestCursor ? (
             <Button
               type="button"
               size="sm"
               variant="ghost"
-              disabled={loadingCases}
-              onClick={() => void loadCasesForPatient(patientId, caseCursor)}
+              disabled={loadingStudyRequests}
+              onClick={() => void loadStudyRequestsForPatient(patientId, studyRequestCursor)}
             >
-              {loadingCases ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : null}
-              Cargar más casos
+              {loadingStudyRequests ? <Loader2 className="size-4 animate-spin" /> : null}
+              Cargar más solicitudes
             </Button>
           ) : null}
         </div>
 
-        {selectedCase?.informedConsentId ? (
-          <div className="rounded-xl border border-orange-300 bg-orange-50 p-4 text-sm text-orange-950 dark:border-orange-800 dark:bg-orange-950/30 dark:text-orange-100">
-            Este caso ya está vinculado al consentimiento{" "}
-            <span className="font-mono font-semibold">
-              {selectedCase.informedConsentId}
-            </span>
-            . Al completar la carga, el caso quedará vinculado al nuevo
-            consentimiento; el archivo anterior no se eliminará.
-          </div>
+        {selectedStudyRequest?.consent.status === "needs_review" ? (
+          <p className="rounded-xl border border-orange-300 bg-orange-50 p-4 text-sm text-orange-950 dark:border-orange-800 dark:bg-orange-950/30 dark:text-orange-100">
+            Esta solicitud ya tiene un consentimiento en revisión. La carga reemplazará el archivo para esta misma solicitud.
+          </p>
         ) : null}
       </div>
     );
@@ -2243,6 +2340,9 @@ export function PatientConsentUploadWizard({
               <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
                 {activeStep.description}
               </p>
+              {!isBackoffice && selectedStudyRequest ? (
+                <p className="mt-2 text-sm font-medium">Solicitud {selectedStudyRequest.id}</p>
+              ) : null}
               {!isBackoffice && mode ? (
                 <div
                   data-testid="consent-draft-save-status"
@@ -2268,7 +2368,7 @@ export function PatientConsentUploadWizard({
                   {draftSaveStatus === "saving"
                     ? "Guardando borrador…"
                     : draftSaveStatus === "conflict"
-                      ? "El borrador cambió en otra sesión. Volvé a Consentimientos y elegí “Continuar desde borrador” para retomar la versión más reciente."
+                      ? "El borrador cambió en otra sesión. Volvé a abrir esta solicitud para retomar la versión más reciente."
                       : draftSaveStatus === "error"
                         ? "No se pudo guardar el borrador. Volveremos a intentarlo con el próximo cambio."
                         : "Borrador guardado automáticamente"}
@@ -2381,15 +2481,7 @@ export function PatientConsentUploadWizard({
                   <p className="text-sm leading-6 text-muted-foreground">
                     {CONSENT_REVIEW_EXPLANATION}
                   </p>
-                  <Button variant="outline" asChild>
-                    <a
-                      href={CONSENT_TEMPLATE_URL}
-                      download="consentimiento-informado-2pq.pdf"
-                    >
-                      <Download className="size-4" />
-                      Descargar consentimiento-informado-2pq.pdf
-                    </a>
-                  </Button>
+                  {renderTemplateDownload("Descargar consentimiento-informado-2pq.pdf")}
                 </div>
               ) : null}
 
@@ -2412,15 +2504,7 @@ export function PatientConsentUploadWizard({
                         <p className="mt-3 text-sm leading-6 text-muted-foreground">
                           {CONSENT_REVIEW_EXPLANATION}
                         </p>
-                        <Button className="mt-5" variant="outline" asChild>
-                          <a
-                            href={CONSENT_TEMPLATE_URL}
-                            download="consentimiento-informado-2pq.pdf"
-                          >
-                            <Download className="size-4" />
-                            Descargar plantilla de consentimiento
-                          </a>
-                        </Button>
+                        {renderTemplateDownload("Descargar plantilla de consentimiento", "mt-5")}
                       </div>
                     </div>
                   </div>
@@ -2782,6 +2866,7 @@ export function PatientConsentUploadWizard({
                     <SignaturePagePreview
                       pageIndex={CONSENT_TEMPLATE_LAST_PAGE_INDEX}
                       signatures={previewSignatures}
+                      doctor={doctor}
                       selectedRole={selectedRole}
                       editable
                       onPlacementChange={updatePlacement}
@@ -2820,6 +2905,7 @@ export function PatientConsentUploadWizard({
                           <SignaturePagePreview
                             pageIndex={pageIndex}
                             signatures={previewSignatures}
+                            doctor={doctor}
                           />
                         </div>
                       ))}
@@ -3043,7 +3129,7 @@ export function PatientConsentUploadWizard({
                     <Button
                       type="button"
                       className="h-11 rounded-full bg-violet-600 px-6 font-semibold text-white shadow-[0_14px_34px_rgba(109,40,217,0.24)] hover:bg-violet-700"
-                      disabled={!destinationComplete || loadingCases}
+                      disabled={!destinationComplete || loadingStudyRequests}
                       onClick={continueFromDestination}
                     >
                       Continuar

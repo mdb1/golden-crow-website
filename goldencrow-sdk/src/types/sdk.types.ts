@@ -224,6 +224,11 @@ export interface InformedConsentRecord {
   patientId: string;
   patientName: string;
   caseId: string | null;
+  studyRequestFormId?: string;
+  reviewStatus?: "needs_review" | "ready";
+  uploadedAt?: string;
+  reviewedAt?: string;
+  reviewedByEmail?: string;
   file: InformedConsentFileSummary;
   createdAt: string;
   updatedAt: string;
@@ -240,6 +245,7 @@ export interface InformedConsentCaseOption {
   caseStatus?: string;
   threeLetterCode?: string;
   informedConsentId: string | null;
+  linkedStudyRequestFormId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -304,6 +310,7 @@ export interface InformedConsentDraftRecord extends InformedConsentDraftState {
   collectionKey: "2pq-informed-consent-drafts";
   revision: number;
   patientId: string;
+  studyRequestFormId?: string;
   createdAt: string;
   updatedAt: string;
   createdByEmail: string;
@@ -614,6 +621,8 @@ export interface TwoPQFormRecord {
   requestedTestName?: string;
   maximumResultDeliveryAt?: string;
   estimatedTreatmentDate?: string;
+  informedConsentId?: string | null;
+  consent?: { id: string | null; status: "pending" | "needs_review" | "ready"; reviewedAt?: string };
   linkedStudyRequestFormId?: string | null;
   linkedTreatmentStartFormId?: string | null;
   requiresTreatmentStart?: boolean;

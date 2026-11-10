@@ -7,7 +7,11 @@ import { Button } from "@/components/ui/button";
 import { PATIENT_PORTAL_ENTRY_ROUTE } from "@/lib/patient-portal-routes";
 import { sdkFetch } from "@/lib/sdk-client";
 
-export function PatientProfileCompletion() {
+export function PatientProfileCompletion({
+  destination = PATIENT_PORTAL_ENTRY_ROUTE,
+}: {
+  destination?: string;
+}) {
   const router = useRouter();
   const requestRef = useRef<Promise<unknown> | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -27,7 +31,7 @@ export function PatientProfileCompletion() {
     void request
       .then(() => {
         if (active) {
-          router.replace(PATIENT_PORTAL_ENTRY_ROUTE);
+          router.replace(destination);
         }
       })
       .catch(() => {
@@ -39,7 +43,7 @@ export function PatientProfileCompletion() {
     return () => {
       active = false;
     };
-  }, [attempt, router]);
+  }, [attempt, destination, router]);
 
   function retry() {
     requestRef.current = null;

@@ -23,6 +23,10 @@ describe("patient portal routes", () => {
     expect(normalizePatientPortalCallbackUrl("/patient-portal/consents")).toBe(
       "/patient-portal/consents",
     );
+    const invitation = "/patient-portal/consents/new?studyRequestFormId=FORM-101";
+    expect(normalizePatientPortalCallbackUrl(invitation)).toBe(invitation);
+    expect(normalizePatientPortalCallbackUrl("/patient-portal/%2e%2e/login")).toBeUndefined();
+    expect(normalizePatientPortalCallbackUrl("/patient-portal/complete-profile?callbackUrl=x")).toBeUndefined();
     expect(normalizePatientPortalCallbackUrl("/patient-portal/login")).toBe(
       undefined,
     );

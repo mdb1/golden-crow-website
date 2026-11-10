@@ -10,6 +10,7 @@ import {
   Unlink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConsentRequestStatusBadge } from "@/components/consent-request-status-badge";
 import {
   Select,
   SelectContent,
@@ -48,6 +49,8 @@ export function ConsentCaseTraceabilityCard({
   );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const studyRequestFormId = payload.record.studyRequestFormId;
+  const canEditLegacyLink = !studyRequestFormId && !payload.linkedCase?.linkedStudyRequestFormId;
 
   async function persist(caseId: string | null) {
     setPending(true);
@@ -81,9 +84,12 @@ export function ConsentCaseTraceabilityCard({
           <div className="flex items-center gap-2">
             <Link2 className="size-5 text-orange-600 dark:text-orange-300" />
             <h2 className="font-heading text-lg font-semibold">
-              Trazabilidad del caso 2PQ
+              {studyRequestFormId ? "Solicitud de estudio vinculada" : "Trazabilidad del caso 2PQ"}
             </h2>
           </div>
+          {studyRequestFormId ? (
+            <p className="mt-3 font-mono text-sm font-semibold">{studyRequestFormId}</p>
+          ) : null}
           {payload.linkedCase ? (
             <div className="mt-4 space-y-1 text-sm">
               <p className="font-semibold">
@@ -96,11 +102,14 @@ export function ConsentCaseTraceabilityCard({
             </div>
           ) : (
             <p className="mt-3 text-sm text-orange-950/70 dark:text-orange-50/70">
-              Este consentimiento todavía no está vinculado a un caso 2PQ.
+              {studyRequestFormId
+                ? "La solicitud aún no tiene un caso 2PQ."
+                : "Este consentimiento todavía no está vinculado a un caso 2PQ."}
             </p>
           )}
         </div>
         <div className="flex flex-wrap gap-2">
+          {studyRequestFormId ? <StudyRequestLink formId={studyRequestFormId} /> : null}
           {payload.linkedCase ? (
             <Button size="sm" variant="outline" asChild>
               <Link
@@ -111,16 +120,18 @@ export function ConsentCaseTraceabilityCard({
               </Link>
             </Button>
           ) : null}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setEditing((current) => !current)}
-            disabled={pending}
-          >
-            <Link2 className="size-4" />
-            {payload.linkedCase ? "Cambiar" : "Vincular caso"}
-          </Button>
-          {payload.linkedCase ? (
+          {canEditLegacyLink ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setEditing((current) => !current)}
+              disabled={pending}
+            >
+              <Link2 className="size-4" />
+              {payload.linkedCase ? "Cambiar" : "Vincular caso"}
+            </Button>
+          ) : null}
+          {canEditLegacyLink && payload.linkedCase ? (
             <Button
               size="sm"
               variant="outline"
@@ -138,7 +149,7 @@ export function ConsentCaseTraceabilityCard({
         </div>
       </div>
 
-      {editing ? (
+      {editing && canEditLegacyLink ? (
         <div className="mt-5 rounded-xl border border-orange-200 bg-white/70 p-4 dark:border-orange-300/20 dark:bg-orange-950/20">
           <p className="mb-3 text-sm font-medium">
             Seleccione un caso del mismo paciente, institución y médico.
@@ -149,7 +160,7 @@ export function ConsentCaseTraceabilityCard({
                 <SelectValue placeholder="Seleccionar caso 2PQ" />
               </SelectTrigger>
               <SelectContent>
-                {payload.caseOptions.map((option) => (
+                {payload.caseOptions.filter((option) => !option.linkedStudyRequestFormId).map((option) => (
                   <SelectItem key={option.id} value={option.id}>
                     {option.caseLabel} · {option.id}
                     {option.informedConsentId &&
@@ -180,6 +191,17 @@ export function ConsentCaseTraceabilityCard({
   );
 }
 
+function StudyRequestLink({ formId }: { formId: string }) {
+  return (
+    <Button size="sm" variant="outline" asChild>
+      <Link href={`/2pq-dashboard/forms/${encodeURIComponent(formId)}#informed-consent`}>
+        Abrir solicitud de estudio
+        <ArrowUpRight className="size-4" />
+      </Link>
+    </Button>
+  );
+}
+
 export function CaseConsentTraceabilityCard({
   initialPayload,
   canManage,
@@ -194,6 +216,8 @@ export function CaseConsentTraceabilityCard({
   );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const studyRequestFormId = payload.case.linkedStudyRequestFormId ?? payload.linkedConsent?.studyRequestFormId;
+  const canEditLegacyLink = canManage && !studyRequestFormId;
 
   async function reload() {
     const nextPayload = await sdkFetch<CaseConsentTraceabilityPayload>(
@@ -246,6 +270,9 @@ export function CaseConsentTraceabilityCard({
                 Subido por {payload.linkedConsent.createdByEmail} el{" "}
                 {formatDate(payload.linkedConsent.createdAt)}
               </p>
+              {payload.linkedConsent.reviewStatus ? (
+                <ConsentRequestStatusBadge status={payload.linkedConsent.reviewStatus} language="es" />
+              ) : null}
             </div>
           ) : (
             <p className="mt-3 text-sm text-orange-950/70 dark:text-orange-50/70">
@@ -254,6 +281,7 @@ export function CaseConsentTraceabilityCard({
           )}
         </div>
         <div className="flex flex-wrap gap-2">
+          {studyRequestFormId ? <StudyRequestLink formId={studyRequestFormId} /> : null}
           {payload.linkedConsent ? (
             <Button size="sm" variant="outline" asChild>
               <Link
@@ -264,7 +292,7 @@ export function CaseConsentTraceabilityCard({
               </Link>
             </Button>
           ) : null}
-          {canManage ? (
+          {canEditLegacyLink ? (
             <Button
               size="sm"
               variant="outline"
@@ -275,7 +303,7 @@ export function CaseConsentTraceabilityCard({
               {payload.linkedConsent ? "Cambiar" : "Vincular consentimiento"}
             </Button>
           ) : null}
-          {canManage && payload.linkedConsent ? (
+          {canEditLegacyLink && payload.linkedConsent ? (
             <Button
               size="sm"
               variant="outline"
@@ -295,7 +323,7 @@ export function CaseConsentTraceabilityCard({
         </div>
       </div>
 
-      {editing && canManage ? (
+      {editing && canEditLegacyLink ? (
         <div className="mt-5 rounded-xl border border-orange-200 bg-white/70 p-4 dark:border-orange-300/20 dark:bg-orange-950/20">
           <p className="mb-3 text-sm font-medium">
             Seleccione un consentimiento de {payload.case.patientName}.
@@ -309,7 +337,7 @@ export function CaseConsentTraceabilityCard({
                 <SelectValue placeholder="Seleccionar consentimiento" />
               </SelectTrigger>
               <SelectContent>
-                {payload.consentOptions.map((option) => (
+                {payload.consentOptions.filter((option) => !option.studyRequestFormId).map((option) => (
                   <SelectItem key={option.id} value={option.id}>
                     {option.file.name} · {option.id}
                     {option.caseId && option.caseId !== payload.case.id

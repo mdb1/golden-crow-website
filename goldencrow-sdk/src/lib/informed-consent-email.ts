@@ -28,10 +28,13 @@ function backofficeUrl(path: string) {
   return new URL(path, origin);
 }
 
-function patientPortalLoginUrl(email: string) {
+function patientPortalLoginUrl(email: string, studyRequestFormId?: string) {
   const url = backofficeUrl(PATIENT_PORTAL_LOGIN_PATH);
   url.searchParams.set("email", email);
-  url.searchParams.set("callbackUrl", CONSENT_PORTAL_PATH);
+  const callback = studyRequestFormId
+    ? `${CONSENT_PORTAL_PATH}/new?${new URLSearchParams({ studyRequestFormId })}`
+    : CONSENT_PORTAL_PATH;
+  url.searchParams.set("callbackUrl", callback);
   return url.toString();
 }
 
@@ -46,14 +49,17 @@ function escapeHtml(value: string) {
 
 export function buildInformedConsentEmailMessage(
   patient: ConsentEmailPatient,
-  temporaryPassword: string,
+  temporaryPassword?: string,
+  studyRequestFormId?: string,
 ): InformedConsentEmailMessage {
-  const portalUrl = patientPortalLoginUrl(patient.email);
+  const portalUrl = patientPortalLoginUrl(patient.email, studyRequestFormId);
   const safeName = escapeHtml(patient.fullName);
-  const safeTemporaryPassword = escapeHtml(temporaryPassword);
+  const safeTemporaryPassword = escapeHtml(temporaryPassword ?? "");
   const safePortalUrl = escapeHtml(portalUrl);
-  const preheader =
-    "Usá tu clave de seguridad para cargar el consentimiento informado.";
+  const preheader = temporaryPassword
+    ? "Usá tu clave de seguridad para cargar el consentimiento informado."
+    : "Ingresá al portal para cargar el consentimiento informado.";
+  const requestText = studyRequestFormId ? `Solicitud: ${studyRequestFormId}` : "";
 
   return {
     to: patient.email,
@@ -63,9 +69,12 @@ export function buildInformedConsentEmailMessage(
       "",
       "Para poder continuar con el estudio necesitamos que cargues tu consentimiento informado.",
       "",
-      "Esta es tu clave de seguridad. Ingresala para poder subir tu reporte:",
-      temporaryPassword,
-      "",
+      ...(requestText ? [requestText, ""] : []),
+      ...(temporaryPassword ? [
+        "Esta es tu clave de seguridad. Ingresala para cargar el consentimiento:",
+        temporaryPassword,
+        "",
+      ] : []),
       `Link al portal: ${portalUrl}`,
       "",
       "Gracias.",
@@ -96,8 +105,10 @@ export function buildInformedConsentEmailMessage(
                   <p style="margin:0 0 28px;font-size:20px;line-height:32px;color:#111827;">
                     Para poder continuar con el estudio necesitamos que cargues tu consentimiento informado.
                   </p>
+                  ${requestText ? `<p style="margin:0 0 24px;">${escapeHtml(requestText)}</p>` : ""}
+                  ${temporaryPassword ? `
                   <p style="margin:0 0 18px;font-size:18px;line-height:28px;color:#4b5563;">
-                    Esta es tu clave de seguridad. Ingresala para poder subir tu reporte.
+                    Esta es tu clave de seguridad. Ingresala para cargar el consentimiento.
                   </p>
                   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 32px;border:1px solid #e5e7eb;border-radius:12px;background:#f9fafb;">
                     <tr>
@@ -109,6 +120,7 @@ export function buildInformedConsentEmailMessage(
                       </td>
                     </tr>
                   </table>
+                  ` : ""}
                   <a href="${safePortalUrl}" style="display:inline-block;background:#AF8232;color:#ffffff;text-decoration:none;border-radius:12px;padding:16px 24px;font-size:15px;line-height:20px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;">
                     Cargar consentimiento
                   </a>
@@ -124,9 +136,10 @@ export function buildInformedConsentEmailMessage(
 
 export async function sendInformedConsentEmail(
   patient: ConsentEmailPatient,
-  temporaryPassword: string,
+  temporaryPassword?: string,
+  studyRequestFormId?: string,
 ) {
   await sendGmailMessage(
-    buildInformedConsentEmailMessage(patient, temporaryPassword),
+    buildInformedConsentEmailMessage(patient, temporaryPassword, studyRequestFormId),
   );
 }

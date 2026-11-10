@@ -20,6 +20,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
+import { ConsentRequestStatusBadge } from "@/components/consent-request-status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +34,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { TwoPQPickupPanel } from "@/components/two-pq-pickup-panel";
+import { TwoPQStudyRequestConsentPanel } from "@/components/two-pq-study-request-consent-panel";
 import {
   TWO_PQ_FORM_LABELS,
   TWO_PQ_FORM_ROUTES,
@@ -51,6 +53,7 @@ import {
   getTwoPQStudySummary,
 } from "@/lib/two-pq-study-summary";
 import { appText, type AppLanguage } from "@/lib/language";
+import type { InformedConsentStudyRequest } from "@/lib/informed-consents";
 import { sdkFetch } from "@/lib/sdk-client";
 
 type FieldSpec = {
@@ -2882,12 +2885,21 @@ function TreatmentStartDetails({ form }: { form: TwoPQFormRecord }) {
               </Link>
             </Button>
           ) : canStartBiopsy && studyRequestFormId ? (
-            <Button size="sm" asChild>
-              <Link href={`${TWO_PQ_FORM_ROUTES.sample}?${new URLSearchParams({ studyRequestFormId })}`}>
-                {t("Complete biopsy form")}
-                <ArrowRight className="size-3.5" />
-              </Link>
-            </Button>
+            form.consent?.status === "ready" ? (
+              <Button size="sm" asChild>
+                <Link href={`${TWO_PQ_FORM_ROUTES.sample}?${new URLSearchParams({ studyRequestFormId })}`}>
+                  {t("Complete biopsy form")}
+                  <ArrowRight className="size-3.5" />
+                </Link>
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/2pq-dashboard/forms/${encodeURIComponent(studyRequestFormId)}#informed-consent`}>
+                  {t("Review consent")}
+                  <ArrowRight className="size-3.5" />
+                </Link>
+              </Button>
+            )
           ) : null}
           {form.linkedCaseId ? (
             <Button variant="outline" size="sm" asChild>
@@ -2903,6 +2915,14 @@ function TreatmentStartDetails({ form }: { form: TwoPQFormRecord }) {
             {t("Case will be linked after the biopsy is saved.")}
           </p>
         ) : null}
+        {canStartBiopsy && studyRequestFormId && form.consent?.status !== "ready" ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <ConsentRequestStatusBadge language={language} status={form.consent?.status ?? "pending"} />
+            <p className="text-sm text-muted-foreground">
+              {t("Consent must be approved before completing the biopsy form.")}
+            </p>
+          </div>
+        ) : null}
       </section>
 
       {form.pickup ? <TwoPQPickupPanel formId={form.id} pickup={form.pickup} /> : null}
@@ -2913,9 +2933,11 @@ function TreatmentStartDetails({ form }: { form: TwoPQFormRecord }) {
 export function TwoPQFormDetail({
   form,
   linkedCase = null,
+  consentRequest = null,
 }: {
   form: TwoPQFormRecord;
   linkedCase?: TwoPQListItem | null;
+  consentRequest?: InformedConsentStudyRequest | null;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -3106,6 +3128,13 @@ export function TwoPQFormDetail({
             title={t("Institution information")}
             fields={INSTITUTION_FIELDS}
             data={form.institutionInformation}
+          />
+          <TwoPQStudyRequestConsentPanel
+            key={form.id}
+            formId={form.id}
+            consent={form.consent}
+            request={consentRequest}
+            biopsyPending={!form.archivedAt && !form.linkedBiopsyForm && !form.suggestedBiopsyForm}
           />
           <LinkedTreatmentStartSection form={form} />
           <LinkedBiopsyFormSection form={form} />

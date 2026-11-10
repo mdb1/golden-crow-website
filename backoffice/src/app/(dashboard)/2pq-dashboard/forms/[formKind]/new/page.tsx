@@ -185,6 +185,12 @@ export default async function NewTwoPQFormPage({
         initialLinkedStudyRequestFormId={
           canPreselectStudyRequest ? preselectedStudyRequest?.id : undefined
         }
+        consentBlockedStudyRequestId={
+          formType === "sample" && preselectedStudyRequest?.formType === "study_request" &&
+          preselectedStudyRequest.consent?.status !== "ready"
+            ? preselectedStudyRequest.id
+            : undefined
+        }
         initialWithdrawalCaseId={preselectedCase?.id}
       />
     </div>

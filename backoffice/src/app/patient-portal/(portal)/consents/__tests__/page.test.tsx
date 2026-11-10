@@ -1,67 +1,86 @@
-/** @jest-environment node */
+/** @jest-environment jsdom */
 
+import "@testing-library/jest-dom";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import PatientPortalConsentsPage from "@/app/patient-portal/(portal)/consents/page";
+import type { InformedConsentStudyRequest } from "@/lib/informed-consents";
+import { sdkFetch } from "@/lib/sdk-client";
 import { sdkFetchServer } from "@/lib/sdk-server";
+
+jest.mock("@/components/informed-consents-workbench", () => ({
+  InformedConsentsWorkbench: () => <p>Historial de consentimientos</p>,
+}));
+
+jest.mock("@/lib/sdk-client", () => ({
+  sdkFetch: jest.fn(),
+}));
 
 jest.mock("@/lib/sdk-server", () => ({
   sdkFetchServer: jest.fn(),
 }));
 
-const initialPage = {
-  records: [],
-  nextCursor: undefined,
-};
-
-const draftSummary = {
-  mode: "guided" as const,
-  activeStepId: "data" as const,
-  updatedAt: "2026-10-16T12:00:00.000Z",
-  revision: 4,
+const request: InformedConsentStudyRequest = {
+  id: "FORM-101",
+  patientId: "PAT-101",
+  patientName: "Ada Paciente",
+  patientEmail: "ada@example.com",
+  institutionId: "INST-101",
+  doctorId: "DOC-101",
+  canUpload: true,
+  canApprove: false,
+  canResend: false,
+  consent: { id: null, status: "pending" },
 };
 
 describe("patient portal consent list page", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
   });
 
-  it("loads consent records and the lightweight draft status in parallel", async () => {
+  it("links each request and paginates its consent status alongside consent history", async () => {
     jest.mocked(sdkFetchServer).mockImplementation(async (path) => {
-      if (path === "/2pq/informed-consents") return initialPage;
-      if (path === "/2pq/informed-consents/draft/status") {
-        return { draft: draftSummary };
+      if (path === "/2pq/informed-consents") return { records: [] };
+      if (path === "/2pq/informed-consents/study-requests?limit=20") {
+        return { requests: [request], nextCursor: "next-page" };
       }
       throw new Error(`Unexpected SDK path: ${path}`);
     });
+    jest.mocked(sdkFetch).mockResolvedValueOnce({
+      requests: [{
+        ...request,
+        id: "FORM-102",
+        canUpload: false,
+        consent: { id: "CONSENT-102", status: "ready" },
+      }],
+    });
 
-    const page = await PatientPortalConsentsPage();
+    render(await PatientPortalConsentsPage());
 
-    expect(sdkFetchServer).toHaveBeenCalledWith("/2pq/informed-consents");
-    expect(sdkFetchServer).toHaveBeenCalledWith(
-      "/2pq/informed-consents/draft/status",
+    const list = screen.getByRole("region", { name: "Solicitudes de estudio" });
+    expect(within(list).getByRole("link", { name: "Completar consentimiento" }))
+      .toHaveAttribute("href", "/patient-portal/consents/new?studyRequestFormId=FORM-101");
+    expect(within(list).getByText("Pendiente")).toBeVisible();
+    expect(screen.getByText("Historial de consentimientos")).toBeVisible();
+
+    await userEvent.click(within(list).getByRole("button", { name: "Cargar más solicitudes" }));
+
+    expect(sdkFetch).toHaveBeenCalledWith(
+      "/2pq/informed-consents/study-requests?cursor=next-page&limit=20",
     );
-    expect(page.props).toMatchObject({
-      surface: "patient-portal",
-      initialPage,
-      initialDraftSummary: draftSummary,
-      draftLookupFailed: false,
-    });
+    expect(await within(list).findByText("Listo")).toBeVisible();
+    expect(within(list).getAllByRole("link")).toHaveLength(1);
   });
 
-  it("does not take down the consent list when optional draft detection fails", async () => {
+  it("preserves the consent history if the request list is unavailable", async () => {
     jest.mocked(sdkFetchServer).mockImplementation(async (path) => {
-      if (path === "/2pq/informed-consents") return initialPage;
-      if (path === "/2pq/informed-consents/draft/status") {
-        throw new Error("draft status unavailable");
-      }
-      throw new Error(`Unexpected SDK path: ${path}`);
+      if (path === "/2pq/informed-consents") return { records: [] };
+      throw new Error("study request list unavailable");
     });
 
-    const page = await PatientPortalConsentsPage();
+    render(await PatientPortalConsentsPage());
 
-    expect(page.props).toMatchObject({
-      initialPage,
-      initialDraftSummary: null,
-      draftLookupFailed: true,
-    });
+    expect(screen.getByRole("alert")).toHaveTextContent("No se pudieron cargar las solicitudes");
+    expect(screen.getByText("Historial de consentimientos")).toBeVisible();
   });
 });

@@ -1,4 +1,4 @@
-export {};
+import { createHash } from "node:crypto";
 
 type QueryOperation =
   | { type: "where"; field: string; value: unknown }
@@ -28,6 +28,36 @@ const caseDocs: MockDoc[] = [
 ];
 
 const draftDocs: MockDoc[] = [];
+const studyRequestDocs: MockDoc[] = [];
+const roleDocs: MockDoc[] = [];
+const FORM_ID = "FORM-00001";
+
+function requestDoc(id = FORM_ID, data: Record<string, unknown> = {}): MockDoc {
+  return {
+    id,
+    data: {
+      formType: "study_request",
+      selectedPatientId: "PAT-00001",
+      institutionId: "INST-00001",
+      doctorId: "DOC-00001",
+      informedConsentId: null,
+      ...data,
+    },
+  };
+}
+
+function requestConsentId(id = FORM_ID) {
+  return `CONS-REQUEST-${createHash("sha256").update(id).digest("hex")}`;
+}
+
+function scopedDraftId(uid = "patient-uid", id = FORM_ID) {
+  return createHash("sha256").update(JSON.stringify([uid, id])).digest("hex");
+}
+
+function scopedDraftDoc(revision = 2, id = FORM_ID) {
+  const doc = draftDoc(scopedDraftId("patient-uid", id), revision);
+  return { ...doc, data: { ...doc.data, createdByUid: "patient-uid", studyRequestFormId: id } };
+}
 
 function consentDoc(
   id: string,
@@ -142,6 +172,11 @@ function docsForCollection(name: string) {
   if (name === "patients") return patientDocs;
   if (name === "2pq_case") return caseDocs;
   if (name === "2pq-informed-consent-drafts") return draftDocs;
+  if (name === "2pq_forms") return studyRequestDocs;
+  if (name === "user_roles") return roleDocs;
+  if (name === "doctors") {
+    return [{ id: "DOC-00001", data: { fullName: "Dra. Ana Pérez", licenseNumber: "MN 1234" } }];
+  }
   return [];
 }
 
@@ -293,7 +328,14 @@ jest.mock("firebase-admin/firestore", () => ({
 }));
 
 jest.mock("../config/firebase.js", () => ({
+  adminAuthFor: jest.fn(() => ({
+    getUserByEmail: jest.fn(async () => ({
+      disabled: false,
+      metadata: { lastSignInTime: "2026-08-12T12:00:00.000Z" },
+    })),
+  })),
   adminDbFor: jest.fn(() => ({
+    getAll: jest.fn(async (reference: { get: () => Promise<unknown> }) => [await reference.get()]),
     collection: jest.fn((name: string) => {
       const query = new QueryStub(name, docsForCollection(name));
       queryStubs.push(query);
@@ -401,6 +443,9 @@ describe("informed consent repository scoping", () => {
     sendGmailMessageMock.mockClear();
     mockTransactionPatientOverride = undefined;
     draftDocs.length = 0;
+    studyRequestDocs.splice(0, studyRequestDocs.length, requestDoc());
+    roleDocs.length = 0;
+    consentDocs.splice(3);
     consentDocs.forEach((doc) => {
       doc.data.caseId = null;
     });
@@ -1043,6 +1088,7 @@ describe("informed consent repository scoping", () => {
       },
       {
         patientId: "PAT-00001",
+        studyRequestFormId: FORM_ID,
         file: {
           name: "consent.pdf",
           type: "application/pdf",
@@ -1052,8 +1098,9 @@ describe("informed consent repository scoping", () => {
       },
     );
 
-    expect(record.id).toBe("CONS-00004");
-    expect(setDocMock).toHaveBeenCalledWith(
+    expect(record.id).toBe(requestConsentId());
+    expect(transactionSetMock).toHaveBeenCalledWith(
+      expect.objectContaining({ collectionName: "2pq-informed-consent", id: requestConsentId() }),
       expect.objectContaining({
         caseId: null,
         file: {
@@ -1068,11 +1115,12 @@ describe("informed consent repository scoping", () => {
   });
 
   it("atomically stores a direct patient upload and deletes its draft", async () => {
-    draftDocs.push(draftDoc());
+    draftDocs.push(scopedDraftDoc());
     const { createInformedConsentForContext } =
       await import("../repositories/informed-consents.repository");
 
     await createInformedConsentForContext(patientContext, {
+      studyRequestFormId: FORM_ID,
       flowMode: "direct",
       expectedDraftRevision: 2,
       file: {
@@ -1086,26 +1134,160 @@ describe("informed consent repository scoping", () => {
     expect(transactionSetMock).toHaveBeenCalledWith(
       expect.objectContaining({
         collectionName: "2pq-informed-consent",
-        id: "CONS-00004",
+        id: requestConsentId(),
       }),
       expect.objectContaining({ patientId: "PAT-00001" }),
     );
     expect(transactionDeleteMock).toHaveBeenCalledWith(
       expect.objectContaining({
         collectionName: "2pq-informed-consent-drafts",
-        id: "patient-uid",
+        id: scopedDraftId(),
       }),
     );
     expect(setDocMock).not.toHaveBeenCalled();
   });
 
+  it("keeps different requests for one patient distinct before a case exists", async () => {
+    const {
+      createInformedConsentForContext, getInformedConsentDraftForContext,
+      getStudyRequestConsentForContext, listStudyRequestConsentsForContext,
+    } = await import("../repositories/informed-consents.repository");
+    const otherRequest = "FORM-00002";
+    studyRequestDocs.push(requestDoc(otherRequest), requestDoc("FORM-00003", {
+      selectedPatientId: "PAT-00002",
+      doctorId: "DOC-00002",
+    }));
+    draftDocs.push(scopedDraftDoc());
+
+    await expect(getInformedConsentDraftForContext(patientContext, FORM_ID)).resolves.toMatchObject({
+      studyRequestFormId: FORM_ID,
+      revision: 2,
+    });
+    await expect(getInformedConsentDraftForContext(patientContext, otherRequest)).resolves.toBeNull();
+    await expect(getStudyRequestConsentForContext(patientContext, "FORM-00003"))
+      .rejects.toMatchObject({ statusCode: 403 });
+    await expect(listStudyRequestConsentsForContext(patientContext, { limit: 1 }))
+      .resolves.toMatchObject({
+        requests: [{ id: FORM_ID, consent: { id: null, status: "pending" } }],
+        nextCursor: FORM_ID,
+      });
+
+    const file = {
+      name: "consent.pdf",
+      type: "application/pdf",
+      size: 1,
+      content: "data:application/pdf;base64,eA==",
+    };
+    const first = await createInformedConsentForContext(patientContext, {
+      studyRequestFormId: FORM_ID, expectedDraftRevision: 2, file,
+    });
+    const second = await createInformedConsentForContext(patientContext, {
+      studyRequestFormId: otherRequest, expectedDraftRevision: null, file,
+    });
+    expect(first).toMatchObject({
+      studyRequestFormId: FORM_ID, caseId: null, reviewStatus: "needs_review",
+    });
+    expect(second.id).not.toBe(first.id);
+    for (const record of [first, second]) {
+      expect(transactionSetMock).toHaveBeenCalledWith(
+        expect.objectContaining({ collectionName: "2pq_forms", id: record.studyRequestFormId }),
+        { informedConsentId: record.id },
+        { merge: true },
+      );
+    }
+    expect(transactionSetMock.mock.calls.some(([ref]) => ref.collectionName === "2pq_case")).toBe(false);
+    await expect(createInformedConsentForContext(patientContext, {
+      expectedDraftRevision: null, file,
+    })).rejects.toMatchObject({ statusCode: 400 });
+    await expect(createInformedConsentForContext({ ...baseContext, role: "full_admin" }, {
+      patientId: "PAT-00001", file,
+    })).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it("reviews the current upload only and preserves the ready consent", async () => {
+    const {
+      approveStudyRequestConsentForContext, createInformedConsentForContext,
+      deleteInformedConsentForContext, setInformedConsentCaseForContext,
+    } = await import("../repositories/informed-consents.repository");
+    const staff = { ...baseContext, role: "full_admin" as const };
+    const consent = consentDoc(requestConsentId(), "INST-00001", "DOC-00001", "PAT-00001");
+    Object.assign(consent.data, {
+      studyRequestFormId: FORM_ID,
+      reviewStatus: "needs_review",
+      uploadedAt: "2026-11-10T14:20:01.000Z",
+    });
+    studyRequestDocs[0]!.data.informedConsentId = consent.id;
+    consentDocs.push(consent);
+    await expect(approveStudyRequestConsentForContext(
+      staff, FORM_ID, "2026-11-10T14:20:00.000Z",
+    )).rejects.toMatchObject({ statusCode: 409 });
+    await expect(approveStudyRequestConsentForContext({
+      ...baseContext, role: "institution_doctor", institutionId: "INST-00001", doctorId: "DOC-00002",
+    }, FORM_ID, "2026-11-10T14:20:01.000Z")).rejects.toMatchObject({ statusCode: 403 });
+    expectNoEntityTransactionWrites();
+
+    transactionSetMock.mockImplementationOnce((_reference, review) => Object.assign(consent.data, review));
+    await expect(approveStudyRequestConsentForContext(
+      staff, FORM_ID, "2026-11-10T14:20:01.000Z",
+    )).resolves.toMatchObject({
+      consent: { id: consent.id, status: "ready", reviewedAt: expect.any(String) },
+      doctorName: "Dra. Ana Pérez",
+      doctorLicenseNumber: "MN 1234",
+      canUpload: false,
+      canApprove: false,
+      canResend: false,
+    });
+    expect(consent.data).toMatchObject({ reviewedByEmail: staff.email, reviewStatus: "ready" });
+    await expect(deleteInformedConsentForContext(staff, consent.id)).rejects.toMatchObject({ statusCode: 409 });
+    await expect(setInformedConsentCaseForContext(staff, consent.id, "CASE-00001"))
+      .rejects.toMatchObject({ statusCode: 409 });
+    await expect(createInformedConsentForContext(patientContext, {
+      studyRequestFormId: FORM_ID,
+      expectedDraftRevision: null,
+      file: {
+        name: "replacement.pdf",
+        type: "application/pdf",
+        size: 1,
+        content: "data:application/pdf;base64,eA==",
+      },
+    })).rejects.toMatchObject({ statusCode: 409 });
+  });
+
+  it("invites the current patient email to its exact request", async () => {
+    const { sendStudyRequestConsentInvitationForContext } =
+      await import("../repositories/informed-consents.repository");
+    const patient = patientDocs[0]!;
+    const previousEmail = patient.data.email;
+    patient.data.email = "new@example.com";
+    studyRequestDocs[0]!.data.patientInformation = { email: "old@example.com" };
+    roleDocs.push({
+      id: "new@example.com",
+      data: { role: "patient", patientId: patient.id, isActive: true, canAccessPatientPortal: true },
+    });
+    try {
+      await expect(sendStudyRequestConsentInvitationForContext(
+        { ...baseContext, role: "full_admin" }, FORM_ID,
+      )).resolves.toEqual({ ok: true, patientEmail: "new@example.com" });
+      expect(sendGmailMessageMock).toHaveBeenCalledWith(expect.objectContaining({
+        to: "new@example.com",
+        text: expect.stringContaining("callbackUrl=%2Fpatient-portal%2Fconsents%2Fnew%3FstudyRequestFormId%3DFORM-00001"),
+      }));
+      expect(sendGmailMessageMock).not.toHaveBeenCalledWith(expect.objectContaining({
+        text: expect.stringContaining("ABCDEFGH"),
+      }));
+    } finally {
+      patient.data.email = previousEmail;
+    }
+  });
+
   it("rejects a patient upload that omits its draft revision expectation before any read or write", async () => {
-    draftDocs.push(draftDoc());
+    draftDocs.push(scopedDraftDoc());
     const { createInformedConsentForContext } =
       await import("../repositories/informed-consents.repository");
 
     await expect(
       createInformedConsentForContext(patientContext, {
+        studyRequestFormId: FORM_ID,
         flowMode: "direct",
         file: {
           name: "consent.pdf",
@@ -1132,13 +1314,14 @@ describe("informed consent repository scoping", () => {
     "rejects finalization when %s",
     async (_, expectedDraftRevision, storedRevision) => {
       if (storedRevision !== null) {
-        draftDocs.push(draftDoc("patient-uid", storedRevision));
+        draftDocs.push(scopedDraftDoc(storedRevision));
       }
       const { createInformedConsentForContext } =
         await import("../repositories/informed-consents.repository");
 
       await expect(
         createInformedConsentForContext(patientContext, {
+          studyRequestFormId: FORM_ID,
           flowMode: "direct",
           expectedDraftRevision,
           file: {
@@ -1159,10 +1342,11 @@ describe("informed consent repository scoping", () => {
   );
 
   it("allows one final for a draft revision and rejects a concurrent retry after deletion", async () => {
-    draftDocs.push(draftDoc("patient-uid", 2));
+    draftDocs.push(scopedDraftDoc(2));
     const { createInformedConsentForContext } =
       await import("../repositories/informed-consents.repository");
     const payload = {
+      studyRequestFormId: FORM_ID,
       flowMode: "direct" as const,
       expectedDraftRevision: 2,
       file: {
@@ -1218,7 +1402,7 @@ describe("informed consent repository scoping", () => {
   });
 
   it("keeps the draft when patient identity changes during final upload", async () => {
-    draftDocs.push(draftDoc());
+    draftDocs.push(scopedDraftDoc());
     mockTransactionPatientOverride = patientDoc(
       "PAT-00001",
       "INST-CHANGED",
@@ -1229,6 +1413,7 @@ describe("informed consent repository scoping", () => {
 
     await expect(
       createInformedConsentForContext(patientContext, {
+        studyRequestFormId: FORM_ID,
         flowMode: "direct",
         expectedDraftRevision: 2,
         file: {
@@ -1259,6 +1444,7 @@ describe("informed consent repository scoping", () => {
       { ...baseContext, role: "full_admin" },
       {
         patientId: "PAT-00001",
+        studyRequestFormId: FORM_ID,
         flowMode: "guided",
         savedSignature: SAVED_SIGNATURE,
         file: {
@@ -1285,7 +1471,7 @@ describe("informed consent repository scoping", () => {
     expect(transactionSetMock).toHaveBeenCalledWith(
       expect.objectContaining({
         collectionName: "2pq-informed-consent",
-        id: "CONS-00004",
+        id: requestConsentId(),
       }),
       expect.objectContaining({ patientId: "PAT-00001" }),
     );
@@ -1309,6 +1495,7 @@ describe("informed consent repository scoping", () => {
       },
       {
         patientId: "PAT-00001",
+        studyRequestFormId: FORM_ID,
         flowMode: "guided",
         signatureAttestationAccepted: true,
         savedSignature: SAVED_SIGNATURE,
@@ -1355,6 +1542,7 @@ describe("informed consent repository scoping", () => {
         canAccessPatientPortal: true,
       },
       {
+          studyRequestFormId: FORM_ID,
         flowMode: "guided",
         expectedDraftRevision: null,
         signatureAttestationAccepted: true,
@@ -1383,7 +1571,7 @@ describe("informed consent repository scoping", () => {
     expect(transactionDeleteMock).toHaveBeenCalledWith(
       expect.objectContaining({
         collectionName: "2pq-informed-consent-drafts",
-        id: baseContext.uid,
+        id: scopedDraftId(baseContext.uid),
       }),
     );
   });
@@ -1457,6 +1645,7 @@ describe("informed consent repository scoping", () => {
           { ...baseContext, role: "full_admin" },
           {
             patientId: "PAT-00001",
+            studyRequestFormId: caseId ? undefined : FORM_ID,
             caseId,
             flowMode: "guided",
             savedSignature: SAVED_SIGNATURE,
@@ -1529,6 +1718,7 @@ describe("informed consent repository scoping", () => {
         { ...baseContext, role: "full_admin" },
         {
           patientId: "PAT-00001",
+          studyRequestFormId: FORM_ID,
           flowMode: "guided",
           savedSignature: SAVED_SIGNATURE,
           file: {
@@ -1557,6 +1747,7 @@ describe("informed consent repository scoping", () => {
       { ...baseContext, role: "full_admin" },
       {
         patientId: "PAT-00001",
+        studyRequestFormId: FORM_ID,
         flowMode: "direct",
         file: {
           name: "consent.pdf",
@@ -1572,7 +1763,8 @@ describe("informed consent repository scoping", () => {
         ([reference]) => reference.collectionName === "patients",
       ),
     ).toBe(false);
-    expect(setDocMock).toHaveBeenCalledWith(
+    expect(transactionSetMock).toHaveBeenCalledWith(
+      expect.objectContaining({ collectionName: "2pq-informed-consent", id: requestConsentId() }),
       expect.objectContaining({ patientId: "PAT-00001" }),
     );
   });
@@ -1617,6 +1809,7 @@ describe("informed consent repository scoping", () => {
         },
         {
           patientId: "PAT-00002",
+              studyRequestFormId: FORM_ID,
           flowMode: "guided",
           expectedDraftRevision: null,
           savedSignature: SAVED_SIGNATURE,
@@ -1629,7 +1822,7 @@ describe("informed consent repository scoping", () => {
         },
       ),
     ).rejects.toMatchObject({
-      message: "Patients can only upload their own consent files.",
+      message: "The selected patient does not match this consent upload.",
       statusCode: 403,
     });
   });

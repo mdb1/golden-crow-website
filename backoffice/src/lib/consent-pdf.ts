@@ -29,6 +29,25 @@ export type ConsentPdfSigner = {
   placement: ConsentSignaturePlacement;
 };
 
+export type ConsentPdfDoctor = {
+  name?: string | null;
+  licenseNumber?: string | null;
+};
+
+export function getConsentDoctorText(doctor?: ConsentPdfDoctor) {
+  const name = doctor?.name?.trim();
+  const licenseNumber = doctor?.licenseNumber?.trim();
+  return [
+    { text: name, x: 0.5, baselineFromTop: 0.854, maxWidth: 0.19 },
+    {
+      text: licenseNumber ? `Matrícula: ${licenseNumber}` : undefined,
+      x: 0.723,
+      baselineFromTop: 0.9,
+      maxWidth: 0.16,
+    },
+  ];
+}
+
 export const CONSENT_SIGNER_NAME_PLACEMENTS: Record<
   ConsentSignerRole,
   { x: number; baselineFromTop: number; maxWidth: number }
@@ -96,6 +115,7 @@ function fitTextSize(
 export async function applySignaturesToConsentPdf(
   templateBytes: ArrayBuffer | Uint8Array,
   signers: ConsentPdfSigner[],
+  doctor?: ConsentPdfDoctor,
 ) {
   if (signers.length === 0) {
     throw new Error("At least one signer is required.");
@@ -110,6 +130,21 @@ export async function applySignaturesToConsentPdf(
     }
   }
 
+  return fillConsentPdf(templateBytes, signers, doctor);
+}
+
+export function prefillConsentPdfDoctor(
+  templateBytes: ArrayBuffer | Uint8Array,
+  doctor: ConsentPdfDoctor,
+) {
+  return fillConsentPdf(templateBytes, [], doctor);
+}
+
+async function fillConsentPdf(
+  templateBytes: ArrayBuffer | Uint8Array,
+  signers: ConsentPdfSigner[],
+  doctor?: ConsentPdfDoctor,
+) {
   const { PDFDocument, StandardFonts, rgb } = await import("pdf-lib");
   const pdf = await PDFDocument.load(templateBytes);
   const pages = pdf.getPages();
@@ -119,6 +154,21 @@ export async function applySignaturesToConsentPdf(
 
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const lastPage = pages[pages.length - 1];
+
+  for (const field of getConsentDoctorText(doctor)) {
+    if (!field.text) continue;
+    const maxWidth = lastPage.getWidth() * field.maxWidth;
+    // Reduce the font size to keep even long names on the same signature line.
+    const textWidth = font.widthOfTextAtSize(field.text, 9);
+    const size = Math.min(9, (9 * maxWidth) / textWidth);
+    lastPage.drawText(field.text, {
+      x: lastPage.getWidth() * field.x,
+      y: lastPage.getHeight() * (1 - field.baselineFromTop),
+      size,
+      font,
+      color: rgb(0.07, 0.09, 0.13),
+    });
+  }
 
   for (const signer of signers) {
     const placement = signer.placement;

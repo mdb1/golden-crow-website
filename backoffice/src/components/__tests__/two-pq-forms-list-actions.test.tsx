@@ -141,6 +141,13 @@ describe("TwoPQFormsList actions", () => {
     ).toBeInTheDocument();
   });
 
+  it("offers archive and preserves a study request with a signed consent", () => {
+    renderList([{ ...form, informedConsentId: "CONS-00001" }]);
+
+    expect(screen.getByRole("button", { name: "Archive" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+  });
+
   it.each([
     "institution_doctor",
     "institution_operator",
@@ -277,7 +284,25 @@ describe("TwoPQFormsList actions", () => {
 
   it("opens the prefilled biopsy after treatment planning is saved", () => {
     renderList(
-      [{ ...form, requiresTreatmentStart: true, linkedTreatmentStartFormId: "FORM-00004" }],
+      [{
+        ...form,
+        requiresTreatmentStart: true,
+        linkedTreatmentStartFormId: "FORM-00004",
+        consent: { id: "CONS-00001", status: "ready" },
+        treatmentStart: {
+          studyType: "pgtAStandard",
+          treatmentDate: "2026-11-25",
+          estimatedBiopsyDate: "2026-11-29",
+          estimatedEmbryoCount: 5,
+          pickupDate: "2026-11-30",
+          pickupWindowStart: "09:00",
+          pickupWindowEnd: "11:00",
+          pickupOrigin: "Clínica Norte",
+          pickupDestination: "Laboratorio 2PQ",
+          temperatureC: -20,
+          notes: "Sin observaciones",
+        },
+      }],
       "full_admin",
       "study_request_cojoined",
     );
@@ -290,6 +315,20 @@ describe("TwoPQFormsList actions", () => {
       "href",
       "/2pq-dashboard/forms/sample/new?studyRequestFormId=FORM-00001",
     );
+  });
+
+  it("shows consent review as the next action for an unapproved request with a treatment plan", () => {
+    renderList(
+      [{ ...form, linkedTreatmentStartFormId: "FORM-00004", consent: { id: "CONS-00001", status: "needs_review" } }],
+      "full_admin",
+      "study_request_cojoined",
+    );
+
+    expect(screen.getByText("Consent needs review")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Review consent" })).toHaveAttribute(
+      "href", `/2pq-dashboard/forms/${form.id}#informed-consent`,
+    );
+    expect(screen.queryByRole("link", { name: "Complete Biopsy" })).not.toBeInTheDocument();
   });
 
   it("links a study and biopsy row to a prefilled withdrawal form", () => {

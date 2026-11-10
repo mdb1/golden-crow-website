@@ -47,6 +47,7 @@ const mockSendTreatmentPickupEmail = jest.fn();
 const mockSynchronizeTwoPQCasesFilesAndCodes = jest.fn();
 const mockCascadeTwoPQCaseStatusToSamplingChildren = jest.fn();
 const mockCreateTwoPQRecordForContext = jest.fn();
+const mockSendStudyRequestConsentInvitation = jest.fn();
 
 function docKey(ref: MockDocumentRef) {
   return `${ref.collectionName}/${ref.id}`;
@@ -203,8 +204,8 @@ function makeQuery(
 
 const mockDb = {
   collection: mockCollection,
-  getAll: jest.fn((...refs: MockDocumentRef[]) =>
-    Promise.all(refs.map((ref) => ref.get())),
+  getAll: jest.fn((...refs: Array<MockDocumentRef | { fieldMask: string[] }>) =>
+    Promise.all(refs.flatMap((ref) => "get" in ref ? [ref.get()] : [])),
   ),
   batch: jest.fn(() => {
     const operations: Array<
@@ -304,8 +305,8 @@ jest.mock("../repositories/two-pq.repository.js", () => ({
   getTwoPQDetailForContext: jest.fn(),
 }));
 
-jest.mock("../lib/informed-consent-email.js", () => ({
-  sendInformedConsentEmail: jest.fn(),
+jest.mock("../repositories/informed-consents.repository.js", () => ({
+  sendStudyRequestConsentInvitationForContext: mockSendStudyRequestConsentInvitation,
 }));
 
 jest.mock("../lib/patient-portal-credentials.js", () => ({
@@ -372,6 +373,30 @@ function seedPlanningRequest() {
   });
 }
 
+function seedRequestConsent(requestId: string, reviewStatus: "needs_review" | "ready" = "ready") {
+  const consentId = `consent-${requestId}`;
+  const key = `2pq_forms/${requestId}`;
+  mockDocs.set(key, {
+    ...mockDocs.get(key),
+    selectedPatientId: "patient-1",
+    informedConsentId: consentId,
+  });
+  mockDocs.set(`2pq-informed-consent/${consentId}`, {
+    studyRequestFormId: requestId,
+    patientId: "patient-1",
+    institutionId: "inst-1",
+    doctorId: "doctor-1",
+    caseId: null,
+    reviewStatus,
+    file: { name: "consent.pdf", type: "application/pdf", size: 100 },
+    ...(reviewStatus === "ready" ? {
+      reviewedAt: "2026-08-31T12:00:00.000Z",
+      reviewedByEmail: "admin@example.com",
+    } : {}),
+  });
+  return consentId;
+}
+
 describe("2PQ form workflow and PGFlex automation", () => {
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(new Date("2026-08-31T15:45:00.000Z"));
@@ -387,6 +412,7 @@ describe("2PQ form workflow and PGFlex automation", () => {
     mockSynchronizeTwoPQCasesFilesAndCodes.mockClear();
     mockCascadeTwoPQCaseStatusToSamplingChildren.mockClear();
     mockCreateTwoPQRecordForContext.mockReset();
+    mockSendStudyRequestConsentInvitation.mockReset();
 
     mockDocs.set("admin_sequences/2pq_forms", { current: 40 });
     mockDocs.set("institutions/inst-1", {
@@ -550,6 +576,8 @@ describe("2PQ form workflow and PGFlex automation", () => {
     expect(mockDocs.has("2pq-form-drafts/admin-uid")).toBe(false);
     expect(mockCreateTwoPQRecordForContext).not.toHaveBeenCalled();
     expect((await getTwoPQFormForContext(fullAdminContext, form.id)).linkedCaseId).toBeNull();
+    expect((await listTwoPQFormsForContext(fullAdminContext, { availableForBiopsy: true })).forms).toHaveLength(0);
+    seedRequestConsent(planningRequestId);
     expect((await listTwoPQFormsForContext(fullAdminContext, { availableForBiopsy: true })).forms).toMatchObject([
       { id: planningRequestId, treatmentStart: { studyType: "pgtAFast" } },
     ]);
@@ -605,6 +633,14 @@ describe("2PQ form workflow and PGFlex automation", () => {
       }],
     };
     await expect(createTwoPQFormForContext(fullAdminContext, biopsy)).rejects.toThrow(
+      "Approve the informed consent for this study request before submitting the biopsy.",
+    );
+    seedRequestConsent(planningRequestId, "needs_review");
+    await expect(createTwoPQFormForContext(fullAdminContext, biopsy)).rejects.toThrow(
+      "Approve the informed consent for this study request before submitting the biopsy.",
+    );
+    const consentId = seedRequestConsent(planningRequestId);
+    await expect(createTwoPQFormForContext(fullAdminContext, biopsy)).rejects.toThrow(
       "Save the treatment start form before submitting the biopsy form.",
     );
     expect(mockCreateTwoPQRecordForContext).not.toHaveBeenCalled();
@@ -630,6 +666,10 @@ describe("2PQ form workflow and PGFlex automation", () => {
     });
     expect(mockDocs.get("2pq_case/case-planned")).toMatchObject({
       linkedTreatmentStartFormId: plan.id, linkedBiopsyForm: form.id, caseStatus: "awaiting_pick_up",
+      informedConsentId: consentId,
+    });
+    expect(mockDocs.get(`2pq-informed-consent/${consentId}`)).toMatchObject({
+      studyRequestFormId: planningRequestId, caseId: "case-planned", reviewStatus: "ready",
     });
     expect(mockSendTreatmentPickupEmail).toHaveBeenCalledWith("confirmed", expect.anything(), expect.anything());
   });
@@ -688,6 +728,8 @@ describe("2PQ form workflow and PGFlex automation", () => {
     });
     expect(mockDocs.get("2pq_forms/FORM-00041")).not.toHaveProperty("maximumResultDeliveryAt");
     expect(mockDocs.get("2pq_forms/FORM-00041")).not.toHaveProperty("requestedTest.maximumResultDeliveryAt");
+    expect(form.consent).toEqual({ id: null, status: "pending" });
+    expect(mockSendStudyRequestConsentInvitation).toHaveBeenCalledWith(fullAdminContext, form.id);
   });
 
   it("keeps the selected Ultra-fast study and keeps karyotype disabled", async () => {
@@ -1119,6 +1161,16 @@ describe("2PQ form workflow and PGFlex automation", () => {
     expect(mockDocs.has("2pq_forms/FORM-00041")).toBe(false);
   });
 
+  it("retains the study request and its signed consent when a hard delete is requested", async () => {
+    const { deleteTwoPQFormForContext } = await import("../repositories/two-pq-forms.repository");
+    const requestId = "FORM-00031";
+    const consentId = seedRequestConsent(requestId, "needs_review");
+
+    await expect(deleteTwoPQFormForContext(fullAdminContext, requestId)).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockDocs.get(`2pq_forms/${requestId}`)).toMatchObject({ informedConsentId: consentId });
+    expect(mockDocs.get(`2pq-informed-consent/${consentId}`)).toMatchObject({ studyRequestFormId: requestId });
+  });
+
   it("clears study-request and biopsy backlinks when the withdrawal form is deleted", async () => {
     const { deleteTwoPQFormForContext } =
       await import("../repositories/two-pq-forms.repository");
@@ -1207,17 +1259,13 @@ describe("2PQ form workflow and PGFlex automation", () => {
       createdAt: "2026-08-30T10:00:00.000Z",
       updatedAt: "2026-08-30T10:00:00.000Z",
     });
+    seedRequestConsent("FORM-00040");
     mockCreateTwoPQRecordForContext.mockImplementation(
-      async (_context, area: string, input: MockDocData) =>
-        area === "cases"
-          ? {
-              id: "case-created",
-              ...input,
-            }
-          : {
-              id: "sampling-created",
-              ...input,
-            },
+      async (_context, area: string, input: MockDocData) => {
+        const record = { id: area === "cases" ? "case-created" : "sampling-created", ...input };
+        if (area === "cases") mockDocs.set("2pq_case/case-created", record);
+        return record;
+      },
     );
 
     const input = {
@@ -1867,6 +1915,17 @@ describe("2PQ form workflow and PGFlex automation", () => {
       id: "FORM-00043",
       formType: "sample",
       linkedStudyRequestFormId: "FORM-00033",
+    });
+    for (const requestId of ["FORM-00031", "FORM-00032", "FORM-00033", "FORM-00034"]) {
+      seedRequestConsent(requestId);
+    }
+    mockDocs.set("2pq_forms/FORM-00035", { ...baseStudyRequest, id: "FORM-00035" });
+    seedRequestConsent("FORM-00035", "needs_review");
+    mockDocs.set("2pq_forms/FORM-00036", {
+      ...baseStudyRequest,
+      id: "FORM-00036",
+      selectedPatientId: "patient-1",
+      informedConsentId: "consent-FORM-00034",
     });
 
     const result = await listTwoPQFormsForContext(fullAdminContext, {

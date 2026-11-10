@@ -27,24 +27,22 @@ function renderDialog(createdType: TwoPQFormType) {
 }
 
 describe("TwoPQFormCompletionDialog", () => {
-  it("shows patient access email instructions for completed study requests", () => {
+  it("confirms that the study request was saved and links to its consent actions", () => {
     renderDialog("study_request");
 
     expect(
       screen.getByRole("heading", {
-        name: "El mail de acceso fue enviado al paciente",
+        name: "La solicitud de estudio se guardó",
       }),
     ).toBeTruthy();
     expect(
       screen.getByText(
-        "Se envió un mail con la clave de acceso al correo del paciente. El paciente debe revisarlo para poder subir el archivo.",
+        "Abrí la solicitud para consultar el estado del consentimiento o reenviar la invitación al paciente.",
       ),
     ).toBeTruthy();
     expect(
-      screen.getByText(
-        "Pedile al paciente que revise también la casilla de spam; a veces este mail llega ahí.",
-      ),
-    ).toBeTruthy();
+      screen.getByRole("link", { name: "Abrir formulario completado" }),
+    ).toHaveAttribute("href", "/2pq-dashboard/forms/FORM-123#informed-consent");
     expect(screen.queryByText("2pq_forms")).toBeNull();
   });
 

@@ -4,6 +4,52 @@ export interface InformedConsentFileSummary {
   size: number;
 }
 
+export type InformedConsentRequestStatus = "pending" | "needs_review" | "ready";
+
+export interface InformedConsentRequestSummary {
+  id: string | null;
+  status: InformedConsentRequestStatus;
+  uploadedAt?: string | null;
+  reviewedAt?: string | null;
+}
+
+export interface InformedConsentStudyRequest {
+  id: string;
+  patientId: string;
+  patientName: string;
+  patientEmail: string;
+  patientBirthDate?: string | null;
+  institutionId: string;
+  institutionName?: string | null;
+  doctorId: string;
+  doctorName?: string | null;
+  doctorLicenseNumber?: string | null;
+  createdAt?: string;
+  canUpload: boolean;
+  canApprove: boolean;
+  canResend: boolean;
+  consent: InformedConsentRequestSummary;
+}
+
+export interface InformedConsentStudyRequestPage {
+  requests: InformedConsentStudyRequest[];
+  nextCursor?: string | null;
+}
+
+export const INFORMED_CONSENT_REQUEST_STATUS_LABELS = {
+  pending: "Pendiente",
+  needs_review: "Requiere revisión",
+  ready: "Listo",
+} as const satisfies Record<InformedConsentRequestStatus, string>;
+
+export function informedConsentDraftPath(studyRequestFormId: string, statusOnly = false) {
+  return `/2pq/informed-consents/draft${statusOnly ? "/status" : ""}?studyRequestFormId=${encodeURIComponent(studyRequestFormId)}`;
+}
+
+export function patientConsentUploadHref(studyRequestFormId: string) {
+  return `/patient-portal/consents/new?studyRequestFormId=${encodeURIComponent(studyRequestFormId)}`;
+}
+
 export interface InformedConsentRecord {
   id: string;
   collectionKey: "2pq-informed-consent";
@@ -12,6 +58,10 @@ export interface InformedConsentRecord {
   patientId: string;
   patientName: string;
   caseId: string | null;
+  studyRequestFormId?: string | null;
+  reviewStatus?: Exclude<InformedConsentRequestStatus, "pending">;
+  reviewedAt?: string | null;
+  reviewedByEmail?: string | null;
   file: InformedConsentFileSummary;
   createdAt: string;
   updatedAt: string;
@@ -28,6 +78,7 @@ export interface InformedConsentCaseOption {
   caseStatus?: string;
   threeLetterCode?: string;
   informedConsentId: string | null;
+  linkedStudyRequestFormId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -119,6 +170,7 @@ export interface InformedConsentDraftRecord extends InformedConsentDraftState {
   collectionKey: "2pq-informed-consent-drafts";
   revision: number;
   patientId: string;
+  studyRequestFormId?: string | null;
   createdAt: string;
   updatedAt: string;
   createdByEmail: string;

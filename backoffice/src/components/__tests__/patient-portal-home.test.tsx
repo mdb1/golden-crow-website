@@ -38,7 +38,7 @@ describe("PatientPortalHomePage", () => {
           name: "Firmar consentimiento informado. Comenzar firma",
         })
         .getAttribute("href"),
-    ).toBe("/patient-portal/consents/new");
+    ).toBe("/patient-portal/consents");
     expect(
       screen
         .getByRole("link", { name: "Mi cuenta. Abrir mi cuenta" })
@@ -100,7 +100,7 @@ describe("PatientPortalHomePage", () => {
           name: "Continuar firma de consentimiento informado. Continuar desde borrador",
         })
         .getAttribute("href"),
-    ).toBe("/patient-portal/consents/new?draft=1");
+    ).toBe("/patient-portal/consents");
     expect(
       screen.queryByRole("heading", {
         name: "Ver consentimientos informados ya firmados",
