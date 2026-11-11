@@ -1681,6 +1681,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Upload signed consent": "Subir consentimiento firmado",
   "Replace signed consent": "Reemplazar consentimiento firmado",
   "Approve consent": "Aprobar consentimiento",
+  "Approve informed consent": "Aprobar consentimiento informado",
   "Confirm approval": "Confirmar aprobación",
   "Confirm that you reviewed the uploaded document and verified the required signatures for this study request.":
     "Confirmá que revisaste el documento y verificaste las firmas requeridas para esta solicitud de estudio.",

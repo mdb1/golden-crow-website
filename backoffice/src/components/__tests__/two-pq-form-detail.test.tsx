@@ -254,8 +254,12 @@ describe("TwoPQFormDetail", () => {
     expect(within(panel).getByRole("link", { name: "Open signed consent" })).toHaveAttribute(
       "href", "/2pq-dashboard/consents/CONS-00001",
     );
-    await user.click(within(panel).getByRole("button", { name: "Approve consent" }));
-    await user.click(screen.getByRole("button", { name: "Confirm approval" }));
+    const approve = within(panel).getByRole("button", { name: "Approve informed consent" });
+    expect(approve).toHaveClass("bg-emerald-700", "min-h-12");
+    await user.click(approve);
+    const confirm = screen.getByRole("button", { name: "Confirm approval" });
+    expect(confirm).toHaveClass("bg-emerald-700", "min-h-12");
+    await user.click(confirm);
     expect(mockSdkFetch).toHaveBeenCalledWith(
       `/2pq/informed-consents/study-requests/${studyRequestForm.id}/approve`,
       { method: "POST", body: JSON.stringify({ expectedUploadedAt: uploadedAt }) },
@@ -292,7 +296,7 @@ describe("TwoPQFormDetail", () => {
     );
 
     const panel = screen.getByRole("region", { name: "Informed consent" });
-    await user.click(within(panel).getByRole("button", { name: "Approve consent" }));
+    await user.click(within(panel).getByRole("button", { name: "Approve informed consent" }));
     await user.click(screen.getByRole("button", { name: "Confirm approval" }));
 
     expect(await within(panel).findByRole("alert")).toHaveTextContent(message);

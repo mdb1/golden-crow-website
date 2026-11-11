@@ -57,9 +57,10 @@ function renderList(
   forms: TwoPQFormRecord[] = [form],
   role: AdminRole = "full_admin",
   initialFormType: TwoPQFormsTypeFilter | null = "study_request",
+  language: "en" | "es" = "en",
 ) {
   render(
-    <AppLanguageProvider initialLanguage="en">
+    <AppLanguageProvider forcedLanguage={language}>
       <AdminContextProvider
         value={{
           ...adminContext,
@@ -315,16 +316,73 @@ describe("TwoPQFormsList actions", () => {
       "href",
       "/2pq-dashboard/forms/sample/new?studyRequestFormId=FORM-00001",
     );
+    expect(screen.queryByRole("link", { name: "Review consent" })).not.toBeInTheDocument();
   });
 
-  it("shows consent review as the next action for an unapproved request with a treatment plan", () => {
+  it.each([undefined, "FORM-00004"])("links straight to the consent with treatment plan %s", (linkedTreatmentStartFormId) => {
+    const consentId = "CONS-REQUEST-00001";
     renderList(
-      [{ ...form, linkedTreatmentStartFormId: "FORM-00004", consent: { id: "CONS-00001", status: "needs_review" } }],
+      [{ ...form, linkedTreatmentStartFormId, consent: { id: consentId, status: "needs_review" } }],
+      "full_admin",
+      "study_request_cojoined",
+      "es",
+    );
+
+    const status = screen.getByText("Consentimiento por revisar");
+    const reviewLink = screen.getByRole("link", { name: "Revisar consentimiento" });
+    expect(reviewLink).toHaveAttribute("href", `/2pq-dashboard/consents/${consentId}`);
+    expect(reviewLink).toHaveAttribute("data-size", "lg");
+    expect(reviewLink.parentElement).toBe(status.parentElement);
+    expect(screen.queryByRole("link", { name: "Completar Biopsia" })).not.toBeInTheDocument();
+  });
+
+  it("places the consent review link beside the saved case", () => {
+    renderList([{
+      ...form,
+      "2pq_case": "CASE-00001",
+      linkedCaseLabel: "KIMXXX",
+      consent: { id: "CONS-00001", status: "needs_review" },
+    }], "full_admin", "study_request_cojoined");
+
+    const savedCaseLink = screen.getByRole("link", { name: "Open 2PQ case KIMXXX" });
+    const reviewLink = screen.getByRole("link", { name: "Review consent" });
+    expect(reviewLink).toHaveAttribute("href", "/2pq-dashboard/consents/CONS-00001");
+    expect(reviewLink.parentElement).toBe(savedCaseLink.parentElement);
+  });
+
+  it("offers doctors the consent review link only for their own study requests", () => {
+    renderList(
+      [
+        {
+          ...form,
+          linkedTreatmentStartFormId: "FORM-00004",
+          consent: { id: "CONS-00001", status: "needs_review" },
+        },
+        {
+          ...form,
+          id: "FORM-00002",
+          doctorId: "DOC-00002",
+          linkedTreatmentStartFormId: "FORM-00005",
+          consent: { id: "CONS-00002", status: "needs_review" },
+        },
+      ],
+      "institution_doctor",
+      "study_request_cojoined",
+    );
+
+    expect(screen.getAllByText("Consent needs review")).toHaveLength(2);
+    expect(screen.getByRole("link", { name: "Review consent" }))
+      .toHaveAttribute("href", "/2pq-dashboard/consents/CONS-00001");
+  });
+
+  it("keeps the request consent panel accessible when treatment is planned and consent is pending", () => {
+    renderList(
+      [{ ...form, linkedTreatmentStartFormId: "FORM-00004", consent: { id: null, status: "pending" } }],
       "full_admin",
       "study_request_cojoined",
     );
 
-    expect(screen.getByText("Consent needs review")).toBeVisible();
+    expect(screen.getByText("Consent pending")).toBeVisible();
     expect(screen.getByRole("link", { name: "Review consent" })).toHaveAttribute(
       "href", `/2pq-dashboard/forms/${form.id}#informed-consent`,
     );

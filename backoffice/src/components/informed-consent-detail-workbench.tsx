@@ -2,18 +2,19 @@ import Link from "next/link";
 import {
   ArrowLeft,
   CalendarDays,
-  ExternalLink,
-  FileCheck2,
   HardDrive,
   Mail,
   UserRound,
 } from "lucide-react";
 import { ConsentCaseTraceabilityCard } from "@/components/consent-case-traceability";
-import { ConsentRequestStatusBadge } from "@/components/consent-request-status-badge";
-import { HeaderUnclutterButton } from "@/components/header-unclutter";
+import { InformedConsentDetailHeader } from "@/components/informed-consent-detail-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { InformedConsentDetailPayload } from "@/lib/informed-consents";
+import {
+  informedConsentFileHref,
+  type InformedConsentDetailPayload,
+  type InformedConsentStudyRequest,
+} from "@/lib/informed-consents";
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -35,11 +36,17 @@ function formatFileSize(size: number) {
 
 export function InformedConsentDetailWorkbench({
   initialPayload,
+  reviewRequest,
 }: {
   initialPayload: InformedConsentDetailPayload;
+  reviewRequest: InformedConsentStudyRequest | null;
 }) {
   const { record } = initialPayload;
-  const fileUrl = `/api/sdk/2pq/informed-consents/${encodeURIComponent(record.id)}/file`;
+  const uploadedAt = reviewRequest?.consent.uploadedAt;
+  const fileUrl = informedConsentFileHref(record.id);
+  const previewUrl = uploadedAt
+    ? `${fileUrl}?version=${encodeURIComponent(uploadedAt)}`
+    : fileUrl;
 
   return (
     <div className="space-y-5">
@@ -57,32 +64,13 @@ export function InformedConsentDetailWorkbench({
       </div>
 
       <section className="glass-panel space-y-5 px-5 py-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex min-w-0 items-start gap-3">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
-              <FileCheck2 className="size-5" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="break-words font-heading text-xl font-semibold">
-                {record.file.name}
-              </h1>
-              {record.reviewStatus ? (
-                <div className="mt-2">
-                  <ConsentRequestStatusBadge status={record.reviewStatus} language="es" />
-                </div>
-              ) : null}
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <HeaderUnclutterButton />
-            <Button variant="outline" size="sm" asChild>
-              <a href={fileUrl} target="_blank" rel="noreferrer">
-                <ExternalLink className="size-4" />
-                Abrir archivo
-              </a>
-            </Button>
-          </div>
-        </div>
+        <InformedConsentDetailHeader
+          key={record.id}
+          consentId={record.id}
+          fileName={record.file.name}
+          reviewStatus={record.reviewStatus}
+          reviewRequest={reviewRequest}
+        />
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-xl border border-border/70 bg-background/70 p-4">
@@ -140,7 +128,7 @@ export function InformedConsentDetailWorkbench({
         </div>
         <iframe
           title={`Vista previa de ${record.file.name}`}
-          src={fileUrl}
+          src={previewUrl}
           className="h-[70vh] min-h-[34rem] w-full bg-white"
         />
       </section>

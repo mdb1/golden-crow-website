@@ -5,7 +5,10 @@ import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { InformedConsentDetailWorkbench } from "@/components/informed-consent-detail-workbench";
 import { PageHero } from "@/components/page-hero";
 import { Button } from "@/components/ui/button";
-import type { InformedConsentDetailPayload } from "@/lib/informed-consents";
+import type {
+  InformedConsentDetailPayload,
+  InformedConsentStudyRequest,
+} from "@/lib/informed-consents";
 import { sdkFetchServer } from "@/lib/sdk-server";
 
 export default async function InformedConsentDetailPage({
@@ -21,6 +24,19 @@ export default async function InformedConsentDetailPage({
     );
   } catch {
     notFound();
+  }
+
+  const { record } = payload;
+  const { studyRequestFormId } = record;
+  let reviewRequest: InformedConsentStudyRequest | null = null;
+  if (record.reviewStatus === "needs_review" && studyRequestFormId) {
+    const result = await sdkFetchServer<{ request: InformedConsentStudyRequest }>(
+      `/2pq/informed-consents/study-requests/${encodeURIComponent(studyRequestFormId)}`,
+    ).catch(() => null);
+    const request = result?.request;
+    if (request?.id === studyRequestFormId && request.consent.id === record.id) {
+      reviewRequest = request;
+    }
   }
 
   return (
@@ -41,7 +57,10 @@ export default async function InformedConsentDetailPage({
         />
       }
     >
-      <InformedConsentDetailWorkbench initialPayload={payload} />
+      <InformedConsentDetailWorkbench
+        initialPayload={payload}
+        reviewRequest={reviewRequest}
+      />
     </HeaderUnclutterScope>
   );
 }

@@ -3,26 +3,17 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArrowUpRight, Check, FileUp, Mail } from "lucide-react";
+import { ArrowUpRight, FileUp, Mail } from "lucide-react";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { ConsentRequestStatusBadge } from "@/components/consent-request-status-badge";
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { TwoPQConsentApproval } from "@/components/two-pq-consent-approval";
 import { Button } from "@/components/ui/button";
 import type {
   InformedConsentRequestSummary,
   InformedConsentStudyRequest,
 } from "@/lib/informed-consents";
 import { appText } from "@/lib/language";
-import { sdkFetch, SdkRequestError } from "@/lib/sdk-client";
+import { sdkFetch } from "@/lib/sdk-client";
 
 export function TwoPQStudyRequestConsentPanel({
   formId,
@@ -39,41 +30,16 @@ export function TwoPQStudyRequestConsentPanel({
   const { language } = useAppLanguage();
   const t = (label: string) => appText(language, label);
   const [updatedRequest, setUpdatedRequest] = useState<InformedConsentStudyRequest | null>(null);
-  const [action, setAction] = useState<"approve" | "resend" | null>(null);
-  const [approving, setApproving] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [approvalPending, setApprovalPending] = useState(false);
   const [feedback, setFeedback] = useState<{ error: boolean; message: string } | null>(null);
   const currentRequest = updatedRequest ?? request;
   const summary: InformedConsentRequestSummary = currentRequest?.consent ?? consent ?? { id: null, status: "pending" };
   const path = `/2pq/informed-consents/study-requests/${encodeURIComponent(formId)}`;
 
-  async function approve() {
-    if (action || !currentRequest?.canApprove || !summary.uploadedAt) return;
-    setAction("approve");
-    setFeedback(null);
-    try {
-      const result = await sdkFetch<{ request: InformedConsentStudyRequest }>(`${path}/approve`, {
-        method: "POST",
-        body: JSON.stringify({ expectedUploadedAt: summary.uploadedAt }),
-      });
-      setUpdatedRequest(result.request);
-      setApproving(false);
-      setFeedback({ error: false, message: t("Consent approved.") });
-      router.refresh();
-    } catch (error) {
-      setApproving(false);
-      setFeedback({
-        error: true,
-        message: t(error instanceof Error ? error.message : "Unable to approve consent."),
-      });
-      if (error instanceof SdkRequestError && error.status === 409) router.refresh();
-    } finally {
-      setAction(null);
-    }
-  }
-
   async function resend() {
-    if (action || !currentRequest?.canResend) return;
-    setAction("resend");
+    if (resending || approvalPending || !currentRequest?.canResend) return;
+    setResending(true);
     setFeedback(null);
     try {
       const result = await sdkFetch<{ ok: true; patientEmail: string }>(`${path}/resend`, {
@@ -87,7 +53,7 @@ export function TwoPQStudyRequestConsentPanel({
         message: t(error instanceof Error ? error.message : "Unable to resend consent invitation."),
       });
     } finally {
-      setAction(null);
+      setResending(false);
     }
   }
 
@@ -114,7 +80,17 @@ export function TwoPQStudyRequestConsentPanel({
           {t("Consent actions are unavailable. Reload the request to try again.")}
         </p>
       ) : null}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <TwoPQConsentApproval
+          request={currentRequest}
+          language={language}
+          disabled={resending}
+          onApproved={setUpdatedRequest}
+          onPendingChange={(pending) => {
+            setApprovalPending(pending);
+            if (pending) setFeedback(null);
+          }}
+        />
         {summary.id ? (
           <Button variant="outline" size="sm" asChild>
             <Link href={`/2pq-dashboard/consents/${encodeURIComponent(summary.id)}`} target="_blank" rel="noreferrer">
@@ -131,34 +107,10 @@ export function TwoPQStudyRequestConsentPanel({
             </Link>
           </Button>
         ) : null}
-        {currentRequest?.canApprove && summary.uploadedAt ? (
-          <AlertDialog open={approving} onOpenChange={setApproving}>
-            <AlertDialogTrigger asChild>
-              <Button size="sm" disabled={Boolean(action)}>
-                <Check className="size-4" />
-                {t("Approve consent")}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>{t("Approve consent")}</AlertDialogTitle>
-                <AlertDialogDescription>
-                  {t("Confirm that you reviewed the uploaded document and verified the required signatures for this study request.")}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={action === "approve"}>{t("Cancel")}</AlertDialogCancel>
-                <Button onClick={() => void approve()} disabled={Boolean(action)}>
-                  {t("Confirm approval")}
-                </Button>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        ) : null}
         {currentRequest?.canResend ? (
-          <Button type="button" variant="outline" size="sm" onClick={() => void resend()} disabled={Boolean(action)}>
+          <Button type="button" variant="outline" size="sm" onClick={() => void resend()} disabled={resending || approvalPending}>
             <Mail className="size-4" />
-            {t(action === "resend" ? "Sending invitation…" : "Resend consent invitation")}
+            {t(resending ? "Sending invitation…" : "Resend consent invitation")}
           </Button>
         ) : null}
       </div>

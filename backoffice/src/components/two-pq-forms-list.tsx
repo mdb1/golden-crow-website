@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type ComponentProps, type FormEvent, useState } from "react";
+import { type ComponentProps, type FormEvent, type ReactNode, useState } from "react";
 import {
   Archive,
   ArrowDownToLine,
@@ -45,7 +45,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { sdkFetch } from "@/lib/sdk-client";
-import { isGlobalAdminRole } from "@/lib/admin-areas";
+import { isGlobalAdminRole, isInstitutionManagerRole } from "@/lib/admin-areas";
 import type {
   TwoPQFormRecord,
   TwoPQFormsOrder,
@@ -195,9 +195,11 @@ function formTypeLabel(
 
 function CoJoinedFormSequence({
   form,
+  reviewConsentAction,
   t,
 }: {
   form: TwoPQFormRecord;
+  reviewConsentAction: ReactNode;
   t: (text: string) => string;
 }) {
   const linkedTreatmentStartFormId = form.linkedTreatmentStartFormId ?? null;
@@ -248,7 +250,7 @@ function CoJoinedFormSequence({
           stepNumber: 3,
           href: `${TWO_PQ_FORM_ROUTES.sample}?${new URLSearchParams({ studyRequestFormId: form.id })}`,
         };
-      } else if (form.consent?.status !== "ready") {
+      } else if (!form.consent || form.consent.status === "pending") {
         nextAction = {
           stepNumber: 3,
           href: `/2pq-dashboard/forms/${encodeURIComponent(form.id)}#informed-consent`,
@@ -367,6 +369,7 @@ function CoJoinedFormSequence({
             </span>
             <ArrowRight className="size-3.5 shrink-0" />
           </Link>
+          {reviewConsentAction}
         </div>
       ) : null}
     </div>
@@ -464,7 +467,7 @@ export function TwoPQFormsList({
     tone === "indigo"
       ? "flex flex-col gap-3 rounded-2xl border border-indigo-100/90 bg-white/68 px-4 py-3 shadow-[0_12px_32px_rgba(99,102,241,0.12)] md:flex-row md:items-center md:justify-between dark:border-indigo-300/18 dark:bg-indigo-950/28"
       : "flex flex-col gap-3 rounded-2xl border border-border/75 bg-background/64 px-4 py-3 md:flex-row md:items-center md:justify-between";
-  const canDeleteForms = isGlobalAdminRole(adminContext.role);
+  const isGlobalAdmin = isGlobalAdminRole(adminContext.role);
   const canArchiveForms = canArchiveTwoPQForms(adminContext.role);
 
   async function loadForms(
@@ -693,7 +696,7 @@ export function TwoPQFormsList({
         </div>
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          {isGlobalAdminRole(adminContext.role) ? (
+          {isGlobalAdmin ? (
             <div className="grid gap-1.5">
               <Label htmlFor="two-pq-form-institution">{t("Institution")}</Label>
               <Input id="two-pq-form-institution" value={draftFilters.institution ?? ""} placeholder={t("Institution name or ID")} onChange={(event) => setDraftFilters((current) => ({ ...current, institution: event.target.value }))} />
@@ -821,6 +824,22 @@ export function TwoPQFormsList({
             const showCoJoinedSequence =
               filters.formType === "study_request_cojoined" &&
               form.formType === "study_request";
+            const showSavedCase = showCoJoinedSequence && Boolean(form["2pq_case"]);
+            const canReviewConsent =
+              adminContext.canAccessBackoffice &&
+              (isGlobalAdmin ||
+                (adminContext.institutionId === form.institutionId &&
+                  (isInstitutionManagerRole(adminContext.role) ||
+                    (adminContext.role === "institution_doctor" && adminContext.doctorId === form.doctorId))));
+            const reviewConsentAction =
+              canReviewConsent && form.formType === "study_request" && form.consent?.status === "needs_review" && form.consent.id ? (
+                <Button size="lg" className="h-11 gap-2 px-4 text-base font-semibold" asChild>
+                  <Link href={`/2pq-dashboard/consents/${encodeURIComponent(form.consent.id)}`}>
+                    {t("Review consent")}
+                    <ArrowRight />
+                  </Link>
+                </Button>
+              ) : null;
 
             return (
               <article
@@ -872,9 +891,10 @@ export function TwoPQFormsList({
                         {t(treatmentStart ? "Treatment start date" : "Estimated treatment date")}: {formatTwoPQCivilDate(treatmentDate, language)}
                       </span>
                     ) : null}
+                    {!showSavedCase ? reviewConsentAction : null}
                   </div>
                   {showCoJoinedSequence ? (
-                    <CoJoinedFormSequence form={form} t={t} />
+                    <CoJoinedFormSequence form={form} reviewConsentAction={reviewConsentAction} t={t} />
                   ) : null}
                 </div>
 
@@ -898,7 +918,7 @@ export function TwoPQFormsList({
                       <ArrowRight className="size-3.5" />
                     </Link>
                   </Button>
-                  {allowMutations && canDeleteForms && !hasSignedConsent ? (
+                  {allowMutations && isGlobalAdmin && !hasSignedConsent ? (
                     <Button
                       type="button"
                       variant="destructive"
