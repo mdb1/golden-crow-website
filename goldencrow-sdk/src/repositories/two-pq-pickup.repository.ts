@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { Transaction } from "firebase-admin/firestore";
 import { adminDbFor } from "../config/firebase.js";
 import { isGlobalAdminRole } from "../lib/admin-roles.js";
+import { normalizePGFlexPickupOrigin, PGFLEX_2PQ_DESTINATION } from "../lib/pgflex-address.js";
 import {
   sendTreatmentPickupEmail,
   type TreatmentPickupEmailDetails,
@@ -99,7 +100,6 @@ export type TreatmentPickupMutation =
       pickupWindowStart: string;
       pickupWindowEnd: string;
       pickupOrigin: string;
-      pickupDestination: string;
     };
 
 function eventData(data: FirebaseFirestore.DocumentData | undefined): PickupEvent | null {
@@ -119,17 +119,23 @@ function canManagePickup(context: AdminContext, event: PickupEvent) {
     context.role === "institution_laboratory_staff";
 }
 
-function pickupSchedule(input: {
-  pickupDate: string;
-  pickupWindowStart: string;
-  pickupWindowEnd: string;
-  pickupOrigin: string;
-  pickupDestination: string;
-}): Schedule {
+function pickupSchedule(
+  input: {
+    pickupDate: string;
+    pickupWindowStart: string;
+    pickupWindowEnd: string;
+    pickupOrigin: string;
+  },
+  existingOrigin?: string,
+): Schedule {
   const date = new Date(`${input.pickupDate}T00:00:00.000Z`);
   const validTime = /^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/;
-  const origin = input.pickupOrigin.trim();
-  const destination = input.pickupDestination.trim();
+  let origin = input.pickupOrigin.trim();
+  if (origin !== existingOrigin) {
+    const normalizedOrigin = normalizePGFlexPickupOrigin(origin);
+    if (!normalizedOrigin.ok) throw new AdminRepositoryError(normalizedOrigin.message, 400);
+    origin = normalizedOrigin.value;
+  }
   if (
     !/^\d{4}-\d{2}-\d{2}$/.test(input.pickupDate) ||
     !Number.isFinite(date.getTime()) ||
@@ -137,24 +143,25 @@ function pickupSchedule(input: {
     !validTime.test(input.pickupWindowStart) ||
     !validTime.test(input.pickupWindowEnd) ||
     input.pickupWindowEnd <= input.pickupWindowStart ||
-    !origin || !destination || origin.length > 240 || destination.length > 240
+    !origin || origin.length > 240
   ) {
-    throw new AdminRepositoryError("Enter a valid pickup date, time window, origin, and destination.", 400);
+    throw new AdminRepositoryError("Enter a valid pickup date, time window, and origin.", 400);
   }
   return {
     pickupDate: input.pickupDate,
     pickupWindowStart: input.pickupWindowStart,
     pickupWindowEnd: input.pickupWindowEnd,
     origin,
-    destination,
+    destination: PGFLEX_2PQ_DESTINATION,
   };
 }
 
 function sameSchedule(left: Schedule, right: Schedule) {
+  const storedOrigin = normalizePGFlexPickupOrigin(left.origin);
   return left.pickupDate === right.pickupDate &&
     left.pickupWindowStart === right.pickupWindowStart &&
     left.pickupWindowEnd === right.pickupWindowEnd &&
-    left.origin === right.origin &&
+    (left.origin === right.origin || (storedOrigin.ok && storedOrigin.value === right.origin)) &&
     left.destination === right.destination;
 }
 
@@ -532,7 +539,7 @@ export async function updateTreatmentPickupForContext(
       if (event.expectedCaseCount === 0) {
         throw new AdminRepositoryError("This pickup has no linked cases to schedule.", 409);
       }
-      const schedule = pickupSchedule(payload);
+      const schedule = pickupSchedule(payload, event.origin);
       if (event.temperatureC === 4) {
         const memberId = event.sourceFormId;
         const member = event.members[memberId];

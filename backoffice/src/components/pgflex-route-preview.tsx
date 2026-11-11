@@ -253,9 +253,7 @@ export function PGFlexRouteOriginFields({
 export function normalizePGFlexRouteOriginProvinceDistrict(
   value?: string,
 ): PGFlexRouteOriginProvinceDistrict {
-  const normalized = value?.trim();
-
-  return normalized === "Provincia de Buenos Aires"
+  return value?.trim().toLowerCase() === "provincia de buenos aires"
     ? "Provincia de Buenos Aires"
     : "Capital Federal";
 }
@@ -288,14 +286,28 @@ export function composePGFlexRouteOrigin(parts: PGFlexRouteOriginParts) {
 }
 
 export function splitPGFlexRouteOrigin(origin: string): PGFlexRouteOriginParts {
-  const parts = origin
-    .split(PGFLEX_ROUTE_ORIGIN_SEPARATOR)
-    .map((part) => sanitizePGFlexRouteOriginTextPart(part.trim()));
+  const parts = origin.split(",").map((part) => part.trim());
+  if (parts.at(-1)?.toLowerCase() === PGFLEX_ROUTE_ORIGIN_COUNTRY.toLowerCase()) {
+    parts.pop();
+  }
+
+  const province = parts.at(-1)?.toLowerCase();
+  const knownProvince = [
+    "capital federal",
+    "caba",
+    "ciudad autonoma de buenos aires",
+    PGFLEX_ROUTE_CAPITAL_FEDERAL_SEARCH_VALUE.toLowerCase(),
+    "provincia de buenos aires",
+  ].some((name) => name === province);
+  if (knownProvince) parts.pop();
+
+  const locality = knownProvince && parts.length > 1 ? parts.pop() : parts[1];
+  const address = knownProvince ? parts.join(" ") : parts[0];
 
   return {
-    address: parts[0] ?? "",
-    locality: parts[1] ?? "",
-    provinceDistrict: normalizePGFlexRouteOriginProvinceDistrict(parts[2]),
+    address: sanitizePGFlexRouteOriginTextPart(address ?? ""),
+    locality: sanitizePGFlexRouteOriginTextPart(locality ?? ""),
+    provinceDistrict: normalizePGFlexRouteOriginProvinceDistrict(knownProvince ? province : parts[2]),
     country: PGFLEX_ROUTE_ORIGIN_COUNTRY,
   };
 }

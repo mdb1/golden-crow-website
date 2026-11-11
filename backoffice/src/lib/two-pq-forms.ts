@@ -1,4 +1,5 @@
 import type { AdminRole } from "@/lib/admin-areas";
+import { PGFLEX_2PQ_DESTINATION } from "@/lib/pgflex-logistics";
 import type { RequestedStudyTestKey } from "@/lib/two-pq-requested-test";
 
 export type TwoPQWizardFormType = "study_request" | "sample" | "withdrawal_request";
@@ -321,11 +322,17 @@ export interface TwoPQWizardFormDraftRecord extends TwoPQFormDraftMetadata {
 
 export interface TwoPQTreatmentStartDraftRecord extends TwoPQFormDraftMetadata {
   formType: "treatment_start";
-  currentStep: "treatmentStart";
+  currentStep: "linkedStudyRequest" | "treatmentStart" | "plannedTransport" | "preview";
   state: {
     linkedStudyRequestFormId: string;
     groupWithTreatmentStartFormId?: string;
     treatmentStart: Partial<TwoPQTreatmentStartInput>;
+    pickupOriginParts?: {
+      address: string;
+      locality: string;
+      provinceDistrict: "Capital Federal" | "Provincia de Buenos Aires";
+      country: "Argentina";
+    };
   };
 }
 
@@ -412,7 +419,8 @@ export function canGroupWithTwoPQPickup(
     !form.archivedAt &&
     form.institutionId === institutionId &&
     form.pickup?.status === "planned" &&
-    form.pickup.temperatureC === -20
+    form.pickup.temperatureC === -20 &&
+    form.pickup.destination === PGFLEX_2PQ_DESTINATION
   );
 }
 

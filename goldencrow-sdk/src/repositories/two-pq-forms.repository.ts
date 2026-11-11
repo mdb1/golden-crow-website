@@ -17,7 +17,12 @@ import { getStudyRequestConsentStatus, INFORMED_CONSENTS_COLLECTION } from "../l
 import { sendStudyRequestConsentInvitationForContext } from "./informed-consents.repository.js";
 import { sendPGFlexLogisticsAssignmentEmail } from "../lib/pgflex-dispatcher-email.js";
 import { formatPGFlexReadableDateTime } from "../lib/pgflex-readable-date.js";
-import { normalizePGFlexInstitutionAddress } from "../lib/pgflex-address.js";
+import {
+  normalizePGFlexInstitutionAddress,
+  normalizePGFlexPickupOrigin,
+  PGFLEX_2PQ_DESTINATION,
+  PGFLEX_CAPITAL_FEDERAL_ROUTE_NAME,
+} from "../lib/pgflex-address.js";
 import {
   canCreatePatient,
   canViewDoctor,
@@ -72,10 +77,6 @@ const SEQUENCES_COLLECTION = "admin_sequences";
 const BIOPSY_EMPTY_FIELD_FALLBACK_VALUE = "Not set";
 const DEFAULT_OBSERVATIONS_VALUE = "Sin observaciones";
 const WITHDRAWAL_PGFLEX_SHIPMENT_TYPE = "2pq" as const;
-const WITHDRAWAL_PGFLEX_DESTINATION =
-  "Humboldt 2433 (PB 10), Palermo, Ciudad Autónoma de Buenos Aires, Argentina" as const;
-const WITHDRAWAL_PGFLEX_CAPITAL_FEDERAL_ORIGIN_PART =
-  "Ciudad Autónoma de Buenos Aires" as const;
 const PGFLEX_IDENTIFIER_MAX_LENGTH = 160;
 
 function isInstitutionManagerRole(role: AdminContext["role"]) {
@@ -231,7 +232,9 @@ type TwoPQFormInput = {
   formType: TwoPQFormType;
   linkedStudyRequestFormId?: string | null;
   groupWithTreatmentStartFormId?: string;
-  treatmentStart?: Omit<TwoPQTreatmentStartInformation, "temperatureC" | "notes"> & { notes?: string };
+  treatmentStart?: Omit<TwoPQTreatmentStartInformation, "temperatureC" | "notes" | "pickupDestination"> & {
+    notes?: string;
+  };
   linkedCaseIds?: string[];
   selectedPatientId?: string;
   selectedInstitutionId?: string;
@@ -361,7 +364,7 @@ type WithdrawalPGFlexEventDocument = {
   dispatcherFirebaseId: string | null;
   dispatcherEmail: string | null;
   origin: string;
-  destination: typeof WITHDRAWAL_PGFLEX_DESTINATION;
+  destination: typeof PGFLEX_2PQ_DESTINATION;
   timeRequested: string;
   pickupTime: null;
   status: "awaiting_pick_up";
@@ -654,7 +657,10 @@ function normalizeEstimatedTreatmentDate(value: unknown, label = "Estimated trea
   return date;
 }
 
-function normalizeTreatmentStart(value: unknown): TwoPQTreatmentStartInformation {
+function normalizeTreatmentStart(
+  value: unknown,
+  mode: "submission" | "stored",
+): TwoPQTreatmentStartInformation {
   const input = toPlainRecord(value);
   const studyType = input.studyType;
   if (studyType !== "pgtAUltraFast" && studyType !== "pgtAFast" && studyType !== "pgtAStandard" && studyType !== "pgtSr") {
@@ -689,6 +695,16 @@ function normalizeTreatmentStart(value: unknown): TwoPQTreatmentStartInformation
     throw new AdminRepositoryError("Pickup window end must be after the start on the same day.", 400);
   }
 
+  let pickupOrigin = normalizeRequiredString(input.pickupOrigin, "Pickup origin");
+  let pickupDestination: string = PGFLEX_2PQ_DESTINATION;
+  if (mode === "stored") {
+    pickupDestination = normalizeRequiredString(input.pickupDestination, "Pickup destination");
+  } else {
+    const normalizedOrigin = normalizePGFlexPickupOrigin(pickupOrigin);
+    if (!normalizedOrigin.ok) throw new AdminRepositoryError(normalizedOrigin.message, 400);
+    pickupOrigin = normalizedOrigin.value;
+  }
+
   return {
     studyType,
     treatmentDate,
@@ -697,8 +713,8 @@ function normalizeTreatmentStart(value: unknown): TwoPQTreatmentStartInformation
     pickupDate,
     pickupWindowStart,
     pickupWindowEnd,
-    pickupOrigin: normalizeRequiredString(input.pickupOrigin, "Pickup origin"),
-    pickupDestination: normalizeRequiredString(input.pickupDestination, "Pickup destination"),
+    pickupOrigin,
+    pickupDestination,
     temperatureC: refrigerated ? 4 : -20,
     notes: normalizeObservationsValue(input.notes),
   };
@@ -707,7 +723,7 @@ function normalizeTreatmentStart(value: unknown): TwoPQTreatmentStartInformation
 function readTreatmentStart(value: unknown) {
   if (!value) return undefined;
   try {
-    return normalizeTreatmentStart(value);
+    return normalizeTreatmentStart(value, "stored");
   } catch (error) {
     if (error instanceof AdminRepositoryError) return undefined;
     throw error;
@@ -2197,7 +2213,7 @@ function buildWithdrawalPGFlexOrigin(
     .filter((part): part is string => Boolean(part))
     .map((part) =>
       part === "Capital Federal"
-        ? WITHDRAWAL_PGFLEX_CAPITAL_FEDERAL_ORIGIN_PART
+        ? PGFLEX_CAPITAL_FEDERAL_ROUTE_NAME
         : part,
     );
 
@@ -2310,7 +2326,7 @@ function buildWithdrawalPGFlexEventDocument({
       selectedInstitution,
       institutionId,
     ),
-    destination: WITHDRAWAL_PGFLEX_DESTINATION,
+    destination: PGFLEX_2PQ_DESTINATION,
     timeRequested: now,
     pickupTime: null,
     status: "awaiting_pick_up",
@@ -2520,7 +2536,7 @@ async function createTreatmentStartForm(
   authorUid: string,
 ) {
   const requestId = normalizeRequiredString(payload.linkedStudyRequestFormId, "Linked study request form");
-  const treatmentStart = normalizeTreatmentStart(payload.treatmentStart);
+  const treatmentStart = normalizeTreatmentStart(payload.treatmentStart, "submission");
   const request = await getTwoPQFormForContext(context, requestId);
   if (!canWriteWithdrawalCase(context, request)) {
     throw new AdminRepositoryError("You cannot plan treatment for this study request.", 403);
@@ -5140,7 +5156,11 @@ export async function upsertTwoPQFormDraftForContext(
     }
     const treatmentStart = { ...toPlainRecord(draftState.treatmentStart) };
     delete treatmentStart.temperatureC;
-    draftState.treatmentStart = { ...treatmentStart, notes: normalizeObservationsValue(treatmentStart.notes) };
+    draftState.treatmentStart = {
+      ...treatmentStart,
+      pickupDestination: PGFLEX_2PQ_DESTINATION,
+      notes: normalizeObservationsValue(treatmentStart.notes),
+    };
   }
   if (draftState.requestedTest && typeof draftState.requestedTest === "object") {
     const requestedTest = { ...toPlainRecord(draftState.requestedTest) };

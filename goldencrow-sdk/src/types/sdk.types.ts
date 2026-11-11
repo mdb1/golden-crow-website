@@ -436,6 +436,8 @@ export type TwoPQFormDraftStepKey =
   | "linkedWithdrawalCases"
   | "linkedStudyRequest"
   | "treatmentStart"
+  | "plannedTransport"
+  | "preview"
   | "patientInformation"
   | "medicalInformation"
   | "previousGeneticTests"

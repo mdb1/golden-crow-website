@@ -16,6 +16,7 @@ import type {
 } from "../types/sdk.types.js";
 import { sendPGFlexLogisticsAssignmentEmail } from "../lib/pgflex-dispatcher-email.js";
 import { isGlobalAdminRole } from "../lib/admin-roles.js";
+import { PGFLEX_2PQ_DESTINATION } from "../lib/pgflex-address.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 import { getUserRoleByEmail, normalizeRoleEmail } from "./roles.repository.js";
 import { synchronizeTwoPQCasesFilesAndCodes } from "./two-pq-auto-sync.repository.js";
@@ -26,8 +27,6 @@ const adminDb = adminDbFor("mydnamap");
 const USER_ROLES_COLLECTION = "user_roles";
 const PGFLEX_EVENTS_COLLECTION = "pgflex_events";
 const TWO_PQ_CASES_COLLECTION = "2pq_case";
-const PGFLEX_2PQ_DESTINATION =
-  "Humboldt 2433 (PB 10), Palermo, Ciudad Autónoma de Buenos Aires, Argentina";
 const TWO_PQ_CASE_IN_TRANSIT_STATUS = "in_transit";
 const TWO_PQ_CASE_SAMPLES_RECEIVED_STATUS = "samples_received";
 const DEFAULT_PAGE_SIZE = 20;

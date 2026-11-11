@@ -55,6 +55,16 @@ describe("PGFlexRoutePreview", () => {
     });
   });
 
+  it("restores a legacy street with additional comma-separated address details", () => {
+    expect(splitPGFlexRouteOrigin("Av. Rivadavia 470, Piso 2,San Isidro, provincia de Buenos Aires,Argentina")).toEqual({
+      address: "Av. Rivadavia 470 Piso 2",
+      locality: "San Isidro",
+      provinceDistrict: "Provincia de Buenos Aires",
+      country: "Argentina",
+    });
+    expect(splitPGFlexRouteOrigin("Av. Rivadavia 470, Argentina").locality).toBe("");
+  });
+
   function resetGoogleMapsGlobals() {
     delete (window as Window & { google?: unknown }).google;
   }

@@ -15,9 +15,7 @@ import {
   CheckCircle2,
   CircleDashed,
   CircleX,
-  ClipboardList,
   FileText,
-  Inbox,
   Loader2,
   PlusCircle,
   Save,
@@ -26,6 +24,18 @@ import {
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { SingleFileUpload } from "@/components/single-file-upload";
+import { StudyRequestSelectionTable } from "@/components/two-pq-study-request-selection";
+import {
+  PreviewPaperSection,
+  TWO_PQ_WIZARD_PANEL_CLASS,
+  TWO_PQ_WIZARD_PRIMARY_BUTTON_CLASS,
+  TWO_PQ_WIZARD_SUBMIT_BUTTON_CLASS,
+  TWO_PQ_WIZARD_SUBMIT_PANEL_CLASS,
+  TwoPQFormPreviewPaper,
+  TwoPQFormWizardHeader,
+  type PreviewField,
+  type PreviewSectionData,
+} from "@/components/two-pq-form-wizard";
 import { useAdminContext } from "@/components/admin-context-provider";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { OptionSelectField } from "@/components/constrained-fields";
@@ -90,8 +100,15 @@ import {
   type TwoPQWizardFormDraftRecord,
   type TwoPQWizardFormType,
 } from "@/lib/two-pq-forms";
-import { REQUESTED_STUDY_TEST_OPTIONS } from "@/lib/two-pq-requested-test";
+import {
+  REQUESTED_STUDY_TEST_OPTIONS,
+  answerToFormValue,
+  requestedTestKeyFromRecord,
+  requestedTestKeyLabel,
+} from "@/lib/two-pq-requested-test";
 import { formatTwoPQCivilDate } from "@/lib/two-pq-study-summary";
+
+export { StudyRequestSelectionTable } from "@/components/two-pq-study-request-selection";
 
 type StepKey = TwoPQFormDraftStepKey;
 type FlowState = TwoPQFormDraftState;
@@ -966,16 +983,6 @@ function generatedSamplingNotes(index: number, rowCount: number) {
   return "";
 }
 
-function answerToFormValue(value: unknown) {
-  if (value === true) return "si";
-  if (value === false) return "no";
-  if (typeof value !== "string") return "";
-  const normalized = value.trim().toLowerCase();
-  if (["si", "sí", "yes", "true", "1"].includes(normalized)) return "si";
-  if (["no", "false", "0"].includes(normalized)) return "no";
-  return "";
-}
-
 function selectedRequestedTestKey(requestedTest: RequestedTestFormState) {
   if (answerToFormValue(requestedTest.pgtAUltraFast) === "si") {
     return "pgtAUltraFast";
@@ -988,33 +995,8 @@ function selectedRequestedTestKey(requestedTest: RequestedTestFormState) {
   return "";
 }
 
-function requestedTestKeyLabel(key: string) {
-  return (
-    REQUESTED_STUDY_TEST_OPTIONS.find((option) => option.value === key)
-      ?.label ?? ""
-  );
-}
-
 function caseTypeForRequestedTestKey(key: string) {
   return REQUESTED_TEST_TO_CASE_TYPE[key] ?? "";
-}
-
-function requestedTestKeyFromRecord(
-  record: Record<string, unknown> | undefined,
-) {
-  if (!record) return "";
-  if (answerToFormValue(record.pgtAUltraFast) === "si") {
-    return "pgtAUltraFast";
-  }
-  if (answerToFormValue(record.pgtSr) === "si") return "pgtSr";
-  if (answerToFormValue(record.pgtAStandard) === "si") return "pgtAStandard";
-  if (answerToFormValue(record.pgtAFast) === "si") return "pgtAFast";
-  const testName = stringField(record, "testName").toUpperCase();
-  if (testName.includes("ULTRA")) return "pgtAUltraFast";
-  if (testName.includes("PGT SR")) return "pgtSr";
-  if (testName.includes("STANDARD")) return "pgtAStandard";
-  if (testName.includes("FAST")) return "pgtAFast";
-  return "";
 }
 
 function requestedTestToFormState(
@@ -2631,231 +2613,6 @@ function FieldError({ id, message }: { id?: string; message?: string }) {
   );
 }
 
-function formatStudyRequestSelectionDate(
-  value: string | undefined,
-  language: AppLanguage,
-) {
-  if (!value) {
-    return "";
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return new Intl.DateTimeFormat(language === "es" ? "es-AR" : "en", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(date);
-}
-
-export function StudyRequestSelectionTable({
-  forms,
-  doctors,
-  selectedFormId,
-  onSelect,
-  language,
-  error,
-}: {
-  forms: TwoPQFormRecord[];
-  doctors: DoctorListItem[];
-  selectedFormId: string;
-  onSelect: (formId: string) => void;
-  language: AppLanguage;
-  error?: string;
-}) {
-  const t = (text: string) => appText(language, text);
-
-  if (forms.length === 0) {
-    return (
-      <div className="relative overflow-hidden rounded-3xl border border-dashed border-sky-300/90 bg-gradient-to-br from-sky-50 via-white to-indigo-50 px-6 py-10 text-center shadow-[0_18px_55px_rgba(56,189,248,0.12)] dark:border-sky-300/25 dark:from-sky-950/34 dark:via-background dark:to-indigo-950/28 sm:px-10 sm:py-12">
-        <div className="pointer-events-none absolute -right-16 -top-16 size-44 rounded-full bg-sky-200/28 blur-3xl dark:bg-sky-500/10" />
-        <div className="pointer-events-none absolute -bottom-20 -left-12 size-48 rounded-full bg-indigo-200/25 blur-3xl dark:bg-indigo-500/10" />
-        <div className="relative mx-auto flex max-w-xl flex-col items-center">
-          <span className="flex size-16 items-center justify-center rounded-2xl border border-sky-200 bg-white text-sky-700 shadow-[0_14px_34px_rgba(14,165,233,0.18)] dark:border-sky-300/20 dark:bg-sky-400/10 dark:text-sky-200">
-            <Inbox className="size-8" />
-          </span>
-          <Badge
-            variant="outline"
-            className="mt-5 border-sky-200 bg-white/80 text-sky-800 dark:border-sky-300/20 dark:bg-sky-400/10 dark:text-sky-100"
-          >
-            {t("0 available study requests")}
-          </Badge>
-          <h3 className="mt-4 font-heading text-xl font-semibold text-foreground sm:text-2xl">
-            {t("No unlinked study requests")}
-          </h3>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground sm:text-base">
-            {t(
-              "There are no study request forms available for a new biopsy. Create one or unlink an existing study request before continuing.",
-            )}
-          </p>
-          <Button variant="outline" className="mt-6 bg-background/86" asChild>
-            <Link href="/2pq-dashboard/forms?formType=study_request">
-              <ClipboardList className="size-4" />
-              {t("Review study requests")}
-            </Link>
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="overflow-hidden rounded-2xl border border-sky-200/85 bg-background/74 shadow-[0_16px_42px_rgba(14,165,233,0.09)] dark:border-sky-300/20">
-      <div className="flex flex-col gap-3 border-b border-sky-100 bg-gradient-to-r from-sky-50/90 via-background to-indigo-50/70 px-5 py-4 dark:border-sky-300/16 dark:from-sky-950/28 dark:to-indigo-950/18 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-700 dark:bg-sky-400/12 dark:text-sky-200">
-            <ClipboardList className="size-5" />
-          </span>
-          <div>
-            <h3 className="font-heading font-semibold text-foreground">
-              {t("Available study requests")}
-            </h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {t(
-                "Select one row to reuse its patient, institution, doctor, and requested test information.",
-              )}
-            </p>
-          </div>
-        </div>
-        <Badge variant={selectedFormId ? "success" : "outline"}>
-          {selectedFormId
-            ? t("1 study request selected")
-            : `${forms.length} ${t("available study requests")}`}
-        </Badge>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table
-          className="w-full min-w-[880px] border-collapse text-left"
-          aria-label={t("Available study requests")}
-        >
-          <thead className="bg-muted/40 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            <tr>
-              <th className="w-14 px-4 py-3 text-center">
-                <span className="sr-only">{t("Select")}</span>
-              </th>
-              <th className="px-4 py-3">{t("Patient")}</th>
-              <th className="px-4 py-3">{t("Requested study")}</th>
-              <th className="px-4 py-3">{t("Institution and doctor")}</th>
-              <th className="px-4 py-3">{t("Created")}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border/65">
-            {forms.map((form) => {
-              const selected = form.id === selectedFormId;
-              const doctorId = formDoctorId(form);
-              const doctor = doctors.find(
-                (candidate) => candidate.id === doctorId,
-              );
-              const patientName =
-                form.patientName ||
-                stringField(form.patientInformation, "fullName") ||
-                t("Not provided");
-              const patientEmail =
-                form.patientEmail ||
-                stringField(form.patientInformation, "email");
-              const patientDni = stringField(
-                form.patientInformation,
-                "medicalRecordNumber",
-              );
-              const requestedStudy =
-                form.requestedTestName ||
-                requestedTestKeyLabel(
-                  requestedTestKeyFromRecord(form.requestedTest),
-                ) ||
-                t("Not provided");
-              const createdAt = formatStudyRequestSelectionDate(
-                form.createdAt,
-                language,
-              );
-
-              return (
-                <tr
-                  key={form.id}
-                  aria-selected={selected}
-                  tabIndex={0}
-                  className={[
-                    "group cursor-pointer outline-none transition-colors focus-visible:bg-sky-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-500 dark:focus-visible:bg-sky-400/8",
-                    selected
-                      ? "bg-sky-50/90 dark:bg-sky-400/10"
-                      : "hover:bg-muted/34",
-                  ].join(" ")}
-                  onClick={() => onSelect(form.id)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      onSelect(form.id);
-                    }
-                  }}
-                >
-                  <td
-                    className="px-4 py-4 text-center align-top"
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    <Checkbox
-                      checked={selected}
-                      onCheckedChange={(checked) =>
-                        onSelect(checked === true ? form.id : "")
-                      }
-                      aria-label={`${t("Select study request")} ${form.id}`}
-                    />
-                  </td>
-                  <td className="px-4 py-4 align-top">
-                    <p className="font-semibold text-foreground">
-                      {patientName}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {patientEmail || t("Email not provided")}
-                    </p>
-                    {patientDni ? (
-                      <Badge variant="outline" className="mt-2 font-mono">
-                        DNI {patientDni}
-                      </Badge>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-4 align-top">
-                    <p className="font-semibold text-foreground">
-                      {requestedStudy}
-                    </p>
-                    <p className="mt-1 font-mono text-xs text-muted-foreground">
-                      {form.id}
-                    </p>
-                  </td>
-                  <td className="px-4 py-4 align-top">
-                    <p className="font-medium text-foreground">
-                      {form.institutionName ||
-                        form.institutionId ||
-                        t("Not provided")}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {doctor?.fullName || doctorId || t("Doctor not provided")}
-                    </p>
-                  </td>
-                  <td className="px-4 py-4 align-top">
-                    <p className="font-medium text-foreground">
-                      {createdAt || t("Not provided")}
-                    </p>
-                    <Badge
-                      variant={selected ? "success" : "outline"}
-                      className="mt-2"
-                    >
-                      {selected ? t("Selected") : t("Available")}
-                    </Badge>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      <div className="border-t border-border/65 px-5 py-3">
-        <FieldError message={error} />
-      </div>
-    </div>
-  );
-}
-
 function BoxCodeField({
   value,
   onChange,
@@ -3051,42 +2808,6 @@ function TextAreaField({
       />
       <FieldError id={`${id}-error`} message={error} />
     </div>
-  );
-}
-
-type PreviewField = {
-  label: string;
-  value: string;
-  wide?: boolean;
-};
-
-type PreviewSectionData = {
-  title: string;
-  fields: PreviewField[];
-};
-
-function PreviewPaperSection({ section }: { section: PreviewSectionData }) {
-  return (
-    <section className="border-t border-black/12 pt-5 first:border-t-0 first:pt-0">
-      <h3 className="font-heading text-base font-semibold text-black">
-        {section.title}
-      </h3>
-      <dl className="mt-4 grid gap-x-8 gap-y-4 sm:grid-cols-2">
-        {section.fields.map((field) => (
-          <div
-            key={`${section.title}-${field.label}`}
-            className={field.wide ? "sm:col-span-2" : undefined}
-          >
-            <dt className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-black/55">
-              {field.label}
-            </dt>
-            <dd className="mt-1 whitespace-pre-wrap break-words border-b border-black/12 pb-2 text-sm leading-6 text-black">
-              {field.value}
-            </dd>
-          </div>
-        ))}
-      </dl>
-    </section>
   );
 }
 
@@ -5997,81 +5718,31 @@ export function TwoPQFormFlow({
         </Button>
       </div>
 
-      <section className="glass-panel flex w-full min-w-0 max-w-full flex-col gap-5 overflow-x-hidden px-5 py-5">
-        <div className="flex min-w-0 max-w-full flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0">
-            <h2 className="font-heading text-2xl font-semibold text-foreground">
-              {formType === "study_request"
-                ? t("Study request form")
-                : formType === "sample"
-                  ? t("Biopsy form")
-                  : t("Withdrawal request form")}
-            </h2>
-          </div>
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            {restoredFromDraft ? (
-              <Badge variant="rose">{t("Recovered draft")}</Badge>
-            ) : null}
-            {draftPending ? (
-              <Badge variant="outline">{t("Saving draft")}</Badge>
-            ) : null}
-            <Badge variant="outline">{progressLabel}</Badge>
-          </div>
-        </div>
-
-        <div className="grid min-w-0 max-w-full gap-2 md:grid-cols-3 xl:grid-cols-6">
-          {steps.map((step, index) => {
-            const active = step === currentStep;
+      <section className={TWO_PQ_WIZARD_PANEL_CLASS}>
+        <TwoPQFormWizardHeader
+          title={t(
+            formType === "study_request"
+              ? "Study request form"
+              : formType === "sample"
+                ? "Biopsy form"
+                : "Withdrawal request form",
+          )}
+          progressLabel={progressLabel}
+          activeIndex={steps.indexOf(currentStep)}
+          disabled={pending || draftPending}
+          onSelectStep={(index) => void selectStep(index)}
+          restoredLabel={restoredFromDraft ? t("Recovered draft") : undefined}
+          savingLabel={draftPending ? t("Saving draft") : undefined}
+          steps={steps.map((step) => {
             const storedStatus = stepValidation[step];
-            const stepStatus =
+            const status =
               storedStatus === "valid" &&
               hasErrors(validateStepFields(step, state, formType, language))
                 ? "invalid"
                 : storedStatus;
-            const completed = stepStatus === "valid";
-            const stepButtonClass = [
-              "flex min-h-14 items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left text-sm transition-colors",
-              completed
-                ? "border-emerald-600 bg-emerald-600 text-white shadow-[0_8px_18px_rgba(5,150,105,0.22)] hover:bg-emerald-700"
-                : active
-                  ? "border-indigo-300 bg-indigo-500/12 text-indigo-950 dark:border-indigo-300/40 dark:text-indigo-100"
-                  : stepStatus === "invalid"
-                    ? "border-red-200 bg-red-50/65 text-red-950 hover:bg-red-50 dark:border-red-300/28 dark:bg-red-950/18 dark:text-red-100"
-                    : "border-border/80 bg-background/54 text-muted-foreground hover:bg-background/80",
-            ].join(" ");
-            const stepNumberClass = [
-              "flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold tabular-nums",
-              completed
-                ? "border-white/70 bg-white/18 text-white"
-                : active
-                  ? "border-indigo-600 bg-indigo-600 text-white shadow-[0_6px_14px_rgba(79,70,229,0.24)]"
-                  : stepStatus === "invalid"
-                    ? "border-red-300 bg-red-100 text-red-700 dark:border-red-300/42 dark:bg-red-400/12 dark:text-red-200"
-                    : "border-indigo-300/80 bg-transparent text-indigo-700 dark:border-indigo-300/45 dark:text-indigo-200",
-            ].join(" ");
-            return (
-              <button
-                key={step}
-                type="button"
-                onClick={() => void selectStep(index)}
-                disabled={pending || draftPending}
-                className={stepButtonClass}
-              >
-                <span className="flex min-w-0 items-center gap-2">
-                  <span className={stepNumberClass}>{index + 1}</span>
-                  <span className="min-w-0 truncate">
-                    {t(STEP_LABELS[step])}
-                  </span>
-                </span>
-                {completed ? (
-                  <CheckCircle2 className="size-4 text-white" />
-                ) : stepStatus === "invalid" ? (
-                  <CircleX className="size-4 text-red-600" />
-                ) : null}
-              </button>
-            );
+            return { key: step, label: t(STEP_LABELS[step]), status };
           })}
-        </div>
+        />
 
         {currentStep === "linkedWithdrawalCases" ? (
           <div className="grid gap-4">
@@ -7111,131 +6782,123 @@ export function TwoPQFormFlow({
 
         {currentStep === "previewAndSignature" ? (
           <div className="space-y-6">
-            <div className="mx-auto max-w-5xl rounded-sm bg-white px-6 py-8 text-black shadow-[0_24px_70px_rgba(15,23,42,0.16)] ring-1 ring-black/10 sm:px-10 sm:py-12">
-              <div className="border-b border-black/20 pb-6">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/55">
-                  2PQ
-                </p>
-                <h2 className="mt-2 font-heading text-2xl font-semibold text-black">
-                  {formType === "study_request"
-                    ? t("Study request form preview")
-                    : formType === "sample"
-                      ? t("Biopsy form preview")
-                      : t("Withdrawal request form preview")}
-                </h2>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-black/70">
-                  {t(
-                    "This preview is read-only. Go back to previous steps to make changes before signing.",
-                  )}
-                </p>
-              </div>
-
-              <div className="mt-8 space-y-8">
-                {(formType === "study_request"
-                  ? studyRequestPreviewSections
+            <TwoPQFormPreviewPaper
+              title={t(
+                formType === "study_request"
+                  ? "Study request form preview"
                   : formType === "sample"
-                    ? biopsyFormPreviewSections
-                    : withdrawalPreviewSections
-                ).map((section) => (
-                  <PreviewPaperSection key={section.title} section={section} />
-                ))}
-                {formType === "study_request" && karyotypeImageContent ? (
-                  <section className="border-t border-black/12 pt-5">
-                    <h3 className="font-heading text-base font-semibold text-black">
-                      {t("Karyotype attached image")}
-                    </h3>
-                    <div className="mt-4 overflow-hidden rounded-sm border border-black/20 bg-white">
-                      <img
-                        src={karyotypeImageContent}
-                        alt={t("Karyotype attached image")}
-                        className="max-h-[34rem] w-full object-contain"
-                      />
-                    </div>
-                  </section>
-                ) : null}
-                {formType === "sample" ? (
-                  <section className="border-t border-black/12 pt-5">
-                    <h3 className="font-heading text-base font-semibold text-black">
-                      {t("Biopsy rows")}
-                    </h3>
-                    <div className="mt-4 overflow-x-auto border border-black/20">
-                      <table className="min-w-[84rem] border-collapse text-sm">
-                        <thead className="bg-black/[0.04] text-left text-[0.68rem] uppercase tracking-[0.08em] text-black/65">
-                          <tr>
-                            <th className="border border-black/20 px-3 py-2">
-                              {t("Sample ID")}
-                            </th>
-                            <th className="border border-black/20 px-3 py-2">
-                              {t("Status")}
-                            </th>
-                            <th className="border border-black/20 px-3 py-2">
-                              {t("Internal code")}
-                            </th>
-                            <th className="border border-black/20 px-3 py-2">
-                              {t("Stage day 5, 6 or 7")}
-                            </th>
-                            <th className="border border-black/20 px-3 py-2">
-                              {t("Morphology")}
-                            </th>
-                            <th className="border border-black/20 px-3 py-2">
-                              {t("Biopsied cells")}
-                            </th>
-                            <th className="border border-black/20 px-3 py-2">
-                              {t("Cells visualized?")}
-                            </th>
-                            <th className="border border-black/20 px-3 py-2">
-                              {t("Comments")}
-                            </th>
+                    ? "Biopsy form preview"
+                    : "Withdrawal request form preview",
+              )}
+              description={t(
+                "This preview is read-only. Go back to previous steps to make changes before signing.",
+              )}
+              footer={
+                <div className="mt-10 border-t border-black/20 pt-6">
+                  <h3 className="font-heading text-base font-semibold text-black">
+                    {t("Signature and submission")}
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-black/70">
+                    {t(
+                      "By signing, the responsible doctor confirms the information shown here.",
+                    )}
+                  </p>
+                </div>
+              }
+            >
+              {(formType === "study_request"
+                ? studyRequestPreviewSections
+                : formType === "sample"
+                  ? biopsyFormPreviewSections
+                  : withdrawalPreviewSections
+              ).map((section) => (
+                <PreviewPaperSection key={section.title} section={section} />
+              ))}
+              {formType === "study_request" && karyotypeImageContent ? (
+                <section className="border-t border-black/12 pt-5">
+                  <h3 className="font-heading text-base font-semibold text-black">
+                    {t("Karyotype attached image")}
+                  </h3>
+                  <div className="mt-4 overflow-hidden rounded-sm border border-black/20 bg-white">
+                    <img
+                      src={karyotypeImageContent}
+                      alt={t("Karyotype attached image")}
+                      className="max-h-[34rem] w-full object-contain"
+                    />
+                  </div>
+                </section>
+              ) : null}
+              {formType === "sample" ? (
+                <section className="border-t border-black/12 pt-5">
+                  <h3 className="font-heading text-base font-semibold text-black">
+                    {t("Biopsy rows")}
+                  </h3>
+                  <div className="mt-4 overflow-x-auto border border-black/20">
+                    <table className="min-w-[84rem] border-collapse text-sm">
+                      <thead className="bg-black/[0.04] text-left text-[0.68rem] uppercase tracking-[0.08em] text-black/65">
+                        <tr>
+                          <th className="border border-black/20 px-3 py-2">
+                            {t("Sample ID")}
+                          </th>
+                          <th className="border border-black/20 px-3 py-2">
+                            {t("Status")}
+                          </th>
+                          <th className="border border-black/20 px-3 py-2">
+                            {t("Internal code")}
+                          </th>
+                          <th className="border border-black/20 px-3 py-2">
+                            {t("Stage day 5, 6 or 7")}
+                          </th>
+                          <th className="border border-black/20 px-3 py-2">
+                            {t("Morphology")}
+                          </th>
+                          <th className="border border-black/20 px-3 py-2">
+                            {t("Biopsied cells")}
+                          </th>
+                          <th className="border border-black/20 px-3 py-2">
+                            {t("Cells visualized?")}
+                          </th>
+                          <th className="border border-black/20 px-3 py-2">
+                            {t("Comments")}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {state.samplingInformation.map((sampling, index) => (
+                          <tr key={`${sampling.sampleId}-${index}`}>
+                            {[
+                              sampling.sampleId,
+                              previewOptionValue(
+                                processingOptions,
+                                sampling.processingStatus,
+                              ),
+                              sampling.internalCode,
+                              sampling.embryoStageDay,
+                              sampling.morphology,
+                              sampling.biopsiedCells,
+                              previewOptionValue(
+                                yesNoOptions,
+                                sampling.cellsVisualized,
+                              ),
+                              sampling.notes,
+                            ].map((value, valueIndex) => (
+                              <td
+                                key={`${sampling.sampleId}-${valueIndex}`}
+                                className="whitespace-pre-wrap border border-black/20 px-3 py-2 align-top text-black"
+                              >
+                                {value || t("Not provided")}
+                              </td>
+                            ))}
                           </tr>
-                        </thead>
-                        <tbody>
-                          {state.samplingInformation.map((sampling, index) => (
-                            <tr key={`${sampling.sampleId}-${index}`}>
-                              {[
-                                sampling.sampleId,
-                                previewOptionValue(
-                                  processingOptions,
-                                  sampling.processingStatus,
-                                ),
-                                sampling.internalCode,
-                                sampling.embryoStageDay,
-                                sampling.morphology,
-                                sampling.biopsiedCells,
-                                previewOptionValue(
-                                  yesNoOptions,
-                                  sampling.cellsVisualized,
-                                ),
-                                sampling.notes,
-                              ].map((value, valueIndex) => (
-                                <td
-                                  key={`${sampling.sampleId}-${valueIndex}`}
-                                  className="whitespace-pre-wrap border border-black/20 px-3 py-2 align-top text-black"
-                                >
-                                  {value || t("Not provided")}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </section>
-                ) : null}
-              </div>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              ) : null}
+            </TwoPQFormPreviewPaper>
 
-              <div className="mt-10 border-t border-black/20 pt-6">
-                <h3 className="font-heading text-base font-semibold text-black">
-                  {t("Signature and submission")}
-                </h3>
-                <p className="mt-2 text-sm leading-6 text-black/70">
-                  {t(
-                    "By signing, the responsible doctor confirms the information shown here.",
-                  )}
-                </p>
-              </div>
-            </div>
-
-            <div className="mx-auto max-w-5xl rounded-2xl border border-indigo-200 bg-indigo-50/72 p-5 shadow-[0_18px_48px_rgba(79,70,229,0.12)] dark:border-indigo-300/22 dark:bg-indigo-950/22">
+            <div className={TWO_PQ_WIZARD_SUBMIT_PANEL_CLASS}>
               <Button
                 type="button"
                 variant="outline"
@@ -7255,7 +6918,7 @@ export function TwoPQFormFlow({
                 type="button"
                 onClick={() => void submitForm()}
                 disabled={pending || draftPending}
-                className="mt-4 min-h-14 w-full bg-indigo-600 text-base font-semibold text-white hover:bg-indigo-700 sm:text-lg"
+                className={TWO_PQ_WIZARD_SUBMIT_BUTTON_CLASS}
               >
                 {pending ? (
                   <FileText className="size-5 animate-pulse" />
@@ -7828,7 +7491,7 @@ export function TwoPQFormFlow({
                       formType === "sample" &&
                       !state.sampleInformation.biopsyCount)
                       ? "bg-muted text-muted-foreground hover:bg-muted"
-                      : "bg-indigo-600 text-white hover:bg-indigo-700"
+                      : TWO_PQ_WIZARD_PRIMARY_BUTTON_CLASS
                   }
                 >
                   {currentStepContinuesToPreview

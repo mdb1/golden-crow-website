@@ -13,6 +13,7 @@ const mockFailOperation = jest.fn();
 const mockGetOperation = jest.fn();
 const mockDeleteTwoPQCaseStepForContext = jest.fn();
 const mockUpdateTwoPQStudyRequestBiopsyLinkForContext = jest.fn();
+const mockUpsertTwoPQFormDraftForContext = jest.fn();
 
 jest.mock("../repositories/two-pq.repository.js", () => ({
   createTwoPQRecordForContext: jest.fn(),
@@ -37,7 +38,7 @@ jest.mock("../repositories/two-pq-forms.repository.js", () => ({
   listTwoPQFormsForContext: jest.fn(),
   updateTwoPQStudyRequestBiopsyLinkForContext:
     mockUpdateTwoPQStudyRequestBiopsyLinkForContext,
-  upsertTwoPQFormDraftForContext: jest.fn(),
+  upsertTwoPQFormDraftForContext: mockUpsertTwoPQFormDraftForContext,
 }));
 
 jest.mock("../repositories/two-pq-auto-sync.repository.js", () => ({
@@ -249,6 +250,25 @@ describe("2PQ case-status progress routes", () => {
         linkedBiopsyForm: "FORM-00053",
       },
     });
+    await fastify.close();
+  });
+
+  it.each([
+    ["treatmentStart", 0],
+    ["plannedTransport", 2],
+    ["preview", 3],
+  ])("accepts a treatment start draft for %s", async (currentStep, stepIndex) => {
+    const payload = { formType: "treatment_start", currentStep, stepIndex, state: {} };
+    mockUpsertTwoPQFormDraftForContext.mockResolvedValue(payload);
+    const fastify = await buildTestServer();
+    const response = await fastify.inject({
+      method: "PUT",
+      url: "/2pq/form-draft",
+      payload,
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(mockUpsertTwoPQFormDraftForContext).toHaveBeenCalledWith(adminContext, payload);
     await fastify.close();
   });
 });

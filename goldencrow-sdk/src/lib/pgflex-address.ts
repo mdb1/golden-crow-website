@@ -1,4 +1,7 @@
 export const PGFLEX_ADDRESS_COUNTRY = "Argentina" as const;
+export const PGFLEX_2PQ_DESTINATION =
+  "Humboldt 2433 (PB 10), Palermo, Ciudad Autónoma de Buenos Aires, Argentina" as const;
+export const PGFLEX_CAPITAL_FEDERAL_ROUTE_NAME = "Ciudad Autónoma de Buenos Aires";
 export const PGFLEX_ADDRESS_PROVINCE_DISTRICTS = [
   "Capital Federal",
   "Provincia de Buenos Aires",
@@ -74,5 +77,37 @@ export function normalizePGFlexInstitutionAddress(input: {
       state: state as PGFlexAddressProvinceDistrict,
       country: PGFLEX_ADDRESS_COUNTRY,
     },
+  };
+}
+
+export function normalizePGFlexPickupOrigin(
+  origin: string,
+): { ok: true; value: string } | { ok: false; message: string } {
+  const parts = origin.split(",").map(sanitizePGFlexAddressTextPart);
+  if (parts.length !== 4) {
+    return {
+      ok: false,
+      message: "Enter the pickup address, neighborhood/locality, province / district, and country.",
+    };
+  }
+
+  const [address, city, province, country] = parts;
+  const result = normalizePGFlexInstitutionAddress({
+    address,
+    city,
+    state: province === PGFLEX_CAPITAL_FEDERAL_ROUTE_NAME ? "Capital Federal" : province,
+    country,
+  });
+  if (!result.ok) return result;
+
+  const { state } = result.value;
+  return {
+    ok: true,
+    value: [
+      result.value.address,
+      result.value.city,
+      state === "Capital Federal" ? PGFLEX_CAPITAL_FEDERAL_ROUTE_NAME : state,
+      result.value.country,
+    ].join(", "),
   };
 }

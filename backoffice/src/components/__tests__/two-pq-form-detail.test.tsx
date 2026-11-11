@@ -8,6 +8,7 @@ import { TwoPQFormDetail } from "@/components/two-pq-form-detail";
 import type { TwoPQListItem } from "@/lib/two-pq-areas";
 import type { TwoPQFormRecord, TwoPQPickupSummary } from "@/lib/two-pq-forms";
 import type { InformedConsentStudyRequest } from "@/lib/informed-consents";
+import { PGFLEX_2PQ_DESTINATION } from "@/lib/pgflex-logistics";
 import { SdkRequestError } from "@/lib/sdk-client";
 
 const mockRefresh = jest.fn();
@@ -341,6 +342,42 @@ describe("TwoPQFormDetail", () => {
     expect(await within(panel).findByText("Cancelled pickup")).toBeVisible();
     expect(within(panel).queryByRole("button", { name: "Cancel pickup" })).not.toBeInTheDocument();
     expect(within(panel).getByRole("button", { name: "Reschedule pickup" })).toBeInTheDocument();
+  });
+
+  it("reschedules using the PGFlex origin fields and a fixed destination", async () => {
+    const user = userEvent.setup();
+    mockSdkFetch.mockResolvedValueOnce({ pickup: { ...plannedPickup, destination: PGFLEX_2PQ_DESTINATION } });
+    render(
+      <AppLanguageProvider forcedLanguage="en">
+        <TwoPQFormDetail form={{ ...sampleForm, pickup: plannedPickup }} />
+      </AppLanguageProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Reschedule pickup" }));
+    const dialog = within(screen.getByRole("dialog", { name: "Reschedule pickup" }));
+    expect(dialog.getByText(PGFLEX_2PQ_DESTINATION)).toBeVisible();
+    expect(dialog.queryByLabelText("Pickup destination")).not.toBeInTheDocument();
+    expect(dialog.getByLabelText("Country")).toBeDisabled();
+    expect(dialog.getByLabelText("Country")).toHaveValue("Argentina");
+    expect(dialog.getByRole("combobox", { name: "Province / District" })).toHaveTextContent("Capital Federal");
+
+    const address = dialog.getByLabelText("Address");
+    await user.clear(address);
+    await user.type(address, "Córdoba 1500");
+    await user.type(dialog.getByLabelText("Neighborhood / Locality"), "Palermo");
+    await user.click(dialog.getByRole("button", { name: "Save changes" }));
+
+    expect(mockSdkFetch).toHaveBeenCalledWith("/2pq/forms/FORM-00053/pickup", {
+      method: "PATCH",
+      body: JSON.stringify({
+        action: "reschedule",
+        pickupDate: plannedPickup.pickupDate,
+        pickupWindowStart: plannedPickup.pickupWindowStart,
+        pickupWindowEnd: plannedPickup.pickupWindowEnd,
+        pickupOrigin: "Córdoba 1500, Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
+      }),
+    });
+    expect(await screen.findByText(PGFLEX_2PQ_DESTINATION)).toBeVisible();
   });
 
   it("shows only the requested study with its treatment estimate and current phase", () => {

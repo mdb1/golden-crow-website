@@ -347,6 +347,8 @@ describe("PGFlex logistics repository", () => {
     const { listPGFlexLogisticsForContext, updatePGFlexLogisticsItemForContext } =
       await import("../repositories/pgflex-logistics.repository.js");
     const now = "2026-11-29T12:00:00.000Z";
+    const origin = "Av. Corrientes 123, Almagro, Ciudad Autónoma de Buenos Aires, Argentina";
+    const destination = "Humboldt 2433 (PB 10), Palermo, Ciudad Autónoma de Buenos Aires, Argentina";
     const planned = {
       institutionId: "INST-1",
       institutionName: "Clínica",
@@ -363,8 +365,8 @@ describe("PGFlex logistics repository", () => {
         pickupDate: "2026-11-30",
         pickupWindowStart: "09:00",
         pickupWindowEnd: "11:00",
-        pickupOrigin: "Clínica",
-        pickupDestination: "Laboratorio 2PQ",
+        pickupOrigin: origin,
+        pickupDestination: "Legacy client destination",
         temperatureC: -20 as const,
         notes: "Sin observaciones",
       },
@@ -387,10 +389,15 @@ describe("PGFlex logistics repository", () => {
     const id = await savePlan("FORM-1");
     await deliverTreatmentPickupNotifications(id);
     expect(mockSendTreatmentPickupEmail.mock.calls.map(([kind]) => kind)).toEqual(["planned"]);
+    const pickupRef = `pgflex_events/${id}`;
+    mockDocs.set(pickupRef, {
+      ...mockDocs.get(pickupRef),
+      origin: "Av. Corrientes 123, Almagro, Capital Federal, Argentina",
+    });
     expect(await savePlan("FORM-2", "FORM-1")).toBe(id);
     expect(docsIn("pgflex_events")).toHaveLength(1);
     expect(await listPGFlexLogisticsForContext(transportDispatcherContext, { scope: "planned" }))
-      .toMatchObject({ items: [{ id, status: "planned", expectedCaseCount: 2, canUpdate: false }] });
+      .toMatchObject({ items: [{ id, status: "planned", destination, expectedCaseCount: 2, canUpdate: false }] });
     expect(await listPGFlexLogisticsForContext(transportDispatcherContext))
       .toMatchObject({ items: [] });
     await expect(updatePGFlexLogisticsItemForContext(transportDispatcherContext, id, { status: "in_transit" }))
@@ -414,7 +421,7 @@ describe("PGFlex logistics repository", () => {
     expect(mockSendTreatmentPickupEmail.mock.calls.map(([kind]) => kind)).toEqual(["planned", "planned", "confirmed"]);
     expect(mockSendTreatmentPickupEmail).toHaveBeenLastCalledWith("confirmed",
       expect.objectContaining({ email: "driver@example.com" }),
-      expect.objectContaining({ id, expectedCaseCount: 2, codes: ["ABC", "DEF"] }),
+      expect.objectContaining({ id, destination, expectedCaseCount: 2, codes: ["ABC", "DEF"] }),
     );
 
     for (const caseId of ["CASE-1", "CASE-2"]) {
@@ -423,14 +430,20 @@ describe("PGFlex logistics repository", () => {
     expect(await updateTreatmentPickupForContext(fullAdminContext, "FORM-1", { action: "cancel" }))
       .toMatchObject({ id, status: "cancelled", latestEmailStatus: "sent" });
     expect(mockDocs.get("2pq_case/CASE-1")?.caseStatus).toBe("intake");
-    expect(await updateTreatmentPickupForContext(fullAdminContext, "FORM-1", {
-      action: "reschedule",
+    const reschedule = {
+      action: "reschedule" as const,
       pickupDate: "2026-12-01",
       pickupWindowStart: "10:00",
       pickupWindowEnd: "12:00",
-      pickupOrigin: "Clínica",
-      pickupDestination: "Laboratorio 2PQ",
-    })).toMatchObject({ id, status: "confirmed", pickupDate: "2026-12-01" });
+      pickupOrigin: origin,
+      pickupDestination: "Legacy client destination",
+    };
+    await expect(updateTreatmentPickupForContext(fullAdminContext, "FORM-1", {
+      ...reschedule,
+      pickupOrigin: "Av. Corrientes 123, Almagro, Ciudad Autónoma de Buenos Aires, Uruguay",
+    })).rejects.toMatchObject({ statusCode: 400 });
+    expect(await updateTreatmentPickupForContext(fullAdminContext, "FORM-1", reschedule))
+      .toMatchObject({ id, status: "confirmed", destination, pickupDate: "2026-12-01" });
     expect(mockDocs.get("2pq_case/CASE-1")?.caseStatus).toBe("awaiting_pick_up");
     await runTestTransaction(async (transaction) => {
       const detach = await prepareTreatmentPickupCaseDetachment(transaction, {

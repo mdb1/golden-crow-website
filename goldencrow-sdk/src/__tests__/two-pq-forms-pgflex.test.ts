@@ -350,8 +350,7 @@ const treatmentStartInput = {
     pickupDate: "2026-08-31",
     pickupWindowStart: "09:00",
     pickupWindowEnd: "11:00",
-    pickupOrigin: "Av. Corrientes 123",
-    pickupDestination: "Humboldt 2433",
+    pickupOrigin: "Av. Corrientes 123, Almagro, Ciudad Autónoma de Buenos Aires, Argentina",
     notes: "  ",
   },
 };
@@ -550,14 +549,20 @@ describe("2PQ form workflow and PGFlex automation", () => {
       .toEqual([planningRequestId]);
     const draft = await upsertTwoPQFormDraftForContext(fullAdminContext, {
       formType: "treatment_start",
-      currentStep: "treatmentStart",
-      stepIndex: 0,
+      currentStep: "preview",
+      stepIndex: 3,
       state: {
         linkedStudyRequestFormId: planningRequestId,
-        treatmentStart: { pickupDate: "", notes: " " },
+        treatmentStart: { pickupDate: "", pickupDestination: "Ignored", notes: " " },
       },
     });
-    expect(draft).toMatchObject({ formType: "treatment_start", state: { treatmentStart: { notes: "Sin observaciones" } } });
+    const destination = "Humboldt 2433 (PB 10), Palermo, Ciudad Autónoma de Buenos Aires, Argentina";
+    expect(draft).toMatchObject({
+      formType: "treatment_start",
+      currentStep: "preview",
+      stepIndex: 3,
+      state: { treatmentStart: { pickupDestination: destination, notes: "Sin observaciones" } },
+    });
 
     const form = await createTwoPQFormForContext(fullAdminContext, treatmentStartInput);
     expect(form).toMatchObject({
@@ -565,8 +570,8 @@ describe("2PQ form workflow and PGFlex automation", () => {
       linkedStudyRequestFormId: planningRequestId,
       linkedCaseId: null,
       linkedBiopsyForm: null,
-      treatmentStart: { ...treatmentStartInput.treatmentStart, notes: "Sin observaciones", temperatureC: 4 },
-      pickup: { status: "planned", expectedCaseCount: 1, readyCaseCount: 0 },
+      treatmentStart: { ...treatmentStartInput.treatmentStart, pickupDestination: destination, notes: "Sin observaciones", temperatureC: 4 },
+      pickup: { destination, status: "planned", expectedCaseCount: 1, readyCaseCount: 0 },
     });
     expect(mockDocs.get(`2pq_forms/${planningRequestId}`)).toMatchObject({
       linkedTreatmentStartFormId: form.id,
@@ -584,7 +589,7 @@ describe("2PQ form workflow and PGFlex automation", () => {
     await expect(createTwoPQFormForContext(fullAdminContext, treatmentStartInput)).rejects.toMatchObject({ statusCode: 409 });
   });
 
-  it("rejects incorrect planning dates, times, and doctor scope before writing a treatment form", async () => {
+  it("rejects incorrect planning dates, times, addresses, and doctor scope before writing a treatment form", async () => {
     const { createTwoPQFormForContext } = await import("../repositories/two-pq-forms.repository");
     seedPlanningRequest();
     for (const overrides of [
@@ -592,6 +597,8 @@ describe("2PQ form workflow and PGFlex automation", () => {
       { treatmentDate: "2026-08-31" },
       { estimatedEmbryoCount: 0 },
       { pickupWindowEnd: "08:00" },
+      { pickupOrigin: "Av. Corrientes 123" },
+      { pickupOrigin: "Av. Corrientes 123, Rosario, Santa Fe, Argentina" },
     ]) {
       await expect(createTwoPQFormForContext(fullAdminContext, {
         ...treatmentStartInput,
@@ -606,6 +613,21 @@ describe("2PQ form workflow and PGFlex automation", () => {
     }, treatmentStartInput)).rejects.toMatchObject({ statusCode: 403 });
     expect(mockDocs.get(`2pq_forms/${planningRequestId}`)?.linkedTreatmentStartFormId).toBeNull();
     expect(docsIn("pgflex_events")).toHaveLength(0);
+  });
+
+  it("keeps the saved destination and unstructured origin on historical treatment forms", async () => {
+    const { createTwoPQFormForContext, getTwoPQFormForContext } =
+      await import("../repositories/two-pq-forms.repository");
+    seedPlanningRequest();
+    const form = await createTwoPQFormForContext(fullAdminContext, treatmentStartInput);
+    const stored = mockDocs.get(`2pq_forms/${form.id}`)!;
+    stored.treatmentStart = {
+      ...form.treatmentStart,
+      pickupOrigin: "Clínica Norte",
+      pickupDestination: "Destino original",
+    };
+    expect((await getTwoPQFormForContext(fullAdminContext, form.id)).treatmentStart)
+      .toMatchObject({ pickupOrigin: "Clínica Norte", pickupDestination: "Destino original" });
   });
 
   it("gates new biopsies on treatment planning and links the saved biopsy, case, and pickup", async () => {

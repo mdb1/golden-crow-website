@@ -4,6 +4,12 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { useAppLanguage } from "@/components/app-language-provider";
 import {
+  composePGFlexRouteOrigin,
+  PGFlexRouteOriginFields,
+  splitPGFlexRouteOrigin,
+  validatePGFlexRouteOriginParts,
+} from "@/components/pgflex-route-preview";
+import {
   AlertDialog,
   AlertDialogCancel,
   AlertDialogContent,
@@ -27,7 +33,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { appText } from "@/lib/language";
-import { getPGFlexStatusBadgeVariant, getPGFlexStatusLabel } from "@/lib/pgflex-logistics";
+import { getPGFlexStatusBadgeVariant, getPGFlexStatusLabel, PGFLEX_2PQ_DESTINATION } from "@/lib/pgflex-logistics";
 import { sdkFetch } from "@/lib/sdk-client";
 import type { TwoPQPickupSummary } from "@/lib/two-pq-forms";
 import { formatTwoPQCivilDate } from "@/lib/two-pq-study-summary";
@@ -38,7 +44,6 @@ type PickupAction = { action: "cancel" | "retry_notifications" } | {
   pickupWindowStart: string;
   pickupWindowEnd: string;
   pickupOrigin: string;
-  pickupDestination: string;
 };
 
 const notificationLabels = {
@@ -64,6 +69,7 @@ export function TwoPQPickupPanel({ formId, pickup }: {
   const [editing, setEditing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [originParts, setOriginParts] = useState(() => splitPGFlexRouteOrigin(pickup.origin));
   const current = saved?.source === pickup ? saved.pickup : pickup;
   const canCancel = current.canManage && (current.status === "planned" || current.status === "confirmed");
   const canChangeSchedule = canCancel ||
@@ -80,8 +86,6 @@ export function TwoPQPickupPanel({ formId, pickup }: {
     { name: "pickupDate", label: "Expected pickup date", value: current.pickupDate, type: "date" },
     { name: "pickupWindowStart", label: "Pickup window start", value: current.pickupWindowStart, type: "time" },
     { name: "pickupWindowEnd", label: "Pickup window end", value: current.pickupWindowEnd, type: "time" },
-    { name: "pickupOrigin", label: "Pickup origin", value: current.origin, type: "text" },
-    { name: "pickupDestination", label: "Pickup destination", value: current.destination, type: "text" },
   ];
   const summaryFields = [
     { label: "Expected pickup date", value: formatTwoPQCivilDate(current.pickupDate, language) },
@@ -114,14 +118,18 @@ export function TwoPQPickupPanel({ formId, pickup }: {
 
   function reschedule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const originError = validatePGFlexRouteOriginParts(originParts);
+    if (originError) {
+      setError(originError);
+      return;
+    }
     const values = new FormData(event.currentTarget);
     void updatePickup({
       action: "reschedule",
       pickupDate: String(values.get("pickupDate") ?? ""),
       pickupWindowStart: String(values.get("pickupWindowStart") ?? ""),
       pickupWindowEnd: String(values.get("pickupWindowEnd") ?? ""),
-      pickupOrigin: String(values.get("pickupOrigin") ?? "").trim(),
-      pickupDestination: String(values.get("pickupDestination") ?? "").trim(),
+      pickupOrigin: composePGFlexRouteOrigin(originParts),
     });
   }
 
@@ -161,13 +169,16 @@ export function TwoPQPickupPanel({ formId, pickup }: {
             <>
               <Dialog open={editing} onOpenChange={(open) => {
                 if (pending) return;
-                if (open) setError(null);
+                if (open) {
+                  setError(null);
+                  setOriginParts(splitPGFlexRouteOrigin(current.origin));
+                }
                 setEditing(open);
               }}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm" disabled={Boolean(pending)}>{t("Reschedule pickup")}</Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
                   <form onSubmit={reschedule} className="grid gap-4">
                     <DialogHeader>
                       <DialogTitle>{t("Reschedule pickup")}</DialogTitle>
@@ -177,12 +188,29 @@ export function TwoPQPickupPanel({ formId, pickup }: {
                           : "The new schedule applies to all cases in this pickup.")}
                       </DialogDescription>
                     </DialogHeader>
-                    {scheduleFields.map(({ name, label, value, type }) => (
-                      <div key={name} className="grid gap-1.5">
-                        <Label htmlFor={`pickup-schedule-${name}`}>{t(label)}</Label>
-                        <Input id={`pickup-schedule-${name}`} name={name} defaultValue={value} type={type} required disabled={Boolean(pending)} />
-                      </div>
-                    ))}
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      {scheduleFields.map(({ name, label, value, type }) => (
+                        <div key={name} className="grid gap-1.5">
+                          <Label htmlFor={`pickup-schedule-${name}`}>{t(label)}</Label>
+                          <Input id={`pickup-schedule-${name}`} name={name} defaultValue={value} type={type} required disabled={Boolean(pending)} />
+                        </div>
+                      ))}
+                    </div>
+                    <PGFlexRouteOriginFields
+                      disabled={Boolean(pending)}
+                      idPrefix="pickup-schedule-origin"
+                      legend={t("Pickup origin")}
+                      parts={originParts}
+                      translate={t}
+                      onChange={(parts) => {
+                        setOriginParts(parts);
+                        setError(null);
+                      }}
+                    />
+                    <dl className="rounded-2xl border border-border/70 bg-muted/14 p-4">
+                      <dt className="text-xs text-muted-foreground">{t("Pickup destination")}</dt>
+                      <dd className="mt-1 text-sm font-medium">{PGFLEX_2PQ_DESTINATION}</dd>
+                    </dl>
                     {errorMessage}
                     <DialogFooter>
                       <Button type="submit" disabled={Boolean(pending)}>{t("Save changes")}</Button>

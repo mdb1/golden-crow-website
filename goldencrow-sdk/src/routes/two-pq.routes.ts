@@ -262,6 +262,8 @@ const TwoPQFormDraftStepSchema = z.enum([
   "linkedWithdrawalCases",
   "linkedStudyRequest",
   "treatmentStart",
+  "plannedTransport",
+  "preview",
   "patientInformation",
   "medicalInformation",
   "previousGeneticTests",
@@ -300,7 +302,6 @@ const TwoPQFormMutationSchema = z.discriminatedUnion("formType", [
       pickupWindowStart: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
       pickupWindowEnd: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
       pickupOrigin: z.string().trim().min(1),
-      pickupDestination: z.string().trim().min(1),
       notes: z.string().optional(),
     }),
   }),
@@ -333,7 +334,6 @@ const TreatmentPickupPatchSchema = z.discriminatedUnion("action", [
     pickupWindowStart: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
     pickupWindowEnd: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
     pickupOrigin: z.string().trim().min(1),
-    pickupDestination: z.string().trim().min(1),
   }),
 ]);
 
