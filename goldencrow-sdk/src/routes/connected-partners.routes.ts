@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   PartnerIdSchema,
   PartnerInputSchema,
+  PartnerLinkIdSchema,
 } from "../contracts/connected-partners.js";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import {
@@ -11,6 +12,7 @@ import {
   deletePartners,
   getPartner,
   listPartners,
+  listPartnerLinkOptions,
   updatePartner,
 } from "../repositories/connected-partners.repository.js";
 
@@ -37,6 +39,10 @@ export async function connectedPartnersRoutes(
     }
     return reply.send(error);
   });
+  f.addHook("onSend", async (request, reply, payload) => {
+    if (request.method === "GET") reply.header("Cache-Control", "private, no-store");
+    return payload;
+  });
 
   f.get(
     ROUTE,
@@ -47,6 +53,20 @@ export async function connectedPartnersRoutes(
     },
     async (request) =>
       listPartners(request.adminContext!, request.query.cursor),
+  );
+
+  f.get(
+    `${ROUTE}/link-options`,
+    {
+      schema: {
+        querystring: z.object({
+          kind: z.enum(["organization", "app"]),
+          cursor: PartnerLinkIdSchema.optional(),
+          organizationId: PartnerLinkIdSchema.optional(),
+        }).strict(),
+      },
+    },
+    async (request) => listPartnerLinkOptions(request.adminContext!, request.query),
   );
 
   f.get(

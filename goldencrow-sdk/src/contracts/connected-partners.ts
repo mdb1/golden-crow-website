@@ -1,8 +1,24 @@
 import { z } from "zod";
+import { PUBLISHER_APP_STATUSES } from "../lib/publisher-app-status.js";
 
 export const CONNECTED_PARTNERS_COLLECTION = "connected-partners";
 
 export const PartnerIdSchema = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
+export const PartnerLinkIdSchema = z.string().trim().min(1).max(1500).regex(/^[^/]+$/)
+  .refine((id) => id !== "." && id !== ".." && !/^__.*__$/.test(id) && Buffer.byteLength(id, "utf8") <= 1500,
+    "Invalid linked document ID");
+
+export const PartnerOrganizationSnapshotSchema = z.object({
+  id: PartnerLinkIdSchema,
+  name: z.string().trim().min(1),
+}).strict();
+
+export const PartnerAppSnapshotSchema = z.object({
+  id: PartnerLinkIdSchema,
+  publisherId: PartnerLinkIdSchema,
+  publisherName: z.string().trim().min(1),
+  status: z.enum(PUBLISHER_APP_STATUSES),
+}).strict();
 
 // Meeting dates are civil dates, so they never shift with the viewer's timezone.
 export const PartnerInputSchema = z
@@ -20,9 +36,29 @@ export const PartnerInputSchema = z
       .nullable()
       .default(null)
       .transform((value) => value || null),
+    linkedOrganizationId: PartnerLinkIdSchema.nullable().default(null),
+    linkedAppId: PartnerLinkIdSchema.nullable().default(null),
   })
   .strict();
 
 export type PartnerInput = z.infer<typeof PartnerInputSchema>;
-export type Partner = PartnerInput & { id: string };
+export const StoredPartnerSchema = PartnerInputSchema.extend({
+  linkedOrganizationSnapshot: PartnerOrganizationSnapshotSchema.nullable().default(null),
+  linkedAppSnapshot: PartnerAppSnapshotSchema.nullable().default(null),
+}).strict();
+export type PartnerOrganizationSnapshot = z.infer<typeof PartnerOrganizationSnapshotSchema>;
+export type PartnerAppSnapshot = z.infer<typeof PartnerAppSnapshotSchema>;
+export type StoredPartner = z.infer<typeof StoredPartnerSchema>;
+export type Partner = StoredPartner & {
+  id: string;
+  linkedOrganization: PartnerOrganizationSnapshot | null;
+  linkedApp: PartnerAppSnapshot | null;
+};
 export type PartnersPage = { items: Partner[]; nextCursor: string | null };
+export type PartnerLinkOption = {
+  id: string;
+  name: string;
+  publisherId?: string;
+  status?: PartnerAppSnapshot["status"];
+};
+export type PartnerLinkOptionsPage = { items: PartnerLinkOption[]; nextCursor: string | null };

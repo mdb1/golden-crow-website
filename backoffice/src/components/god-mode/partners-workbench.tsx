@@ -25,6 +25,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   AlertDialog,
   AlertDialogContent,
   AlertDialogDescription,
@@ -36,8 +43,12 @@ import {
   PARTNERS_API_ROUTE,
   PARTNERS_QUERY_KEY,
   PARTNERS_ROUTE,
+  PARTNER_SECTIONS,
+  partnerSection,
   type Partner,
   type PartnerInput,
+  type PartnerLinkOption,
+  type PartnerLinkOptionsPage,
   type PartnersPage,
 } from "@/lib/connected-partners";
 import { appText } from "@/lib/language";
@@ -130,6 +141,43 @@ function PartnerCard({
             {partner.notes ?? "—"}
           </dd>
         </div>
+        <div className="col-span-2">
+          <dt className="text-muted-foreground">{t("Linked organization")}</dt>
+          <dd className="mt-1 break-words">
+            {partner.linkedOrganization?.name ??
+              partner.linkedOrganizationSnapshot?.name ??
+              partner.linkedOrganizationId ??
+              "—"}
+          </dd>
+          {partner.linkedOrganizationId && !partner.linkedOrganization && (
+            <p className="mt-1 text-amber-700 dark:text-amber-300">
+              {t("Linked organization is unavailable.")} (
+              {partner.linkedOrganizationId})
+            </p>
+          )}
+        </div>
+        <div className="col-span-2">
+          <dt className="text-muted-foreground">{t("Linked app")}</dt>
+          <dd className="mt-1 break-words">
+            {partner.linkedApp?.publisherName ??
+              partner.linkedAppSnapshot?.publisherName ??
+              partner.linkedAppId ??
+              "—"}
+            {partner.linkedApp && (
+              <span className="ml-2 text-xs text-muted-foreground">
+                {partner.linkedApp.status}
+              </span>
+            )}
+          </dd>
+          {partner.linkedAppId && !partner.linkedApp && (
+            <p className="mt-1 text-amber-700 dark:text-amber-300">
+              {t(
+                "Linked app is unavailable or no longer belongs to this organization.",
+              )}{" "}
+              ({partner.linkedAppId})
+            </p>
+          )}
+        </div>
       </dl>
     </article>
   );
@@ -142,6 +190,7 @@ export function PartnersBrowser() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const query = useInfiniteQuery({
     queryKey: PARTNERS_QUERY_KEY,
+    staleTime: 0,
     initialPageParam: null as string | null,
     queryFn: ({ pageParam }) =>
       sdkFetch<PartnersPage>(
@@ -277,27 +326,56 @@ export function PartnersBrowser() {
               </span>
             )}
           </div>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {partners.map((partner) => (
-              <PartnerCard
-                key={partner.id}
-                partner={partner}
-                selected={selected.has(partner.id)}
-                disabled={
-                  deletion.isPending ||
-                  (!selected.has(partner.id) && selectedIds.length >= 500)
-                }
-                onSelect={(checked) =>
-                  setSelected((current) => {
-                    const next = new Set(current);
-                    if (checked) next.add(partner.id);
-                    else next.delete(partner.id);
-                    return next;
-                  })
-                }
-              />
-            ))}
-          </div>
+          {[
+            ...PARTNER_SECTIONS,
+            ...(partners.some((partner) => partnerSection(partner) === "other")
+              ? [{ key: "other", label: "Other app statuses or missing links" }]
+              : []),
+          ].map((section) => {
+            const sectionPartners = partners.filter(
+              (partner) => partnerSection(partner) === section.key,
+            );
+            return (
+              <section
+                key={section.key}
+                aria-label={t(section.label)}
+                className="space-y-3"
+              >
+                <h3 className="font-heading text-lg font-semibold">
+                  {t(section.label)}{" "}
+                  <span className="text-sm text-muted-foreground">
+                    ({sectionPartners.length})
+                  </span>
+                </h3>
+                {sectionPartners.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    {t("No loaded partners in this section.")}
+                  </p>
+                )}
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {sectionPartners.map((partner) => (
+                    <PartnerCard
+                      key={partner.id}
+                      partner={partner}
+                      selected={selected.has(partner.id)}
+                      disabled={
+                        deletion.isPending ||
+                        (!selected.has(partner.id) && selectedIds.length >= 500)
+                      }
+                      onSelect={(checked) =>
+                        setSelected((current) => {
+                          const next = new Set(current);
+                          if (checked) next.add(partner.id);
+                          else next.delete(partner.id);
+                          return next;
+                        })
+                      }
+                    />
+                  ))}
+                </div>
+              </section>
+            );
+          })}
         </>
       )}
       {query.hasNextPage && (
@@ -366,6 +444,7 @@ export function PartnerEditor({ partnerId }: { partnerId?: string }) {
   const t = useText();
   const query = useQuery({
     queryKey: [...PARTNERS_QUERY_KEY, partnerId],
+    staleTime: 0,
     enabled: Boolean(partnerId),
     queryFn: () =>
       sdkFetch<{ partner: Partner }>(
@@ -402,6 +481,118 @@ export function PartnerEditor({ partnerId }: { partnerId?: string }) {
   );
 }
 
+function PartnerLinkPicker({
+  kind,
+  organizationId,
+  onSelect,
+}: {
+  kind: "organization" | "app";
+  organizationId?: string | null;
+  onSelect: (option: PartnerLinkOption) => void;
+}) {
+  const t = useText();
+  const [open, setOpen] = useState(false);
+  const query = useInfiniteQuery({
+    queryKey: [
+      ...PARTNERS_QUERY_KEY,
+      "link-options",
+      kind,
+      organizationId ?? null,
+    ],
+    staleTime: 0,
+    enabled: open,
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) => {
+      const params = new URLSearchParams({ kind });
+      if (organizationId) params.set("organizationId", organizationId);
+      if (pageParam) params.set("cursor", pageParam);
+      return sdkFetch<PartnerLinkOptionsPage>(
+        `${PARTNERS_API_ROUTE}/link-options?${params}`,
+      );
+    },
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
+  });
+  const options = Array.from(
+    new Map(
+      (query.data?.pages.flatMap((page) => page.items) ?? []).map((option) => [
+        option.id,
+        option,
+      ]),
+    ).values(),
+  );
+  const label = kind === "organization" ? "Choose organization" : "Choose app";
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <Button type="button" variant="outline" onClick={() => setOpen(true)}>
+        {t(label)}
+      </Button>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t(label)}</DialogTitle>
+          <DialogDescription className="sr-only">{t(label)}</DialogDescription>
+        </DialogHeader>
+        <div className="max-h-[60vh] space-y-2 overflow-y-auto">
+          {query.isPending && <p role="status">{t("Loading...")}</p>}
+          {query.isError && (
+            <div className="space-y-2">
+              <RequestError
+                error={query.error}
+                fallback={t("Could not load linked items.")}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  query.isFetchNextPageError
+                    ? query.fetchNextPage()
+                    : query.refetch()
+                }
+              >
+                {t("Retry")}
+              </Button>
+            </div>
+          )}
+          {options.map((option) => (
+            <Button
+              key={option.id}
+              type="button"
+              variant="outline"
+              className="h-auto w-full justify-start whitespace-normal text-left"
+              onClick={() => {
+                onSelect(option);
+                setOpen(false);
+              }}
+            >
+              <span className="min-w-0">
+                <span className="block break-words">{option.name}</span>
+                <span className="block break-all text-xs text-muted-foreground">
+                  {option.id}
+                  {option.status ? ` · ${option.status}` : ""}
+                </span>
+              </span>
+            </Button>
+          ))}
+          {!query.isPending && !query.isError && options.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              {t("No matching items.")}
+            </p>
+          )}
+          {query.hasNextPage && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={query.isFetching}
+              onClick={() => query.fetchNextPage()}
+            >
+              {t("Load more")}
+            </Button>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function PartnerForm({ partner }: { partner?: Partner }) {
   const t = useText();
   const router = useRouter();
@@ -414,7 +605,21 @@ function PartnerForm({ partner }: { partner?: Partner }) {
     email: partner?.email ?? "",
     meetingDate: partner?.meetingDate ?? "",
     notes: partner?.notes ?? "",
+    linkedOrganizationId: partner?.linkedOrganizationId ?? null,
+    linkedAppId: partner?.linkedAppId ?? null,
   });
+  const [organizationName, setOrganizationName] = useState(
+    partner?.linkedOrganization?.name ??
+      partner?.linkedOrganizationSnapshot?.name ??
+      partner?.linkedOrganizationId ??
+      "",
+  );
+  const [appName, setAppName] = useState(
+    partner?.linkedApp?.publisherName ??
+      partner?.linkedAppSnapshot?.publisherName ??
+      partner?.linkedAppId ??
+      "",
+  );
   const save = useMutation({
     mutationFn: (input: PartnerInput) =>
       sdkFetch<{ partner: Partner }>(
@@ -439,6 +644,8 @@ function PartnerForm({ partner }: { partner?: Partner }) {
       email: values.email.trim().toLowerCase(),
       meetingDate: values.meetingDate || null,
       notes: values.notes.trim() || null,
+      linkedOrganizationId: values.linkedOrganizationId,
+      linkedAppId: values.linkedAppId,
     });
   }
   const fields = [
@@ -534,6 +741,112 @@ function PartnerForm({ partner }: { partner?: Partner }) {
                 setValues({ ...values, meetingDate: event.target.value })
               }
             />
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label>
+              {t("Linked organization")}{" "}
+              <span className="text-muted-foreground">({t("Optional")})</span>
+            </Label>
+            {values.linkedOrganizationId && (
+              <p className="break-words text-sm">
+                {organizationName}{" "}
+                <span className="text-muted-foreground">
+                  ({values.linkedOrganizationId})
+                </span>
+              </p>
+            )}
+            {values.linkedOrganizationId === partner?.linkedOrganizationId &&
+              !partner?.linkedOrganization &&
+              values.linkedOrganizationId && (
+                <p className="text-sm text-amber-700 dark:text-amber-300">
+                  {t("Linked organization is unavailable.")}
+                </p>
+              )}
+            <div className="flex flex-wrap gap-2">
+              <PartnerLinkPicker
+                kind="organization"
+                onSelect={(option) => {
+                  setValues((current) => ({
+                    ...current,
+                    linkedOrganizationId: option.id,
+                    linkedAppId:
+                      current.linkedOrganizationId === option.id
+                        ? current.linkedAppId
+                        : null,
+                  }));
+                  setOrganizationName(option.name);
+                }}
+              />
+              {values.linkedOrganizationId && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setValues((current) => ({
+                      ...current,
+                      linkedOrganizationId: null,
+                      linkedAppId: null,
+                    }));
+                    setOrganizationName("");
+                    setAppName("");
+                  }}
+                >
+                  {t("Remove organization and app links")}
+                </Button>
+              )}
+            </div>
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label>
+              {t("Linked app")}{" "}
+              <span className="text-muted-foreground">({t("Optional")})</span>
+            </Label>
+            {values.linkedAppId && (
+              <p className="break-words text-sm">
+                {appName}{" "}
+                <span className="text-muted-foreground">
+                  ({values.linkedAppId})
+                </span>
+              </p>
+            )}
+            {values.linkedAppId === partner?.linkedAppId &&
+              !partner?.linkedApp &&
+              values.linkedAppId && (
+                <p className="text-sm text-amber-700 dark:text-amber-300">
+                  {t(
+                    "Linked app is unavailable or no longer belongs to this organization.",
+                  )}
+                </p>
+              )}
+            <div className="flex flex-wrap gap-2">
+              <PartnerLinkPicker
+                kind="app"
+                organizationId={values.linkedOrganizationId}
+                onSelect={(option) => {
+                  if (!option.publisherId) return;
+                  setValues((current) => ({
+                    ...current,
+                    linkedAppId: option.id,
+                    linkedOrganizationId: option.publisherId!,
+                  }));
+                  setAppName(option.name);
+                  if (!values.linkedOrganizationId)
+                    setOrganizationName(option.name);
+                }}
+              />
+              {values.linkedAppId && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setValues((current) => ({ ...current, linkedAppId: null }));
+                    setAppName("");
+                  }}
+                >
+                  {t("Remove app link")}
+                </Button>
+              )}
+            </div>
           </div>
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="partner-notes">
