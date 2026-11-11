@@ -104,6 +104,35 @@ function renderBrowser(
 }
 
 describe("DiscoverOrganizationBrowser", () => {
+  it("shows partner CSV export only when enabled for either publisher kind", () => {
+    const { rerender } = render(
+      <AppLanguageProvider forcedLanguage="en">
+        <DiscoverOrganizationBrowser initialOrganizations={[]} initialNextCursor={null} />
+      </AppLanguageProvider>,
+    );
+    expect(screen.queryByRole("button", { name: "Export as partners CSV" })).toBeNull();
+    rerender(
+      <AppLanguageProvider forcedLanguage="en">
+        <DiscoverOrganizationBrowser
+          initialOrganizations={[]}
+          initialNextCursor={null}
+          canExportPartnersCsv
+        />
+      </AppLanguageProvider>,
+    );
+    expect(screen.getByRole("button", { name: "Export as partners CSV" })).toBeTruthy();
+    rerender(
+      <AppLanguageProvider forcedLanguage="en">
+        <DiscoverIndividualBrowser
+          initialIndividuals={[]}
+          initialNextCursor={null}
+          canExportPartnersCsv
+        />
+      </AppLanguageProvider>,
+    );
+    expect(screen.getByRole("button", { name: "Export as partners CSV" })).toBeTruthy();
+  });
+
   it("calculates the maximum country pills that fit in one line", () => {
     expect(
       visibleCountryPillCountForWidth({

@@ -20,6 +20,37 @@ export function toggleAppLanguage(language: AppLanguage): AppLanguage {
 }
 
 const SPANISH_TEXT: Record<string, string> = {
+  "Export as partners CSV": "Exportar como CSV de partners",
+  "Export all existing organizations, across all pages and statuses. List filters do not apply.":
+    "Exportá todas las organizaciones existentes, de todas las páginas y estados. No se aplican los filtros de la lista.",
+  "Export all existing individual publishers, across all pages and statuses. List filters do not apply.":
+    "Exportá todos los publicadores individuales existentes, de todas las páginas y estados. No se aplican los filtros de la lista.",
+  "Preparing partners CSV...": "Preparando el CSV de partners...",
+  "Publishers read": "Publicadores leídos",
+  "Could not prepare the partners CSV. Try again.": "No se pudo preparar el CSV de partners. Volvé a intentar.",
+  "A publisher exceeds the CSV file size limit. Shorten its internal notes and try again.":
+    "Un publicador supera el tamaño máximo del CSV. Acortá sus notas internas y volvé a intentar.",
+  "The export could not read the next page. Try again.": "No se pudo leer la siguiente página de la exportación. Volvé a intentar.",
+  "There are no publishers to export.": "No hay publicadores para exportar.",
+  "CSV files": "Archivos CSV",
+  "Rows": "Filas",
+  "Rows to complete or correct": "Filas para completar o corregir",
+  "Publisher names, contact emails, internal notes, and publisher links are included. Phone, meeting date, and app ID are left blank because they are not stored in these profiles.":
+    "Se incluyen nombres, emails de contacto, notas internas y vínculos a publicadores. El teléfono, la fecha de reunión y el ID de app quedan vacíos porque no se guardan en estos perfiles.",
+  "Contact first and last names are not stored for organizations. Complete firstName and lastName in the CSV before importing.":
+    "Las organizaciones no guardan nombre y apellido del contacto. Completá firstName y lastName en el CSV antes de importar.",
+  "Individual display names are split at the first space into firstName and lastName. Review compound names before importing. Existing parent organization links are included.":
+    "El nombre del publicador individual se divide en el primer espacio para completar firstName y lastName. Revisá los nombres compuestos antes de importar. Se incluye el vínculo existente con su organización.",
+  "Each file stays within 200 rows and 256 KiB. Download every part and import them separately in Partners.":
+    "Cada archivo respeta el límite de 200 filas y 256 KiB. Descargá todas las partes e importalas por separado en Partners.",
+  "Complete or correct these fields before importing. All publishers remain in the CSV.":
+    "Completá o corregí estos campos antes de importar. Todos los publicadores se conservan en el CSV.",
+  "Showing the first 10 rows that need review.": "Se muestran las primeras 10 filas para revisar.",
+  "Repeated contact emails": "Emails de contacto repetidos",
+  "The importer keeps only the first occurrence of an email and skips existing partners. Review shared emails before importing.":
+    "La importación conserva solo la primera aparición de cada email y omite los partners existentes. Revisá los emails compartidos antes de importar.",
+  "Download CSV": "Descargar CSV",
+  "Go to Partners": "Ir a Partners",
   "Without app": "Sin app",
   "With free app": "Con app gratuita",
   "With contract": "Con contrato",
