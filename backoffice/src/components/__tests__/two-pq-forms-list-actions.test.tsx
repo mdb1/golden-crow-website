@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 
 import "@testing-library/jest-dom";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AdminContextProvider } from "@/components/admin-context-provider";
 import { AppLanguageProvider } from "@/components/app-language-provider";
@@ -58,6 +58,7 @@ function renderList(
   role: AdminRole = "full_admin",
   initialFormType: TwoPQFormsTypeFilter | null = "study_request",
   language: "en" | "es" = "en",
+  pagination: { initialCursor?: string | null; initialHasMore?: boolean; includeArchived?: boolean } = {},
 ) {
   render(
     <AppLanguageProvider forcedLanguage={language}>
@@ -72,10 +73,12 @@ function renderList(
         <TwoPQFormsList
           forms={forms}
           allowMutations
+          initialCursor={pagination.initialCursor}
+          initialHasMore={pagination.initialHasMore}
           {...(initialFormType
             ? {
                 initialFilters: {
-                  includeArchived: false,
+                  includeArchived: pagination.includeArchived ?? false,
                   formType: initialFormType,
                   search: "",
                   createdFrom: "",
@@ -93,6 +96,7 @@ function renderList(
 describe("TwoPQFormsList actions", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(sdkFetch).mockReset();
   });
 
   it("shows Archive beside Delete for a full admin and archives the row", async () => {
@@ -502,12 +506,100 @@ describe("TwoPQFormsList actions", () => {
     await user.click(screen.getByRole("button", { name: "Apply filters" }));
     expect(await screen.findByText("Ultra-fast PGT", { selector: '[data-slot="badge"]' })).toHaveClass("bg-red-100");
     expect(screen.getByText(/Estimated treatment date:/)).toHaveTextContent("12/06/2026");
-    await user.click(screen.getByRole("button", { name: "Load more" }));
+    await user.click(screen.getAllByRole("button", { name: "Next page" })[0]);
     expect(await screen.findByText("Ada Second")).toBeInTheDocument();
+    expect(screen.queryByText(urgentForm.patientName!)).not.toBeInTheDocument();
 
     const first = new URL((sdkFetch as jest.Mock).mock.calls[0][0], "https://test.local");
     const next = new URL((sdkFetch as jest.Mock).mock.calls[1][0], "https://test.local");
     expect(Object.fromEntries(first.searchParams)).toMatchObject({ search: "Ada", institution: "Clínica Norte", treatmentFrom: "2026-12-06" });
     expect(Object.fromEntries(next.searchParams)).toEqual({ ...Object.fromEntries(first.searchParams), cursor: "FORM-00001" });
+  });
+
+  it("pages forward and back through archived co-joined requests with the applied query", async () => {
+    const user = userEvent.setup();
+    const secondForm = { ...form, id: "FORM-00002", patientName: "Second Patient" };
+    jest.mocked(sdkFetch)
+      .mockResolvedValueOnce({ forms: [secondForm], nextCursor: "FORM-00002", hasMore: true })
+      .mockResolvedValueOnce({ forms: [form], nextCursor: "FORM-00001", hasMore: true });
+    renderList([form], "full_admin", "study_request_cojoined", "en", {
+      includeArchived: true, initialCursor: "FORM-00001", initialHasMore: true,
+    });
+
+    const [top, bottom] = screen.getAllByRole("navigation", { name: "Forms pagination" });
+    expect(top).toHaveTextContent("Page 1");
+    expect(within(top).getByRole("button", { name: "Previous page" })).toBeDisabled();
+    expect(within(bottom).getByRole("button", { name: "Next page" })).toBeEnabled();
+
+    await user.click(within(top).getByRole("button", { name: "Next page" }));
+    expect(await screen.findByText(secondForm.patientName)).toBeVisible();
+    expect(screen.queryByText(form.patientName!)).not.toBeInTheDocument();
+    expect(top).toHaveTextContent("Page 2");
+    const forward = new URL(jest.mocked(sdkFetch).mock.calls[0][0], "https://test.local");
+    expect(Object.fromEntries(forward.searchParams)).toEqual({
+      limit: "20", includeArchived: "1", formType: "study_request", cursor: "FORM-00001",
+    });
+
+    await user.click(within(bottom).getByRole("button", { name: "Previous page" }));
+    expect(await screen.findByText(form.patientName!)).toBeVisible();
+    expect(screen.queryByText(secondForm.patientName)).not.toBeInTheDocument();
+    expect(bottom).toHaveTextContent("Page 1");
+    const backward = new URL(jest.mocked(sdkFetch).mock.calls[1][0], "https://test.local");
+    expect(Object.fromEntries(backward.searchParams)).toEqual({
+      limit: "20", includeArchived: "1", formType: "study_request",
+    });
+  });
+
+  it("keeps the current page when a request fails and allows retry without overlapping loads", async () => {
+    const user = userEvent.setup();
+    let rejectPage!: (error: Error) => void;
+    const response = new Promise((_, reject) => { rejectPage = reject; });
+    jest.mocked(sdkFetch)
+      .mockReturnValueOnce(response)
+      .mockResolvedValueOnce({ forms: [{ ...form, patientName: "Retried Patient" }], nextCursor: null, hasMore: false });
+    renderList([form], "full_admin", "study_request", "en", {
+      initialCursor: form.id, initialHasMore: true,
+    });
+
+    const applyFilters = screen.getByRole("button", { name: "Apply filters" });
+    const showArchived = screen.getByRole("button", { name: "Show archived" });
+    await user.click(screen.getAllByRole("button", { name: "Next page" })[0]);
+    expect(applyFilters).toBeDisabled();
+    expect(showArchived).toBeDisabled();
+    expect(screen.getAllByRole("button", { name: "Previous page" }).every((button) => button.hasAttribute("disabled"))).toBe(true);
+    expect(screen.getAllByRole("button", { name: "Next page" }).every((button) => button.hasAttribute("disabled"))).toBe(true);
+    await act(async () => rejectPage(new Error("Page request failed")));
+
+    expect(await screen.findByText("Page request failed")).toBeVisible();
+    expect(screen.getByText(form.patientName!)).toBeVisible();
+    expect(screen.getAllByRole("navigation", { name: "Forms pagination" })[0]).toHaveTextContent("Page 1");
+    await user.click(screen.getAllByRole("button", { name: "Next page" })[0]);
+    expect(await screen.findByText("Retried Patient")).toBeVisible();
+    expect(screen.queryByText(form.patientName!)).not.toBeInTheDocument();
+    expect(screen.getAllByRole("navigation", { name: "Forms pagination" })[0]).toHaveTextContent("Page 2");
+    expect(screen.getAllByRole("button", { name: "Next page" }).every((button) => button.hasAttribute("disabled"))).toBe(true);
+  });
+
+  it("resets the page and cursor history when filters change", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch)
+      .mockResolvedValueOnce({ forms: [{ ...form, patientName: "Second page" }], nextCursor: null, hasMore: false })
+      .mockResolvedValueOnce({ forms: [{ ...form, patientName: "Filtered Patient" }], nextCursor: null, hasMore: false });
+    renderList([form], "full_admin", "study_request_cojoined", "en", {
+      includeArchived: true, initialCursor: form.id, initialHasMore: true,
+    });
+
+    await user.click(screen.getAllByRole("button", { name: "Next page" })[0]);
+    expect(await screen.findByText("Second page")).toBeVisible();
+    await user.type(screen.getByLabelText("Search by patient"), "Filtered");
+    await user.click(screen.getByRole("button", { name: "Apply filters" }));
+    expect(await screen.findByText("Filtered Patient")).toBeVisible();
+    expect(screen.queryByText("Second page")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("navigation", { name: "Forms pagination" })[0]).toHaveTextContent("Page 1");
+    expect(screen.getAllByRole("button", { name: "Previous page" }).every((button) => button.hasAttribute("disabled"))).toBe(true);
+    const query = new URL(jest.mocked(sdkFetch).mock.calls[1][0], "https://test.local");
+    expect(Object.fromEntries(query.searchParams)).toEqual({
+      limit: "20", includeArchived: "1", formType: "study_request", search: "Filtered",
+    });
   });
 });

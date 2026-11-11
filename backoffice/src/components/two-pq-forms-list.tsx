@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type ComponentProps, type FormEvent, type ReactNode, useState } from "react";
+import { type ComponentProps, type FormEvent, type ReactNode, useRef, useState } from "react";
 import {
   Archive,
+  ArrowLeft,
   ArrowDownToLine,
   ArrowRight,
   ArrowUpDown,
@@ -466,8 +467,11 @@ export function TwoPQFormsList({
     useState<FormsFilterState>(initialFilters);
   const [nextCursor, setNextCursor] = useState<string | null>(initialCursor);
   const [hasMore, setHasMore] = useState(initialHasMore);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageCursors, setPageCursors] = useState<Array<string | null>>([null]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const loadingRef = useRef(false);
+  const resultsRef = useRef<HTMLDivElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toast, setToast] = useState<ActionToastState | null>(null);
   const visibleForms =
@@ -486,32 +490,29 @@ export function TwoPQFormsList({
 
   async function loadForms(
     nextFilters: FormsFilterState,
-    options: { append?: boolean; cursor?: string | null } = {},
+    options: { pageIndex: number; cursor: string | null } | null = null,
   ) {
-    const append = Boolean(options.append);
-    if (append && !options.cursor) {
-      return;
-    }
-
-    if (append) {
-      setIsLoadingMore(true);
-    } else {
-      setIsLoading(true);
-    }
+    if (loadingRef.current || isSubmitting) return;
+    loadingRef.current = true;
+    setIsLoading(true);
 
     try {
-      const params = buildFormsQuery(nextFilters, pageSize, options.cursor);
+      const params = buildFormsQuery(nextFilters, pageSize, options?.cursor);
       const payload = await sdkFetch<FormsPageResponse>(
         `/2pq/forms?${params.toString()}`,
       );
-      setStoredForms((current) =>
-        append ? [...current, ...payload.forms] : payload.forms,
-      );
+      setStoredForms(payload.forms);
       setNextCursor(payload.nextCursor ?? null);
       setHasMore(Boolean(payload.hasMore));
-      setFilters(nextFilters);
-      setDraftFilters(nextFilters);
-      if (!append) {
+      if (options) {
+        setPageIndex(options.pageIndex);
+        setPageCursors((current) => [...current.slice(0, options.pageIndex), options.cursor]);
+        resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else {
+        setPageIndex(0);
+        setPageCursors([null]);
+        setFilters(nextFilters);
+        setDraftFilters(nextFilters);
         router.replace(buildFormsUrl(nextFilters), { scroll: false });
       }
     } catch (error) {
@@ -524,11 +525,8 @@ export function TwoPQFormsList({
             : t("Unable to load stored forms."),
       });
     } finally {
-      if (append) {
-        setIsLoadingMore(false);
-      } else {
-        setIsLoading(false);
-      }
+      loadingRef.current = false;
+      setIsLoading(false);
     }
   }
 
@@ -543,7 +541,7 @@ export function TwoPQFormsList({
   }
 
   async function handleConfirmAction() {
-    if (!pendingAction) {
+    if (!pendingAction || loadingRef.current) {
       return;
     }
 
@@ -597,6 +595,44 @@ export function TwoPQFormsList({
       setIsSubmitting(false);
     }
   }
+
+  const pagination = !limit ? (
+    <nav
+      aria-label={t("Forms pagination")}
+      aria-busy={isLoading}
+      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-background/70 px-4 py-3"
+    >
+      <p aria-live="polite" className="text-sm text-muted-foreground">
+        <span className="font-semibold text-foreground">{t("Page")} {pageIndex + 1}</span>
+        {" · "}{visibleForms.length} {t("forms shown")}
+        {" · "}{pageSize} {t("per page")}
+      </p>
+      <div className="flex w-full items-center gap-2 sm:w-auto">
+        <Button
+          type="button"
+          variant="outline"
+          size="lg"
+          className="h-auto min-h-10 flex-1 whitespace-normal px-4 py-2 sm:flex-none"
+          disabled={isLoading || isSubmitting || pageIndex === 0}
+          onClick={() => void loadForms(filters, { pageIndex: pageIndex - 1, cursor: pageCursors[pageIndex - 1] ?? null })}
+        >
+          <ArrowLeft className="size-4" />
+          {t("Previous page")}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="lg"
+          className="h-auto min-h-10 flex-1 whitespace-normal px-4 py-2 sm:flex-none"
+          disabled={isLoading || isSubmitting || !hasMore || !nextCursor}
+          onClick={() => void loadForms(filters, { pageIndex: pageIndex + 1, cursor: nextCursor })}
+        >
+          {t("Next page")}
+          {isLoading ? <Loader2 className="size-4 animate-spin" /> : <ArrowRight className="size-4" />}
+        </Button>
+      </div>
+    </nav>
+  ) : null;
 
   return (
     <>
@@ -807,17 +843,21 @@ export function TwoPQFormsList({
               {t("Clear filters")}
             </Button>
           ) : null}
-          <p className="ml-auto text-xs text-muted-foreground">
-            {visibleForms.length} {t("forms shown")}
-          </p>
+          {limit ? (
+            <p className="ml-auto text-xs text-muted-foreground">
+              {visibleForms.length} {t("forms shown")}
+            </p>
+          ) : null}
         </div>
       </form>
 
-      <div className="grid gap-3">
+      {pagination ? <div ref={resultsRef} className="scroll-mt-24">{pagination}</div> : null}
+
+      <div className="grid gap-3" aria-busy={isLoading}>
         {visibleForms.length === 0 ? (
           <div className={emptyClass}>
             {hasMore
-              ? t("No matches on this page. Load more to continue.")
+              ? t("No matches on this page. Continue to the next page.")
               : activeFilters
                 ? t("No forms match these filters.")
                 : t("No stored forms yet.")}
@@ -937,6 +977,7 @@ export function TwoPQFormsList({
                       type="button"
                       variant="destructive"
                       size="sm"
+                      disabled={isLoading || isSubmitting}
                       onClick={() => setPendingAction({ type: "delete", form })}
                     >
                       <Trash2 className="size-3.5" />
@@ -948,6 +989,7 @@ export function TwoPQFormsList({
                       type="button"
                       variant="outline"
                       size="sm"
+                      disabled={isLoading || isSubmitting}
                       onClick={() =>
                         setPendingAction({ type: "archive", form })
                       }
@@ -964,26 +1006,7 @@ export function TwoPQFormsList({
         )}
       </div>
 
-      {hasMore && !limit ? (
-        <div className="flex justify-center">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              void loadForms(filters, { append: true, cursor: nextCursor })
-            }
-            disabled={isLoadingMore || !nextCursor}
-          >
-            {isLoadingMore ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <ArrowDownToLine className="size-3.5" />
-            )}
-            {isLoadingMore ? t("Loading...") : t("Load more")}
-          </Button>
-        </div>
-      ) : null}
+      {pagination}
 
       <AlertDialog
         open={Boolean(pendingAction)}
@@ -1029,7 +1052,7 @@ export function TwoPQFormsList({
                 pendingAction?.type === "delete" ? "destructive" : "default"
               }
               onClick={() => void handleConfirmAction()}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isLoading}
             >
               {isSubmitting
                 ? t("Working...")
