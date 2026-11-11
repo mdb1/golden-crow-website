@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   CloudCheck,
   Download,
+  ExternalLink,
   FilePenLine,
   FileUp,
   ImagePlus,
@@ -80,7 +81,7 @@ import type {
   InformedConsentRecord,
   InformedConsentSavedSignaturePayload,
 } from "@/lib/informed-consents";
-import { informedConsentDraftPath } from "@/lib/informed-consents";
+import { informedConsentDraftPath, informedConsentFileHref } from "@/lib/informed-consents";
 import { SdkRequestError, sdkFetch } from "@/lib/sdk-client";
 import { cn } from "@/lib/utils";
 
@@ -866,7 +867,7 @@ function SignaturePagePreview({
   return (
     <div
       ref={pageRef}
-      className="relative mx-auto w-full max-w-2xl overflow-hidden rounded-sm bg-white shadow-[0_18px_50px_rgba(15,23,42,0.18)] ring-1 ring-black/10"
+      className="relative w-full overflow-hidden rounded-sm bg-white shadow-[0_18px_50px_rgba(15,23,42,0.18)] ring-1 ring-black/10"
     >
       <img
         src={CONSENT_TEMPLATE_PREVIEW_URLS[pageIndex]}
@@ -1251,6 +1252,7 @@ export function PatientConsentUploadWizard({
   const [completedConsentId, setCompletedConsentId] = useState<string | null>(
     null,
   );
+  const patientConsentSubmitted = !isBackoffice && Boolean(completedConsentId);
   const [preparing, setPreparing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [draftSaveStatus, setDraftSaveStatus] = useState<DraftSaveStatus>(
@@ -2087,7 +2089,7 @@ export function PatientConsentUploadWizard({
     const destination = isBackoffice
       ? `/2pq-dashboard/consents/${encodeURIComponent(completedConsentId)}`
       : "/patient-portal/consents";
-    setCompletedConsentId(null);
+    if (isBackoffice) setCompletedConsentId(null);
     router.push(destination);
     router.refresh();
   }
@@ -2247,7 +2249,7 @@ export function PatientConsentUploadWizard({
 
   return (
     <>
-      <div className="relative">
+      <div className="relative" inert={patientConsentSubmitted} aria-hidden={patientConsentSubmitted || undefined}>
         {saving ? (
           <div
             data-testid="consent-final-submit-lock"
@@ -2739,9 +2741,9 @@ export function PatientConsentUploadWizard({
               ) : null}
 
               {activeStepId === "signature" ? (
-                <div className="max-w-4xl space-y-5">
+                <div className="w-full space-y-5">
                   <div
-                    className={cn("grid gap-5", hasPartner && "lg:grid-cols-2")}
+                    className={cn("grid gap-5", hasPartner && "xl:grid-cols-2")}
                   >
                     <section className="space-y-3 rounded-xl border border-border/70 bg-background/60 p-4">
                       <div>
@@ -2836,7 +2838,7 @@ export function PatientConsentUploadWizard({
 
               {activeStepId === "editor" ? (
                 signaturesComplete && signerDataComplete ? (
-                  <div className="space-y-5">
+                  <div className="mx-auto w-full max-w-2xl space-y-5">
                     {hasPartner ? (
                       <div
                         role="group"
@@ -2896,9 +2898,9 @@ export function PatientConsentUploadWizard({
               {activeStepId === "preview" ? (
                 signaturesComplete && signerDataComplete && signedFile ? (
                   <div className="space-y-5">
-                    <div className="grid gap-6 xl:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
                       {CONSENT_TEMPLATE_PREVIEW_URLS.map((_, pageIndex) => (
-                        <div key={pageIndex} className="space-y-2">
+                        <div key={pageIndex} className="min-w-0 space-y-2">
                           <p className="text-sm font-semibold">
                             Página {pageIndex + 1}
                           </p>
@@ -2910,7 +2912,7 @@ export function PatientConsentUploadWizard({
                         </div>
                       ))}
                     </div>
-                    <section className="mx-auto max-w-4xl overflow-hidden rounded-2xl border border-blue-200 bg-[linear-gradient(145deg,rgba(239,246,255,0.98),rgba(236,254,255,0.76))] shadow-[0_24px_70px_-48px_rgba(37,99,235,0.82)] dark:border-blue-400/24 dark:bg-[linear-gradient(145deg,rgba(30,58,138,0.34),rgba(8,47,73,0.26))]">
+                    <section className="w-full overflow-hidden rounded-2xl border border-blue-200 bg-[linear-gradient(145deg,rgba(239,246,255,0.98),rgba(236,254,255,0.76))] shadow-[0_24px_70px_-48px_rgba(37,99,235,0.82)] dark:border-blue-400/24 dark:bg-[linear-gradient(145deg,rgba(30,58,138,0.34),rgba(8,47,73,0.26))]">
                       <div className="flex items-start gap-3 border-b border-blue-200/70 px-5 py-4 dark:border-blue-300/16">
                         <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-[0_12px_30px_rgba(37,99,235,0.28)]">
                           <LockKeyhole className="size-5" />
@@ -3058,7 +3060,7 @@ export function PatientConsentUploadWizard({
               <aside
                 data-testid="guided-signing-security-banner"
                 aria-labelledby="guided-signing-security-title"
-                className="mt-8 flex max-w-3xl items-start gap-3 rounded-2xl border border-blue-200/80 bg-[linear-gradient(135deg,rgba(239,246,255,0.96),rgba(236,254,255,0.72))] p-4 text-blue-950 shadow-[0_18px_50px_-38px_rgba(37,99,235,0.75)] dark:border-blue-400/24 dark:bg-[linear-gradient(135deg,rgba(30,58,138,0.34),rgba(8,47,73,0.28))] dark:text-blue-50"
+                className="mt-8 flex w-full items-start gap-3 rounded-2xl border border-blue-200/80 bg-[linear-gradient(135deg,rgba(239,246,255,0.96),rgba(236,254,255,0.72))] p-4 text-blue-950 shadow-[0_18px_50px_-38px_rgba(37,99,235,0.75)] dark:border-blue-400/24 dark:bg-[linear-gradient(135deg,rgba(30,58,138,0.34),rgba(8,47,73,0.28))] dark:text-blue-50"
               >
                 <span
                   aria-hidden="true"
@@ -3329,15 +3331,25 @@ export function PatientConsentUploadWizard({
                 </span>
                 .
               </p>
-              <Button
-                type="button"
-                autoFocus
-                onClick={continueAfterGuidedCompletion}
-                className="mt-6 h-12 rounded-[1.1rem] border border-blue-100/20 bg-white px-7 text-sm font-semibold text-blue-950 shadow-[0_18px_48px_rgba(186,230,253,0.24)] hover:bg-blue-50"
-              >
-                Continuar
-                <ArrowRight className="h-4 w-4" />
-              </Button>
+              <div className="mt-6 flex flex-wrap justify-center gap-2">
+                {!isBackoffice ? (
+                  <Button asChild variant="outline" className="h-12 rounded-[1.1rem] border-blue-100/40 bg-white/10 text-white hover:bg-white/20 hover:text-white">
+                    <a href={informedConsentFileHref(completedConsentId)} target="_blank" rel="noreferrer">
+                      <ExternalLink className="size-4" />
+                      Ver consentimiento
+                    </a>
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  autoFocus
+                  onClick={continueAfterGuidedCompletion}
+                  className="h-12 rounded-[1.1rem] border border-blue-100/20 bg-white px-7 text-sm font-semibold text-blue-950 shadow-[0_18px_48px_rgba(186,230,253,0.24)] hover:bg-blue-50"
+                >
+                  Continuar
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </div>

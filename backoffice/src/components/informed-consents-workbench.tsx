@@ -34,9 +34,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type {
-  InformedConsentPage,
-  InformedConsentRecord,
+import {
+  informedConsentFileHref,
+  type InformedConsentPage,
+  type InformedConsentRecord,
 } from "@/lib/informed-consents";
 import { isGlobalAdminRole } from "@/lib/admin-areas";
 import { appText } from "@/lib/language";
@@ -354,7 +355,7 @@ export function InformedConsentsWorkbench({
                         </Button>
                         <Button variant="outline" size="sm" asChild>
                           <a
-                            href={`/api/sdk/2pq/informed-consents/${encodeURIComponent(record.id)}/file`}
+                            href={informedConsentFileHref(record.id)}
                             target="_blank"
                             rel="noreferrer"
                           >
@@ -402,7 +403,7 @@ export function InformedConsentsWorkbench({
                   <div className="flex items-center gap-2">
                     <Button variant="outline" size="sm" asChild>
                       <a
-                        href={`/api/sdk/2pq/informed-consents/${encodeURIComponent(record.id)}/file`}
+                        href={informedConsentFileHref(record.id)}
                         target="_blank"
                         rel="noreferrer"
                       >

@@ -1,11 +1,13 @@
 import Link from "next/link";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { ArrowLeft, ExternalLink, RefreshCw } from "lucide-react";
 import { PatientConsentUploadWizard } from "@/components/patient-consent-upload-wizard";
 import { Button } from "@/components/ui/button";
 import type { MyAccountRecord } from "@/lib/admin-areas";
 import {
   INFORMED_CONSENT_REQUEST_STATUS_LABELS,
+  canPatientUploadConsent,
   informedConsentDraftPath,
+  informedConsentFileHref,
   patientConsentUploadHref,
   type InformedConsentDraftRecord,
   type InformedConsentStudyRequest,
@@ -52,12 +54,22 @@ export default async function PatientPortalNewConsentPage({
   }
 
   const { request } = requestPayload;
-  if (!request.canUpload) {
+  if (!canPatientUploadConsent(request)) {
     return (
-      <section className="space-y-3 rounded-xl border bg-card p-4">
+      <section className="space-y-4 rounded-xl border bg-card p-4 sm:p-6">
         <h2 className="font-heading text-lg font-semibold">Solicitud {request.id}</h2>
         <p>Consentimiento informado · {INFORMED_CONSENT_REQUEST_STATUS_LABELS[request.consent.status]}</p>
-        <BackToConsents />
+        <div className="flex flex-wrap gap-2">
+          <BackToConsents />
+          {request.consent.id ? (
+            <Button asChild size="sm">
+              <a href={informedConsentFileHref(request.consent.id)} target="_blank" rel="noreferrer">
+                <ExternalLink className="size-4" />
+                Ver consentimiento
+              </a>
+            </Button>
+          ) : null}
+        </div>
       </section>
     );
   }

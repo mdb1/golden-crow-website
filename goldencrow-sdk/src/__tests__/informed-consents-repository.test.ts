@@ -1204,6 +1204,77 @@ describe("informed consent repository scoping", () => {
     })).rejects.toMatchObject({ statusCode: 400 });
   });
 
+  it("keeps a submitted consent read-only for the patient while it awaits staff review", async () => {
+    const {
+      createInformedConsentForContext,
+      getInformedConsentDraftForContext,
+      getInformedConsentDraftStatusForContext,
+      getInformedConsentFileForContext,
+      getStudyRequestConsentForContext,
+      listStudyRequestConsentsForContext,
+      upsertInformedConsentDraftForContext,
+    } = await import("../repositories/informed-consents.repository");
+    const consent = consentDoc(requestConsentId(), "INST-00001", "DOC-00001", "PAT-00001");
+    Object.assign(consent.data, {
+      studyRequestFormId: FORM_ID,
+      reviewStatus: "needs_review",
+      uploadedAt: "2026-11-10T14:20:01.000Z",
+    });
+    studyRequestDocs[0]!.data.informedConsentId = consent.id;
+    consentDocs.push(consent);
+    draftDocs.push(scopedDraftDoc());
+
+    const submittedSummary = {
+      consent: { id: consent.id, status: "needs_review" },
+      canUpload: false,
+    };
+    await expect(getStudyRequestConsentForContext(patientContext, FORM_ID))
+      .resolves.toMatchObject(submittedSummary);
+    await expect(listStudyRequestConsentsForContext(patientContext))
+      .resolves.toMatchObject({ requests: [submittedSummary] });
+    await expect(getInformedConsentFileForContext(patientContext, consent.id))
+      .resolves.toEqual({ name: `${consent.id}.pdf`, type: "application/pdf", bytes: Buffer.from("x") });
+    await expect(getInformedConsentFileForContext({ ...patientContext, patientId: "PAT-00002" }, consent.id))
+      .rejects.toMatchObject({ statusCode: 403 });
+    await expect(getInformedConsentDraftForContext(patientContext, FORM_ID)).resolves.toBeNull();
+    await expect(getInformedConsentDraftStatusForContext(patientContext, FORM_ID)).resolves.toBeNull();
+
+    const conflict = {
+      statusCode: 409,
+      message: "This consent has already been submitted. You can view the submitted file.",
+    };
+    await expect(upsertInformedConsentDraftForContext(patientContext, validDraftMutation(2), FORM_ID))
+      .rejects.toMatchObject(conflict);
+    const file = {
+      name: "replacement.pdf",
+      type: "application/pdf",
+      size: 1,
+      content: "data:application/pdf;base64,eA==",
+    };
+    await expect(createInformedConsentForContext(patientContext, {
+      studyRequestFormId: FORM_ID, flowMode: "direct", expectedDraftRevision: 2, file,
+    })).rejects.toMatchObject(conflict);
+    await expect(createInformedConsentForContext(patientContext, {
+      studyRequestFormId: FORM_ID,
+      flowMode: "guided",
+      expectedDraftRevision: null,
+      signatureAttestationAccepted: true,
+      savedSignature: SAVED_SIGNATURE,
+      file,
+    })).rejects.toMatchObject(conflict);
+    expectNoEntityTransactionWrites();
+
+    const staff = { ...baseContext, role: "full_admin" as const };
+    await expect(getStudyRequestConsentForContext(staff, FORM_ID))
+      .resolves.toMatchObject({ canUpload: true, canApprove: true });
+    await expect(createInformedConsentForContext(staff, { studyRequestFormId: FORM_ID, file }))
+      .resolves.toMatchObject({ id: consent.id, reviewStatus: "needs_review" });
+    expect(transactionSetMock).toHaveBeenCalledWith(
+      expect.objectContaining({ collectionName: "2pq-informed-consent", id: consent.id }),
+      expect.objectContaining({ file }),
+    );
+  });
+
   it("reviews the current upload only and preserves the ready consent", async () => {
     const {
       approveStudyRequestConsentForContext, createInformedConsentForContext,

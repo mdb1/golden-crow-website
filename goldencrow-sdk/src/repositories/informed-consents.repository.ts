@@ -56,6 +56,8 @@ export const INFORMED_CONSENT_SIGNATURE_ATTESTATION_STATEMENT =
 const CONSENT_EMAIL_SENDER_EMAIL = "dopazoh+admin@gmail.com";
 const PUBLISHER_CONSENT_ERROR =
   "Discover publishers cannot access informed consents.";
+const SUBMITTED_CONSENT_ERROR =
+  "This consent has already been submitted. You can view the submitted file.";
 
 const ALLOWED_FILE_TYPES = new Set([
   "application/pdf",
@@ -687,7 +689,7 @@ async function projectStudyRequestConsent(
     doctorName: optionalString(doctor?.fullName),
     doctorLicenseNumber: optionalString(doctor?.licenseNumber),
     consent,
-    canUpload: canChange && status !== "ready",
+    canUpload: canChange && (staff ? status !== "ready" : !request.consentId),
     canApprove: staff && canChange && status === "needs_review" && Boolean(consent.uploadedAt),
     canResend: staff && canChange && status !== "ready" && Boolean(patient.email),
   };
@@ -1168,6 +1170,7 @@ export async function getInformedConsentDraftForContext(
   const request = studyRequestFormId
     ? await getStudyRequestForConsent(context, studyRequestFormId)
     : undefined;
+  if (request?.consentId) return null;
   const draftId = consentDraftId(uid, request?.id);
   const snapshot = await adminDb
     .collection(CONSENT_DRAFTS_COLLECTION)
@@ -1196,6 +1199,7 @@ export async function getInformedConsentDraftStatusForContext(
   const request = studyRequestFormId
     ? await getStudyRequestForConsent(context, studyRequestFormId)
     : undefined;
+  if (request?.consentId) return null;
   const draftId = consentDraftId(uid, request?.id);
   const snapshot = await adminDb
     .collection(CONSENT_DRAFTS_COLLECTION)
@@ -1274,6 +1278,9 @@ export async function upsertInformedConsentDraftForContext(
       const request = requireStudyRequestForConsent(
         context, requestRef.id, (await transaction.get(requestRef)).data(),
       );
+      if (request.consentId) {
+        throw new AdminRepositoryError(SUBMITTED_CONSENT_ERROR, 409);
+      }
       if (!canChangeStudyRequestConsent(request)) {
         throw new AdminRepositoryError("Consent for this study request can no longer be changed.", 409);
       }
@@ -1558,6 +1565,9 @@ export async function createInformedConsentForContext(
       const currentRequest = requireStudyRequestForConsent(context, request.id, requestSnapshot.data());
       const currentPatient = revalidateGuidedSignaturePatient(context, patient, patientSnapshot);
       assertPatientMatchesStudyRequest(currentPatient, currentRequest);
+      if (context.role === "patient" && (currentRequest.consentId || currentSnapshot.exists)) {
+        throw new AdminRepositoryError(SUBMITTED_CONSENT_ERROR, 409);
+      }
       if (!canChangeStudyRequestConsent(currentRequest)) {
         throw new AdminRepositoryError("Consent for this study request can no longer be changed.", 409);
       }

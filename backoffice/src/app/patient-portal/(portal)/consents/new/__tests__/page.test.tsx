@@ -126,19 +126,26 @@ describe("patient portal new consent page", () => {
     expect(mockPatientConsentUploadWizard).not.toHaveBeenCalled();
   });
 
-  it("shows the current status without opening the wizard when upload is closed", async () => {
+  it.each([
+    ["needs_review", "Requiere revisión"],
+    ["ready", "Listo"],
+  ] as const)("opens a %s consent read-only even when the SDK allows upload", async (status, label) => {
     jest.mocked(sdkFetchServer).mockResolvedValueOnce({
       request: {
         ...request,
-        canUpload: false,
-        consent: { id: "CONSENT-101", status: "ready" },
+        consent: { id: "CONSENT-101", status },
       },
     });
 
     await openRequest();
 
-    expect(screen.getByText("Consentimiento informado · Listo")).toBeVisible();
+    expect(screen.getByText(`Consentimiento informado · ${label}`)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Ver consentimiento" }))
+      .toHaveAttribute("href", "/api/sdk/2pq/informed-consents/CONSENT-101/file");
+    expect(screen.queryByRole("link", { name: "Reemplazar consentimiento" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Completar consentimiento" })).not.toBeInTheDocument();
     expect(sdkFetchServer).toHaveBeenCalledTimes(1);
+    expect(sdkFetchServer).toHaveBeenCalledWith(requestPath);
     expect(mockPatientConsentUploadWizard).not.toHaveBeenCalled();
   });
 });

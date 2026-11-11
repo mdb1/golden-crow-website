@@ -47,12 +47,18 @@ describe("patient portal consent list page", () => {
       throw new Error(`Unexpected SDK path: ${path}`);
     });
     jest.mocked(sdkFetch).mockResolvedValueOnce({
-      requests: [{
-        ...request,
-        id: "FORM-102",
-        canUpload: false,
-        consent: { id: "CONSENT-102", status: "ready" },
-      }],
+      requests: [
+        {
+          ...request,
+          id: "FORM-102",
+          consent: { id: "CONSENT-102", status: "needs_review" },
+        },
+        {
+          ...request,
+          id: "FORM-103",
+          consent: { id: "CONSENT-103", status: "ready" },
+        },
+      ],
     });
 
     render(await PatientPortalConsentsPage());
@@ -68,8 +74,16 @@ describe("patient portal consent list page", () => {
     expect(sdkFetch).toHaveBeenCalledWith(
       "/2pq/informed-consents/study-requests?cursor=next-page&limit=20",
     );
-    expect(await within(list).findByText("Listo")).toBeVisible();
-    expect(within(list).getAllByRole("link")).toHaveLength(1);
+    expect(await within(list).findByText("Requiere revisión")).toBeVisible();
+    expect(within(list).getByText("Listo")).toBeVisible();
+    expect(within(list).getAllByRole("link", { name: "Ver consentimiento" }).map(
+      (link) => link.getAttribute("href"),
+    )).toEqual([
+      "/api/sdk/2pq/informed-consents/CONSENT-102/file",
+      "/api/sdk/2pq/informed-consents/CONSENT-103/file",
+    ]);
+    expect(within(list).queryByRole("link", { name: "Reemplazar consentimiento" })).not.toBeInTheDocument();
+    expect(within(list).getAllByRole("link", { name: "Completar consentimiento" })).toHaveLength(1);
   });
 
   it("preserves the consent history if the request list is unavailable", async () => {

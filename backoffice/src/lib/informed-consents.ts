@@ -50,6 +50,14 @@ export function patientConsentUploadHref(studyRequestFormId: string) {
   return `/patient-portal/consents/new?studyRequestFormId=${encodeURIComponent(studyRequestFormId)}`;
 }
 
+export function canPatientUploadConsent(request: InformedConsentStudyRequest) {
+  return request.canUpload && request.consent.status === "pending" && !request.consent.id;
+}
+
+export function informedConsentFileHref(consentId: string) {
+  return `/api/sdk/2pq/informed-consents/${encodeURIComponent(consentId)}/file`;
+}
+
 export interface InformedConsentRecord {
   id: string;
   collectionKey: "2pq-informed-consent";

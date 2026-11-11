@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, ExternalLink, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   INFORMED_CONSENT_REQUEST_STATUS_LABELS,
+  canPatientUploadConsent,
+  informedConsentFileHref,
   patientConsentUploadHref,
   type InformedConsentStudyRequestPage,
 } from "@/lib/informed-consents";
@@ -70,12 +72,17 @@ export function PatientConsentStudyRequests({
                   </p>
                 ) : null}
               </div>
-              {request.canUpload ? (
+              {request.consent.id ? (
+                <Button asChild size="sm" variant="outline">
+                  <a href={informedConsentFileHref(request.consent.id)} target="_blank" rel="noreferrer">
+                    <ExternalLink className="size-4" />
+                    Ver consentimiento
+                  </a>
+                </Button>
+              ) : canPatientUploadConsent(request) ? (
                 <Button asChild size="sm" variant="outline">
                   <Link href={patientConsentUploadHref(request.id)}>
-                    {request.consent.status === "needs_review"
-                      ? "Reemplazar consentimiento"
-                      : "Completar consentimiento"}
+                    Completar consentimiento
                     <ArrowRight className="size-4" />
                   </Link>
                 </Button>

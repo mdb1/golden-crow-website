@@ -2786,6 +2786,11 @@ describe("PatientConsentUploadWizard", () => {
           /El documento se cerró y quedó almacenado correctamente/,
         ),
       ).toBeVisible();
+      expect(screen.getByRole("link", { name: "Ver consentimiento" })).toHaveAttribute(
+        "href",
+        "/api/sdk/2pq/informed-consents/CONSENT-GUIDED/file",
+      );
+      expect(screen.queryByRole("button", { name: "Acepto la realización de este estudio" })).not.toBeInTheDocument();
       expect(mockRouterPush).not.toHaveBeenCalled();
 
       await user.click(screen.getByRole("button", { name: "Continuar" }));
