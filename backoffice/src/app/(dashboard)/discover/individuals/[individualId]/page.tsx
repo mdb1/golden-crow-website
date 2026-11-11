@@ -55,6 +55,9 @@ export default async function DiscoverIndividualDetailPage({
           individual={individual}
           canManageSystemFields={isGlobalAdminRole(adminContext.role)}
           canDeletePublisher={canDeletePublisher}
+          canManagePortalAccessKey={
+            isGlobalAdminRole(adminContext.role) && adminContext.isBootstrap
+          }
           deleteSuccessAction={
             canDeleteOwnPublisher ? "publisher-login" : "list"
           }

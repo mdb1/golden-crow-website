@@ -264,9 +264,8 @@ describe("publisher portal login", () => {
     window.history.replaceState(null, "", "/");
   });
 
-  it("prefills the publisher key, removes it from the address, and waits for an explicit sign-in", async () => {
+  it.each(["Sample+code&42", "pgp1.normal-password"])("prefills the publisher key %s, removes it from the address, and waits for an explicit sign-in", async (key) => {
     const user = userEvent.setup();
-    const key = "Sample+code&42";
     window.history.replaceState(null, "", `/publisher-portal/login?email=publisher%2Bapp%40example.com&accessKey=${encodeURIComponent(key)}&callbackUrl=%2Fpublisher-portal%2Fapp%2Fnew`);
     render(<LoginExperience surface="publisher-portal" initialEmail="publisher+app@example.com" initialAccessKey={key} />);
     expect((screen.getByLabelText("Clave de acceso") as HTMLInputElement).value).toBe(key);
@@ -282,20 +281,21 @@ describe("publisher portal login", () => {
 
   it("exchanges a prefilled publisher code only after the access button is pressed", async () => {
     const user = userEvent.setup();
+    const key = `pgp1.${"a".repeat(300)}.signature`;
     fetchMock.mockResolvedValueOnce({ ok: true, clone() { return this; }, json: async () => ({ customToken: "firebase-custom-token" }), text: async () => JSON.stringify({ customToken: "firebase-custom-token" }) });
     jest.mocked(signInWithCustomToken).mockResolvedValueOnce({ user: { getIdToken: async () => { throw new Error("Stop before session handoff"); } } } as never);
-    render(<LoginExperience surface="publisher-portal" initialEmail="publisher@example.com" initialAccessKey="pgp1.preview.signature" />);
+    render(<LoginExperience surface="publisher-portal" initialEmail="publisher@example.com" initialAccessKey={key} />);
     expect(fetchMock).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "Acceder al portal" }));
     await waitFor(() => expect(signInWithCustomToken).toHaveBeenCalledWith(expect.anything(), "firebase-custom-token"));
-    expect(fetchMock).toHaveBeenCalledWith("/api/sdk/publisher-portal/access-code", expect.objectContaining({ method: "POST", body: JSON.stringify({ email: "publisher@example.com", accessKey: "pgp1.preview.signature" }) }));
+    expect(fetchMock).toHaveBeenCalledWith("/api/sdk/publisher-portal/access-code", expect.objectContaining({ method: "POST", body: JSON.stringify({ email: "publisher@example.com", accessKey: key }) }));
     expect(signInWithEmailAndPassword).not.toHaveBeenCalled();
   });
 
   it("does not authenticate with Firebase when the publisher code is rejected", async () => {
     const user = userEvent.setup();
     fetchMock.mockResolvedValueOnce({ ok: false, status: 401, clone() { return this; }, json: async () => ({ error: "Invalid code" }), text: async () => '{"error":"Invalid code"}' });
-    render(<LoginExperience surface="publisher-portal" initialEmail="publisher@example.com" initialAccessKey="pgp1.invalid.signature" />);
+    render(<LoginExperience surface="publisher-portal" initialEmail="publisher@example.com" initialAccessKey={`pgp1.${"a".repeat(300)}.invalid`} />);
     await user.click(screen.getByRole("button", { name: "Acceder al portal" }));
     await waitFor(() => expect(screen.getByText("No pudimos usar este enlace de acceso")).toBeTruthy());
     expect(signInWithCustomToken).not.toHaveBeenCalled();

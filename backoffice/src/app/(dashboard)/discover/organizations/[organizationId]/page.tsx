@@ -74,6 +74,9 @@ export default async function DiscoverOrganizationDetailPage({
             isGlobalAdminRole(adminContext.role) && adminContext.isBootstrap
           }
           canDeletePublisher={canDeletePublisher}
+          canManagePortalAccessKey={
+            isGlobalAdminRole(adminContext.role) && adminContext.isBootstrap
+          }
           deleteSuccessAction={
             canDeleteOwnPublisher ? "publisher-login" : "list"
           }

@@ -87,6 +87,7 @@ const individual: DiscoverIndividualRecord = {
 };
 
 type WorkbenchOverrides = {
+  canManagePortalAccessKey?: boolean;
   canDeletePublisher?: boolean;
   canManageGrcHighlight?: boolean;
   canManageSystemFields?: boolean;
@@ -154,6 +155,17 @@ function lastSdkRequestBody() {
     .find(([, init]) => typeof init?.body === "string");
   return JSON.parse(call?.[1]?.body as string) as Record<string, unknown>;
 }
+
+it.each(["organization", "individual"] as const)("shows the %s credential modal only when GOD MODE access is supplied", (kind) => {
+  const renderPublisher = kind === "organization" ? renderWorkbench : renderIndividualWorkbench;
+  renderPublisher("en", { canManagePortalAccessKey: true });
+  expect(screen.getByRole("button", { name: "Portal access key" })).toBeVisible();
+});
+
+it("does not expose the credential control to ordinary publisher editors", () => {
+  renderWorkbench("en", { canManageSystemFields: true });
+  expect(screen.queryByRole("button", { name: "Portal access key" })).toBeNull();
+});
 
 describe("DiscoverOrganizationWorkbench accent color", () => {
   beforeEach(() => {

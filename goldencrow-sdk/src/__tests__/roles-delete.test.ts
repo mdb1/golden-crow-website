@@ -1413,10 +1413,15 @@ describe("transport dispatcher role metadata", () => {
     });
   });
 
-  it("provisions publisher portal access with a generated access key", async () => {
+  it.each(["organization", "individual"] as const)("provisions %s publisher portal access and saves the generated key", async (kind) => {
+    const previousSecret = process.env.PUBLISHER_PORTAL_CREDENTIALS_SECRET;
+    process.env.PUBLISHER_PORTAL_CREDENTIALS_SECRET = "publisher-role-credential-test-".repeat(3);
+    try {
     const { provisionPublisherPortalRoleForContext } =
       await import("../repositories/roles.repository");
-    mockDocs.set("feed_organizations/org-1", {
+    const { openPublisherAccessKey } = await import("../lib/publisher-portal-credentials");
+    const collection = kind === "organization" ? "feed_organizations" : "feed_individuals";
+    mockDocs.set(`${collection}/org-1`, {
       name: "Publisher One",
       createdAt: "2026-08-31T12:00:00.000Z",
       updatedAt: "2026-08-31T12:00:00.000Z",
@@ -1427,7 +1432,7 @@ describe("transport dispatcher role metadata", () => {
     });
 
     const role = await provisionPublisherPortalRoleForContext(godModeContext, {
-      kind: "organization",
+      kind,
       publisherId: "org-1",
       displayName: "Publisher One",
       contactEmail: " PUBLISHER@example.org ",
@@ -1451,21 +1456,46 @@ describe("transport dispatcher role metadata", () => {
     );
     expect(role).toMatchObject({
       email: "publisher@example.org",
-      role: "organization_publisher",
-      organizationId: "org-1",
+      role: kind === "organization" ? "organization_publisher" : "individual_publisher",
+      [kind === "organization" ? "organizationId" : "individualId"]: "org-1",
       firebaseUid: "publisher-uid",
       isActive: true,
       canAccessPatientPortal: false,
-      organizationName: "Publisher One",
     });
     expect(mockDocs.get("user_roles/publisher@example.org")).toMatchObject({
-      role: "organization_publisher",
-      organizationId: "org-1",
+      role: kind === "organization" ? "organization_publisher" : "individual_publisher",
+      [kind === "organization" ? "organizationId" : "individualId"]: "org-1",
       firebaseUid: "publisher-uid",
       publisherPortalInviteEmailSentAt: expect.any(String),
       publisherPortalInviteEmailFailedAt: null,
       publisherPortalInviteEmailLastError: null,
     });
+    const ciphertext = mockDocs.get(`${collection}/org-1`)?.portalAccessKey;
+    expect(ciphertext).not.toContain("ABCDEFGH");
+    expect(openPublisherAccessKey(kind, "org-1", ciphertext)).toEqual({ email: "publisher@example.org", accessKey: "ABCDEFGH" });
+    } finally {
+      if (previousSecret === undefined) delete process.env.PUBLISHER_PORTAL_CREDENTIALS_SECRET;
+      else process.env.PUBLISHER_PORTAL_CREDENTIALS_SECRET = previousSecret;
+    }
+  });
+});
+
+describe("publisher credential provisioning rollback", () => {
+  it("restores a previous saved key if Firebase provisioning fails", async () => {
+    jest.resetModules();
+    mockDocs.clear();
+    const previousSecret = process.env.PUBLISHER_PORTAL_CREDENTIALS_SECRET;
+    process.env.PUBLISHER_PORTAL_CREDENTIALS_SECRET = "publisher-role-credential-test-".repeat(3);
+    try {
+      const { provisionPublisherPortalRoleForContext } = await import("../repositories/roles.repository");
+      mockDocs.set("feed_organizations/org-rollback", { name: "Publisher", portalAccessKey: "previous-encrypted-key" });
+      mockProvisionPatientFirebaseAccount.mockRejectedValueOnce(new Error("Firebase unavailable"));
+      await expect(provisionPublisherPortalRoleForContext(godModeContext, { kind: "organization", publisherId: "org-rollback", contactEmail: "rollback@example.com", displayName: "Publisher" })).rejects.toThrow("Firebase unavailable");
+      expect(mockDocs.get("feed_organizations/org-rollback")?.portalAccessKey).toBe("previous-encrypted-key");
+    } finally {
+      if (previousSecret === undefined) delete process.env.PUBLISHER_PORTAL_CREDENTIALS_SECRET;
+      else process.env.PUBLISHER_PORTAL_CREDENTIALS_SECRET = previousSecret;
+    }
   });
 });
 

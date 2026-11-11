@@ -2250,6 +2250,7 @@ export function LoginExperience({
       if (
         isPublisherPortal &&
         initialAccessKey?.startsWith("pgp1.") &&
+        initialAccessKey.length > 256 &&
         password === initialAccessKey &&
         loginEmail === normalizedInitialEmail
       ) {

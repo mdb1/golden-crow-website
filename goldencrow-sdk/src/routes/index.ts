@@ -32,11 +32,13 @@ import { serviceNotificationAccessTokenRoutes } from "./service-notification-acc
 import { publisherAppConfigRoutes } from "./publisher-app-config.routes.js";
 import { connectedPartnersRoutes } from "./connected-partners.routes.js";
 import { publisherAccessCodeRoutes } from "./publisher-access-code.routes.js";
+import { publisherCredentialsRoutes } from "./publisher-credentials.routes.js";
 
 export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(healthRoutes);
   await fastify.register(authRoutes);
   await fastify.register(publisherAccessCodeRoutes);
+  await fastify.register(publisherCredentialsRoutes);
   await fastify.register(areasRoutes);
   await fastify.register(twoPQRoutes);
   await fastify.register(informedConsentRoutes);

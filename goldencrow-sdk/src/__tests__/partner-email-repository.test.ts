@@ -4,6 +4,7 @@ import {
   validatorCompiler,
 } from "fastify-type-provider-zod";
 import type { AdminContext } from "../types/sdk.types.js";
+import { sealPublisherAccessKey } from "../lib/publisher-portal-credentials.js";
 
 type Data = Record<string, unknown>;
 const mockDocs = new Map<string, Data>();
@@ -115,26 +116,26 @@ async function input() {
   };
 }
 
-it("uses the same signed publisher link in the preview and the sent email without storing credentials", async () => {
-  const previousSecret = process.env.PUBLISHER_PORTAL_ACCESS_CODE_SIGNING_SECRET;
-  process.env.PUBLISHER_PORTAL_ACCESS_CODE_SIGNING_SECRET = "partner-mail-test-secret-".repeat(3);
+it("uses the saved publisher key in both preview and sent link without storing credentials in the send command", async () => {
+  const previousSecret = process.env.PUBLISHER_PORTAL_CREDENTIALS_SECRET;
+  process.env.PUBLISHER_PORTAL_CREDENTIALS_SECRET = "partner-mail-test-secret-".repeat(3);
   try {
     mockDocs.set(partnerPath, { ...partner, linkedOrganizationId: "org_one" });
-    mockDocs.set("feed_organizations/org_one", { name: "Genome Studio" });
+    mockDocs.set("feed_organizations/org_one", { name: "Genome Studio", portalAccessKey: sealPublisherAccessKey("organization", "org_one", "ana@example.com", "Test+Key&42") });
     mockDocs.set("user_roles/ana@example.com", { role: "organization_publisher", isActive: true, organizationId: "org_one", firebaseUid: "publisher-uid" });
     mockPublisherUser.mockResolvedValue({ uid: "publisher-uid", email: "ana@example.com", disabled: false, tokensValidAfterTime: "2026-11-10T00:00:00Z" });
     const preview = await previewPartnerEmail(context, partnerId);
     const code = new URL(preview.ctaUrl).searchParams.get("accessKey")!;
-    expect(code).toMatch(/^pgp1\./);
-    expect(preview.accessCodeExpiresAt).toBeDefined();
+    expect(code).toBe("Test+Key&42");
+    expect(preview.accessCodeExpiresAt).toBeUndefined();
     const result = await sendPartnerEmail(context, partnerId, { requestId, language: "es", previewHash: preview.previewHash });
     expect(result.status).toBe("sent");
     expect(sendGmailMessage).toHaveBeenCalledWith(expect.objectContaining({ html: preview.html, text: preview.text }));
     expect(JSON.stringify(mockDocs.get(requestPath))).not.toContain(code);
     expect(JSON.stringify(mockDocs.get(requestPath))).not.toContain("customToken");
   } finally {
-    if (previousSecret === undefined) delete process.env.PUBLISHER_PORTAL_ACCESS_CODE_SIGNING_SECRET;
-    else process.env.PUBLISHER_PORTAL_ACCESS_CODE_SIGNING_SECRET = previousSecret;
+    if (previousSecret === undefined) delete process.env.PUBLISHER_PORTAL_CREDENTIALS_SECRET;
+    else process.env.PUBLISHER_PORTAL_CREDENTIALS_SECRET = previousSecret;
   }
 });
 async function server(adminContext: AdminContext | null = context) {

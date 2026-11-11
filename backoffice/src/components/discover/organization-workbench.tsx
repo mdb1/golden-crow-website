@@ -45,6 +45,7 @@ import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { PublisherCategoryMultiSelect } from "@/components/discover/publisher-category-multi-select";
 import { PublisherCountryMultiSelect } from "@/components/discover/publisher-country-multi-select";
+import { PublisherAccessKeyDialog } from "@/components/discover/publisher-access-key-dialog";
 import {
   PublisherSocialLinksEditor,
   SocialAssetIcon,
@@ -1568,6 +1569,7 @@ function DiscoverPublisherWorkbench({
   canManageSystemFields = true,
   canManageGrcHighlight = false,
   canDeletePublisher = false,
+  canManagePortalAccessKey = false,
   deleteSuccessAction = "list",
   routeBase,
   showListBackLink = true,
@@ -1579,6 +1581,7 @@ function DiscoverPublisherWorkbench({
   canManageSystemFields?: boolean;
   canManageGrcHighlight?: boolean;
   canDeletePublisher?: boolean;
+  canManagePortalAccessKey?: boolean;
   deleteSuccessAction?: DeleteSuccessAction;
   routeBase?: string;
   showListBackLink?: boolean;
@@ -2424,14 +2427,22 @@ function DiscoverPublisherWorkbench({
             </h2>
             <HeaderUnclutterButton />
           </div>
-          {!isIndividual && mode === "edit" && publisher ? (
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`${publisherDetailHref(publisher.id)}/product-catalog`}>
-                <ShoppingBag className="h-3.5 w-3.5" />
-                {t("Product catalog")}
-              </Link>
-            </Button>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            {canManagePortalAccessKey && mode === "edit" && publisher ? (
+              <PublisherAccessKeyDialog
+                publisherId={publisher.id}
+                publisherKind={publisherKind}
+              />
+            ) : null}
+            {!isIndividual && mode === "edit" && publisher ? (
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`${publisherDetailHref(publisher.id)}/product-catalog`}>
+                  <ShoppingBag className="h-3.5 w-3.5" />
+                  {t("Product catalog")}
+                </Link>
+              </Button>
+            ) : null}
+          </div>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
@@ -3666,6 +3677,7 @@ export function DiscoverOrganizationWorkbench({
   canManageSystemFields = true,
   canManageGrcHighlight = false,
   canDeletePublisher = false,
+  canManagePortalAccessKey = false,
   deleteSuccessAction = "list",
   routeBase,
   showListBackLink = true,
@@ -3676,6 +3688,7 @@ export function DiscoverOrganizationWorkbench({
   canManageSystemFields?: boolean;
   canManageGrcHighlight?: boolean;
   canDeletePublisher?: boolean;
+  canManagePortalAccessKey?: boolean;
   deleteSuccessAction?: DeleteSuccessAction;
   routeBase?: string;
   showListBackLink?: boolean;
@@ -3689,6 +3702,7 @@ export function DiscoverOrganizationWorkbench({
       canManageSystemFields={canManageSystemFields}
       canManageGrcHighlight={canManageGrcHighlight}
       canDeletePublisher={canDeletePublisher}
+      canManagePortalAccessKey={canManagePortalAccessKey}
       deleteSuccessAction={deleteSuccessAction}
       routeBase={routeBase}
       showListBackLink={showListBackLink}
@@ -3703,6 +3717,7 @@ export function DiscoverIndividualWorkbench({
   canManageSystemFields = true,
   canManageGrcHighlight = false,
   canDeletePublisher = false,
+  canManagePortalAccessKey = false,
   deleteSuccessAction = "list",
   routeBase,
   showListBackLink = true,
@@ -3712,6 +3727,7 @@ export function DiscoverIndividualWorkbench({
   canManageSystemFields?: boolean;
   canManageGrcHighlight?: boolean;
   canDeletePublisher?: boolean;
+  canManagePortalAccessKey?: boolean;
   deleteSuccessAction?: DeleteSuccessAction;
   routeBase?: string;
   showListBackLink?: boolean;
@@ -3724,6 +3740,7 @@ export function DiscoverIndividualWorkbench({
       canManageSystemFields={canManageSystemFields}
       canManageGrcHighlight={canManageGrcHighlight}
       canDeletePublisher={canDeletePublisher}
+      canManagePortalAccessKey={canManagePortalAccessKey}
       deleteSuccessAction={deleteSuccessAction}
       routeBase={routeBase}
       showListBackLink={showListBackLink}

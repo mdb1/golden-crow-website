@@ -12,7 +12,7 @@ import {
 import type { AdminContext } from "../types/sdk.types.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 import { getPartner } from "./connected-partners.repository.js";
-import { partnerPublisherAccessCode } from "./publisher-access-code.repository.js";
+import { partnerPublisherStoredAccessKey } from "./publisher-portal-credentials.repository.js";
 
 export const PARTNER_EMAIL_SENDS_COLLECTION = "partner_email_sends";
 export const PartnerEmailLanguageSchema = z.enum(["es", "en"]);
@@ -98,16 +98,13 @@ export async function previewPartnerEmail(
   const partner = await getPartner(context, partnerId);
   const base = buildConnectedPartnerEmail(partner, parsedLanguage);
   if (base.category === "noOrganization") return base;
-  const code = await partnerPublisherAccessCode(context, partner);
-  return code
-    ? {
-        ...buildConnectedPartnerEmail(partner, parsedLanguage, code.accessKey),
-        accessCodeExpiresAt: code.expiresAt,
-      }
+  const accessKey = await partnerPublisherStoredAccessKey(context, partner);
+  return accessKey
+    ? buildConnectedPartnerEmail(partner, parsedLanguage, accessKey)
     : {
         ...base,
         accessCodeUnavailableReason:
-          "This recipient does not have an active publisher account matching the linked publisher. The link includes their email only.",
+          "No saved access key matches this recipient. Save the current key in the linked publisher's detail to include it in this link.",
       };
 }
 

@@ -20,6 +20,22 @@ export function toggleAppLanguage(language: AppLanguage): AppLanguage {
 }
 
 const SPANISH_TEXT: Record<string, string> = {
+  "Access key": "Clave de acceso",
+  "Portal access key": "Clave de acceso al portal",
+  "Reveal the saved key for this publisher.": "Revelá la clave guardada de este publicador.",
+  "Save the current key to include it in partner email links.": "Guardá la clave vigente para incluirla en los enlaces de los emails a partners.",
+  "This publisher does not have a saved access key.": "Este publicador no tiene una clave de acceso guardada.",
+  "Enter the existing Firebase access key. Saving it here does not change the account password.": "Ingresá la clave vigente de Firebase. Guardarla aquí no modifica la contraseña de la cuenta.",
+  "Save access key": "Guardar clave de acceso",
+  "Access key saved.": "Clave de acceso guardada.",
+  "No contact email": "Sin email de contacto",
+  "Unable to load the publisher access key.": "No se pudo cargar la clave de acceso del publicador.",
+  "Unable to reveal the publisher access key.": "No se pudo revelar la clave de acceso del publicador.",
+  "Unable to save the publisher access key.": "No se pudo guardar la clave de acceso del publicador.",
+  "Unable to copy the access key.": "No se pudo copiar la clave de acceso.",
+  "Save a contact email for this publisher first.": "Primero guardá un email de contacto para este publicador.",
+  "This publisher already has a saved access key. Close and reopen this dialog to reveal it.": "Este publicador ya tiene una clave guardada. Cerrá y abrí el modal para revelarla.",
+  "No saved access key matches this recipient. Save the current key in the linked publisher's detail to include it in this link.": "No hay una clave guardada para este destinatario. Guardá la clave vigente en el detalle del publicador vinculado para incluirla en este enlace.",
   "Open link": "Abrir enlace",
   "Access code valid until": "Código de acceso válido hasta",
   "This recipient does not have an active publisher account matching the linked publisher. The link includes their email only.": "Este destinatario no tiene una cuenta activa de publicador que coincida con el publicador vinculado. El enlace incluye únicamente su email.",
