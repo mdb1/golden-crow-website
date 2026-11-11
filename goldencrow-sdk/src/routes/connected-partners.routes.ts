@@ -5,6 +5,8 @@ import {
   PartnerIdSchema,
   PartnerInputSchema,
   PartnerLinkIdSchema,
+  PartnerSectionSchema,
+  PartnerSectionCursorSchema,
 } from "../contracts/connected-partners.js";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import { PARTNER_CSV_MAX_BYTES } from "../lib/partner-csv.js";
@@ -18,6 +20,7 @@ import {
   deletePartners,
   getPartner,
   listPartners,
+  listPartnersBySection,
   listPartnerLinkOptions,
   updatePartner,
 } from "../repositories/connected-partners.repository.js";
@@ -72,11 +75,24 @@ export async function connectedPartnersRoutes(
     ROUTE,
     {
       schema: {
-        querystring: z.object({ cursor: PartnerIdSchema.optional() }).strict(),
+        querystring: z.union([
+          z.object({ cursor: PartnerIdSchema.optional() }).strict(),
+          z.object({
+            section: PartnerSectionSchema,
+            cursor: PartnerSectionCursorSchema.optional(),
+            limit: z.coerce.number().int().min(1).max(20).optional(),
+          }).strict(),
+        ]),
       },
     },
-    async (request) =>
-      listPartners(request.adminContext!, request.query.cursor),
+    async (request) => "section" in request.query
+      ? listPartnersBySection(
+          request.adminContext!,
+          request.query.section,
+          request.query.cursor,
+          request.query.limit,
+        )
+      : listPartners(request.adminContext!, request.query.cursor),
   );
 
   f.get(

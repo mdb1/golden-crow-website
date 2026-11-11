@@ -16,6 +16,7 @@ import {
 } from "@/components/god-mode/partners-workbench";
 import {
   PARTNERS_API_ROUTE,
+  PARTNERS_QUERY_KEY,
   type Partner,
   type PartnerInput,
 } from "@/lib/connected-partners";
@@ -102,11 +103,12 @@ function renderWorkbench(component = <PartnersBrowser />) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  return render(
+  const result = render(
     <AppLanguageProvider forcedLanguage="en">
       <QueryClientProvider client={client}>{component}</QueryClientProvider>
     </AppLanguageProvider>,
   );
+  return { ...result, client };
 }
 function fillContact(phone = "") {
   for (const [label, value] of [
@@ -155,12 +157,66 @@ async function choose(
 
 beforeEach(() => {
   jest.resetAllMocks();
+  window.localStorage.clear();
 });
 
-it("opens a new partner modal from the empty state without leaving the list", async () => {
-  jest.mocked(sdkFetch).mockResolvedValue({ items: [], nextCursor: null });
+function sectionRequest(path: string) {
+  return new URL(path, "https://example.test").searchParams;
+}
+function page(
+  items: Partner[],
+  nextCursor: string | null = null,
+  scanIncomplete = false,
+) {
+  return { items, nextCursor, scanIncomplete };
+}
+function contacts(prefix: string, count = 20) {
+  return Array.from(
+    { length: count },
+    (_, index): Partner => ({
+      ...contact,
+      id: `${prefix}_${index + 1}`,
+      companyName: `${prefix} ${index + 1}`,
+      email: `${prefix.toLowerCase()}${index + 1}@example.com`,
+    }),
+  );
+}
+function openSection(name = "No organization yet") {
+  fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${name}`) }));
+}
+function clickView(name: "Grid" | "Table") {
+  fireEvent.mouseDown(screen.getByRole("tab", { name }));
+}
+function pager() {
+  return within(screen.getByRole("navigation", { name: "Partner pagination" }));
+}
+function expectHiddenText(text: string) {
+  const element = screen.queryByText(text);
+  if (element) expect(element).not.toBeVisible();
+  else expect(element).not.toBeInTheDocument();
+}
+
+it("keeps all section contents collapsed and does not fetch partners until a section opens", async () => {
+  jest.mocked(sdkFetch).mockResolvedValue(page([]));
   renderWorkbench();
-  expect(await screen.findByText("No partners yet.")).toBeVisible();
+  for (const name of [
+    "No organization yet",
+    "Organization without app",
+    "Organization with free app",
+    "Organization with contract",
+  ]) {
+    expect(
+      screen.getByRole("button", { name: new RegExp(`^${name}`) }),
+    ).toHaveAttribute("aria-expanded", "false");
+  }
+  expect(sdkFetch).not.toHaveBeenCalled();
+  openSection();
+  expect(await screen.findByText("No partners in this section.")).toBeVisible();
+  expect(
+    sectionRequest(String(jest.mocked(sdkFetch).mock.calls[0][0])).get(
+      "section",
+    ),
+  ).toBe("noOrganization");
   fireEvent.click(screen.getAllByRole("button", { name: "New partner" })[0]);
   expect(
     await screen.findByRole("dialog", { name: "New partner" }),
@@ -172,37 +228,509 @@ it("opens a new partner modal from the empty state without leaving the list", as
   expect(mockPush).not.toHaveBeenCalled();
 });
 
-it("renders contact values, loads the next bounded page and offers modal editing", async () => {
-  jest
-    .mocked(sdkFetch)
-    .mockResolvedValueOnce({ items: [contact], nextCursor: "one" })
-    .mockResolvedValueOnce({
-      items: [
-        {
-          ...contact,
-          id: "two",
-          companyName: "Beta",
-          meetingDate: "2026-11-10",
-          notes: "A note",
-        },
-      ],
-      nextCursor: null,
-    });
+it("opens one section at a time and fetches only the requested section", async () => {
+  jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    const section = sectionRequest(String(path)).get("section");
+    return page(
+      section === "noOrganization"
+        ? [contact]
+        : [{ ...withOrganization, id: "two", companyName: "Beta" }],
+    ) as never;
+  });
   renderWorkbench();
+  openSection();
   expect(await screen.findByText("Acme")).toBeVisible();
   for (const value of ["Ana", "Smith", "+54 11 1234", "ana@example.com"])
     expect(screen.getByText(value)).toBeVisible();
   expect(
     screen.getByRole("button", { name: "Edit partner: Acme" }),
   ).toBeVisible();
-  fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+  openSection("Organization without app");
   expect(await screen.findByText("Beta")).toBeVisible();
-  expect(screen.getByText("2026-11-10")).toBeVisible();
-  expect(screen.getByText("A note")).toBeVisible();
-  expect(sdkFetch).toHaveBeenCalledWith(`${PARTNERS_API_ROUTE}?cursor=one`);
+  expectHiddenText("Acme");
   expect(
-    screen.queryByRole("button", { name: "Load more" }),
+    screen.getByRole("button", { name: /^No organization yet/ }),
+  ).toHaveAttribute("aria-expanded", "false");
+  expect(
+    screen.getByRole("button", { name: /^Organization without app/ }),
+  ).toHaveAttribute("aria-expanded", "true");
+  expect(
+    jest
+      .mocked(sdkFetch)
+      .mock.calls.map(([path]) => sectionRequest(String(path)).get("section")),
+  ).toEqual(["noOrganization", "organizationWithoutApp"]);
+  openSection("Organization without app");
+  await waitFor(() => expectHiddenText("Beta"));
+});
+
+it("replaces the visible 20-partner page and preserves independent section page history", async () => {
+  const first = contacts("First");
+  const second = contacts("Second", 2);
+  jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    const params = sectionRequest(String(path));
+    if (params.get("section") === "organizationWithoutApp")
+      return page([
+        { ...withOrganization, companyName: "Organization contact" },
+      ]) as never;
+    return params.has("cursor")
+      ? (page(second) as never)
+      : (page(first, "page_two") as never);
+  });
+  renderWorkbench();
+  openSection();
+  await screen.findByText("First 20");
+  expect(screen.queryByText("Second 1")).not.toBeInTheDocument();
+  expect(pager().getByRole("button", { name: "Previous page" })).toBeDisabled();
+  const bottomPager = within(
+    screen.getByRole("navigation", {
+      name: "Partner pagination below results",
+    }),
+  );
+  fireEvent.click(bottomPager.getByRole("button", { name: "Next page" }));
+  await screen.findByText("Second 1");
+  expect(screen.queryByText("First 1")).not.toBeInTheDocument();
+  expect(pager().getByText(/^Page 2\b/)).toBeVisible();
+  expect(pager().getByRole("button", { name: "Next page" })).toBeDisabled();
+  openSection("Organization without app");
+  await screen.findByText("Organization contact");
+  expect(pager().getByText(/^Page 1\b/)).toBeVisible();
+  const organizationRequest = jest
+    .mocked(sdkFetch)
+    .mock.calls.find(
+      ([path]) =>
+        sectionRequest(String(path)).get("section") ===
+        "organizationWithoutApp",
+    );
+  expect(
+    sectionRequest(String(organizationRequest![0])).get("cursor"),
+  ).toBeNull();
+  openSection();
+  await screen.findByText("Second 1");
+  expect(pager().getByText(/^Page 2\b/)).toBeVisible();
+  await waitFor(() =>
+    expect(
+      pager().getByRole("button", { name: "Previous page" }),
+    ).toBeEnabled(),
+  );
+  fireEvent.click(pager().getByRole("button", { name: "Previous page" }));
+  await screen.findByText("First 1");
+  expect(screen.queryByText("Second 1")).not.toBeInTheDocument();
+  for (const [path] of jest.mocked(sdkFetch).mock.calls) {
+    const params = sectionRequest(String(path));
+    expect(params.get("limit")).toBe("20");
+    expect(params.get("section")).not.toBeNull();
+  }
+});
+
+it("keeps an empty trailing page distinct from an empty section and allows returning to its partners", async () => {
+  jest
+    .mocked(sdkFetch)
+    .mockImplementation(async (path) =>
+      sectionRequest(String(path)).has("cursor")
+        ? (page([]) as never)
+        : (page(contacts("First"), "trailing_sources") as never),
+    );
+  renderWorkbench();
+  openSection();
+  await screen.findByText("First 20");
+  fireEvent.click(pager().getByRole("button", { name: "Next page" }));
+  expect(await screen.findByText("No partners on this page.")).toBeVisible();
+  expect(
+    screen.queryByText("No partners in this section."),
   ).not.toBeInTheDocument();
+  expect(pager().getByText(/^Page 2\b/)).toBeVisible();
+  expect(pager().getByRole("button", { name: "Next page" })).toBeDisabled();
+  await waitFor(() =>
+    expect(
+      pager().getByRole("button", { name: "Previous page" }),
+    ).toBeEnabled(),
+  );
+  fireEvent.click(pager().getByRole("button", { name: "Previous page" }));
+  expect(await screen.findByText("First 1")).toBeVisible();
+  expect(pager().getByText(/^Page 1\b/)).toBeVisible();
+});
+
+it("keeps the current page when switching between grid cells and semantic table rows", async () => {
+  const first = contacts("First");
+  const second = [
+    {
+      ...contact,
+      id: "two",
+      companyName: "Beta",
+      meetingDate: "2026-11-10",
+      notes: "Follow up next week",
+    },
+  ];
+  jest
+    .mocked(sdkFetch)
+    .mockImplementation(async (path) =>
+      sectionRequest(String(path)).has("cursor")
+        ? (page(second) as never)
+        : (page(first, "page_two") as never),
+    );
+  renderWorkbench();
+  openSection();
+  await screen.findByText("First 20");
+  fireEvent.click(pager().getByRole("button", { name: "Next page" }));
+  await screen.findByText("Beta");
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: /Select partner: Beta/ }),
+  );
+  clickView("Table");
+  const table = await screen.findByRole("table");
+  expect(screen.getByRole("tab", { name: "Table" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  const row = within(table).getByText("Beta").closest("tr")!;
+  expect(row).toHaveTextContent("Ana");
+  expect(row).toHaveTextContent("Smith");
+  expect(row).toHaveTextContent("ana@example.com");
+  expect(row).toHaveTextContent("+54 11 1234");
+  expect(row).toHaveTextContent("2026-11-10");
+  expect(within(table).getAllByRole("row")).toHaveLength(2);
+  const notes = within(row).getByText("Follow up next week");
+  expect(notes).not.toBeVisible();
+  fireEvent.click(within(row).getByText("View notes"));
+  expect(notes).toBeVisible();
+  expect(pager().getByText(/^Page 2\b/)).toBeVisible();
+  expect(
+    screen.getByRole("checkbox", { name: /Select partner: Beta/ }),
+  ).toBeChecked();
+  expect(screen.queryByText("First 1")).not.toBeInTheDocument();
+  clickView("Grid");
+  expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  expect(screen.getByText("Follow up next week")).toBeVisible();
+  expect(pager().getByText(/^Page 2\b/)).toBeVisible();
+});
+
+it("preserves missing-link warnings and modal editing in table rows", async () => {
+  const missing: Partner = {
+    ...withApp,
+    id: "missing",
+    companyName: "Broken links",
+    linkedOrganization: null,
+    linkedApp: null,
+  };
+  jest
+    .mocked(sdkFetch)
+    .mockImplementation(async (path) =>
+      String(path) === `${PARTNERS_API_ROUTE}/missing`
+        ? ({ partner: missing } as never)
+        : (page([missing]) as never),
+    );
+  renderWorkbench();
+  openSection("Other app statuses or missing links");
+  await screen.findByText("Broken links");
+  clickView("Table");
+  const table = await screen.findByRole("table");
+  expect(
+    within(table).getByText(/Linked organization is unavailable/),
+  ).toHaveTextContent(organization.id);
+  expect(
+    within(table).getByText(/Linked app is unavailable/),
+  ).toHaveTextContent(linkedApp.id);
+  expect(
+    within(table).queryByText("Testing · Free app"),
+  ).not.toBeInTheDocument();
+  fireEvent.click(
+    within(table).getByRole("button", { name: "Edit partner: Broken links" }),
+  );
+  expect(await screen.findByLabelText("Company name")).toHaveValue(
+    "Broken links",
+  );
+  expect(screen.getByRole("dialog", { name: "Edit partner" })).toBeVisible();
+  expect(mockPush).not.toHaveBeenCalled();
+});
+
+it("clears bulk selections when changing page or section", async () => {
+  jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    const params = sectionRequest(String(path));
+    if (params.get("section") === "organizationWithoutApp")
+      return page([
+        { ...withOrganization, companyName: "Other contact" },
+      ]) as never;
+    return params.has("cursor")
+      ? (page(contacts("Second", 1)) as never)
+      : (page(contacts("First"), "page_two") as never);
+  });
+  renderWorkbench();
+  openSection();
+  await screen.findByText("First 20");
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: /Select partner: First 1 —/ }),
+  );
+  expect(
+    screen.getByRole("button", { name: "Delete selected (1)" }),
+  ).toBeVisible();
+  fireEvent.click(pager().getByRole("button", { name: "Next page" }));
+  await screen.findByText("Second 1");
+  expect(
+    screen.queryByRole("button", { name: /Delete selected/ }),
+  ).not.toBeInTheDocument();
+  fireEvent.click(pager().getByRole("button", { name: "Previous page" }));
+  await screen.findByText("First 1");
+  expect(
+    screen.getByRole("checkbox", { name: /Select partner: First 1 —/ }),
+  ).not.toBeChecked();
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: /Select partner: First 1 —/ }),
+  );
+  openSection("Organization without app");
+  await screen.findByText("Other contact");
+  expect(
+    screen.queryByRole("button", { name: /Delete selected/ }),
+  ).not.toBeInTheDocument();
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: /Select partner: Other contact/ }),
+  );
+  openSection("Organization without app");
+  expect(
+    screen.queryByRole("button", { name: /Delete selected/ }),
+  ).not.toBeInTheDocument();
+  openSection("Organization without app");
+  await screen.findByText("Other contact");
+  expect(
+    screen.getByRole("checkbox", { name: /Select partner: Other contact/ }),
+  ).not.toBeChecked();
+});
+
+it("bounds sparse section searches and continues filling the same page without dropping partners", async () => {
+  const remaining = contacts("More", 19);
+  jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    const params = sectionRequest(String(path));
+    switch (params.get("cursor")) {
+      case null:
+        return page([contact], "scan_one", true) as never;
+      case "scan_one":
+        return page([], "scan_two", true) as never;
+      case "scan_two":
+        return page([], "scan_three", true) as never;
+      case "scan_three":
+        return page(remaining, "page_two") as never;
+      default:
+        return page([{ ...contact, id: "tail", companyName: "Tail" }]) as never;
+    }
+  });
+  renderWorkbench();
+  openSection();
+  await screen.findByText("Acme");
+  expect(sdkFetch).toHaveBeenCalledTimes(3);
+  expect(pager().getByRole("button", { name: "Next page" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Find more partners" }));
+  await screen.findByText("More 19");
+  expect(screen.getByText("Acme")).toBeVisible();
+  const continuation = sectionRequest(
+    String(jest.mocked(sdkFetch).mock.calls[3][0]),
+  );
+  expect(continuation.get("cursor")).toBe("scan_three");
+  expect(continuation.get("limit")).toBe("19");
+  expect(pager().getByRole("button", { name: "Next page" })).toBeEnabled();
+  fireEvent.click(pager().getByRole("button", { name: "Next page" }));
+  await screen.findByText("Tail");
+  expect(screen.queryByText("Acme")).not.toBeInTheDocument();
+  expect(screen.queryByText("More 19")).not.toBeInTheDocument();
+});
+
+it("retains a completed sparse window when reopening sections or returning from the next page", async () => {
+  jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    const params = sectionRequest(String(path));
+    if (params.get("section") === "organizationWithoutApp")
+      return page([
+        { ...withOrganization, companyName: "Organization contact" },
+      ]) as never;
+    switch (params.get("cursor")) {
+      case null:
+        return page([contact], "scan_one", true) as never;
+      case "scan_one":
+        return page([], "scan_two", true) as never;
+      case "scan_two":
+        return page([], "scan_three", true) as never;
+      case "scan_three":
+        return page(contacts("More", 19), "page_two") as never;
+      default:
+        return page([{ ...contact, id: "tail", companyName: "Tail" }]) as never;
+    }
+  });
+  renderWorkbench();
+  openSection();
+  await screen.findByText("Acme");
+  fireEvent.click(screen.getByRole("button", { name: "Find more partners" }));
+  await screen.findByText("More 19");
+  expect(sdkFetch).toHaveBeenCalledTimes(4);
+  openSection();
+  openSection();
+  expect(screen.getByText("More 19")).toBeVisible();
+  expect(sdkFetch).toHaveBeenCalledTimes(4);
+  openSection("Organization without app");
+  await screen.findByText("Organization contact");
+  openSection();
+  expect(screen.getByText("More 19")).toBeVisible();
+  expect(sdkFetch).toHaveBeenCalledTimes(5);
+  fireEvent.click(pager().getByRole("button", { name: "Next page" }));
+  await screen.findByText("Tail");
+  fireEvent.click(pager().getByRole("button", { name: "Previous page" }));
+  expect(screen.getByText("More 19")).toBeVisible();
+  expect(screen.getByText("Acme")).toBeVisible();
+  expect(sdkFetch).toHaveBeenCalledTimes(6);
+});
+
+it("refreshes the current page's live app status without resetting table view or page number", async () => {
+  const prior: Partner = {
+    ...withApp,
+    id: "live",
+    companyName: "Current app",
+    linkedApp: { ...linkedApp, status: "active_waiting_for_payment" },
+  };
+  const refreshed: Partner = {
+    ...prior,
+    companyName: "Refreshed app",
+    linkedApp: { ...linkedApp, status: "active" },
+  };
+  let secondPageReads = 0;
+  jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    const params = sectionRequest(String(path));
+    if (params.get("cursor") === "page_two") {
+      secondPageReads += 1;
+      return page([secondPageReads === 1 ? prior : refreshed]) as never;
+    }
+    return page(
+      contacts("Contract").map((record) => ({
+        ...withApp,
+        id: record.id,
+        companyName: record.companyName,
+        email: record.email,
+        linkedApp: {
+          ...linkedApp,
+          status: "active_waiting_for_payment" as const,
+        },
+      })),
+      "page_two",
+    ) as never;
+  });
+  renderWorkbench();
+  openSection("Organization with contract");
+  await screen.findByText("Contract 20");
+  fireEvent.click(pager().getByRole("button", { name: "Next page" }));
+  await screen.findByText("Current app");
+  clickView("Table");
+  expect(
+    within(screen.getByRole("table")).getByText("Contract · Awaiting payment"),
+  ).toBeVisible();
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: /Select partner: Current app/ }),
+  );
+  fireEvent.click(pager().getByRole("button", { name: "Refresh section" }));
+  await screen.findByText("Refreshed app");
+  expect(screen.getByRole("tab", { name: "Table" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  expect(pager().getByText(/^Page 2\b/)).toBeVisible();
+  expect(
+    within(screen.getByRole("table")).getByText("Active app"),
+  ).toBeVisible();
+  expect(
+    screen.queryByText("Contract · Awaiting payment"),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: /Delete selected/ }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("checkbox", { name: /Select partner: Refreshed app/ }),
+  ).not.toBeChecked();
+  expect(secondPageReads).toBe(2);
+  expect(
+    sectionRequest(String(jest.mocked(sdkFetch).mock.calls.at(-1)![0])).get(
+      "cursor",
+    ),
+  ).toBe("page_two");
+});
+
+it("does not restore selection when a partner leaves and later returns after data invalidation", async () => {
+  const replacement = {
+    ...contact,
+    id: "replacement",
+    companyName: "Replacement",
+  };
+  let showOriginal = true;
+  jest
+    .mocked(sdkFetch)
+    .mockImplementation(
+      async () => page(showOriginal ? [contact] : [replacement]) as never,
+    );
+  const { client } = renderWorkbench();
+  openSection();
+  await screen.findByText("Acme");
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: /Select partner: Acme/ }),
+  );
+  showOriginal = false;
+  await act(async () => {
+    await client.invalidateQueries({ queryKey: PARTNERS_QUERY_KEY });
+  });
+  await screen.findByText("Replacement");
+  expect(
+    screen.queryByRole("button", { name: /Delete selected/ }),
+  ).not.toBeInTheDocument();
+  showOriginal = true;
+  await act(async () => {
+    await client.invalidateQueries({ queryKey: PARTNERS_QUERY_KEY });
+  });
+  await screen.findByText("Acme");
+  expect(
+    screen.getByRole("checkbox", { name: /Select partner: Acme/ }),
+  ).not.toBeChecked();
+});
+
+it("cancels the active section request when it is collapsed and does not keep scanning", async () => {
+  let finish!: (value: ReturnType<typeof page>) => void;
+  const pending = new Promise<ReturnType<typeof page>>((resolve) => {
+    finish = resolve;
+  });
+  let signal: AbortSignal | null | undefined;
+  jest.mocked(sdkFetch).mockImplementation(async (_path, init) => {
+    signal = init?.signal;
+    return pending as never;
+  });
+  renderWorkbench();
+  openSection();
+  await waitFor(() => expect(sdkFetch).toHaveBeenCalledTimes(1));
+  openSection();
+  await waitFor(() => expect(signal?.aborted).toBe(true));
+  await act(async () => {
+    finish(page([], "more_to_scan", true));
+  });
+  expect(sdkFetch).toHaveBeenCalledTimes(1);
+  expect(
+    screen.getByRole("button", { name: /^No organization yet/ }),
+  ).toHaveAttribute("aria-expanded", "false");
+});
+
+it("does not label a sparse section empty until its continuation is exhausted", async () => {
+  jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    const cursor = sectionRequest(String(path)).get("cursor");
+    return cursor === "scan_three"
+      ? (page([]) as never)
+      : (page(
+          [],
+          cursor === null
+            ? "scan_one"
+            : cursor === "scan_one"
+              ? "scan_two"
+              : "scan_three",
+          true,
+        ) as never);
+  });
+  renderWorkbench();
+  openSection();
+  await screen.findByText("Keep looking in this section.");
+  expect(sdkFetch).toHaveBeenCalledTimes(3);
+  expect(
+    screen.queryByText("No partners in this section."),
+  ).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Find more partners" }));
+  expect(await screen.findByText("No partners in this section.")).toBeVisible();
 });
 
 it("confirms and deletes selected partners while retaining unselected partners", async () => {
@@ -214,12 +742,10 @@ it("confirms and deletes selected partners while retaining unselected partners",
       deleted = true;
       return { deletedIds: ["one", "two"] } as never;
     }
-    return {
-      items: deleted ? [third] : [contact, second, third],
-      nextCursor: null,
-    } as never;
+    return page(deleted ? [third] : [contact, second, third]) as never;
   });
   renderWorkbench();
+  openSection();
   await screen.findByText("Acme");
   fireEvent.click(
     screen.getByRole("checkbox", { name: /Select partner: Acme/ }),
@@ -251,12 +777,13 @@ it("confirms and deletes selected partners while retaining unselected partners",
 it("retains contacts and selection after a failed deletion", async () => {
   jest.mocked(sdkFetch).mockImplementation(async (_path, init) => {
     if (init?.method === "POST") throw new Error("Write failed");
-    return { items: [contact], nextCursor: null } as never;
+    return page([contact]) as never;
   });
   renderWorkbench();
+  openSection();
   await screen.findByText("Acme");
   fireEvent.click(
-    screen.getByRole("checkbox", { name: "Select loaded partners" }),
+    screen.getByRole("checkbox", { name: /Select partner: Acme/ }),
   );
   fireEvent.click(screen.getByRole("button", { name: "Delete selected (1)" }));
   const dialog = await screen.findByRole("alertdialog");
@@ -362,113 +889,63 @@ it("keeps the modal and draft editable when saving fails", async () => {
   expect(mockPush).not.toHaveBeenCalled();
 });
 
-it("groups partners using current linked items, including individual publishers, rather than snapshots", async () => {
-  jest
-    .mocked(sdkFetch)
-    .mockResolvedValue({
-      items: [
-        contact,
-        { ...withOrganization, id: "org", companyName: "Organization only" },
-        { ...withApp, id: "free", companyName: "Testing app" },
-        ...[
-          "active",
-          "active_waiting_for_payment",
-          "active_waiting_for_upload",
-        ].map((status) => ({
-          ...withApp,
-          id: status,
-          companyName: status,
-          linkedApp: { ...linkedApp, status },
-        })),
-        {
-          ...withApp,
-          id: "pending",
-          companyName: "Pending app",
-          linkedApp: { ...linkedApp, status: "pending_revision" },
-        },
-        {
-          ...withApp,
-          id: "missing",
-          companyName: "Missing app",
-          linkedApp: null,
-        },
-        {
-          ...withOrganization,
-          id: "missing_org",
-          companyName: "Missing organization",
-          linkedOrganization: null,
-        },
-        {
-          ...contact,
-          id: "individual",
-          companyName: "Individual only",
-          linkedIndividualPublisherId: individual.id,
-          linkedIndividualPublisher: individual,
-          linkedIndividualPublisherSnapshot: individual,
-        },
-        {
-          ...contact,
-          id: "individual_app",
-          companyName: "Individual contract",
-          linkedIndividualPublisherId: individual.id,
-          linkedIndividualPublisher: individual,
-          linkedIndividualPublisherSnapshot: individual,
-          linkedAppId: individualApp.id,
-          linkedApp: individualApp,
-          linkedAppSnapshot: individualApp,
-        },
-      ],
-      nextCursor: null,
-    });
+it("keeps individual publishers and unavailable app links accessible in their own lazy sections", async () => {
+  jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    switch (sectionRequest(String(path)).get("section")) {
+      case "individualWithoutApp":
+        return page([
+          {
+            ...contact,
+            companyName: "Individual only",
+            linkedIndividualPublisherId: individual.id,
+            linkedIndividualPublisher: individual,
+            linkedIndividualPublisherSnapshot: individual,
+          },
+        ]) as never;
+      case "individualContract":
+        return page([
+          {
+            ...contact,
+            companyName: "Individual contract",
+            linkedIndividualPublisherId: individual.id,
+            linkedIndividualPublisher: individual,
+            linkedIndividualPublisherSnapshot: individual,
+            linkedAppId: individualApp.id,
+            linkedApp: individualApp,
+            linkedAppSnapshot: individualApp,
+          },
+        ]) as never;
+      default:
+        return page([
+          {
+            ...withApp,
+            id: "missing",
+            companyName: "Missing app",
+            linkedApp: null,
+          },
+          {
+            ...withOrganization,
+            id: "missing_org",
+            companyName: "Missing organization",
+            linkedOrganization: null,
+          },
+        ]) as never;
+    }
+  });
   renderWorkbench();
-  await screen.findByText("Acme");
-  expect(
-    within(
-      screen.getByRole("region", { name: "No organization yet" }),
-    ).getByText("Acme"),
-  ).toBeVisible();
-  expect(
-    within(
-      screen.getByRole("region", { name: "Organization without app" }),
-    ).getByText("Organization only"),
-  ).toBeVisible();
-  const free = within(
-    screen.getByRole("region", { name: "Organization with free app" }),
-  );
-  expect(free.getByText("Testing app")).toBeVisible();
-  expect(free.queryByText("Missing app")).not.toBeInTheDocument();
-  const contract = within(
-    screen.getByRole("region", { name: "Organization with contract" }),
-  );
-  for (const status of [
-    "active",
-    "active_waiting_for_payment",
-    "active_waiting_for_upload",
-  ])
-    expect(contract.getByRole("heading", { name: status })).toBeVisible();
-  const other = within(
-    screen.getByRole("region", { name: "Other app statuses or missing links" }),
-  );
-  for (const name of ["Pending app", "Missing app", "Missing organization"])
-    expect(other.getByRole("heading", { name })).toBeVisible();
-  expect(other.getByText(/Linked app is unavailable/)).toHaveTextContent(
+  openSection("Individual publisher without app");
+  expect(await screen.findByText("Individual only")).toBeVisible();
+  openSection("Individual publisher with contract");
+  expect(await screen.findByText("Individual contract")).toBeVisible();
+  expectHiddenText("Individual only");
+  openSection("Other app statuses or missing links");
+  await screen.findByText("Missing app");
+  expect(screen.getByText(/Linked app is unavailable/)).toHaveTextContent(
     linkedApp.id,
   );
   expect(
-    other.getByText(/Linked organization is unavailable/),
+    screen.getByText(/Linked organization is unavailable/),
   ).toHaveTextContent(organization.id);
-  expect(
-    within(
-      screen.getByRole("region", { name: "Individual publisher without app" }),
-    ).getByText("Individual only"),
-  ).toBeVisible();
-  expect(
-    within(
-      screen.getByRole("region", {
-        name: "Individual publisher with contract",
-      }),
-    ).getByText("Individual contract"),
-  ).toBeVisible();
 });
 
 it("links an organization and individual publisher together and preserves both when selecting an app", async () => {
@@ -669,7 +1146,6 @@ it("keeps an individual app when only the organization link is removed", async (
 it("warns before discarding a draft and preserves it when the operator keeps editing", async () => {
   mockEditor();
   renderWorkbench();
-  await screen.findByText("Acme");
   fireEvent.click(screen.getByRole("button", { name: "New partner" }));
   fireEvent.change(screen.getByLabelText("Company name"), {
     target: { value: "New draft" },

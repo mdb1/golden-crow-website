@@ -56,6 +56,29 @@ SDK API:
   GET /admin/connected-partners[?cursor=<last document ID>]
     Returns { items, nextCursor }, 20 partner records per page, ordered by document ID.
     Reads at most 21 partner records plus bounded, deduplicated linked documents.
+  GET /admin/connected-partners?section=<section>[&limit=1..20][&cursor=<section cursor>]
+    Returns { items, nextCursor, scanIncomplete }, at most 20 matching partners
+    by default. limit can request the remaining 1–20 slots of a visible page.
+    Sections are noOrganization, organizationWithoutApp, freeApp, contract,
+    individualWithoutApp, individualFreeApp, individualContract, and other.
+    Classification reads current linked records, including both publisher links;
+    any unavailable explicit publisher link belongs to other. A partner with an
+    organization and an individual-owned app remains in the organization groups
+    if both publishers are available and that app belongs to the linked individual.
+    No category or frozen app-status field is persisted or used as a query shortcut.
+    A request reads at most 200 partner documents, in chunks of at most 40,
+    with deduplicated direct reads of only their referenced publishers/apps.
+    A sparse section may return fewer than limit (including zero) with nextCursor
+    and scanIncomplete=true when that scan budget is reached. That is a bounded
+    continuation, not proof that the section is empty. Empty is established only
+    when nextCursor is null. A full source chunk can leave a potential cursor that
+    requires an empty probe to establish the collection's end.
+    Cursors use the opaque ps1.<base64url> format, bind the section, and resume
+    after the last examined document ID. They do not skip unused matches from
+    fetched chunks and remain usable after the cursor's source record is deleted.
+    Reusing a cursor for another section, malformed cursors, unsupported sections,
+    or limits outside 1–20 return 400. The unfiltered API retains its raw-ID cursor
+    and rejects a limit supplied without a section.
   GET /admin/connected-partners/:partnerId -> { partner }
   POST /admin/connected-partners/import/preview with { csv: <file text> }
     Returns { rows, summary }. Each row contains its physical starting rowNumber,

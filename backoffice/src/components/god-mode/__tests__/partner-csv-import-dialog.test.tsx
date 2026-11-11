@@ -386,7 +386,7 @@ it("explains required columns, optional phone, dates, duplicates and linking in 
 it("opens both import tools directly from the partner list", async () => {
   jest.mocked(sdkFetch).mockResolvedValue({ items: [], nextCursor: null });
   renderImport(<PartnersBrowser />);
-  await screen.findByText("No partners yet.");
+  expect(sdkFetch).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Import rules" }));
   expect(
     await screen.findByRole("dialog", { name: "Import rules" }),

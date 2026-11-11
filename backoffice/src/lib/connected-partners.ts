@@ -3,6 +3,7 @@ import type { PublisherAppStatus } from "@/lib/publisher-app-config";
 export const PARTNERS_API_ROUTE = "/admin/connected-partners";
 export const PARTNERS_ROUTE = "/god-mode/partners";
 export const PARTNERS_QUERY_KEY = ["connected-partners"] as const;
+export const PARTNER_PAGE_SIZE = 20;
 
 export type PartnerInput = {
   companyName: string;
@@ -37,6 +38,7 @@ export type Partner = PartnerInput & {
   linkedApp: PartnerAppSnapshot | null;
 };
 export type PartnersPage = { items: Partner[]; nextCursor: string | null };
+export type PartnerSectionPage = PartnersPage & { scanIncomplete: boolean };
 export type PartnerLinkOption = {
   id: string;
   name: string;

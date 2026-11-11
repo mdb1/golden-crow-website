@@ -75,6 +75,23 @@ export type Partner = StoredPartner & {
   linkedApp: PartnerAppSnapshot | null;
 };
 export type PartnersPage = { items: Partner[]; nextCursor: string | null };
+export const PARTNER_SECTION_KEYS = [
+  "noOrganization",
+  "organizationWithoutApp",
+  "freeApp",
+  "contract",
+  "individualWithoutApp",
+  "individualFreeApp",
+  "individualContract",
+  "other",
+] as const;
+export const PartnerSectionSchema = z.enum(PARTNER_SECTION_KEYS);
+export type PartnerSection = z.infer<typeof PartnerSectionSchema>;
+export const PartnerSectionCursorSchema = z
+  .string()
+  .max(1024)
+  .regex(/^ps1\.[A-Za-z0-9_-]+$/);
+export type PartnerSectionPage = PartnersPage & { scanIncomplete: boolean };
 export type PartnerLinkOption = {
   id: string;
   name: string;

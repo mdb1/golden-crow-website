@@ -20,6 +20,23 @@ export function toggleAppLanguage(language: AppLanguage): AppLanguage {
 }
 
 const SPANISH_TEXT: Record<string, string> = {
+  "Refresh section": "Actualizar sección",
+  "Partner pagination below results": "Paginación de partners debajo de los resultados",
+  "Partner view": "Vista de partners",
+  "Grid": "Tarjetas",
+  "Table": "Tabla",
+  "Partners table": "Tabla de partners",
+  "Publishers": "Publicadores",
+  "View notes": "Ver notas",
+  "Select this page": "Seleccionar esta página",
+  "partners on this page": "partners en esta página",
+  "Partner pagination": "Paginación de partners",
+  "20 per page": "20 por página",
+  "Find more partners": "Buscar más partners",
+  "Keep looking in this section.": "Continuá buscando en esta sección.",
+  "No partners on this page.": "No hay partners en esta página.",
+  "No partners in this section.": "No hay partners en esta sección.",
+  "Could not continue loading partners. Please try again.": "No se pudo continuar cargando partners. Intentá de nuevo.",
   "Partner CSV import rules": "Reglas para importar partners desde CSV",
   "Prepare your partner CSV using these exact columns and rules.":
     "Prepará tu CSV de partners con estas columnas y reglas exactas.",
