@@ -16,6 +16,8 @@ import {
   type PartnerEmailSendResult,
 } from "@/lib/partner-email";
 import { sdkFetch, SdkRequestError } from "@/lib/sdk-client";
+import { renderPartnerEmailBanner } from "@/components/god-mode/partner-email-banner";
+jest.mock("@/components/god-mode/partner-email-banner", () => ({ renderPartnerEmailBanner: jest.fn() }));
 
 jest.mock("@/lib/sdk-client", () => ({
   ...jest.requireActual("@/lib/sdk-client"),
@@ -126,6 +128,34 @@ it("prepares a Spanish, read-only preview without sending and shows recipient, s
   );
   expect(frame.getAttribute("srcdoc")).toContain("background:#6f3cc3");
   expect(frame.getAttribute("srcdoc")).not.toContain("<a href=");
+});
+
+it("captures the actual portal banner, freezes it in the preview, and sends only those reviewed bytes", async () => {
+  const brand = { name: "Genome Studio", tint: "#657960", imageUrl: "https://example.com/logo.png", contextHash: "c".repeat(64) };
+  const banner = { contextHash: brand.contextHash, dataUrl: "data:image/jpeg;base64,YWJj" };
+  const initial = { ...preview, category: "organizationWithoutApp" as const, bannerBrand: brand };
+  const frozen = { ...initial, banner, html: '<img src="cid:partner-publisher-app-banner">', previewHash: "b".repeat(64) };
+  jest.mocked(renderPartnerEmailBanner).mockResolvedValue(banner);
+  jest.mocked(sdkFetch).mockResolvedValueOnce(initial).mockResolvedValueOnce(frozen).mockResolvedValueOnce(sent);
+  renderDialog();
+  await ready();
+  expect(renderPartnerEmailBanner).toHaveBeenCalledWith(brand, "es", "organizationWithoutApp", expect.any(AbortSignal));
+  expect(sdkFetch).toHaveBeenNthCalledWith(2, `${ENDPOINT}/email-preview`, expect.objectContaining({ method: "POST", body: JSON.stringify({ language: "es", banner }) }));
+  expect(screen.getByTitle("Email message preview").getAttribute("srcdoc")).toContain(banner.dataUrl);
+  expect(jest.mocked(sdkFetch).mock.calls.some(([path]) => path === `${ENDPOINT}/email`)).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "Send email" }));
+  await waitFor(() => expect(screen.getByRole("heading", { name: "Email sent" })).toBeVisible());
+  const [, init] = jest.mocked(sdkFetch).mock.calls.find(([path]) => path === `${ENDPOINT}/email`)!;
+  expect(JSON.parse(String(init?.body))).toMatchObject({ banner, previewHash: frozen.previewHash });
+});
+
+it("blocks sending when the personalized banner cannot be built", async () => {
+  jest.mocked(sdkFetch).mockResolvedValue({ ...preview, bannerBrand: { name: "Genome", tint: "#123456", imageUrl: "", contextHash: "c".repeat(64) } });
+  jest.mocked(renderPartnerEmailBanner).mockRejectedValue(new Error("Banner failed"));
+  renderDialog();
+  await screen.findByText("Banner failed");
+  expect(screen.getByRole("button", { name: "Send email" })).toBeDisabled();
+  expect(requests()).toHaveLength(0);
 });
 
 it("exposes the exact publisher login URL and its query parameters without sending an email", async () => {

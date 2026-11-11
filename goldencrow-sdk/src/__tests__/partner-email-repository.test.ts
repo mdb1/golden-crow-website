@@ -5,6 +5,9 @@ import {
 } from "fastify-type-provider-zod";
 import type { AdminContext } from "../types/sdk.types.js";
 import { sealPublisherAccessKey } from "../lib/publisher-portal-credentials.js";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+const bannerDataUrl = `data:image/jpeg;base64,${readFileSync(join(process.cwd(), "src/__tests__/support/partner-banner.jpg")).toString("base64")}`;
 
 type Data = Record<string, unknown>;
 const mockDocs = new Map<string, Data>();
@@ -109,10 +112,14 @@ const partner = {
 const partnerPath = `connected-partners/${partnerId}`;
 const requestPath = `${PARTNER_EMAIL_SENDS_COLLECTION}/${requestId}`;
 async function input() {
+  const base = await previewPartnerEmail(context, partnerId);
+  const banner = base.bannerBrand ? { contextHash: base.bannerBrand.contextHash, dataUrl: bannerDataUrl } : undefined;
+  const preview = banner ? await previewPartnerEmail(context, partnerId, "es", banner) : base;
   return {
     requestId,
     language: "es" as const,
-    previewHash: (await previewPartnerEmail(context, partnerId)).previewHash,
+    previewHash: preview.previewHash,
+    ...(banner ? { banner } : {}),
   };
 }
 
@@ -124,15 +131,18 @@ it("uses the saved publisher key in both preview and sent link without storing c
     mockDocs.set("feed_organizations/org_one", { name: "Genome Studio", portalAccessKey: sealPublisherAccessKey("organization", "org_one", "ana@example.com", "Test+Key&42") });
     mockDocs.set("user_roles/ana@example.com", { role: "organization_publisher", isActive: true, organizationId: "org_one", firebaseUid: "publisher-uid" });
     mockPublisherUser.mockResolvedValue({ uid: "publisher-uid", email: "ana@example.com", disabled: false, tokensValidAfterTime: "2026-11-10T00:00:00Z" });
-    const preview = await previewPartnerEmail(context, partnerId);
+    const args = await input();
+    const preview = await previewPartnerEmail(context, partnerId, "es", args.banner);
     const code = new URL(preview.ctaUrl).searchParams.get("accessKey")!;
     expect(code).toBe("Test+Key&42");
     expect(preview.accessCodeExpiresAt).toBeUndefined();
-    const result = await sendPartnerEmail(context, partnerId, { requestId, language: "es", previewHash: preview.previewHash });
+    const result = await sendPartnerEmail(context, partnerId, args);
     expect(result.status).toBe("sent");
     expect(sendGmailMessage).toHaveBeenCalledWith(expect.objectContaining({ html: preview.html, text: preview.text }));
     expect(JSON.stringify(mockDocs.get(requestPath))).not.toContain(code);
     expect(JSON.stringify(mockDocs.get(requestPath))).not.toContain("customToken");
+    expect(JSON.stringify(mockDocs.get(requestPath))).not.toContain("data:image");
+    expect(sendGmailMessage).toHaveBeenCalledWith(expect.objectContaining({ inlineAttachments: [expect.objectContaining({ contentId: "partner-publisher-app-banner", mimeType: "image/jpeg", contentBase64: bannerDataUrl.split(",")[1] })] }));
   } finally {
     if (previousSecret === undefined) delete process.env.PUBLISHER_PORTAL_CREDENTIALS_SECRET;
     else process.env.PUBLISHER_PORTAL_CREDENTIALS_SECRET = previousSecret;
@@ -148,6 +158,26 @@ async function server(adminContext: AdminContext | null = context) {
   await app.register(connectedPartnersRoutes);
   return app;
 }
+
+it("requires the reviewed banner, rejects stale live branding and never sends an incomplete publisher email", async () => {
+  mockDocs.set(partnerPath, { ...partner, linkedOrganizationId: "org_one" });
+  mockDocs.set("feed_organizations/org_one", { name: "Genome Studio", colorHex: "#657960", imageUrl: "https://example.com/live.png" });
+  const preview = await previewPartnerEmail(context, partnerId);
+  expect(preview.bannerBrand).toMatchObject({ name: "Genome Studio", tint: "#657960", imageUrl: "https://example.com/live.png" });
+  await expect(sendPartnerEmail(context, partnerId, { requestId, language: "es", previewHash: preview.previewHash })).rejects.toMatchObject({ statusCode: 412 });
+  const args = await input();
+  mockDocs.set("feed_organizations/org_one", { name: "Genome Studio", colorHex: "#123456" });
+  await expect(sendPartnerEmail(context, partnerId, args)).rejects.toMatchObject({ statusCode: 412 });
+  expect(sendGmailMessage).not.toHaveBeenCalled();
+  expect(mockDocs.has(requestPath)).toBe(false);
+});
+
+it.each(["x-icon", "vnd.microsoft.icon"])("keeps uploaded %s publisher icons, matching the portal", async (mime) => {
+  mockDocs.set(partnerPath, { ...partner, linkedOrganizationId: "org_one" });
+  const icon = `data:image/${mime};base64,AAABAA==`;
+  mockDocs.set("feed_organizations/org_one", { name: "Genome Studio", imageUrl: null, imageUploadDataUrl: icon });
+  expect((await previewPartnerEmail(context, partnerId)).bannerBrand?.imageUrl).toBe(icon);
+});
 beforeEach(() => {
   mockDocs.clear();
   mockDocs.set(partnerPath, { ...partner });

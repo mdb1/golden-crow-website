@@ -264,6 +264,25 @@ Email command persistence:
   not cascade to delivery commands, preserving safe status checks and audit state.
 
 Publisher login links from partner emails
+Publisher-stage emails include a personalized, email-safe image of the exact
+PublisherAppPromoBanner used by the portal home. The GOD MODE preview reads the
+live app owner's publisher name, imageUrl/imageUploadDataUrl and colorHex. The
+browser renders that shared atomic scene (including the branded phones), adds
+the publisher icon/name, waits for fonts and every image, and captures a bounded
+1024px JPEG. English previews also localize the scene labels. Missing images or
+render errors block sending and expose retry; no generic placeholder is sent.
+GET email-preview returns bannerBrand and its contextHash. POST email-preview
+accepts { language, banner: { contextHash, dataUrl } } and freezes the reviewed
+image into the message hash. The send input carries that same banner; its bytes
+and actual JPEG frame are validated. Changes to live identity, icon, color,
+language, action, message content or image require a new review. Both preview
+methods use no-store. The banner is a CID inline JPEG attachment in Gmail MIME;
+the inert preview substitutes only that image source with the exact data URL.
+No image, HTML, credential or full preview is persisted in partner_email_sends.
+Status replays still resolve the prior command before reading live data or
+rebuilding images. The no-organization invitation has no publisher banner.
+Approved bilingual wording is mirrored in docs/partner-email-templates.tsv.
+
 For the three publisher stages, the preview includes the publisher's saved accessKey together with email and the existing callbackUrl only when the recipient has an active matching organization_publisher or individual_publisher role and the stored credential belongs to that email and publisher/app owner. Missing keys or mismatched recipients keep an email-only URL with an explanation in the preview. The public join form never receives a credential. Previews no longer generate temporary signed access codes.
 The preview shows the complete destination above the inert email iframe and opens it in a separate tab with no opener or referrer. The publisher login preloads both email and accessKey, removes accessKey from browser history after loading and sends no referrer.
 

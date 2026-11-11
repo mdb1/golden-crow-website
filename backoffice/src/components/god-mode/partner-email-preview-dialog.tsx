@@ -34,6 +34,7 @@ import {
 import { appText } from "@/lib/language";
 import { sdkFetch, SdkRequestError } from "@/lib/sdk-client";
 import { cn } from "@/lib/utils";
+import { renderPartnerEmailBanner } from "./partner-email-banner";
 
 type SendOperation = PartnerEmailSendInput & { partnerId: string };
 
@@ -78,7 +79,23 @@ export function PartnerEmailPreviewDialog({
       `${PARTNERS_API_ROUTE}/${encodeURIComponent(partnerId)}/email-preview?language=${emailLanguage}`,
       { signal: controller.signal },
     )
-      .then((response) => {
+      .then(async (response) => {
+        if (response.bannerBrand) {
+          const banner = await renderPartnerEmailBanner(
+            response.bannerBrand,
+            response.language,
+            response.category,
+            controller.signal,
+          );
+          response = await sdkFetch<PartnerEmailPreview>(
+            `${PARTNERS_API_ROUTE}/${encodeURIComponent(partnerId)}/email-preview`,
+            {
+              method: "POST",
+              body: JSON.stringify({ language: emailLanguage, banner }),
+              signal: controller.signal,
+            },
+          );
+        }
         if (token === generation.current) setPreview(response);
       })
       .catch((failure: unknown) => {
@@ -130,6 +147,7 @@ export function PartnerEmailPreviewDialog({
       language: preview.language,
       previewHash: preview.previewHash,
       requestId: crypto.randomUUID(),
+      ...(preview.banner ? { banner: preview.banner } : {}),
     };
     operationRef.current = currentOperation;
     sendLock.current = true;
@@ -332,7 +350,8 @@ export function PartnerEmailPreviewDialog({
                     ) : null}
                     {preview.accessCodeExpiresAt ? (
                       <p className="text-xs text-muted-foreground">
-                        {t("Access code valid until")}: {new Intl.DateTimeFormat(
+                        {t("Access code valid until")}:{" "}
+                        {new Intl.DateTimeFormat(
                           language === "es" ? "es-AR" : "en",
                           { dateStyle: "medium", timeStyle: "short" },
                         ).format(new Date(preview.accessCodeExpiresAt))}
@@ -344,7 +363,10 @@ export function PartnerEmailPreviewDialog({
                     sandbox=""
                     referrerPolicy="no-referrer"
                     tabIndex={0}
-                    srcDoc={partnerEmailPreviewDocument(preview.html)}
+                    srcDoc={partnerEmailPreviewDocument(
+                      preview.html,
+                      preview.banner,
+                    )}
                     className="h-[52vh] min-h-80 w-full rounded-2xl border bg-white"
                   />
                 </>

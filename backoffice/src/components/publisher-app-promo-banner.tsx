@@ -3,7 +3,8 @@
 import { useEffect, useRef } from "react";
 
 const DEFAULT_APP_TINT = "#6D28D9";
-const ORGANIZATION_NAME_DIVIDER = /[,.;:|/\\_~=*•·‧⋅∙‣…()[\]{}\p{Dash_Punctuation}−，．、。；：｜／]/u;
+const ORGANIZATION_NAME_DIVIDER =
+  /[,.;:|/\\_~=*•·‧⋅∙‣…()[\]{}\p{Dash_Punctuation}−，．、。；：｜／]/u;
 const EMERALD_ACCENT = "#00E83C";
 const VIVID_MATERIAL_SATURATION = 100;
 // The renderer adds black depth and white bloom after this source color. A
@@ -22,6 +23,7 @@ type PublisherAppPromoBannerProps = {
   organizationTint?: string;
   organizationImageUrl?: string;
   ctaLabel?: string;
+  language?: "es" | "en";
 };
 
 type RGB = {
@@ -158,11 +160,7 @@ export function publisherAppIntensePalette(value?: string) {
   const isWarmScene = sceneHue >= 8 && sceneHue <= 52;
   const accent = isEmeraldScene
     ? EMERALD_ACCENT
-    : hslToHex(
-        sceneHue,
-        VIVID_MATERIAL_SATURATION,
-        VIVID_MATERIAL_LIGHTNESS,
-      );
+    : hslToHex(sceneHue, VIVID_MATERIAL_SATURATION, VIVID_MATERIAL_LIGHTNESS);
   const accentDeep = hslToHex(sceneHue, 96, 27);
   const backgroundDeep = isWarmScene
     ? hslToHex(sceneHue, 100, 40)
@@ -188,9 +186,7 @@ export function publisherAppIntensePalette(value?: string) {
     accentDeep,
     accentLight: materialLight,
     backgroundDepthOpacity: isWarmScene ? WARM_SCENE_DEPTH_OPACITY : 1,
-    cornerShadeOpacity: isWarmScene
-      ? WARM_SCENE_CORNER_SHADE_OPACITY
-      : 0.65,
+    cornerShadeOpacity: isWarmScene ? WARM_SCENE_CORNER_SHADE_OPACITY : 0.65,
     backgroundBloomOpacity: isWarmScene ? WARM_SCENE_BLOOM_OPACITY : 0.65,
     backgroundDeep,
     backgroundMid,
@@ -280,6 +276,7 @@ export function PublisherAppPromoBanner({
   organizationTint,
   organizationImageUrl,
   ctaLabel = "Crear mi app",
+  language = "es",
 }: PublisherAppPromoBannerProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const shortName =
@@ -325,6 +322,37 @@ export function PublisherAppPromoBanner({
           highlight: palette.highlight,
           ink: palette.ink,
           shadow: palette.shadow,
+          ...(language === "en"
+            ? {
+                titlePrefix: "The app of",
+                description:
+                  "Your own app, built around your services, products and community.",
+                featured: "YOUR OWN APP",
+                features: ["Your app", "Your services", "Your products"],
+                priceUnit: "USD / MONTH",
+                nowLabel: "NOW",
+                heroEyebrow: "FOR YOUR COMMUNITY",
+                heroTitle: "Your world,\nin one app",
+                servicesTitle: "My services",
+                productsTitle: "Products",
+                homeRows: [
+                  { icon: "stethoscope", title: "My services" },
+                  { icon: "box", title: "Products" },
+                  { icon: "calendar", title: "Appointments" },
+                  { icon: "megaphone", title: "Updates" },
+                ],
+                servicesRows: [
+                  { icon: "dna", title: "Genetic tests" },
+                  { icon: "heart-pulse", title: "Follow-up" },
+                  { icon: "report", title: "Results" },
+                ],
+                productRows: [
+                  { icon: "box", title: "Health kits" },
+                  { icon: "capsule", title: "Products" },
+                  { icon: "bell", title: "Updates" },
+                ],
+              }
+            : {}),
         });
         host.dataset.runtimeState = "ready";
       })
@@ -344,6 +372,7 @@ export function PublisherAppPromoBanner({
     shortName,
     brandLogoUrl,
     ctaLabel,
+    language,
     palette.accent,
     palette.accentDeep,
     palette.accentLight,

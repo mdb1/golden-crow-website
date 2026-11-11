@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
+import { PartnerEmailBannerInputSchema } from "../lib/partner-email-banner.js";
 import {
   PartnerIdSchema,
   PartnerInputSchema,
@@ -147,17 +148,28 @@ export async function connectedPartnersRoutes(
           .strict(),
       },
     },
-    async (request) =>
-      previewPartnerEmail(
+    async (request, reply) => {
+      reply.header("Cache-Control", "no-store");
+      return previewPartnerEmail(
         request.adminContext!,
         request.params.partnerId,
         request.query.language,
-      ),
+      );
+    },
+  );
+
+  f.post(
+    `${ROUTE}/:partnerId/email-preview`,
+    { bodyLimit: 1024 * 1024, schema: { params: ParamsSchema, body: z.object({ language: PartnerEmailLanguageSchema, banner: PartnerEmailBannerInputSchema }).strict() } },
+    async (request, reply) => {
+      reply.header("Cache-Control", "no-store");
+      return previewPartnerEmail(request.adminContext!, request.params.partnerId, request.body.language, request.body.banner);
+    },
   );
 
   f.post(
     `${ROUTE}/:partnerId/email`,
-    { schema: { params: ParamsSchema, body: PartnerEmailSendInputSchema } },
+    { bodyLimit: 1024 * 1024, schema: { params: ParamsSchema, body: PartnerEmailSendInputSchema } },
     async (request) =>
       sendPartnerEmail(
         request.adminContext!,

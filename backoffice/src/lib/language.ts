@@ -20,6 +20,11 @@ export function toggleAppLanguage(language: AppLanguage): AppLanguage {
 }
 
 const SPANISH_TEXT: Record<string, string> = {
+  "Generate the app banner before sending this email.": "Generá el banner de la app antes de enviar este email.",
+  "The app banner is invalid. Generate a new email preview.": "El banner de la app no es válido. Generá una nueva vista previa del email.",
+  "Could not load the publisher icon or app banner. Try again.": "No se pudo cargar el ícono del publicador o el banner de la app. Volvé a intentar.",
+  "Could not prepare the app banner. Try again.": "No se pudo preparar el banner de la app. Volvé a intentar.",
+  "Publisher branding changed. Generate a new email preview.": "Cambió la identidad del publicador. Generá una nueva vista previa del email.",
   "Access key": "Clave de acceso",
   "Portal access key": "Clave de acceso al portal",
   "Reveal the saved key for this publisher.": "Revelá la clave guardada de este publicador.",

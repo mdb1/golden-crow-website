@@ -6,6 +6,11 @@ import type {
 import { ENV } from "../config/env.js";
 import { AdminRepositoryError } from "../repositories/admin-errors.js";
 import { partnerSection } from "./partner-section.js";
+import {
+  PARTNER_BANNER_CONTENT_ID,
+  type PartnerEmailBannerBrand,
+  type PartnerEmailBannerInput,
+} from "./partner-email-banner.js";
 
 export type PartnerEmailLanguage = "es" | "en";
 export type PartnerEmailPreview = {
@@ -21,6 +26,8 @@ export type PartnerEmailPreview = {
   previewHash: string;
   accessCodeExpiresAt?: string;
   accessCodeUnavailableReason?: string;
+  bannerBrand?: PartnerEmailBannerBrand;
+  banner?: PartnerEmailBannerInput;
 };
 
 const JOIN_URL = "https://goldencrowvs.com/pocket-genes/join-us/new/";
@@ -47,7 +54,11 @@ function escapeHtml(value: string) {
     .replace(/'/g, "&#39;");
 }
 
-function publisherLoginUrl(callback: string, email: string, accessKey?: string) {
+function publisherLoginUrl(
+  callback: string,
+  email: string,
+  accessKey?: string,
+) {
   const url = new URL(
     "/publisher-portal/login",
     `${ENV.BACKOFFICE_ORIGIN.replace(/\/+$/, "")}/`,
@@ -62,9 +73,11 @@ function emailCopy(
   partner: Partner,
   category: PartnerSection,
   language: PartnerEmailLanguage,
+  currentPublisherName?: string,
 ): Copy {
   const spanish = language === "es";
   const publisher =
+    currentPublisherName ??
     partner.linkedApp?.publisherName ??
     partner.linkedOrganization?.name ??
     partner.linkedIndividualPublisher?.name ??
@@ -107,33 +120,33 @@ function emailCopy(
   )
     return spanish
       ? {
-          subject: `Así podría verse la app de ${publisher}`,
+          subject: `¿Y si ${publisher} tuviera su propia app?`,
           preheader:
-            "Elegí plataformas, funciones y colores para solicitar una demo gratuita.",
-          heading: "Tu marca. Tu propia app.",
-          lead: `${publisher} ya forma parte de Pocket Genes. Ahora podés empezar a darle forma a una app con tu marca y pedir una demo gratuita para evaluarla con tu equipo.`,
+            "Elegí el look, pedí una demo gratis y empezá a imaginarla.",
+          heading: "Tu marca. Tu app. Tu estilo. 🔥",
+          lead: "¿Querés verla? Pedí tu demo gratis.",
           paragraphs: [
-            "En el portal de publicadores, elegí las plataformas, funciones y colores que imaginás para tu app. Nuestro equipo revisará la solicitud.",
-            "Con esa información podremos preparar una demo gratuita para que conozcas la experiencia antes de decidir si querés avanzar con la publicación.",
-            `Ingresá con la cuenta de publicador que administra ${publisher}. El botón te llevará al formulario de solicitud de tu app.`,
+            "Elegí las plataformas, funciones y colores que imaginás. Nosotros revisamos tu solicitud.",
+            "Con esos datos, podemos preparar una demo para que la pruebes antes de decidir si querés publicarla.",
+            `Entrá con la cuenta de publicador de ${publisher} y empezá.`,
           ],
-          ctaLabel: "Solicitar una demo de mi app",
-          closing: `Nos encantará ver qué imaginás para la app de ${publisher}.`,
+          ctaLabel: "Pedir mi demo gratis",
+          closing: "¡Qué ganas de ver tu app tomar forma!",
           callback: APP_NEW_PATH,
         }
       : {
-          subject: `See what ${publisher}’s app could look like`,
+          subject: `What if ${publisher} had its own app?`,
           preheader:
-            "Choose platforms, features, and colors to request a free app demo.",
-          heading: "Your brand. Your own app.",
-          lead: `${publisher} is already part of Pocket Genes. Now you can shape an app around your brand and request a free demo to explore with your team.`,
+            "Pick the look, request a free demo, and picture the possibilities.",
+          heading: "Your brand. Your app. Your style. 🔥",
+          lead: "Want to see it? Request your free demo.",
           paragraphs: [
-            "In the publisher portal, choose the platforms, features, and colors you have in mind for your app. Our team will review your request.",
-            "With those details, we can prepare a free demo so you can experience the app before deciding whether to proceed with publication.",
-            `Sign in with the publisher account for ${publisher}. The button will take you to your app request form.`,
+            "Choose your platforms, features, and colors. We’ll review your request.",
+            "With those details, we can prepare a demo for you to try before deciding whether to publish.",
+            `Sign in with ${publisher}’s publisher account to get started.`,
           ],
-          ctaLabel: "Request my free app demo",
-          closing: `We’d love to see what you envision for ${publisher}’s app.`,
+          ctaLabel: "Request my free demo",
+          closing: "Can’t wait to see your app take shape!",
           callback: APP_NEW_PATH,
         };
   if (category === "freeApp" || category === "individualFreeApp")
@@ -210,9 +223,13 @@ export function buildConnectedPartnerEmail(
   partner: Partner,
   language: PartnerEmailLanguage = "es",
   accessKey?: string,
+  presentation?: {
+    brand: PartnerEmailBannerBrand;
+    banner?: PartnerEmailBannerInput;
+  },
 ): PartnerEmailPreview {
   const category = partnerSection(partner);
-  const copy = emailCopy(partner, category, language);
+  const copy = emailCopy(partner, category, language, presentation?.brand.name);
   const ctaUrl = copy.callback
     ? publisherLoginUrl(copy.callback, partner.email, accessKey)
     : JOIN_URL;
@@ -223,6 +240,10 @@ export function buildConnectedPartnerEmail(
   const signature =
     language === "es" ? "Equipo Pocket Genes" : "The Pocket Genes team";
   const closing = `${copy.closing}\n\n${signature}`;
+  const bannerHtml = presentation?.banner
+    ? `<div style="margin:0 0 24px;"><a href="${escapeHtml(ctaUrl)}" style="display:block;text-decoration:none;"><img src="cid:${PARTNER_BANNER_CONTENT_ID}" width="600" alt="${escapeHtml(language === "es" ? `Así podría verse la app de ${presentation.brand.name}` : `See what ${presentation.brand.name}’s app could look like`)}" style="display:block;width:100%;max-width:600px;height:auto;border:0;border-radius:14px;"></a></div>`
+    : "";
+  const ctaHtml = `<a href="${escapeHtml(ctaUrl)}" class="pg-email-cta" style="display:block;max-width:100%;box-sizing:border-box;text-align:center;overflow-wrap:break-word;background:#6f3cc3;color:#ffffff;text-decoration:none;border-radius:12px;padding:22px 24px;font-size:17px;line-height:24px;font-weight:800;">${escapeHtml(copy.ctaLabel)}</a>`;
   const text = [
     greeting,
     "",
@@ -246,8 +267,9 @@ export function buildConnectedPartnerEmail(
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0;padding:0;background:#f8f7ff;font-family:Arial,Helvetica,sans-serif;color:#111827;"><tr><td class="pg-email-outer" align="center" style="padding:40px 16px;">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:680px;table-layout:fixed;border-collapse:separate;border-spacing:0;background:#ffffff;border:1px solid #e7e5ff;border-radius:18px;overflow:hidden;box-shadow:0 18px 48px rgba(86,50,164,0.14);"><tr><td class="pg-email-header" style="background:#2d1b69;padding:36px 40px;overflow-wrap:break-word;word-wrap:break-word;"><div style="font-size:13px;line-height:18px;letter-spacing:0.26em;text-transform:uppercase;font-weight:800;color:#d8c9ff;">Pocket Genes</div><div class="pg-email-title" style="margin-top:16px;font-size:36px;line-height:42px;font-weight:800;color:#ffffff;">${escapeHtml(copy.heading)}</div></td></tr>
 <tr><td class="pg-email-content" style="padding:40px;background:#ffffff;overflow-wrap:break-word;word-wrap:break-word;"><p style="margin:0 0 24px;font-size:20px;line-height:30px;color:#111827;">${escapeHtml(greeting)}</p><p style="margin:0 0 28px;font-size:22px;line-height:32px;font-weight:800;color:#111827;">${escapeHtml(copy.lead)}</p>
+${bannerHtml}${presentation?.banner ? `<div style="margin:0 0 28px;">${ctaHtml}</div>` : ""}
 ${copy.paragraphs.map((paragraph) => `<p style="margin:0 0 24px;font-size:18px;line-height:30px;color:#4b5563;">${escapeHtml(paragraph)}</p>`).join("\n")}
-<a href="${escapeHtml(ctaUrl)}" class="pg-email-cta" style="display:inline-block;max-width:100%;box-sizing:border-box;text-align:center;overflow-wrap:break-word;background:#6f3cc3;color:#ffffff;text-decoration:none;border-radius:12px;padding:16px 24px;font-size:15px;line-height:20px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;">${escapeHtml(copy.ctaLabel)}</a>
+${ctaHtml}
 <p style="margin:28px 0 0;font-size:16px;line-height:26px;color:#6b7280;">${escapeHtml(closing).replace(/\n/g, "<br>")}</p></td></tr></table></td></tr></table></body></html>`;
   const content = {
     partnerId: partner.id,
@@ -269,8 +291,23 @@ ${copy.paragraphs.map((paragraph) => `<p style="margin:0 0 24px;font-size:18px;l
         linkedOrganization: partner.linkedOrganization,
         linkedIndividualPublisher: partner.linkedIndividualPublisher,
         linkedApp: partner.linkedApp,
+        bannerBrand: presentation?.brand,
+        bannerDigest: presentation?.banner
+          ? createHash("sha256")
+              .update(presentation.banner.dataUrl)
+              .digest("hex")
+          : undefined,
       }),
     )
     .digest("hex");
-  return { ...content, previewHash };
+  return {
+    ...content,
+    previewHash,
+    ...(presentation
+      ? {
+          bannerBrand: presentation.brand,
+          ...(presentation.banner ? { banner: presentation.banner } : {}),
+        }
+      : {}),
+  };
 }

@@ -1,0 +1,53 @@
+template	field	es	en
+Sin organización todavía	subject	Descubrí qué puede hacer {companyName} en Pocket Genes	See what’s possible for {companyName} on Pocket Genes
+Sin organización todavía	brand	Pocket Genes	Pocket Genes
+Sin organización todavía	preheader	Explorá posibles alianzas, descuentos de la red y una demo gratuita de tu propia app.	Explore potential partnerships, network discounts, and a free demo of your own branded app.
+Sin organización todavía	heading	Alianzas, beneficios y una app con tu marca	Partnerships, benefits, and an app with your branding
+Sin organización todavía	greeting	Hola {firstName},	Hi {firstName},
+Sin organización todavía	lead	Con Pocket Genes, {companyName} puede explorar nuevas colaboraciones y conocer cómo sería una app con su propia identidad.	Pocket Genes gives {companyName} a place to explore potential collaborations and discover what an app with your own branding could look like.
+Sin organización todavía	paragraph_1	El primer paso es solicitar la incorporación de tu organización a la red de Pocket Genes.	Start by requesting to add your organization to the Pocket Genes network.
+Sin organización todavía	paragraph_2	Una vez aprobada la solicitud, podrás conocer los descuentos disponibles y explorar posibles alianzas con otras organizaciones y profesionales.	Once approved, you can explore available network discounts and potential partnerships with other organizations and professionals.
+Sin organización todavía	paragraph_3	También podrás solicitar una demo gratuita de una app con la identidad de {companyName}, para conocer la experiencia y evaluarla con tu equipo antes de decidir si querés avanzar.	You can also request a free demo of an app branded for {companyName}, so your team can explore the experience before deciding whether to move forward.
+Sin organización todavía	paragraph_4	Completá el formulario con los datos de {companyName}. Revisaremos la solicitud y, si es aprobada, te enviaremos las instrucciones para ingresar al portal.	Fill out the form with {companyName}’s details. We’ll review the request and, if approved, send you instructions to access the portal.
+Sin organización todavía	button_text	Solicitar incorporación	Request to join
+Sin organización todavía	button_url	https://goldencrowvs.com/pocket-genes/join-us/new/	https://goldencrowvs.com/pocket-genes/join-us/new/
+Sin organización todavía	closing	Nos encantará conocer más sobre {companyName}.	We’d love to learn more about {companyName}.
+Sin organización todavía	signature	Equipo Pocket Genes	The Pocket Genes team
+Sin app	subject	¿Y si {publisherName} tuviera su propia app?	What if {publisherName} had its own app?
+Sin app	brand	Pocket Genes	Pocket Genes
+Sin app	preheader	Elegí el look, pedí una demo gratis y empezá a imaginarla.	Pick the look, request a free demo, and picture the possibilities.
+Sin app	heading	Tu marca. Tu app. Tu estilo. 🔥	Your brand. Your app. Your style. 🔥
+Sin app	greeting	Hola {firstName},	Hi {firstName},
+Sin app	lead	¿Querés verla? Pedí tu demo gratis.	Want to see it? Request your free demo.
+Sin app	paragraph_1	Elegí las plataformas, funciones y colores que imaginás. Nosotros revisamos tu solicitud.	Choose your platforms, features, and colors. We’ll review your request.
+Sin app	paragraph_2	Con esos datos, podemos preparar una demo para que la pruebes antes de decidir si querés publicarla.	With those details, we can prepare a demo for you to try before deciding whether to publish.
+Sin app	paragraph_3	Entrá con la cuenta de publicador de {publisherName} y empezá.	Sign in with {publisherName}’s publisher account to get started.
+Sin app	button_text	Pedir mi demo gratis	Request my free demo
+Sin app	button_url	{backofficeOrigin}/publisher-portal/login?email={recipientEmail}&callbackUrl=%2Fpublisher-portal%2Fapp%2Fnew	{backofficeOrigin}/publisher-portal/login?email={recipientEmail}&callbackUrl=%2Fpublisher-portal%2Fapp%2Fnew
+Sin app	closing	¡Qué ganas de ver tu app tomar forma!	Can’t wait to see your app take shape!
+Sin app	signature	Equipo Pocket Genes	The Pocket Genes team
+Con app gratuita	subject	¿Listos para publicar la app de {publisherName}?	Ready to publish {publisherName}’s app?
+Con app gratuita	brand	Pocket Genes	Pocket Genes
+Con app gratuita	preheader	Tu demo gratuita está activa. Conocé los pasos para solicitar la publicación.	Your free app demo is ready to test. See how to request publication.
+Con app gratuita	heading	De la prueba a la publicación	From demo to publication
+Con app gratuita	greeting	Hola {firstName},	Hi {firstName},
+Con app gratuita	lead	La demo gratuita de la app de {publisherName} ya está disponible para probar. Si la experiencia te convence, podés empezar el proceso para publicarla.	The free demo of {publisherName}’s app is ready to test. If the experience works for your team, you can begin the publication process.
+Con app gratuita	paragraph_1	El primer paso es ingresar al portal y revisar los términos y condiciones de tu app.	Start by signing in to the portal and reviewing your app’s terms and conditions.
+Con app gratuita	paragraph_2	Si decidís aceptarlos y solicitar la publicación, podrás consultar la información de pago y coordinar con nuestro equipo la preparación de tu app para publicarla.	If you decide to accept the terms and request publication, you’ll be able to review payment information and coordinate the preparation of your app with our team.
+Con app gratuita	paragraph_3	Ingresá con la cuenta de publicador que administra {publisherName}.	Sign in with the publisher account for {publisherName}.
+Con app gratuita	button_text	Revisar condiciones de publicación	Review publication terms
+Con app gratuita	button_url	{backofficeOrigin}/publisher-portal/login?email={recipientEmail}&callbackUrl=%2Fpublisher-portal%2Fapp%2Faccept-terms-and-conditions	{backofficeOrigin}/publisher-portal/login?email={recipientEmail}&callbackUrl=%2Fpublisher-portal%2Fapp%2Faccept-terms-and-conditions
+Con app gratuita	closing	Cuando decidas avanzar, estaremos para ayudarte con la publicación.	When you’re ready, we’ll help you through the publication process.
+Con app gratuita	signature	Equipo Pocket Genes	The Pocket Genes team
+Con contrato	subject	Tu app de {publisherName}, desde un solo lugar	Your {publisherName} app, all in one place
+Con contrato	brand	Pocket Genes	Pocket Genes
+Con contrato	preheader	Revisá la configuración de tu app y consultá los próximos pasos desde el portal.	Review your app settings and next steps in the publisher portal.
+Con contrato	heading	Tu app, bajo control	Stay on top of your app
+Con contrato	greeting	Hola {firstName},	Hi {firstName},
+Con contrato	lead	La app de {publisherName} tiene su espacio de gestión. Desde el portal podés revisar su configuración y consultar qué sigue.	There’s a dedicated place to manage {publisherName}’s app. Use the portal to review its settings and see what comes next.
+Con contrato	paragraph_1	Ingresá cuando necesites revisar o mantener la configuración de tu app. Si te surge alguna duda, respondé a este correo y nuestro equipo te ayudará.	Open the portal whenever you need to review or maintain your app’s settings. Have a question? Reply to this email and our team will help.
+Con contrato	paragraph_2	Ingresá con la cuenta de publicador que administra {publisherName}.	Sign in with the publisher account for {publisherName}.
+Con contrato	button_text	Abrir el portal de mi app	Open my app portal
+Con contrato	button_url	{backofficeOrigin}/publisher-portal/login?email={recipientEmail}&callbackUrl=%2Fpublisher-portal%2Fapp%2Fedit	{backofficeOrigin}/publisher-portal/login?email={recipientEmail}&callbackUrl=%2Fpublisher-portal%2Fapp%2Fedit
+Con contrato	closing	Estamos a un correo de distancia si necesitás ayuda.	We’re an email away whenever you need help.
+Con contrato	signature	Equipo Pocket Genes	The Pocket Genes team

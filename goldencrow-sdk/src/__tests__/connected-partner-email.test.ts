@@ -1,5 +1,8 @@
 import { buildConnectedPartnerEmail } from "../lib/connected-partner-email.js";
 import type { Partner } from "../contracts/connected-partners.js";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { partnerBannerBrand } from "../lib/partner-email-banner.js";
 
 const base: Partner = {
   id: "partner_one",
@@ -90,7 +93,7 @@ it("deep-links existing publishers without apps through their own portal login t
   expect(preview.text).toContain(org.name);
   expect(preview.text).toContain("plataformas, funciones y colores");
   expect(preview.text).toContain(
-    `Ingresá con la cuenta de publicador que administra ${org.name}.`,
+    `Entrá con la cuenta de publicador de ${org.name} y empezá.`,
   );
 });
 
@@ -298,4 +301,43 @@ it("keeps the desktop invitation frame and gives narrow email clients readable p
   expect(preview.html).toContain(
     "max-width:100%;box-sizing:border-box;text-align:center;overflow-wrap:break-word",
   );
+});
+
+it("matches all approved Spanish and English template wording in the supplied table", () => {
+  const partners: Record<string, Partner> = { "Sin organización todavía": base, "Sin app": withOrg, "Con app gratuita": withApp("active_for_testing"), "Con contrato": withApp("active") };
+  const rows = readFileSync(join(process.cwd(), "docs/partner-email-templates.tsv"), "utf8").trimEnd().split("\n").slice(1);
+  const interpolate = (value: string) => value.replaceAll("{firstName}", base.firstName).replaceAll("{companyName}", base.companyName).replaceAll("{publisherName}", org.name);
+  for (const row of rows) {
+    const [template, field, es, en] = row.split("\t");
+    for (const [language, copy] of [["es", es], ["en", en]] as const) {
+      const preview = buildConnectedPartnerEmail(partners[template!]!, language);
+      const expected = interpolate(copy!);
+      if (field === "subject") expect(preview.subject).toBe(expected);
+      else if (field === "button_text") expect(preview.ctaLabel).toBe(expected);
+      else if (field === "brand" || field === "preheader") expect(preview.html).toContain(expected);
+      else if (field !== "button_url") expect(preview.text).toContain(expected);
+    }
+  }
+});
+
+it("places the actual inline banner and a prominent purple action above the explanatory paragraphs", () => {
+  const brand = partnerBannerBrand(org.name, "#657960", "https://example.com/logo.png", "es", "Pedir mi demo gratis");
+  const banner = { contextHash: brand.contextHash, dataUrl: "data:image/jpeg;base64,reviewed-image" };
+  const preview = buildConnectedPartnerEmail(withOrg, "es", "KEY12345", { brand, banner });
+  expect(preview.html).toContain('src="cid:partner-publisher-app-banner"');
+  expect(preview.html).toContain(`alt="Así podría verse la app de ${org.name}"`);
+  expect(preview.html.indexOf('class="pg-email-cta"')).toBeLessThan(preview.html.indexOf("Elegí las plataformas"));
+  expect(preview.html).toContain("padding:22px 24px");
+  expect(buildConnectedPartnerEmail(withOrg, "es", "KEY12345", { brand, banner: { ...banner, dataUrl: "data:image/jpeg;base64,changed-image" } }).previewHash).not.toBe(preview.previewHash);
+  expect(buildConnectedPartnerEmail(base).bannerBrand).toBeUndefined();
+});
+
+it("uses the live banner publisher name in copy even if the app carries an older publisher name", () => {
+  const partner = withApp("active_for_testing");
+  partner.linkedApp!.publisherName = "Previous publisher name";
+  const brand = partnerBannerBrand("Current publisher name", "#657960", "", "es", "Revisar condiciones de publicación");
+  const preview = buildConnectedPartnerEmail(partner, "es", undefined, { brand });
+  expect(preview.subject).toBe("¿Listos para publicar la app de Current publisher name?");
+  expect(preview.text).toContain("La demo gratuita de la app de Current publisher name");
+  expect(preview.text).not.toContain("Previous publisher name");
 });
