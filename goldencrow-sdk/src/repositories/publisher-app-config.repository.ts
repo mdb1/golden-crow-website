@@ -1931,3 +1931,34 @@ export async function deletePublisherAppConfig(
     return { id: config.id };
   });
 }
+
+export async function deletePublisherAppConfigById(
+  context: AdminContext,
+  configId: string,
+  expectedUpdatedAt: string,
+): Promise<{ id: string }> {
+  if (!context.isBootstrap) {
+    throw new AdminRepositoryError("GOD MODE access required", 403);
+  }
+  const id = configId.trim();
+  if (!id || id.length > 300 || id.includes("/") || id === "." || id === ".." || /^__.*__$/.test(id)) {
+    throw new AdminRepositoryError("A valid app config id is required.", 400);
+  }
+  if (!Number.isFinite(Date.parse(expectedUpdatedAt))) {
+    throw new AdminRepositoryError("A valid expected update time is required.", 400);
+  }
+  const ref = adminDb.collection(APP_CONFIGS_COLLECTION).doc(id);
+  const catalogRef = adminDb.collection(CUSTOM_APPS_SNAPSHOT_COLLECTION).doc(CUSTOM_APPS_SNAPSHOT_DOCUMENT);
+
+  return adminDb.runTransaction(async (transaction) => {
+    const existing = await transaction.get(ref);
+    if (existing.exists && timestampToIso(existing.data()?.updatedAt, "update time") !== new Date(expectedUpdatedAt).toISOString()) {
+      throw new AdminRepositoryError("The app changed. Reload the list before deleting it.", 409);
+    }
+    const catalog = await transaction.get(catalogRef);
+    if (existing.exists) transaction.delete(ref);
+    updateCatalogSnapshotInTransaction(transaction, catalog, id, null, context.uid);
+    // Identifier reservations remain permanent, including after deletion.
+    return { id };
+  });
+}

@@ -9,6 +9,7 @@ import {
   createPublisherAppIdentifier,
   deactivatePublisherAppIdentifier,
   deletePublisherAppConfig,
+  deletePublisherAppConfigById,
   getPublisherAppConfigById,
   getPublisherAppCatalogIcon,
   getOrganizationPublisherAppCreationData,
@@ -280,6 +281,10 @@ const PublisherAppConfigAdminParamsSchema = z.object({
   configId: z.string().trim().min(1).max(300),
 });
 
+const PublisherAppConfigDeleteBodySchema = z.object({
+  expectedUpdatedAt: z.string().datetime({ offset: true }),
+}).strict();
+
 const PublisherAppPublicationBodySchema = z.object({
   termsAccepted: z.literal(true),
   expectedUpdatedAt: z.string().datetime({ offset: true }),
@@ -513,6 +518,21 @@ export async function publisherAppConfigRoutes(
       try {
         const config = await getPublisherAppConfigById(request.params.configId);
         return reply.send({ config });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.delete(
+    "/admin/publisher-app-configs/:configId",
+    { schema: { params: PublisherAppConfigAdminParamsSchema, body: PublisherAppConfigDeleteBodySchema } },
+    async (request, reply) => {
+      if (!request.adminContext) return reply.status(401).send({ error: "No authenticated admin context" });
+      if (!request.adminContext.isBootstrap) return reply.status(403).send({ error: "GOD MODE access required" });
+      try {
+        const deleted = await deletePublisherAppConfigById(request.adminContext, request.params.configId, request.body.expectedUpdatedAt);
+        return reply.send({ deleted: true, configId: deleted.id });
       } catch (error) {
         return sendRepositoryError(reply, error);
       }

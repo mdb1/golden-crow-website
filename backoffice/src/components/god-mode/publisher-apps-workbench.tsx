@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   useInfiniteQuery,
   useMutation,
   useQuery,
   useQueryClient,
+  type InfiniteData,
 } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -19,11 +20,21 @@ import {
   RefreshCw,
   Search,
   Smartphone,
+  Trash2,
   UserRound,
 } from "lucide-react";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -39,10 +50,11 @@ import {
   type PublisherAppConfig,
   type PublisherAppConfigsPage,
 } from "@/lib/publisher-app-config";
-import { sdkFetch } from "@/lib/sdk-client";
+import { sdkFetch, SdkRequestError } from "@/lib/sdk-client";
 import { cn } from "@/lib/utils";
 
 const API_ROUTE = "/admin/publisher-app-configs";
+const APPS_QUERY_KEY = ["god-mode-publisher-apps"] as const;
 const SNAPSHOT_ROUTE = `${API_ROUTE}/snapshot`;
 const SNAPSHOT_QUERY_KEY = ["god-mode-publisher-apps-snapshot"] as const;
 
@@ -107,7 +119,19 @@ function SnapshotAppThumbnail({
   );
 }
 
-function AppRow({ app }: { app: PublisherAppConfig }) {
+function AppRow({
+  app,
+  selected,
+  disabled,
+  onSelect,
+  onDelete,
+}: {
+  app: PublisherAppConfig;
+  selected: boolean;
+  disabled: boolean;
+  onSelect: (checked: boolean) => void;
+  onDelete: () => void;
+}) {
   const href = `/god-mode/apps/${encodeURIComponent(app.id)}`;
   const enabledFeatures =
     2 +
@@ -120,14 +144,29 @@ function AppRow({ app }: { app: PublisherAppConfig }) {
     app.publisherKind === "organization" ? Building2 : UserRound;
 
   return (
-    <article className="group relative overflow-hidden rounded-2xl border border-violet-100/80 bg-white/88 p-4 shadow-[0_20px_54px_-44px_rgba(109,40,217,0.55)] transition hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-[0_26px_64px_-42px_rgba(109,40,217,0.72)] dark:border-violet-400/16 dark:bg-slate-950/40">
+    <article
+      className={cn(
+        "group relative overflow-hidden rounded-2xl border border-violet-100/80 bg-white/88 p-4 shadow-[0_20px_54px_-44px_rgba(109,40,217,0.55)] transition hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-[0_26px_64px_-42px_rgba(109,40,217,0.72)] dark:border-violet-400/16 dark:bg-slate-950/40",
+        selected &&
+          "border-violet-400 bg-violet-50/80 ring-1 ring-violet-300 dark:bg-violet-950/40",
+      )}
+    >
       <Link
         href={href}
         aria-label={`Editar app de ${app.publisherName}`}
         className="absolute inset-0 z-10 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
       />
-      <div className="relative z-0 flex flex-col gap-4 lg:flex-row lg:items-center">
+      <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center">
         <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className="relative z-20 flex size-10 shrink-0 items-center justify-center">
+            <Checkbox
+              checked={selected}
+              onCheckedChange={(checked) => onSelect(checked === true)}
+              disabled={disabled}
+              aria-label={`Seleccionar app de ${app.publisherName}`}
+              className="size-5"
+            />
+          </div>
           <span
             className="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-white/80 shadow-[0_12px_26px_-18px_rgba(15,23,42,0.75)]"
             style={{ backgroundColor: app.colors.primary }}
@@ -194,11 +233,142 @@ function AppRow({ app }: { app: PublisherAppConfig }) {
           </div>
         </dl>
 
-        <span className="flex size-10 shrink-0 items-center justify-center self-end rounded-xl border border-violet-200 bg-violet-50 text-violet-700 transition group-hover:border-violet-500 group-hover:bg-violet-600 group-hover:text-white lg:self-auto dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-100">
-          <ArrowRight className="size-4" />
-        </span>
+        <div className="relative z-20 flex shrink-0 items-center gap-2 self-end lg:self-auto">
+          <Link
+            href={href}
+            aria-label={`Abrir app de ${app.publisherName}`}
+            className="flex size-10 items-center justify-center rounded-xl border border-violet-200 bg-violet-50 text-violet-700 transition hover:border-violet-500 hover:bg-violet-600 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-100"
+          >
+            <ArrowRight className="size-4" />
+          </Link>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={onDelete}
+            disabled={disabled}
+            aria-label={`Eliminar app de ${app.publisherName}`}
+            title="Eliminar app"
+            className="size-10 rounded-xl border-rose-200 text-rose-600 hover:border-rose-400 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-400/25 dark:hover:bg-rose-500/10"
+          >
+            <Trash2 className="size-4" />
+          </Button>
+        </div>
       </div>
     </article>
+  );
+}
+
+type AppDeleteOutcome = { configId: string; error: string | null };
+
+function PublisherAppsDeleteDialog({
+  targets,
+  outcomes,
+  pending,
+  onConfirm,
+  onClose,
+}: {
+  targets: PublisherAppConfig[];
+  outcomes: AppDeleteOutcome[] | null;
+  pending: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const successCount = outcomes?.filter((item) => !item.error).length ?? 0;
+  const failureCount = outcomes?.filter((item) => item.error).length ?? 0;
+  return (
+    <AlertDialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !pending) onClose();
+      }}
+    >
+      <AlertDialogContent className="flex max-h-[85vh] max-w-[calc(100%-2rem)] flex-col overflow-hidden rounded-2xl data-[size=default]:sm:max-w-xl">
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {outcomes === null
+              ? targets.length === 1
+                ? "¿Eliminar esta app?"
+                : `¿Eliminar ${targets.length} apps?`
+              : pending
+                ? "Eliminando apps…"
+                : "Resultado de la eliminación"}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {outcomes === null
+              ? "Se eliminará la configuración de las apps indicadas y se quitarán del catálogo. Las apps activas dejarán de tener configuración disponible. Esta acción no se puede deshacer. Los perfiles de publicador y sus publicaciones se conservan."
+              : pending
+                ? `${outcomes.length} de ${targets.length} apps procesadas.`
+                : `${successCount} eliminadas · ${failureCount} con errores.`}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <ul
+          className="min-h-0 space-y-2 overflow-y-auto"
+          aria-label="Apps a eliminar"
+        >
+          {targets.map((app, index) => {
+            const outcome = outcomes?.find((item) => item.configId === app.id);
+            return (
+              <li key={app.id} className="rounded-xl border p-3">
+                <p className="font-semibold">{app.publisherName}</p>
+                <p className="break-all font-mono text-xs text-muted-foreground">
+                  {app.id}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {publisherAppStatusLabel(app.status)}
+                </p>
+                {outcome ? (
+                  <p
+                    className={cn(
+                      "mt-2 text-sm",
+                      outcome.error
+                        ? "text-destructive"
+                        : "text-emerald-700 dark:text-emerald-300",
+                    )}
+                    role={outcome.error ? "alert" : "status"}
+                  >
+                    {outcome.error || "Eliminada"}
+                  </p>
+                ) : pending ? (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {index === outcomes?.length ? "Eliminando…" : "Pendiente"}
+                  </p>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+        <AlertDialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={pending}
+            onClick={onClose}
+          >
+            {outcomes === null ? "Cancelar" : "Listo"}
+          </Button>
+          {outcomes === null || pending ? (
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={pending}
+              onClick={onConfirm}
+            >
+              {pending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Trash2 className="size-4" />
+              )}
+              {pending
+                ? "Eliminando…"
+                : targets.length === 1
+                  ? "Eliminar definitivamente"
+                  : `Eliminar ${targets.length} apps`}
+            </Button>
+          ) : null}
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
@@ -307,10 +477,7 @@ function PublisherAppsSnapshotDialog({
                     <Badge
                       key={status}
                       variant="outline"
-                      className={cn(
-                        "rounded-full",
-                        statusClassName(status),
-                      )}
+                      className={cn("rounded-full", statusClassName(status))}
                     >
                       {publisherAppStatusLabel(status)} · {count}
                     </Badge>
@@ -427,10 +594,21 @@ function PublisherAppsSnapshotDialog({
 }
 
 export function GodModePublisherAppsBrowser() {
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const [snapshotOpen, setSnapshotOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteTargets, setDeleteTargets] = useState<
+    PublisherAppConfig[] | null
+  >(null);
+  const [deleteOutcomes, setDeleteOutcomes] = useState<
+    AppDeleteOutcome[] | null
+  >(null);
+  const [deletePending, setDeletePending] = useState(false);
+  const deleteInFlight = useRef(false);
   const appsQuery = useInfiniteQuery({
-    queryKey: ["god-mode-publisher-apps"],
+    queryKey: APPS_QUERY_KEY,
+    enabled: !deletePending,
     initialPageParam: "",
     queryFn: ({ pageParam }) => {
       const params = new URLSearchParams({ limit: "20" });
@@ -458,6 +636,97 @@ export function GodModePublisherAppsBrowser() {
       ].some((value) => value.toLocaleLowerCase().includes(normalizedQuery)),
     );
   }, [apps, normalizedQuery]);
+  const selectedApps = apps.filter((app) => selectedIds.has(app.id));
+  const allVisibleSelected =
+    visibleApps.length > 0 &&
+    visibleApps.every((app) => selectedIds.has(app.id));
+  const someVisibleSelected = visibleApps.some((app) =>
+    selectedIds.has(app.id),
+  );
+  const hiddenSelectionCount = selectedApps.filter(
+    (app) => !visibleApps.some((visible) => visible.id === app.id),
+  ).length;
+
+  useEffect(() => {
+    if (!appsQuery.isSuccess) return;
+    const available = new Set(apps.map((app) => app.id));
+    setSelectedIds((current) => {
+      const next = new Set([...current].filter((id) => available.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [apps, appsQuery.isSuccess]);
+
+  function openDelete(targets: PublisherAppConfig[]) {
+    if (deleteInFlight.current || !targets.length) return;
+    setDeleteOutcomes(null);
+    setDeleteTargets([...targets]);
+  }
+
+  async function deleteApps() {
+    if (
+      deleteInFlight.current ||
+      !deleteTargets?.length ||
+      deleteOutcomes !== null
+    )
+      return;
+    deleteInFlight.current = true;
+    setDeletePending(true);
+    setDeleteOutcomes([]);
+    const outcomes: AppDeleteOutcome[] = [];
+    try {
+      await queryClient.cancelQueries({ queryKey: APPS_QUERY_KEY });
+      for (const app of deleteTargets) {
+        try {
+          const response = await sdkFetch<{
+            deleted: boolean;
+            configId: string;
+          }>(`${API_ROUTE}/${encodeURIComponent(app.id)}`, {
+            method: "DELETE",
+            body: JSON.stringify({ expectedUpdatedAt: app.updatedAt }),
+          });
+          if (!response.deleted || response.configId !== app.id)
+            throw new Error("La eliminación no fue confirmada.");
+          outcomes.push({ configId: app.id, error: null });
+          queryClient.setQueryData<InfiniteData<PublisherAppConfigsPage>>(
+            APPS_QUERY_KEY,
+            (data) =>
+              data
+                ? {
+                    ...data,
+                    pages: data.pages.map((page) => ({
+                      ...page,
+                      apps: page.apps.filter((entry) => entry.id !== app.id),
+                    })),
+                  }
+                : data,
+          );
+          setSelectedIds((current) => {
+            const next = new Set(current);
+            next.delete(app.id);
+            return next;
+          });
+        } catch (error) {
+          outcomes.push({
+            configId: app.id,
+            error:
+              error instanceof SdkRequestError && error.status === 409
+                ? "La app cambió. Revisá la lista actualizada antes de volver a eliminarla."
+                : "No pudimos confirmar la eliminación. Revisá la lista actualizada antes de reintentar.",
+          });
+        }
+        setDeleteOutcomes([...outcomes]);
+      }
+    } finally {
+      // Discard cursors that may now reference deleted apps before enabling the list again.
+      await queryClient.resetQueries({ queryKey: APPS_QUERY_KEY, exact: true });
+      setDeletePending(false);
+      deleteInFlight.current = false;
+      await Promise.allSettled([
+        queryClient.invalidateQueries({ queryKey: SNAPSHOT_QUERY_KEY }),
+        queryClient.invalidateQueries({ queryKey: ["connected-partners"] }),
+      ]);
+    }
+  }
 
   return (
     <section
@@ -516,6 +785,78 @@ export function GodModePublisherAppsBrowser() {
         onOpenChange={setSnapshotOpen}
       />
 
+      {deleteTargets ? (
+        <PublisherAppsDeleteDialog
+          targets={deleteTargets}
+          outcomes={deleteOutcomes}
+          pending={deletePending}
+          onConfirm={() => void deleteApps()}
+          onClose={() => {
+            if (!deleteInFlight.current) setDeleteTargets(null);
+          }}
+        />
+      ) : null}
+
+      {appsQuery.isSuccess && apps.length > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-violet-100 bg-violet-50/60 px-4 py-3 dark:border-violet-400/20 dark:bg-violet-950/25">
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+              <Checkbox
+                aria-label="Seleccionar apps visibles"
+                disabled={deletePending || visibleApps.length === 0}
+                checked={
+                  allVisibleSelected
+                    ? true
+                    : someVisibleSelected
+                      ? "indeterminate"
+                      : false
+                }
+                onCheckedChange={(checked) =>
+                  setSelectedIds((current) => {
+                    const next = new Set(current);
+                    for (const app of visibleApps) {
+                      if (checked === true) next.add(app.id);
+                      else next.delete(app.id);
+                    }
+                    return next;
+                  })
+                }
+              />
+              Seleccionar apps visibles ({visibleApps.length})
+            </label>
+            <span className="text-sm text-muted-foreground">
+              {selectedApps.length} seleccionadas
+              {hiddenSelectionCount > 0
+                ? ` · ${hiddenSelectionCount} fuera del filtro`
+                : ""}
+            </span>
+          </div>
+          {selectedApps.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={deletePending}
+                onClick={() => setSelectedIds(new Set())}
+              >
+                Limpiar selección
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                disabled={deletePending}
+                onClick={() => openDelete(selectedApps)}
+              >
+                <Trash2 className="size-4" />
+                Eliminar seleccionadas ({selectedApps.length})
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {appsQuery.isPending ? (
         <div className="grid gap-3">
           {Array.from({ length: 4 }).map((_, index) => (
@@ -532,7 +873,21 @@ export function GodModePublisherAppsBrowser() {
       ) : visibleApps.length > 0 ? (
         <div className="grid gap-3">
           {visibleApps.map((app) => (
-            <AppRow key={app.id} app={app} />
+            <AppRow
+              key={app.id}
+              app={app}
+              selected={selectedIds.has(app.id)}
+              disabled={deletePending}
+              onSelect={(checked) =>
+                setSelectedIds((current) => {
+                  const next = new Set(current);
+                  if (checked) next.add(app.id);
+                  else next.delete(app.id);
+                  return next;
+                })
+              }
+              onDelete={() => openDelete([app])}
+            />
           ))}
         </div>
       ) : (
@@ -552,7 +907,7 @@ export function GodModePublisherAppsBrowser() {
             type="button"
             variant="outline"
             onClick={() => void appsQuery.fetchNextPage()}
-            disabled={appsQuery.isFetchingNextPage}
+            disabled={appsQuery.isFetching || deletePending}
             className="h-11 rounded-xl"
           >
             {appsQuery.isFetchingNextPage ? (
