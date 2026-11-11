@@ -2,6 +2,8 @@
 
 import {
   useEffect,
+  useEffectEvent,
+  useRef,
   useState,
   type ChangeEvent,
   type FormEvent,
@@ -299,6 +301,7 @@ const LOGIN_SPANISH_TEXT: Record<string, string> = {
   "Welcome back": "Bienvenido de nuevo",
   "Patient portal": "Portal de pacientes",
   "Publisher portal": "Portal de publicadores",
+  "Accessing publisher portal...": "Accediendo al portal…",
   PGFlex: "PGFlex",
   "Use the patient portal login": "Usá el login del portal de pacientes",
   "Use the backoffice login": "Usá el login del backoffice",
@@ -1761,6 +1764,12 @@ export function LoginExperience({
   const normalizedInitialEmail = isExclusivePortal
     ? normalizeAuthEmail(initialEmail ?? "")
     : "";
+  const hasPublisherAccessLink = Boolean(
+    isPublisherPortal && normalizedInitialEmail && initialAccessKey,
+  );
+  const [publisherLinkSignInPending, setPublisherLinkSignInPending] =
+    useState(hasPublisherAccessLink);
+  const publisherLinkSignInStarted = useRef(false);
   const [loginLanguage, setLoginLanguage] = useState<AppLanguage>(
     isExclusivePortal ? "es" : "en",
   );
@@ -2238,8 +2247,8 @@ export function LoginExperience({
     }
   }
 
-  async function handleEmailSignIn(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleEmailSignIn(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
     const loginEmail = normalizeAuthEmail(email);
     setLoading("email");
     setNotice(null);
@@ -2301,6 +2310,22 @@ export function LoginExperience({
       setLoading(null);
     }
   }
+
+  const signInFromPublisherLink = useEffectEvent(() => {
+    void handleEmailSignIn();
+  });
+
+  useEffect(() => {
+    if (!hasPublisherAccessLink || publisherLinkSignInStarted.current) return;
+    publisherLinkSignInStarted.current = true;
+    signInFromPublisherLink();
+  }, [hasPublisherAccessLink]);
+
+  useEffect(() => {
+    if (publisherLinkSignInPending && notice) {
+      setPublisherLinkSignInPending(false);
+    }
+  }, [publisherLinkSignInPending, notice]);
 
   function handleChangeEmail() {
     setEmailPasswordReady(false);
@@ -2729,6 +2754,17 @@ export function LoginExperience({
     isPGFlexPortal || isPublisherPortal
       ? "If you did not receive it, ask an administrator to send it again."
       : "If you did not receive it, ask your doctor to send it again.";
+
+  if (publisherLinkSignInPending) {
+    return (
+      <main className="fixed inset-0 flex min-h-screen items-center justify-center bg-white px-5 text-slate-950">
+        <div role="status" className="flex flex-col items-center gap-4 text-center">
+          <Loader2 className="size-10 animate-spin text-violet-600" aria-hidden />
+          <p className="text-lg font-semibold">{t("Accessing publisher portal...")}</p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main
