@@ -71,7 +71,7 @@ export function TwoPQFormCompletionDialog({
           </p>
           <h3 className="mt-2 font-heading text-3xl font-semibold text-white">
             {createdType === "treatment_start"
-              ? t("The treatment start form is ready and stored")
+              ? t("The treatment planning form is ready and stored")
               : createdType === "sample"
               ? t("The biopsy form is ready and stored")
               : createdType === "withdrawal_request"

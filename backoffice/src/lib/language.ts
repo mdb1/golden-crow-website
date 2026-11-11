@@ -2678,9 +2678,9 @@ const SPANISH_TEXT: Record<string, string> = {
     "Flujo guiado de formulario almacenado en 2pq_forms.",
   "Study request": "Solicitud de estudio",
   "Study request (Co-joined)": "Solicitud de estudio (Co-vinculada)",
-  "Treatment start form": "Formulario de inicio de tratamiento",
-  "Treatment start": "Inicio de tratamiento",
-  "Complete treatment start form": "Completar formulario de inicio de tratamiento",
+  "Treatment planning form": "Formulario de planificación del tratamiento",
+  "Treatment planning": "Planificación del tratamiento",
+  "Complete treatment planning form": "Completar formulario de planificación del tratamiento",
   "Treatment start date": "Fecha de inicio de tratamiento",
   "Estimated biopsy date": "Fecha estimada de biopsia",
   "Estimated embryos to biopsy": "Cantidad estimada de embriones a biopsiar",
@@ -2721,8 +2721,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Treatment schedule": "Planificación del tratamiento",
   "Study type changed from the request.": "Cambió el tipo de estudio respecto de la solicitud.",
   "Study request test": "Tipo de estudio original",
-  "Treatment start test": "Tipo de estudio para el tratamiento",
-  "Treatment start form preview": "Vista previa del formulario de inicio de tratamiento",
+  "Planned study type": "Tipo de estudio para el tratamiento",
+  "Treatment planning form preview": "Vista previa del formulario de planificación del tratamiento",
   "Go back to the previous steps to make changes before sending this form.":
     "Volvé a los pasos anteriores para hacer cambios antes de enviar el formulario.",
   "Review treatment plan": "Revisar planificación del tratamiento",
@@ -2752,14 +2752,14 @@ const SPANISH_TEXT: Record<string, string> = {
   "The grouped pickup can be confirmed once all its biopsies are saved.": "El retiro agrupado se puede confirmar cuando se guarden todas sus biopsias.",
   "Linked forms": "Formularios vinculados",
   "Open study request": "Abrir solicitud de estudio",
-  "Open treatment start form": "Abrir formulario de inicio de tratamiento",
+  "Open treatment planning form": "Abrir formulario de planificación del tratamiento",
   "Open biopsy form": "Abrir formulario de biopsias",
   "Case will be linked after the biopsy is saved.":
     "El caso se vinculará cuando se guarde el formulario de biopsias.",
-  "The treatment start form is ready and stored":
-    "El formulario de inicio de tratamiento se guardó",
-  "Stored 2PQ study requests, treatment starts, biopsies, and withdrawal forms.":
-    "Formularios 2PQ guardados de solicitud, inicio de tratamiento, biopsia y retiro.",
+  "The treatment planning form is ready and stored":
+    "El formulario de planificación del tratamiento se guardó",
+  "Stored 2PQ study requests, treatment plans, biopsies, and withdrawal forms.":
+    "Formularios 2PQ guardados de solicitud, planificación del tratamiento, biopsia y retiro.",
   Study: "Estudio",
   Biopsy: "Biopsia",
   Withdrawal: "Retiro",

@@ -2542,7 +2542,7 @@ async function createTreatmentStartForm(
     throw new AdminRepositoryError("You cannot plan treatment for this study request.", 403);
   }
   if (!canStartTreatment(request) || request.suggestedBiopsyForm || request.suggestedWithdrawalRequest) {
-    throw new AdminRepositoryError("This study request is not available for treatment start.", 409);
+    throw new AdminRepositoryError("This study request is not available for treatment planning.", 409);
   }
 
   const [formId, dispatcher] = await Promise.all([
@@ -2566,7 +2566,7 @@ async function createTreatmentStartForm(
       throw new AdminRepositoryError("You cannot plan treatment for this study request.", 403);
     }
     if (!canStartTreatment(current)) {
-      throw new AdminRepositoryError("This study request is not available for treatment start.", 409);
+      throw new AdminRepositoryError("This study request is not available for treatment planning.", 409);
     }
     const patientId = studyRequestPatientId(current)!;
     const now = new Date().toISOString();
@@ -3602,7 +3602,7 @@ async function claimStudyRequestForBiopsyForm(
     }
     const treatmentPlan = await readActiveTreatmentPlan(transaction, current);
     if (treatmentPlan?.linkedCaseId || treatmentPlan?.linkedBiopsyForm) {
-      throw new AdminRepositoryError("This treatment start form already has a linked biopsy or case.", 409);
+      throw new AdminRepositoryError("This treatment planning form already has a linked biopsy or case.", 409);
     }
     transaction.set(
       reference,
@@ -3633,7 +3633,7 @@ async function readActiveTreatmentPlan(
   const planId = request.linkedTreatmentStartFormId;
   if (!planId) {
     if (request.requiresTreatmentStart) {
-      throw new AdminRepositoryError("Save the treatment start form before submitting the biopsy form.", 409);
+      throw new AdminRepositoryError("Save the treatment planning form before submitting the biopsy form.", 409);
     }
     return null;
   }
@@ -3641,7 +3641,7 @@ async function readActiveTreatmentPlan(
   const data = snapshot.data();
   const plan = data ? toTwoPQFormRecord(planId, data) : null;
   if (!plan?.treatmentStart || plan.archivedAt || !treatmentStartMatchesRequest(plan, request)) {
-    throw new AdminRepositoryError("The study request does not have a valid active treatment start form.", 409);
+    throw new AdminRepositoryError("The study request does not have a valid active treatment planning form.", 409);
   }
   return plan;
 }
@@ -3685,7 +3685,7 @@ async function saveBiopsyForStudyRequest({
     const planData = planSnapshot?.data();
     const caseData = caseSnapshot.data();
     if (!requestData || !caseData || (planRef && !planData)) {
-      throw new AdminRepositoryError("A study request, treatment start form, or case was removed during biopsy submission.", 409);
+      throw new AdminRepositoryError("A study request, treatment planning form, or case was removed during biopsy submission.", 409);
     }
     const request = toTwoPQFormRecord(studyRequestId, requestData);
     const plan = planRef && planData ? toTwoPQFormRecord(planRef.id, planData) : null;
@@ -4407,7 +4407,7 @@ export async function updateTwoPQStudyRequestWithdrawalLinkForContext(
     );
   }
   if (normalizedWithdrawalRequestId && currentForm.transportEventId) {
-    throw new AdminRepositoryError("Pickup for this study request is managed by its treatment start form.", 409);
+    throw new AdminRepositoryError("Pickup for this study request is managed by its treatment planning form.", 409);
   }
 
   const linkContext = await studyRequestWithdrawalLinkContext(
@@ -4852,7 +4852,7 @@ export async function updateTwoPQBiopsyWithdrawalLinkForContext(
     );
   }
   if (normalizedWithdrawalRequestId && currentForm.transportEventId) {
-    throw new AdminRepositoryError("Pickup for this biopsy is managed by its treatment start form.", 409);
+    throw new AdminRepositoryError("Pickup for this biopsy is managed by its treatment planning form.", 409);
   }
 
   const linkContext = await biopsyWithdrawalLinkContext(context, currentForm);
@@ -5233,7 +5233,7 @@ export async function archiveTwoPQFormForContext(
       throw new AdminRepositoryError("You cannot archive this form.", 403);
     }
     if (form.formType === "treatment_start" && !form.linkedBiopsyForm) {
-      throw new AdminRepositoryError("The active treatment start form can be archived after biopsy.", 409);
+      throw new AdminRepositoryError("The active treatment planning form can be archived after biopsy.", 409);
     }
     if (form.formType === "study_request" && form.linkedBiopsyForm && !form["2pq_case"]) {
       const biopsy = await transaction.get(adminDb.collection(FORMS_COLLECTION).doc(form.linkedBiopsyForm));
@@ -5244,7 +5244,7 @@ export async function archiveTwoPQFormForContext(
     if (form.formType === "study_request" && form.linkedTreatmentStartFormId) {
       const plan = await transaction.get(adminDb.collection(FORMS_COLLECTION).doc(form.linkedTreatmentStartFormId));
       if (plan.exists && !normalizeOptionalString(plan.data()?.linkedBiopsyForm)) {
-        throw new AdminRepositoryError("The study request has an active treatment start form and can be archived after biopsy.", 409);
+        throw new AdminRepositoryError("The study request has an active treatment planning form and can be archived after biopsy.", 409);
       }
     }
 
@@ -5455,7 +5455,7 @@ export async function createTwoPQFormForContext(
       }
       if (normalizeOptionalString(data.transportEventId)) {
         throw new AdminRepositoryError(
-          `2PQ case ${snapshot.id} already has a pickup managed from its treatment start form.`,
+          `2PQ case ${snapshot.id} already has a pickup managed from its treatment planning form.`,
           409,
         );
       }

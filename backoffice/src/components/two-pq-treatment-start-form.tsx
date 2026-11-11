@@ -234,7 +234,7 @@ export function TwoPQTreatmentStartForm({
           <dd className="font-medium">{originalStudyLabel}</dd>
         </div>
         <div>
-          <dt>{t("Treatment start test")}</dt>
+          <dt>{t("Planned study type")}</dt>
           <dd className="font-medium">{selectedStudyLabel}</dd>
         </div>
       </dl>
@@ -461,7 +461,7 @@ export function TwoPQTreatmentStartForm({
 
       <form noValidate onSubmit={handleSubmit} className={TWO_PQ_WIZARD_PANEL_CLASS}>
         <TwoPQFormWizardHeader
-          title={t("Treatment start form")}
+          title={t("Treatment planning form")}
           progressLabel={`${stepIndex + 1} ${t("of")} ${steps.length}`}
           steps={steps.map(({ key, label }, index) => ({
             key,
@@ -601,7 +601,7 @@ export function TwoPQTreatmentStartForm({
         {isPreview ? (
           <div className="space-y-6">
             <TwoPQFormPreviewPaper
-              title={t("Treatment start form preview")}
+              title={t("Treatment planning form preview")}
               description={t("Go back to the previous steps to make changes before sending this form.")}
             >
               <PreviewPaperSection section={{

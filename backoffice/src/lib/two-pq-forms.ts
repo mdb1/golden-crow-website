@@ -340,7 +340,7 @@ export type TwoPQFormDraftRecord = TwoPQWizardFormDraftRecord | TwoPQTreatmentSt
 
 export const TWO_PQ_FORM_LABELS: Record<TwoPQFormType, string> = {
   study_request: "Solicitud de estudio",
-  treatment_start: "Formulario de inicio de tratamiento",
+  treatment_start: "Formulario de planificación del tratamiento",
   sample: "Formulario de biopsias",
   withdrawal_request: "Solicitud de retiro",
 };

@@ -88,7 +88,7 @@ describe("2PQ forms page actions", () => {
       }),
     ).toHaveAttribute("href", "/2pq-dashboard/forms/study-request/new");
     const treatmentStart = within(workflow as HTMLElement).getByRole("link", {
-      name: "Completar formulario de inicio de tratamiento",
+      name: "Completar formulario de planificación del tratamiento",
     });
     expect(treatmentStart).toHaveAttribute("href", "/2pq-dashboard/forms/treatment-start/new");
     expect(treatmentStart.closest("li")).toHaveTextContent("Paso 2");
@@ -118,7 +118,7 @@ describe("2PQ forms page actions", () => {
         name: "Completar formulario de solicitud de estudio",
       }),
     ).toHaveAttribute("href", "/2pq-dashboard/forms/study-request/new");
-    expect(screen.getByRole("link", { name: "Completar formulario de inicio de tratamiento" }))
+    expect(screen.getByRole("link", { name: "Completar formulario de planificación del tratamiento" }))
       .toHaveAttribute("href", "/2pq-dashboard/forms/treatment-start/new");
     expect(
       screen.getByRole("link", {

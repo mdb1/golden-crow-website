@@ -208,8 +208,8 @@ describe("TwoPQFormsList actions", () => {
       "data-state",
       "linked",
     );
-    expect(screen.getByLabelText("Treatment start: Linked")).toHaveTextContent("2");
-    expect(screen.getByLabelText("Treatment start: Linked")).toHaveAttribute(
+    expect(screen.getByLabelText("Treatment planning: Linked")).toHaveTextContent("2");
+    expect(screen.getByLabelText("Treatment planning: Linked")).toHaveAttribute(
       "href",
       "/2pq-dashboard/forms/FORM-00004",
     );
@@ -258,8 +258,8 @@ describe("TwoPQFormsList actions", () => {
     renderList([{ ...form, requiresTreatmentStart: true }], "full_admin", "study_request_cojoined");
 
     expect(screen.getByLabelText("Request: Linked")).toBeInTheDocument();
-    expect(screen.getByLabelText("Treatment start: Not linked")).toHaveTextContent("2");
-    expect(screen.getByRole("link", { name: "Complete Treatment start" })).toHaveAttribute(
+    expect(screen.getByLabelText("Treatment planning: Not linked")).toHaveTextContent("2");
+    expect(screen.getByRole("link", { name: "Complete Treatment planning" })).toHaveAttribute(
       "href",
       "/2pq-dashboard/forms/treatment-start/new?linkedStudyRequestFormId=FORM-00001",
     );
@@ -310,7 +310,7 @@ describe("TwoPQFormsList actions", () => {
     );
 
     expect(screen.getByRole("link", { name: "Request: Linked" })).toHaveClass("bg-amber-700");
-    const treatmentStep = screen.getByRole("link", { name: "Treatment start: Linked" });
+    const treatmentStep = screen.getByRole("link", { name: "Treatment planning: Linked" });
     expect(treatmentStep).toHaveClass("bg-amber-700");
     expect(treatmentStep).toHaveAttribute(
       "href",
@@ -339,7 +339,7 @@ describe("TwoPQFormsList actions", () => {
     for (const step of ["Request", "Biopsy", "Withdrawal"]) {
       expect(screen.getByRole("link", { name: `${step}: Linked` })).toHaveClass(color);
     }
-    expect(screen.getByLabelText("Treatment start: Not linked")).toHaveClass("bg-slate-200");
+    expect(screen.getByLabelText("Treatment planning: Not linked")).toHaveClass("bg-slate-200");
   });
 
   it.each([undefined, "FORM-00004"])("links straight to the consent with treatment plan %s", (linkedTreatmentStartFormId) => {
@@ -434,7 +434,7 @@ describe("TwoPQFormsList actions", () => {
       "data-state",
       "linked",
     );
-    expect(screen.queryByRole("link", { name: "Complete Treatment start" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Complete Treatment planning" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("Withdrawal: Not linked")).toHaveAttribute(
       "data-state",
       "empty",

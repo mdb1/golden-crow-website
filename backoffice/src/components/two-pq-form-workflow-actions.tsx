@@ -22,7 +22,7 @@ const WORKFLOW_STEPS: Array<{
   {
     number: 2,
     formType: "treatment_start",
-    label: "Complete treatment start form",
+    label: "Complete treatment planning form",
   },
   {
     number: 3,

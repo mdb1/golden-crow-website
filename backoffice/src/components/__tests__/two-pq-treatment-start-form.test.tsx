@@ -53,7 +53,7 @@ function changeField(label: string, value: string) {
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
 }
 
-describe("treatment start form", () => {
+describe("treatment planning form", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.mocked(sdkFetch).mockResolvedValue({ form: { id: "FORM-00055" } });
@@ -92,7 +92,7 @@ describe("treatment start form", () => {
     expect(screen.getByText("Address and neighborhood/locality must each have at least 3 characters.")).toBeVisible();
     changeField("Neighborhood / Locality", "Palermo");
     fireEvent.click(screen.getByRole("button", { name: "Continue to preview" }));
-    expect(await screen.findByRole("heading", { name: "Treatment start form preview" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Treatment planning form preview" })).toBeVisible();
     expect(screen.getByText("Sin observaciones")).toBeVisible();
     expect(screen.getByText(PGFLEX_2PQ_DESTINATION)).toBeVisible();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -159,7 +159,7 @@ describe("treatment start form", () => {
     changeField("Pickup window end", "11:00");
     await user.click(screen.getByRole("button", { name: "Continue to preview" }));
 
-    expect(await screen.findByRole("heading", { name: "Treatment start form preview" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Treatment planning form preview" })).toBeVisible();
     const previewWarning = screen.getByRole("status");
     expect(within(previewWarning).getByText(warningText)).toBeVisible();
     expect(previewWarning).toHaveTextContent(originalTest);

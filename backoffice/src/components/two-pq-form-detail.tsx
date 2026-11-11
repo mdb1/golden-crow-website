@@ -2807,7 +2807,7 @@ function LinkedTreatmentStartSection({ form }: { form: TwoPQFormRecord }) {
   return (
     <section className="glass-panel flex flex-wrap items-center justify-between gap-3 px-5 py-4">
       <div>
-        <h2 className="font-heading text-lg font-semibold">{t("Treatment start form")}</h2>
+        <h2 className="font-heading text-lg font-semibold">{t("Treatment planning form")}</h2>
         {treatmentStartFormId ? (
           <p className="font-mono text-xs text-muted-foreground">{treatmentStartFormId}</p>
         ) : null}
@@ -2815,12 +2815,12 @@ function LinkedTreatmentStartSection({ form }: { form: TwoPQFormRecord }) {
       <Button variant="outline" size="sm" asChild>
         {treatmentStartFormId ? (
           <Link href={`/2pq-dashboard/forms/${encodeURIComponent(treatmentStartFormId)}`}>
-            {t("Open treatment start form")}
+            {t("Open treatment planning form")}
             <ArrowRight className="size-3.5" />
           </Link>
         ) : (
           <Link href={`${TWO_PQ_FORM_ROUTES.treatment_start}?${new URLSearchParams({ linkedStudyRequestFormId: form.id })}`}>
-            {t("Complete treatment start form")}
+            {t("Complete treatment planning form")}
             <ArrowRight className="size-3.5" />
           </Link>
         )}
@@ -2967,12 +2967,12 @@ export function TwoPQFormDetail({
   const pickupHasAdvanced = ["confirmed", "in_transit", "arrived", "lost"].includes(form.pickup?.status ?? "");
   const workflowStage =
     isTreatmentStart
-      ? t("Treatment start")
+      ? t("Treatment planning")
       : form.formType === "withdrawal_request" || form.linkedWithdrawalRequest || form.withdrawalRequest || pickupHasAdvanced
         ? t("Withdrawal")
         : form.formType === "sample" || form.linkedBiopsyForm
           ? t("Biopsy")
-          : form.linkedTreatmentStartFormId ? t("Treatment start") : t("Request");
+          : form.linkedTreatmentStartFormId ? t("Treatment planning") : t("Request");
   const treatmentDate =
     treatmentStart?.treatmentDate ||
     form.estimatedTreatmentDate ||
@@ -3002,7 +3002,7 @@ export function TwoPQFormDetail({
             </h1>
             <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
               {compactList([
-                isTreatmentStart ? t("Treatment start form") : TWO_PQ_FORM_LABELS[form.formType],
+                isTreatmentStart ? t("Treatment planning form") : TWO_PQ_FORM_LABELS[form.formType],
                 form.institutionName,
                 form.patientEmail,
               ])}

@@ -164,7 +164,7 @@ export default async function TwoPQFormsPage({
             eyebrow="2PQ"
             title={t("Forms")}
             description={t(
-              "Stored 2PQ study requests, treatment starts, biopsies, and withdrawal forms.",
+              "Stored 2PQ study requests, treatment plans, biopsies, and withdrawal forms.",
             )}
             actions={renderPageActions()}
           />

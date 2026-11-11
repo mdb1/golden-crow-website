@@ -137,7 +137,7 @@ describe("2PQ case-status progress modal", () => {
     const forms = within(screen.getByRole("region", { name: "Linked forms" }));
     for (const [name, id] of [
       ["Study request form", "FORM-00010"],
-      ["Treatment start form", "FORM-00011"],
+      ["Treatment planning form", "FORM-00011"],
       ["Biopsy form", "FORM-00012"],
     ]) {
       expect(forms.getByRole("link", { name }).getAttribute("href")).toBe(

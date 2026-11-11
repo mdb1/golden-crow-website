@@ -3851,7 +3851,7 @@ export function TwoPQRecordWorkbench({
     mode === "create" ? true : Boolean(detail?.record.canUpdate);
   const linkedCaseForms = [
     { id: detail?.record.linkedStudyRequestFormId, label: "Study request form" },
-    { id: detail?.record.linkedTreatmentStartFormId, label: "Treatment start form" },
+    { id: detail?.record.linkedTreatmentStartFormId, label: "Treatment planning form" },
     { id: detail?.record.linkedBiopsyForm, label: "Biopsy form" },
   ];
 

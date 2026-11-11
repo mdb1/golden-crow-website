@@ -62,7 +62,7 @@ describe("TwoPQFormCompletionDialog", () => {
     renderDialog("treatment_start");
 
     expect(screen.getByRole("heading", {
-      name: "El formulario de inicio de tratamiento se guardó",
+      name: "El formulario de planificación del tratamiento se guardó",
     })).toBeTruthy();
     expect(screen.queryByText(/mail de acceso|casilla de spam/i)).toBeNull();
   });

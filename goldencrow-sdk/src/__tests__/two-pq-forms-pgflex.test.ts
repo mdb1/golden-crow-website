@@ -663,7 +663,7 @@ describe("2PQ form workflow and PGFlex automation", () => {
     );
     const consentId = seedRequestConsent(planningRequestId);
     await expect(createTwoPQFormForContext(fullAdminContext, biopsy)).rejects.toThrow(
-      "Save the treatment start form before submitting the biopsy form.",
+      "Save the treatment planning form before submitting the biopsy form.",
     );
     expect(mockCreateTwoPQRecordForContext).not.toHaveBeenCalled();
 

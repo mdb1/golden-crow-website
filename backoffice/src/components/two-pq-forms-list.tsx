@@ -183,7 +183,7 @@ function formTypeLabel(
     return t("Study request");
   }
   if (type === "treatment_start") {
-    return t("Treatment start form");
+    return t("Treatment planning form");
   }
   if (type === "sample") {
     return t("Biopsy form");
@@ -229,7 +229,7 @@ function CoJoinedFormSequence({
     },
     {
       number: 2,
-      label: t("Treatment start"),
+      label: t("Treatment planning"),
       formId: linkedTreatmentStartFormId,
     },
     {
@@ -304,11 +304,17 @@ function CoJoinedFormSequence({
           };
           const content = (
             <>
-              <span className="flex items-baseline justify-center gap-1.5">
+              <span className={cn(
+                "flex items-baseline justify-center gap-1.5",
+                step.number === 2 && "max-[375px]:flex-col max-[375px]:items-center max-[375px]:gap-0",
+              )}>
                 <span className="text-lg font-bold sm:text-xl">
                   {step.number}
                 </span>
-                <span className="text-[11px] font-semibold uppercase tracking-wide sm:text-sm">
+                <span className={cn(
+                  "text-[11px] font-semibold uppercase tracking-wide sm:text-sm",
+                  step.number === 2 && "max-[375px]:max-w-[5.25rem] max-[375px]:text-[10px] max-[375px]:tracking-normal",
+                )}>
                   {step.label}
                 </span>
               </span>
@@ -692,7 +698,7 @@ export function TwoPQFormsList({
                   {t("Study request")}
                 </SelectItem>
                 <SelectItem value="treatment_start">
-                  {t("Treatment start form")}
+                  {t("Treatment planning form")}
                 </SelectItem>
                 <SelectItem value="sample">{t("Biopsy form")}</SelectItem>
                 <SelectItem value="withdrawal_request">
@@ -717,7 +723,7 @@ export function TwoPQFormsList({
               <SelectContent>
                 <SelectItem value="all">{t("All stages")}</SelectItem>
                 <SelectItem value="request">{t("Request")}</SelectItem>
-                <SelectItem value="treatment_start">{t("Treatment start")}</SelectItem>
+                <SelectItem value="treatment_start">{t("Treatment planning")}</SelectItem>
                 <SelectItem value="biopsy">{t("Biopsy")}</SelectItem>
                 <SelectItem value="withdrawal">{t("Withdrawal")}</SelectItem>
               </SelectContent>
