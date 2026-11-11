@@ -22,6 +22,7 @@ import {
   TWO_PQ_WIZARD_PRIMARY_BUTTON_CLASS,
   TWO_PQ_WIZARD_SUBMIT_BUTTON_CLASS,
   TWO_PQ_WIZARD_SUBMIT_PANEL_CLASS,
+  TwoPQFormChangeNotice,
   TwoPQFormPreviewPaper,
   TwoPQFormWizardHeader,
 } from "@/components/two-pq-form-wizard";
@@ -221,6 +222,24 @@ export function TwoPQTreatmentStartForm({
   const isUrgent = isUrgentStudy(fields.studyType);
   const temperature = isUrgent ? "4 °C" : "−20 °C";
   const studyOptions = REQUESTED_STUDY_TEST_OPTIONS.map(({ value, label }) => ({ value, label: t(label) }));
+  const originalStudyType = selectedRequest && getTwoPQStudySummary(selectedRequest)?.key;
+  const originalStudyLabel = studyOptions.find(({ value }) => value === originalStudyType)?.label;
+  const selectedStudyLabel = studyOptions.find(({ value }) => value === fields.studyType)?.label;
+  const studyChangeNotice = originalStudyLabel && selectedStudyLabel && originalStudyType !== fields.studyType ? (
+    <TwoPQFormChangeNotice>
+      <p className="font-semibold">{t("Study type changed from the request.")}</p>
+      <dl className="mt-2 grid gap-2 sm:grid-cols-2">
+        <div>
+          <dt>{t("Study request test")}</dt>
+          <dd className="font-medium">{originalStudyLabel}</dd>
+        </div>
+        <div>
+          <dt>{t("Treatment start test")}</dt>
+          <dd className="font-medium">{selectedStudyLabel}</dd>
+        </div>
+      </dl>
+    </TwoPQFormChangeNotice>
+  ) : null;
   const patientName = selectedRequest?.patientName || textValue(selectedRequest?.patientInformation.fullName) || t("Not provided");
   const institutionName = selectedRequest?.institutionName || selectedRequest?.institutionId || t("Not provided");
   const doctorName = textValue(selectedRequest?.patientInformation.doctorName) || selectedRequest?.doctorId || t("Not provided");
@@ -501,6 +520,7 @@ export function TwoPQTreatmentStartForm({
                     emptyLabel={t("Select a study type.")}
                   />
                   <FieldError message={errors.studyType ? t(errors.studyType) : undefined} />
+                  {studyChangeNotice}
                 </div>
                 {scheduleFields.map(renderField)}
               </div>
@@ -593,10 +613,11 @@ export function TwoPQTreatmentStartForm({
                   { label: t("Doctor"), value: doctorName },
                 ],
               }} />
+              {studyChangeNotice}
               <PreviewPaperSection section={{
                 title: t("Treatment schedule"),
                 fields: [
-                  { label: t("Study type"), value: studyOptions.find(({ value }) => value === fields.studyType)?.label ?? fields.studyType },
+                  { label: t("Study type"), value: selectedStudyLabel ?? fields.studyType },
                   ...scheduleFields.map(({ key, label, type }) => ({
                     label: t(label),
                     value: type === "date" ? formatTwoPQCivilDate(fields[key], language) : fields[key],

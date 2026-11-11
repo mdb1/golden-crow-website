@@ -31,6 +31,7 @@ import {
   TWO_PQ_WIZARD_PRIMARY_BUTTON_CLASS,
   TWO_PQ_WIZARD_SUBMIT_BUTTON_CLASS,
   TWO_PQ_WIZARD_SUBMIT_PANEL_CLASS,
+  TwoPQFormChangeNotice,
   TwoPQFormPreviewPaper,
   TwoPQFormWizardHeader,
   type PreviewField,
@@ -6570,7 +6571,7 @@ export function TwoPQFormFlow({
                 <FieldError message={errorFor("requestedTest")} />
               </div>
               {sampleRequestedTestChanged ? (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-300/24 dark:bg-amber-950/20 dark:text-amber-50">
+                <TwoPQFormChangeNotice>
                   {t(
                     "The biopsy form test is different from the linked study request test.",
                   )}{" "}
@@ -6581,7 +6582,7 @@ export function TwoPQFormFlow({
                   {t(
                     "The newly selected test in this biopsy form will be used as the final decision to continue processing the sample.",
                   )}
-                </div>
+                </TwoPQFormChangeNotice>
               ) : null}
               {selectedRequestedTest ? (
                 <section className="rounded-xl border border-border/70 bg-background/50 p-4">

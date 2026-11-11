@@ -2718,6 +2718,9 @@ const SPANISH_TEXT: Record<string, string> = {
   "This action records the new transport status for this pickup.":
     "Se registrará el nuevo estado de transporte de este retiro.",
   "Treatment schedule": "Planificación del tratamiento",
+  "Study type changed from the request.": "Cambió el tipo de estudio respecto de la solicitud.",
+  "Study request test": "Tipo de estudio original",
+  "Treatment start test": "Tipo de estudio para el tratamiento",
   "Treatment start form preview": "Vista previa del formulario de inicio de tratamiento",
   "Go back to the previous steps to make changes before sending this form.":
     "Volvé a los pasos anteriores para hacer cambios antes de enviar el formulario.",

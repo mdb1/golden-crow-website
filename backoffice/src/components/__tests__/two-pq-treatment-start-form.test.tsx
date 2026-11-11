@@ -1,7 +1,8 @@
 /** @jest-environment jsdom */
 
 import "@testing-library/jest-dom";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { TwoPQTreatmentStartForm } from "@/components/two-pq-treatment-start-form";
 import { PGFLEX_2PQ_DESTINATION } from "@/lib/pgflex-logistics";
@@ -122,6 +123,47 @@ describe("treatment start form", () => {
       .map(([, options]) => JSON.parse(String(options?.body)).currentStep)).toEqual([
       "treatmentStart", "plannedTransport", "preview",
     ]);
+  });
+
+  it("flags a revised study type in planning and preview and clears the warning when reverted", async () => {
+    const user = userEvent.setup();
+    const originalTest = "Fast PGT (24-72hs)";
+    const revisedTest = "Ultra-fast PGT (<8hs)";
+    const warningText = "Study type changed from the request.";
+    renderForm();
+
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    const studyType = await screen.findByRole("combobox", { name: "Study type" });
+    expect(studyType).toHaveTextContent(originalTest);
+    expect(screen.queryByText(warningText)).not.toBeInTheDocument();
+
+    await user.click(studyType);
+    await user.click(screen.getByRole("option", { name: revisedTest }));
+    const warning = screen.getByRole("status");
+    expect(within(warning).getByText(warningText)).toBeVisible();
+    expect(warning).toHaveClass("bg-amber-50");
+    expect(warning).toHaveTextContent(originalTest);
+    expect(warning).toHaveTextContent(revisedTest);
+
+    await user.click(studyType);
+    await user.click(screen.getByRole("option", { name: originalTest }));
+    expect(screen.queryByText(warningText)).not.toBeInTheDocument();
+
+    await user.click(studyType);
+    await user.click(screen.getByRole("option", { name: revisedTest }));
+    changeField("Estimated biopsy date", "2026-11-29");
+    changeField("Estimated embryos to biopsy", "5");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByLabelText("Pickup window start");
+    changeField("Pickup window start", "09:00");
+    changeField("Pickup window end", "11:00");
+    await user.click(screen.getByRole("button", { name: "Continue to preview" }));
+
+    expect(await screen.findByRole("heading", { name: "Treatment start form preview" })).toBeVisible();
+    const previewWarning = screen.getByRole("status");
+    expect(within(previewWarning).getByText(warningText)).toBeVisible();
+    expect(previewWarning).toHaveTextContent(originalTest);
+    expect(previewWarning).toHaveTextContent(revisedTest);
   });
 
   it("restores a grouped frozen draft with the pickup group's current schedule", async () => {

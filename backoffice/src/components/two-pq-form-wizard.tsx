@@ -11,6 +11,14 @@ export const TWO_PQ_WIZARD_SUBMIT_PANEL_CLASS =
 export const TWO_PQ_WIZARD_SUBMIT_BUTTON_CLASS =
   "mt-4 min-h-14 w-full bg-indigo-600 text-base font-semibold text-white hover:bg-indigo-700 sm:text-lg";
 
+export function TwoPQFormChangeNotice({ children }: { children: ReactNode }) {
+  return (
+    <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-300/24 dark:bg-amber-950/20 dark:text-amber-50">
+      {children}
+    </div>
+  );
+}
+
 type WizardStep = {
   key: string;
   label: string;
