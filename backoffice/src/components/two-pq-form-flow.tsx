@@ -2488,6 +2488,14 @@ function withLinkedStudyRequestSelection(
     institutionInformation: linkedInstitution
       ? institutionToFormState(linkedInstitution)
       : mergeDraftSection(emptyInstitution(), linkedForm.institutionInformation),
+    sampleInformation: {
+      ...flowState.sampleInformation,
+      processDate:
+        toDateInputValue(
+          linkedForm.pickup?.estimatedBiopsyDate ?? linkedForm.treatmentStart?.estimatedBiopsyDate ?? "",
+        ) ||
+        flowState.sampleInformation.processDate,
+    },
     requestedTest: linkedRequestedTest,
     caseInformation: {
       ...withCaseDefaultsForBoxCode({
@@ -3451,6 +3459,34 @@ export function TwoPQFormFlow({
     selectedRequestedTest &&
     selectedStudyRequestOriginalTest !== selectedRequestedTest,
   );
+  const plannedBiopsyDate = toDateInputValue(
+    selectedStudyRequestForm?.pickup?.estimatedBiopsyDate ??
+    selectedStudyRequestForm?.treatmentStart?.estimatedBiopsyDate ?? "",
+  );
+  const sampleBiopsyDateChanged = Boolean(
+    formType === "sample" &&
+    plannedBiopsyDate &&
+    isValidDateInput(state.sampleInformation.processDate) &&
+    plannedBiopsyDate !== state.sampleInformation.processDate,
+  );
+  const biopsyDateChangeNotice = sampleBiopsyDateChanged ? (
+    <TwoPQFormChangeNotice>
+      <p className="font-semibold">{t("The biopsy date differs from the treatment plan.")}</p>
+      <dl className="mt-2 grid gap-2 sm:grid-cols-2">
+        <div>
+          <dt>{t("Original planned biopsy date")}</dt>
+          <dd className="font-medium">{formatTwoPQCivilDate(plannedBiopsyDate, language)}</dd>
+        </div>
+        <div>
+          <dt>{t("Final biopsy date")}</dt>
+          <dd className="font-medium">{formatTwoPQCivilDate(state.sampleInformation.processDate, language)}</dd>
+        </div>
+      </dl>
+      <p className="mt-2">
+        {t("The new biopsy date will be saved as the final date. The planned PGFlex pickup date will be updated when needed.")}
+      </p>
+    </TwoPQFormChangeNotice>
+  ) : null;
   const selectedCaseType = caseTypeForRequestedTestKey(selectedRequestedTest);
   const notProvidedLabel = t("Not provided");
   const previewValue = (value: string | undefined | null) =>
@@ -6783,6 +6819,7 @@ export function TwoPQFormFlow({
 
         {currentStep === "previewAndSignature" ? (
           <div className="space-y-6">
+            {biopsyDateChangeNotice}
             <TwoPQFormPreviewPaper
               title={t(
                 formType === "study_request"
@@ -6972,6 +7009,9 @@ export function TwoPQFormFlow({
                     }
                     error={errorFor("sampleInformation.processDate")}
                   />
+                  {biopsyDateChangeNotice ? (
+                    <div className="md:col-span-2">{biopsyDateChangeNotice}</div>
+                  ) : null}
                 </div>
               </div>
             </section>

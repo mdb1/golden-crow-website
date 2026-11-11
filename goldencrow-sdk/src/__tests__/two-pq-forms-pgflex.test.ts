@@ -630,7 +630,7 @@ describe("2PQ form workflow and PGFlex automation", () => {
       .toMatchObject({ pickupOrigin: "Clínica Norte", pickupDestination: "Destino original" });
   });
 
-  it("gates new biopsies on treatment planning and links the saved biopsy, case, and pickup", async () => {
+  it("gates new biopsies on treatment planning and reconciles pickup with the saved biopsy date", async () => {
     const { createTwoPQFormForContext } = await import("../repositories/two-pq-forms.repository");
     seedPlanningRequest();
     const biopsy = {
@@ -646,7 +646,7 @@ describe("2PQ form workflow and PGFlex automation", () => {
       },
       sampleInformation: {
         sampleType: "biopsia de trofoectodermo", processedByFirstName: "Ana", processedByLastName: "Lab",
-        processDate: "2026-08-31", boxCode: "NEW", biopsyCount: "1",
+        processDate: "2026-09-02", boxCode: "NEW", biopsyCount: "1",
       },
       caseInformation: { caseLabel: "NEWXXX", caseStatus: "intake" },
       samplingInformation: [{
@@ -668,6 +668,13 @@ describe("2PQ form workflow and PGFlex automation", () => {
     expect(mockCreateTwoPQRecordForContext).not.toHaveBeenCalled();
 
     const plan = await createTwoPQFormForContext(fullAdminContext, treatmentStartInput);
+    mockCreateTwoPQRecordForContext.mockRejectedValueOnce(new Error("Case creation failed"));
+    await expect(createTwoPQFormForContext(fullAdminContext, biopsy)).rejects.toThrow("Case creation failed");
+    expect(mockDocs.get(`pgflex_events/${plan.transportEventId}`)).toMatchObject({
+      status: "planned", pickupDate: "2026-08-31", readyCaseCount: 0,
+    });
+    expect(mockDocs.get(`2pq_forms/${planningRequestId}`)?.linkedBiopsyForm).toBeNull();
+
     mockCreateTwoPQRecordForContext.mockImplementation(async (_context, area, input) => {
       const record = { id: area === "cases" ? "case-planned" : "sample-planned", ...input };
       if (area === "cases") {
@@ -680,9 +687,16 @@ describe("2PQ form workflow and PGFlex automation", () => {
       linkedTreatmentStartFormId: plan.id,
       linkedCaseId: "case-planned",
       transportEventId: plan.transportEventId,
-      pickup: { status: "confirmed", readyCaseCount: 1 },
+      pickup: { status: "confirmed", readyCaseCount: 1, pickupDate: "2026-09-02" },
     });
-    expect(mockDocs.get(`2pq_forms/${plan.id}`)).toMatchObject({ linkedCaseId: "case-planned", linkedBiopsyForm: form.id });
+    expect(mockDocs.get(`2pq_forms/${plan.id}`)).toMatchObject({
+      linkedCaseId: "case-planned", linkedBiopsyForm: form.id,
+      treatmentStart: { estimatedBiopsyDate: "2026-08-31", pickupDate: "2026-08-31" },
+    });
+    expect(mockDocs.get(`pgflex_events/${plan.transportEventId}`)).toMatchObject({
+      pickupDate: "2026-09-02",
+      members: { [plan.id]: { estimatedBiopsyDate: "2026-08-31", biopsyDate: "2026-09-02" } },
+    });
     expect(mockDocs.get(`2pq_forms/${planningRequestId}`)).toMatchObject({
       linkedTreatmentStartFormId: plan.id, linkedBiopsyForm: form.id, "2pq_case": "case-planned",
     });
@@ -693,7 +707,10 @@ describe("2PQ form workflow and PGFlex automation", () => {
     expect(mockDocs.get(`2pq-informed-consent/${consentId}`)).toMatchObject({
       studyRequestFormId: planningRequestId, caseId: "case-planned", reviewStatus: "ready",
     });
-    expect(mockSendTreatmentPickupEmail).toHaveBeenCalledWith("confirmed", expect.anything(), expect.anything());
+    expect(mockSendTreatmentPickupEmail.mock.calls.map(([kind]) => kind)).toEqual(["planned", "confirmed"]);
+    expect(mockSendTreatmentPickupEmail).toHaveBeenLastCalledWith(
+      "confirmed", expect.anything(), expect.objectContaining({ pickupDate: "2026-09-02" }),
+    );
   });
 
   it("stores a civil treatment estimate without a results deadline and initializes relationship fields", async () => {

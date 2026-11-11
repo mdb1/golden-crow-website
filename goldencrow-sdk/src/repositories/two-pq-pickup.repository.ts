@@ -181,12 +181,6 @@ function pickupDateMatchesBiopsy(temperatureC: 4 | -20, pickupDate: string, biop
   return temperatureC === 4 ? pickupDate === biopsyDate : pickupDate >= biopsyDate;
 }
 
-function validateActualBiopsyDate(event: PickupEvent, biopsyDate: string) {
-  if (event.status !== "cancelled" && !pickupDateMatchesBiopsy(event.temperatureC, event.pickupDate, biopsyDate)) {
-    throw new AdminRepositoryError("The biopsy date does not match the planned pickup. Update the treatment pickup before saving the biopsy.", 409);
-  }
-}
-
 function notification(
   id: string,
   event: PickupEvent,
@@ -258,10 +252,10 @@ export async function getTreatmentPickupSummary(id: string, context?: AdminConte
   return toSummary(id, event, context);
 }
 
-export async function validateTreatmentPickupForBiopsy(id: string, formId: string, biopsyDate: string) {
+export async function validateTreatmentPickupForBiopsy(id: string, formId: string) {
   const event = eventData((await db.collection(EVENTS).doc(id).get()).data());
-  if (!event?.members[formId]) throw new AdminRepositoryError("The pickup plan for this biopsy was not found.", 409);
-  validateActualBiopsyDate(event, biopsyDate);
+  const member = event?.members[formId];
+  if (!member || member.removed) throw new AdminRepositoryError("The pickup plan for this biopsy was not found.", 409);
 }
 
 export async function prepareTreatmentPickup(
@@ -372,7 +366,8 @@ export async function prepareBiopsyPickupConfirmation(
   if (!/^[A-Z]{3}$/.test(code)) {
     throw new AdminRepositoryError("A valid case code is required to confirm pickup.", 400);
   }
-  validateActualBiopsyDate(event, input.biopsyDate);
+  const reschedule = (event.status === "planned" || event.status === "confirmed") &&
+    !pickupDateMatchesBiopsy(event.temperatureC, event.pickupDate, input.biopsyDate);
   const members = {
     ...event.members,
     [input.formId]: { ...member, caseId: input.caseId, code, biopsyDate: input.biopsyDate },
@@ -382,6 +377,7 @@ export async function prepareBiopsyPickupConfirmation(
   const confirm = event.status === "planned" && ready.length === event.expectedCaseCount;
   const next: PickupEvent = {
     ...event,
+    pickupDate: reschedule ? input.biopsyDate : event.pickupDate,
     members,
     linkedCaseIds,
     linked_codes: ready.map((entry) => entry.code).join(","),
@@ -390,8 +386,19 @@ export async function prepareBiopsyPickupConfirmation(
     updatedByEmail: input.actorEmail,
     ...(confirm ? { status: "confirmed", confirmedAt: input.now } : {}),
   };
+  if (reschedule) {
+    for (const kind of EMAIL_KINDS) {
+      const message = next.notifications[kind];
+      if (message && message.state !== "sent") {
+        next.notifications = notification(input.eventId, next, kind);
+      }
+    }
+  }
   if (confirm) {
     next.notifications = notification(input.eventId, next, "confirmed");
+  } else if (reschedule) {
+    next.notifications = notification(input.eventId, next, "rescheduled");
+    next.latestEmailKind = "rescheduled";
   }
   return {
     confirmedCaseIds: confirm ? linkedCaseIds : [],

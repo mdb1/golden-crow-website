@@ -2684,6 +2684,11 @@ const SPANISH_TEXT: Record<string, string> = {
   "Complete treatment planning form": "Completar formulario de planificación del tratamiento",
   "Treatment start date": "Fecha de inicio de tratamiento",
   "Estimated biopsy date": "Fecha estimada de biopsia",
+  "The biopsy date differs from the treatment plan.": "La fecha de biopsia difiere de la planificación del tratamiento.",
+  "Original planned biopsy date": "Fecha de biopsia prevista originalmente",
+  "Final biopsy date": "Fecha definitiva de biopsia",
+  "The new biopsy date will be saved as the final date. The planned PGFlex pickup date will be updated when needed.":
+    "Se guardará la nueva fecha de biopsia como fecha definitiva. La fecha de retiro planificada en PGFlex se actualizará cuando corresponda.",
   "Estimated embryos to biopsy": "Cantidad estimada de embriones a biopsiar",
   "Expected pickup date": "Fecha estimada de retiro",
   "Pickup window start": "Hora de inicio del retiro",

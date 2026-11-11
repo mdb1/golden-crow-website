@@ -316,6 +316,39 @@ const transportDispatcherContext = {
   projectAccess: ["mydnamap" as const],
 };
 
+const treatmentPickupId = "pgflex_treatment_form-1";
+const treatmentPickupPath = `pgflex_events/${treatmentPickupId}`;
+const treatmentPickupEvent = {
+  source: "2pq_treatment_start",
+  sourceFormId: "FORM-1",
+  shipmentType: "2pq",
+  identifier: "Clínica · FORM-1",
+  institutionId: "INST-1",
+  status: "planned",
+  temperatureC: 4,
+  pickupDate: "2026-11-29",
+  pickupWindowStart: "09:00",
+  pickupWindowEnd: "11:00",
+  origin: "Av. Corrientes 123, Almagro, Ciudad Autónoma de Buenos Aires, Argentina",
+  destination: "Humboldt 2433 (PB 10), Palermo, Ciudad Autónoma de Buenos Aires, Argentina",
+  members: {
+    "FORM-1": {
+      doctorId: "DOC-1",
+      treatmentDate: "2026-11-25",
+      estimatedBiopsyDate: "2026-11-29",
+      caseId: null,
+      code: null,
+    },
+  },
+  linkedCaseIds: [],
+  linked_codes: null,
+  expectedCaseCount: 1,
+  readyCaseCount: 0,
+  dispatcherEmail: "driver@example.com",
+  dispatcherDisplayName: "Transportista",
+  notifications: {},
+};
+
 describe("PGFlex logistics repository", () => {
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(new Date("2026-08-31T15:45:00.000Z"));
@@ -459,6 +492,201 @@ describe("PGFlex logistics repository", () => {
       .toMatchObject({ id, status: "in_transit" });
     expect(mockDocs.get("2pq_case/CASE-1")).toBeUndefined();
     expect(mockDocs.get("2pq_case/CASE-2")?.caseStatus).toBe("in_transit");
+  });
+
+  it.each(["2026-11-28", "2026-11-30"])("uses the actual urgent biopsy date %s only when the save commits", async (biopsyDate) => {
+    const {
+      validateTreatmentPickupForBiopsy,
+      prepareBiopsyPickupConfirmation,
+      deliverTreatmentPickupNotifications,
+    } = await import("../repositories/two-pq-pickup.repository.js");
+    const original = structuredClone(treatmentPickupEvent);
+    mockDocs.set(treatmentPickupPath, structuredClone(original));
+
+    await expect(validateTreatmentPickupForBiopsy(treatmentPickupId, "FORM-1"))
+      .resolves.toBeUndefined();
+    expect(mockDocs.get(treatmentPickupPath)).toEqual(original);
+
+    await runTestTransaction(async (transaction) => {
+      const prepared = await prepareBiopsyPickupConfirmation(transaction, {
+        eventId: treatmentPickupId,
+        formId: "FORM-1",
+        caseId: "CASE-1",
+        threeLetterCode: "ABC",
+        biopsyDate,
+        actorEmail: "operator@example.com",
+        now: "2026-11-30T12:00:00.000Z",
+      });
+      expect(mockDocs.get(treatmentPickupPath)).toEqual(original);
+      expect(prepared.confirmedCaseIds).toEqual(["CASE-1"]);
+      prepared.write();
+    });
+
+    expect(mockDocs.get(treatmentPickupPath)).toMatchObject({
+      status: "confirmed",
+      pickupDate: biopsyDate,
+      pickupWindowStart: original.pickupWindowStart,
+      pickupWindowEnd: original.pickupWindowEnd,
+      origin: original.origin,
+      destination: original.destination,
+      members: { "FORM-1": { estimatedBiopsyDate: "2026-11-29", biopsyDate, caseId: "CASE-1" } },
+      linkedCaseIds: ["CASE-1"],
+      readyCaseCount: 1,
+    });
+    await deliverTreatmentPickupNotifications(treatmentPickupId);
+    await deliverTreatmentPickupNotifications(treatmentPickupId);
+    expect(mockSendTreatmentPickupEmail).toHaveBeenCalledTimes(1);
+    expect(mockSendTreatmentPickupEmail).toHaveBeenCalledWith("confirmed", expect.anything(),
+      expect.objectContaining({ pickupDate: biopsyDate, codes: ["ABC"] }),
+    );
+  });
+
+  it("moves a grouped frozen pickup forward and confirms it after the last biopsy", async () => {
+    const { prepareBiopsyPickupConfirmation, deliverTreatmentPickupNotifications } =
+      await import("../repositories/two-pq-pickup.repository.js");
+    mockDocs.set(treatmentPickupPath, {
+      ...structuredClone(treatmentPickupEvent),
+      temperatureC: -20,
+      pickupDate: "2026-11-30",
+      expectedCaseCount: 2,
+      members: {
+        "FORM-1": { ...treatmentPickupEvent.members["FORM-1"] },
+        "FORM-2": { ...treatmentPickupEvent.members["FORM-1"] },
+      },
+    });
+    async function saveBiopsy(formId: string, caseId: string, code: string, biopsyDate: string) {
+      return runTestTransaction(async (transaction) => {
+        const prepared = await prepareBiopsyPickupConfirmation(transaction, {
+          eventId: treatmentPickupId, formId, caseId, threeLetterCode: code, biopsyDate,
+          actorEmail: "operator@example.com", now: "2026-12-03T12:00:00.000Z",
+        });
+        prepared.write();
+        return prepared.confirmedCaseIds;
+      });
+    }
+
+    expect(await saveBiopsy("FORM-1", "CASE-1", "ABC", "2026-12-02")).toEqual([]);
+    expect(mockDocs.get(treatmentPickupPath)).toMatchObject({
+      status: "planned", pickupDate: "2026-12-02", expectedCaseCount: 2, readyCaseCount: 1,
+      linkedCaseIds: ["CASE-1"], latestEmailKind: "rescheduled",
+      members: {
+        "FORM-1": { biopsyDate: "2026-12-02", caseId: "CASE-1" },
+        "FORM-2": { estimatedBiopsyDate: "2026-11-29", caseId: null },
+      },
+    });
+    await deliverTreatmentPickupNotifications(treatmentPickupId);
+    expect(mockSendTreatmentPickupEmail).toHaveBeenLastCalledWith("rescheduled", expect.anything(),
+      expect.objectContaining({ pickupDate: "2026-12-02", expectedCaseCount: 2 }),
+    );
+
+    expect(await saveBiopsy("FORM-2", "CASE-2", "DEF", "2026-12-03")).toEqual(["CASE-1", "CASE-2"]);
+    expect(mockDocs.get(treatmentPickupPath)).toMatchObject({
+      status: "confirmed", pickupDate: "2026-12-03", expectedCaseCount: 2, readyCaseCount: 2,
+      linkedCaseIds: ["CASE-1", "CASE-2"], linked_codes: "ABC,DEF",
+    });
+    expect(docsIn("pgflex_events")).toHaveLength(1);
+    await deliverTreatmentPickupNotifications(treatmentPickupId);
+    expect(mockSendTreatmentPickupEmail.mock.calls.map(([kind]) => kind)).toEqual(["rescheduled", "confirmed"]);
+    expect(mockSendTreatmentPickupEmail).toHaveBeenLastCalledWith("confirmed", expect.anything(),
+      expect.objectContaining({ pickupDate: "2026-12-03", codes: ["ABC", "DEF"] }),
+    );
+  });
+
+  it("keeps a valid deferred frozen pickup after an earlier biopsy", async () => {
+    const { prepareBiopsyPickupConfirmation } = await import("../repositories/two-pq-pickup.repository.js");
+    mockDocs.set(treatmentPickupPath, {
+      ...structuredClone(treatmentPickupEvent), temperatureC: -20, pickupDate: "2026-12-05",
+    });
+    await runTestTransaction(async (transaction) => {
+      const prepared = await prepareBiopsyPickupConfirmation(transaction, {
+        eventId: treatmentPickupId, formId: "FORM-1", caseId: "CASE-1", threeLetterCode: "ABC",
+        biopsyDate: "2026-12-01", actorEmail: "operator@example.com", now: "2026-12-01T12:00:00.000Z",
+      });
+      prepared.write();
+    });
+
+    expect(mockDocs.get(treatmentPickupPath)).toMatchObject({
+      status: "confirmed", pickupDate: "2026-12-05",
+      members: { "FORM-1": { biopsyDate: "2026-12-01" } },
+    });
+    expect(mockDocs.get(treatmentPickupPath)?.notifications).not.toHaveProperty("rescheduled");
+  });
+
+  it("refreshes a failed schedule email before a later biopsy confirms the group", async () => {
+    const { prepareBiopsyPickupConfirmation, deliverTreatmentPickupNotifications } =
+      await import("../repositories/two-pq-pickup.repository.js");
+    mockDocs.set(treatmentPickupPath, {
+      ...structuredClone(treatmentPickupEvent),
+      temperatureC: -20,
+      pickupDate: "2026-11-30",
+      expectedCaseCount: 2,
+      members: {
+        "FORM-1": { ...treatmentPickupEvent.members["FORM-1"] },
+        "FORM-2": { ...treatmentPickupEvent.members["FORM-1"] },
+      },
+    });
+    async function saveBiopsy(formId: string, caseId: string, code: string, biopsyDate: string) {
+      await runTestTransaction(async (transaction) => {
+        const prepared = await prepareBiopsyPickupConfirmation(transaction, {
+          eventId: treatmentPickupId, formId, caseId, threeLetterCode: code, biopsyDate,
+          actorEmail: "operator@example.com", now: "2026-12-03T12:00:00.000Z",
+        });
+        prepared.write();
+      });
+    }
+
+    await saveBiopsy("FORM-1", "CASE-1", "ABC", "2026-12-02");
+    mockSendTreatmentPickupEmail.mockRejectedValueOnce(new Error("Email temporarily unavailable"));
+    await deliverTreatmentPickupNotifications(treatmentPickupId);
+    expect(mockDocs.get(treatmentPickupPath)?.notifications).toMatchObject({
+      rescheduled: { state: "failed", details: { pickupDate: "2026-12-02" } },
+    });
+    mockSendTreatmentPickupEmail.mockClear();
+
+    await saveBiopsy("FORM-2", "CASE-2", "DEF", "2026-12-03");
+    await deliverTreatmentPickupNotifications(treatmentPickupId);
+    await deliverTreatmentPickupNotifications(treatmentPickupId);
+
+    expect(mockSendTreatmentPickupEmail.mock.calls.map(([kind]) => kind)).toEqual(["confirmed", "rescheduled"]);
+    for (const [, , details] of mockSendTreatmentPickupEmail.mock.calls) {
+      expect(details).toMatchObject({ pickupDate: "2026-12-03", codes: ["ABC", "DEF"] });
+    }
+    expect(mockDocs.get(treatmentPickupPath)?.notifications).toMatchObject({
+      confirmed: { state: "sent", details: { pickupDate: "2026-12-03" } },
+      rescheduled: { state: "sent", details: { pickupDate: "2026-12-03" } },
+    });
+  });
+
+  it("records the actual biopsy without reopening or rescheduling cancelled transport", async () => {
+    const { prepareBiopsyPickupConfirmation, deliverTreatmentPickupNotifications } =
+      await import("../repositories/two-pq-pickup.repository.js");
+    mockDocs.set(treatmentPickupPath, { ...structuredClone(treatmentPickupEvent), status: "cancelled" });
+    await runTestTransaction(async (transaction) => {
+      const prepared = await prepareBiopsyPickupConfirmation(transaction, {
+        eventId: treatmentPickupId, formId: "FORM-1", caseId: "CASE-1", threeLetterCode: "ABC",
+        biopsyDate: "2026-12-01", actorEmail: "operator@example.com", now: "2026-12-01T12:00:00.000Z",
+      });
+      expect(prepared.confirmedCaseIds).toEqual([]);
+      prepared.write();
+    });
+
+    expect(mockDocs.get(treatmentPickupPath)).toMatchObject({
+      status: "cancelled", pickupDate: "2026-11-29",
+      members: { "FORM-1": { biopsyDate: "2026-12-01", caseId: "CASE-1" } },
+      notifications: {},
+    });
+    await deliverTreatmentPickupNotifications(treatmentPickupId);
+    expect(mockSendTreatmentPickupEmail).not.toHaveBeenCalled();
+  });
+
+  it("rejects a biopsy that does not belong to the saved pickup before changing it", async () => {
+    const { validateTreatmentPickupForBiopsy } = await import("../repositories/two-pq-pickup.repository.js");
+    const original = structuredClone(treatmentPickupEvent);
+    mockDocs.set(treatmentPickupPath, original);
+
+    await expect(validateTreatmentPickupForBiopsy(treatmentPickupId, "FORM-2"))
+      .rejects.toMatchObject({ statusCode: 409 });
+    expect(mockDocs.get(treatmentPickupPath)).toEqual(original);
   });
 
   it("stores a created logistics item only in pgflex_events", async () => {

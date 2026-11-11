@@ -97,6 +97,24 @@ const studyRequest: TwoPQFormRecord = {
   updatedAt: "2026-10-02T12:00:00.000Z",
 };
 
+const plannedRequest: TwoPQFormRecord = {
+  ...studyRequest,
+  requiresTreatmentStart: true,
+  linkedTreatmentStartFormId: "FORM-00048",
+  treatmentStart: {
+    studyType: "pgtAFast",
+    treatmentDate: "2026-11-25",
+    estimatedBiopsyDate: "2026-11-29",
+    estimatedEmbryoCount: 4,
+    pickupDate: "2026-11-29",
+    pickupWindowStart: "09:00",
+    pickupWindowEnd: "11:00",
+    pickupOrigin: "Clínica Norte",
+    pickupDestination: "Laboratorio",
+    temperatureC: 4,
+  },
+};
+
 const caseRecord = {
   id: "CASE-00025",
   areaKey: "cases",
@@ -230,23 +248,6 @@ describe("StudyRequestSelectionTable", () => {
 
   it("starts a biopsy with the planned study type while retaining the original request", () => {
     jest.mocked(sdkFetch).mockClear();
-    const plannedRequest: TwoPQFormRecord = {
-      ...studyRequest,
-      requiresTreatmentStart: true,
-      linkedTreatmentStartFormId: "FORM-00048",
-      treatmentStart: {
-        studyType: "pgtAFast",
-        treatmentDate: "2026-11-25",
-        estimatedBiopsyDate: "2026-11-29",
-        estimatedEmbryoCount: 4,
-        pickupDate: "2026-11-29",
-        pickupWindowStart: "09:00",
-        pickupWindowEnd: "11:00",
-        pickupOrigin: "Clínica Norte",
-        pickupDestination: "Laboratorio",
-        temperatureC: 4,
-      },
-    };
     renderFlow(
       <TwoPQFormFlow
         formType="sample"
@@ -264,11 +265,125 @@ describe("StudyRequestSelectionTable", () => {
       state: {
         linkedStudyRequestFormId: plannedRequest.id,
         requestedTest: { pgtAFast: "si", pgtAStandard: "no" },
+        sampleInformation: { processDate: "2026-11-29" },
         caseInformation: { caseType: "PGT FAST", priority: "urgent" },
       },
     });
     expect(plannedRequest.requestedTest).toEqual({ pgtAStandard: "si" });
   });
+
+  it("uses the current rescheduled biopsy plan and warns when a restored draft selects the earlier date", () => {
+    const rescheduledRequest: TwoPQFormRecord = {
+      ...plannedRequest,
+      pickup: {
+        id: "pickup-1",
+        status: "planned",
+        temperatureC: 4,
+        expectedCaseCount: 1,
+        readyCaseCount: 0,
+        canManage: true,
+        estimatedBiopsyDate: "2026-11-30",
+        pickupDate: "2026-11-30",
+        pickupWindowStart: "09:00",
+        pickupWindowEnd: "11:00",
+        origin: "Clínica Norte",
+        destination: "Laboratorio",
+      },
+    };
+    jest.mocked(sdkFetch).mockClear();
+    const firstRender = renderFlow(
+      <TwoPQFormFlow
+        formType="sample"
+        institutions={[institution]}
+        doctors={[doctor]}
+        patients={[]}
+        studyRequestForms={[rescheduledRequest]}
+        initialLinkedStudyRequestFormId={rescheduledRequest.id}
+      />,
+    );
+    const [, init] = jest.mocked(sdkFetch).mock.calls[0]!;
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      state: { sampleInformation: { processDate: "2026-11-30" } },
+    });
+    firstRender.unmount();
+
+    const state = buildInitialState(institution.id, doctor.id);
+    state.linkedStudyRequestFormId = rescheduledRequest.id;
+    state.sampleInformation.processDate = "2026-11-29";
+    const draft = {
+      id: "admin-uid",
+      formType: "sample",
+      collectionKey: "2pq-form-drafts",
+      currentStep: "sampleInformation",
+      stepIndex: 0,
+      state,
+      createdAt: "2026-10-16T12:00:00.000Z",
+      updatedAt: "2026-10-16T12:00:00.000Z",
+    } as TwoPQFormDraftRecord;
+    renderFlow(
+      <TwoPQFormFlow
+        formType="sample"
+        institutions={[institution]}
+        doctors={[doctor]}
+        patients={[]}
+        studyRequestForms={[rescheduledRequest]}
+        initialDraft={draft}
+      />,
+    );
+
+    const date = screen.getByLabelText("Process date");
+    expect(date).toHaveValue("2026-11-29");
+    const warning = screen.getByText("The biopsy date differs from the treatment plan.").closest('[role="status"]');
+    expect(warning).toHaveClass("bg-amber-50");
+    expect(warning).toHaveTextContent("Original planned biopsy date11/30/2026");
+    expect(warning).toHaveTextContent("Final biopsy date11/29/2026");
+    fireEvent.change(date, { target: { value: "2026-11-30" } });
+    expect(screen.queryByText("The biopsy date differs from the treatment plan.")).not.toBeInTheDocument();
+  });
+
+  it.each(["sampleInformation", "previewAndSignature"] as const)(
+    "preserves a changed biopsy draft date and warns at %s",
+    (currentStep) => {
+      const state = buildInitialState(institution.id, doctor.id);
+      state.linkedStudyRequestFormId = plannedRequest.id;
+      state.sampleInformation.processDate = "2026-11-30";
+      const draft = {
+        id: "admin-uid",
+        formType: "sample",
+        collectionKey: "2pq-form-drafts",
+        currentStep,
+        stepIndex: 0,
+        state,
+        createdAt: "2026-10-16T12:00:00.000Z",
+        updatedAt: "2026-10-16T12:00:00.000Z",
+      } as TwoPQFormDraftRecord;
+
+      renderFlow(
+        <TwoPQFormFlow
+          formType="sample"
+          institutions={[institution]}
+          doctors={[doctor]}
+          patients={[]}
+          studyRequestForms={[plannedRequest]}
+          initialDraft={draft}
+        />,
+      );
+
+      const warning = screen.getByText("The biopsy date differs from the treatment plan.").closest('[role="status"]');
+      expect(warning).toHaveClass("bg-amber-50");
+      expect(warning).toHaveTextContent("11/29/2026");
+      expect(warning).toHaveTextContent("11/30/2026");
+      expect(warning).toHaveTextContent("The new biopsy date will be saved as the final date.");
+      expect(warning).toHaveTextContent("The planned PGFlex pickup date will be updated when needed.");
+      if (currentStep === "sampleInformation") {
+        const date = screen.getByLabelText("Process date");
+        expect(date).toHaveValue("2026-11-30");
+        fireEvent.change(date, { target: { value: "2026-11-29" } });
+        expect(screen.queryByText("The biopsy date differs from the treatment plan.")).not.toBeInTheDocument();
+        expect(date).toHaveValue("2026-11-29");
+      }
+    },
+  );
 
   it("initializes the withdrawal wizard with a query-selected 2PQ case", () => {
     renderFlow(

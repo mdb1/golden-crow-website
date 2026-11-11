@@ -5944,7 +5944,6 @@ export async function createTwoPQFormForContext(
         await validateTreatmentPickupForBiopsy(
           treatmentPlan.transportEventId,
           treatmentPlan.id,
-          normalizedSampleInformation.processDate.slice(0, 10),
         );
       }
       const sampleBoxCode = normalizedSampleInformation.boxCode;
