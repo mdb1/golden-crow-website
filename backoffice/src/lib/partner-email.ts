@@ -13,6 +13,8 @@ export type PartnerEmailPreview = {
   category: PartnerSection;
   language: PartnerEmailLanguage;
   previewHash: string;
+  accessCodeExpiresAt?: string;
+  accessCodeUnavailableReason?: string;
 };
 
 export type PartnerEmailSendInput = {

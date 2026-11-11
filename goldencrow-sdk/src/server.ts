@@ -29,6 +29,7 @@ const PUBLIC_PATHS = new Set([
   "/auth/logout",
   "/auth/email-signup",
   "/auth/email-signup/eligibility",
+  "/publisher-portal/access-code",
   "/service-transactions/notification-token",
   "/service-transactions/notify-requester",
   "/service-transactions/notify-provider",

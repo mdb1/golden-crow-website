@@ -4,6 +4,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   signInWithEmailAndPassword,
+  signInWithCustomToken,
   signInWithPopup,
   signOut,
 } from "firebase/auth";
@@ -20,6 +21,7 @@ jest.mock("firebase/auth", () => ({
   },
   sendPasswordResetEmail: jest.fn(),
   signInWithEmailAndPassword: jest.fn(),
+  signInWithCustomToken: jest.fn(),
   signInWithPopup: jest.fn(),
   signOut: jest.fn(),
 }));
@@ -259,6 +261,61 @@ describe("publisher portal login", () => {
       value: fetchMock,
     });
     window.localStorage.clear();
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("prefills the publisher key, removes it from the address, and waits for an explicit sign-in", async () => {
+    const user = userEvent.setup();
+    const key = "Sample+code&42";
+    window.history.replaceState(null, "", `/publisher-portal/login?email=publisher%2Bapp%40example.com&accessKey=${encodeURIComponent(key)}&callbackUrl=%2Fpublisher-portal%2Fapp%2Fnew`);
+    render(<LoginExperience surface="publisher-portal" initialEmail="publisher+app@example.com" initialAccessKey={key} />);
+    expect((screen.getByLabelText("Clave de acceso") as HTMLInputElement).value).toBe(key);
+    expect(signInWithEmailAndPassword).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(new URL(window.location.href).searchParams.has("accessKey")).toBe(false);
+    expect(new URL(window.location.href).searchParams.get("email")).toBe("publisher+app@example.com");
+    expect(new URL(window.location.href).searchParams.get("callbackUrl")).toBe("/publisher-portal/app/new");
+    jest.mocked(signInWithEmailAndPassword).mockRejectedValueOnce({ code: "auth/network-request-failed" });
+    await user.click(screen.getByRole("button", { name: "Acceder al portal" }));
+    await waitFor(() => expect(signInWithEmailAndPassword).toHaveBeenCalledWith(expect.anything(), "publisher+app@example.com", key));
+  });
+
+  it("exchanges a prefilled publisher code only after the access button is pressed", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValueOnce({ ok: true, clone() { return this; }, json: async () => ({ customToken: "firebase-custom-token" }), text: async () => JSON.stringify({ customToken: "firebase-custom-token" }) });
+    jest.mocked(signInWithCustomToken).mockResolvedValueOnce({ user: { getIdToken: async () => { throw new Error("Stop before session handoff"); } } } as never);
+    render(<LoginExperience surface="publisher-portal" initialEmail="publisher@example.com" initialAccessKey="pgp1.preview.signature" />);
+    expect(fetchMock).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Acceder al portal" }));
+    await waitFor(() => expect(signInWithCustomToken).toHaveBeenCalledWith(expect.anything(), "firebase-custom-token"));
+    expect(fetchMock).toHaveBeenCalledWith("/api/sdk/publisher-portal/access-code", expect.objectContaining({ method: "POST", body: JSON.stringify({ email: "publisher@example.com", accessKey: "pgp1.preview.signature" }) }));
+    expect(signInWithEmailAndPassword).not.toHaveBeenCalled();
+  });
+
+  it("does not authenticate with Firebase when the publisher code is rejected", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 401, clone() { return this; }, json: async () => ({ error: "Invalid code" }), text: async () => '{"error":"Invalid code"}' });
+    render(<LoginExperience surface="publisher-portal" initialEmail="publisher@example.com" initialAccessKey="pgp1.invalid.signature" />);
+    await user.click(screen.getByRole("button", { name: "Acceder al portal" }));
+    await waitFor(() => expect(screen.getByText("No pudimos usar este enlace de acceso")).toBeTruthy());
+    expect(signInWithCustomToken).not.toHaveBeenCalled();
+    expect(signInWithEmailAndPassword).not.toHaveBeenCalled();
+  });
+
+  it.each(["backoffice", "patient-portal", "pgflex"] as const)("does not prefill publisher keys on the %s authentication surface", (surface) => {
+    render(<LoginExperience surface={surface} initialEmail="publisher@example.com" initialAccessKey="publisher-only-key" />);
+    for (const input of document.querySelectorAll("input")) expect(input.value).not.toBe("publisher-only-key");
+  });
+
+  it("ignores a key without its recipient email and clears a prefilled key when changing account", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<LoginExperience surface="publisher-portal" initialAccessKey="publisher-key" />);
+    expect(screen.queryByLabelText("Clave de acceso")).toBeNull();
+    unmount();
+    render(<LoginExperience surface="publisher-portal" initialEmail="publisher@example.com" initialAccessKey="publisher-key" />);
+    await user.click(screen.getByRole("button", { name: "Cambiar email" }));
+    expect(screen.queryByLabelText("Clave de acceso")).toBeNull();
+    expect((screen.getByLabelText("Email") as HTMLInputElement).value).toBe("publisher@example.com");
   });
 
   it("uses the visible access-key step for invited publishers", async () => {

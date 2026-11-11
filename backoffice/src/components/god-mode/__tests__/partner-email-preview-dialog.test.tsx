@@ -105,8 +105,13 @@ it("prepares a Spanish, read-only preview without sending and shows recipient, s
   expect(screen.getByText(preview.to)).toBeVisible();
   expect(screen.getByText("No organization yet")).toBeVisible();
   expect(screen.getByText(preview.ctaLabel)).toBeVisible();
-  fireEvent.click(screen.getByText("Purple button destination"));
+  expect(screen.getByText("Purple button destination")).toBeVisible();
   expect(screen.getByText(preview.ctaUrl)).toBeVisible();
+  const link = screen.getByRole("link", { name: "Open link" });
+  expect(link).toHaveAttribute("href", preview.ctaUrl);
+  expect(link).toHaveAttribute("target", "_blank");
+  expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  expect(link).toHaveAttribute("referrerpolicy", "no-referrer");
   expect(screen.getByRole("button", { name: "Español" })).toHaveAttribute(
     "aria-pressed",
     "true",
@@ -121,6 +126,16 @@ it("prepares a Spanish, read-only preview without sending and shows recipient, s
   );
   expect(frame.getAttribute("srcdoc")).toContain("background:#6f3cc3");
   expect(frame.getAttribute("srcdoc")).not.toContain("<a href=");
+});
+
+it("exposes the exact publisher login URL and its query parameters without sending an email", async () => {
+  const url = "https://golden-crow-backoffice.vercel.app/publisher-portal/login?email=ana%2Bpublisher%40example.com&accessKey=sample%2Bcode&callbackUrl=%2Fpublisher-portal%2Fapp%2Fnew";
+  jest.mocked(sdkFetch).mockResolvedValue({ ...preview, ctaUrl: url, category: "organizationWithoutApp" });
+  renderDialog();
+  await ready();
+  expect(screen.getByText(url)).toBeVisible();
+  expect(screen.getByRole("link", { name: "Open link" })).toHaveAttribute("href", url);
+  expect(requests()).toHaveLength(0);
 });
 
 it("keeps send disabled while preparing a preview and retries a failed preview without sending", async () => {

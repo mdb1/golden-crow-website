@@ -27,6 +27,18 @@ const withOrg: Partner = {
   linkedOrganizationId: org.id,
   linkedOrganization: org,
 };
+
+it("includes the supplied access code only on publisher login links and escapes it in HTML", () => {
+  const key = "test+key&value";
+  const preview = buildConnectedPartnerEmail(withOrg, "es", key);
+  const url = new URL(preview.ctaUrl);
+  expect(url.searchParams.get("accessKey")).toBe(key);
+  expect(url.searchParams.get("email")).toBe(withOrg.email);
+  expect(url.searchParams.get("callbackUrl")).toBe("/publisher-portal/app/new");
+  expect(preview.text).toContain(preview.ctaUrl);
+  expect(preview.html).toContain("&amp;accessKey=");
+  expect(buildConnectedPartnerEmail(base, "es", key).ctaUrl).toBe("https://goldencrowvs.com/pocket-genes/join-us/new/");
+});
 function withApp(status: NonNullable<Partner["linkedApp"]>["status"]): Partner {
   return {
     ...withOrg,

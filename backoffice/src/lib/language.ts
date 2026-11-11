@@ -20,6 +20,9 @@ export function toggleAppLanguage(language: AppLanguage): AppLanguage {
 }
 
 const SPANISH_TEXT: Record<string, string> = {
+  "Open link": "Abrir enlace",
+  "Access code valid until": "Código de acceso válido hasta",
+  "This recipient does not have an active publisher account matching the linked publisher. The link includes their email only.": "Este destinatario no tiene una cuenta activa de publicador que coincida con el publicador vinculado. El enlace incluye únicamente su email.",
   "Export as partners CSV": "Exportar como CSV de partners",
   "Export all existing organizations, across all pages and statuses. List filters do not apply.":
     "Exportá todas las organizaciones existentes, de todas las páginas y estados. No se aplican los filtros de la lista.",

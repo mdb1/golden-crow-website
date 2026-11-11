@@ -12,6 +12,7 @@ import {
 import type { AdminContext } from "../types/sdk.types.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 import { getPartner } from "./connected-partners.repository.js";
+import { partnerPublisherAccessCode } from "./publisher-access-code.repository.js";
 
 export const PARTNER_EMAIL_SENDS_COLLECTION = "partner_email_sends";
 export const PartnerEmailLanguageSchema = z.enum(["es", "en"]);
@@ -94,10 +95,20 @@ export async function previewPartnerEmail(
 ): Promise<PartnerEmailPreview> {
   requireGodMode(context);
   const parsedLanguage = PartnerEmailLanguageSchema.parse(language);
-  return buildConnectedPartnerEmail(
-    await getPartner(context, partnerId),
-    parsedLanguage,
-  );
+  const partner = await getPartner(context, partnerId);
+  const base = buildConnectedPartnerEmail(partner, parsedLanguage);
+  if (base.category === "noOrganization") return base;
+  const code = await partnerPublisherAccessCode(context, partner);
+  return code
+    ? {
+        ...buildConnectedPartnerEmail(partner, parsedLanguage, code.accessKey),
+        accessCodeExpiresAt: code.expiresAt,
+      }
+    : {
+        ...base,
+        accessCodeUnavailableReason:
+          "This recipient does not have an active publisher account matching the linked publisher. The link includes their email only.",
+      };
 }
 
 export async function sendPartnerEmail(

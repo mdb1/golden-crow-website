@@ -47,6 +47,7 @@ const PUBLIC = new Set([
   "POST /auth/logout",
   "POST /auth/email-signup",
   "POST /auth/email-signup/eligibility",
+  "POST /publisher-portal/access-code",
   "POST /client-bookings",
   "POST /discover/publisher-favicon",
   "POST /discover/publisher-requests",

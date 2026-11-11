@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   CheckCircle2,
+  ExternalLink,
   Loader2,
   Mail,
   RefreshCw,
@@ -290,6 +291,54 @@ export function PartnerEmailPreviewDialog({
                       {preview.subject}
                     </dd>
                   </dl>
+                  <section className="space-y-3 rounded-xl border bg-muted/20 p-4 text-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <h3 className="font-medium">
+                          {t("Purple button destination")}
+                        </h3>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {preview.ctaLabel}
+                        </p>
+                      </div>
+                      <Button
+                        asChild
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0 rounded-xl"
+                      >
+                        <a
+                          href={preview.ctaUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          referrerPolicy="no-referrer"
+                        >
+                          <ExternalLink className="size-4" />
+                          {t("Open link")}
+                        </a>
+                      </Button>
+                    </div>
+                    <p className="break-all rounded-lg bg-background/80 p-3 font-mono text-xs text-muted-foreground">
+                      {preview.ctaUrl}
+                    </p>
+                    {preview.accessCodeUnavailableReason ? (
+                      <p
+                        role="note"
+                        className="text-xs text-amber-700 dark:text-amber-300"
+                      >
+                        {t(preview.accessCodeUnavailableReason)}
+                      </p>
+                    ) : null}
+                    {preview.accessCodeExpiresAt ? (
+                      <p className="text-xs text-muted-foreground">
+                        {t("Access code valid until")}: {new Intl.DateTimeFormat(
+                          language === "es" ? "es-AR" : "en",
+                          { dateStyle: "medium", timeStyle: "short" },
+                        ).format(new Date(preview.accessCodeExpiresAt))}
+                      </p>
+                    ) : null}
+                  </section>
                   <iframe
                     title={t("Email message preview")}
                     sandbox=""
@@ -298,17 +347,6 @@ export function PartnerEmailPreviewDialog({
                     srcDoc={partnerEmailPreviewDocument(preview.html)}
                     className="h-[52vh] min-h-80 w-full rounded-2xl border bg-white"
                   />
-                  <details className="rounded-xl border bg-muted/20 p-3 text-xs">
-                    <summary className="cursor-pointer font-medium">
-                      {t("Purple button destination")}
-                      <span className="mt-1 block break-words font-normal text-muted-foreground">
-                        {preview.ctaLabel}
-                      </span>
-                    </summary>
-                    <p className="mt-1 break-all font-mono text-[11px] text-muted-foreground">
-                      {preview.ctaUrl}
-                    </p>
-                  </details>
                 </>
               )}
               {sendError && (

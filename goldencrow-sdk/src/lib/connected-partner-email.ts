@@ -19,6 +19,8 @@ export type PartnerEmailPreview = {
   category: PartnerSection;
   language: PartnerEmailLanguage;
   previewHash: string;
+  accessCodeExpiresAt?: string;
+  accessCodeUnavailableReason?: string;
 };
 
 const JOIN_URL = "https://goldencrowvs.com/pocket-genes/join-us/new/";
@@ -45,12 +47,13 @@ function escapeHtml(value: string) {
     .replace(/'/g, "&#39;");
 }
 
-function publisherLoginUrl(callback: string, email: string) {
+function publisherLoginUrl(callback: string, email: string, accessKey?: string) {
   const url = new URL(
     "/publisher-portal/login",
     `${ENV.BACKOFFICE_ORIGIN.replace(/\/+$/, "")}/`,
   );
   url.searchParams.set("email", email);
+  if (accessKey) url.searchParams.set("accessKey", accessKey);
   url.searchParams.set("callbackUrl", callback);
   return url.toString();
 }
@@ -206,11 +209,12 @@ function emailCopy(
 export function buildConnectedPartnerEmail(
   partner: Partner,
   language: PartnerEmailLanguage = "es",
+  accessKey?: string,
 ): PartnerEmailPreview {
   const category = partnerSection(partner);
   const copy = emailCopy(partner, category, language);
   const ctaUrl = copy.callback
-    ? publisherLoginUrl(copy.callback, partner.email)
+    ? publisherLoginUrl(copy.callback, partner.email, accessKey)
     : JOIN_URL;
   const greeting =
     language === "es"

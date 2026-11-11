@@ -101,6 +101,7 @@ const ANONYMOUS_ROUTES = [
   "GET /health",
   "HEAD /health",
   "POST /auth/email-signup/eligibility",
+  "POST /publisher-portal/access-code",
   "POST /auth/email-signup",
   "POST /auth/login",
   "POST /auth/logout",
