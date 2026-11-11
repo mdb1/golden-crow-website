@@ -473,28 +473,6 @@ export function PartnerDetailPanel({
           </div>
         </div>
         <div className="px-4 pb-4">
-          {partner && !query.isError && (
-            <div className="mb-4 space-y-2">
-              <Button
-                type="button"
-                className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-sm hover:from-violet-700 hover:to-fuchsia-700"
-                disabled={
-                  query.isFetching || partnerSection(partner) === "other"
-                }
-                onClick={() => setEmailPreviewOpen(true)}
-              >
-                <Mail className="size-4" />
-                {t("Send an email")}
-              </Button>
-              {partnerSection(partner) === "other" && (
-                <p className="text-sm text-amber-700 dark:text-amber-300">
-                  {t(
-                    "Review the partner's connections and app status before sending an email.",
-                  )}
-                </p>
-              )}
-            </div>
-          )}
           {query.isPending && (
             <p
               role="status"
@@ -531,6 +509,28 @@ export function PartnerDetailPanel({
           ) : partner ? (
             <PartnerFacts partner={partner} />
           ) : null}
+          {partner && !query.isError && (
+            <div className="mt-6 space-y-3">
+              {partnerSection(partner) === "other" && (
+                <p className="text-sm text-amber-700 dark:text-amber-300">
+                  {t(
+                    "Review the partner's connections and app status before sending an email.",
+                  )}
+                </p>
+              )}
+              <Button
+                type="button"
+                className="h-auto min-h-24 w-full gap-3 whitespace-normal rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-7 text-lg font-semibold text-white shadow-sm hover:from-violet-700 hover:to-fuchsia-700 [&_svg]:size-6"
+                disabled={
+                  query.isFetching || partnerSection(partner) === "other"
+                }
+                onClick={() => setEmailPreviewOpen(true)}
+              >
+                <Mail className="size-6" />
+                {t("Send an email")}
+              </Button>
+            </div>
+          )}
         </div>
       </aside>
       {emailPreviewOpen && (
