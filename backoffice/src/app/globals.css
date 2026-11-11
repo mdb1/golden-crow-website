@@ -1123,6 +1123,17 @@
   }
 }
 
+/* Partners owns its two desktop scroll panes; the dashboard main only
+   supplies the viewport space below the navbar, including its own padding. */
+@media (min-width: 80rem) {
+  main:has(> [data-partners-page]) {
+    height: calc(100dvh - var(--app-header-height));
+    min-height: 0;
+    flex: none;
+    overflow: hidden;
+  }
+}
+
 /* Keep fixed action docks aligned with the live desktop sidebar width.
    Mobile sheets do not consume layout width, so docks remain full-width
    below the desktop breakpoint. */

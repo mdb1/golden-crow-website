@@ -814,8 +814,8 @@ export function PartnersBrowser({
   }
 
   return (
-    <section className="glass-panel space-y-5 p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <section className="glass-panel space-y-5 p-5 xl:flex xl:min-h-0 xl:flex-1 xl:flex-col xl:gap-5 xl:space-y-0 xl:overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3 xl:shrink-0">
         <div className="flex items-center gap-2">
           <h2 className="font-heading text-xl font-semibold">
             {t("Partners")}

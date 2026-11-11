@@ -99,9 +99,9 @@ export function PartnersSplitPane({
       ref={splitRef}
       data-testid="partners-split-pane"
       className={cn(
-        "grid min-w-0 gap-4",
+        "grid min-w-0 gap-4 xl:min-h-0 xl:flex-1 xl:grid-rows-[minmax(0,1fr)] xl:overflow-hidden",
         open &&
-          "xl:h-[calc(100vh_-_var(--app-header-height)_-_2rem)] xl:min-h-0 xl:grid-cols-[minmax(0,var(--partners-list-width))_1rem_minmax(0,var(--partners-detail-width))] xl:gap-0 xl:overflow-hidden",
+          "xl:grid-cols-[minmax(0,var(--partners-list-width))_1rem_minmax(0,var(--partners-detail-width))] xl:gap-0",
       )}
       style={
         open
@@ -114,8 +114,8 @@ export function PartnersSplitPane({
     >
       <div
         className={cn(
-          "min-w-0",
-          open && "xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain xl:pr-2",
+          "min-w-0 xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain",
+          open && "xl:pr-2",
         )}
       >
         {children}

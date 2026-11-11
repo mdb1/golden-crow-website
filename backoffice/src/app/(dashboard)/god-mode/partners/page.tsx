@@ -4,7 +4,10 @@ import { PageHero } from "@/components/page-hero";
 
 export default function PartnersPage() {
   return (
-    <div className="flex flex-col gap-6">
+    <div
+      data-partners-page
+      className="flex flex-col gap-6 xl:h-full xl:min-h-0 xl:overflow-hidden"
+    >
       <HeaderUnclutterScope
         header={
           <PageHero
