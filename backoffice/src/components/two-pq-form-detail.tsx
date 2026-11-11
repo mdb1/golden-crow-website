@@ -1181,7 +1181,7 @@ function LinkedBiopsyFormSection({ form }: { form: TwoPQFormRecord }) {
           ) : (
             <div className="rounded-2xl border border-dashed border-cyan-300/80 bg-white/52 px-5 py-6 text-center dark:border-cyan-300/24 dark:bg-cyan-950/16">
               <p className="text-sm font-medium text-cyan-950 dark:text-cyan-50">
-                {t("No biopsy form is stored in linkedBiopsyForm.")}
+                {t("No biopsy form is stored.")}
               </p>
             </div>
           )}
@@ -1988,9 +1988,7 @@ function LinkedWithdrawalRequestSection({ form }: { form: TwoPQFormRecord }) {
           ) : (
             <div className="rounded-2xl border border-dashed border-violet-300/80 bg-white/52 px-5 py-6 text-center dark:border-violet-300/24 dark:bg-violet-950/16">
               <p className="text-sm font-medium text-violet-950 dark:text-violet-50">
-                {t(
-                  "No withdrawal request is stored in linkedWithdrawalRequest.",
-                )}
+                {t("No withdrawal request is stored.")}
               </p>
             </div>
           )}
@@ -3138,9 +3136,9 @@ export function TwoPQFormDetail({
           />
           <LinkedTreatmentStartSection form={form} />
           <LinkedBiopsyFormSection form={form} />
-          <LinkedTwoPQCaseSection form={form} linkedCase={linkedCase} />
           <LinkedWithdrawalRequestSection form={form} />
           <PatientLinkSection form={form} />
+          <LinkedTwoPQCaseSection form={form} linkedCase={linkedCase} />
         </>
       )}
     </div>

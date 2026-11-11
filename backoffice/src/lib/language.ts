@@ -3160,8 +3160,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Actual linked biopsy form": "Formulario de biopsias realmente vinculado",
   "Suggested biopsy form": "Formulario de biopsias sugerido",
   "Stored in the study request": "Guardado",
-  "No biopsy form is stored in linkedBiopsyForm.":
-    "No hay ningún formulario de biopsias guardado en linkedBiopsyForm.",
+  "No biopsy form is stored.": "No hay ningún formulario de biopsias guardado",
   "Biopsy link mismatch": "Inconsistencia en el vínculo de biopsia",
   "The biopsy points to this study request, but the study request does not store the biopsy link.":
     "El formulario de biopsias apunta a esta solicitud de estudio, pero la solicitud no guarda el vínculo con la biopsia.",
@@ -3195,8 +3194,7 @@ const SPANISH_TEXT: Record<string, string> = {
     "Se encontraron vínculos de retiro múltiples o contradictorios. Revisalos antes de elegir la solicitud correcta.",
   "Repair withdrawal links": "Reparar vínculos de retiro",
   "Actual linked withdrawal request": "Solicitud de retiro realmente vinculada",
-  "No withdrawal request is stored in linkedWithdrawalRequest.":
-    "No hay ninguna solicitud de retiro guardada en linkedWithdrawalRequest.",
+  "No withdrawal request is stored.": "No hay ninguna solicitud de retiro guardada",
   "Suggested withdrawal request": "Solicitud de retiro sugerida",
   "This withdrawal request is referenced by the related records, but it is not the stored link on the study request.":
     "Esta solicitud de retiro está referenciada por los registros relacionados, pero no es el vínculo guardado en la solicitud de estudio.",

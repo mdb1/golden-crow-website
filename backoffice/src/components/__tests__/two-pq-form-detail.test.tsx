@@ -446,46 +446,26 @@ describe("TwoPQFormDetail", () => {
     ).toBeTruthy();
   });
 
-  it("renders every interactive study-request panel after all document details", () => {
+  it("keeps the study-request forms together and puts the case after the patient", () => {
     render(
-      <AppLanguageProvider initialLanguage="en">
-        <TwoPQFormDetail form={studyRequestForm} />
+      <AppLanguageProvider forcedLanguage="es">
+        <TwoPQFormDetail form={{ ...studyRequestForm, linkedBiopsyForm: null }} />
       </AppLanguageProvider>,
     );
 
-    const institutionInformation = screen.getByRole("heading", {
-      name: "Institution information",
-    });
-    const linkedBiopsy = screen.getByRole("heading", {
-      name: "Linked biopsy form",
-    });
-    const linkedCase = screen.getByRole("heading", {
-      name: "Linked 2PQ case",
-    });
-    const linkedWithdrawal = screen.getByRole("heading", {
-      name: "Linked withdrawal request",
-    });
-    const patient = screen.getByRole("heading", {
-      name: "Study Patient",
-      level: 2,
-    });
-
-    expect(
-      institutionInformation.compareDocumentPosition(linkedBiopsy) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      linkedBiopsy.compareDocumentPosition(linkedCase) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      linkedCase.compareDocumentPosition(linkedWithdrawal) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      linkedWithdrawal.compareDocumentPosition(patient) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    const headings = screen.getAllByRole("heading", { level: 2 });
+    expect(headings.slice(-7).map((heading) => heading.textContent)).toEqual([
+      "Información de institución",
+      "Consentimiento informado",
+      "Formulario de planificación del tratamiento",
+      "Formulario de biopsias vinculado",
+      "Solicitud de retiro vinculada",
+      "Study Patient",
+      "Caso 2PQ vinculado",
+    ]);
+    expect(screen.getByText("No hay ningún formulario de biopsias guardado")).toBeVisible();
+    expect(screen.getByText("No hay ninguna solicitud de retiro guardada")).toBeVisible();
+    expect(screen.getByText("Todavía no hay un caso 2PQ vinculado.")).toBeVisible();
   });
 
   it("renders withdrawal case links after the form document details", () => {
@@ -671,7 +651,7 @@ describe("TwoPQFormDetail", () => {
       ),
     );
     expect(
-      await screen.findByText("No biopsy form is stored in linkedBiopsyForm."),
+      await screen.findByText("No biopsy form is stored."),
     ).toBeInTheDocument();
     expect(mockRefresh).toHaveBeenCalledTimes(1);
   });
@@ -822,7 +802,7 @@ describe("TwoPQFormDetail", () => {
     expect(screen.getByText("Biopsy link mismatch")).toBeInTheDocument();
     expect(screen.getByText("Suggested biopsy form")).toBeInTheDocument();
     expect(
-      screen.getByText("No biopsy form is stored in linkedBiopsyForm."),
+      screen.getByText("No biopsy form is stored."),
     ).toBeInTheDocument();
     expect(screen.getByText("FORM-00053")).toBeInTheDocument();
 
@@ -940,7 +920,7 @@ describe("TwoPQFormDetail", () => {
     );
     expect(
       await within(section as HTMLElement).findByText(
-        "No withdrawal request is stored in linkedWithdrawalRequest.",
+        "No withdrawal request is stored.",
       ),
     ).toBeInTheDocument();
   });
