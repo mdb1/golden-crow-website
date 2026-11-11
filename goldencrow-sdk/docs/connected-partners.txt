@@ -46,11 +46,14 @@ use historical snapshots as proof of current identity or app status. List pages
 deduplicate direct linked-document reads within the current page; they never scan
 all publishers or apps. GET responses are private, no-store.
 
-Backoffice grouping uses live resolved links and app status. Organization cards keep
-the no-organization, organization-without-app, free-app (active_for_testing), and
-contract (active or other active_* statuses) groups. Individual publishers and
-non-active apps remain explicitly visible. Missing or mismatched links must never
-be presented as proof that a publisher or app is available.
+Backoffice grouping uses live resolved links and app status. The visible without-app,
+free-app (active_for_testing), and contract (active or other active_* statuses) stages
+combine organization and individual publishers within the same ordered page. The
+no-organization group still contains partners with no linked publisher or app, and
+non-active or unavailable links remain explicitly visible in other. Missing or
+mismatched links must never be presented as proof that a publisher or app is available.
+The granular partnerSection classification and email template/hash semantics remain
+unchanged: shared stage matching affects only list selection, not persisted data.
 
 SDK API:
   GET /admin/connected-partners[?cursor=<last document ID>]
@@ -61,6 +64,12 @@ SDK API:
     by default. limit can request the remaining 1–20 slots of a visible page.
     Sections are noOrganization, organizationWithoutApp, freeApp, contract,
     individualWithoutApp, individualFreeApp, individualContract, and other.
+    Shared stage selectors organizationWithoutApp, freeApp and contract match
+    their corresponding individualWithoutApp, individualFreeApp and individualContract
+    classifications too. Individual selectors remain scoped to individual-only
+    classifications for existing API callers. Shared selectors use the same single
+    document-ordered bounded scan and cursor, never a concatenation of publisher
+    pages; their page size is still at most 20 combined records.
     Classification reads current linked records, including both publisher links;
     any unavailable explicit publisher link belongs to other. A partner with an
     organization and an individual-owned app remains in the organization groups

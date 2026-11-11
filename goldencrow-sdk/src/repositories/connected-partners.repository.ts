@@ -23,7 +23,7 @@ import {
   type PartnerSection,
   type PartnerSectionPage,
 } from "../contracts/connected-partners.js";
-import { partnerSection } from "../lib/partner-section.js";
+import { partnerMatchesSection } from "../lib/partner-section.js";
 import type { AdminContext } from "../types/sdk.types.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 
@@ -312,7 +312,7 @@ export async function listPartnersBySection(
       const partner = resolved[index]!;
       scanned++;
       after = partner.id;
-      if (partnerSection(partner) === section) items.push(partner);
+      if (partnerMatchesSection(partner, section)) items.push(partner);
       if (items.length === limit) {
         // Resume after the last examined record, rather than after the fetched
         // chunk, because later matches in this chunk have not been returned.

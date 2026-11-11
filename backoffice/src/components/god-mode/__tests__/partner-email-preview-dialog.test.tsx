@@ -279,7 +279,7 @@ it("requires an explicitly refreshed and reviewed preview after a stale-message 
   expect(requests()).toHaveLength(1);
   fireEvent.click(refresh);
   await screen.findByText(updated.subject);
-  expect(screen.getByText("Organization without app")).toBeVisible();
+  expect(screen.getByText("Without app")).toBeVisible();
   expect(requests()).toHaveLength(1);
   fireEvent.click(screen.getByRole("button", { name: "Send email" }));
   await screen.findByRole("region", { name: "Email sent" });

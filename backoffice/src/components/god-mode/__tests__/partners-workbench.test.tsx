@@ -171,15 +171,12 @@ function page(
   return { items, nextCursor, scanIncomplete };
 }
 function contacts(prefix: string, count = 20) {
-  return Array.from(
-    { length: count },
-    (_, index): Partner => ({
-      ...contact,
-      id: `${prefix}_${index + 1}`,
-      companyName: `${prefix} ${index + 1}`,
-      email: `${prefix.toLowerCase()}${index + 1}@example.com`,
-    }),
-  );
+  return Array.from({ length: count }, (_, index): Partner => ({
+    ...contact,
+    id: `${prefix}_${index + 1}`,
+    companyName: `${prefix} ${index + 1}`,
+    email: `${prefix.toLowerCase()}${index + 1}@example.com`,
+  }));
 }
 function openSection(name = "No organization yet") {
   fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${name}`) }));
@@ -201,14 +198,19 @@ it("keeps all section contents collapsed and does not fetch partners until a sec
   renderWorkbench();
   for (const name of [
     "No organization yet",
-    "Organization without app",
-    "Organization with free app",
-    "Organization with contract",
+    "Without app",
+    "With free app",
+    "With contract",
+    "Other app statuses or missing links",
   ]) {
     expect(
       screen.getByRole("button", { name: new RegExp(`^${name}`) }),
     ).toHaveAttribute("aria-expanded", "false");
   }
+  expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(5);
+  expect(
+    screen.queryByRole("button", { name: /^Individual publisher/ }),
+  ).not.toBeInTheDocument();
   expect(sdkFetch).not.toHaveBeenCalled();
   openSection();
   expect(await screen.findByText("No partners in this section.")).toBeVisible();
@@ -245,21 +247,22 @@ it("opens one section at a time and fetches only the requested section", async (
   expect(
     screen.getByRole("button", { name: "Edit partner: Acme" }),
   ).toBeVisible();
-  openSection("Organization without app");
+  openSection("Without app");
   expect(await screen.findByText("Beta")).toBeVisible();
   expectHiddenText("Acme");
   expect(
     screen.getByRole("button", { name: /^No organization yet/ }),
   ).toHaveAttribute("aria-expanded", "false");
-  expect(
-    screen.getByRole("button", { name: /^Organization without app/ }),
-  ).toHaveAttribute("aria-expanded", "true");
+  expect(screen.getByRole("button", { name: /^Without app/ })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
   expect(
     jest
       .mocked(sdkFetch)
       .mock.calls.map(([path]) => sectionRequest(String(path)).get("section")),
   ).toEqual(["noOrganization", "organizationWithoutApp"]);
-  openSection("Organization without app");
+  openSection("Without app");
   await waitFor(() => expectHiddenText("Beta"));
 });
 
@@ -291,7 +294,7 @@ it("replaces the visible 20-partner page and preserves independent section page 
   expect(screen.queryByText("First 1")).not.toBeInTheDocument();
   expect(pager().getByText(/^Page 2\b/)).toBeVisible();
   expect(pager().getByRole("button", { name: "Next page" })).toBeDisabled();
-  openSection("Organization without app");
+  openSection("Without app");
   await screen.findByText("Organization contact");
   expect(pager().getByText(/^Page 1\b/)).toBeVisible();
   const organizationRequest = jest
@@ -321,6 +324,152 @@ it("replaces the visible 20-partner page and preserves independent section page 
     expect(params.get("section")).not.toBeNull();
   }
 });
+
+it("paginates 20 mixed publisher contacts in one shared section and opens the selected individual's detail and email", async () => {
+  const mixed = Array.from({ length: 24 }, (_, index): Partner => {
+    const isOrganization = index % 2 === 0;
+    return {
+      ...contact,
+      id: `mixed_${index + 1}`,
+      companyName: `${isOrganization ? "Organization" : "Individual"} ${index + 1}`,
+      email: `mixed${index + 1}@example.com`,
+      linkedOrganizationId: isOrganization ? organization.id : null,
+      linkedOrganization: isOrganization ? organization : null,
+      linkedOrganizationSnapshot: isOrganization ? organization : null,
+      linkedIndividualPublisherId: isOrganization ? null : individual.id,
+      linkedIndividualPublisher: isOrganization ? null : individual,
+      linkedIndividualPublisherSnapshot: isOrganization ? null : individual,
+    };
+  });
+  const selectedIndividual = mixed[1];
+  jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    const value = String(path);
+    if (value.includes("/email-preview"))
+      return {
+        partnerId: selectedIndividual.id,
+        to: selectedIndividual.email,
+        subject: "Prepare your publisher app",
+        text: "Create your app request.",
+        html: "<p>Create your app request.</p>",
+        ctaLabel: "Create my app",
+        ctaUrl: "https://example.test/publisher-portal/app/new",
+        category: "individualWithoutApp",
+        language: "es",
+        previewHash: "a".repeat(64),
+      } as never;
+    if (value === `${PARTNERS_API_ROUTE}/${selectedIndividual.id}`)
+      return { partner: selectedIndividual } as never;
+    const params = sectionRequest(value);
+    expect(params.get("section")).toBe("organizationWithoutApp");
+    expect(params.get("limit")).toBe("20");
+    return params.has("cursor")
+      ? (page(mixed.slice(20)) as never)
+      : (page(mixed.slice(0, 20), "mixed_second_page") as never);
+  });
+  renderWorkbench();
+  openSection("Without app");
+  await screen.findByText("Individual 20");
+  const detailButtons = () =>
+    screen.getAllByRole("button", { name: /^View partner details:/ });
+  expect(detailButtons()).toHaveLength(20);
+  expect(
+    detailButtons().filter((button) =>
+      button.textContent?.startsWith("Organization"),
+    ),
+  ).toHaveLength(10);
+  expect(
+    detailButtons().filter((button) =>
+      button.textContent?.startsWith("Individual"),
+    ),
+  ).toHaveLength(10);
+  expect(screen.queryByText("Organization 21")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: /^Individual publisher/ }),
+  ).not.toBeInTheDocument();
+  clickView("Table");
+  expect(
+    within(await screen.findByRole("table")).getAllByRole("row"),
+  ).toHaveLength(21);
+  fireEvent.click(
+    screen.getByRole("button", { name: "View partner details: Individual 2" }),
+  );
+  const panel = within(
+    await screen.findByRole("complementary", { name: "Partner details" }),
+  );
+  expect(await panel.findByText(selectedIndividual.email)).toBeVisible();
+  fireEvent.click(panel.getByRole("button", { name: "Send an email" }));
+  const dialog = await screen.findByRole("dialog", { name: "Email preview" });
+  expect(
+    await within(dialog).findByText("Prepare your publisher app"),
+  ).toBeVisible();
+  expect(within(dialog).getByText(selectedIndividual.email)).toBeVisible();
+  expect(within(dialog).getByText("Without app")).toBeVisible();
+  expect(
+    jest
+      .mocked(sdkFetch)
+      .mock.calls.some(([, init]) => init?.method === "POST"),
+  ).toBe(false);
+  fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+  expect(
+    screen.getByRole("complementary", { name: "Partner details" }),
+  ).toBeVisible();
+  fireEvent.click(pager().getByRole("button", { name: "Next page" }));
+  await screen.findByText("Organization 21");
+  expect(
+    screen.queryByRole("complementary", { name: "Partner details" }),
+  ).not.toBeInTheDocument();
+  expect(detailButtons()).toHaveLength(4);
+  expect(screen.queryByText("Individual 2")).not.toBeInTheDocument();
+  expect(pager().getByText(/^Page 2\b/)).toBeVisible();
+  clickView("Grid");
+  expect(detailButtons()).toHaveLength(4);
+  expect(screen.getByText("Individual 24")).toBeVisible();
+});
+
+it.each([
+  { label: "With free app", key: "freeApp", status: "active_for_testing" },
+  { label: "With contract", key: "contract", status: "active" },
+] as const)(
+  "shares the $label list between organization and individual apps",
+  async ({ label, key, status }) => {
+    const organizationPartner: Partner = {
+      ...withApp,
+      companyName: "Organization app partner",
+      linkedApp: { ...linkedApp, status },
+    };
+    const individualPartner: Partner = {
+      ...contact,
+      id: "individual_app_partner",
+      companyName: "Individual app partner",
+      linkedIndividualPublisherId: individual.id,
+      linkedIndividualPublisher: individual,
+      linkedIndividualPublisherSnapshot: individual,
+      linkedAppId: individualApp.id,
+      linkedApp: { ...individualApp, status },
+      linkedAppSnapshot: individualApp,
+    };
+    jest
+      .mocked(sdkFetch)
+      .mockResolvedValue(page([organizationPartner, individualPartner]));
+    renderWorkbench();
+    openSection(label);
+    expect(
+      await screen.findByText(organizationPartner.companyName),
+    ).toBeVisible();
+    expect(screen.getByText(individualPartner.companyName)).toBeVisible();
+    expect(
+      screen.getAllByRole("button", { name: /^View partner details:/ }),
+    ).toHaveLength(2);
+    expect(
+      sectionRequest(String(jest.mocked(sdkFetch).mock.calls[0][0])).get(
+        "section",
+      ),
+    ).toBe(key);
+    expect(
+      screen.queryByRole("button", { name: /^Individual publisher/ }),
+    ).not.toBeInTheDocument();
+  },
+);
 
 it("keeps an empty trailing page distinct from an empty section and allows returning to its partners", async () => {
   jest
@@ -476,7 +625,7 @@ it("clears bulk selections when changing page or section", async () => {
   fireEvent.click(
     screen.getByRole("checkbox", { name: /Select partner: First 1 —/ }),
   );
-  openSection("Organization without app");
+  openSection("Without app");
   await screen.findByText("Other contact");
   expect(
     screen.queryByRole("button", { name: /Delete selected/ }),
@@ -484,11 +633,11 @@ it("clears bulk selections when changing page or section", async () => {
   fireEvent.click(
     screen.getByRole("checkbox", { name: /Select partner: Other contact/ }),
   );
-  openSection("Organization without app");
+  openSection("Without app");
   expect(
     screen.queryByRole("button", { name: /Delete selected/ }),
   ).not.toBeInTheDocument();
-  openSection("Organization without app");
+  openSection("Without app");
   await screen.findByText("Other contact");
   expect(
     screen.getByRole("checkbox", { name: /Select partner: Other contact/ }),
@@ -562,7 +711,7 @@ it("retains a completed sparse window when reopening sections or returning from 
   openSection();
   expect(screen.getByText("More 19")).toBeVisible();
   expect(sdkFetch).toHaveBeenCalledTimes(4);
-  openSection("Organization without app");
+  openSection("Without app");
   await screen.findByText("Organization contact");
   openSection();
   expect(screen.getByText("More 19")).toBeVisible();
@@ -609,7 +758,7 @@ it("refreshes the current page's live app status without resetting table view or
     ) as never;
   });
   renderWorkbench();
-  openSection("Organization with contract");
+  openSection("With contract");
   await screen.findByText("Contract 20");
   fireEvent.click(pager().getByRole("button", { name: "Next page" }));
   await screen.findByText("Current app");
@@ -889,11 +1038,16 @@ it("keeps the modal and draft editable when saving fails", async () => {
   expect(mockPush).not.toHaveBeenCalled();
 });
 
-it("keeps individual publishers and unavailable app links accessible in their own lazy sections", async () => {
+it("shows organizations and individual publishers in shared lazy sections and keeps unavailable links separate", async () => {
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
     switch (sectionRequest(String(path)).get("section")) {
-      case "individualWithoutApp":
+      case "organizationWithoutApp":
         return page([
+          {
+            ...withOrganization,
+            id: "organization_only",
+            companyName: "Organization only",
+          },
           {
             ...contact,
             companyName: "Individual only",
@@ -902,8 +1056,14 @@ it("keeps individual publishers and unavailable app links accessible in their ow
             linkedIndividualPublisherSnapshot: individual,
           },
         ]) as never;
-      case "individualContract":
+      case "contract":
         return page([
+          {
+            ...withApp,
+            id: "organization_contract",
+            companyName: "Organization contract",
+            linkedApp: { ...linkedApp, status: "active" },
+          },
           {
             ...contact,
             companyName: "Individual contract",
@@ -933,11 +1093,14 @@ it("keeps individual publishers and unavailable app links accessible in their ow
     }
   });
   renderWorkbench();
-  openSection("Individual publisher without app");
+  openSection("Without app");
   expect(await screen.findByText("Individual only")).toBeVisible();
-  openSection("Individual publisher with contract");
+  expect(screen.getByText("Organization only")).toBeVisible();
+  openSection("With contract");
   expect(await screen.findByText("Individual contract")).toBeVisible();
+  expect(screen.getByText("Organization contract")).toBeVisible();
   expectHiddenText("Individual only");
+  expectHiddenText("Organization only");
   openSection("Other app statuses or missing links");
   await screen.findByText("Missing app");
   expect(screen.getByText(/Linked app is unavailable/)).toHaveTextContent(

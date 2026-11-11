@@ -41,7 +41,6 @@ import {
   PARTNERS_QUERY_KEY,
   PARTNERS_ROUTE,
   PARTNER_SECTIONS,
-  PARTNER_INDIVIDUAL_SECTIONS,
   PARTNER_PAGE_SIZE,
   type Partner,
   type PartnerSection,
@@ -260,7 +259,6 @@ type PageHistory = { index: number; cursors: Array<string | null> };
 const VIEW_STORAGE_KEY = "golden-crow-partners-view";
 const ALL_SECTIONS = [
   ...PARTNER_SECTIONS,
-  ...PARTNER_INDIVIDUAL_SECTIONS,
   { key: "other", label: "Other app statuses or missing links" },
 ] as const;
 

@@ -7,6 +7,7 @@ import {
   PartnerInputSchema,
   PARTNER_SECTION_KEYS,
   type PartnerInput,
+  type PartnerSection,
 } from "../contracts/connected-partners.js";
 import type { AdminContext } from "../types/sdk.types.js";
 
@@ -97,6 +98,7 @@ import {
   updatePartner,
 } from "../repositories/connected-partners.repository.js";
 import { connectedPartnersRoutes } from "../routes/connected-partners.routes.js";
+import { partnerSection } from "../lib/partner-section.js";
 
 const context: AdminContext = {
   uid: "god",
@@ -787,7 +789,16 @@ it("classifies every organization and individual section from live related recor
   for (const [section, links] of cases) mockDocs.set(section, { ...input, ...links });
   for (const section of PARTNER_SECTION_KEYS) {
     const page = await listPartnersBySection(context, section);
-    expect(page.items.map((partner) => partner.id)).toEqual([section]);
+    const counterparts: Partial<Record<PartnerSection, PartnerSection>> = {
+      organizationWithoutApp: "individualWithoutApp",
+      freeApp: "individualFreeApp",
+      contract: "individualContract",
+    };
+    const counterpart = counterparts[section];
+    const expected = counterpart ? [section, counterpart].sort() : [section];
+    expect(page.items.map((partner) => partner.id)).toEqual(expected);
+    for (const partner of page.items)
+      expect(partnerSection(partner)).toBe(partner.id);
     expect(page.nextCursor).toBeNull();
   }
 });
@@ -840,4 +851,59 @@ it("binds section cursors to their section and validates the new API without cha
       "section=noOrganization&cursor=ps1.bm90LWpzb24", "cursor=bad%2Fid",
     ]) expect((await app.inject(`/admin/connected-partners?${query}`)).statusCode).toBe(400);
   } finally { await app.close(); }
+});
+
+
+it.each([
+  ["organizationWithoutApp", "individualWithoutApp", null],
+  ["freeApp", "individualFreeApp", "active_for_testing"],
+  ["contract", "individualContract", "active_waiting_for_upload"],
+] as const)("mixes organization and individual partners within the same ordered %s page window", async (section, individualSection, appStatus) => {
+  seedOrganization();
+  seedIndividual();
+  if (appStatus) {
+    mockCollectionDocs("app_configs").set("organization_shared", { publisherKind: "organization", publisherId: "org", publisherName: "Organization", status: appStatus });
+    mockCollectionDocs("app_configs").set("individual_shared", { publisherKind: "individual", publisherId: "person", publisherName: "Individual", status: appStatus === "active_waiting_for_upload" ? "active" : appStatus });
+  }
+  const expected: string[] = [];
+  const expectedIndividual: string[] = [];
+  for (let index = 0; index < 95; index++) {
+    const id = `mixed_${String(index).padStart(3, "0")}`;
+    const matches = index % 3 !== 2;
+    const individual = index % 2 === 1;
+    mockDocs.set(id, {
+      ...input,
+      linkedOrganizationId: matches && !individual ? "org" : null,
+      linkedIndividualPublisherId: matches && individual ? "person" : null,
+      linkedAppId: matches && appStatus ? (individual ? "individual_shared" : "organization_shared") : null,
+    });
+    if (matches) expected.push(id);
+    if (matches && individual) expectedIndividual.push(id);
+  }
+  async function collect(selected: PartnerSection) {
+    const collected: string[] = [];
+    const lengths: number[] = [];
+    let cursor: string | undefined;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const page = await listPartnersBySection(context, selected, cursor);
+      expect(page.items.length).toBeLessThanOrEqual(20);
+      expect(page.scanIncomplete).toBe(false);
+      lengths.push(page.items.length);
+      const ids = page.items.map((partner) => partner.id);
+      expect(ids).toEqual([...ids].sort());
+      collected.push(...ids);
+      if (!page.nextCursor) return { collected, lengths };
+      expect(page.nextCursor).not.toBe(cursor);
+      cursor = page.nextCursor;
+    }
+    throw new Error("Pagination did not finish");
+  }
+  const merged = await collect(section);
+  expect(merged.collected).toEqual(expected);
+  expect(merged.lengths).toEqual([20, 20, 20, 4]);
+  expect(new Set(merged.collected).size).toBe(expected.length);
+  const scoped = await collect(individualSection);
+  expect(scoped.collected).toEqual(expectedIndividual);
+  expect(scoped.lengths).toEqual([20, 12]);
+  expect(mockReads.every((read) => read.collection === "connected-partners" && read.limit <= 40)).toBe(true);
 });

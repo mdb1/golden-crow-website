@@ -54,14 +54,14 @@ export type PartnerLinkOptionsPage = {
 
 export const PARTNER_SECTIONS = [
   { key: "noOrganization", label: "No organization yet" },
-  { key: "organizationWithoutApp", label: "Organization without app" },
-  { key: "freeApp", label: "Organization with free app" },
-  { key: "contract", label: "Organization with contract" },
+  { key: "organizationWithoutApp", label: "Without app" },
+  { key: "freeApp", label: "With free app" },
+  { key: "contract", label: "With contract" },
 ] as const;
 export const PARTNER_INDIVIDUAL_SECTIONS = [
-  { key: "individualWithoutApp", label: "Individual publisher without app" },
-  { key: "individualFreeApp", label: "Individual publisher with free app" },
-  { key: "individualContract", label: "Individual publisher with contract" },
+  { key: "individualWithoutApp", label: "Without app" },
+  { key: "individualFreeApp", label: "With free app" },
+  { key: "individualContract", label: "With contract" },
 ] as const;
 export type PartnerSection =
   | (typeof PARTNER_SECTIONS)[number]["key"]

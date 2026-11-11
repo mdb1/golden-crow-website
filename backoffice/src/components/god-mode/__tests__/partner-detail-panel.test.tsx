@@ -109,7 +109,7 @@ function renderPartners() {
   );
 }
 
-function openSection(name = "Organization with contract") {
+function openSection(name = "With contract") {
   fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${name}`) }));
 }
 
@@ -363,7 +363,7 @@ it("closes details when changing page, changing section, or collapsing the secti
 
   await openPartner(beta.companyName);
   await details().findByText(beta.email);
-  openSection("Organization without app");
+  openSection("Without app");
   await screen.findByRole("button", {
     name: `View partner details: ${partner.companyName}`,
   });
@@ -372,7 +372,7 @@ it("closes details when changing page, changing section, or collapsing the secti
   ).not.toBeInTheDocument();
   await openPartner();
   await details().findByText(fullNotes);
-  openSection("Organization without app");
+  openSection("Without app");
   expect(
     screen.queryByRole("complementary", { name: "Partner details" }),
   ).not.toBeInTheDocument();

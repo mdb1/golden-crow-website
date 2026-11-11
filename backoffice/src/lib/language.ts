@@ -20,6 +20,9 @@ export function toggleAppLanguage(language: AppLanguage): AppLanguage {
 }
 
 const SPANISH_TEXT: Record<string, string> = {
+  "Without app": "Sin app",
+  "With free app": "Con app gratuita",
+  "With contract": "Con contrato",
   "Email preview": "Vista previa del email",
   "Review the recipient and message before sending.": "Revisá el destinatario y el mensaje antes de enviar.",
   "Email language": "Idioma del email",
