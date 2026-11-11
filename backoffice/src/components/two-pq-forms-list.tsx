@@ -291,9 +291,7 @@ function CoJoinedFormSequence({
           const isInactivePickup = pickupStatus === "planned" || pickupStatus === "cancelled";
           const segmentClass = cn(
             "flex min-h-20 min-w-0 flex-col items-center justify-center px-2 py-3 text-center outline-none transition-[filter,transform] focus-visible:brightness-110 sm:min-h-24 sm:px-4 lg:px-8",
-            pickupStatus === "planned"
-              ? "bg-amber-100 text-amber-950 hover:bg-amber-200 dark:bg-amber-900 dark:text-amber-100"
-              : isLinked && !isInactivePickup
+            isLinked && !isInactivePickup
               ? cn("text-white active:scale-[0.99]", linkedStepColor)
               : "cursor-default bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-300",
           );
