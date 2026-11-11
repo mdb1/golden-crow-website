@@ -46,7 +46,7 @@ it("maps organizations without inventing contact names, phone, appointments or a
     linkedIndividualPublisherId: null,
     linkedAppId: null,
   });
-  expect(review?.fields).toEqual(["firstName", "lastName"]);
+  expect(review).toBeNull();
 });
 
 it("maps individual names and preserves both existing publisher links", () => {
@@ -80,9 +80,9 @@ it("flags missing or invalid required data and overlong fields without removing 
   expect(result.total).toBe(3);
   expect(result.reviewCount).toBe(3);
   expect(result.reviewSample.map((item) => item.fields)).toEqual([
-    ["lastName", "email"],
     ["email"],
-    ["companyName", "firstName", "lastName", "notes"],
+    ["email"],
+    ["companyName", "firstName", "notes"],
   ]);
   expect(result.files[0].csv).toContain("n".repeat(10_001));
 });
@@ -135,7 +135,7 @@ it("exports every page, deduplicates repeated publisher IDs and reports shared e
   expect(result).toMatchObject({
     total: 2,
     duplicateEmails: 1,
-    reviewCount: 2,
+    reviewCount: 0,
   });
   expect(result.files[0].rowCount).toBe(2);
   expect(onProgress.mock.calls).toEqual([[1], [2]]);
@@ -168,11 +168,18 @@ it("also splits by UTF-8 bytes, including the BOM, header and escaped quotes", a
 
 it("keeps the review sample bounded while counting every incomplete publisher", async () => {
   const result = await collect(
-    Array.from({ length: 25 }, (_, i) => ({ ...publisher, id: `p-${i}` })),
+    Array.from({ length: 25 }, (_, i) => ({ ...publisher, id: `p-${i}`, contactEmail: "" })),
     "organization",
   );
   expect(result.reviewSample).toHaveLength(10);
   expect(result.reviewCount).toBe(25);
+});
+
+it("exports mononym professionals without requiring a surname", () => {
+  const { input, review } = discoverPublisherPartnerRow("individual", { ...publisher, name: "Prince" });
+  expect(input).toMatchObject({ firstName: "Prince", lastName: "" });
+  expect(review).toBeNull();
+  expect(PARTNER_CSV_COLUMNS.filter(column => column.required).map(column => column.key)).toEqual(["companyName", "email"]);
 });
 
 it("returns no files for an empty collection", async () => {

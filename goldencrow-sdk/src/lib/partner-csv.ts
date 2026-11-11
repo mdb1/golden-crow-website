@@ -8,11 +8,11 @@ export const PARTNER_CSV_MAX_BYTES = 256 * 1024;
 export const PARTNER_CSV_MAX_ROWS = 200;
 export const PARTNER_CSV_REQUIRED_COLUMNS = [
   "companyName",
-  "firstName",
-  "lastName",
   "email",
 ] as const;
 export const PARTNER_CSV_OPTIONAL_COLUMNS = [
+  "firstName",
+  "lastName",
   "phoneNumber",
   "meetingDate",
   "notes",
@@ -41,6 +41,7 @@ export type PartnerCsvImportResult = {
   importedCount: number;
   skippedCount: number;
   partnerIds: string[];
+  invalidRows: Array<{ rowNumber: number; errors: string[] }>;
 };
 
 function csvError(message: string): never {

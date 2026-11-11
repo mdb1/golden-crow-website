@@ -6,8 +6,8 @@ Access: authenticated GOD MODE (isBootstrap) only, enforced in SDK routes and re
 
 Each document has these lower camel case contact and link fields:
   companyName: required trimmed string (1–180 characters)
-  firstName: required trimmed string (1–140 characters)
-  lastName: required trimmed string (1–140 characters)
+  firstName: optional trimmed string (max 140); omitted or blank becomes ""
+  lastName: optional trimmed string (max 140); omitted or blank becomes ""
   phoneNumber: optional trimmed string (max 50 characters); omitted or blank becomes ""
   email: required valid email, trimmed and lowercased (max 254 characters)
   meetingDate: nullable ISO civil date YYYY-MM-DD, without timezone conversion
@@ -95,9 +95,10 @@ SDK API:
     ready|duplicate|invalid, errors[], and optional duplicateReason.
     summary contains total, ready, duplicates, invalid counts. This never writes.
   POST /admin/connected-partners/import with { csv: <same file text>, importId: <UUID> }
-    Returns { importedCount, skippedCount, partnerIds }. Revalidates the complete
+    Returns { importedCount, skippedCount, partnerIds, invalidRows }. Revalidates the complete
     file and live links inside a Firestore transaction before writing anything.
-    Any invalid row rejects the entire file with 400 and { error, preview }.
+    Invalid rows are skipped while valid new rows are committed. If no valid new
+    rows remain and invalid rows exist, return 400 and { error, preview }.
     Bad file structure/headers/size return 400 with { error } at either endpoint.
     GOD MODE is required; CSV request bodies have a 2 MiB JSON envelope limit.
   GET /admin/connected-partners/link-options?kind=organization|individual|app
@@ -131,13 +132,14 @@ CSV preparation and import rules:
      from the first nonempty record. Blank lines and entirely empty rows are ignored.
      Null bytes are not accepted. The browser rejects malformed UTF-8 file bytes.
   2. Include a header with these required columns, in any order:
-       companyName,firstName,lastName,email
-     Every partner needs a nonblank companyName (max 180), firstName (max 140),
-     lastName (max 140), and valid email (max 254). Header names are case-sensitive.
+       companyName,email
+     Every partner needs a nonblank companyName (max 180) and valid email (max 254).
+     firstName and lastName are optional, at most 140 characters each; omitted or
+     blank names are stored as empty strings, never invented. Header names are case-sensitive.
      Surrounding whitespace in headers and cells is trimmed. Unknown, duplicate,
      or blank headers and missing required columns reject the complete file.
   3. Optionally include any of:
-       phoneNumber,meetingDate,notes,linkedOrganizationId,linkedIndividualPublisherId,linkedAppId
+       firstName,lastName,phoneNumber,meetingDate,notes,linkedOrganizationId,linkedIndividualPublisherId,linkedAppId
      phoneNumber is optional (max 50); blank/omitted becomes an empty string.
      meetingDate must be a real civil date in YYYY-MM-DD, e.g. 2026-11-18; blank
      means no date. notes allows at most 10,000 characters; blank means null.
@@ -154,21 +156,25 @@ CSV preparation and import rules:
      double quotes. Escape a quote inside a quoted field as two double quotes:
        "Genome, Studio",Ada,Rivera,ada@example.com
        Genome Studio,Ada,Rivera,ada@example.com,"Asked for ""mobile app"" demo"
-     The second example assumes a notes column appended to the four required ones.
+     The second example assumes columns companyName,firstName,lastName,email,notes.
      Quotes must start a field and must close; optional whitespace after a closing
      quote is allowed before the next separator or line break. CRLF/LF are supported.
   6. Emails are trimmed and lowercased before duplicate checks. For repeated emails
-     in one file, only the first row is eligible. Existing partners with that email
+     in one file, only the first valid row is eligible. Existing partners with that email
      and later file rows are skipped without overwriting any contact or link.
      Every row still needs valid contact values and links, even if it is a duplicate.
-  7. Preview the file, fix all invalid rows, and preview again. The complete import
-     must be valid; there is no partial-success mode. Commit checks current data
-     again, so counts can change if another operator adds a matching partner or
-     changes/deletes a linked record after preview. Any invalid row creates nothing.
+  7. Preview the file and confirm to import its valid new rows. Invalid rows are
+     skipped and returned as invalidRows ({ rowNumber, errors }); they do not block
+     ready rows or reserve their email indexes. Commit revalidates current links
+     and duplicates, so counts and errors can change after preview. If no valid
+     new rows remain and invalid rows exist, return 400 with validation details
+     without writing a manifest. Valid rows and their indexes commit atomically.
   8. A retry for the same file must reuse its UUID importId. The import manifest
      connected-partner-imports/{UUID} stores only csvHash, importedCount,
-     skippedCount, partnerIds; the raw CSV is not stored. Exact replays return the
-     original result before consulting links, including when those later disappear.
+     skippedCount (duplicates plus invalid rows), partnerIds and invalidRows; the
+     raw CSV is not stored. Older manifests decode missing invalidRows as [].
+     Exact replays return the original result before consulting links, including
+     when those later disappear.
      Reusing an importId for different file text returns 409. A newly selected file
      gets a new UUID. Fresh imports of existing emails still skip them.
 
@@ -292,3 +298,9 @@ Ciphertext uses the pgpk1 version prefix, a random nonce, an authentication tag,
 GET /discover/publisher-credentials/:kind/:publisherId returns availability and contact email only. POST on its /reveal child returns the decrypted { email, accessKey }. PUT accepts only { accessKey } and transactionally fills an absent/null field, rejecting an already populated field. Every operation requires GOD MODE and uses no-store. Manual entry records the existing password; it never changes Firebase Auth, creates an account or grants a role. Ordinary profile mutation bodies cannot author this field.
 Organization and individual details show the credential action only to GOD MODE. Opening its modal loads metadata; Revelation is an explicit separate action. Closing or hiding clears the revealed key. Empty records allow manual input; copying requires a revealed key. Newly saved keys stay masked until explicitly revealed.
 Compatibility: previously issued pgp1 signed links from version 3.680 remain redeemable until their original 24–48 hour expiry through POST /publisher-portal/access-code. These long credentials are distinguished from saved passwords (maximum 256 characters); new partner previews use only the stored Firebase key and the usual password sign-in flow.
+
+Discover exports leave unknown organizational contact names blank. Those files
+are directly importable when companyName and email are valid; mononym individual
+publishers do not require a last name. Export reviews only flag actual validation
+failures, not absent optional names. Partner forms allow the same empty names.
+Emails greet nameless contacts with Hola, / Hi, without fabricating personal data.

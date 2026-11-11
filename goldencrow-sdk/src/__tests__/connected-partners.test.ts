@@ -232,7 +232,8 @@ it("normalizes omitted nullable fields and rejects aliases, unrelated fields, ba
     { publisherId: "linked" },
     { meetingDate: "2026-02-30" },
     { email: "invalid" },
-    { firstName: " " },
+    { firstName: "x".repeat(141) },
+    { lastName: "x".repeat(141) },
     { linked_organization_id: "org" },
     { linked_app_id: "app" },
     { linked_individual_publisher_id: "person" },
@@ -256,6 +257,11 @@ it("normalizes omitted nullable fields and rejects aliases, unrelated fields, ba
     expect(PartnerInputSchema.safeParse({ ...input, ...extra }).success).toBe(
       false,
     );
+});
+
+it("stores unknown optional contact names as empty strings without requiring invented values", () => {
+  expect(PartnerInputSchema.parse({ companyName: "Genome Studio", email: "hello@example.com" })).toMatchObject({ firstName: "", lastName: "", phoneNumber: "" });
+  expect(PartnerInputSchema.parse({ ...input, firstName: "   ", lastName: " " })).toMatchObject({ firstName: "", lastName: "" });
 });
 
 it("exposes create, read, edit, pagination and bulk deletion through the protected API", async () => {

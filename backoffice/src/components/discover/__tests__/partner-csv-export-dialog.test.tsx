@@ -67,8 +67,8 @@ it("reads every bounded page on demand and downloads a linked CSV only when requ
     "/discover/organizations?limit=20&cursor=next+%2F+page",
     { signal: expect.any(AbortSignal) },
   );
-  expect(screen.getByText(/Complete firstName and lastName/)).toBeVisible();
-  expect(screen.getByText(/All publishers remain in the CSV/)).toBeVisible();
+  expect(screen.getByText(/Contact first and last names are optional/)).toBeVisible();
+  expect(screen.queryByText(/Complete or correct these fields/)).toBeNull();
   expect(downloadPartnerCsvText).not.toHaveBeenCalled();
   fireEvent.click(download);
   expect(downloadPartnerCsvText).toHaveBeenCalledWith(

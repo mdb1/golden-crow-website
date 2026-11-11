@@ -34,13 +34,20 @@ const StoredImportSchema = z
     importedCount: z.number().int().min(0).max(200),
     skippedCount: z.number().int().min(0).max(200),
     partnerIds: z.array(PartnerIdSchema).max(200),
+    invalidRows: z
+      .array(z.object({
+        rowNumber: z.number().int().positive(),
+        errors: z.array(z.string()),
+      }).strict())
+      .max(200)
+      .default([]),
   })
   .strict();
 
 export class PartnerCsvValidationError extends AdminRepositoryError {
   constructor(public readonly preview: PartnerCsvPreview) {
     super(
-      "Fix every invalid CSV row before importing. No partners were created.",
+      "No valid new partner rows are available to import. Correct the invalid rows and try again.",
       400,
     );
   }
@@ -219,6 +226,7 @@ export async function importPartnerCsv(
         importedCount: prior.importedCount,
         skippedCount: prior.skippedCount,
         partnerIds: prior.partnerIds,
+        invalidRows: prior.invalidRows,
       };
     }
     const { preview, prepared, existingPartnerIds } = await prepareCsv(
@@ -226,15 +234,19 @@ export async function importPartnerCsv(
       csv,
       transaction,
     );
-    if (preview.summary.invalid) throw new PartnerCsvValidationError(preview);
     const ready = preview.rows.filter((row) => row.status === "ready");
+    if (!ready.length && preview.summary.invalid)
+      throw new PartnerCsvValidationError(preview);
     const partnerIds = ready.map((row) =>
       importedPartnerId(parsedId.data.toLowerCase(), row.input!.email),
     );
     const result = {
       importedCount: ready.length,
-      skippedCount: preview.summary.duplicates,
+      skippedCount: preview.summary.duplicates + preview.summary.invalid,
       partnerIds,
+      invalidRows: preview.rows
+        .filter((row) => row.status === "invalid")
+        .map((row) => ({ rowNumber: row.rowNumber, errors: row.errors })),
     };
     for (const row of ready) {
       transaction.create(
@@ -248,6 +260,7 @@ export async function importPartnerCsv(
     }
     const indexedEmails = new Set<string>();
     for (const row of preview.rows) {
+      if (row.status === "invalid" || !row.input) continue;
       const email = row.input!.email;
       if (indexedEmails.has(email)) continue;
       indexedEmails.add(email);

@@ -235,24 +235,18 @@ it("resolves public app IDs and freezes current snapshots while deriving its own
   ).toBe(true);
 });
 
-it("rejects an entire import for invalid links, mismatched owners or invalid duplicate rows", async () => {
+it.each([
+  { email: "other@example.com", linkedOrganizationId: "missing" },
+  { email: "other@example.com", linkedIndividualPublisherId: "other", linkedAppId: "individual_person" },
+  { linkedOrganizationId: "missing" },
+])("imports valid rows while skipping invalid links or invalid duplicates: %j", async (invalid) => {
   seedLinks();
   docs("feed_individuals").set("other", { name: "Other" });
-  for (const invalid of [
-    { email: "other@example.com", linkedOrganizationId: "missing" },
-    {
-      email: "other@example.com",
-      linkedIndividualPublisherId: "other",
-      linkedAppId: "individual_person",
-    },
-    { linkedOrganizationId: "missing" },
-  ]) {
-    await expect(
-      importPartnerCsv(context, csv({}, invalid), importId),
-    ).rejects.toMatchObject({ statusCode: 400 });
-    expect(docs("connected-partners").size).toBe(0);
-    expect(docs("connected-partner-imports").size).toBe(0);
-  }
+  const result = await importPartnerCsv(context, csv({}, invalid), importId);
+  expect(result).toMatchObject({ importedCount: 1, skippedCount: 1, invalidRows: [{ rowNumber: 3, errors: [expect.any(String)] }] });
+  expect(docs("connected-partners").size).toBe(1);
+  expect(docs("connected-partner-imports").size).toBe(1);
+  expect(docs("connected-partner-import-emails").size).toBe(1);
 });
 
 it("commits new rows atomically, skips existing and repeated emails and never overwrites them", async () => {
@@ -285,8 +279,53 @@ it("commits new rows atomically, skips existing and repeated emails and never ov
     importedCount: 0,
     skippedCount: 4,
     partnerIds: [],
+    invalidRows: [],
   });
   expect(docs("connected-partners").size).toBe(3);
+});
+
+it("skips malformed rows without reserving their emails, replays partial results, and imports corrections later", async () => {
+  seedLinks();
+  const file = csv(
+    { email: "first@example.com", firstName: "", lastName: "", linkedOrganizationId: "org" },
+    { email: "broken@example.com", linkedOrganizationId: "missing" },
+    { email: "not-an-email" },
+    { email: "person@example.com", firstName: "Prince", lastName: "", linkedIndividualPublisherId: "person" },
+    { email: "first@example.com" },
+  );
+  const result = await importPartnerCsv(context, file, importId);
+  expect(result).toMatchObject({ importedCount: 2, skippedCount: 3, invalidRows: [{ rowNumber: 3 }, { rowNumber: 4 }] });
+  expect(docs("connected-partners").size).toBe(2);
+  expect(docs("connected-partner-import-emails").size).toBe(2);
+  expect([...docs("connected-partner-import-emails").values()].some(data => data.email === "broken@example.com")).toBe(false);
+  const saved = [...docs("connected-partners").values()].find(data => data.email === "first@example.com");
+  expect(saved).toMatchObject({ firstName: "", lastName: "", linkedOrganizationId: "org" });
+  docs("feed_organizations").set("missing", { name: "Now available" });
+  expect(await importPartnerCsv(context, file, importId)).toEqual(result);
+  const corrected = csv(
+    { email: "first@example.com", firstName: "", lastName: "", linkedOrganizationId: "org" },
+    { email: "broken@example.com", linkedOrganizationId: "missing" },
+    { email: "fixed@example.com" },
+    { email: "person@example.com", lastName: "", linkedIndividualPublisherId: "person" },
+  );
+  expect(await importPartnerCsv(context, corrected, secondId)).toMatchObject({ importedCount: 2, skippedCount: 2, invalidRows: [] });
+  expect(docs("connected-partners").size).toBe(4);
+});
+
+it("does not let an earlier invalid row block a later valid row with the same email", async () => {
+  const result = await importPartnerCsv(context, csv({ linkedOrganizationId: "missing" }, { firstName: "", lastName: "" }), importId);
+  expect(result).toMatchObject({ importedCount: 1, skippedCount: 1, invalidRows: [{ rowNumber: 2 }] });
+  expect(docs("connected-partner-import-emails").size).toBe(1);
+});
+
+it("imports canonical organization and mononym professional export rows without supplying contact names", async () => {
+  seedLinks();
+  const file = 'companyName,firstName,lastName,email,phoneNumber,meetingDate,notes,linkedOrganizationId,linkedIndividualPublisherId,linkedAppId\r\n"Genome Studio","","","hello@example.com","","","","org","",""\r\n"Prince","Prince","","prince@example.com","","","","org","person",""\r\n';
+  const result = await importPartnerCsv(context, file, importId);
+  expect(result).toMatchObject({ importedCount: 2, skippedCount: 0, invalidRows: [] });
+  const saved = [...docs("connected-partners").values()];
+  expect(saved.find(data => data.email === "hello@example.com")).toMatchObject({ firstName: "", lastName: "", linkedOrganizationId: "org" });
+  expect(saved.find(data => data.email === "prince@example.com")).toMatchObject({ firstName: "Prince", lastName: "", linkedOrganizationId: "org", linkedIndividualPublisherId: "person" });
 });
 
 it("replays a completed import without consulting changed or deleted linked records and rejects reused IDs for different files", async () => {
@@ -309,6 +348,29 @@ it("replays a completed import without consulting changed or deleted linked reco
       importId,
     ),
   ).rejects.toMatchObject({ statusCode: 409 });
+});
+
+it("replays manifests created before invalid-row results were recorded", async () => {
+  seedLinks();
+  const file = csv({ linkedAppId: "individual_person" });
+  const result = await importPartnerCsv(context, file, importId);
+  delete docs("connected-partner-imports").get(importId)!.invalidRows;
+  docs("app_configs").clear();
+  docs("feed_individuals").clear();
+  mockReads.length = 0;
+  mockWrites.length = 0;
+  expect(await importPartnerCsv(context, file, importId)).toEqual({ ...result, invalidRows: [] });
+  expect(mockReads).toEqual([{ collection: "connected-partner-imports", id: importId }]);
+  expect(mockWrites).toEqual([]);
+});
+
+it("rejects noncanonical invalid-row manifest keys", async () => {
+  const file = csv({});
+  await importPartnerCsv(context, file, importId);
+  const manifest = docs("connected-partner-imports").get(importId)!;
+  manifest.invalid_rows = manifest.invalidRows;
+  delete manifest.invalidRows;
+  await expect(importPartnerCsv(context, file, importId)).rejects.toThrow();
 });
 
 it("repairs stale email indexes after manual email changes or deletion without changing the older partner", async () => {

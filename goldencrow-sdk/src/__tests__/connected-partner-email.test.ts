@@ -341,3 +341,10 @@ it("uses the live banner publisher name in copy even if the app carries an older
   expect(preview.text).toContain("La demo gratuita de la app de Current publisher name");
   expect(preview.text).not.toContain("Previous publisher name");
 });
+
+it.each([["es", "Hola,"], ["en", "Hi,"]] as const)("uses a natural %s greeting when a contact's personal name is unknown", (language, greeting) => {
+  const preview = buildConnectedPartnerEmail({ ...base, firstName: "", lastName: "" }, language);
+  expect(preview.text.split("\n")[0]).toBe(greeting);
+  expect(preview.html).not.toContain("Hola ,");
+  expect(preview.html).not.toContain("Hi ,");
+});

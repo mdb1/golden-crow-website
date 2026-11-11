@@ -40,8 +40,8 @@ export const PartnerAppSnapshotSchema = z
 export const PartnerInputSchema = z
   .object({
     companyName: z.string().trim().min(1).max(180),
-    firstName: z.string().trim().min(1).max(140),
-    lastName: z.string().trim().min(1).max(140),
+    firstName: z.string().trim().max(140).default(""),
+    lastName: z.string().trim().max(140).default(""),
     phoneNumber: z.string().trim().max(50).default(""),
     email: z.string().trim().toLowerCase().email().max(254),
     meetingDate: z.iso.date().nullable().default(null),

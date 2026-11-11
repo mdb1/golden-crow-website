@@ -11,13 +11,13 @@ export const PARTNER_CSV_COLUMNS = [
   },
   {
     key: "firstName",
-    required: true,
-    rule: "Required. Contact first name, up to 140 characters.",
+    required: false,
+    rule: "Optional. Contact first name, up to 140 characters. Leave blank when unknown.",
   },
   {
     key: "lastName",
-    required: true,
-    rule: "Required. Contact last name, up to 140 characters.",
+    required: false,
+    rule: "Optional. Contact last name, up to 140 characters. Leave blank when unknown.",
   },
   {
     key: "email",
@@ -78,6 +78,7 @@ export type PartnerCsvImportResult = {
   importedCount: number;
   skippedCount: number;
   partnerIds: string[];
+  invalidRows?: Array<{ rowNumber: number; errors: string[] }>;
 };
 
 export const PARTNER_CSV_RULES = [
@@ -85,15 +86,15 @@ export const PARTNER_CSV_RULES = [
   "In Excel or Google Sheets, keep phone numbers and IDs as text and export CSV. Excel workbooks (.xlsx) cannot be uploaded.",
   "Replace the example row in the template with your real partners before uploading.",
   "The first non-empty row must contain column headers. Header spelling and capitalization are case-sensitive. Surrounding whitespace is ignored. Columns may appear in any order.",
-  "Include companyName, firstName, lastName, and email. Optional columns may be omitted or left blank. Unknown or repeated headers are rejected.",
+  "Include companyName and email. First and last names are optional; leave them blank when unknown. Optional columns may be omitted. Unknown or repeated headers are rejected.",
   "Use one partner per row. The maximum is 200 partner rows and 256 KiB per file. Completely empty rows are ignored.",
   "Values are trimmed around their edges. Emails are converted to lowercase. Blank phone numbers remain empty; blank dates, notes, and link IDs become empty optional values.",
   'Put fields containing a separator or a line break inside double quotes. Write a double quote inside a quoted field as two double quotes, for example "He said ""Hello"".".',
   "Organization and individual publisher IDs must already exist. You can link either publisher type, both, or neither. Importing never creates or changes publishers or apps.",
   "To find an ID, open a partner's Connections step and browse publishers or apps. Each result shows its ID below its name.",
   "An app ID can be its document ID or unique public app identifier. The app's own publisher is linked automatically. A supplied publisher of the same type must match the app's owner; the other publisher link is kept.",
-  "Email identifies duplicates for imports. The first occurrence in the file is considered; later occurrences and partners whose email already exists are skipped. Existing partners are never overwritten.",
-  "Every row is validated, including duplicates. Any invalid row blocks the entire import. Correct the file and upload it again; no partner is created before you confirm the preview.",
+  "Email identifies duplicates for imports. The first valid occurrence in the file is considered; later valid occurrences and partners whose email already exists are skipped. Existing partners are never overwritten.",
+  "Every row is validated, including duplicates. Confirm to import valid rows; invalid rows are skipped and listed in the result. Correct them and upload the file again. No partner is created before confirmation.",
   "Error row numbers refer to the starting line in your CSV, including the header and any line breaks inside quoted cells.",
   "The import validates the file again before saving. If a response is interrupted, retry the same import to confirm its result safely without creating another copy.",
 ] as const;

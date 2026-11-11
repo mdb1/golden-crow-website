@@ -41,8 +41,8 @@ export type DiscoverPartnerCsvExport = {
 // Mirror the import's editable field limits without filling unknown contact data.
 const ExportContactSchema = z.object({
   companyName: z.string().min(1).max(180),
-  firstName: z.string().min(1).max(140),
-  lastName: z.string().min(1).max(140),
+  firstName: z.string().max(140),
+  lastName: z.string().max(140),
   email: z.string().email().max(254),
   notes: z.string().max(10_000).nullable(),
 });

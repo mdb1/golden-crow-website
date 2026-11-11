@@ -117,7 +117,7 @@ function fillContact(phone = "") {
     ["Last name", "Smith"],
     ["Email", "ana@example.com"],
   ])
-    fireEvent.change(screen.getByLabelText(label), { target: { value } });
+    fireEvent.change(screen.getByLabelText(new RegExp(`^${label}(?:\\s|$)`)), { target: { value } });
   fireEvent.change(screen.getByLabelText(/^Phone number/), {
     target: { value: phone },
   });
@@ -969,6 +969,27 @@ it("creates a partner through the wizard with no phone, meeting date, notes or l
     expect(sdkFetch).toHaveBeenCalledWith(PARTNERS_API_ROUTE, {
       method: "POST",
       body: JSON.stringify({ ...inputOf(contact), phoneNumber: "" }),
+    }),
+  );
+});
+
+it("creates a partner with only a company name and email, without inventing contact names", async () => {
+  const unnamed = { ...contact, firstName: "", lastName: "", phoneNumber: "" };
+  mockEditor(unnamed);
+  renderWorkbench(<PartnerEditor />);
+  fireEvent.change(screen.getByLabelText("Company name"), {
+    target: { value: unnamed.companyName },
+  });
+  fireEvent.change(screen.getByLabelText("Email"), {
+    target: { value: unnamed.email },
+  });
+  expect(screen.getByLabelText(/^First name/)).not.toBeRequired();
+  expect(screen.getByLabelText(/^Last name/)).not.toBeRequired();
+  savePartner();
+  await waitFor(() =>
+    expect(sdkFetch).toHaveBeenCalledWith(PARTNERS_API_ROUTE, {
+      method: "POST",
+      body: JSON.stringify(inputOf(unnamed)),
     }),
   );
 });

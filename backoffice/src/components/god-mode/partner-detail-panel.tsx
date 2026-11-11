@@ -444,7 +444,7 @@ export function PartnerDetailPanel({
             </h3>
             {partner && (
               <p className="mt-1 break-words text-sm text-muted-foreground">
-                {partner.firstName} {partner.lastName}
+                {[partner.firstName, partner.lastName].filter(Boolean).join(" ") || partner.email}
               </p>
             )}
           </div>

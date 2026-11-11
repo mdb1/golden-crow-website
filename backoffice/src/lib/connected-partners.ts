@@ -38,6 +38,13 @@ export type Partner = PartnerInput & {
   linkedApp: PartnerAppSnapshot | null;
 };
 export type PartnersPage = { items: Partner[]; nextCursor: string | null };
+export function partnerContactName(
+  partner: Pick<PartnerInput, "firstName" | "lastName">,
+) {
+  return [partner.firstName.trim(), partner.lastName.trim()]
+    .filter(Boolean)
+    .join(" ");
+}
 export type PartnerSectionPage = PartnersPage & { scanIncomplete: boolean };
 export type PartnerLinkOption = {
   id: string;

@@ -208,7 +208,7 @@ function PartnerCsvExportDialog({
                 <p>
                   {t(
                     kind === "organization"
-                      ? "Contact first and last names are not stored for organizations. Complete firstName and lastName in the CSV before importing."
+                      ? "Contact first and last names are optional. Organizations export them blank and can be imported without completing them."
                       : "Individual display names are split at the first space into firstName and lastName. Review compound names before importing. Existing parent organization links are included.",
                   )}
                 </p>

@@ -235,8 +235,8 @@ export function buildConnectedPartnerEmail(
     : JOIN_URL;
   const greeting =
     language === "es"
-      ? `Hola ${partner.firstName},`
-      : `Hi ${partner.firstName},`;
+      ? partner.firstName.trim() ? `Hola ${partner.firstName.trim()},` : "Hola,"
+      : partner.firstName.trim() ? `Hi ${partner.firstName.trim()},` : "Hi,";
   const signature =
     language === "es" ? "Equipo Pocket Genes" : "The Pocket Genes team";
   const closing = `${copy.closing}\n\n${signature}`;

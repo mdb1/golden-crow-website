@@ -48,6 +48,7 @@ import {
 import {
   PARTNERS_API_ROUTE,
   PARTNERS_QUERY_KEY,
+  partnerContactName,
   type Partner,
   type PartnerInput,
   type PartnerLinkOption,
@@ -647,8 +648,6 @@ function PartnerWizard({
     const next: Record<string, string> = {};
     for (const key of [
       "companyName",
-      "firstName",
-      "lastName",
       "email",
     ] as const)
       if (!values[key].trim()) next[key] = t("This field is required.");
@@ -795,7 +794,7 @@ function PartnerWizard({
       type: "text",
       max: 140,
       autoComplete: "given-name",
-      required: true,
+      required: false,
     },
     {
       key: "lastName",
@@ -803,7 +802,7 @@ function PartnerWizard({
       type: "text",
       max: 140,
       autoComplete: "family-name",
-      required: true,
+      required: false,
     },
     {
       key: "email",
@@ -1061,7 +1060,7 @@ function PartnerWizard({
                       {values.companyName.trim()}
                     </h3>
                     <p className="mt-1 break-words text-sm">
-                      {values.firstName.trim()} {values.lastName.trim()}
+                      {partnerContactName(values) || t("Not provided")}
                     </p>
                     <p className="mt-1 flex items-center gap-1.5 break-all text-sm text-muted-foreground">
                       <Mail className="size-3.5 shrink-0" />

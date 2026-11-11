@@ -20,6 +20,10 @@ export function toggleAppLanguage(language: AppLanguage): AppLanguage {
 }
 
 const SPANISH_TEXT: Record<string, string> = {
+  "You can import the valid rows now. Invalid rows will be skipped and listed in the result.": "Podés importar las filas válidas ahora. Las inválidas se omitirán y se detallarán en el resultado.",
+  "No valid new partner rows are available to import. Correct the invalid rows and try again.": "No hay filas válidas nuevas para importar. Corregí las filas inválidas y volvé a intentar.",
+  "Rows not imported": "Filas no importadas",
+  "Correct these rows and upload the file again. Partners already imported will be skipped as duplicates.": "Corregí estas filas y volvé a subir el archivo. Los partners ya importados se omitirán como duplicados.",
   "Generate the app banner before sending this email.": "Generá el banner de la app antes de enviar este email.",
   "The app banner is invalid. Generate a new email preview.": "El banner de la app no es válido. Generá una nueva vista previa del email.",
   "Could not load the publisher icon or app banner. Try again.": "No se pudo cargar el ícono del publicador o el banner de la app. Volvé a intentar.",
@@ -61,8 +65,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Rows to complete or correct": "Filas para completar o corregir",
   "Publisher names, contact emails, internal notes, and publisher links are included. Phone, meeting date, and app ID are left blank because they are not stored in these profiles.":
     "Se incluyen nombres, emails de contacto, notas internas y vínculos a publicadores. El teléfono, la fecha de reunión y el ID de app quedan vacíos porque no se guardan en estos perfiles.",
-  "Contact first and last names are not stored for organizations. Complete firstName and lastName in the CSV before importing.":
-    "Las organizaciones no guardan nombre y apellido del contacto. Completá firstName y lastName en el CSV antes de importar.",
+  "Contact first and last names are optional. Organizations export them blank and can be imported without completing them.":
+    "El nombre y apellido del contacto son opcionales. Las organizaciones los exportan vacíos y se pueden importar sin completarlos.",
   "Individual display names are split at the first space into firstName and lastName. Review compound names before importing. Existing parent organization links are included.":
     "El nombre del publicador individual se divide en el primer espacio para completar firstName y lastName. Revisá los nombres compuestos antes de importar. Se incluye el vínculo existente con su organización.",
   "Each file stays within 200 rows and 256 KiB. Download every part and import them separately in Partners.":
@@ -143,8 +147,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Download the template and add one partner per row.":
     "Descargá la plantilla y agregá un partner por fila.",
   "Review the preview": "Revisar la vista previa",
-  "Upload the CSV, review skipped rows, and correct every error.":
-    "Subí el CSV, revisá las filas omitidas y corregí todos los errores.",
+  "Upload the CSV and review valid, duplicate, and invalid rows. You can import valid rows first.":
+    "Subí el CSV y revisá las filas válidas, duplicadas e inválidas. Podés importar primero las válidas.",
   "Confirm the import": "Confirmar la importación",
   "Choose Import partners. Your existing partners stay unchanged.":
     "Elegí Importar partners. Los partners existentes no se modifican.",
@@ -155,10 +159,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "Download rules": "Descargar reglas",
   "Required. Company or partner name, up to 180 characters.":
     "Obligatorio. Nombre de la empresa o del partner, hasta 180 caracteres.",
-  "Required. Contact first name, up to 140 characters.":
-    "Obligatorio. Nombre del contacto, hasta 140 caracteres.",
-  "Required. Contact last name, up to 140 characters.":
-    "Obligatorio. Apellido del contacto, hasta 140 caracteres.",
+  "Optional. Contact first name, up to 140 characters. Leave blank when unknown.":
+    "Opcional. Nombre del contacto, hasta 140 caracteres. Dejalo vacío si no lo conocés.",
+  "Optional. Contact last name, up to 140 characters. Leave blank when unknown.":
+    "Opcional. Apellido del contacto, hasta 140 caracteres. Dejalo vacío si no lo conocés.",
   "Required. A valid contact email, up to 254 characters. Converted to lowercase.":
     "Obligatorio. Email válido del contacto, hasta 254 caracteres. Se convierte a minúsculas.",
   "Optional. Up to 50 characters. Leave blank when unknown.":
@@ -181,8 +185,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Reemplazá la fila de ejemplo de la plantilla por tus partners reales antes de subir el archivo.",
   "The first non-empty row must contain column headers. Header spelling and capitalization are case-sensitive. Surrounding whitespace is ignored. Columns may appear in any order.":
     "La primera fila no vacía debe contener los encabezados. Respetá exactamente su escritura, mayúsculas y minúsculas. Se ignoran los espacios al principio y al final. Las columnas pueden estar en cualquier orden.",
-  "Include companyName, firstName, lastName, and email. Optional columns may be omitted or left blank. Unknown or repeated headers are rejected.":
-    "Incluí companyName, firstName, lastName y email. Las columnas opcionales se pueden omitir o dejar vacías. Se rechazan los encabezados desconocidos o repetidos.",
+  "Include companyName and email. First and last names are optional; leave them blank when unknown. Optional columns may be omitted. Unknown or repeated headers are rejected.":
+    "Incluí companyName y email. El nombre y apellido son opcionales; dejalos vacíos si no los conocés. Podés omitir las columnas opcionales. Se rechazan los encabezados desconocidos o repetidos.",
   "Use one partner per row. The maximum is 200 partner rows and 256 KiB per file. Completely empty rows are ignored.":
     "Usá una fila por partner. El máximo es de 200 partners y 256 KiB por archivo. Las filas completamente vacías se ignoran.",
   "Values are trimmed around their edges. Emails are converted to lowercase. Blank phone numbers remain empty; blank dates, notes, and link IDs become empty optional values.":
@@ -195,10 +199,10 @@ const SPANISH_TEXT: Record<string, string> = {
     "Para encontrar un ID, abrí el paso Conexiones de un partner y explorá los publicadores o las apps. Cada resultado muestra el ID debajo de su nombre.",
   "An app ID can be its document ID or unique public app identifier. The app's own publisher is linked automatically. A supplied publisher of the same type must match the app's owner; the other publisher link is kept.":
     "El ID de una app puede ser el ID de su registro o su identificador público único. Su publicador se vincula automáticamente. Si indicás un publicador del mismo tipo, debe coincidir con el dueño de la app; se conserva el vínculo al otro tipo de publicador.",
-  "Email identifies duplicates for imports. The first occurrence in the file is considered; later occurrences and partners whose email already exists are skipped. Existing partners are never overwritten.":
-    "El email identifica los duplicados al importar. Se considera la primera aparición del archivo; se omiten las siguientes y los partners cuyo email ya existe. Nunca se sobrescriben los partners existentes.",
-  "Every row is validated, including duplicates. Any invalid row blocks the entire import. Correct the file and upload it again; no partner is created before you confirm the preview.":
-    "Se validan todas las filas, incluso los duplicados. Una fila inválida bloquea toda la importación. Corregí el archivo y volvé a subirlo; no se crea ningún partner antes de confirmar la vista previa.",
+  "Email identifies duplicates for imports. The first valid occurrence in the file is considered; later valid occurrences and partners whose email already exists are skipped. Existing partners are never overwritten.":
+    "El email identifica los duplicados al importar. Se considera la primera aparición válida del archivo; se omiten las siguientes válidas y los partners cuyo email ya existe. Nunca se sobrescriben los partners existentes.",
+  "Every row is validated, including duplicates. Confirm to import valid rows; invalid rows are skipped and listed in the result. Correct them and upload the file again. No partner is created before confirmation.":
+    "Se validan todas las filas, incluso los duplicados. Confirmá para importar las válidas; las inválidas se omiten y se detallan en el resultado. Corregilas y volvé a subir el archivo. No se crea ningún partner antes de confirmar.",
   "Error row numbers refer to the starting line in your CSV, including the header and any line breaks inside quoted cells.":
     "Los números de fila de los errores indican la línea de inicio dentro del CSV, contando el encabezado y los saltos de línea dentro de los campos entre comillas.",
   "The import validates the file again before saving. If a response is interrupted, retry the same import to confirm its result safely without creating another copy.":
@@ -230,8 +234,6 @@ const SPANISH_TEXT: Record<string, string> = {
   "CSV preview": "Vista previa del CSV",
   "Total rows": "Filas totales",
   "Rows to fix": "Filas para corregir",
-  "Correct every invalid row and upload the file again. No partners have been added.":
-    "Corregí todas las filas inválidas y volvé a subir el archivo. No se agregó ningún partner.",
   "No new partners to import. Existing partners will stay unchanged.":
     "No hay partners nuevos para importar. Los existentes no se modificarán.",
   "Invalid row": "Fila inválida",

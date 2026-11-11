@@ -42,6 +42,7 @@ import {
   PARTNERS_ROUTE,
   PARTNER_SECTIONS,
   PARTNER_PAGE_SIZE,
+  partnerContactName,
   type Partner,
   type PartnerSection,
   type PartnerSectionPage,
@@ -170,11 +171,11 @@ function PartnerCard({
       <dl className="grid min-w-0 grid-cols-2 gap-x-4 gap-y-4 text-sm">
         <div>
           <dt className="text-muted-foreground">{t("First name")}</dt>
-          <dd className="mt-1 break-words">{partner.firstName}</dd>
+          <dd className="mt-1 break-words">{partner.firstName || t("Not provided")}</dd>
         </div>
         <div>
           <dt className="text-muted-foreground">{t("Last name")}</dt>
-          <dd className="mt-1 break-words">{partner.lastName}</dd>
+          <dd className="mt-1 break-words">{partner.lastName || t("Not provided")}</dd>
         </div>
         <div className="col-span-2">
           <dt className="text-muted-foreground">{t("Phone number")}</dt>
@@ -403,7 +404,7 @@ function PartnerTable({
                 </button>
               </td>
               <td className="min-w-32 max-w-48 break-words px-3 py-4">
-                {partner.firstName} {partner.lastName}
+                {partnerContactName(partner) || t("Not provided")}
               </td>
               <td className="min-w-40 max-w-56 break-all px-3 py-4">
                 {partner.email}

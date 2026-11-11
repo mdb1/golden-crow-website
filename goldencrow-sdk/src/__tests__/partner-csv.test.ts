@@ -74,10 +74,18 @@ it("reports invalid cells, required values, email, impossible civil dates and ph
   expect(result.summary.invalid).toBe(4);
   expect(result.rows.map((row) => row.errors.join(" "))).toEqual([
     expect.stringContaining("meetingDate"),
-    expect.stringContaining("firstName"),
+    expect.stringContaining("email"),
     expect.stringContaining("phoneNumber"),
     expect.stringContaining("Expected 6 cells"),
   ]);
+});
+
+it("accepts exported organizations without contact names and individuals without surnames", () => {
+  const result = parsePartnerCsv(`${header}\nGenome Studio,,,hello@example.com\nPrince,Prince,,prince@example.com`);
+  expect(result.summary).toEqual({ total: 2, ready: 2, duplicates: 0, invalid: 0 });
+  expect(result.rows[0]?.input).toMatchObject({ firstName: "", lastName: "" });
+  expect(result.rows[1]?.input).toMatchObject({ firstName: "Prince", lastName: "" });
+  expect(parsePartnerCsv("companyName,email\nGenome Studio,hello@example.com").rows[0]?.input).toMatchObject({ firstName: "", lastName: "" });
 });
 
 it("bounds both the UTF-8 byte size and data row count", () => {
