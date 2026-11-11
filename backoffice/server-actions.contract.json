@@ -817,6 +817,76 @@
       "params": "arg, arg"
     },
     {
+      "file": "src/lib/gc-fitness/payments-actions.ts",
+      "export": "assignClientPlan",
+      "params": "arg"
+    },
+    {
+      "file": "src/lib/gc-fitness/payments-actions.ts",
+      "export": "consumeClientClass",
+      "params": "arg"
+    },
+    {
+      "file": "src/lib/gc-fitness/payments-actions.ts",
+      "export": "getClientBilling",
+      "params": "arg"
+    },
+    {
+      "file": "src/lib/gc-fitness/payments-actions.ts",
+      "export": "getCoachDisplayName",
+      "params": ""
+    },
+    {
+      "file": "src/lib/gc-fitness/payments-actions.ts",
+      "export": "getCollectedThisMonth",
+      "params": ""
+    },
+    {
+      "file": "src/lib/gc-fitness/payments-actions.ts",
+      "export": "listClientBillings",
+      "params": ""
+    },
+    {
+      "file": "src/lib/gc-fitness/payments-actions.ts",
+      "export": "listClientPayments",
+      "params": "optional"
+    },
+    {
+      "file": "src/lib/gc-fitness/payments-actions.ts",
+      "export": "listClientPaymentsForExport",
+      "params": "optional"
+    },
+    {
+      "file": "src/lib/gc-fitness/payments-actions.ts",
+      "export": "listPaymentPlans",
+      "params": ""
+    },
+    {
+      "file": "src/lib/gc-fitness/payments-actions.ts",
+      "export": "recordClientPayment",
+      "params": "arg"
+    },
+    {
+      "file": "src/lib/gc-fitness/payments-actions.ts",
+      "export": "savePaymentPlan",
+      "params": "arg"
+    },
+    {
+      "file": "src/lib/gc-fitness/payments-actions.ts",
+      "export": "setPaymentPlanArchived",
+      "params": "arg"
+    },
+    {
+      "file": "src/lib/gc-fitness/payments-actions.ts",
+      "export": "updateClientBilling",
+      "params": "arg"
+    },
+    {
+      "file": "src/lib/gc-fitness/payments-actions.ts",
+      "export": "voidClientPayment",
+      "params": "arg"
+    },
+    {
       "file": "src/lib/gc-fitness/personal-records-actions.ts",
       "export": "listClientPersonalRecords",
       "params": "arg"

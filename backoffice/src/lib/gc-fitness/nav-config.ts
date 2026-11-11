@@ -54,6 +54,7 @@ import {
   MessagesSquare, // Chat (inbox from P08)
   Settings as SettingsIcon, // Settings (quick replies — P08-12)
   Wrench, // QA Tools (engineering-only — P20)
+  Wallet, // Payments (#1540)
 } from "lucide-react";
 
 import type { AdminRole } from "../admin-areas";
@@ -154,6 +155,15 @@ export const GC_FITNESS_NAV: AdminNavItem[] = [
     href: "/gc-fitness/my-activity",
     description: "Coach-authored actions across programming, notes and chat.",
     icon: Activity,
+    visibleRoles: TRAINER_ROLES,
+  },
+  // #1540 — espejo del ítem «Pagos» de `clientsGroup` en gc-fitness-shell.tsx.
+  {
+    section: "gc-fitness-roster",
+    label: "Payments",
+    href: "/gc-fitness/payments",
+    description: "Client plans, manual payments and collections (#1540).",
+    icon: Wallet,
     visibleRoles: TRAINER_ROLES,
   },
   // Content section

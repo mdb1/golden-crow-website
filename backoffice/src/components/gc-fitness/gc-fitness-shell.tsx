@@ -15,6 +15,7 @@ import {
   Shield,
   Trophy,
   Users,
+  Wallet,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -91,6 +92,8 @@ const NAV_SECTIONS: NavSection[] = [
       { labelKey: "chat", href: "/gc-fitness/chat", icon: MessagesSquare },
       // gc-fitness #1475 (S6) — desafíos del coach para todo su equipo.
       { labelKey: "challenges", href: "/gc-fitness/challenges", icon: Trophy },
+      // gc-fitness #1540 — pagos y cobros de los alumnos (manual).
+      { labelKey: "payments", href: "/gc-fitness/payments", icon: Wallet },
     ],
   },
   {

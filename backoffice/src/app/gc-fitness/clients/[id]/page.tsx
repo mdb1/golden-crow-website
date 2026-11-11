@@ -99,6 +99,8 @@ import { ClientSummaryCard } from "./_components/ClientSummaryCard";
 import { CoachWeeklySummaryCard } from "./_components/CoachWeeklySummaryCard";
 import { loadCoachWeeklySummary } from "@/lib/gc-fitness/coach-ai-summary-actions";
 import { NutritionProfileWidget } from "./_components/NutritionProfileWidget";
+import { ClientPaymentsCard } from "./_components/ClientPaymentsCard";
+import { clientFirstName } from "@/lib/gc-fitness/payments-model";
 import { ClientCalendarPeek } from "./_components/ClientCalendarPeek";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
@@ -453,6 +455,22 @@ export default async function ClientDetailPage({
           página no decía nada. */}
       <Suspense fallback={<WidgetSkeleton title={tSkeleton("nutrition")} />}>
         <NutritionProfileWidget clientId={id} timezone={timezone} />
+      </Suspense>
+
+      {/* #1540 — pagos y cobros (manual): estado, plan, vencimiento y «Registrar pago».
+          El historial completo vive en `[id]/pagos`, igual que `[id]/nutricion`. Los
+          vencimientos son días civiles en la zona del COACH (la misma que usa /payments). */}
+      <Suspense fallback={<WidgetSkeleton title={tSkeleton("payments")} />}>
+        <ClientPaymentsCard
+          clientId={id}
+          clientName={displayName}
+          clientFirstName={clientFirstName({
+            displayName: client.displayName ?? "",
+            email: client.email ?? "",
+            coachNickname: client.coachNickname ?? null,
+          })}
+          todayCivil={civilDateToday(await getTrainerTimezone())}
+        />
       </Suspense>
 
       <ClientChartsSection

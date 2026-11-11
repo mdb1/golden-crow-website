@@ -35,6 +35,7 @@ describe("GC_FITNESS_NAV", () => {
       "/gc-fitness/clients",
       "/gc-fitness/recent-logs",
       "/gc-fitness/my-activity",
+      "/gc-fitness/payments",
       "/gc-fitness/templates",
       "/gc-fitness/habits",
       "/gc-fitness/exercises",
