@@ -27,10 +27,12 @@ const APP_TERMS_PATH = "/publisher-portal/app/accept-terms-and-conditions";
 
 type Copy = {
   subject: string;
+  preheader: string;
   heading: string;
   lead: string;
   paragraphs: string[];
   ctaLabel: string;
+  closing: string;
   callback?: string;
 };
 
@@ -64,34 +66,37 @@ function emailCopy(
     partner.linkedOrganization?.name ??
     partner.linkedIndividualPublisher?.name ??
     partner.companyName;
-  const accountInstruction = spanish
-    ? `Usá la cuenta de publicador que administra ${publisher}.`
-    : `Use the publisher account that manages ${publisher}.`;
   if (category === "noOrganization")
     return spanish
       ? {
-          subject: "Sumá tu organización a la red de Pocket Genes",
-          heading: "Tu organización tiene un lugar en Pocket Genes",
-          lead: "Conectá tu organización con una red de nuevas oportunidades.",
+          subject: `Descubrí qué puede hacer ${partner.companyName} en Pocket Genes`,
+          preheader:
+            "Explorá posibles alianzas, descuentos de la red y una demo gratuita de tu propia app.",
+          heading: "Alianzas, beneficios y una app con tu marca",
+          lead: `Con Pocket Genes, ${partner.companyName} puede explorar nuevas colaboraciones y conocer cómo sería una app con su propia identidad.`,
           paragraphs: [
-            `Te invitamos a sumar ${partner.companyName} a Pocket Genes solicitando el perfil de tu organización.`,
-            "Una vez aprobada la solicitud, podrás acceder a los descuentos disponibles en la red y explorar alianzas con otras organizaciones y profesionales.",
-            "También podrás solicitar una muestra gratuita de tu propia app para conocer la experiencia y evaluarla con tu equipo antes de avanzar.",
-            "Completá el formulario con los datos de tu organización. Nuestro equipo revisará la solicitud y, cuando sea aprobada, recibirás las instrucciones de acceso al portal.",
+            "El primer paso es solicitar la incorporación de tu organización a la red de Pocket Genes.",
+            "Una vez aprobada la solicitud, podrás conocer los descuentos disponibles y explorar posibles alianzas con otras organizaciones y profesionales.",
+            `También podrás solicitar una demo gratuita de una app con la identidad de ${partner.companyName}, para conocer la experiencia y evaluarla con tu equipo antes de decidir si querés avanzar.`,
+            `Completá el formulario con los datos de ${partner.companyName}. Revisaremos la solicitud y, si es aprobada, te enviaremos las instrucciones para ingresar al portal.`,
           ],
-          ctaLabel: "Solicitar mi organización",
+          ctaLabel: "Solicitar incorporación",
+          closing: `Nos encantará conocer más sobre ${partner.companyName}.`,
         }
       : {
-          subject: "Bring your organization into the Pocket Genes network",
-          heading: "Your organization belongs in Pocket Genes",
-          lead: "Connect your organization with new opportunities.",
+          subject: `See what’s possible for ${partner.companyName} on Pocket Genes`,
+          preheader:
+            "Explore potential partnerships, network discounts, and a free demo of your own branded app.",
+          heading: "Partnerships, benefits, and an app with your branding",
+          lead: `Pocket Genes gives ${partner.companyName} a place to explore potential collaborations and discover what an app with your own branding could look like.`,
           paragraphs: [
-            `We’d love to welcome ${partner.companyName} to Pocket Genes. Start by requesting your organization’s profile.`,
-            "Once your request is approved, you can access available network discounts and explore partnerships with other organizations and professionals.",
-            "You can also request a free sample of your own app to explore the experience with your team before taking the next step.",
-            "Complete the form with your organization's details. Our team will review the request and send portal access instructions after approval.",
+            "Start by requesting to add your organization to the Pocket Genes network.",
+            "Once approved, you can explore available network discounts and potential partnerships with other organizations and professionals.",
+            `You can also request a free demo of an app branded for ${partner.companyName}, so your team can explore the experience before deciding whether to move forward.`,
+            `Fill out the form with ${partner.companyName}’s details. We’ll review the request and, if approved, send you instructions to access the portal.`,
           ],
-          ctaLabel: "Request my organization",
+          ctaLabel: "Request to join",
+          closing: `We’d love to learn more about ${partner.companyName}.`,
         };
   if (
     category === "organizationWithoutApp" ||
@@ -99,80 +104,99 @@ function emailCopy(
   )
     return spanish
       ? {
-          subject: "Dale el primer paso a tu propia app en Pocket Genes",
-          heading: "Empecemos a preparar tu app",
-          lead: `${publisher} ya forma parte de Pocket Genes. El siguiente paso es preparar la solicitud de su propia app.`,
+          subject: `Así podría verse la app de ${publisher}`,
+          preheader:
+            "Elegí plataformas, funciones y colores para solicitar una demo gratuita.",
+          heading: "Tu marca. Tu propia app.",
+          lead: `${publisher} ya forma parte de Pocket Genes. Ahora podés empezar a darle forma a una app con tu marca y pedir una demo gratuita para evaluarla con tu equipo.`,
           paragraphs: [
-            "En el portal de publicadores podés elegir las plataformas, funciones y colores de tu app y enviar la solicitud para que nuestro equipo la revise.",
-            "Con esa información podremos preparar una muestra gratuita para que conozcas la experiencia y la evalúes con tu equipo. El botón te lleva al inicio de sesión y después al formulario de tu nueva app.",
-            accountInstruction,
+            "En el portal de publicadores, elegí las plataformas, funciones y colores que imaginás para tu app. Nuestro equipo revisará la solicitud.",
+            "Con esa información podremos preparar una demo gratuita para que conozcas la experiencia antes de decidir si querés avanzar con la publicación.",
+            `Ingresá con la cuenta de publicador que administra ${publisher}. El botón te llevará al formulario de solicitud de tu app.`,
           ],
-          ctaLabel: "Preparar mi app",
+          ctaLabel: "Solicitar una demo de mi app",
+          closing: `Nos encantará ver qué imaginás para la app de ${publisher}.`,
           callback: APP_NEW_PATH,
         }
       : {
-          subject: "Take the first step towards your own Pocket Genes app",
-          heading: "Let's start preparing your app",
-          lead: `${publisher} is already part of Pocket Genes. The next step is to prepare a request for its own app.`,
+          subject: `See what ${publisher}’s app could look like`,
+          preheader:
+            "Choose platforms, features, and colors to request a free app demo.",
+          heading: "Your brand. Your own app.",
+          lead: `${publisher} is already part of Pocket Genes. Now you can shape an app around your brand and request a free demo to explore with your team.`,
           paragraphs: [
-            "Use the publisher portal to choose your app’s platforms, features and colors, then submit the request for our team to review.",
-            "With those details, we can prepare a free sample for you to explore with your team. The button takes you to sign in and then to your new app form.",
-            accountInstruction,
+            "In the publisher portal, choose the platforms, features, and colors you have in mind for your app. Our team will review your request.",
+            "With those details, we can prepare a free demo so you can experience the app before deciding whether to proceed with publication.",
+            `Sign in with the publisher account for ${publisher}. The button will take you to your app request form.`,
           ],
-          ctaLabel: "Prepare my app",
+          ctaLabel: "Request my free app demo",
+          closing: `We’d love to see what you envision for ${publisher}’s app.`,
           callback: APP_NEW_PATH,
         };
   if (category === "freeApp" || category === "individualFreeApp")
     return spanish
       ? {
-          subject: "El próximo paso para tu app en Pocket Genes",
-          heading: "De la muestra a tu próxima etapa",
-          lead: `La app de ${publisher} está activa como muestra gratuita para pruebas.`,
+          subject: `¿Listos para publicar la app de ${publisher}?`,
+          preheader:
+            "Tu demo gratuita está activa. Conocé los pasos para solicitar la publicación.",
+          heading: "De la prueba a la publicación",
+          lead: `La demo gratuita de la app de ${publisher} ya está disponible para probar. Si la experiencia te convence, podés empezar el proceso para publicarla.`,
           paragraphs: [
-            `Cuando quieras avanzar a la publicación de la app de ${publisher}, ingresá al portal para revisar y aceptar los términos y condiciones.`,
-            "Después de aceptar las condiciones y solicitar la publicación, vas a poder revisar la información de pago y coordinar la preparación de tu app.",
-            accountInstruction,
+            "El primer paso es ingresar al portal y revisar los términos y condiciones de tu app.",
+            "Si decidís aceptarlos y solicitar la publicación, podrás consultar la información de pago y coordinar con nuestro equipo la preparación de tu app para publicarla.",
+            `Ingresá con la cuenta de publicador que administra ${publisher}.`,
           ],
-          ctaLabel: "Revisar términos de mi app",
+          ctaLabel: "Revisar condiciones de publicación",
+          closing:
+            "Cuando decidas avanzar, estaremos para ayudarte con la publicación.",
           callback: APP_TERMS_PATH,
         }
       : {
-          subject: "The next step for your Pocket Genes app",
-          heading: "From your sample to the next stage",
-          lead: `The app for ${publisher} is active as a free testing sample.`,
+          subject: `Ready to publish ${publisher}’s app?`,
+          preheader:
+            "Your free app demo is ready to test. See how to request publication.",
+          heading: "From demo to publication",
+          lead: `The free demo of ${publisher}’s app is ready to test. If the experience works for your team, you can begin the publication process.`,
           paragraphs: [
-            `When you are ready to move towards publication of the app for ${publisher}, sign in to the portal to review and accept the terms and conditions.`,
-            "After accepting the terms and requesting publication, you can review payment information and coordinate preparation of your app.",
-            accountInstruction,
+            "Start by signing in to the portal and reviewing your app’s terms and conditions.",
+            "If you decide to accept the terms and request publication, you’ll be able to review payment information and coordinate the preparation of your app with our team.",
+            `Sign in with the publisher account for ${publisher}.`,
           ],
-          ctaLabel: "Review my app's terms",
+          ctaLabel: "Review publication terms",
+          closing:
+            "When you’re ready, we’ll help you through the publication process.",
           callback: APP_TERMS_PATH,
         };
-  if (category === "contract" || category === "individualContract") {
+  if (category === "contract" || category === "individualContract")
     return spanish
       ? {
-          subject: "Gestioná tu app en Pocket Genes",
-          heading: "Tu app, siempre a mano",
-          lead: `Podés gestionar la app de ${publisher} desde el portal de publicadores.`,
+          subject: `Tu app de ${publisher}, desde un solo lugar`,
+          preheader:
+            "Revisá la configuración de tu app y consultá los próximos pasos desde el portal.",
+          heading: "Tu app, bajo control",
+          lead: `La app de ${publisher} tiene su espacio de gestión. Desde el portal podés revisar su configuración y consultar qué sigue.`,
           paragraphs: [
-            "Ingresá al portal de publicadores para revisar y mantener la configuración de tu app y consultar sus próximos pasos. Si necesitás acompañamiento, respondé a este correo y el equipo te ayudará.",
-            accountInstruction,
+            "Ingresá cuando necesites revisar o mantener la configuración de tu app. Si te surge alguna duda, respondé a este correo y nuestro equipo te ayudará.",
+            `Ingresá con la cuenta de publicador que administra ${publisher}.`,
           ],
-          ctaLabel: "Gestionar mi app",
+          ctaLabel: "Abrir el portal de mi app",
+          closing: "Estamos a un correo de distancia si necesitás ayuda.",
           callback: "/publisher-portal/app/edit",
         }
       : {
-          subject: "Manage your Pocket Genes app",
-          heading: "Your app, always within reach",
-          lead: `You can manage the app for ${publisher} in the publisher portal.`,
+          subject: `Your ${publisher} app, all in one place`,
+          preheader:
+            "Review your app settings and next steps in the publisher portal.",
+          heading: "Stay on top of your app",
+          lead: `There’s a dedicated place to manage ${publisher}’s app. Use the portal to review its settings and see what comes next.`,
           paragraphs: [
-            "Sign in to the publisher portal to review and maintain your app's configuration and check its next steps. If you need guidance, reply to this email and our team will help.",
-            accountInstruction,
+            "Open the portal whenever you need to review or maintain your app’s settings. Have a question? Reply to this email and our team will help.",
+            `Sign in with the publisher account for ${publisher}.`,
           ],
-          ctaLabel: "Manage my app",
+          ctaLabel: "Open my app portal",
+          closing: "We’re an email away whenever you need help.",
           callback: "/publisher-portal/app/edit",
         };
-  }
   throw new AdminRepositoryError(
     "Review the partner's missing connections or app status before sending an email.",
     409,
@@ -190,12 +214,11 @@ export function buildConnectedPartnerEmail(
     : JOIN_URL;
   const greeting =
     language === "es"
-      ? `Hola ${partner.firstName} ${partner.lastName},`
-      : `Hello ${partner.firstName} ${partner.lastName},`;
-  const closing =
-    language === "es"
-      ? "Nos alegra acompañarte en el próximo paso.\n\nEquipo Pocket Genes"
-      : "We're glad to help you take the next step.\n\nThe Pocket Genes team";
+      ? `Hola ${partner.firstName},`
+      : `Hi ${partner.firstName},`;
+  const signature =
+    language === "es" ? "Equipo Pocket Genes" : "The Pocket Genes team";
+  const closing = `${copy.closing}\n\n${signature}`;
   const text = [
     greeting,
     "",
@@ -215,7 +238,7 @@ export function buildConnectedPartnerEmail(
   .pg-email-title { font-size:28px !important; line-height:34px !important; }
 }
 </style></head><body style="margin:0;padding:0;">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(copy.lead)}</div>
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(copy.preheader)}</div>
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0;padding:0;background:#f8f7ff;font-family:Arial,Helvetica,sans-serif;color:#111827;"><tr><td class="pg-email-outer" align="center" style="padding:40px 16px;">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:680px;table-layout:fixed;border-collapse:separate;border-spacing:0;background:#ffffff;border:1px solid #e7e5ff;border-radius:18px;overflow:hidden;box-shadow:0 18px 48px rgba(86,50,164,0.14);"><tr><td class="pg-email-header" style="background:#2d1b69;padding:36px 40px;overflow-wrap:break-word;word-wrap:break-word;"><div style="font-size:13px;line-height:18px;letter-spacing:0.26em;text-transform:uppercase;font-weight:800;color:#d8c9ff;">Pocket Genes</div><div class="pg-email-title" style="margin-top:16px;font-size:36px;line-height:42px;font-weight:800;color:#ffffff;">${escapeHtml(copy.heading)}</div></td></tr>
 <tr><td class="pg-email-content" style="padding:40px;background:#ffffff;overflow-wrap:break-word;word-wrap:break-word;"><p style="margin:0 0 24px;font-size:20px;line-height:30px;color:#111827;">${escapeHtml(greeting)}</p><p style="margin:0 0 28px;font-size:22px;line-height:32px;font-weight:800;color:#111827;">${escapeHtml(copy.lead)}</p>

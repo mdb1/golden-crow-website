@@ -47,7 +47,7 @@ function callback(partner: Partner) {
   );
 }
 
-it("invites unlinked partners to the exact public form with approval, discounts, network and free sample copy", () => {
+it("invites unlinked partners to the exact public form with approval, discounts, network and a branded demo", () => {
   const preview = buildConnectedPartnerEmail(base);
   expect(preview.to).toBe(base.email);
   expect(preview.category).toBe("noOrganization");
@@ -58,9 +58,9 @@ it("invites unlinked partners to the exact public form with approval, discounts,
   for (const phrase of [
     "descuentos disponibles",
     "organizaciones y profesionales",
-    "muestra gratuita de tu propia app",
-    "revisará la solicitud",
-    "cuando sea aprobada",
+    `demo gratuita de una app con la identidad de ${base.companyName}`,
+    "Revisaremos la solicitud",
+    "si es aprobada",
   ])
     expect(preview.text).toContain(phrase);
   expect(preview.html).toContain("background:#2d1b69");
@@ -78,7 +78,7 @@ it("deep-links existing publishers without apps through their own portal login t
   expect(preview.text).toContain(org.name);
   expect(preview.text).toContain("plataformas, funciones y colores");
   expect(preview.text).toContain(
-    `Usá la cuenta de publicador que administra ${org.name}.`,
+    `Ingresá con la cuenta de publicador que administra ${org.name}.`,
   );
 });
 
@@ -90,10 +90,10 @@ it("uses current testing status rather than a historical contract snapshot to re
   expect(callback(partner)).toBe(
     "/publisher-portal/app/accept-terms-and-conditions",
   );
-  expect(preview.text).toContain("muestra gratuita para pruebas");
   expect(preview.text).toContain(
-    "aceptar las condiciones y solicitar la publicación",
+    `La demo gratuita de la app de ${org.name} ya está disponible para probar.`,
   );
+  expect(preview.text).toContain("aceptarlos y solicitar la publicación");
   expect(preview.text).toContain("información de pago");
 });
 
@@ -112,13 +112,58 @@ it.each([
     const preview = buildConnectedPartnerEmail(partner);
     expect(preview.category).toBe("contract");
     expect(callback(partner)).toBe("/publisher-portal/app/edit");
-    expect(preview.ctaLabel).toBe("Gestionar mi app");
+    expect(preview.ctaLabel).toBe("Abrir el portal de mi app");
     expect(preview.text).toContain(
-      "Podés gestionar la app de Current Organization",
+      "La app de Current Organization tiene su espacio de gestión.",
     );
     expect(preview.text).not.toContain("está activa en la etapa");
   },
 );
+
+it.each([
+  ["es", "Hola Ana,"],
+  ["en", "Hi Ana,"],
+] as const)(
+  "personalizes the %s greeting with only the contact's first name",
+  (language, greeting) => {
+    for (const partner of [
+      base,
+      withOrg,
+      withApp("active_for_testing"),
+      withApp("active"),
+    ]) {
+      expect(
+        buildConnectedPartnerEmail(partner, language).text.split("\n")[0],
+      ).toBe(greeting);
+    }
+  },
+);
+
+it("uses the approved inbox preheader separately from the body lead and gives each stage its own closing", () => {
+  const partners = [
+    base,
+    withOrg,
+    withApp("active_for_testing"),
+    withApp("active"),
+  ];
+  for (const language of ["es", "en"] as const) {
+    const closings = new Set<string>();
+    for (const partner of partners) {
+      const preview = buildConnectedPartnerEmail(partner, language);
+      const blocks = preview.text.split("\n\n");
+      const preheader = preview.html.match(
+        /<div style="display:none;[^>]*>([^<]*)<\/div>/,
+      )?.[1];
+      expect(preheader).toBeTruthy();
+      expect(preheader).not.toBe(blocks[2]);
+      closings.add(blocks[blocks.length - 2]!);
+    }
+    expect(closings.size).toBe(4);
+  }
+  expect(buildConnectedPartnerEmail(base).html).toContain(
+    ">Explorá posibles alianzas, descuentos de la red y una demo gratuita de tu propia app.</div>",
+  );
+});
 
 it("supports individual-only publishers and both publisher links without sending an organization invitation", () => {
   const partner = {
