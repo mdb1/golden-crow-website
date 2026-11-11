@@ -184,3 +184,72 @@ Backoffice routes:
   /god-mode/partners
   /god-mode/partners/new
   /god-mode/partners/:partnerId/edit
+
+Partner email preview and delivery:
+  GET /admin/connected-partners/:partnerId/email-preview[?language=es|en]
+    Returns { partnerId, to, subject, text, html, ctaLabel, ctaUrl, category,
+      language, previewHash }. Spanish is the default. No email is sent.
+    Builds the exact sender content using the current contact and directly linked
+    publishers/app, with the same purple Pocket Genes styling as publisher access
+    invitations. Historical snapshots never select a message or establish status.
+    Both rendered message and authoritative publisher/app identity are bound into
+    previewHash (SHA-256). Contact email, subject, body, HTML and CTA cannot be
+    authored or overridden by the client.
+    noOrganization: request an organization profile at the exact public join-us
+    URL; the message explains approval, available discounts/network partnerships,
+    and requesting a free sample of the organization's app.
+    organizationWithoutApp/individualWithoutApp: publisher login with callbackUrl
+    /publisher-portal/app/new. The publisher chooses app platforms/features/colors
+    and submits the request for review and preparation of a testing sample.
+    freeApp/individualFreeApp (live active_for_testing): publisher login with
+    callbackUrl /publisher-portal/app/accept-terms-and-conditions. This protected
+    alias opens the canonical publication-terms review. Accepting and requesting
+    publication advances to the payment-information step, not instant publication.
+    contract/individualContract: every live non-testing active* status receives
+    an invitation to manage its app in the publisher portal, with callbackUrl
+    /publisher-portal/app/edit. Pending payment/publication steps are managed
+    through the existing app configuration screen rather than a separate email CTA.
+    All callback paths are under /publisher-portal. Login may prefill the partner
+    contact email, but the message asks the recipient to use the account managing
+    the linked publisher. It never grants credentials or claims the contact email
+    has publisher access. No publisher identity is impersonated by a link parameter.
+    other (inactive, unavailable or mismatched links) returns 409 for deliberate
+    connection review instead of sending an invitation for the wrong stage.
+  POST /admin/connected-partners/:partnerId/email with strict body
+    { language: es|en, previewHash: <64 lowercase hex>, requestId: <UUID> }
+    Returns HTTP 200 { status: sent|sending|unknown|failed, to,
+      sentAt: <ISO timestamp or null>, requestId, error?: <operator message> }.
+    Both endpoints require GOD MODE in routes and repositories. GET is no-store.
+    A fresh send or retry of a known rejection reads live partner data again and
+    rejects a changed preview or newly unsupported live category with 412 before calling Gmail. Unknown fields,
+    client recipients/content, snake_case aliases and invalid identifiers return
+    400. Unsupported language is rejected. Missing partners return 404.
+    Replaying a sent/sending/unknown request reads its command first and returns
+    the recorded outcome without touching mutable partner data or sending again,
+    including after contact edits or deletion. A request ID cannot be reused for
+    a different partner, preview hash or language (409). A 412 is a known unsent
+    precondition failure that requires a new preview; a 409 can represent a prior
+    uncertain command and must not authorize a new send automatically.
+
+Email command persistence:
+  Firestore project: mydnamap
+  Collection: partner_email_sends
+  Document ID: requestId (UUID; one directly read document per command)
+  Strict lower camel case fields, validated by StoredSendSchema:
+    requestId: UUID; partnerId: canonical partner ID; previewHash: SHA-256 hex;
+    language: es|en; to: validated contact email;
+    status: sending|sent|unknown|failed;
+    createdAt/updatedAt: ISO UTC datetime;
+    sentAt: nullable ISO UTC datetime;
+    requestedByEmail: authenticated GOD MODE operator email.
+  No subject, HTML, text, full partner/snapshot record or credentials are stored.
+  A Firestore transaction reserves sending before Gmail is called. Concurrent
+  double-clicks share the reservation. A known Gmail rejection or pre-send failure
+  records failed and may retry the same request ID after fresh preview validation.
+  Gmail network loss or 5xx response records unknown and is never automatically
+  resent. Confirmation-persistence failure keeps the durable sending reservation
+  and returns unknown; subsequent checks still cannot send again. Operators must
+  verify Sent mail before starting another independent send after uncertainty.
+  Delivery uses the established Gmail transport without appending a signature, so
+  the preview HTML/text exactly match the outbound content. Partner deletion does
+  not cascade to delivery commands, preserving safe status checks and audit state.

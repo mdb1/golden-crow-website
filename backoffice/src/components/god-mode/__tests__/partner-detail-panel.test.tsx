@@ -201,6 +201,53 @@ it("opens with the keyboard and returns focus to its title button when closed", 
   );
 });
 
+it("opens the email preview from the detail panel without sending and keeps the panel when dismissed", async () => {
+  const user = userEvent.setup();
+  jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/email-preview"))
+      return {
+        partnerId: partner.id,
+        to: partner.email,
+        subject: "Gestioná tu app en Pocket Genes",
+        text: "Continuá con tu app desde el portal de publicadores.",
+        html: "<p>Continuá con tu app desde el portal de publicadores.</p>",
+        ctaLabel: "Gestionar mi app",
+        ctaUrl:
+          "https://golden-crow-backoffice.vercel.app/publisher-portal/login?callbackUrl=%2Fpublisher-portal%2Fapp%2Fedit",
+        category: "contract",
+        language: "es",
+        previewHash: "a".repeat(64),
+      } as never;
+    if (path === `${PARTNERS_API_ROUTE}/${partner.id}`)
+      return { partner: fullPartner } as never;
+    return page([partner]) as never;
+  });
+  renderPartners();
+  openSection();
+  await openPartner();
+  await user.click(
+    await details().findByRole("button", { name: "Send an email" }),
+  );
+  const dialog = await screen.findByRole("dialog", { name: "Email preview" });
+  expect(
+    await within(dialog).findByText("Gestioná tu app en Pocket Genes"),
+  ).toBeVisible();
+  expect(
+    jest
+      .mocked(sdkFetch)
+      .mock.calls.some(([, init]) => init?.method === "POST"),
+  ).toBe(false);
+  await user.keyboard("{Escape}");
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("dialog", { name: "Email preview" }),
+    ).not.toBeInTheDocument(),
+  );
+  expect(
+    screen.getByRole("complementary", { name: "Partner details" }),
+  ).toBeVisible();
+});
+
 it("opens table rows while keeping checkbox and notes controls independent", async () => {
   mockPartners();
   renderPartners();

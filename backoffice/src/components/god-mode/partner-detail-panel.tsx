@@ -14,6 +14,7 @@ import {
   CircleUserRound,
   GripVertical,
   Loader2,
+  Mail,
   Pencil,
   RefreshCw,
   Smartphone,
@@ -22,6 +23,7 @@ import {
 import { useAppLanguage } from "@/components/app-language-provider";
 import { Button } from "@/components/ui/button";
 import { partnerAppStatusLabel } from "@/components/god-mode/partner-editor-dialog";
+import { PartnerEmailPreviewDialog } from "@/components/god-mode/partner-email-preview-dialog";
 import {
   PARTNERS_API_ROUTE,
   PARTNERS_QUERY_KEY,
@@ -392,6 +394,7 @@ export function PartnerDetailPanel({
   const t = useText();
   const headingId = useId();
   const panelRef = useRef<HTMLElement>(null);
+  const [emailPreviewOpen, setEmailPreviewOpen] = useState(false);
   const query = useQuery({
     queryKey: [...PARTNERS_QUERY_KEY, "detail", partnerId],
     queryFn: ({ signal }) =>
@@ -416,96 +419,126 @@ export function PartnerDetailPanel({
   }, [partnerId]);
 
   return (
-    <aside
-      ref={panelRef}
-      id={panelId}
-      tabIndex={-1}
-      aria-label={t("Partner details")}
-      aria-busy={query.isFetching}
-      className="min-w-0 scroll-mt-24 space-y-4 rounded-2xl border border-violet-200/70 bg-muted/10 outline-none xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain dark:border-violet-400/20"
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          event.preventDefault();
-          onClose();
-        }
-      }}
-    >
-      <div className="sticky top-0 z-10 flex items-start gap-3 border-b bg-background p-4">
-        <div className="min-w-0 flex-1">
-          <h3
-            id={headingId}
-            className="break-words font-heading text-xl font-semibold"
-          >
-            {partner?.companyName ?? companyName}
-          </h3>
-          {partner && (
-            <p className="mt-1 break-words text-sm text-muted-foreground">
-              {partner.firstName} {partner.lastName}
-            </p>
-          )}
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            aria-label={`${t("Edit partner")}: ${partner?.companyName ?? companyName}`}
-            title={t("Edit partner")}
-            disabled={!partner || query.isError || query.isFetching}
-            onClick={onEdit}
-          >
-            <Pencil className="size-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label={t("Hide details")}
-            title={t("Hide details")}
-            onClick={onClose}
-          >
-            <X className="size-4" />
-          </Button>
-        </div>
-      </div>
-      <div className="px-4 pb-4">
-        {query.isPending && (
-          <p
-            role="status"
-            className="flex items-center gap-2 py-6 text-sm text-muted-foreground"
-          >
-            <Loader2 className="size-4 animate-spin" />
-            {t("Loading partner details...")}
-          </p>
-        )}
-        {query.isError ? (
-          <div
-            role="alert"
-            className="grid gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm"
-          >
-            <p className="text-destructive">
-              {t("Could not load partner details.")}
-            </p>
-            {query.error instanceof Error && (
-              <p className="break-words text-muted-foreground">
-                {query.error.message}
+    <>
+      <aside
+        ref={panelRef}
+        id={panelId}
+        tabIndex={-1}
+        aria-label={t("Partner details")}
+        aria-busy={query.isFetching}
+        className="min-w-0 scroll-mt-24 space-y-4 rounded-2xl border border-violet-200/70 bg-muted/10 outline-none xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain dark:border-violet-400/20"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            onClose();
+          }
+        }}
+      >
+        <div className="sticky top-0 z-10 flex items-start gap-3 border-b bg-background p-4">
+          <div className="min-w-0 flex-1">
+            <h3
+              id={headingId}
+              className="break-words font-heading text-xl font-semibold"
+            >
+              {partner?.companyName ?? companyName}
+            </h3>
+            {partner && (
+              <p className="mt-1 break-words text-sm text-muted-foreground">
+                {partner.firstName} {partner.lastName}
               </p>
             )}
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
             <Button
-              className="w-fit"
+              type="button"
               variant="outline"
-              size="sm"
-              disabled={query.isFetching}
-              onClick={() => void query.refetch()}
+              size="icon-sm"
+              aria-label={`${t("Edit partner")}: ${partner?.companyName ?? companyName}`}
+              title={t("Edit partner")}
+              disabled={!partner || query.isError || query.isFetching}
+              onClick={onEdit}
             >
-              <RefreshCw className="size-4" />
-              {t("Retry detail")}
+              <Pencil className="size-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t("Hide details")}
+              title={t("Hide details")}
+              onClick={onClose}
+            >
+              <X className="size-4" />
             </Button>
           </div>
-        ) : partner ? (
-          <PartnerFacts partner={partner} />
-        ) : null}
-      </div>
-    </aside>
+        </div>
+        <div className="px-4 pb-4">
+          {partner && !query.isError && (
+            <div className="mb-4 space-y-2">
+              <Button
+                type="button"
+                className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-sm hover:from-violet-700 hover:to-fuchsia-700"
+                disabled={
+                  query.isFetching || partnerSection(partner) === "other"
+                }
+                onClick={() => setEmailPreviewOpen(true)}
+              >
+                <Mail className="size-4" />
+                {t("Send an email")}
+              </Button>
+              {partnerSection(partner) === "other" && (
+                <p className="text-sm text-amber-700 dark:text-amber-300">
+                  {t(
+                    "Review the partner's connections and app status before sending an email.",
+                  )}
+                </p>
+              )}
+            </div>
+          )}
+          {query.isPending && (
+            <p
+              role="status"
+              className="flex items-center gap-2 py-6 text-sm text-muted-foreground"
+            >
+              <Loader2 className="size-4 animate-spin" />
+              {t("Loading partner details...")}
+            </p>
+          )}
+          {query.isError ? (
+            <div
+              role="alert"
+              className="grid gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm"
+            >
+              <p className="text-destructive">
+                {t("Could not load partner details.")}
+              </p>
+              {query.error instanceof Error && (
+                <p className="break-words text-muted-foreground">
+                  {query.error.message}
+                </p>
+              )}
+              <Button
+                className="w-fit"
+                variant="outline"
+                size="sm"
+                disabled={query.isFetching}
+                onClick={() => void query.refetch()}
+              >
+                <RefreshCw className="size-4" />
+                {t("Retry detail")}
+              </Button>
+            </div>
+          ) : partner ? (
+            <PartnerFacts partner={partner} />
+          ) : null}
+        </div>
+      </aside>
+      {emailPreviewOpen && (
+        <PartnerEmailPreviewDialog
+          partnerId={partnerId}
+          onClose={() => setEmailPreviewOpen(false)}
+        />
+      )}
+    </>
   );
 }

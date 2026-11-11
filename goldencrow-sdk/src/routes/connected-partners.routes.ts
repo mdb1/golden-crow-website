@@ -25,6 +25,13 @@ import {
   updatePartner,
 } from "../repositories/connected-partners.repository.js";
 
+import {
+  PartnerEmailLanguageSchema,
+  PartnerEmailSendInputSchema,
+  previewPartnerEmail,
+  sendPartnerEmail,
+} from "../repositories/partner-email.repository.js";
+
 const ParamsSchema = z.object({ partnerId: PartnerIdSchema }).strict();
 const ROUTE = "/admin/connected-partners";
 const CsvBodySchema = z
@@ -77,22 +84,25 @@ export async function connectedPartnersRoutes(
       schema: {
         querystring: z.union([
           z.object({ cursor: PartnerIdSchema.optional() }).strict(),
-          z.object({
-            section: PartnerSectionSchema,
-            cursor: PartnerSectionCursorSchema.optional(),
-            limit: z.coerce.number().int().min(1).max(20).optional(),
-          }).strict(),
+          z
+            .object({
+              section: PartnerSectionSchema,
+              cursor: PartnerSectionCursorSchema.optional(),
+              limit: z.coerce.number().int().min(1).max(20).optional(),
+            })
+            .strict(),
         ]),
       },
     },
-    async (request) => "section" in request.query
-      ? listPartnersBySection(
-          request.adminContext!,
-          request.query.section,
-          request.query.cursor,
-          request.query.limit,
-        )
-      : listPartners(request.adminContext!, request.query.cursor),
+    async (request) =>
+      "section" in request.query
+        ? listPartnersBySection(
+            request.adminContext!,
+            request.query.section,
+            request.query.cursor,
+            request.query.limit,
+          )
+        : listPartners(request.adminContext!, request.query.cursor),
   );
 
   f.get(
@@ -125,6 +135,35 @@ export async function connectedPartnersRoutes(
         request.params.partnerId,
       ),
     }),
+  );
+
+  f.get(
+    `${ROUTE}/:partnerId/email-preview`,
+    {
+      schema: {
+        params: ParamsSchema,
+        querystring: z
+          .object({ language: PartnerEmailLanguageSchema.default("es") })
+          .strict(),
+      },
+    },
+    async (request) =>
+      previewPartnerEmail(
+        request.adminContext!,
+        request.params.partnerId,
+        request.query.language,
+      ),
+  );
+
+  f.post(
+    `${ROUTE}/:partnerId/email`,
+    { schema: { params: ParamsSchema, body: PartnerEmailSendInputSchema } },
+    async (request) =>
+      sendPartnerEmail(
+        request.adminContext!,
+        request.params.partnerId,
+        request.body,
+      ),
   );
 
   f.post(

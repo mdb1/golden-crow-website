@@ -64,7 +64,7 @@ import {
 } from "@/lib/pgflex-routes";
 import {
   normalizePublisherPortalCallbackUrl,
-  PUBLISHER_PORTAL_ENTRY_ROUTE,
+  publisherPortalPostLoginRoute,
 } from "@/lib/publisher-portal-routes";
 import type { AdminRole } from "@/lib/admin-areas";
 
@@ -1914,6 +1914,7 @@ export function LoginExperience({
       contextData.context?.projectAccess,
     );
     const patientCallback = isPatientPortal ? patientPortalCallbackUrl() : undefined;
+    const publisherCallback = isPublisherPortal ? publisherPortalCallbackUrl() : undefined;
     const needsCompletion = profileSetupData.state?.needsCompletion;
     const redirectTo = needsCompletion
       ? isPatientPortal
@@ -1921,14 +1922,14 @@ export function LoginExperience({
         : isPGFlexPortal
           ? "/pgflex/complete-profile"
           : isPublisherPortal
-            ? "/publisher-portal/complete-profile"
+            ? publisherPortalPostLoginRoute(publisherCallback, true)
             : "/complete-profile"
       : isPatientPortal
         ? (patientCallback ?? PATIENT_PORTAL_ENTRY_ROUTE)
         : isPGFlexPortal
           ? (pgflexCallbackUrl() ?? PGFLEX_ENTRY_ROUTE)
           : isPublisherPortal
-            ? (publisherPortalCallbackUrl() ?? PUBLISHER_PORTAL_ENTRY_ROUTE)
+            ? publisherPortalPostLoginRoute(publisherCallback)
             : "/2pq-dashboard";
 
     if (needsCompletion) {
