@@ -20,6 +20,118 @@ export function toggleAppLanguage(language: AppLanguage): AppLanguage {
 }
 
 const SPANISH_TEXT: Record<string, string> = {
+  "Partner CSV import rules": "Reglas para importar partners desde CSV",
+  "Prepare your partner CSV using these exact columns and rules.":
+    "Prepará tu CSV de partners con estas columnas y reglas exactas.",
+  "How to import": "Cómo importar",
+  "Prepare the file": "Preparar el archivo",
+  "Download the template and add one partner per row.":
+    "Descargá la plantilla y agregá un partner por fila.",
+  "Review the preview": "Revisar la vista previa",
+  "Upload the CSV, review skipped rows, and correct every error.":
+    "Subí el CSV, revisá las filas omitidas y corregí todos los errores.",
+  "Confirm the import": "Confirmar la importación",
+  "Choose Import partners. Your existing partners stay unchanged.":
+    "Elegí Importar partners. Los partners existentes no se modifican.",
+  "Columns": "Columnas",
+  "Accepted value": "Valor permitido",
+  "File and import rules": "Reglas del archivo y de la importación",
+  "Download template": "Descargar plantilla",
+  "Download rules": "Descargar reglas",
+  "Required. Company or partner name, up to 180 characters.":
+    "Obligatorio. Nombre de la empresa o del partner, hasta 180 caracteres.",
+  "Required. Contact first name, up to 140 characters.":
+    "Obligatorio. Nombre del contacto, hasta 140 caracteres.",
+  "Required. Contact last name, up to 140 characters.":
+    "Obligatorio. Apellido del contacto, hasta 140 caracteres.",
+  "Required. A valid contact email, up to 254 characters. Converted to lowercase.":
+    "Obligatorio. Email válido del contacto, hasta 254 caracteres. Se convierte a minúsculas.",
+  "Optional. Up to 50 characters. Leave blank when unknown.":
+    "Opcional. Hasta 50 caracteres. Dejalo vacío si no lo conocés.",
+  "Optional. A real date in YYYY-MM-DD format, for example 2026-11-18. Leave blank when unscheduled.":
+    "Opcional. Una fecha real con formato YYYY-MM-DD, por ejemplo 2026-11-18. Dejalo vacío si no hay una reunión agendada.",
+  "Optional. Up to 10,000 characters. Quote text containing commas, semicolons, or line breaks.":
+    "Opcional. Hasta 10.000 caracteres. Usá comillas si el texto contiene comas, punto y coma o saltos de línea.",
+  "Optional. The document ID of an existing organization. Names and email addresses are not IDs.":
+    "Opcional. ID del registro de una organización existente. Los nombres y emails no son IDs.",
+  "Optional. The document ID of an existing individual publisher. It can be used together with an organization ID.":
+    "Opcional. ID del registro de un publicador individual existente. Se puede usar junto con el ID de una organización.",
+  "Optional. An existing app document ID or its unique public app identifier. Its publisher is linked automatically.":
+    "Opcional. ID del registro de una app existente o su identificador público único. Su publicador se vincula automáticamente.",
+  "Save a .csv file using UTF-8 encoding. Comma and semicolon separators are supported; use one separator consistently.":
+    "Guardá un archivo .csv con codificación UTF-8. Se aceptan comas o punto y coma como separador; usá el mismo en todo el archivo.",
+  "In Excel or Google Sheets, keep phone numbers and IDs as text and export CSV. Excel workbooks (.xlsx) cannot be uploaded.":
+    "En Excel o Google Sheets, mantené los teléfonos y los IDs como texto y exportá a CSV. No se pueden subir archivos de Excel (.xlsx).",
+  "Replace the example row in the template with your real partners before uploading.":
+    "Reemplazá la fila de ejemplo de la plantilla por tus partners reales antes de subir el archivo.",
+  "The first non-empty row must contain column headers. Header spelling and capitalization are case-sensitive. Surrounding whitespace is ignored. Columns may appear in any order.":
+    "La primera fila no vacía debe contener los encabezados. Respetá exactamente su escritura, mayúsculas y minúsculas. Se ignoran los espacios al principio y al final. Las columnas pueden estar en cualquier orden.",
+  "Include companyName, firstName, lastName, and email. Optional columns may be omitted or left blank. Unknown or repeated headers are rejected.":
+    "Incluí companyName, firstName, lastName y email. Las columnas opcionales se pueden omitir o dejar vacías. Se rechazan los encabezados desconocidos o repetidos.",
+  "Use one partner per row. The maximum is 200 partner rows and 256 KiB per file. Completely empty rows are ignored.":
+    "Usá una fila por partner. El máximo es de 200 partners y 256 KiB por archivo. Las filas completamente vacías se ignoran.",
+  "Values are trimmed around their edges. Emails are converted to lowercase. Blank phone numbers remain empty; blank dates, notes, and link IDs become empty optional values.":
+    "Se quitan los espacios al principio y al final de los valores. Los emails se convierten a minúsculas. Los teléfonos vacíos quedan en blanco; las fechas, notas e IDs de vínculos vacíos se guardan sin valor.",
+  "Put fields containing a separator or a line break inside double quotes. Write a double quote inside a quoted field as two double quotes, for example \"He said \"\"Hello\"\".\".":
+    "Encerrá entre comillas dobles los campos que contengan un separador o un salto de línea. Para escribir una comilla dentro de ese texto, repetila: por ejemplo \"Dijo \"\"Hola\"\".\".",
+  "Organization and individual publisher IDs must already exist. You can link either publisher type, both, or neither. Importing never creates or changes publishers or apps.":
+    "Los IDs de organizaciones y publicadores individuales ya deben existir. Podés vincular un tipo de publicador, ambos o ninguno. La importación nunca crea ni modifica publicadores o apps.",
+  "To find an ID, open a partner's Connections step and browse publishers or apps. Each result shows its ID below its name.":
+    "Para encontrar un ID, abrí el paso Conexiones de un partner y explorá los publicadores o las apps. Cada resultado muestra el ID debajo de su nombre.",
+  "An app ID can be its document ID or unique public app identifier. The app's own publisher is linked automatically. A supplied publisher of the same type must match the app's owner; the other publisher link is kept.":
+    "El ID de una app puede ser el ID de su registro o su identificador público único. Su publicador se vincula automáticamente. Si indicás un publicador del mismo tipo, debe coincidir con el dueño de la app; se conserva el vínculo al otro tipo de publicador.",
+  "Email identifies duplicates for imports. The first occurrence in the file is considered; later occurrences and partners whose email already exists are skipped. Existing partners are never overwritten.":
+    "El email identifica los duplicados al importar. Se considera la primera aparición del archivo; se omiten las siguientes y los partners cuyo email ya existe. Nunca se sobrescriben los partners existentes.",
+  "Every row is validated, including duplicates. Any invalid row blocks the entire import. Correct the file and upload it again; no partner is created before you confirm the preview.":
+    "Se validan todas las filas, incluso los duplicados. Una fila inválida bloquea toda la importación. Corregí el archivo y volvé a subirlo; no se crea ningún partner antes de confirmar la vista previa.",
+  "Error row numbers refer to the starting line in your CSV, including the header and any line breaks inside quoted cells.":
+    "Los números de fila de los errores indican la línea de inicio dentro del CSV, contando el encabezado y los saltos de línea dentro de los campos entre comillas.",
+  "The import validates the file again before saving. If a response is interrupted, retry the same import to confirm its result safely without creating another copy.":
+    "Antes de guardar se vuelve a validar el archivo. Si se interrumpe una respuesta, reintentá la misma importación para confirmar su resultado sin crear otra copia.",
+  "Choose a file with the .csv extension.": "Elegí un archivo con extensión .csv.",
+  "CSV file exceeds the 256 KiB limit.": "El archivo CSV supera el límite de 256 KiB.",
+  "Could not read this CSV file.": "No se pudo leer este archivo CSV.",
+  "This file is not valid UTF-8. Save it as UTF-8 CSV and try again.":
+    "El archivo no tiene una codificación UTF-8 válida. Guardalo como CSV UTF-8 y volvé a intentar.",
+  "Could not validate this CSV file.": "No se pudo validar este archivo CSV.",
+  "Could not import partners.": "No se pudieron importar los partners.",
+  "Import partners from CSV": "Importar partners desde CSV",
+  "Choose a CSV file, review every row, and confirm before adding partners.":
+    "Elegí un archivo CSV, revisá cada fila y confirmá antes de agregar los partners.",
+  "Import result": "Resultado de la importación",
+  "Import complete": "Importación completada",
+  "Your partner list has been updated.": "Tu lista de partners ya está actualizada.",
+  "Partners added": "Partners agregados",
+  "Duplicates skipped": "Duplicados omitidos",
+  "UTF-8 · 200 rows · 256 KiB maximum": "UTF-8 · 200 filas · Máximo 256 KiB",
+  "Start with the template or choose your prepared CSV file.":
+    "Usá la plantilla o elegí el archivo CSV que preparaste.",
+  "Choose CSV": "Elegir CSV",
+  "Choose another CSV": "Elegir otro CSV",
+  "Validating CSV...": "Validando CSV...",
+  "The import result is not confirmed. Retry this same import to safely retrieve its result. Keep this file selected until the result is confirmed.":
+    "Todavía no se confirmó el resultado de la importación. Reintentá esta misma importación para obtener su resultado de forma segura. Mantené este archivo seleccionado hasta confirmar el resultado.",
+  "Validate again": "Validar de nuevo",
+  "CSV preview": "Vista previa del CSV",
+  "Total rows": "Filas totales",
+  "Rows to fix": "Filas para corregir",
+  "Correct every invalid row and upload the file again. No partners have been added.":
+    "Corregí todas las filas inválidas y volvé a subir el archivo. No se agregó ningún partner.",
+  "No new partners to import. Existing partners will stay unchanged.":
+    "No hay partners nuevos para importar. Los existentes no se modificarán.",
+  "Invalid row": "Fila inválida",
+  "Skipped duplicate": "Duplicado omitido",
+  "Needs correction": "Requiere corrección",
+  "View contact details": "Ver datos de contacto",
+  "Import another file": "Importar otro archivo",
+  "Importing partners...": "Importando partners...",
+  "Retry import": "Reintentar importación",
+  "Import partners": "Importar partners",
+  "Close without a confirmed result?": "¿Cerrar sin confirmar el resultado?",
+  "Some partners may already have been imported. Retrying this same import is the safest way to confirm the result. Closing discards this local retry reference.":
+    "Es posible que algunos partners ya se hayan importado. Reintentar esta misma importación es la forma más segura de confirmar el resultado. Al cerrar se pierde esta referencia local para reintentarlo.",
+  "Keep checking": "Seguir verificando",
+  "Close import": "Cerrar importación",
   Partners: "Partners",
   "App under review": "App en revisión",
   "Testing · Free app": "Pruebas · App gratuita",

@@ -7,7 +7,15 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
-import { Building2, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  BookOpen,
+  Building2,
+  FileUp,
+  Loader2,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { useAppLanguage } from "@/components/app-language-provider";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { Button } from "@/components/ui/button";
@@ -36,6 +44,10 @@ import {
   PartnerEditorDialog,
   partnerAppStatusLabel,
 } from "@/components/god-mode/partner-editor-dialog";
+import {
+  PartnerCsvImportDialog,
+  PartnerCsvImportRulesDialog,
+} from "@/components/god-mode/partner-csv-import-dialog";
 
 function useText() {
   const { language } = useAppLanguage();
@@ -192,6 +204,7 @@ export function PartnersBrowser({
   const t = useText();
   const router = useRouter();
   const [editor, setEditor] = useState<string | null>(initialEditor ?? null);
+  const [csvDialog, setCsvDialog] = useState<"import" | "rules" | null>(null);
   function closeEditor() {
     setEditor(null);
     if (initialEditor) router.replace(PARTNERS_ROUTE);
@@ -246,6 +259,22 @@ export function PartnersBrowser({
           <HeaderUnclutterButton />
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="ghost"
+            className="rounded-xl"
+            onClick={() => setCsvDialog("rules")}
+          >
+            <BookOpen className="size-4" />
+            {t("Import rules")}
+          </Button>
+          <Button
+            variant="outline"
+            className="rounded-xl"
+            onClick={() => setCsvDialog("import")}
+          >
+            <FileUp className="size-4" />
+            {t("Import CSV")}
+          </Button>
           {selectedIds.length > 0 && (
             <Button
               variant="destructive"
@@ -462,6 +491,12 @@ export function PartnersBrowser({
           partnerId={editor === "new" ? undefined : editor}
           onClose={closeEditor}
         />
+      )}
+      {csvDialog === "import" && (
+        <PartnerCsvImportDialog onClose={() => setCsvDialog(null)} />
+      )}
+      {csvDialog === "rules" && (
+        <PartnerCsvImportRulesDialog onClose={() => setCsvDialog(null)} />
       )}
     </section>
   );

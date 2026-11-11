@@ -1,4 +1,4 @@
-import { FieldPath } from "firebase-admin/firestore";
+import { FieldPath, type Transaction } from "firebase-admin/firestore";
 import { adminDbFor } from "../config/firebase.js";
 import {
   CONNECTED_PARTNERS_COLLECTION,
@@ -35,7 +35,8 @@ function collection(context: AdminContext) {
 
 function validId(id: string) {
   const result = PartnerIdSchema.safeParse(id);
-  if (!result.success) throw new AdminRepositoryError("Invalid partner ID", 400);
+  if (!result.success)
+    throw new AdminRepositoryError("Invalid partner ID", 400);
   return result.data;
 }
 
@@ -43,42 +44,57 @@ function appSnapshot(id: string, data: Record<string, unknown> | undefined) {
   if (
     data?.publisherKind !== "organization" &&
     data?.publisherKind !== "individual"
-  ) return null;
+  )
+    return null;
   const parsed = PartnerAppSnapshotSchema.safeParse({
     id,
     publisherKind: data.publisherKind,
     publisherId: data.publisherId,
     publisherName: data.publisherName,
     status: data.status,
-    ...(typeof data.appProviderIdentifier === "string" && data.appProviderIdentifier.trim()
+    ...(typeof data.appProviderIdentifier === "string" &&
+    data.appProviderIdentifier.trim()
       ? { appProviderIdentifier: data.appProviderIdentifier.trim() }
       : {}),
   });
   return parsed.success ? parsed.data : null;
 }
 
-type LinkReader = {
+export type PartnerLinkReader = {
   organization: (id: string) => Promise<PartnerOrganizationSnapshot | null>;
-  individual: (id: string) => Promise<PartnerIndividualPublisherSnapshot | null>;
+  individual: (
+    id: string,
+  ) => Promise<PartnerIndividualPublisherSnapshot | null>;
   app: (id: string) => Promise<PartnerAppSnapshot | null>;
 };
 
 // Repeated links are read once per page. Snapshots never determine live status.
-function linkReader(): LinkReader {
+export function partnerLinkReader(
+  transaction?: Transaction,
+): PartnerLinkReader {
   const db = adminDbFor("mydnamap");
-  const publishers = new Map<string, Promise<PartnerOrganizationSnapshot | null>>();
+  const publishers = new Map<
+    string,
+    Promise<PartnerOrganizationSnapshot | null>
+  >();
   const apps = new Map<string, Promise<PartnerAppSnapshot | null>>();
   function publisher(collectionName: string, id: string) {
     const key = `${collectionName}/${id}`;
     if (!publishers.has(key)) {
-      publishers.set(key, (async () => {
-        const doc = await db.collection(collectionName).doc(id).get();
-        const parsed = PartnerOrganizationSnapshotSchema.safeParse({
-          id,
-          name: doc.data()?.name,
-        });
-        return doc.exists && parsed.success ? parsed.data : null;
-      })());
+      publishers.set(
+        key,
+        (async () => {
+          const ref = db.collection(collectionName).doc(id);
+          const doc = transaction
+            ? await transaction.get(ref)
+            : await ref.get();
+          const parsed = PartnerOrganizationSnapshotSchema.safeParse({
+            id,
+            name: doc.data()?.name,
+          });
+          return doc.exists && parsed.success ? parsed.data : null;
+        })(),
+      );
     }
     return publishers.get(key)!;
   }
@@ -86,12 +102,19 @@ function linkReader(): LinkReader {
     organization: (id) => publisher(ORGANIZATIONS_COLLECTION, id),
     individual: (id) => publisher(INDIVIDUALS_COLLECTION, id),
     app(id) {
-      if (!PartnerLinkIdSchema.safeParse(id).success) return Promise.resolve(null);
+      if (!PartnerLinkIdSchema.safeParse(id).success)
+        return Promise.resolve(null);
       if (!apps.has(id)) {
-        apps.set(id, (async () => {
-          const doc = await db.collection(APPS_COLLECTION).doc(id).get();
-          return doc.exists ? appSnapshot(id, doc.data()) : null;
-        })());
+        apps.set(
+          id,
+          (async () => {
+            const ref = db.collection(APPS_COLLECTION).doc(id);
+            const doc = transaction
+              ? await transaction.get(ref)
+              : await ref.get();
+            return doc.exists ? appSnapshot(id, doc.data()) : null;
+          })(),
+        );
       }
       return apps.get(id)!;
     },
@@ -101,18 +124,23 @@ function linkReader(): LinkReader {
 async function toPartner(
   id: string,
   data: unknown,
-  reader: LinkReader,
+  reader: PartnerLinkReader,
 ): Promise<Partner> {
   const stored = StoredPartnerSchema.parse(data);
-  const [linkedOrganization, linkedIndividualPublisher, app] = await Promise.all([
-    stored.linkedOrganizationId
-      ? reader.organization(stored.linkedOrganizationId) : null,
-    stored.linkedIndividualPublisherId
-      ? reader.individual(stored.linkedIndividualPublisherId) : null,
-    stored.linkedAppId ? reader.app(stored.linkedAppId) : null,
-  ]);
-  const appOwner = app?.publisherKind === "individual"
-    ? linkedIndividualPublisher : linkedOrganization;
+  const [linkedOrganization, linkedIndividualPublisher, app] =
+    await Promise.all([
+      stored.linkedOrganizationId
+        ? reader.organization(stored.linkedOrganizationId)
+        : null,
+      stored.linkedIndividualPublisherId
+        ? reader.individual(stored.linkedIndividualPublisherId)
+        : null,
+      stored.linkedAppId ? reader.app(stored.linkedAppId) : null,
+    ]);
+  const appOwner =
+    app?.publisherKind === "individual"
+      ? linkedIndividualPublisher
+      : linkedOrganization;
   return {
     ...stored,
     id,
@@ -122,19 +150,27 @@ async function toPartner(
   };
 }
 
-async function preparePartner(input: PartnerInput): Promise<StoredPartner> {
+export async function preparePartner(
+  input: PartnerInput,
+  reader = partnerLinkReader(),
+): Promise<StoredPartner> {
   const data = PartnerInputSchema.parse(input);
-  const reader = linkReader();
-  const linkedApp = data.linkedAppId ? await reader.app(data.linkedAppId) : null;
+  const linkedApp = data.linkedAppId
+    ? await reader.app(data.linkedAppId)
+    : null;
   if (data.linkedAppId && !linkedApp) {
     throw new AdminRepositoryError("Linked app not found", 400);
   }
   if (linkedApp) {
-    const ownerKey = linkedApp.publisherKind === "individual"
-      ? "linkedIndividualPublisherId" : "linkedOrganizationId";
+    const ownerKey =
+      linkedApp.publisherKind === "individual"
+        ? "linkedIndividualPublisherId"
+        : "linkedOrganizationId";
     if (data[ownerKey] && data[ownerKey] !== linkedApp.publisherId) {
-      const ownerLabel = linkedApp.publisherKind === "individual"
-        ? "individual publisher" : "organization";
+      const ownerLabel =
+        linkedApp.publisherKind === "individual"
+          ? "individual publisher"
+          : "organization";
       throw new AdminRepositoryError(
         `Linked app belongs to a different ${ownerLabel}`,
         400,
@@ -143,15 +179,21 @@ async function preparePartner(input: PartnerInput): Promise<StoredPartner> {
     data[ownerKey] = linkedApp.publisherId;
   }
   const [linkedOrganization, linkedIndividualPublisher] = await Promise.all([
-    data.linkedOrganizationId ? reader.organization(data.linkedOrganizationId) : null,
+    data.linkedOrganizationId
+      ? reader.organization(data.linkedOrganizationId)
+      : null,
     data.linkedIndividualPublisherId
-      ? reader.individual(data.linkedIndividualPublisherId) : null,
+      ? reader.individual(data.linkedIndividualPublisherId)
+      : null,
   ]);
   if (data.linkedOrganizationId && !linkedOrganization) {
     throw new AdminRepositoryError("Linked organization not found", 400);
   }
   if (data.linkedIndividualPublisherId && !linkedIndividualPublisher) {
-    throw new AdminRepositoryError("Linked individual publisher not found", 400);
+    throw new AdminRepositoryError(
+      "Linked individual publisher not found",
+      400,
+    );
   }
   return {
     ...data,
@@ -179,10 +221,13 @@ export async function listPartners(
   if (cursor) query = query.startAfter(validId(cursor));
   const snapshot = await query.limit(PAGE_SIZE + 1).get();
   const docs = snapshot.docs.slice(0, PAGE_SIZE);
-  const reader = linkReader();
+  const reader = partnerLinkReader();
   return {
-    items: await Promise.all(docs.map((doc) => toPartner(doc.id, doc.data(), reader))),
-    nextCursor: snapshot.docs.length > PAGE_SIZE ? docs[docs.length - 1]!.id : null,
+    items: await Promise.all(
+      docs.map((doc) => toPartner(doc.id, doc.data(), reader)),
+    ),
+    nextCursor:
+      snapshot.docs.length > PAGE_SIZE ? docs[docs.length - 1]!.id : null,
   };
 }
 
@@ -192,7 +237,7 @@ export async function getPartner(
 ): Promise<Partner> {
   const doc = await collection(context).doc(validId(id)).get();
   if (!doc.exists) throw new AdminRepositoryError("Partner not found", 404);
-  return toPartner(doc.id, doc.data(), linkReader());
+  return toPartner(doc.id, doc.data(), partnerLinkReader());
 }
 
 export async function createPartner(
@@ -232,7 +277,9 @@ function appOption(app: PartnerAppSnapshot): PartnerLinkOption {
     publisherKind: app.publisherKind,
     publisherId: app.publisherId,
     status: app.status,
-    ...(app.appProviderIdentifier ? { appProviderIdentifier: app.appProviderIdentifier } : {}),
+    ...(app.appProviderIdentifier
+      ? { appProviderIdentifier: app.appProviderIdentifier }
+      : {}),
   };
 }
 
@@ -257,22 +304,28 @@ export async function listPartnerLinkOptions(
 ): Promise<PartnerLinkOptionsPage> {
   collection(context);
   const db = adminDbFor("mydnamap");
-  const reader = linkReader();
+  const reader = partnerLinkReader();
   const cursor = options.cursor
-    ? PartnerLinkIdSchema.parse(options.cursor) : undefined;
-  const publisherCollection = options.kind === "organization"
-    ? ORGANIZATIONS_COLLECTION : INDIVIDUALS_COLLECTION;
+    ? PartnerLinkIdSchema.parse(options.cursor)
+    : undefined;
+  const publisherCollection =
+    options.kind === "organization"
+      ? ORGANIZATIONS_COLLECTION
+      : INDIVIDUALS_COLLECTION;
   if (options.id) {
     const id = PartnerLinkIdSchema.parse(options.id);
     if (options.kind !== "app") {
-      const publisher = options.kind === "organization"
-        ? await reader.organization(id) : await reader.individual(id);
+      const publisher =
+        options.kind === "organization"
+          ? await reader.organization(id)
+          : await reader.individual(id);
       return { items: publisher ? [publisher] : [], nextCursor: null };
     }
     let app = await reader.app(id);
     if (!app) {
       // An exact public app identifier is also accepted without scanning configs.
-      const matches = await db.collection(APPS_COLLECTION)
+      const matches = await db
+        .collection(APPS_COLLECTION)
         .where("appProviderIdentifier", "==", id)
         .limit(2)
         .get();
@@ -294,25 +347,37 @@ export async function listPartnerLinkOptions(
     // Canonical app config IDs allow at most two direct reads for selected publishers.
     const apps = await Promise.all([
       ...(options.organizationId
-        ? [reader.app(`organization_${PartnerLinkIdSchema.parse(options.organizationId)}`)]
+        ? [
+            reader.app(
+              `organization_${PartnerLinkIdSchema.parse(options.organizationId)}`,
+            ),
+          ]
         : []),
       ...(options.individualPublisherId
-        ? [reader.app(`individual_${PartnerLinkIdSchema.parse(options.individualPublisherId)}`)]
+        ? [
+            reader.app(
+              `individual_${PartnerLinkIdSchema.parse(options.individualPublisherId)}`,
+            ),
+          ]
         : []),
     ]);
     return {
       items: apps
-        .filter((app): app is PartnerAppSnapshot => Boolean(
-          app && appMatchesScope(app, options) && (!cursor || app.id > cursor),
-        ))
+        .filter((app): app is PartnerAppSnapshot =>
+          Boolean(
+            app &&
+              appMatchesScope(app, options) &&
+              (!cursor || app.id > cursor),
+          ),
+        )
         .sort((left, right) => left.id.localeCompare(right.id))
         .map(appOption),
       nextCursor: null,
     };
   }
-  let query = db.collection(
-    options.kind === "app" ? APPS_COLLECTION : publisherCollection,
-  ).orderBy(FieldPath.documentId());
+  let query = db
+    .collection(options.kind === "app" ? APPS_COLLECTION : publisherCollection)
+    .orderBy(FieldPath.documentId());
   if (cursor) query = query.startAfter(cursor);
   const snapshot = await query.limit(PAGE_SIZE + 1).get();
   const docs = snapshot.docs.slice(0, PAGE_SIZE);
@@ -329,7 +394,8 @@ export async function listPartnerLinkOptions(
       const app = appSnapshot(doc.id, data);
       return app ? [appOption(app)] : [];
     }),
-    nextCursor: snapshot.docs.length > PAGE_SIZE ? docs[docs.length - 1]!.id : null,
+    nextCursor:
+      snapshot.docs.length > PAGE_SIZE ? docs[docs.length - 1]!.id : null,
   };
 }
 

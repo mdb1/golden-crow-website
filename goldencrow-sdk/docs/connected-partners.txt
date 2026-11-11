@@ -33,7 +33,7 @@ app's owner link must remain present; to remove that owner, remove or replace th
 Older contacts decode with null newly added links and snapshots. Existing app snapshots
 that predate publisherKind decode as organization apps; live app records must explicitly
 identify publisherKind. No alternate persisted field names are accepted.
-There is no identity synchronization, importing, or cascading deletion. Deleting
+There is no identity synchronization or cascading deletion. Deleting
 any partner deletes only its contact document. No contact records are seeded.
 Firestore creates the collection when the first contact is saved.
 
@@ -57,6 +57,17 @@ SDK API:
     Returns { items, nextCursor }, 20 partner records per page, ordered by document ID.
     Reads at most 21 partner records plus bounded, deduplicated linked documents.
   GET /admin/connected-partners/:partnerId -> { partner }
+  POST /admin/connected-partners/import/preview with { csv: <file text> }
+    Returns { rows, summary }. Each row contains its physical starting rowNumber,
+    normalized input (or null when contact/cell validation failed), status
+    ready|duplicate|invalid, errors[], and optional duplicateReason.
+    summary contains total, ready, duplicates, invalid counts. This never writes.
+  POST /admin/connected-partners/import with { csv: <same file text>, importId: <UUID> }
+    Returns { importedCount, skippedCount, partnerIds }. Revalidates the complete
+    file and live links inside a Firestore transaction before writing anything.
+    Any invalid row rejects the entire file with 400 and { error, preview }.
+    Bad file structure/headers/size return 400 with { error } at either endpoint.
+    GOD MODE is required; CSV request bodies have a 2 MiB JSON envelope limit.
   GET /admin/connected-partners/link-options?kind=organization|individual|app
       [&cursor=<ID>][&organizationId=<ID>][&individualPublisherId=<ID>][&id=<exact ID>]
     Returns { items, nextCursor }; each option has { id, name }. App options also
@@ -81,6 +92,70 @@ Create/edit bodies accept the seven contact fields and three nullable link IDs.
 Omitted meetingDate, notes, and link IDs become null. Omitted phoneNumber becomes "".
 Unknown fields, including snake_case aliases, snapshots, and resolved-link response
 fields, are rejected. Missing detail/update records return 404.
+
+CSV preparation and import rules:
+  1. Export a UTF-8 CSV file (UTF-8 BOM accepted), at most 256 KiB and 200 nonempty
+     partner rows. Use comma or semicolon consistently; the separator is detected
+     from the first nonempty record. Blank lines and entirely empty rows are ignored.
+     Null bytes are not accepted. The browser rejects malformed UTF-8 file bytes.
+  2. Include a header with these required columns, in any order:
+       companyName,firstName,lastName,email
+     Every partner needs a nonblank companyName (max 180), firstName (max 140),
+     lastName (max 140), and valid email (max 254). Header names are case-sensitive.
+     Surrounding whitespace in headers and cells is trimmed. Unknown, duplicate,
+     or blank headers and missing required columns reject the complete file.
+  3. Optionally include any of:
+       phoneNumber,meetingDate,notes,linkedOrganizationId,linkedIndividualPublisherId,linkedAppId
+     phoneNumber is optional (max 50); blank/omitted becomes an empty string.
+     meetingDate must be a real civil date in YYYY-MM-DD, e.g. 2026-11-18; blank
+     means no date. notes allows at most 10,000 characters; blank means null.
+     Blank link cells mean no link. Omit unused optional columns or leave cells
+     empty, rather than writing the strings null/NULL. Do not include id, snapshots,
+     app status, snake_case aliases, or any other extra column.
+  4. Link organizations/individuals with their existing exact document IDs.
+     Both publisher columns may be filled. linkedAppId accepts an existing app
+     config document ID or its unique public appProviderIdentifier. The app's
+     matching-kind publisher ID is inferred if blank; an explicit different owner
+     rejects that row. The opposite publisher link remains intact. The import does
+     not create publishers/apps or update them. Saved snapshots are server-managed.
+  5. Quote a field containing the separator, a double quote, or a line break with
+     double quotes. Escape a quote inside a quoted field as two double quotes:
+       "Genome, Studio",Ada,Rivera,ada@example.com
+       Genome Studio,Ada,Rivera,ada@example.com,"Asked for ""mobile app"" demo"
+     The second example assumes a notes column appended to the four required ones.
+     Quotes must start a field and must close; optional whitespace after a closing
+     quote is allowed before the next separator or line break. CRLF/LF are supported.
+  6. Emails are trimmed and lowercased before duplicate checks. For repeated emails
+     in one file, only the first row is eligible. Existing partners with that email
+     and later file rows are skipped without overwriting any contact or link.
+     Every row still needs valid contact values and links, even if it is a duplicate.
+  7. Preview the file, fix all invalid rows, and preview again. The complete import
+     must be valid; there is no partial-success mode. Commit checks current data
+     again, so counts can change if another operator adds a matching partner or
+     changes/deletes a linked record after preview. Any invalid row creates nothing.
+  8. A retry for the same file must reuse its UUID importId. The import manifest
+     connected-partner-imports/{UUID} stores only csvHash, importedCount,
+     skippedCount, partnerIds; the raw CSV is not stored. Exact replays return the
+     original result before consulting links, including when those later disappear.
+     Reusing an importId for different file text returns 409. A newly selected file
+     gets a new UUID. Fresh imports of existing emails still skip them.
+
+Import transactions also maintain connected-partner-import-emails/{SHA256(email)}
+with exactly { email, partnerId }. Reading that index inside the same transaction
+serializes concurrent imports for the same email. The referenced partner's current
+email is checked every time; stale pointers after manual email changes or deletion
+are repaired on the next import. Existing partners are never mutated by this repair.
+New contact document IDs use csv_<import UUID without hyphens>_<email hash prefix>.
+At most 200 partner creates, 200 email-index writes and one manifest write occur in
+one transaction, below Firestore's 500-write limit. Existing-email queries use
+limit(1), app-identifier queries limit(2), and linked documents use direct reads.
+
+Minimal CSV example (phone and all links omitted):
+  companyName,firstName,lastName,email
+  Genome Studio,Ada,Rivera,ada@example.com
+
+Full CSV header:
+  companyName,firstName,lastName,email,phoneNumber,meetingDate,notes,linkedOrganizationId,linkedIndividualPublisherId,linkedAppId
 
 Backoffice routes:
   /god-mode/partners

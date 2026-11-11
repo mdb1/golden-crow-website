@@ -7,6 +7,12 @@ import {
   PartnerLinkIdSchema,
 } from "../contracts/connected-partners.js";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
+import { PARTNER_CSV_MAX_BYTES } from "../lib/partner-csv.js";
+import {
+  importPartnerCsv,
+  previewPartnerCsv,
+  PartnerCsvValidationError,
+} from "../repositories/partner-csv-import.repository.js";
 import {
   createPartner,
   deletePartners,
@@ -18,6 +24,18 @@ import {
 
 const ParamsSchema = z.object({ partnerId: PartnerIdSchema }).strict();
 const ROUTE = "/admin/connected-partners";
+const CsvBodySchema = z
+  .object({
+    csv: z
+      .string()
+      .min(1)
+      .max(PARTNER_CSV_MAX_BYTES)
+      .refine(
+        (value) => Buffer.byteLength(value, "utf8") <= PARTNER_CSV_MAX_BYTES,
+        "CSV file exceeds the 256 KiB limit.",
+      ),
+  })
+  .strict();
 
 export async function connectedPartnersRoutes(
   fastify: FastifyInstance,
@@ -34,13 +52,19 @@ export async function connectedPartnersRoutes(
     }
   });
   f.setErrorHandler((error, _request, reply) => {
+    if (error instanceof PartnerCsvValidationError) {
+      return reply
+        .status(error.statusCode)
+        .send({ error: error.message, preview: error.preview });
+    }
     if (isAdminRepositoryError(error)) {
       return reply.status(error.statusCode).send({ error: error.message });
     }
     return reply.send(error);
   });
   f.addHook("onSend", async (request, reply, payload) => {
-    if (request.method === "GET") reply.header("Cache-Control", "private, no-store");
+    if (request.method === "GET")
+      reply.header("Cache-Control", "private, no-store");
     return payload;
   });
 
@@ -59,16 +83,19 @@ export async function connectedPartnersRoutes(
     `${ROUTE}/link-options`,
     {
       schema: {
-        querystring: z.object({
-          kind: z.enum(["organization", "individual", "app"]),
-          cursor: PartnerLinkIdSchema.optional(),
-          organizationId: PartnerLinkIdSchema.optional(),
-          individualPublisherId: PartnerLinkIdSchema.optional(),
-          id: PartnerLinkIdSchema.optional(),
-        }).strict(),
+        querystring: z
+          .object({
+            kind: z.enum(["organization", "individual", "app"]),
+            cursor: PartnerLinkIdSchema.optional(),
+            organizationId: PartnerLinkIdSchema.optional(),
+            individualPublisherId: PartnerLinkIdSchema.optional(),
+            id: PartnerLinkIdSchema.optional(),
+          })
+          .strict(),
       },
     },
-    async (request) => listPartnerLinkOptions(request.adminContext!, request.query),
+    async (request) =>
+      listPartnerLinkOptions(request.adminContext!, request.query),
   );
 
   f.get(
@@ -82,6 +109,27 @@ export async function connectedPartnersRoutes(
         request.params.partnerId,
       ),
     }),
+  );
+
+  f.post(
+    `${ROUTE}/import/preview`,
+    { bodyLimit: 2 * 1024 * 1024, schema: { body: CsvBodySchema } },
+    async (request) =>
+      previewPartnerCsv(request.adminContext!, request.body.csv),
+  );
+
+  f.post(
+    `${ROUTE}/import`,
+    {
+      bodyLimit: 2 * 1024 * 1024,
+      schema: { body: CsvBodySchema.extend({ importId: z.uuid() }).strict() },
+    },
+    async (request) =>
+      importPartnerCsv(
+        request.adminContext!,
+        request.body.csv,
+        request.body.importId,
+      ),
   );
 
   f.post(
