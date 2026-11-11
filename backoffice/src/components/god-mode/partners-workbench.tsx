@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -49,6 +49,11 @@ import {
 } from "@/lib/connected-partners";
 import { appText } from "@/lib/language";
 import { sdkFetch } from "@/lib/sdk-client";
+import { cn } from "@/lib/utils";
+import {
+  PartnerDetailPanel,
+  PartnersSplitPane,
+} from "@/components/god-mode/partner-detail-panel";
 import {
   PartnerEditorDialog,
   partnerAppStatusLabel,
@@ -77,22 +82,55 @@ function RequestError({
   );
 }
 
+function viewPartnerFromSurface(
+  event: MouseEvent<HTMLElement>,
+  onView: (trigger: HTMLElement) => void,
+) {
+  if (
+    event.defaultPrevented ||
+    (event.target instanceof Element &&
+      event.target.closest(
+        "button, a, input, textarea, select, label, details, [role='checkbox'], [contenteditable='true']",
+      )) ||
+    window.getSelection()?.toString()
+  )
+    return;
+  const trigger = event.currentTarget.querySelector<HTMLElement>(
+    "[data-partner-detail-trigger]",
+  );
+  if (trigger) onView(trigger);
+}
+
 function PartnerCard({
   partner,
   selected,
   disabled,
   onSelect,
   onEdit,
+  onView,
+  detailOpen,
+  panelId,
 }: {
   partner: Partner;
   selected: boolean;
   disabled: boolean;
   onSelect: (checked: boolean) => void;
   onEdit: () => void;
+  onView: (trigger: HTMLElement) => void;
+  detailOpen: boolean;
+  panelId: string;
 }) {
   const t = useText();
   return (
-    <article className="relative overflow-hidden rounded-3xl border bg-card p-5 shadow-sm transition hover:border-violet-300/70 hover:shadow-md dark:hover:border-violet-400/30">
+    <article
+      data-state={detailOpen ? "selected" : undefined}
+      onClick={(event) => viewPartnerFromSurface(event, onView)}
+      className={cn(
+        "relative cursor-pointer overflow-hidden rounded-3xl border bg-card p-5 shadow-sm transition hover:border-violet-300/70 hover:shadow-md dark:hover:border-violet-400/30",
+        detailOpen &&
+          "border-violet-400 bg-violet-50/60 ring-1 ring-violet-300 dark:border-violet-400/60 dark:bg-violet-500/10 dark:ring-violet-400/30",
+      )}
+    >
       <div
         aria-hidden="true"
         className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-violet-500 via-fuchsia-400 to-sky-400"
@@ -108,7 +146,17 @@ function PartnerCard({
         <div className="min-w-0 flex-1">
           <p className="text-xs text-muted-foreground">{t("Company name")}</p>
           <h3 className="break-words font-heading text-lg font-semibold">
-            {partner.companyName}
+            <button
+              type="button"
+              data-partner-detail-trigger={partner.id}
+              aria-label={`${t("View partner details")}: ${partner.companyName}`}
+              aria-expanded={detailOpen}
+              aria-controls={detailOpen ? panelId : undefined}
+              className="rounded-sm text-left outline-none hover:text-violet-700 focus-visible:ring-3 focus-visible:ring-ring/45 dark:hover:text-violet-300"
+              onClick={(event) => onView(event.currentTarget)}
+            >
+              {partner.companyName}
+            </button>
           </h3>
         </div>
         <Button
@@ -266,12 +314,18 @@ function PartnerTable({
   disabled,
   onSelect,
   onEdit,
+  onView,
+  detailId,
+  panelId,
 }: {
   partners: Partner[];
   selected: Set<string>;
   disabled: boolean;
   onSelect: (id: string, checked: boolean) => void;
   onEdit: (id: string) => void;
+  onView: (partner: Partner, trigger: HTMLElement) => void;
+  detailId?: string;
+  panelId: string;
 }) {
   const t = useText();
   return (
@@ -315,7 +369,17 @@ function PartnerTable({
           {partners.map((partner) => (
             <tr
               key={partner.id}
-              className="align-top transition hover:bg-muted/30"
+              data-state={detailId === partner.id ? "selected" : undefined}
+              onClick={(event) =>
+                viewPartnerFromSurface(event, (trigger) =>
+                  onView(partner, trigger),
+                )
+              }
+              className={cn(
+                "cursor-pointer align-top transition hover:bg-muted/30",
+                detailId === partner.id &&
+                  "bg-violet-50/80 hover:bg-violet-50 dark:bg-violet-500/10 dark:hover:bg-violet-500/15",
+              )}
             >
               <td className="px-4 py-4">
                 <Checkbox
@@ -328,7 +392,17 @@ function PartnerTable({
                 />
               </td>
               <td className="min-w-40 max-w-56 break-words px-3 py-4 font-semibold">
-                {partner.companyName}
+                <button
+                  type="button"
+                  data-partner-detail-trigger={partner.id}
+                  aria-label={`${t("View partner details")}: ${partner.companyName}`}
+                  aria-expanded={detailId === partner.id}
+                  aria-controls={detailId === partner.id ? panelId : undefined}
+                  className="rounded-sm text-left outline-none hover:text-violet-700 focus-visible:ring-3 focus-visible:ring-ring/45 dark:hover:text-violet-300"
+                  onClick={(event) => onView(partner, event.currentTarget)}
+                >
+                  {partner.companyName}
+                </button>
               </td>
               <td className="min-w-32 max-w-48 break-words px-3 py-4">
                 {partner.firstName} {partner.lastName}
@@ -528,6 +602,12 @@ export function PartnersBrowser({
   const [csvDialog, setCsvDialog] = useState<"import" | "rules" | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [detail, setDetail] = useState<{
+    id: string;
+    companyName: string;
+  } | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const detailPanelId = `${viewId}-detail`;
   const continuationAbort = useRef<AbortController | null>(null);
   useEffect(() => () => continuationAbort.current?.abort(), []);
   useEffect(() => {
@@ -567,6 +647,34 @@ export function PartnersBrowser({
       loadSectionWindow(activeSection as PartnerSection, cursor, [], signal),
   });
   const partners = activeSection ? (query.data?.items ?? []) : [];
+  useEffect(() => {
+    if (
+      detail &&
+      query.isSuccess &&
+      !query.isFetching &&
+      !query.data.items.some((partner) => partner.id === detail.id)
+    )
+      setDetail(null);
+  }, [detail, query.data, query.isSuccess, query.isFetching]);
+  function openDetails(partner: Partner, trigger: HTMLElement) {
+    setDetail({ id: partner.id, companyName: partner.companyName });
+    window.requestAnimationFrame(() => {
+      if (window.matchMedia("(min-width: 1280px)").matches)
+        trigger.scrollIntoView({ block: "nearest", inline: "nearest" });
+    });
+  }
+  function closeDetails() {
+    const trigger = Array.from(
+      listRef.current?.querySelectorAll<HTMLElement>(
+        "[data-partner-detail-trigger]",
+      ) ?? [],
+    ).find((item) => item.dataset.partnerDetailTrigger === detail?.id);
+    setDetail(null);
+    trigger?.focus({ preventScroll: true });
+    window.requestAnimationFrame(() =>
+      trigger?.scrollIntoView({ block: "nearest", inline: "nearest" }),
+    );
+  }
   const selectedIds = partners
     .filter((partner) => selected.has(partner.id))
     .map((partner) => partner.id);
@@ -613,6 +721,7 @@ export function PartnersBrowser({
     },
   });
   function switchSection(next: string) {
+    setDetail(null);
     setSelected(new Set());
     continuationAbort.current?.abort();
     continuation.reset();
@@ -621,6 +730,7 @@ export function PartnersBrowser({
   function changePage(index: number, nextCursor?: string) {
     if (!activeSection) return;
     const section = activeSection;
+    setDetail(null);
     setSelected(new Set());
     continuationAbort.current?.abort();
     continuation.reset();
@@ -689,6 +799,11 @@ export function PartnersBrowser({
                 continuationAbort.current?.abort();
                 continuation.reset();
                 void query.refetch();
+                if (detail)
+                  void queryClient.invalidateQueries({
+                    queryKey: [...PARTNERS_QUERY_KEY, "detail", detail.id],
+                    exact: true,
+                  });
               }
         }
         onPrevious={() => changePage(history.index - 1)}
@@ -773,168 +888,199 @@ export function PartnersBrowser({
           </Button>
         </div>
       </div>
-      <div
-        id={`${viewId}-view-panel`}
-        role="tabpanel"
-        aria-labelledby={`${viewId}-${view}-tab`}
+      <PartnersSplitPane
+        detail={
+          detail ? (
+            <PartnerDetailPanel
+              key={detail.id}
+              partnerId={detail.id}
+              companyName={detail.companyName}
+              panelId={detailPanelId}
+              onEdit={() => setEditor(detail.id)}
+              onClose={closeDetails}
+            />
+          ) : undefined
+        }
       >
-        <Accordion
-          type="single"
-          collapsible
-          value={activeSection}
-          onValueChange={switchSection}
-          className="gap-3"
+        <div
+          ref={listRef}
+          id={`${viewId}-view-panel`}
+          role="tabpanel"
+          aria-labelledby={`${viewId}-${view}-tab`}
         >
-          {ALL_SECTIONS.map((section, index) => (
-            <AccordionItem
-              key={section.key}
-              value={section.key}
-              className="overflow-hidden rounded-2xl border! border-violet-100 bg-background/60 dark:border-violet-400/15"
-            >
-              <AccordionTrigger className="items-center gap-3 rounded-2xl px-4 py-4 text-base hover:no-underline data-[state=open]:bg-violet-50/60 dark:data-[state=open]:bg-violet-500/5">
-                <span className="flex min-w-0 items-center gap-3">
-                  <span
-                    aria-hidden="true"
-                    className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-xs font-semibold text-violet-700 dark:bg-violet-500/15 dark:text-violet-200"
-                  >
-                    {index + 1}
+          <Accordion
+            type="single"
+            collapsible
+            value={activeSection}
+            onValueChange={switchSection}
+            className="gap-3"
+          >
+            {ALL_SECTIONS.map((section, index) => (
+              <AccordionItem
+                key={section.key}
+                value={section.key}
+                className="overflow-hidden rounded-2xl border! border-violet-100 bg-background/60 dark:border-violet-400/15"
+              >
+                <AccordionTrigger className="items-center gap-3 rounded-2xl px-4 py-4 text-base hover:no-underline data-[state=open]:bg-violet-50/60 dark:data-[state=open]:bg-violet-500/5">
+                  <span className="flex min-w-0 items-center gap-3">
+                    <span
+                      aria-hidden="true"
+                      className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-xs font-semibold text-violet-700 dark:bg-violet-500/15 dark:text-violet-200"
+                    >
+                      {index + 1}
+                    </span>
+                    <span className="text-left font-semibold">
+                      {t(section.label)}
+                    </span>
                   </span>
-                  <span className="text-left font-semibold">
-                    {t(section.label)}
-                  </span>
-                </span>
-              </AccordionTrigger>
-              <AccordionContent className="h-auto px-4 pb-4">
-                {activeSection === section.key && (
-                  <div className="space-y-4 pt-4">
-                    {query.isPending && (
-                      <p
-                        role="status"
-                        className="flex items-center gap-2 text-sm text-muted-foreground"
-                      >
-                        <Loader2 className="size-4 animate-spin" />
-                        {t("Loading partners...")}
-                      </p>
-                    )}
-                    {query.isError && (
-                      <div className="space-y-2">
-                        <RequestError
-                          error={query.error}
-                          fallback={t("Could not load partners.")}
-                        />
-                        <Button
-                          variant="outline"
-                          onClick={() => query.refetch()}
+                </AccordionTrigger>
+                <AccordionContent className="h-auto px-4 pb-4">
+                  {activeSection === section.key && (
+                    <div className="space-y-4 pt-4">
+                      {query.isPending && (
+                        <p
+                          role="status"
+                          className="flex items-center gap-2 text-sm text-muted-foreground"
                         >
-                          {t("Retry")}
-                        </Button>
-                      </div>
-                    )}
-                    {!query.isPending && renderPagination()}
-                    {continuation.isError && (
-                      <RequestError
-                        error={continuation.error}
-                        fallback={t("Could not load partners.")}
-                      />
-                    )}
-                    {hasContinuation && (
-                      <Button
-                        variant="outline"
-                        disabled={busy}
-                        onClick={() => {
-                          if (activeSection && query.data)
-                            continuation.mutate({
-                              section: activeSection,
-                              data: query.data,
-                              key: queryKey,
-                            });
-                        }}
-                      >
-                        {continuation.isPending && (
                           <Loader2 className="size-4 animate-spin" />
-                        )}
-                        {t("Find more partners")}
-                      </Button>
-                    )}
-                    {!query.isPending &&
-                      !query.isError &&
-                      partners.length === 0 && (
-                        <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-                          <Building2 className="mx-auto mb-2 size-6" />
-                          {t(
-                            hasContinuation
-                              ? "Keep looking in this section."
-                              : history.index > 0
-                                ? "No partners on this page."
-                                : "No partners in this section.",
-                          )}
+                          {t("Loading partners...")}
+                        </p>
+                      )}
+                      {query.isError && (
+                        <div className="space-y-2">
+                          <RequestError
+                            error={query.error}
+                            fallback={t("Could not load partners.")}
+                          />
+                          <Button
+                            variant="outline"
+                            onClick={() => query.refetch()}
+                          >
+                            {t("Retry")}
+                          </Button>
                         </div>
                       )}
-                    {partners.length > 0 && (
-                      <>
-                        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                          <label className="flex items-center gap-2">
-                            <Checkbox
-                              checked={
-                                allSelected
-                                  ? true
-                                  : selectedIds.length > 0
-                                    ? "indeterminate"
-                                    : false
-                              }
-                              disabled={deletion.isPending}
-                              onCheckedChange={(checked) =>
-                                setSelected(
-                                  checked
-                                    ? new Set(
-                                        partners.map((partner) => partner.id),
-                                      )
-                                    : new Set(),
-                                )
-                              }
-                            />
-                            {t("Select this page")}
-                          </label>
-                          <span className="text-muted-foreground">
-                            {partners.length} {t("partners on this page")}
-                          </span>
-                        </div>
-                        {view === "grid" ? (
-                          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                            {partners.map((partner) => (
-                              <PartnerCard
-                                key={partner.id}
-                                partner={partner}
-                                selected={selected.has(partner.id)}
-                                disabled={deletion.isPending}
-                                onSelect={(checked) =>
-                                  selectPartner(partner.id, checked)
-                                }
-                                onEdit={() => setEditor(partner.id)}
-                              />
-                            ))}
+                      {!query.isPending && renderPagination()}
+                      {continuation.isError && (
+                        <RequestError
+                          error={continuation.error}
+                          fallback={t("Could not load partners.")}
+                        />
+                      )}
+                      {hasContinuation && (
+                        <Button
+                          variant="outline"
+                          disabled={busy}
+                          onClick={() => {
+                            if (activeSection && query.data)
+                              continuation.mutate({
+                                section: activeSection,
+                                data: query.data,
+                                key: queryKey,
+                              });
+                          }}
+                        >
+                          {continuation.isPending && (
+                            <Loader2 className="size-4 animate-spin" />
+                          )}
+                          {t("Find more partners")}
+                        </Button>
+                      )}
+                      {!query.isPending &&
+                        !query.isError &&
+                        partners.length === 0 && (
+                          <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                            <Building2 className="mx-auto mb-2 size-6" />
+                            {t(
+                              hasContinuation
+                                ? "Keep looking in this section."
+                                : history.index > 0
+                                  ? "No partners on this page."
+                                  : "No partners in this section.",
+                            )}
                           </div>
-                        ) : (
-                          <PartnerTable
-                            partners={partners}
-                            selected={selected}
-                            disabled={deletion.isPending}
-                            onSelect={selectPartner}
-                            onEdit={setEditor}
-                          />
                         )}
-                      </>
-                    )}
-                    {!query.isPending &&
-                      partners.length > 0 &&
-                      renderPagination(true)}
-                  </div>
-                )}
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
-      </div>
+                      {partners.length > 0 && (
+                        <>
+                          <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                            <label className="flex items-center gap-2">
+                              <Checkbox
+                                checked={
+                                  allSelected
+                                    ? true
+                                    : selectedIds.length > 0
+                                      ? "indeterminate"
+                                      : false
+                                }
+                                disabled={deletion.isPending}
+                                onCheckedChange={(checked) =>
+                                  setSelected(
+                                    checked
+                                      ? new Set(
+                                          partners.map((partner) => partner.id),
+                                        )
+                                      : new Set(),
+                                  )
+                                }
+                              />
+                              {t("Select this page")}
+                            </label>
+                            <span className="text-muted-foreground">
+                              {partners.length} {t("partners on this page")}
+                            </span>
+                          </div>
+                          {view === "grid" ? (
+                            <div
+                              className={cn(
+                                "grid gap-4",
+                                detail
+                                  ? "md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2"
+                                  : "md:grid-cols-2 xl:grid-cols-3",
+                              )}
+                            >
+                              {partners.map((partner) => (
+                                <PartnerCard
+                                  key={partner.id}
+                                  partner={partner}
+                                  selected={selected.has(partner.id)}
+                                  disabled={deletion.isPending}
+                                  onSelect={(checked) =>
+                                    selectPartner(partner.id, checked)
+                                  }
+                                  onEdit={() => setEditor(partner.id)}
+                                  onView={(trigger) =>
+                                    openDetails(partner, trigger)
+                                  }
+                                  detailOpen={detail?.id === partner.id}
+                                  panelId={detailPanelId}
+                                />
+                              ))}
+                            </div>
+                          ) : (
+                            <PartnerTable
+                              partners={partners}
+                              selected={selected}
+                              disabled={deletion.isPending}
+                              onSelect={selectPartner}
+                              onEdit={setEditor}
+                              onView={openDetails}
+                              detailId={detail?.id}
+                              panelId={detailPanelId}
+                            />
+                          )}
+                        </>
+                      )}
+                      {!query.isPending &&
+                        partners.length > 0 &&
+                        renderPagination(true)}
+                    </div>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </div>
+      </PartnersSplitPane>
       <AlertDialog
         open={confirmDelete}
         onOpenChange={(open) => {

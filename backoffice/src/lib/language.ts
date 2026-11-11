@@ -20,6 +20,21 @@ export function toggleAppLanguage(language: AppLanguage): AppLanguage {
 }
 
 const SPANISH_TEXT: Record<string, string> = {
+  "View partner details": "Ver detalles del partner",
+  "Partner details": "Detalles del partner",
+  "Resize partner detail panel": "Ajustar ancho del detalle del partner",
+  "Partner ID": "ID del partner",
+  "Organization ID": "ID de la organización",
+  "Individual publisher ID": "ID del publicador individual",
+  "Publisher type": "Tipo de publicador",
+  "Publisher ID": "ID del publicador",
+  "App identifier": "Identificador de la app",
+  "Stored connection snapshots": "Datos guardados de los vínculos",
+  "Saved when the partner was linked. Current connections and app status are shown above.": "Datos guardados al vincular el partner. Los vínculos y el estado actual de la app se muestran arriba.",
+  "Saved app status": "Estado guardado de la app",
+  "Loading partner details...": "Cargando detalles del partner...",
+  "Could not load partner details.": "No se pudieron cargar los detalles del partner.",
+  "Retry detail": "Reintentar detalle",
   "Refresh section": "Actualizar sección",
   "Partner pagination below results": "Paginación de partners debajo de los resultados",
   "Partner view": "Vista de partners",
