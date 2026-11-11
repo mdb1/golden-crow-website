@@ -287,11 +287,12 @@ describe("TwoPQFormsList actions", () => {
     renderList(
       [{
         ...form,
+        requestedTest: { pgtAUltraFast: true },
         requiresTreatmentStart: true,
         linkedTreatmentStartFormId: "FORM-00004",
         consent: { id: "CONS-00001", status: "ready" },
         treatmentStart: {
-          studyType: "pgtAStandard",
+          studyType: "pgtAFast",
           treatmentDate: "2026-11-25",
           estimatedBiopsyDate: "2026-11-29",
           estimatedEmbryoCount: 5,
@@ -308,7 +309,10 @@ describe("TwoPQFormsList actions", () => {
       "study_request_cojoined",
     );
 
-    expect(screen.getByLabelText("Treatment start: Linked")).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Request: Linked" })).toHaveClass("bg-amber-700");
+    const treatmentStep = screen.getByRole("link", { name: "Treatment start: Linked" });
+    expect(treatmentStep).toHaveClass("bg-amber-700");
+    expect(treatmentStep).toHaveAttribute(
       "href",
       "/2pq-dashboard/forms/FORM-00004",
     );
@@ -317,6 +321,25 @@ describe("TwoPQFormsList actions", () => {
       "/2pq-dashboard/forms/sample/new?studyRequestFormId=FORM-00001",
     );
     expect(screen.queryByRole("link", { name: "Review consent" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["Ultra-fast PGT", "bg-red-700"],
+    ["Fast PGT", "bg-amber-700"],
+    ["Standard PGT", "bg-emerald-600"],
+    ["PGT SR", "bg-emerald-600"],
+  ])("colors the linked steps for a saved %s request", (requestedTestName, color) => {
+    renderList([{
+      ...form,
+      requestedTestName,
+      linkedBiopsyForm: "FORM-00002",
+      linkedWithdrawalRequest: "FORM-00003",
+    }], "full_admin", "study_request_cojoined");
+
+    for (const step of ["Request", "Biopsy", "Withdrawal"]) {
+      expect(screen.getByRole("link", { name: `${step}: Linked` })).toHaveClass(color);
+    }
+    expect(screen.getByLabelText("Treatment start: Not linked")).toHaveClass("bg-slate-200");
   });
 
   it.each([undefined, "FORM-00004"])("links straight to the consent with treatment plan %s", (linkedTreatmentStartFormId) => {

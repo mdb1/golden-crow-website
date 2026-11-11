@@ -62,6 +62,7 @@ import {
 import { compactList } from "@/lib/moderation-utils";
 import { appText } from "@/lib/language";
 import { getPGFlexStatusLabel } from "@/lib/pgflex-logistics";
+import type { RequestedStudyTestKey } from "@/lib/two-pq-requested-test";
 import { cn } from "@/lib/utils";
 import { formatTwoPQCivilDate, getTwoPQStudySummary } from "@/lib/two-pq-study-summary";
 
@@ -196,12 +197,19 @@ function formTypeLabel(
 function CoJoinedFormSequence({
   form,
   reviewConsentAction,
+  studyType,
   t,
 }: {
   form: TwoPQFormRecord;
   reviewConsentAction: ReactNode;
+  studyType?: RequestedStudyTestKey;
   t: (text: string) => string;
 }) {
+  const linkedStepColor = studyType === "pgtAUltraFast"
+    ? "bg-red-700 hover:bg-red-800"
+    : studyType === "pgtAFast"
+      ? "bg-amber-700 hover:bg-amber-800"
+      : "bg-emerald-600 shadow-[0_8px_22px_rgba(5,150,105,0.2)] hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400";
   const linkedTreatmentStartFormId = form.linkedTreatmentStartFormId ?? null;
   const linkedBiopsyFormId = form.linkedBiopsyForm ?? null;
   const linkedWithdrawalRequestId = form.linkedWithdrawalRequest ?? null;
@@ -285,7 +293,7 @@ function CoJoinedFormSequence({
             pickupStatus === "planned"
               ? "bg-amber-100 text-amber-950 hover:bg-amber-200 dark:bg-amber-900 dark:text-amber-100"
               : isLinked && !isInactivePickup
-              ? "bg-emerald-600 text-white shadow-[0_8px_22px_rgba(5,150,105,0.2)] hover:bg-emerald-500 active:scale-[0.99] dark:bg-emerald-500 dark:hover:bg-emerald-400"
+              ? cn("text-white active:scale-[0.99]", linkedStepColor)
               : "cursor-default bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-300",
           );
           const segmentStyle = {
@@ -308,7 +316,7 @@ function CoJoinedFormSequence({
                 className={cn(
                   "mt-1 max-w-full truncate font-mono text-[9px] sm:text-xs",
                   isLinked && !isInactivePickup
-                    ? "text-white/82"
+                    ? "text-white/95"
                     : "text-slate-500 dark:text-slate-300",
                 )}
               >
@@ -894,7 +902,7 @@ export function TwoPQFormsList({
                     {!showSavedCase ? reviewConsentAction : null}
                   </div>
                   {showCoJoinedSequence ? (
-                    <CoJoinedFormSequence form={form} reviewConsentAction={reviewConsentAction} t={t} />
+                    <CoJoinedFormSequence form={form} reviewConsentAction={reviewConsentAction} studyType={study?.key} t={t} />
                   ) : null}
                 </div>
 
