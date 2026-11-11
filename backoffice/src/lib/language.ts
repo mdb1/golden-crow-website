@@ -2680,6 +2680,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Study request (Co-joined)": "Solicitud de estudio (Co-vinculada)",
   "Treatment planning form": "Formulario de planificación del tratamiento",
   "Treatment planning": "Planificación del tratamiento",
+  "No treatment planning form is stored.": "No hay ningún formulario de planificación del tratamiento guardado",
   "Complete treatment planning form": "Completar formulario de planificación del tratamiento",
   "Treatment start date": "Fecha de inicio de tratamiento",
   "Estimated biopsy date": "Fecha estimada de biopsia",

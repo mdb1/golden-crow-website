@@ -2800,29 +2800,57 @@ function LinkedTreatmentStartSection({ form }: { form: TwoPQFormRecord }) {
   const treatmentStartFormId = form.linkedTreatmentStartFormId;
   const canPlan = canPlanTreatmentForStudyRequest(form);
 
-  if (!treatmentStartFormId && !canPlan) return null;
+  if (form.formType !== "study_request" && !treatmentStartFormId) return null;
 
   return (
-    <section className="glass-panel flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-      <div>
-        <h2 className="font-heading text-lg font-semibold">{t("Treatment planning form")}</h2>
-        {treatmentStartFormId ? (
-          <p className="font-mono text-xs text-muted-foreground">{treatmentStartFormId}</p>
-        ) : null}
+    <section className="overflow-hidden rounded-2xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50/92 via-blue-50/80 to-cyan-50/84 shadow-[0_18px_46px_rgba(79,70,229,0.12)] dark:border-indigo-300/24 dark:from-indigo-950/30 dark:via-blue-950/24 dark:to-cyan-950/22">
+      <div className="flex items-center gap-3 border-b border-indigo-200/70 px-5 py-5 dark:border-indigo-300/18">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/82 text-indigo-700 shadow-sm dark:bg-indigo-400/12 dark:text-indigo-200">
+          <CalendarDays className="size-5" />
+        </span>
+        <h2 className="font-heading text-xl font-semibold text-indigo-950 dark:text-indigo-50">
+          {t("Treatment planning form")}
+        </h2>
       </div>
-      <Button variant="outline" size="sm" asChild>
+      <div className="px-5 py-5">
         {treatmentStartFormId ? (
-          <Link href={`/2pq-dashboard/forms/${encodeURIComponent(treatmentStartFormId)}`}>
-            {t("Open treatment planning form")}
-            <ArrowRight className="size-3.5" />
-          </Link>
+          <div className="flex flex-col gap-4 rounded-2xl border border-emerald-200/90 bg-white/78 px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-emerald-300/20 dark:bg-emerald-950/24">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-700 dark:text-emerald-200">
+                <CheckCircle2 className="size-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-emerald-950 dark:text-emerald-50">
+                  {t("Saved")}
+                </p>
+                <p className="mt-1 truncate font-mono text-xs text-emerald-900/72 dark:text-emerald-100/72">
+                  {treatmentStartFormId}
+                </p>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" className="h-auto min-h-7 py-1.5 whitespace-normal" asChild>
+              <Link href={`/2pq-dashboard/forms/${encodeURIComponent(treatmentStartFormId)}`}>
+                {t("Open treatment planning form")}
+                <ArrowRight className="size-3.5" />
+              </Link>
+            </Button>
+          </div>
         ) : (
-          <Link href={`${TWO_PQ_FORM_ROUTES.treatment_start}?${new URLSearchParams({ linkedStudyRequestFormId: form.id })}`}>
-            {t("Complete treatment planning form")}
-            <ArrowRight className="size-3.5" />
-          </Link>
+          <div className="rounded-2xl border border-dashed border-indigo-300/80 bg-white/52 px-5 py-6 text-center dark:border-indigo-300/24 dark:bg-indigo-950/16">
+            <p className="text-sm font-medium text-indigo-950 dark:text-indigo-50">
+              {t("No treatment planning form is stored.")}
+            </p>
+            {canPlan ? (
+              <Button variant="outline" size="sm" className="mt-4 h-auto min-h-7 py-1.5 whitespace-normal" asChild>
+                <Link href={`${TWO_PQ_FORM_ROUTES.treatment_start}?${new URLSearchParams({ linkedStudyRequestFormId: form.id })}`}>
+                  {t("Complete treatment planning form")}
+                  <ArrowRight className="size-3.5" />
+                </Link>
+              </Button>
+            ) : null}
+          </div>
         )}
-      </Button>
+      </div>
     </section>
   );
 }

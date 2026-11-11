@@ -463,9 +463,38 @@ describe("TwoPQFormDetail", () => {
       "Study Patient",
       "Caso 2PQ vinculado",
     ]);
+    expect(screen.getByText("No hay ningún formulario de planificación del tratamiento guardado")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Completar formulario de planificación del tratamiento" })).toHaveAttribute(
+      "href", `/2pq-dashboard/forms/treatment-start/new?linkedStudyRequestFormId=${studyRequestForm.id}`,
+    );
     expect(screen.getByText("No hay ningún formulario de biopsias guardado")).toBeVisible();
     expect(screen.getByText("No hay ninguna solicitud de retiro guardada")).toBeVisible();
     expect(screen.getByText("Todavía no hay un caso 2PQ vinculado.")).toBeVisible();
+  });
+
+  it("shows missing treatment planning on study requests that already have a biopsy", () => {
+    render(
+      <AppLanguageProvider forcedLanguage="es">
+        <TwoPQFormDetail form={studyRequestForm} />
+      </AppLanguageProvider>,
+    );
+
+    expect(screen.getByRole("heading", { name: "Formulario de planificación del tratamiento" })).toBeVisible();
+    expect(screen.getByText("No hay ningún formulario de planificación del tratamiento guardado")).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Completar formulario de planificación del tratamiento" })).not.toBeInTheDocument();
+  });
+
+  it.each([studyRequestForm, sampleForm])("opens the saved treatment plan from $formType details", (form) => {
+    render(
+      <AppLanguageProvider forcedLanguage="es">
+        <TwoPQFormDetail form={{ ...form, linkedTreatmentStartFormId: treatmentStartForm.id }} />
+      </AppLanguageProvider>,
+    );
+
+    expect(screen.getByRole("link", { name: "Abrir formulario de planificación del tratamiento" })).toHaveAttribute(
+      "href", `/2pq-dashboard/forms/${treatmentStartForm.id}`,
+    );
+    expect(screen.queryByText("No hay ningún formulario de planificación del tratamiento guardado")).not.toBeInTheDocument();
   });
 
   it("renders withdrawal case links after the form document details", () => {
