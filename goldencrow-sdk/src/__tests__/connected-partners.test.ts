@@ -115,10 +115,11 @@ const input: PartnerInput = {
   meetingDate: null,
   notes: null,
   linkedOrganizationId: null,
+  linkedIndividualPublisherId: null,
   linkedAppId: null,
 };
-const emptySnapshots = { linkedOrganizationSnapshot: null, linkedAppSnapshot: null };
-const emptyLiveLinks = { linkedOrganization: null, linkedApp: null };
+const emptySnapshots = { linkedOrganizationSnapshot: null, linkedIndividualPublisherSnapshot: null, linkedAppSnapshot: null };
+const emptyLiveLinks = { linkedOrganization: null, linkedIndividualPublisher: null, linkedApp: null };
 
 async function server(adminContext: AdminContext | null = context) {
   const app = Fastify();
@@ -229,6 +230,13 @@ it("normalizes omitted nullable fields and rejects aliases, unrelated fields, ba
     { firstName: " " },
     { linked_organization_id: "org" },
     { linked_app_id: "app" },
+    { linked_individual_publisher_id: "person" },
+    { linkedIndividualPublisherSnapshot: { id: "person", name: "Spoofed" } },
+    { linkedIndividualPublisher: null },
+    { linkedIndividualPublisherId: "bad/id" },
+    { phoneNumber: null },
+    { phoneNumber: 1234 },
+    { phoneNumber: "x".repeat(51) },
     { linkedOrganizationSnapshot: { id: "org", name: "Spoofed" } },
     { linkedAppSnapshot: { id: "app", status: "active" } },
     { linkedOrganization: null },
@@ -339,7 +347,7 @@ function seedApp(overrides: StoredData = {}) {
   };
   mockCollectionDocs("app_configs").set("organization_org", data);
   return {
-    id: "organization_org", publisherId: data.publisherId,
+    id: "organization_org", publisherKind: data.publisherKind, publisherId: data.publisherId,
     publisherName: data.publisherName, status: data.status,
   };
 }
@@ -395,7 +403,7 @@ it("does not expose moved or individual apps as the linked organization's curren
   expect((await getPartner(context, created.id)).linkedApp).toBeNull();
 });
 
-it("rejects missing, mismatched, or non-organization links before creating a partner", async () => {
+it("rejects missing or mismatched linked identities before creating a partner", async () => {
   seedOrganization();
   seedOrganization("other", "Other Organization");
   const app = seedApp();
@@ -413,7 +421,7 @@ it("rejects missing, mismatched, or non-organization links before creating a par
 });
 
 it("reads legacy contacts with empty links and deduplicates bounded direct reads for a page", async () => {
-  const { linkedAppId: _app, linkedOrganizationId: _org, ...legacy } = input;
+  const { linkedAppId: _app, linkedOrganizationId: _org, linkedIndividualPublisherId: _individual, ...legacy } = input;
   mockDocs.set("legacy", legacy);
   expect(await getPartner(context, "legacy")).toEqual({
     ...input, ...emptySnapshots, ...emptyLiveLinks, id: "legacy",
@@ -448,16 +456,14 @@ it("paginates organization and app choices and scopes an organization's app by d
     const second = await listPartnerLinkOptions(context, { kind, cursor: first.nextCursor! });
     expect(second.items).toHaveLength(20);
     const third = await listPartnerLinkOptions(context, { kind, cursor: second.nextCursor! });
-    expect(third.items).toHaveLength(2);
+    expect(third.items).toHaveLength(kind === "app" ? 3 : 2);
     expect(third.nextCursor).toBeNull();
   }
   expect(mockReads.every((read) => read.limit === 21)).toBe(true);
-  expect(mockReads.filter((read) => read.collection === "app_configs").every((read) =>
-    JSON.stringify(read.filters) === JSON.stringify([["publisherKind", "organization"]]),
-  )).toBe(true);
+  expect(mockReads.every((read) => read.filters.length === 0)).toBe(true);
   const previousQueries = mockReads.length;
   expect(await listPartnerLinkOptions(context, { kind: "app", organizationId: "org000" })).toEqual({
-    items: [{ id: "organization_org000", name: "Organization 0", publisherId: "org000", status: "active" }], nextCursor: null,
+    items: [{ id: "organization_org000", name: "Organization 0", publisherKind: "organization", publisherId: "org000", status: "active" }], nextCursor: null,
   });
   expect(mockReads.length).toBe(previousQueries);
 });
@@ -471,7 +477,7 @@ it("exposes paginated link choices with fresh GET responses and rejects spoofed 
     expect(options.statusCode).toBe(200);
     expect(options.headers["cache-control"]).toBe("private, no-store");
     expect(options.json().items).toEqual([{
-      id: "organization_org", name: "Acme Organization", publisherId: "org", status: "active_for_testing",
+      id: "organization_org", name: "Acme Organization", publisherKind: "organization", publisherId: "org", status: "active_for_testing",
     }]);
     expect((await app.inject("/admin/connected-partners/link-options?kind=unknown")).statusCode).toBe(400);
     expect((await app.inject("/admin/connected-partners/link-options?kind=app&organizationId=bad%2Fid")).statusCode).toBe(400);
@@ -482,5 +488,179 @@ it("exposes paginated link choices with fresh GET responses and rejects spoofed 
     const created = await app.inject({ method: "POST", url: "/admin/connected-partners", payload: { ...input, linkedAppId: "organization_org" } });
     expect(created.statusCode).toBe(201);
     expect(created.json().partner.linkedOrganizationId).toBe("org");
+  } finally { await app.close(); }
+});
+
+function seedIndividual(id = "person", name = "Ana Publisher") {
+  mockCollectionDocs("feed_individuals").set(id, { name });
+  return { id, name };
+}
+
+function seedIndividualApp() {
+  const data = {
+    publisherKind: "individual", publisherId: "person", publisherName: "Ana Publisher",
+    status: "active", appProviderIdentifier: "app_ind_ana_publisher_12345",
+  };
+  mockCollectionDocs("app_configs").set("individual_person", data);
+  return { id: "individual_person", ...data };
+}
+
+it("accepts an omitted or blank phone and trims a supplied number without weakening other validation", async () => {
+  const { phoneNumber: _phone, ...withoutPhone } = input;
+  expect(PartnerInputSchema.parse(withoutPhone).phoneNumber).toBe("");
+  expect(PartnerInputSchema.parse({ ...input, phoneNumber: "  " }).phoneNumber).toBe("");
+  expect(PartnerInputSchema.parse({ ...input, phoneNumber: " +54 1234 " }).phoneNumber).toBe("+54 1234");
+  const app = await server();
+  try {
+    for (const payload of [withoutPhone, { ...input, phoneNumber: "  " }]) {
+      const response = await app.inject({ method: "POST", url: "/admin/connected-partners", payload });
+      expect(response.statusCode).toBe(201);
+      expect(response.json().partner.phoneNumber).toBe("");
+    }
+    for (const phoneNumber of [null, 1234, "x".repeat(51)]) {
+      expect((await app.inject({ method: "POST", url: "/admin/connected-partners", payload: { ...input, phoneNumber } })).statusCode).toBe(400);
+    }
+  } finally { await app.close(); }
+});
+
+it("links either publisher independently, both together, and either kind of app while preserving the opposite publisher", async () => {
+  const organization = seedOrganization();
+  const individual = seedIndividual();
+  const organizationApp = seedApp();
+  const individualApp = seedIndividualApp();
+  const personOnly = await createPartner(context, { ...input, linkedIndividualPublisherId: individual.id });
+  expect(personOnly).toMatchObject({
+    linkedOrganizationId: null, linkedIndividualPublisherId: individual.id,
+    linkedIndividualPublisher: individual, linkedIndividualPublisherSnapshot: individual, linkedAppId: null,
+  });
+  const both = await updatePartner(context, personOnly.id, {
+    ...input, linkedOrganizationId: organization.id, linkedIndividualPublisherId: individual.id,
+  });
+  expect(both).toMatchObject({ linkedOrganization: organization, linkedIndividualPublisher: individual });
+  const withIndividualApp = await updatePartner(context, both.id, {
+    ...input, linkedOrganizationId: organization.id, linkedAppId: individualApp.id,
+  });
+  expect(withIndividualApp).toMatchObject({
+    linkedOrganizationId: organization.id, linkedIndividualPublisherId: individual.id,
+    linkedAppSnapshot: individualApp, linkedApp: individualApp,
+  });
+  const withOrganizationApp = await updatePartner(context, both.id, {
+    ...input, linkedIndividualPublisherId: individual.id, linkedAppId: organizationApp.id,
+  });
+  expect(withOrganizationApp).toMatchObject({
+    linkedOrganizationId: organization.id, linkedIndividualPublisherId: individual.id,
+    linkedAppSnapshot: organizationApp, linkedApp: organizationApp,
+  });
+  const cleared = await updatePartner(context, both.id, input);
+  expect(cleared).toMatchObject({ ...emptySnapshots, ...emptyLiveLinks, linkedIndividualPublisherId: null });
+  expect(mockCollectionDocs("feed_individuals").get(individual.id)).toEqual({ name: individual.name });
+  expect(mockDocs.get(both.id)).not.toHaveProperty("linkedIndividualPublisher");
+});
+
+it("rejects missing individuals and individual-app owner mismatches before writing", async () => {
+  seedOrganization();
+  seedIndividual();
+  seedIndividual("other", "Other Publisher");
+  const app = seedIndividualApp();
+  for (const links of [
+    { linkedIndividualPublisherId: "missing" },
+    { linkedIndividualPublisherId: "other", linkedAppId: app.id },
+  ]) await expect(createPartner(context, { ...input, ...links })).rejects.toMatchObject({ statusCode: 400 });
+  mockCollectionDocs("feed_individuals").delete("person");
+  await expect(createPartner(context, { ...input, linkedAppId: app.id })).rejects.toMatchObject({ statusCode: 400 });
+  expect(mockDocs.size).toBe(0);
+});
+
+it("resolves individual app status and identity live while preserving snapshots and safely exposing missing publishers", async () => {
+  const individual = seedIndividual();
+  const app = seedIndividualApp();
+  const created = await createPartner(context, { ...input, linkedAppId: app.id });
+  mockCollectionDocs("feed_individuals").set(individual.id, { name: "Renamed Person" });
+  mockCollectionDocs("app_configs").get(app.id)!.status = "active_for_testing";
+  const refreshed = await getPartner(context, created.id);
+  expect(refreshed.linkedIndividualPublisher).toEqual({ ...individual, name: "Renamed Person" });
+  expect(refreshed.linkedIndividualPublisherSnapshot).toEqual(individual);
+  expect(refreshed.linkedApp?.status).toBe("active_for_testing");
+  expect(refreshed.linkedAppSnapshot).toMatchObject({ status: "active" });
+  mockCollectionDocs("feed_individuals").delete(individual.id);
+  expect(await getPartner(context, created.id)).toMatchObject({
+    linkedIndividualPublisherId: individual.id, linkedIndividualPublisher: null,
+    linkedIndividualPublisherSnapshot: individual, linkedApp: null,
+  });
+});
+
+it("reads organization-app snapshots written before publisherKind and individual-link fields existed", async () => {
+  const organization = seedOrganization();
+  const app = seedApp();
+  const { linkedIndividualPublisherId: _individual, ...oldInput } = input;
+  const { publisherKind: _kind, ...oldApp } = app;
+  mockDocs.set("legacy-app", {
+    ...oldInput, linkedOrganizationId: organization.id, linkedAppId: app.id,
+    linkedOrganizationSnapshot: organization, linkedAppSnapshot: oldApp,
+  });
+  const legacy = await getPartner(context, "legacy-app");
+  expect(legacy.linkedAppSnapshot?.publisherKind).toBe("organization");
+  expect(legacy.linkedApp?.publisherKind).toBe("organization");
+  expect(legacy.linkedIndividualPublisherId).toBeNull();
+  expect(legacy.linkedIndividualPublisherSnapshot).toBeNull();
+});
+
+it("paginates individual publishers and scopes both selected publishers to at most two direct app reads", async () => {
+  for (let index = 0; index < 23; index++) seedIndividual(`person${String(index).padStart(2, "0")}`, `Person ${index}`);
+  const first = await listPartnerLinkOptions(context, { kind: "individual" });
+  const second = await listPartnerLinkOptions(context, { kind: "individual", cursor: first.nextCursor! });
+  expect(first.items).toHaveLength(20);
+  expect(second.items).toHaveLength(3);
+  expect(second.nextCursor).toBeNull();
+  seedOrganization();
+  seedIndividual();
+  seedApp();
+  seedIndividualApp();
+  mockReads.length = 0;
+  mockDirectReads.length = 0;
+  const scoped = await listPartnerLinkOptions(context, { kind: "app", organizationId: "org", individualPublisherId: "person" });
+  expect(scoped.items.map((option) => option.id)).toEqual(["individual_person", "organization_org"]);
+  expect(mockDirectReads.sort()).toEqual(["app_configs/individual_person", "app_configs/organization_org"]);
+  expect(mockReads).toEqual([]);
+});
+
+it("finds publisher document IDs and both app document IDs and public app identifiers with bounded reads", async () => {
+  const organization = seedOrganization();
+  const individual = seedIndividual();
+  const app = seedIndividualApp();
+  expect((await listPartnerLinkOptions(context, { kind: "organization", id: organization.id })).items).toEqual([organization]);
+  expect((await listPartnerLinkOptions(context, { kind: "individual", id: individual.id })).items).toEqual([individual]);
+  const byDocument = await listPartnerLinkOptions(context, { kind: "app", id: app.id });
+  expect(byDocument.items[0]).toMatchObject({ id: app.id, appProviderIdentifier: app.appProviderIdentifier, publisherKind: "individual" });
+  const byIdentifier = await listPartnerLinkOptions(context, { kind: "app", id: app.appProviderIdentifier });
+  expect(byIdentifier).toEqual(byDocument);
+  expect(mockReads).toEqual([{
+    collection: "app_configs", cursor: undefined, limit: 2,
+    filters: [["appProviderIdentifier", app.appProviderIdentifier]],
+  }]);
+  expect(await listPartnerLinkOptions(context, { kind: "app", organizationId: "org", id: app.id })).toEqual(byDocument);
+  mockCollectionDocs("app_configs").set("duplicate", { ...app, id: undefined });
+  await expect(listPartnerLinkOptions(context, { kind: "app", id: app.appProviderIdentifier })).rejects.toMatchObject({ statusCode: 400 });
+});
+
+it("exposes individual link choices and optional phone through the protected API without accepting client snapshots", async () => {
+  const individual = seedIndividual();
+  const individualApp = seedIndividualApp();
+  const app = await server();
+  try {
+    const choices = await app.inject("/admin/connected-partners/link-options?kind=individual");
+    expect(choices.statusCode).toBe(200);
+    expect(choices.json().items).toEqual([individual]);
+    const lookup = await app.inject(`/admin/connected-partners/link-options?kind=app&id=${individualApp.appProviderIdentifier}`);
+    expect(lookup.statusCode).toBe(200);
+    expect(lookup.json().items[0]).toMatchObject({ id: individualApp.id, publisherKind: "individual" });
+    for (const extra of [
+      { linkedIndividualPublisherSnapshot: individual },
+      { linkedIndividualPublisher: individual },
+      { linked_individual_publisher_id: individual.id },
+    ]) expect((await app.inject({ method: "POST", url: "/admin/connected-partners", payload: { ...input, ...extra } })).statusCode).toBe(400);
+    const response = await app.inject({ method: "POST", url: "/admin/connected-partners", payload: { ...input, phoneNumber: "", linkedAppId: individualApp.id } });
+    expect(response.statusCode).toBe(201);
+    expect(response.json().partner).toMatchObject({ phoneNumber: "", linkedIndividualPublisherId: individual.id, linkedApp: { publisherKind: "individual" } });
   } finally { await app.close(); }
 });

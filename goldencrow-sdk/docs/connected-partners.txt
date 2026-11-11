@@ -8,60 +8,79 @@ Each document has these lower camel case contact and link fields:
   companyName: required trimmed string (1–180 characters)
   firstName: required trimmed string (1–140 characters)
   lastName: required trimmed string (1–140 characters)
-  phoneNumber: required trimmed string (1–50 characters)
+  phoneNumber: optional trimmed string (max 50 characters); omitted or blank becomes ""
   email: required valid email, trimmed and lowercased (max 254 characters)
   meetingDate: nullable ISO civil date YYYY-MM-DD, without timezone conversion
   notes: nullable trimmed string (max 10,000 characters); blank becomes null
   linkedOrganizationId: nullable feed_organizations document ID
+  linkedIndividualPublisherId: nullable feed_individuals document ID
   linkedAppId: nullable app_configs document ID
   linkedOrganizationSnapshot: server-owned nullable { id, name }
-  linkedAppSnapshot: server-owned nullable { id, publisherId, publisherName, status }
+  linkedIndividualPublisherSnapshot: server-owned nullable { id, name }
+  linkedAppSnapshot: server-owned nullable {
+    id, publisherKind, publisherId, publisherName, status, appProviderIdentifier?
+  }
 
 The generated Firestore document ID is returned as id but is not stored in the document.
-Links reference existing Discover organizations and their organization apps.
-Selecting an app alone derives its organization ID. Selecting a mismatched
-organization/app, a missing linked record, or an individual app is rejected.
+A partner may link an organization, an individual publisher, both, or neither.
+Its optional app can belong to either publisher kind. Selecting an app alone derives
+its publisher's matching organization/individual ID and preserves the opposite link.
+An existing matching-kind publisher link must agree with the app's authoritative
+publisherId. Mismatched or missing linked records are rejected before saving.
 Snapshots are captured from authoritative linked documents on each partner save;
-clients cannot submit snapshots. Clearing links also clears their snapshots.
-Old seven-field contact documents decode with null links and snapshots.
+clients cannot submit snapshots. Clearing a link also clears its snapshot. A linked
+app's owner link must remain present; to remove that owner, remove or replace the app.
+Older contacts decode with null newly added links and snapshots. Existing app snapshots
+that predate publisherKind decode as organization apps; live app records must explicitly
+identify publisherKind. No alternate persisted field names are accepted.
 There is no identity synchronization, importing, or cascading deletion. Deleting
-a partner deletes only its contact document. No contact records are seeded.
+any partner deletes only its contact document. No contact records are seeded.
 Firestore creates the collection when the first contact is saved.
 
-Every partner response additionally contains linkedOrganization and linkedApp,
-resolved from current linked documents. A missing or invalid linked record yields
-null while its stored ID and historical snapshot remain available. Apps that no
-longer belong to the linked organization also resolve to null. Responses never
-use historical snapshots as proof of a current organization or app status.
-List pages deduplicate direct linked-document reads within the current page;
-they never scan all organizations or apps. GET responses are private, no-store.
+Every partner response additionally contains linkedOrganization,
+linkedIndividualPublisher, and linkedApp, resolved from current linked documents.
+A missing or invalid linked record yields null while its stored ID and historical
+snapshot remain available. An app with a missing publisher or one that no longer
+belongs to its matching-kind linked publisher also resolves to null. Responses never
+use historical snapshots as proof of current identity or app status. List pages
+deduplicate direct linked-document reads within the current page; they never scan
+all publishers or apps. GET responses are private, no-store.
 
-Backoffice grouping uses current resolved links and app status: no organization,
-organization without app, free app for active_for_testing, and contract for active
-or other active_* statuses. Non-active apps and unavailable/mismatched links are
-shown explicitly for review rather than labeled as free or under contract.
+Backoffice grouping uses live resolved links and app status. Organization cards keep
+the no-organization, organization-without-app, free-app (active_for_testing), and
+contract (active or other active_* statuses) groups. Individual publishers and
+non-active apps remain explicitly visible. Missing or mismatched links must never
+be presented as proof that a publisher or app is available.
 
 SDK API:
   GET /admin/connected-partners[?cursor=<last document ID>]
-    Returns { items, nextCursor }, 20 records per page, ordered by document ID.
-    Reads at most 21 records to establish whether another page exists.
+    Returns { items, nextCursor }, 20 partner records per page, ordered by document ID.
+    Reads at most 21 partner records plus bounded, deduplicated linked documents.
   GET /admin/connected-partners/:partnerId -> { partner }
-  GET /admin/connected-partners/link-options?kind=organization|app[&cursor=<ID>][&organizationId=<ID>]
-    Returns { items, nextCursor }; each option has { id, name } and app options
-    additionally have { publisherId, status }. Pages read at most 21 documents
-    and return at most 20 choices ordered by document ID. App choices exclude
-    individual apps. When organizationId is provided for apps, a single direct
-    read of the canonical organization_<organizationId> config returns its app.
+  GET /admin/connected-partners/link-options?kind=organization|individual|app
+      [&cursor=<ID>][&organizationId=<ID>][&individualPublisherId=<ID>][&id=<exact ID>]
+    Returns { items, nextCursor }; each option has { id, name }. App options also
+    contain { publisherKind, publisherId, status, appProviderIdentifier? }.
+    Ordinary pages read at most 21 documents and return at most 20 choices ordered
+    by document ID. Unscoped apps include both organizations and individuals.
+    For app browsing, organizationId and/or individualPublisherId restrict choices
+    to the canonical organization_<ID>/individual_<ID> app configs, using at most
+    two direct reads. App ownership must still match the requested publisher.
+    An explicit id takes precedence over browsing scopes and resolves globally.
+    Publishers use an exact document read. Apps first use an exact config document
+    read; when absent, an exact appProviderIdentifier equality query reads at most
+    two configs. An ambiguous public identifier returns 400 rather than choosing one.
+    ID lookup returns at most one option and no cursor; an absent match returns [].
   POST /admin/connected-partners -> 201 { partner }
   PUT /admin/connected-partners/:partnerId -> { partner }
   POST /admin/connected-partners/delete with { ids: [...] } -> { deletedIds }
     Atomically deletes 1–500 selected document IDs; already absent IDs are safe to retry.
     The backoffice asks for confirmation before single or bulk deletion.
 
-Create/edit bodies accept the seven contact fields and the two nullable link IDs.
-Omitted meetingDate, notes, and link IDs become null. Unknown fields, including
-snake_case aliases, snapshots, and resolved-link response fields, are rejected.
-Missing detail/update records return 404.
+Create/edit bodies accept the seven contact fields and three nullable link IDs.
+Omitted meetingDate, notes, and link IDs become null. Omitted phoneNumber becomes "".
+Unknown fields, including snake_case aliases, snapshots, and resolved-link response
+fields, are rejected. Missing detail/update records return 404.
 
 Backoffice routes:
   /god-mode/partners

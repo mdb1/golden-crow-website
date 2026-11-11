@@ -1,4 +1,4 @@
-import { PartnerEditor } from "@/components/god-mode/partners-workbench";
+import { PartnersBrowser } from "@/components/god-mode/partners-workbench";
 import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PageHero } from "@/components/page-hero";
 
@@ -14,7 +14,7 @@ export default function NewPartnerPage() {
           />
         }
       >
-        <PartnerEditor />
+        <PartnersBrowser initialEditor="new" />
       </HeaderUnclutterScope>
     </div>
   );

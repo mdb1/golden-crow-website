@@ -60,9 +60,11 @@ export async function connectedPartnersRoutes(
     {
       schema: {
         querystring: z.object({
-          kind: z.enum(["organization", "app"]),
+          kind: z.enum(["organization", "individual", "app"]),
           cursor: PartnerLinkIdSchema.optional(),
           organizationId: PartnerLinkIdSchema.optional(),
+          individualPublisherId: PartnerLinkIdSchema.optional(),
+          id: PartnerLinkIdSchema.optional(),
         }).strict(),
       },
     },

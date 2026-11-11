@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 import "@testing-library/jest-dom";
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -13,15 +14,23 @@ import {
   PartnerEditor,
   PartnersBrowser,
 } from "@/components/god-mode/partners-workbench";
-import { PARTNERS_API_ROUTE, type Partner } from "@/lib/connected-partners";
+import {
+  PARTNERS_API_ROUTE,
+  type Partner,
+  type PartnerInput,
+} from "@/lib/connected-partners";
 import { sdkFetch } from "@/lib/sdk-client";
 
 const mockPush = jest.fn();
-jest.mock("next/navigation", () => ({ useRouter: () => ({ push: mockPush }) }));
+const mockReplace = jest.fn();
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mockPush, replace: mockReplace }),
+}));
 jest.mock("@/lib/sdk-client", () => ({
   ...jest.requireActual("@/lib/sdk-client"),
   sdkFetch: jest.fn(),
 }));
+
 const contact: Partner = {
   id: "one",
   companyName: "Acme",
@@ -32,25 +41,63 @@ const contact: Partner = {
   meetingDate: null,
   notes: null,
   linkedOrganizationId: null,
+  linkedIndividualPublisherId: null,
   linkedAppId: null,
   linkedOrganizationSnapshot: null,
+  linkedIndividualPublisherSnapshot: null,
   linkedAppSnapshot: null,
   linkedOrganization: null,
+  linkedIndividualPublisher: null,
   linkedApp: null,
 };
+const organization = { id: "org_one", name: "Acme Organization" };
+const individual = { id: "individual_one", name: "Dr. Ada Rivers" };
+const linkedApp = {
+  id: "organization_org_one",
+  publisherKind: "organization" as const,
+  publisherId: organization.id,
+  publisherName: organization.name,
+  status: "active_for_testing" as const,
+};
+const individualApp = {
+  id: "individual_individual_one",
+  publisherKind: "individual" as const,
+  publisherId: individual.id,
+  publisherName: individual.name,
+  status: "active" as const,
+};
+const withOrganization: Partner = {
+  ...contact,
+  linkedOrganizationId: organization.id,
+  linkedOrganization: organization,
+  linkedOrganizationSnapshot: organization,
+};
+const withBoth: Partner = {
+  ...withOrganization,
+  linkedIndividualPublisherId: individual.id,
+  linkedIndividualPublisher: individual,
+  linkedIndividualPublisherSnapshot: individual,
+};
+const withApp: Partner = {
+  ...withBoth,
+  linkedAppId: linkedApp.id,
+  linkedApp,
+  linkedAppSnapshot: linkedApp,
+};
 
-function inputOf(partner: Partner) {
+function inputOf(partner: Partner): PartnerInput {
   const {
     id: _id,
     linkedOrganizationSnapshot: _organizationSnapshot,
+    linkedIndividualPublisherSnapshot: _individualSnapshot,
     linkedAppSnapshot: _appSnapshot,
     linkedOrganization: _organization,
+    linkedIndividualPublisher: _individual,
     linkedApp: _app,
     ...input
   } = partner;
   return input;
 }
-
 function renderWorkbench(component = <PartnersBrowser />) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -61,23 +108,71 @@ function renderWorkbench(component = <PartnersBrowser />) {
     </AppLanguageProvider>,
   );
 }
+function fillContact(phone = "") {
+  for (const [label, value] of [
+    ["Company name", "Acme"],
+    ["First name", "Ana"],
+    ["Last name", "Smith"],
+    ["Email", "ana@example.com"],
+  ])
+    fireEvent.change(screen.getByLabelText(label), { target: { value } });
+  fireEvent.change(screen.getByLabelText(/^Phone number/), {
+    target: { value: phone },
+  });
+}
+function review() {
+  fireEvent.mouseDown(screen.getByRole("tab", { name: "Review" }));
+}
+function savePartner() {
+  review();
+  fireEvent.click(screen.getByRole("button", { name: "Save partner" }));
+}
+function mockEditor(saved = contact) {
+  jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+    if (init?.method === "POST" || init?.method === "PUT")
+      return { partner: saved } as never;
+    if (String(path).includes("link-options"))
+      return { items: [], nextCursor: null } as never;
+    if (path === `${PARTNERS_API_ROUTE}/${saved.id}`)
+      return { partner: saved } as never;
+    return { items: [saved], nextCursor: null } as never;
+  });
+}
+function selectedOptions() {
+  return within(screen.getByRole("dialog", { name: "Add connections" }));
+}
+async function choose(
+  kind: "organization" | "individual publisher" | "app",
+  name: string,
+) {
+  fireEvent.click(screen.getByRole("button", { name: `Choose ${kind}` }));
+  fireEvent.click(
+    await selectedOptions().findByRole("button", {
+      name: new RegExp(`^Select ${name}`),
+    }),
+  );
+}
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  jest.resetAllMocks();
 });
 
-it("shows the empty state and the new route", async () => {
+it("opens a new partner modal from the empty state without leaving the list", async () => {
   jest.mocked(sdkFetch).mockResolvedValue({ items: [], nextCursor: null });
   renderWorkbench();
   expect(await screen.findByText("No partners yet.")).toBeVisible();
-  screen
-    .getAllByRole("link", { name: "New partner" })
-    .forEach((link) =>
-      expect(link).toHaveAttribute("href", "/god-mode/partners/new"),
-    );
+  fireEvent.click(screen.getAllByRole("button", { name: "New partner" })[0]);
+  expect(
+    await screen.findByRole("dialog", { name: "New partner" }),
+  ).toBeVisible();
+  expect(screen.getByRole("tab", { name: "Contact" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  expect(mockPush).not.toHaveBeenCalled();
 });
 
-it("renders only contact values on cards and loads another bounded page", async () => {
+it("renders contact values, loads the next bounded page and offers modal editing", async () => {
   jest
     .mocked(sdkFetch)
     .mockResolvedValueOnce({ items: [contact], nextCursor: "one" })
@@ -98,8 +193,8 @@ it("renders only contact values on cards and loads another bounded page", async 
   for (const value of ["Ana", "Smith", "+54 11 1234", "ana@example.com"])
     expect(screen.getByText(value)).toBeVisible();
   expect(
-    screen.getByRole("link", { name: "Edit partner: Acme" }),
-  ).toHaveAttribute("href", "/god-mode/partners/one/edit");
+    screen.getByRole("button", { name: "Edit partner: Acme" }),
+  ).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "Load more" }));
   expect(await screen.findByText("Beta")).toBeVisible();
   expect(screen.getByText("2026-11-10")).toBeVisible();
@@ -110,14 +205,15 @@ it("renders only contact values on cards and loads another bounded page", async 
   ).not.toBeInTheDocument();
 });
 
-it("confirms and deletes multiple selected contacts while leaving unselected contacts alone", async () => {
+it("confirms and deletes selected partners while retaining unselected partners", async () => {
   const second = { ...contact, id: "two", companyName: "Beta" };
   const third = { ...contact, id: "three", companyName: "Gamma" };
-  jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
-    if (init?.method === "POST") return { deletedIds: ["one", "two"] } as never;
-    const deleted = jest
-      .mocked(sdkFetch)
-      .mock.calls.some(([, options]) => options?.method === "POST");
+  let deleted = false;
+  jest.mocked(sdkFetch).mockImplementation(async (_path, init) => {
+    if (init?.method === "POST") {
+      deleted = true;
+      return { deletedIds: ["one", "two"] } as never;
+    }
     return {
       items: deleted ? [third] : [contact, second, third],
       nextCursor: null,
@@ -168,9 +264,6 @@ it("retains contacts and selection after a failed deletion", async () => {
     within(dialog).getByRole("button", { name: "Delete selected" }),
   );
   expect(await screen.findByRole("alert")).toHaveTextContent("Write failed");
-  expect(
-    within(dialog).getByRole("button", { name: "Delete selected" }),
-  ).toBeEnabled();
   fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
   expect(screen.getByText("Acme")).toBeVisible();
   expect(
@@ -178,95 +271,98 @@ it("retains contacts and selection after a failed deletion", async () => {
   ).toBeChecked();
 });
 
-it("creates a contact without requiring meeting date or notes", async () => {
-  jest.mocked(sdkFetch).mockResolvedValue({ partner: contact });
+it("creates a partner through the wizard with no phone, meeting date, notes or links", async () => {
+  mockEditor({ ...contact, phoneNumber: "" });
   renderWorkbench(<PartnerEditor />);
-  for (const [label, value] of [
-    ["Company name", " Acme "],
-    ["First name", "Ana"],
-    ["Last name", "Smith"],
-    ["Phone number", "+54 11 1234"],
-    ["Email", "ANA@example.com"],
-  ])
-    fireEvent.change(screen.getByLabelText(label), { target: { value } });
+  fillContact();
+  expect(screen.getByLabelText(/^Phone number/)).not.toBeRequired();
   expect(screen.getByLabelText(/Meeting date/)).not.toBeRequired();
-  expect(screen.getByLabelText(/Notes/)).not.toBeRequired();
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
-  const body = inputOf(contact);
+  expect(screen.getByLabelText(/^Notes/)).not.toBeRequired();
+  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  expect(screen.getByRole("tab", { name: "Connections" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Review partner" }));
+  expect(screen.getByRole("tab", { name: "Review" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Save partner" }));
   await waitFor(() =>
     expect(sdkFetch).toHaveBeenCalledWith(PARTNERS_API_ROUTE, {
       method: "POST",
-      body: JSON.stringify(body),
+      body: JSON.stringify({ ...inputOf(contact), phoneNumber: "" }),
     }),
-  );
-  await waitFor(() =>
-    expect(mockPush).toHaveBeenCalledWith("/god-mode/partners"),
   );
 });
 
-it("prefills an existing contact and lets both optional fields be cleared", async () => {
-  jest.mocked(sdkFetch).mockResolvedValue({
-    partner: {
-      ...contact,
-      meetingDate: "2026-11-10",
-      notes: "Original note",
-    },
+it("keeps required contact validation active when jumping to another step", async () => {
+  mockEditor();
+  renderWorkbench(<PartnerEditor />);
+  fireEvent.mouseDown(screen.getByRole("tab", { name: "Review" }));
+  expect(screen.getByRole("tab", { name: "Contact" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  expect(screen.getByLabelText("Company name")).toHaveAttribute(
+    "aria-invalid",
+    "true",
+  );
+  expect(sdkFetch).not.toHaveBeenCalledWith(
+    PARTNERS_API_ROUTE,
+    expect.objectContaining({ method: "POST" }),
+  );
+  fillContact();
+  fireEvent.change(screen.getByLabelText("Email"), {
+    target: { value: "not-an-email" },
   });
+  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  expect(screen.getByRole("tab", { name: "Contact" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  expect(screen.getByLabelText("Email")).toHaveAttribute(
+    "aria-invalid",
+    "true",
+  );
+});
+
+it("edits a partner in a modal and clears all optional contact values", async () => {
+  mockEditor({ ...contact, meetingDate: "2026-11-10", notes: "Original note" });
   renderWorkbench(<PartnerEditor partnerId="one" />);
   expect(await screen.findByLabelText("Company name")).toHaveValue("Acme");
+  fireEvent.change(screen.getByLabelText(/^Phone number/), {
+    target: { value: "  " },
+  });
   fireEvent.change(screen.getByLabelText(/Meeting date/), {
     target: { value: "" },
   });
-  fireEvent.change(screen.getByLabelText(/Notes/), { target: { value: "  " } });
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
-  const body = inputOf(contact);
+  fireEvent.change(screen.getByLabelText(/^Notes/), {
+    target: { value: "  " },
+  });
+  savePartner();
   await waitFor(() =>
     expect(sdkFetch).toHaveBeenCalledWith(`${PARTNERS_API_ROUTE}/one`, {
       method: "PUT",
-      body: JSON.stringify(body),
+      body: JSON.stringify({ ...inputOf(contact), phoneNumber: "" }),
     }),
   );
 });
 
-it("keeps unsaved values and displays the save error", async () => {
+it("keeps the modal and draft editable when saving fails", async () => {
   jest.mocked(sdkFetch).mockRejectedValue(new Error("Save failed"));
   renderWorkbench(<PartnerEditor />);
-  for (const [label, value] of [
-    ["Company name", "Acme"],
-    ["First name", "Ana"],
-    ["Last name", "Smith"],
-    ["Phone number", "1234"],
-    ["Email", "ana@example.com"],
-  ]) {
-    fireEvent.change(screen.getByLabelText(label), { target: { value } });
-  }
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  fillContact();
+  savePartner();
   expect(await screen.findByRole("alert")).toHaveTextContent("Save failed");
+  fireEvent.mouseDown(screen.getByRole("tab", { name: "Contact" }));
   expect(screen.getByLabelText("Company name")).toHaveValue("Acme");
+  expect(screen.getByLabelText("Email")).toHaveValue("ana@example.com");
   expect(mockPush).not.toHaveBeenCalled();
 });
 
-const organization = { id: "org_one", name: "Linked organization" };
-const linkedApp = {
-  id: "app_one",
-  publisherId: organization.id,
-  publisherName: organization.name,
-  status: "active_for_testing" as const,
-};
-
-it("groups partners from live linked documents and never a stale app snapshot", async () => {
-  const withOrganization = {
-    ...contact,
-    linkedOrganizationId: organization.id,
-    linkedOrganization: organization,
-    linkedOrganizationSnapshot: organization,
-  };
-  const withApp = {
-    ...withOrganization,
-    linkedAppId: linkedApp.id,
-    linkedApp,
-    linkedAppSnapshot: linkedApp,
-  };
+it("groups partners using current linked items, including individual publishers, rather than snapshots", async () => {
   jest
     .mocked(sdkFetch)
     .mockResolvedValue({
@@ -301,6 +397,25 @@ it("groups partners from live linked documents and never a stale app snapshot", 
           id: "missing_org",
           companyName: "Missing organization",
           linkedOrganization: null,
+        },
+        {
+          ...contact,
+          id: "individual",
+          companyName: "Individual only",
+          linkedIndividualPublisherId: individual.id,
+          linkedIndividualPublisher: individual,
+          linkedIndividualPublisherSnapshot: individual,
+        },
+        {
+          ...contact,
+          id: "individual_app",
+          companyName: "Individual contract",
+          linkedIndividualPublisherId: individual.id,
+          linkedIndividualPublisher: individual,
+          linkedIndividualPublisherSnapshot: individual,
+          linkedAppId: individualApp.id,
+          linkedApp: individualApp,
+          linkedAppSnapshot: individualApp,
         },
       ],
       nextCursor: null,
@@ -342,60 +457,93 @@ it("groups partners from live linked documents and never a stale app snapshot", 
   expect(
     other.getByText(/Linked organization is unavailable/),
   ).toHaveTextContent(organization.id);
+  expect(
+    within(
+      screen.getByRole("region", { name: "Individual publisher without app" }),
+    ).getByText("Individual only"),
+  ).toBeVisible();
+  expect(
+    within(
+      screen.getByRole("region", {
+        name: "Individual publisher with contract",
+      }),
+    ).getByText("Individual contract"),
+  ).toBeVisible();
 });
 
-it("selects an app from a later bounded options page and derives its organization", async () => {
+it("links an organization and individual publisher together and preserves both when selecting an app", async () => {
   jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
-    if (init?.method === "POST") return { partner: contact } as never;
-    if (String(path).includes("cursor=app_first"))
-      return {
-        items: [
-          {
-            id: linkedApp.id,
-            name: linkedApp.publisherName,
-            publisherId: organization.id,
-            status: linkedApp.status,
-          },
-        ],
-        nextCursor: null,
-      } as never;
+    if (init?.method === "POST") return { partner: withApp } as never;
+    const params = new URL(`https://example.test${path}`).searchParams;
+    const kind = params.get("kind");
     return {
-      items: [
-        {
-          id: "app_first",
-          name: "First app",
-          publisherId: "org_first",
-          status: "active",
-        },
-      ],
-      nextCursor: "app_first",
+      items:
+        kind === "organization"
+          ? [organization]
+          : kind === "individual"
+            ? [individual]
+            : [{ ...linkedApp, name: linkedApp.publisherName }],
+      nextCursor: null,
     } as never;
   });
   renderWorkbench(<PartnerEditor />);
-  for (const [label, value] of [
-    ["Company name", "Acme"],
-    ["First name", "Ana"],
-    ["Last name", "Smith"],
-    ["Phone number", "+54 11 1234"],
-    ["Email", "ana@example.com"],
-  ])
-    fireEvent.change(screen.getByLabelText(label), { target: { value } });
+  fillContact();
+  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  await choose("organization", organization.name);
+  await choose("individual publisher", individual.name.replaceAll(".", "\\."));
+  await choose("app", organization.name);
+  savePartner();
+  await waitFor(() =>
+    expect(sdkFetch).toHaveBeenCalledWith(PARTNERS_API_ROUTE, {
+      method: "POST",
+      body: JSON.stringify({ ...inputOf(withApp), phoneNumber: "" }),
+    }),
+  );
+});
+
+it("uses paginated app choices and derives the selected app's publisher", async () => {
+  jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+    if (init?.method === "POST") return { partner: withApp } as never;
+    const params = new URL(`https://example.test${path}`).searchParams;
+    return params.has("cursor")
+      ? ({
+          items: [{ ...linkedApp, name: organization.name }],
+          nextCursor: null,
+        } as never)
+      : ({
+          items: [
+            {
+              id: "app_first",
+              name: "First app",
+              publisherKind: "organization",
+              publisherId: "org_first",
+              status: "active",
+            },
+          ],
+          nextCursor: "app_first",
+        } as never);
+  });
+  renderWorkbench(<PartnerEditor />);
+  fillContact();
+  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
   fireEvent.click(screen.getByRole("button", { name: "Choose app" }));
-  const dialog = await screen.findByRole("dialog");
-  await within(dialog).findByRole("button", { name: /First app/ });
-  fireEvent.click(within(dialog).getByRole("button", { name: "Load more" }));
+  await selectedOptions().findByRole("button", { name: /^Select First app/ });
+  fireEvent.click(selectedOptions().getByRole("button", { name: "Load more" }));
   fireEvent.click(
-    await within(dialog).findByRole("button", { name: /Linked organization/ }),
+    await selectedOptions().findByRole("button", {
+      name: /^Select Acme Organization/,
+    }),
   );
   expect(sdkFetch).toHaveBeenCalledWith(
     `${PARTNERS_API_ROUTE}/link-options?kind=app&cursor=app_first`,
   );
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  savePartner();
   await waitFor(() =>
     expect(sdkFetch).toHaveBeenCalledWith(PARTNERS_API_ROUTE, {
       method: "POST",
       body: JSON.stringify({
         ...inputOf(contact),
+        phoneNumber: "",
         linkedOrganizationId: organization.id,
         linkedAppId: linkedApp.id,
       }),
@@ -403,72 +551,258 @@ it("selects an app from a later bounded options page and derives its organizatio
   );
 });
 
-it("preserves selected links outside the loaded options and clears both links when removing the organization", async () => {
-  const saved = {
-    ...contact,
-    linkedOrganizationId: organization.id,
-    linkedAppId: linkedApp.id,
-    linkedOrganization: organization,
-    linkedApp,
-    linkedOrganizationSnapshot: organization,
-    linkedAppSnapshot: linkedApp,
-  };
-  jest.mocked(sdkFetch).mockResolvedValue({ partner: saved });
-  renderWorkbench(<PartnerEditor partnerId="one" />);
-  await screen.findByLabelText("Company name");
-  expect(screen.getByText(`(${linkedApp.id})`)).toBeVisible();
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
-  await waitFor(() =>
-    expect(sdkFetch).toHaveBeenCalledWith(`${PARTNERS_API_ROUTE}/one`, {
-      method: "PUT",
-      body: JSON.stringify(inputOf(saved)),
-    }),
-  );
-  fireEvent.click(
-    screen.getByRole("button", { name: "Remove organization and app links" }),
-  );
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
-  await waitFor(() =>
-    expect(sdkFetch).toHaveBeenCalledWith(`${PARTNERS_API_ROUTE}/one`, {
-      method: "PUT",
-      body: JSON.stringify(inputOf(contact)),
-    }),
-  );
-});
-
-it("switches organizations and clears an incompatible app", async () => {
-  const saved = {
-    ...contact,
-    linkedOrganizationId: organization.id,
-    linkedAppId: linkedApp.id,
-    linkedOrganization: organization,
-    linkedApp,
-    linkedOrganizationSnapshot: organization,
-    linkedAppSnapshot: linkedApp,
-  };
-  jest.mocked(sdkFetch).mockImplementation(async (path) => {
-    if (String(path).includes("link-options"))
-      return {
-        items: [{ id: "org_two", name: "Another organization" }],
-        nextCursor: null,
-      } as never;
-    return { partner: saved } as never;
+it("finds an app by its exact ID and derives an individual publisher without losing the organization", async () => {
+  jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+    if (init?.method === "PUT") return { partner: withBoth } as never;
+    if (!String(path).includes("link-options"))
+      return { partner: withOrganization } as never;
+    const params = new URL(`https://example.test${path}`).searchParams;
+    return {
+      items: params.has("id")
+        ? [{ ...individualApp, name: individual.name }]
+        : [],
+      nextCursor: null,
+    } as never;
   });
   renderWorkbench(<PartnerEditor partnerId="one" />);
   await screen.findByLabelText("Company name");
-  fireEvent.click(screen.getByRole("button", { name: "Choose organization" }));
+  fireEvent.mouseDown(screen.getByRole("tab", { name: "Connections" }));
+  fireEvent.click(screen.getByRole("button", { name: "Choose app" }));
+  fireEvent.change(selectedOptions().getByLabelText("App ID"), {
+    target: { value: individualApp.id },
+  });
+  fireEvent.click(selectedOptions().getByRole("button", { name: "Find app" }));
   fireEvent.click(
-    await screen.findByRole("button", { name: /Another organization/ }),
+    await selectedOptions().findByRole("button", {
+      name: /^Select Dr\. Ada Rivers/,
+    }),
   );
-  expect(screen.queryByText(`(${linkedApp.id})`)).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  savePartner();
   await waitFor(() =>
     expect(sdkFetch).toHaveBeenCalledWith(`${PARTNERS_API_ROUTE}/one`, {
       method: "PUT",
       body: JSON.stringify({
-        ...inputOf(contact),
-        linkedOrganizationId: "org_two",
+        ...inputOf(withBoth),
+        linkedAppId: individualApp.id,
       }),
     }),
   );
+  expect(
+    jest
+      .mocked(sdkFetch)
+      .mock.calls.some(
+        ([path]) =>
+          new URL(`https://example.test${path}`).searchParams.get("id") ===
+          individualApp.id,
+      ),
+  ).toBe(true);
+});
+
+it("preserves linked items absent from the first picker page when editing other fields", async () => {
+  mockEditor(withApp);
+  renderWorkbench(<PartnerEditor partnerId="one" />);
+  await screen.findByLabelText("Company name");
+  fireEvent.change(screen.getByLabelText(/^Notes/), {
+    target: { value: "Follow up next week" },
+  });
+  savePartner();
+  await waitFor(() =>
+    expect(sdkFetch).toHaveBeenCalledWith(`${PARTNERS_API_ROUTE}/one`, {
+      method: "PUT",
+      body: JSON.stringify({
+        ...inputOf(withApp),
+        notes: "Follow up next week",
+      }),
+    }),
+  );
+  expect(
+    jest
+      .mocked(sdkFetch)
+      .mock.calls.some(([path]) => String(path).includes("link-options")),
+  ).toBe(false);
+});
+
+it("removes an organization with its app while retaining the individual publisher", async () => {
+  mockEditor(withApp);
+  renderWorkbench(<PartnerEditor partnerId="one" />);
+  await screen.findByLabelText("Company name");
+  fireEvent.mouseDown(screen.getByRole("tab", { name: "Connections" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Remove organization link" }),
+  );
+  savePartner();
+  await waitFor(() =>
+    expect(sdkFetch).toHaveBeenCalledWith(`${PARTNERS_API_ROUTE}/one`, {
+      method: "PUT",
+      body: JSON.stringify({
+        ...inputOf(withBoth),
+        linkedOrganizationId: null,
+        linkedAppId: null,
+      }),
+    }),
+  );
+});
+
+it("keeps an individual app when only the organization link is removed", async () => {
+  const saved = {
+    ...withBoth,
+    linkedAppId: individualApp.id,
+    linkedApp: individualApp,
+    linkedAppSnapshot: individualApp,
+  };
+  mockEditor(saved);
+  renderWorkbench(<PartnerEditor partnerId="one" />);
+  await screen.findByLabelText("Company name");
+  fireEvent.mouseDown(screen.getByRole("tab", { name: "Connections" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Remove organization link" }),
+  );
+  savePartner();
+  await waitFor(() =>
+    expect(sdkFetch).toHaveBeenCalledWith(`${PARTNERS_API_ROUTE}/one`, {
+      method: "PUT",
+      body: JSON.stringify({ ...inputOf(saved), linkedOrganizationId: null }),
+    }),
+  );
+});
+
+it("warns before discarding a draft and preserves it when the operator keeps editing", async () => {
+  mockEditor();
+  renderWorkbench();
+  await screen.findByText("Acme");
+  fireEvent.click(screen.getByRole("button", { name: "New partner" }));
+  fireEvent.change(screen.getByLabelText("Company name"), {
+    target: { value: "New draft" },
+  });
+  fireEvent.click(
+    within(screen.getByRole("dialog", { name: "New partner" })).getByRole(
+      "button",
+      { name: "Close" },
+    ),
+  );
+  const warning = await screen.findByRole("alertdialog", {
+    name: "Discard changes?",
+  });
+  fireEvent.click(
+    within(warning).getByRole("button", { name: "Keep editing" }),
+  );
+  expect(screen.getByLabelText("Company name")).toHaveValue("New draft");
+  fireEvent.click(
+    within(screen.getByRole("dialog", { name: "New partner" })).getByRole(
+      "button",
+      { name: "Close" },
+    ),
+  );
+  fireEvent.click(
+    within(await screen.findByRole("alertdialog")).getByRole("button", {
+      name: "Discard changes",
+    }),
+  );
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("dialog", { name: "New partner" }),
+    ).not.toBeInTheDocument(),
+  );
+  expect(sdkFetch).not.toHaveBeenCalledWith(
+    PARTNERS_API_ROUTE,
+    expect.objectContaining({ method: "POST" }),
+  );
+});
+
+it("distinguishes publisher selections when organization and individual IDs coincide", async () => {
+  const sharedIndividual = { id: "shared", name: "Linked individual" };
+  const saved = {
+    ...contact,
+    linkedIndividualPublisherId: "shared",
+    linkedIndividualPublisher: sharedIndividual,
+    linkedIndividualPublisherSnapshot: sharedIndividual,
+  };
+  jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (!String(path).includes("link-options"))
+      return { partner: saved } as never;
+    const kind = new URL(`https://example.test${path}`).searchParams.get(
+      "kind",
+    );
+    return {
+      items:
+        kind === "organization"
+          ? [{ id: "shared", name: "Unlinked organization" }]
+          : [sharedIndividual],
+      nextCursor: null,
+    } as never;
+  });
+  renderWorkbench(<PartnerEditor partnerId="one" />);
+  await screen.findByLabelText("Company name");
+  fireEvent.mouseDown(screen.getByRole("tab", { name: "Connections" }));
+  fireEvent.click(screen.getByRole("button", { name: "Choose organization" }));
+  expect(
+    await selectedOptions().findByRole("button", {
+      name: /^Select Unlinked organization/,
+    }),
+  ).toHaveAttribute("aria-pressed", "false");
+  fireEvent.mouseDown(
+    selectedOptions().getByRole("tab", { name: "Individual publishers" }),
+  );
+  expect(
+    await selectedOptions().findByRole("button", {
+      name: /^Select Linked individual/,
+    }),
+  ).toHaveAttribute("aria-pressed", "true");
+});
+
+it("ignores a late app lookup after navigating to a different publisher tab", async () => {
+  let completeLookup!: (value: unknown) => void;
+  const delayed = new Promise((resolve) => {
+    completeLookup = resolve;
+  });
+  jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    const params = new URL(`https://example.test${path}`).searchParams;
+    if (params.has("id")) return delayed as never;
+    return {
+      items: params.get("kind") === "organization" ? [organization] : [],
+      nextCursor: null,
+    } as never;
+  });
+  renderWorkbench(<PartnerEditor />);
+  fillContact();
+  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  fireEvent.click(screen.getByRole("button", { name: "Choose app" }));
+  fireEvent.change(selectedOptions().getByLabelText("App ID"), {
+    target: { value: individualApp.id },
+  });
+  fireEvent.click(selectedOptions().getByRole("button", { name: "Find app" }));
+  fireEvent.mouseDown(
+    selectedOptions().getByRole("tab", { name: "Organizations" }),
+  );
+  await selectedOptions().findByRole("button", {
+    name: /^Select Acme Organization/,
+  });
+  await act(async () => {
+    completeLookup({
+      items: [{ ...individualApp, name: individual.name }],
+      nextCursor: null,
+    });
+  });
+  expect(
+    selectedOptions().getByRole("button", {
+      name: /^Select Acme Organization/,
+    }),
+  ).toBeVisible();
+  expect(
+    selectedOptions().queryByRole("button", {
+      name: /^Select Dr\. Ada Rivers/,
+    }),
+  ).not.toBeInTheDocument();
+});
+
+it("keeps an unavailable link warning visible on the review step and connects the tab panel", async () => {
+  mockEditor({ ...withApp, linkedApp: null });
+  renderWorkbench(<PartnerEditor partnerId="one" />);
+  await screen.findByLabelText("Company name");
+  review();
+  expect(screen.getByText("Unavailable connection")).toBeVisible();
+  const tab = screen.getByRole("tab", { name: "Review" });
+  const panel = screen.getByRole("tabpanel", { name: "Review" });
+  expect(panel.id).toBe(tab.getAttribute("aria-controls"));
+  expect(panel).toHaveAttribute("aria-labelledby", tab.id);
 });

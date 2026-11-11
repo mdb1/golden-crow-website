@@ -13,29 +13,37 @@ export type PartnerInput = {
   meetingDate: string | null;
   notes: string | null;
   linkedOrganizationId: string | null;
+  linkedIndividualPublisherId: string | null;
   linkedAppId: string | null;
 };
 
 export type PartnerOrganizationSnapshot = { id: string; name: string };
+export type PartnerIndividualPublisherSnapshot = { id: string; name: string };
 export type PartnerAppSnapshot = {
   id: string;
+  publisherKind: "organization" | "individual";
   publisherId: string;
   publisherName: string;
   status: PublisherAppStatus;
+  appProviderIdentifier?: string;
 };
 export type Partner = PartnerInput & {
   id: string;
   linkedOrganizationSnapshot: PartnerOrganizationSnapshot | null;
+  linkedIndividualPublisherSnapshot: PartnerIndividualPublisherSnapshot | null;
   linkedAppSnapshot: PartnerAppSnapshot | null;
   linkedOrganization: PartnerOrganizationSnapshot | null;
+  linkedIndividualPublisher: PartnerIndividualPublisherSnapshot | null;
   linkedApp: PartnerAppSnapshot | null;
 };
 export type PartnersPage = { items: Partner[]; nextCursor: string | null };
 export type PartnerLinkOption = {
   id: string;
   name: string;
+  publisherKind?: "organization" | "individual";
   publisherId?: string;
   status?: PublisherAppStatus;
+  appProviderIdentifier?: string;
 };
 export type PartnerLinkOptionsPage = {
   items: PartnerLinkOption[];
@@ -48,22 +56,36 @@ export const PARTNER_SECTIONS = [
   { key: "freeApp", label: "Organization with free app" },
   { key: "contract", label: "Organization with contract" },
 ] as const;
-export type PartnerSection = (typeof PARTNER_SECTIONS)[number]["key"] | "other";
+export const PARTNER_INDIVIDUAL_SECTIONS = [
+  { key: "individualWithoutApp", label: "Individual publisher without app" },
+  { key: "individualFreeApp", label: "Individual publisher with free app" },
+  { key: "individualContract", label: "Individual publisher with contract" },
+] as const;
+export type PartnerSection =
+  | (typeof PARTNER_SECTIONS)[number]["key"]
+  | (typeof PARTNER_INDIVIDUAL_SECTIONS)[number]["key"]
+  | "other";
 
 export function partnerSection(partner: Partner): PartnerSection {
-  if (!partner.linkedOrganizationId && !partner.linkedAppId)
+  const organizationId = partner.linkedOrganizationId;
+  const individualId = partner.linkedIndividualPublisherId;
+  if (!organizationId && !individualId && !partner.linkedAppId)
     return "noOrganization";
-  if (partner.linkedOrganization?.id !== partner.linkedOrganizationId)
+  if (organizationId && partner.linkedOrganization?.id !== organizationId)
     return "other";
-  if (!partner.linkedAppId) return "organizationWithoutApp";
+  if (individualId && partner.linkedIndividualPublisher?.id !== individualId)
+    return "other";
+  if (!partner.linkedAppId)
+    return organizationId ? "organizationWithoutApp" : "individualWithoutApp";
   const app = partner.linkedApp;
-  if (
-    app?.id !== partner.linkedAppId ||
-    app.publisherId !== partner.linkedOrganizationId
-  )
+  if (!app || app.id !== partner.linkedAppId)
     return "other";
-  if (app.status === "active_for_testing") return "freeApp";
+  const ownerId = app.publisherKind === "organization" ? organizationId : individualId;
+  if (!ownerId || app.publisherId !== ownerId)
+    return "other";
+  if (app.status === "active_for_testing")
+    return organizationId ? "freeApp" : "individualFreeApp";
   if (app.status === "active" || app.status.startsWith("active_"))
-    return "contract";
+    return organizationId ? "contract" : "individualContract";
   return "other";
 }

@@ -1,4 +1,4 @@
-import { FieldPath, type Query } from "firebase-admin/firestore";
+import { FieldPath } from "firebase-admin/firestore";
 import { adminDbFor } from "../config/firebase.js";
 import {
   CONNECTED_PARTNERS_COLLECTION,
@@ -10,6 +10,8 @@ import {
   StoredPartnerSchema,
   type PartnerAppSnapshot,
   type PartnerOrganizationSnapshot,
+  type PartnerIndividualPublisherSnapshot,
+  type PartnerLinkOption,
   type PartnerLinkOptionsPage,
   type StoredPartner,
   type Partner,
@@ -20,6 +22,9 @@ import type { AdminContext } from "../types/sdk.types.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 
 const PAGE_SIZE = 20;
+const ORGANIZATIONS_COLLECTION = "feed_organizations";
+const INDIVIDUALS_COLLECTION = "feed_individuals";
+const APPS_COLLECTION = "app_configs";
 
 function collection(context: AdminContext) {
   if (!context.isBootstrap) {
@@ -30,55 +35,90 @@ function collection(context: AdminContext) {
 
 function validId(id: string) {
   const result = PartnerIdSchema.safeParse(id);
-  if (!result.success)
-    throw new AdminRepositoryError("Invalid partner ID", 400);
+  if (!result.success) throw new AdminRepositoryError("Invalid partner ID", 400);
   return result.data;
+}
+
+function appSnapshot(id: string, data: Record<string, unknown> | undefined) {
+  if (
+    data?.publisherKind !== "organization" &&
+    data?.publisherKind !== "individual"
+  ) return null;
+  const parsed = PartnerAppSnapshotSchema.safeParse({
+    id,
+    publisherKind: data.publisherKind,
+    publisherId: data.publisherId,
+    publisherName: data.publisherName,
+    status: data.status,
+    ...(typeof data.appProviderIdentifier === "string" && data.appProviderIdentifier.trim()
+      ? { appProviderIdentifier: data.appProviderIdentifier.trim() }
+      : {}),
+  });
+  return parsed.success ? parsed.data : null;
 }
 
 type LinkReader = {
   organization: (id: string) => Promise<PartnerOrganizationSnapshot | null>;
+  individual: (id: string) => Promise<PartnerIndividualPublisherSnapshot | null>;
   app: (id: string) => Promise<PartnerAppSnapshot | null>;
 };
 
-// Reads are scoped to the linked documents, with repeated links deduplicated
-// within a page. Stored snapshots never determine the current app status.
+// Repeated links are read once per page. Snapshots never determine live status.
 function linkReader(): LinkReader {
   const db = adminDbFor("mydnamap");
-  const organizations = new Map<string, Promise<PartnerOrganizationSnapshot | null>>();
+  const publishers = new Map<string, Promise<PartnerOrganizationSnapshot | null>>();
   const apps = new Map<string, Promise<PartnerAppSnapshot | null>>();
-  return {
-    organization(id) {
-      if (!organizations.has(id)) organizations.set(id, (async () => {
-        const doc = await db.collection("feed_organizations").doc(id).get();
-        const parsed = PartnerOrganizationSnapshotSchema.safeParse({ id, name: doc.data()?.name });
+  function publisher(collectionName: string, id: string) {
+    const key = `${collectionName}/${id}`;
+    if (!publishers.has(key)) {
+      publishers.set(key, (async () => {
+        const doc = await db.collection(collectionName).doc(id).get();
+        const parsed = PartnerOrganizationSnapshotSchema.safeParse({
+          id,
+          name: doc.data()?.name,
+        });
         return doc.exists && parsed.success ? parsed.data : null;
       })());
-      return organizations.get(id)!;
-    },
+    }
+    return publishers.get(key)!;
+  }
+  return {
+    organization: (id) => publisher(ORGANIZATIONS_COLLECTION, id),
+    individual: (id) => publisher(INDIVIDUALS_COLLECTION, id),
     app(id) {
-      if (!apps.has(id)) apps.set(id, (async () => {
-        const doc = await db.collection("app_configs").doc(id).get();
-        const data = doc.data();
-        if (!doc.exists || data?.publisherKind !== "organization") return null;
-        const parsed = PartnerAppSnapshotSchema.safeParse({
-          id, publisherId: data.publisherId, publisherName: data.publisherName, status: data.status,
-        });
-        return parsed.success ? parsed.data : null;
-      })());
+      if (!PartnerLinkIdSchema.safeParse(id).success) return Promise.resolve(null);
+      if (!apps.has(id)) {
+        apps.set(id, (async () => {
+          const doc = await db.collection(APPS_COLLECTION).doc(id).get();
+          return doc.exists ? appSnapshot(id, doc.data()) : null;
+        })());
+      }
       return apps.get(id)!;
     },
   };
 }
 
-async function toPartner(id: string, data: unknown, reader: LinkReader): Promise<Partner> {
+async function toPartner(
+  id: string,
+  data: unknown,
+  reader: LinkReader,
+): Promise<Partner> {
   const stored = StoredPartnerSchema.parse(data);
-  const [linkedOrganization, app] = await Promise.all([
-    stored.linkedOrganizationId ? reader.organization(stored.linkedOrganizationId) : null,
+  const [linkedOrganization, linkedIndividualPublisher, app] = await Promise.all([
+    stored.linkedOrganizationId
+      ? reader.organization(stored.linkedOrganizationId) : null,
+    stored.linkedIndividualPublisherId
+      ? reader.individual(stored.linkedIndividualPublisherId) : null,
     stored.linkedAppId ? reader.app(stored.linkedAppId) : null,
   ]);
+  const appOwner = app?.publisherKind === "individual"
+    ? linkedIndividualPublisher : linkedOrganization;
   return {
-    ...stored, id, linkedOrganization,
-    linkedApp: app?.publisherId === stored.linkedOrganizationId ? app : null,
+    ...stored,
+    id,
+    linkedOrganization,
+    linkedIndividualPublisher,
+    linkedApp: app && appOwner?.id === app.publisherId ? app : null,
   };
 }
 
@@ -87,30 +127,46 @@ async function preparePartner(input: PartnerInput): Promise<StoredPartner> {
   const reader = linkReader();
   const linkedApp = data.linkedAppId ? await reader.app(data.linkedAppId) : null;
   if (data.linkedAppId && !linkedApp) {
-    throw new AdminRepositoryError("Linked organization app not found", 400);
+    throw new AdminRepositoryError("Linked app not found", 400);
   }
   if (linkedApp) {
-    if (data.linkedOrganizationId && data.linkedOrganizationId !== linkedApp.publisherId) {
-      throw new AdminRepositoryError("Linked app belongs to a different organization", 400);
+    const ownerKey = linkedApp.publisherKind === "individual"
+      ? "linkedIndividualPublisherId" : "linkedOrganizationId";
+    if (data[ownerKey] && data[ownerKey] !== linkedApp.publisherId) {
+      const ownerLabel = linkedApp.publisherKind === "individual"
+        ? "individual publisher" : "organization";
+      throw new AdminRepositoryError(
+        `Linked app belongs to a different ${ownerLabel}`,
+        400,
+      );
     }
-    data.linkedOrganizationId = linkedApp.publisherId;
+    data[ownerKey] = linkedApp.publisherId;
   }
-  const linkedOrganization = data.linkedOrganizationId
-    ? await reader.organization(data.linkedOrganizationId) : null;
+  const [linkedOrganization, linkedIndividualPublisher] = await Promise.all([
+    data.linkedOrganizationId ? reader.organization(data.linkedOrganizationId) : null,
+    data.linkedIndividualPublisherId
+      ? reader.individual(data.linkedIndividualPublisherId) : null,
+  ]);
   if (data.linkedOrganizationId && !linkedOrganization) {
     throw new AdminRepositoryError("Linked organization not found", 400);
+  }
+  if (data.linkedIndividualPublisherId && !linkedIndividualPublisher) {
+    throw new AdminRepositoryError("Linked individual publisher not found", 400);
   }
   return {
     ...data,
     linkedOrganizationSnapshot: linkedOrganization,
+    linkedIndividualPublisherSnapshot: linkedIndividualPublisher,
     linkedAppSnapshot: linkedApp,
   };
 }
 
 function preparedResponse(id: string, data: StoredPartner): Partner {
   return {
-    ...data, id,
+    ...data,
+    id,
     linkedOrganization: data.linkedOrganizationSnapshot,
+    linkedIndividualPublisher: data.linkedIndividualPublisherSnapshot,
     linkedApp: data.linkedAppSnapshot,
   };
 }
@@ -126,8 +182,7 @@ export async function listPartners(
   const reader = linkReader();
   return {
     items: await Promise.all(docs.map((doc) => toPartner(doc.id, doc.data(), reader))),
-    nextCursor:
-      snapshot.docs.length > PAGE_SIZE ? docs[docs.length - 1]!.id : null,
+    nextCursor: snapshot.docs.length > PAGE_SIZE ? docs[docs.length - 1]!.id : null,
   };
 }
 
@@ -170,44 +225,109 @@ export async function updatePartner(
   return preparedResponse(id, data);
 }
 
+function appOption(app: PartnerAppSnapshot): PartnerLinkOption {
+  return {
+    id: app.id,
+    name: app.publisherName,
+    publisherKind: app.publisherKind,
+    publisherId: app.publisherId,
+    status: app.status,
+    ...(app.appProviderIdentifier ? { appProviderIdentifier: app.appProviderIdentifier } : {}),
+  };
+}
+
+type LinkOptions = {
+  kind: "organization" | "individual" | "app";
+  cursor?: string;
+  organizationId?: string;
+  individualPublisherId?: string;
+  id?: string;
+};
+
+function appMatchesScope(app: PartnerAppSnapshot, options: LinkOptions) {
+  if (!options.organizationId && !options.individualPublisherId) return true;
+  return app.publisherKind === "organization"
+    ? app.publisherId === options.organizationId
+    : app.publisherId === options.individualPublisherId;
+}
+
 export async function listPartnerLinkOptions(
   context: AdminContext,
-  options: { kind: "organization" | "app"; cursor?: string; organizationId?: string },
+  options: LinkOptions,
 ): Promise<PartnerLinkOptionsPage> {
   collection(context);
   const db = adminDbFor("mydnamap");
-  const cursor = options.cursor ? PartnerLinkIdSchema.parse(options.cursor) : undefined;
-  if (options.kind === "app" && options.organizationId) {
-    // Organization app IDs are canonical and deterministic. This direct read
-    // avoids scanning unrelated apps or introducing a composite index.
-    const organizationId = PartnerLinkIdSchema.parse(options.organizationId);
-    const app = await linkReader().app(`organization_${organizationId}`);
+  const reader = linkReader();
+  const cursor = options.cursor
+    ? PartnerLinkIdSchema.parse(options.cursor) : undefined;
+  const publisherCollection = options.kind === "organization"
+    ? ORGANIZATIONS_COLLECTION : INDIVIDUALS_COLLECTION;
+  if (options.id) {
+    const id = PartnerLinkIdSchema.parse(options.id);
+    if (options.kind !== "app") {
+      const publisher = options.kind === "organization"
+        ? await reader.organization(id) : await reader.individual(id);
+      return { items: publisher ? [publisher] : [], nextCursor: null };
+    }
+    let app = await reader.app(id);
+    if (!app) {
+      // An exact public app identifier is also accepted without scanning configs.
+      const matches = await db.collection(APPS_COLLECTION)
+        .where("appProviderIdentifier", "==", id)
+        .limit(2)
+        .get();
+      if (matches.docs.length > 1) {
+        throw new AdminRepositoryError(
+          "This app ID matches more than one app. Use the app document ID.",
+          400,
+        );
+      }
+      const match = matches.docs[0];
+      app = match ? appSnapshot(match.id, match.data()) : null;
+    }
+    return { items: app ? [appOption(app)] : [], nextCursor: null };
+  }
+  if (
+    options.kind === "app" &&
+    (options.organizationId || options.individualPublisherId)
+  ) {
+    // Canonical app config IDs allow at most two direct reads for selected publishers.
+    const apps = await Promise.all([
+      ...(options.organizationId
+        ? [reader.app(`organization_${PartnerLinkIdSchema.parse(options.organizationId)}`)]
+        : []),
+      ...(options.individualPublisherId
+        ? [reader.app(`individual_${PartnerLinkIdSchema.parse(options.individualPublisherId)}`)]
+        : []),
+    ]);
     return {
-      items: app && app.publisherId === organizationId && (!cursor || app.id > cursor)
-        ? [{ id: app.id, name: app.publisherName, publisherId: app.publisherId, status: app.status }] : [],
+      items: apps
+        .filter((app): app is PartnerAppSnapshot => Boolean(
+          app && appMatchesScope(app, options) && (!cursor || app.id > cursor),
+        ))
+        .sort((left, right) => left.id.localeCompare(right.id))
+        .map(appOption),
       nextCursor: null,
     };
   }
-  let query: Query = db.collection(options.kind === "organization" ? "feed_organizations" : "app_configs");
-  if (options.kind === "app") query = query.where("publisherKind", "==", "organization");
-  query = query.orderBy(FieldPath.documentId());
+  let query = db.collection(
+    options.kind === "app" ? APPS_COLLECTION : publisherCollection,
+  ).orderBy(FieldPath.documentId());
   if (cursor) query = query.startAfter(cursor);
   const snapshot = await query.limit(PAGE_SIZE + 1).get();
   const docs = snapshot.docs.slice(0, PAGE_SIZE);
   return {
     items: docs.flatMap((doc) => {
       const data = doc.data();
-      if (options.kind === "organization") {
-        const parsed = PartnerOrganizationSnapshotSchema.safeParse({ id: doc.id, name: data.name });
-        return parsed.success ? [{ id: parsed.data.id, name: parsed.data.name }] : [];
+      if (options.kind !== "app") {
+        const parsed = PartnerOrganizationSnapshotSchema.safeParse({
+          id: doc.id,
+          name: data.name,
+        });
+        return parsed.success ? [parsed.data] : [];
       }
-      const parsed = PartnerAppSnapshotSchema.safeParse({
-        id: doc.id, publisherId: data.publisherId, publisherName: data.publisherName, status: data.status,
-      });
-      return parsed.success ? [{
-        id: parsed.data.id, name: parsed.data.publisherName,
-        publisherId: parsed.data.publisherId, status: parsed.data.status,
-      }] : [];
+      const app = appSnapshot(doc.id, data);
+      return app ? [appOption(app)] : [];
     }),
     nextCursor: snapshot.docs.length > PAGE_SIZE ? docs[docs.length - 1]!.id : null,
   };
