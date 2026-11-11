@@ -13,6 +13,7 @@ import { AppLanguageProvider } from "@/components/app-language-provider";
 import { TwoPQRecordWorkbench } from "@/components/two-pq-record-workbench";
 import { sdkFetch } from "@/lib/sdk-client";
 import type { TwoPQDetailRecord } from "@/lib/two-pq-areas";
+import type { CaseConsentTraceabilityPayload } from "@/lib/informed-consents";
 
 const routerRefresh = jest.fn();
 const routerPush = jest.fn();
@@ -78,6 +79,7 @@ function renderWorkbench(
   isBootstrap = false,
   role: WorkbenchRole = "full_admin",
   areaKey: "cases" | "sampling" = "cases",
+  initialConsentTraceability?: CaseConsentTraceabilityPayload,
 ) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -107,6 +109,7 @@ function renderWorkbench(
             institutions={[]}
             doctors={[]}
             patients={[]}
+            initialConsentTraceability={initialConsentTraceability}
           />
         </AdminContextProvider>
       </AppLanguageProvider>
@@ -144,6 +147,30 @@ describe("2PQ case-status progress modal", () => {
         `/2pq-dashboard/forms/${id}`,
       );
     }
+  });
+
+  it("places consent immediately below the three-letter code and above case status", () => {
+    renderWorkbench(detail, false, "full_admin", "cases", {
+      case: {
+        id: detail.record.id,
+        institutionId: "institution-1",
+        doctorId: "doctor-1",
+        patientId: "patient-1",
+        patientName: "Sample Patient",
+        caseLabel: "CANXXX",
+        informedConsentId: null,
+        createdAt: detail.record.createdAt,
+        updatedAt: detail.record.updatedAt,
+      },
+      linkedConsent: null,
+      consentOptions: [],
+    });
+
+    const code = screen.getByRole("heading", { name: "Three letter code" }).closest("section");
+    const consent = screen.getByRole("heading", { name: "Trazabilidad del consentimiento informado" }).closest("section");
+    const status = screen.getByRole("heading", { name: "Case status" }).closest("section");
+    expect(code?.nextElementSibling).toBe(consent);
+    expect(consent?.nextElementSibling).toBe(status);
   });
 
   it("shows an optional empty state when the case has no linked service transaction", () => {

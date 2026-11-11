@@ -23,6 +23,7 @@ import type {
   InformedConsentDetailPayload,
 } from "@/lib/informed-consents";
 import { sdkFetch } from "@/lib/sdk-client";
+import { cn } from "@/lib/utils";
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -218,6 +219,7 @@ export function CaseConsentTraceabilityCard({
   const [error, setError] = useState("");
   const studyRequestFormId = payload.case.linkedStudyRequestFormId ?? payload.linkedConsent?.studyRequestFormId;
   const canEditLegacyLink = canManage && !studyRequestFormId;
+  const consentReady = payload.linkedConsent?.reviewStatus === "ready";
 
   async function reload() {
     const nextPayload = await sdkFetch<CaseConsentTraceabilityPayload>(
@@ -252,11 +254,14 @@ export function CaseConsentTraceabilityCard({
   }
 
   return (
-    <section className={traceCardClassName}>
+    <section className={cn(
+      traceCardClassName,
+      consentReady && "border-emerald-300/90 bg-emerald-50/90 text-emerald-950 shadow-[0_14px_34px_rgba(16,185,129,0.14)] dark:border-emerald-300/28 dark:bg-emerald-500/12 dark:text-emerald-50",
+    )}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <FileCheck2 className="size-5 text-orange-600 dark:text-orange-300" />
+            <FileCheck2 className={cn("size-5", consentReady ? "text-emerald-600 dark:text-emerald-300" : "text-orange-600 dark:text-orange-300")} />
             <h2 className="font-heading text-lg font-semibold">
               Trazabilidad del consentimiento informado
             </h2>
@@ -266,7 +271,7 @@ export function CaseConsentTraceabilityCard({
               <p className="font-semibold">
                 {payload.linkedConsent.file.name} · {payload.linkedConsent.id}
               </p>
-              <p className="text-orange-950/70 dark:text-orange-50/70">
+              <p className="opacity-70">
                 Subido por {payload.linkedConsent.createdByEmail} el{" "}
                 {formatDate(payload.linkedConsent.createdAt)}
               </p>
@@ -275,7 +280,7 @@ export function CaseConsentTraceabilityCard({
               ) : null}
             </div>
           ) : (
-            <p className="mt-3 text-sm text-orange-950/70 dark:text-orange-50/70">
+            <p className="mt-3 text-sm opacity-70">
               Este caso todavía no tiene un consentimiento informado vinculado.
             </p>
           )}
@@ -324,7 +329,7 @@ export function CaseConsentTraceabilityCard({
       </div>
 
       {editing && canEditLegacyLink ? (
-        <div className="mt-5 rounded-xl border border-orange-200 bg-white/70 p-4 dark:border-orange-300/20 dark:bg-orange-950/20">
+        <div className="mt-5 rounded-xl border border-current/20 bg-white/70 p-4 dark:bg-black/10">
           <p className="mb-3 text-sm font-medium">
             Seleccione un consentimiento de {payload.case.patientName}.
           </p>
@@ -333,7 +338,7 @@ export function CaseConsentTraceabilityCard({
               value={selectedConsentId}
               onValueChange={setSelectedConsentId}
             >
-              <SelectTrigger className="min-w-0 flex-1 bg-white dark:bg-orange-950/30">
+              <SelectTrigger className="min-w-0 flex-1 bg-white dark:bg-black/10">
                 <SelectValue placeholder="Seleccionar consentimiento" />
               </SelectTrigger>
               <SelectContent>
@@ -358,7 +363,7 @@ export function CaseConsentTraceabilityCard({
               Confirmar vínculo
             </Button>
           </div>
-          <p className="mt-3 text-xs text-orange-950/65 dark:text-orange-50/65">
+          <p className="mt-3 text-xs opacity-65">
             El cambio es recíproco: los vínculos anteriores quedan liberados y
             ambas entidades apuntan entre sí al terminar.
           </p>

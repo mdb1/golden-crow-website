@@ -6342,17 +6342,6 @@ export function TwoPQRecordWorkbench({
               </div>
             </section>
           ) : null}
-          {areaKey === "cases" &&
-          mode !== "create" &&
-          initialConsentTraceability ? (
-            <CaseConsentTraceabilityCard
-              initialPayload={initialConsentTraceability}
-              canManage={
-                canUseCaseAdministrativeControls &&
-                Boolean(detail?.record.canUpdate)
-              }
-            />
-          ) : null}
           {areaKey === "sequencing" ||
           areaKey === "cases" ||
           areaKey === "sampling" ? (
@@ -6870,6 +6859,18 @@ export function TwoPQRecordWorkbench({
                 )}
               </div>
             </section>
+          ) : null}
+
+          {areaKey === "cases" &&
+          mode !== "create" &&
+          initialConsentTraceability ? (
+            <CaseConsentTraceabilityCard
+              initialPayload={initialConsentTraceability}
+              canManage={
+                canUseCaseAdministrativeControls &&
+                Boolean(detail?.record.canUpdate)
+              }
+            />
           ) : null}
 
           {areaKey === "cases" &&

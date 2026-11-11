@@ -155,13 +155,16 @@ describe("consent and 2PQ case traceability", () => {
     expect(screen.queryByRole("button", { name: "Vincular caso" })).toBeNull();
   });
 
-  it("keeps the consent on its study request after the case is created", () => {
+  it.each([
+    { status: "ready" as const, label: "Consentimiento listo", background: "bg-emerald-50/90", border: "border-emerald-300/90", otherBackground: "bg-orange-50/90" },
+    { status: "needs_review" as const, label: "Consentimiento por revisar", background: "bg-orange-50/90", border: "border-orange-300/90", otherBackground: "bg-emerald-50/90" },
+  ])("keeps request-linked consent actions and reflects $status", ({ status, label, background, border, otherBackground }) => {
     render(
       <CaseConsentTraceabilityCard
         initialPayload={{
           ...casePayload,
           case: { ...caseOption, linkedStudyRequestFormId: "FORM-00001" },
-          linkedConsent: { ...record, studyRequestFormId: "FORM-00001", reviewStatus: "ready" },
+          linkedConsent: { ...record, studyRequestFormId: "FORM-00001", reviewStatus: status },
         }}
         canManage
       />,
@@ -170,7 +173,10 @@ describe("consent and 2PQ case traceability", () => {
     expect(screen.getByRole("link", { name: /Abrir solicitud de estudio/ })).toHaveAttribute(
       "href", "/2pq-dashboard/forms/FORM-00001#informed-consent",
     );
-    expect(screen.getByText("Consentimiento listo")).toBeTruthy();
+    const section = screen.getByRole("heading", { name: "Trazabilidad del consentimiento informado" }).closest("section");
+    expect(section).toHaveClass(background, border);
+    expect(section).not.toHaveClass(otherBackground);
+    expect(screen.getByText(label)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Cambiar" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Quitar" })).toBeNull();
   });
