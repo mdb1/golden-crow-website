@@ -16,7 +16,8 @@ const WARM_SCENE_CORNER_SHADE_OPACITY = 0.36;
 const WARM_SCENE_BLOOM_OPACITY = 0.42;
 const ATOMIC_ASSET_SCRIPT =
   "/open-api/pocketgenes-atomic-banner/asset-library.js";
-const ATOMIC_BANNER_SCRIPT = "/open-api/pocketgenes-atomic-banner/banner.js";
+const ATOMIC_BANNER_SCRIPT =
+  "/open-api/pocketgenes-atomic-banner/banner.js?v=2";
 
 type PublisherAppPromoBannerProps = {
   organizationName: string;
@@ -24,6 +25,8 @@ type PublisherAppPromoBannerProps = {
   organizationImageUrl?: string;
   ctaLabel?: string;
   language?: "es" | "en";
+  showPricing?: boolean;
+  showAction?: boolean;
 };
 
 type RGB = {
@@ -43,6 +46,8 @@ type AtomicBannerConfig = {
   accentLight: string;
   companyName: string;
   actionLabel: string;
+  showPricing: boolean;
+  showAction: boolean;
   brandLogoUrl: string;
   backgroundDepthOpacity: number;
   cornerShadeOpacity: number;
@@ -277,6 +282,8 @@ export function PublisherAppPromoBanner({
   organizationImageUrl,
   ctaLabel = "Crear mi app",
   language = "es",
+  showPricing = true,
+  showAction = true,
 }: PublisherAppPromoBannerProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const shortName =
@@ -308,6 +315,8 @@ export function PublisherAppPromoBanner({
           accentLight: palette.accentLight,
           companyName: shortName,
           actionLabel: ctaLabel,
+          showPricing,
+          showAction,
           brandLogoUrl,
           backgroundDepthOpacity: palette.backgroundDepthOpacity,
           cornerShadeOpacity: palette.cornerShadeOpacity,
@@ -373,6 +382,8 @@ export function PublisherAppPromoBanner({
     brandLogoUrl,
     ctaLabel,
     language,
+    showPricing,
+    showAction,
     palette.accent,
     palette.accentDeep,
     palette.accentLight,
@@ -405,9 +416,13 @@ export function PublisherAppPromoBanner({
       className="atomic-host shadow-[0_18px_40px_-28px_rgba(15,23,42,0.65)]"
     >
       <span className="sr-only">La app de {shortName}</span>
-      <span className="sr-only">99.99</span>
-      <span className="sr-only">59.99</span>
-      <span className="sr-only">{ctaLabel}</span>
+      {showPricing && (
+        <>
+          <span className="sr-only">99.99</span>
+          <span className="sr-only">59.99</span>
+        </>
+      )}
+      {showAction && <span className="sr-only">{ctaLabel}</span>}
     </div>
   );
 }

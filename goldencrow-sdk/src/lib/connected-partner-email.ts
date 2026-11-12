@@ -139,7 +139,7 @@ export function buildConnectedPartnerEmail(
     language === "es" ? "Equipo Pocket Genes" : "The Pocket Genes team";
   const closing = [copy.closing, signature].filter(Boolean).join("\n\n");
   const bannerHtml = presentation?.banner
-    ? `<div style="margin:0 0 24px;"><a href="${escapeHtml(ctaUrl)}" style="display:block;text-decoration:none;"><img src="cid:${PARTNER_BANNER_CONTENT_ID}" width="600" alt="${escapeHtml(language === "es" ? `Así podría verse la app de ${presentation.brand.name}` : `See what ${presentation.brand.name}’s app could look like`)}" style="display:block;width:100%;max-width:600px;height:auto;border:0;border-radius:14px;"></a></div>`
+    ? `<div style="margin:0 0 24px;"><img src="cid:${PARTNER_BANNER_CONTENT_ID}" width="600" alt="${escapeHtml(language === "es" ? `Así podría verse la app de ${presentation.brand.name}` : `See what ${presentation.brand.name}’s app could look like`)}" style="display:block;width:100%;max-width:600px;height:auto;border:0;border-radius:14px;"></div>`
     : "";
   const ctaHtml = `<a href="${escapeHtml(ctaUrl)}" class="pg-email-cta" style="display:block;max-width:100%;box-sizing:border-box;text-align:center;overflow-wrap:break-word;background:#6f3cc3;color:#ffffff;text-decoration:none;border-radius:12px;padding:22px 24px;font-size:17px;line-height:24px;font-weight:800;">${escapeHtml(copy.ctaLabel)}</a>`;
   const text = [
@@ -165,9 +165,9 @@ export function buildConnectedPartnerEmail(
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0;padding:0;background:#f8f7ff;font-family:Arial,Helvetica,sans-serif;color:#111827;"><tr><td class="pg-email-outer" align="center" style="padding:40px 16px;">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:680px;table-layout:fixed;border-collapse:separate;border-spacing:0;background:#ffffff;border:1px solid #e7e5ff;border-radius:18px;overflow:hidden;box-shadow:0 18px 48px rgba(86,50,164,0.14);"><tr><td class="pg-email-header" style="background:#2d1b69;padding:36px 40px;overflow-wrap:break-word;word-wrap:break-word;"><div style="font-size:13px;line-height:18px;letter-spacing:0.26em;text-transform:uppercase;font-weight:800;color:#d8c9ff;">Pocket Genes</div><div class="pg-email-title" style="margin-top:16px;font-size:36px;line-height:42px;font-weight:800;color:#ffffff;">${escapeHtml(copy.heading)}</div></td></tr>
 <tr><td class="pg-email-content" style="padding:40px;background:#ffffff;overflow-wrap:break-word;word-wrap:break-word;"><p style="margin:0 0 24px;font-size:20px;line-height:30px;color:#111827;">${escapeHtml(greeting)}</p><p style="margin:0 0 28px;font-size:22px;line-height:32px;font-weight:800;color:#111827;">${escapeHtml(copy.lead)}</p>
-${bannerHtml}${presentation?.banner ? `<div style="margin:0 0 28px;">${ctaHtml}</div>` : ""}
+${bannerHtml}
 ${copy.paragraphs.map((paragraph) => `<p style="margin:0 0 24px;font-size:18px;line-height:30px;color:#4b5563;">${escapeHtml(paragraph)}</p>`).join("\n")}
-${!presentation?.banner || copy.paragraphs.length ? ctaHtml : ""}
+${ctaHtml}
 <p style="margin:28px 0 0;font-size:16px;line-height:26px;color:#6b7280;">${escapeHtml(closing).replace(/\n/g, "<br>")}</p></td></tr></table></td></tr></table></body></html>`;
   const content = {
     partnerId: partner.id,

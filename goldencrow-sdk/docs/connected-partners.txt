@@ -308,7 +308,13 @@ PublisherAppPromoBanner used by the portal home. The GOD MODE preview reads the
 live app owner's publisher name, imageUrl/imageUploadDataUrl and colorHex. The
 browser renders that shared atomic scene (including the branded phones), adds
 the publisher icon/name, waits for fonts and every image, and captures a bounded
-1024px JPEG. English previews also localize the scene labels. Missing images or
+1024px JPEG. No-app organization and individual emails omit the banner's entire
+price/discount blocks and its creation action, retaining the branded phones and
+publisher identity. Other portal banners keep their existing promotion controls.
+Every partner email has one purple CTA after its explanatory paragraphs; the
+banner is a presentation image rather than a second link or action. The banner
+renderer context is versioned so older promotional captures need a fresh preview.
+English previews also localize the scene labels. Missing images or
 render errors block sending and expose retry; no generic placeholder is sent.
 GET email-preview returns bannerBrand and its contextHash. POST email-preview
 accepts { language, templateVariant, banner: { contextHash, dataUrl } } and freezes the reviewed

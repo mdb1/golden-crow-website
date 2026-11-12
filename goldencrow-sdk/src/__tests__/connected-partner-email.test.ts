@@ -323,16 +323,35 @@ it.each([1, 2] as const)("matches every supplied bilingual copy field and button
   }
 });
 
-it("places the actual inline banner and a prominent purple action above the explanatory paragraphs", () => {
+it("places the inline banner before the text and keeps one final purple action after all paragraphs", () => {
   const brand = partnerBannerBrand(org.name, "#657960", "https://example.com/logo.png", "es", "Pedir mi demo gratis");
   const banner = { contextHash: brand.contextHash, dataUrl: "data:image/jpeg;base64,reviewed-image" };
   const preview = buildConnectedPartnerEmail(withOrg, "es", "KEY12345", { brand, banner });
   expect(preview.html).toContain('src="cid:partner-publisher-app-banner"');
   expect(preview.html).toContain(`alt="Así podría verse la app de ${org.name}"`);
-  expect(preview.html.indexOf('class="pg-email-cta"')).toBeLessThan(preview.html.indexOf("Elegí las funciones"));
+  expect(preview.html.indexOf('src="cid:partner-publisher-app-banner"')).toBeLessThan(preview.html.indexOf("Elegí las funciones"));
+  expect(preview.html.indexOf('class="pg-email-cta"')).toBeGreaterThan(preview.html.indexOf("Entrá con la cuenta de publicador"));
+  expect(preview.html.match(/class="pg-email-cta"/g)).toHaveLength(1);
+  expect(preview.html.match(/<a\b/g)).toHaveLength(1);
   expect(preview.html).toContain("padding:22px 24px");
   expect(buildConnectedPartnerEmail(withOrg, "es", "KEY12345", { brand, banner: { ...banner, dataUrl: "data:image/jpeg;base64,changed-image" } }).previewHash).not.toBe(preview.previewHash);
   expect(buildConnectedPartnerEmail(base).bannerBrand).toBeUndefined();
+});
+
+it.each(["es", "en"] as const)("keeps only the final CTA in both %s no-app templates for organizations and individuals", (language) => {
+  for (const partner of [withOrg, { ...base, linkedIndividualPublisherId: individual.id, linkedIndividualPublisher: individual }]) {
+    for (const variant of [1, 2] as const) {
+      const name = partner.linkedOrganization?.name ?? partner.linkedIndividualPublisher!.name;
+      const brand = partnerBannerBrand(name, "#657960", "", language, "demo");
+      const preview = buildConnectedPartnerEmail(partner, language, undefined, {
+        brand, banner: { contextHash: brand.contextHash, dataUrl: "data:image/jpeg;base64,reviewed-image" },
+      }, variant);
+      expect(preview.html.match(/class="pg-email-cta"/g)).toHaveLength(1);
+      expect(preview.html.match(/<a\b/g)).toHaveLength(1);
+      expect(preview.html.indexOf('class="pg-email-cta"')).toBeGreaterThan(preview.html.lastIndexOf('<p style="margin:0 0 24px;font-size:18px'));
+      expect(preview.text.split(preview.ctaUrl)).toHaveLength(2);
+    }
+  }
 });
 
 it("uses the live banner publisher name in copy even if the app carries an older publisher name", () => {
