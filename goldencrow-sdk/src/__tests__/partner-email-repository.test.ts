@@ -5,6 +5,8 @@ import {
 } from "fastify-type-provider-zod";
 import type { AdminContext } from "../types/sdk.types.js";
 import { sealPublisherAccessKey } from "../lib/publisher-portal-credentials.js";
+import { readPublisherAccessCode } from "../lib/publisher-access-code.js";
+import { exchangePublisherAccessCode } from "../repositories/publisher-access-code.repository.js";
 import type { PartnerEmailTemplateVariant } from "../lib/connected-partner-email.js";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -21,6 +23,7 @@ const mockQueries: Array<{
   orders: Array<[string, string]>;
 }> = [];
 const mockPublisherUser = jest.fn();
+const mockPublisherCustomToken = jest.fn();
 let mockFinalSetFails = false;
 let mockReservationFails = false;
 let mockTransactionTail = Promise.resolve();
@@ -103,7 +106,7 @@ function query(
   };
 }
 jest.mock("../config/firebase.js", () => ({
-  adminAuthFor: () => ({ getUserByEmail: mockPublisherUser }),
+  adminAuthFor: () => ({ getUserByEmail: mockPublisherUser, createCustomToken: mockPublisherCustomToken }),
   adminDbFor: () => ({
     collection: (name: string) => query(name),
     runTransaction: async (callback: (tx: unknown) => Promise<unknown>) => {
@@ -250,6 +253,7 @@ it("uses the saved publisher key in both preview and sent link without storing c
     expect(preview.accessCodeExpiresAt).toBeUndefined();
     const result = await sendPartnerEmail(context, partnerId, args);
     expect(result.status).toBe("sent");
+    expect(mockPublisherUser).not.toHaveBeenCalled();
     expect(sendGmailMessage).toHaveBeenCalledWith(
       expect.objectContaining({ html: preview.html, text: preview.text }),
       expect.any(Object),
@@ -293,6 +297,193 @@ it("uses the saved publisher key in both preview and sent link without storing c
       delete process.env.PUBLISHER_PORTAL_CREDENTIALS_SECRET;
     else process.env.PUBLISHER_PORTAL_CREDENTIALS_SECRET = previousSecret;
   }
+});
+
+describe("publisher email access-token fallback", () => {
+  const secretEnv = "PUBLISHER_PORTAL_ACCESS_CODE_SIGNING_SECRET";
+  const originalSecret = process.env[secretEnv];
+  beforeEach(() => {
+    jest.useFakeTimers({ now: new Date("2026-11-11T12:00:00Z") });
+    process.env[secretEnv] = "partner-email-fallback-test-secret-".repeat(2);
+    mockPublisherCustomToken.mockResolvedValue(
+      "primary-publisher-custom-token",
+    );
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+    if (originalSecret === undefined) delete process.env[secretEnv];
+    else process.env[secretEnv] = originalSecret;
+  });
+
+  function linkAccount(
+    kind: "organization" | "individual",
+    status: "active_for_testing" | "active" | null = null,
+  ) {
+    const id = kind === "organization" ? "org_one" : "person_one";
+    mockDocs.set(partnerPath, {
+      ...partner,
+      linkedOrganizationId: kind === "organization" ? id : null,
+      linkedIndividualPublisherId: kind === "individual" ? id : null,
+      linkedAppId: status ? "app_one" : null,
+    });
+    mockDocs.set(
+      `${kind === "organization" ? "feed_organizations" : "feed_individuals"}/${id}`,
+      {
+        name: "Genome Studio",
+        ...(kind === "organization" ? { portalAccessKey: null } : {}),
+      },
+    );
+    mockDocs.set("user_roles/ana@example.com", {
+      role: `${kind}_publisher`,
+      isActive: true,
+      [kind === "organization" ? "organizationId" : "individualId"]: id,
+      firebaseUid: "publisher-uid",
+    });
+    mockPublisherUser.mockResolvedValue({
+      uid: "publisher-uid",
+      email: "ana@example.com",
+      disabled: false,
+      tokensValidAfterTime: "2026-11-10T00:00:00Z",
+    });
+    if (status)
+      mockDocs.set("app_configs/app_one", {
+        publisherKind: kind,
+        publisherId: id,
+        publisherName: "Genome Studio",
+        status,
+      });
+    return id;
+  }
+
+  it.each([
+    ["organization", null, 1, "/publisher-portal/app/new"],
+    [
+      "organization",
+      "active_for_testing",
+      2,
+      "/publisher-portal/app/accept-terms-and-conditions",
+    ],
+    ["organization", "active", 1, "/publisher-portal/app/edit"],
+    ["individual", null, 2, "/publisher-portal/app/new"],
+    [
+      "individual",
+      "active_for_testing",
+      1,
+      "/publisher-portal/app/accept-terms-and-conditions",
+    ],
+    ["individual", "active", 2, "/publisher-portal/app/edit"],
+  ] as const)(
+    "uses a redeemable signed token for %s/%s without a saved key",
+    async (kind, status, variant, callback) => {
+      const id = linkAccount(kind, status);
+      const publisherPath = `${kind === "organization" ? "feed_organizations" : "feed_individuals"}/${id}`;
+      const publisherBefore = { ...mockDocs.get(publisherPath) };
+      const args = await input(variant);
+      const preview = await previewPartnerEmail(
+        context,
+        partnerId,
+        "es",
+        args.banner,
+        variant,
+      );
+      const url = new URL(preview.ctaUrl);
+      const token = url.searchParams.get("accessKey")!;
+      expect(token).toMatch(/^pgp1\./);
+      expect(token.length).toBeGreaterThan(256);
+      expect(url.searchParams.get("email")).toBe(partner.email);
+      expect(url.searchParams.get("callbackUrl")).toBe(callback);
+      const payload = readPublisherAccessCode(token, partner.email);
+      expect(payload).toMatchObject({
+        uid: "publisher-uid",
+        email: partner.email,
+        publisherKind: kind,
+        publisherId: id,
+        partnerId,
+      });
+      expect(preview.accessCodeExpiresAt).toBe(
+        new Date(payload.expiresAt * 1000).toISOString(),
+      );
+      expect(preview.accessCodeUnavailableReason).toBeUndefined();
+      expect(preview.previewHash).toBe(args.previewHash);
+      expect(mockDocs.has(requestPath)).toBe(false);
+      expect(mockDocs.get(publisherPath)).toEqual(publisherBefore);
+
+      jest.setSystemTime(new Date("2026-11-11T15:30:00Z"));
+      expect((await sendPartnerEmail(context, partnerId, args)).status).toBe(
+        "sent",
+      );
+      expect(sendGmailMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ text: preview.text, html: preview.html }),
+        expect.any(Object),
+      );
+      expect(JSON.stringify([...mockDocs])).not.toContain(token);
+      expect(JSON.stringify(mockDocs.get(requestPath))).not.toContain(
+        "accessKey=",
+      );
+      expect(
+        (await getPartnerEmailHistory(context, requestId)).accessKeyOmitted,
+      ).toBe(true);
+      expect(mockDocs.get(publisherPath)).toEqual(publisherBefore);
+      expect(mockPublisherCustomToken).not.toHaveBeenCalled();
+
+      expect(await exchangePublisherAccessCode(partner.email, token)).toEqual({
+        customToken: "primary-publisher-custom-token",
+      });
+      expect(mockPublisherCustomToken).toHaveBeenCalledWith("publisher-uid");
+    },
+  );
+
+  it.each(["inactive", "disabled", "missingUser"] as const)(
+    "does not put an access token in the email for an %s account",
+    async (state) => {
+      linkAccount("organization");
+      if (state === "inactive")
+        mockDocs.get("user_roles/ana@example.com")!.isActive = false;
+      else if (state === "disabled")
+        mockPublisherUser.mockResolvedValue({
+          uid: "publisher-uid",
+          email: partner.email,
+          disabled: true,
+        });
+      else mockPublisherUser.mockRejectedValue({ code: "auth/user-not-found" });
+      const preview = await previewPartnerEmail(context, partnerId);
+      expect(new URL(preview.ctaUrl).searchParams.has("accessKey")).toBe(false);
+      expect(preview.accessCodeExpiresAt).toBeUndefined();
+      expect(preview.accessCodeUnavailableReason).toContain(
+        "active publisher account matching",
+      );
+      expect(mockPublisherCustomToken).not.toHaveBeenCalled();
+    },
+  );
+
+  it("does not use an organization's account to access a linked individual's app", async () => {
+    linkAccount("individual", "active");
+    mockDocs.set("feed_organizations/org_other", {
+      name: "Other Organization",
+    });
+    mockDocs.get(partnerPath)!.linkedOrganizationId = "org_other";
+    mockDocs.set("user_roles/ana@example.com", {
+      role: "organization_publisher",
+      isActive: true,
+      organizationId: "org_other",
+      firebaseUid: "publisher-uid",
+    });
+    const preview = await previewPartnerEmail(context, partnerId);
+    expect(new URL(preview.ctaUrl).searchParams.has("accessKey")).toBe(false);
+    expect(preview.accessCodeUnavailableReason).toBeDefined();
+    expect(mockPublisherCustomToken).not.toHaveBeenCalled();
+  });
+
+  it("requires a fresh preview if the account loses access before sending", async () => {
+    linkAccount("organization");
+    const args = await input();
+    mockDocs.get("user_roles/ana@example.com")!.isActive = false;
+    await expect(
+      sendPartnerEmail(context, partnerId, args),
+    ).rejects.toMatchObject({ statusCode: 412 });
+    expect(sendGmailMessage).not.toHaveBeenCalled();
+    expect(mockDocs.has(requestPath)).toBe(false);
+  });
 });
 async function server(adminContext: AdminContext | null = context) {
   const app = Fastify();
@@ -360,6 +551,8 @@ beforeEach(() => {
   mockFinalSetFails = false;
   mockReservationFails = false;
   mockTransactionTail = Promise.resolve();
+  mockPublisherUser.mockReset().mockRejectedValue({ code: "auth/user-not-found" });
+  mockPublisherCustomToken.mockReset();
   jest.mocked(sendGmailMessage).mockReset().mockResolvedValue(undefined);
 });
 

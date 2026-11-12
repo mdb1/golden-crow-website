@@ -16,6 +16,7 @@ import type { AdminContext } from "../types/sdk.types.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 import { getPartner } from "./connected-partners.repository.js";
 import { partnerPublisherStoredAccessKey } from "./publisher-portal-credentials.repository.js";
+import { partnerPublisherAccessCode } from "./publisher-access-code.repository.js";
 import {
   PartnerEmailBannerInputSchema,
   partnerBannerAttachment,
@@ -317,7 +318,11 @@ export async function previewPartnerEmail(
       );
     return base;
   }
-  const accessKey = await partnerPublisherStoredAccessKey(context, partner);
+  const storedAccessKey = await partnerPublisherStoredAccessKey(context, partner);
+  const accessCode = storedAccessKey
+    ? null
+    : await partnerPublisherAccessCode(context, partner);
+  const accessKey = storedAccessKey ?? accessCode?.accessKey;
   const kind =
     partner.linkedApp?.publisherKind ??
     (partner.linkedOrganization ? "organization" : "individual");
@@ -375,13 +380,13 @@ export async function previewPartnerEmail(
     { brand, banner },
     parsedVariant,
   );
-  return accessKey
-    ? preview
-    : {
-        ...preview,
-        accessCodeUnavailableReason:
-          "No saved access key matches this recipient. Save the current key in the linked publisher's detail to include it in this link.",
-      };
+  if (accessCode) return { ...preview, accessCodeExpiresAt: accessCode.expiresAt };
+  if (accessKey) return preview;
+  return {
+    ...preview,
+    accessCodeUnavailableReason:
+      "This recipient does not have an active publisher account matching the linked publisher. The link includes their email only.",
+  };
 }
 
 export async function sendPartnerEmail(

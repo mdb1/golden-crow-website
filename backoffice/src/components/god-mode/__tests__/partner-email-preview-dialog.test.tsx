@@ -180,6 +180,25 @@ it("exposes the exact publisher login URL and its query parameters without sendi
   expect(requests()).toHaveLength(0);
 });
 
+it("shows the signed fallback link and its expiration when there is no stored publisher key", async () => {
+  const token = `pgp1.${"a".repeat(300)}.signature`;
+  const url = new URL("https://golden-crow-backoffice.vercel.app/publisher-portal/login");
+  url.searchParams.set("email", preview.to);
+  url.searchParams.set("accessKey", token);
+  url.searchParams.set("callbackUrl", "/publisher-portal/app/new");
+  jest.mocked(sdkFetch).mockResolvedValue({ ...preview, ctaUrl: url.toString(), category: "organizationWithoutApp", accessCodeExpiresAt: "2026-11-13T00:00:00.000Z" });
+  renderDialog();
+  await ready();
+  expect(screen.getByText(/Access code valid until:/)).toBeVisible();
+  expect(screen.getByText(url.toString())).toBeVisible();
+  const destination = screen.getByRole("link", { name: "Open link" }).getAttribute("href")!;
+  expect(new URL(destination).searchParams.get("accessKey")).toBe(token);
+  expect(new URL(destination).searchParams.get("email")).toBe(preview.to);
+  expect(new URL(destination).searchParams.get("callbackUrl")).toBe("/publisher-portal/app/new");
+  expect(screen.queryByRole("note")).toBeNull();
+  expect(requests()).toHaveLength(0);
+});
+
 it("keeps send disabled while preparing a preview and retries a failed preview without sending", async () => {
   const load = deferred<PartnerEmailPreview>();
   jest
