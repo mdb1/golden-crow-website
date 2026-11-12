@@ -1,6 +1,7 @@
 import type { PartnerSection } from "@/lib/connected-partners";
 
 export type PartnerEmailLanguage = "es" | "en";
+export type PartnerEmailTemplateVariant = 1 | 2;
 export type PartnerEmailBannerBrand = {
   name: string;
   tint: string;
@@ -19,6 +20,7 @@ export type PartnerEmailPreview = {
   ctaUrl: string;
   category: PartnerSection;
   language: PartnerEmailLanguage;
+  templateVariant: PartnerEmailTemplateVariant;
   previewHash: string;
   accessCodeExpiresAt?: string;
   accessCodeUnavailableReason?: string;
@@ -28,6 +30,7 @@ export type PartnerEmailPreview = {
 
 export type PartnerEmailSendInput = {
   language: PartnerEmailLanguage;
+  templateVariant: PartnerEmailTemplateVariant;
   previewHash: string;
   requestId: string;
   banner?: PartnerEmailBannerInput;

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  Check,
   CheckCircle2,
   ExternalLink,
   Loader2,
@@ -30,6 +31,7 @@ import {
   type PartnerEmailPreview,
   type PartnerEmailSendInput,
   type PartnerEmailSendResult,
+  type PartnerEmailTemplateVariant,
 } from "@/lib/partner-email";
 import { appText } from "@/lib/language";
 import { sdkFetch, SdkRequestError } from "@/lib/sdk-client";
@@ -49,8 +51,10 @@ export function PartnerEmailPreviewDialog({
   const t = (text: string) => appText(language, text);
   const [emailLanguage, setEmailLanguage] =
     useState<PartnerEmailLanguage>("es");
+  const [templateVariant, setTemplateVariant] =
+    useState<PartnerEmailTemplateVariant>(1);
   const [revision, setRevision] = useState(0);
-  const [preview, setPreview] = useState<PartnerEmailPreview | null>(null);
+  const [preparedPreview, setPreview] = useState<PartnerEmailPreview | null>(null);
   const [loading, setLoading] = useState(true);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -76,10 +80,11 @@ export function PartnerEmailPreviewDialog({
     setOutcome(null);
     operationRef.current = null;
     void sdkFetch<PartnerEmailPreview>(
-      `${PARTNERS_API_ROUTE}/${encodeURIComponent(partnerId)}/email-preview?language=${emailLanguage}`,
+      `${PARTNERS_API_ROUTE}/${encodeURIComponent(partnerId)}/email-preview?language=${emailLanguage}&templateVariant=${templateVariant}`,
       { signal: controller.signal },
     )
       .then(async (response) => {
+        if (controller.signal.aborted || token !== generation.current) return;
         if (response.bannerBrand) {
           const banner = await renderPartnerEmailBanner(
             response.bannerBrand,
@@ -87,11 +92,12 @@ export function PartnerEmailPreviewDialog({
             response.category,
             controller.signal,
           );
+          if (controller.signal.aborted || token !== generation.current) return;
           response = await sdkFetch<PartnerEmailPreview>(
             `${PARTNERS_API_ROUTE}/${encodeURIComponent(partnerId)}/email-preview`,
             {
               method: "POST",
-              body: JSON.stringify({ language: emailLanguage, banner }),
+              body: JSON.stringify({ language: emailLanguage, templateVariant, banner }),
               signal: controller.signal,
             },
           );
@@ -113,7 +119,14 @@ export function PartnerEmailPreviewDialog({
       controller.abort();
       generation.current += 1;
     };
-  }, [partnerId, emailLanguage, revision]);
+  }, [partnerId, emailLanguage, templateVariant, revision]);
+
+  const preview =
+    preparedPreview?.partnerId === partnerId &&
+    preparedPreview.language === emailLanguage &&
+    preparedPreview.templateVariant === templateVariant
+      ? preparedPreview
+      : null;
 
   const sent = outcome?.status === "sent";
   const checking =
@@ -121,7 +134,7 @@ export function PartnerEmailPreviewDialog({
     outcome?.status === "sending" ||
     outcome?.status === "unknown";
   const knownFailure = outcome?.status === "failed";
-  const languageLocked =
+  const selectionLocked =
     sending || checking || Boolean(operation && !knownFailure && !needsReview);
   const categoryLabel =
     [...PARTNER_SECTIONS, ...PARTNER_INDIVIDUAL_SECTIONS].find(
@@ -145,6 +158,7 @@ export function PartnerEmailPreviewDialog({
     const currentOperation = operationRef.current ?? {
       partnerId,
       language: preview.language,
+      templateVariant: preview.templateVariant,
       previewHash: preview.previewHash,
       requestId: crypto.randomUUID(),
       ...(preview.banner ? { banner: preview.banner } : {}),
@@ -252,7 +266,7 @@ export function PartnerEmailPreviewDialog({
                       key={option.key}
                       type="button"
                       aria-pressed={emailLanguage === option.key}
-                      disabled={languageLocked}
+                      disabled={selectionLocked}
                       onClick={() => setEmailLanguage(option.key)}
                       className={cn(
                         "rounded-lg px-3 py-2 text-sm font-medium outline-none transition focus-visible:ring-3 focus-visible:ring-ring/45 disabled:cursor-not-allowed disabled:opacity-60",
@@ -270,6 +284,50 @@ export function PartnerEmailPreviewDialog({
                     {t(categoryLabel)}
                   </span>
                 )}
+              </div>
+              <div
+                role="group"
+                aria-label={t("Email template")}
+                className="grid grid-cols-2 gap-3"
+              >
+                {([
+                  { key: 1, label: "Template 1", detail: "More detail" },
+                  { key: 2, label: "Template 2", detail: "Short and direct" },
+                ] as const).map((option) => (
+                  <button
+                    key={option.key}
+                    type="button"
+                    aria-label={t(option.label)}
+                    aria-describedby={`partner-email-template-${option.key}`}
+                    aria-pressed={templateVariant === option.key}
+                    disabled={selectionLocked}
+                    onClick={() => setTemplateVariant(option.key)}
+                    className={cn(
+                      "flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left outline-none transition focus-visible:ring-3 focus-visible:ring-ring/45 disabled:cursor-not-allowed disabled:opacity-60",
+                      templateVariant === option.key
+                        ? "border-violet-400 bg-gradient-to-br from-violet-50 to-fuchsia-50 shadow-sm dark:from-violet-500/15 dark:to-fuchsia-500/10"
+                        : "border-border bg-background hover:border-violet-300 hover:bg-violet-50/40 dark:hover:bg-violet-500/5",
+                    )}
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold">
+                        {t(option.label)}
+                      </span>
+                      <span
+                        id={`partner-email-template-${option.key}`}
+                        className="mt-1 block text-xs text-muted-foreground"
+                      >
+                        {t(option.detail)}
+                      </span>
+                    </span>
+                    <span aria-hidden className={cn(
+                      "flex size-6 shrink-0 items-center justify-center rounded-full border",
+                      templateVariant === option.key ? "border-violet-600 bg-violet-600 text-white" : "border-muted-foreground/25",
+                    )}>
+                      {templateVariant === option.key && <Check className="size-3.5" />}
+                    </span>
+                  </button>
+                ))}
               </div>
               {loading && (
                 <p

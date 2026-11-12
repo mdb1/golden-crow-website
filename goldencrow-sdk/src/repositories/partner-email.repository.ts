@@ -4,6 +4,7 @@ import { PartnerIdSchema } from "../contracts/connected-partners.js";
 import {
   buildConnectedPartnerEmail,
   type PartnerEmailPreview,
+  type PartnerEmailTemplateVariant,
 } from "../lib/connected-partner-email.js";
 import {
   GmailDeliveryOutcomeUnknownError,
@@ -22,9 +23,13 @@ import {
 
 export const PARTNER_EMAIL_SENDS_COLLECTION = "partner_email_sends";
 export const PartnerEmailLanguageSchema = z.enum(["es", "en"]);
+export const PartnerEmailTemplateVariantSchema = z.union([
+  z.literal(1), z.literal(2),
+]);
 export const PartnerEmailSendInputSchema = z
   .object({
     language: PartnerEmailLanguageSchema,
+    templateVariant: PartnerEmailTemplateVariantSchema.default(1),
     previewHash: z.string().regex(/^[a-f0-9]{64}$/),
     requestId: z.uuid(),
     banner: PartnerEmailBannerInputSchema.optional(),
@@ -71,6 +76,7 @@ function requireSameRequest(
     record.partnerId !== partnerId ||
     record.previewHash !== input.previewHash ||
     record.language !== input.language ||
+    record.templateVariant !== input.templateVariant ||
     record.requestId !== input.requestId
   )
     throw new AdminRepositoryError(
@@ -102,11 +108,15 @@ export async function previewPartnerEmail(
   partnerId: string,
   language: "es" | "en" = "es",
   banner?: PartnerEmailBannerInput,
+  templateVariant: PartnerEmailTemplateVariant = 1,
 ): Promise<PartnerEmailPreview> {
   requireGodMode(context);
   const parsedLanguage = PartnerEmailLanguageSchema.parse(language);
+  const parsedVariant = PartnerEmailTemplateVariantSchema.parse(templateVariant);
   const partner = await getPartner(context, partnerId);
-  const base = buildConnectedPartnerEmail(partner, parsedLanguage);
+  const base = buildConnectedPartnerEmail(
+    partner, parsedLanguage, undefined, undefined, parsedVariant,
+  );
   if (base.category === "noOrganization") {
     if (banner)
       throw new AdminRepositoryError(
@@ -169,6 +179,7 @@ export async function previewPartnerEmail(
     parsedLanguage,
     accessKey ?? undefined,
     { brand, banner },
+    parsedVariant,
   );
   return accessKey
     ? preview
@@ -182,7 +193,7 @@ export async function previewPartnerEmail(
 export async function sendPartnerEmail(
   context: AdminContext,
   partnerId: string,
-  rawInput: z.infer<typeof PartnerEmailSendInputSchema>,
+  rawInput: z.input<typeof PartnerEmailSendInputSchema>,
 ): Promise<PartnerEmailSendResult> {
   requireGodMode(context);
   const input = PartnerEmailSendInputSchema.parse(rawInput);
@@ -210,6 +221,7 @@ export async function sendPartnerEmail(
       partnerId,
       input.language,
       input.banner,
+      input.templateVariant,
     );
   } catch (error) {
     if (error instanceof AdminRepositoryError && error.statusCode === 409)
@@ -245,6 +257,7 @@ export async function sendPartnerEmail(
     const record: StoredSend = {
       requestId: input.requestId,
       language: input.language,
+      templateVariant: input.templateVariant,
       previewHash: input.previewHash,
       partnerId,
       to: preview.to,

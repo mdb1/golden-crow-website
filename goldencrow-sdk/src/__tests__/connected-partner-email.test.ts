@@ -62,7 +62,7 @@ function callback(partner: Partner) {
   );
 }
 
-it("invites unlinked partners to the exact public form with approval, discounts, network and a branded demo", () => {
+it("invites unlinked partners to the exact public form with community benefits and a free demo", () => {
   const preview = buildConnectedPartnerEmail(base);
   expect(preview.to).toBe(base.email);
   expect(preview.category).toBe("noOrganization");
@@ -71,11 +71,10 @@ it("invites unlinked partners to the exact public form with approval, discounts,
     "https://goldencrowvs.com/pocket-genes/join-us/new/",
   );
   for (const phrase of [
-    "descuentos disponibles",
-    "organizaciones y profesionales",
-    `demo gratuita de una app con la identidad de ${base.companyName}`,
-    "Revisaremos la solicitud",
-    "si es aprobada",
+    "Compartí tus proyectos, novedades y eventos.",
+    "Conectá con profesionales, investigadores y organizaciones.",
+    "Sumarte es gratis. También te preparamos una demo gratuita de tu propia app.",
+    `Dejanos los datos de ${base.companyName} y empecemos.`,
   ])
     expect(preview.text).toContain(phrase);
   expect(preview.html).toContain("background:#2d1b69");
@@ -91,9 +90,9 @@ it("deep-links existing publishers without apps through their own portal login t
   expect(url.searchParams.get("email")).toBe(base.email);
   expect(callback(withOrg)).toBe("/publisher-portal/app/new");
   expect(preview.text).toContain(org.name);
-  expect(preview.text).toContain("plataformas, funciones y colores");
+  expect(preview.text).toContain("Elegí las funciones, los colores y las plataformas.");
   expect(preview.text).toContain(
-    `Entrá con la cuenta de publicador de ${org.name} y empezá.`,
+    `Entrá con la cuenta de publicador de ${org.name}.`,
   );
 });
 
@@ -106,9 +105,9 @@ it("uses current testing status rather than a historical contract snapshot to re
     "/publisher-portal/app/accept-terms-and-conditions",
   );
   expect(preview.text).toContain(
-    `La demo gratuita de la app de ${org.name} ya está disponible para probar.`,
+    `¡Tenemos lista la app de ${org.name}!`,
   );
-  expect(preview.text).toContain("aceptarlos y solicitar la publicación");
+  expect(preview.text).toContain("aceptá las condiciones en el portal para pedir la publicación");
   expect(preview.text).toContain("información de pago");
 });
 
@@ -127,9 +126,9 @@ it.each([
     const preview = buildConnectedPartnerEmail(partner);
     expect(preview.category).toBe("contract");
     expect(callback(partner)).toBe("/publisher-portal/app/edit");
-    expect(preview.ctaLabel).toBe("Abrir el portal de mi app");
+    expect(preview.ctaLabel).toBe("Gestionar mi app");
     expect(preview.text).toContain(
-      "La app de Current Organization tiene su espacio de gestión.",
+      "Todo para gestionar la app de Current Organization, en un solo lugar.",
     );
     expect(preview.text).not.toContain("está activa en la etapa");
   },
@@ -176,7 +175,7 @@ it("uses the approved inbox preheader separately from the body lead and gives ea
     expect(closings.size).toBe(4);
   }
   expect(buildConnectedPartnerEmail(base).html).toContain(
-    ">Explorá posibles alianzas, descuentos de la red y una demo gratuita de tu propia app.</div>",
+    ">Compartí tu trabajo, conectá con la red y descubrí tu propia app.</div>",
   );
 });
 
@@ -274,7 +273,7 @@ it("escapes contact and publisher data and binds rendered message, language, rec
     preview.previewHash,
   );
   expect(buildConnectedPartnerEmail(base, "en").text).toContain(
-    "available network discounts",
+    "Joining is free.",
   );
 });
 
@@ -303,19 +302,23 @@ it("keeps the desktop invitation frame and gives narrow email clients readable p
   );
 });
 
-it("matches all approved Spanish and English template wording in the supplied table", () => {
+it.each([1, 2] as const)("matches every supplied bilingual copy field and button URL for template %s", (variant) => {
   const partners: Record<string, Partner> = { "Sin organización todavía": base, "Sin app": withOrg, "Con app gratuita": withApp("active_for_testing"), "Con contrato": withApp("active") };
-  const rows = readFileSync(join(process.cwd(), "docs/partner-email-templates.tsv"), "utf8").trimEnd().split("\n").slice(1);
+  const filename = variant === 1 ? "partner-email-templates.tsv" : "partner-email-templates-2.tsv";
+  const rows = readFileSync(join(process.cwd(), "docs", filename), "utf8").trimEnd().split("\n").slice(1);
+  expect(rows).toHaveLength(52);
   const interpolate = (value: string) => value.replaceAll("{firstName}", base.firstName).replaceAll("{companyName}", base.companyName).replaceAll("{publisherName}", org.name);
   for (const row of rows) {
     const [template, field, es, en] = row.split("\t");
     for (const [language, copy] of [["es", es], ["en", en]] as const) {
-      const preview = buildConnectedPartnerEmail(partners[template!]!, language);
-      const expected = interpolate(copy!);
+      const preview = buildConnectedPartnerEmail(partners[template!]!, language, undefined, undefined, variant);
+      const expected = interpolate(copy === '""' ? "" : copy!);
+      expect(preview.templateVariant).toBe(variant);
       if (field === "subject") expect(preview.subject).toBe(expected);
       else if (field === "button_text") expect(preview.ctaLabel).toBe(expected);
       else if (field === "brand" || field === "preheader") expect(preview.html).toContain(expected);
-      else if (field !== "button_url") expect(preview.text).toContain(expected);
+      else if (field === "button_url") expect(preview.ctaUrl).toBe(expected.replaceAll("{backofficeOrigin}", new URL(preview.ctaUrl).origin).replaceAll("{recipientEmail}", encodeURIComponent(base.email)));
+      else if (expected) expect(preview.text).toContain(expected);
     }
   }
 });
@@ -326,7 +329,7 @@ it("places the actual inline banner and a prominent purple action above the expl
   const preview = buildConnectedPartnerEmail(withOrg, "es", "KEY12345", { brand, banner });
   expect(preview.html).toContain('src="cid:partner-publisher-app-banner"');
   expect(preview.html).toContain(`alt="Así podría verse la app de ${org.name}"`);
-  expect(preview.html.indexOf('class="pg-email-cta"')).toBeLessThan(preview.html.indexOf("Elegí las plataformas"));
+  expect(preview.html.indexOf('class="pg-email-cta"')).toBeLessThan(preview.html.indexOf("Elegí las funciones"));
   expect(preview.html).toContain("padding:22px 24px");
   expect(buildConnectedPartnerEmail(withOrg, "es", "KEY12345", { brand, banner: { ...banner, dataUrl: "data:image/jpeg;base64,changed-image" } }).previewHash).not.toBe(preview.previewHash);
   expect(buildConnectedPartnerEmail(base).bannerBrand).toBeUndefined();
@@ -337,14 +340,41 @@ it("uses the live banner publisher name in copy even if the app carries an older
   partner.linkedApp!.publisherName = "Previous publisher name";
   const brand = partnerBannerBrand("Current publisher name", "#657960", "", "es", "Revisar condiciones de publicación");
   const preview = buildConnectedPartnerEmail(partner, "es", undefined, { brand });
-  expect(preview.subject).toBe("¿Listos para publicar la app de Current publisher name?");
-  expect(preview.text).toContain("La demo gratuita de la app de Current publisher name");
+  expect(preview.subject).toBe("¡La app de Current publisher name está lista para probar!");
+  expect(preview.text).toContain("¡Tenemos lista la app de Current publisher name!");
   expect(preview.text).not.toContain("Previous publisher name");
 });
 
 it.each([["es", "Hola,"], ["en", "Hi,"]] as const)("uses a natural %s greeting when a contact's personal name is unknown", (language, greeting) => {
-  const preview = buildConnectedPartnerEmail({ ...base, firstName: "", lastName: "" }, language);
-  expect(preview.text.split("\n")[0]).toBe(greeting);
-  expect(preview.html).not.toContain("Hola ,");
-  expect(preview.html).not.toContain("Hi ,");
+  for (const variant of [1, 2] as const) {
+    const preview = buildConnectedPartnerEmail({ ...base, firstName: "", lastName: "" }, language, undefined, undefined, variant);
+    expect(preview.text.split("\n")[0]).toBe(greeting);
+    expect(preview.html).not.toContain("Hola ,");
+    expect(preview.html).not.toContain("Hi ,");
+  }
+});
+
+it.each([base, withOrg, withApp("active_for_testing"), withApp("active")])("binds the chosen variant into the reviewed content while preserving the category and destination", (partner) => {
+  for (const language of ["es", "en"] as const) {
+    const first = buildConnectedPartnerEmail(partner, language, "KEY12345", undefined, 1);
+    const second = buildConnectedPartnerEmail(partner, language, "KEY12345", undefined, 2);
+    expect(second.category).toBe(first.category);
+    expect(second.ctaUrl).toBe(first.ctaUrl);
+    expect(second.previewHash).not.toBe(first.previewHash);
+    expect(second.subject).not.toBe(first.subject);
+    expect(second.text).not.toMatch(/\{(?:companyName|publisherName|firstName)\}/);
+  }
+});
+
+it("omits blank copy blocks and adjacent duplicate buttons from the short templates", () => {
+  const preview = buildConnectedPartnerEmail(withOrg, "es", undefined, undefined, 2);
+  expect(preview.text.endsWith("\n\nEquipo Pocket Genes")).toBe(true);
+  expect(preview.html).not.toContain('color:#6b7280;"><br>');
+  const brand = partnerBannerBrand(org.name, "#657960", "", "es", "Actualizar mi app");
+  const contracted = buildConnectedPartnerEmail(withApp("active"), "es", undefined, {
+    brand, banner: { contextHash: brand.contextHash, dataUrl: "data:image/jpeg;base64,reviewed-image" },
+  }, 2);
+  expect(contracted.html.match(/class="pg-email-cta"/g)).toHaveLength(1);
+  expect(contracted.html).toContain('src="cid:partner-publisher-app-banner"');
+  expect(contracted.text).toContain("¿Tenés una idea? ¡Contanos!");
 });

@@ -28,6 +28,7 @@ import {
 
 import {
   PartnerEmailLanguageSchema,
+  PartnerEmailTemplateVariantSchema,
   PartnerEmailSendInputSchema,
   previewPartnerEmail,
   sendPartnerEmail,
@@ -144,7 +145,11 @@ export async function connectedPartnersRoutes(
       schema: {
         params: ParamsSchema,
         querystring: z
-          .object({ language: PartnerEmailLanguageSchema.default("es") })
+          .object({
+            language: PartnerEmailLanguageSchema.default("es"),
+            templateVariant: z.enum(["1", "2"]).default("1")
+              .transform((value) => value === "2" ? (2 as const) : (1 as const)),
+          })
           .strict(),
       },
     },
@@ -154,16 +159,31 @@ export async function connectedPartnersRoutes(
         request.adminContext!,
         request.params.partnerId,
         request.query.language,
+        undefined,
+        request.query.templateVariant,
       );
     },
   );
 
   f.post(
     `${ROUTE}/:partnerId/email-preview`,
-    { bodyLimit: 1024 * 1024, schema: { params: ParamsSchema, body: z.object({ language: PartnerEmailLanguageSchema, banner: PartnerEmailBannerInputSchema }).strict() } },
+    {
+      bodyLimit: 1024 * 1024,
+      schema: {
+        params: ParamsSchema,
+        body: z.object({
+          language: PartnerEmailLanguageSchema,
+          templateVariant: PartnerEmailTemplateVariantSchema.default(1),
+          banner: PartnerEmailBannerInputSchema,
+        }).strict(),
+      },
+    },
     async (request, reply) => {
       reply.header("Cache-Control", "no-store");
-      return previewPartnerEmail(request.adminContext!, request.params.partnerId, request.body.language, request.body.banner);
+      return previewPartnerEmail(
+        request.adminContext!, request.params.partnerId, request.body.language,
+        request.body.banner, request.body.templateVariant,
+      );
     },
   );
 

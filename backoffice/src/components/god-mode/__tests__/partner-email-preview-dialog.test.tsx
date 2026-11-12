@@ -38,6 +38,7 @@ const preview: PartnerEmailPreview = {
   ctaUrl: "https://goldencrowvs.com/pocket-genes/join-us/new/",
   category: "noOrganization",
   language: "es",
+  templateVariant: 1,
   previewHash: "a".repeat(64),
 };
 const sent: PartnerEmailSendResult = {
@@ -90,6 +91,12 @@ function requests() {
     .mock.calls.filter(([, init]) => init?.method === "POST");
 }
 
+function expectSelectionLocked() {
+  for (const name of ["English", "Template 1", "Template 2"]) {
+    expect(screen.getByRole("button", { name })).toBeDisabled();
+  }
+}
+
 beforeEach(() => {
   jest.resetAllMocks();
   jest.spyOn(crypto, "randomUUID").mockReturnValue(REQUEST_ID);
@@ -101,7 +108,7 @@ it("prepares a Spanish, read-only preview without sending and shows recipient, s
   renderDialog();
   await ready();
   expect(sdkFetch).toHaveBeenCalledWith(
-    `${ENDPOINT}/email-preview?language=es`,
+    `${ENDPOINT}/email-preview?language=es&templateVariant=1`,
     expect.objectContaining({ signal: expect.any(AbortSignal) }),
   );
   expect(screen.getByText(preview.to)).toBeVisible();
@@ -118,6 +125,8 @@ it("prepares a Spanish, read-only preview without sending and shows recipient, s
     "aria-pressed",
     "true",
   );
+  expect(screen.getByRole("button", { name: "Template 1" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: "Template 2" })).toHaveAttribute("aria-pressed", "false");
   expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
   expect(requests()).toHaveLength(0);
   const frame = screen.getByTitle("Email message preview");
@@ -140,7 +149,7 @@ it("captures the actual portal banner, freezes it in the preview, and sends only
   renderDialog();
   await ready();
   expect(renderPartnerEmailBanner).toHaveBeenCalledWith(brand, "es", "organizationWithoutApp", expect.any(AbortSignal));
-  expect(sdkFetch).toHaveBeenNthCalledWith(2, `${ENDPOINT}/email-preview`, expect.objectContaining({ method: "POST", body: JSON.stringify({ language: "es", banner }) }));
+  expect(sdkFetch).toHaveBeenNthCalledWith(2, `${ENDPOINT}/email-preview`, expect.objectContaining({ method: "POST", body: JSON.stringify({ language: "es", templateVariant: 1, banner }) }));
   expect(screen.getByTitle("Email message preview").getAttribute("srcdoc")).toContain(banner.dataUrl);
   expect(jest.mocked(sdkFetch).mock.calls.some(([path]) => path === `${ENDPOINT}/email`)).toBe(false);
   fireEvent.click(screen.getByRole("button", { name: "Send email" }));
@@ -204,7 +213,7 @@ it("requests a fresh English preview when its language is chosen", async () => {
   fireEvent.click(screen.getByRole("button", { name: "English" }));
   expect(await screen.findByText(english.subject)).toBeVisible();
   expect(sdkFetch).toHaveBeenLastCalledWith(
-    `${ENDPOINT}/email-preview?language=en`,
+    `${ENDPOINT}/email-preview?language=en&templateVariant=1`,
     expect.any(Object),
   );
   expect(requests()).toHaveLength(0);
@@ -249,10 +258,11 @@ it("sends exactly the reviewed server hash and language once, blocking close and
   expect(path).toBe(`${ENDPOINT}/email`);
   expect(JSON.parse(String(init?.body))).toEqual({
     language: "es",
+    templateVariant: 1,
     previewHash: preview.previewHash,
     requestId: REQUEST_ID,
   });
-  expect(screen.getByRole("button", { name: "English" })).toBeDisabled();
+  expectSelectionLocked();
   expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
   expect(
     screen.queryByRole("button", { name: "Close" }),
@@ -292,6 +302,7 @@ it("retains the reviewed language when sending an English preview", async () => 
   await screen.findByRole("region", { name: "Email sent" });
   expect(JSON.parse(String(requests()[0][1]?.body))).toEqual({
     language: "en",
+    templateVariant: 1,
     previewHash: english.previewHash,
     requestId: REQUEST_ID,
   });
@@ -330,6 +341,7 @@ it("requires an explicitly refreshed and reviewed preview after a stale-message 
   await screen.findByRole("region", { name: "Email sent" });
   expect(JSON.parse(String(requests()[1][1]?.body))).toEqual({
     language: "es",
+    templateVariant: 1,
     previewHash: updated.previewHash,
     requestId: NEXT_REQUEST_ID,
   });
@@ -352,7 +364,7 @@ it.each(["sending", "unknown"] as const)(
     expect(
       screen.queryByRole("region", { name: "Email sent" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "English" })).toBeDisabled();
+    expectSelectionLocked();
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Delivery is not confirmed.",
     );
@@ -406,7 +418,7 @@ it("keeps a request conflict uncertain and never offers a fresh preview or reque
   expect(
     screen.queryByRole("region", { name: "Email sent" }),
   ).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "English" })).toBeDisabled();
+  expectSelectionLocked();
   fireEvent.click(check);
   await waitFor(() => expect(requests()).toHaveLength(2));
   expect(requests()[1][1]?.body).toBe(requests()[0][1]?.body);
@@ -449,4 +461,79 @@ it("keeps the HTML preview inert without altering user text or the button's appe
   );
   expect(result).toContain("default-src 'none'");
   expect(result).toContain("form-action 'none'");
+});
+
+it("keeps template two selected across languages and sends only its reviewed content", async () => {
+  const second = { ...preview, templateVariant: 2 as const, subject: "¡Sumate a Pocket Genes!", html: "<p>Invitación breve</p>", previewHash: "b".repeat(64) };
+  const english = { ...second, language: "en" as const, subject: "Join us on Pocket Genes!", html: "<p>Short invitation</p>", previewHash: "c".repeat(64) };
+  jest.mocked(sdkFetch).mockResolvedValueOnce(preview).mockResolvedValueOnce(second).mockResolvedValueOnce(english).mockResolvedValueOnce(sent);
+  renderDialog();
+  await ready();
+  fireEvent.click(screen.getByRole("button", { name: "Template 2" }));
+  expect(screen.getByRole("button", { name: "Send email" })).toBeDisabled();
+  await screen.findByText(second.subject);
+  expect(screen.getByTitle("Email message preview").getAttribute("srcdoc")).toContain("Invitación breve");
+  expect(screen.getByRole("button", { name: "Template 2" })).toHaveAttribute("aria-pressed", "true");
+  expect(requests()).toHaveLength(0);
+  fireEvent.click(screen.getByRole("button", { name: "English" }));
+  await screen.findByText(english.subject);
+  expect(sdkFetch).toHaveBeenLastCalledWith(`${ENDPOINT}/email-preview?language=en&templateVariant=2`, expect.any(Object));
+  expect(screen.getByTitle("Email message preview").getAttribute("srcdoc")).toContain("Short invitation");
+  fireEvent.click(screen.getByRole("button", { name: "Send email" }));
+  await screen.findByRole("region", { name: "Email sent" });
+  expect(JSON.parse(String(requests()[0][1]?.body))).toEqual({ language: "en", templateVariant: 2, previewHash: english.previewHash, requestId: REQUEST_ID });
+});
+
+it("ignores a late template-one response after the user has chosen template two", async () => {
+  const old = deferred<PartnerEmailPreview>();
+  const second = { ...preview, templateVariant: 2 as const, subject: "Second template", previewHash: "b".repeat(64) };
+  jest.mocked(sdkFetch).mockReturnValueOnce(old.promise).mockResolvedValueOnce(second);
+  renderDialog();
+  const oldSignal = jest.mocked(sdkFetch).mock.calls[0][1]?.signal;
+  fireEvent.click(screen.getByRole("button", { name: "Template 2" }));
+  await screen.findByText(second.subject);
+  await act(async () => old.resolve(preview));
+  expect(screen.queryByText(preview.subject)).not.toBeInTheDocument();
+  expect(screen.getByText(second.subject)).toBeVisible();
+  expect(oldSignal?.aborted).toBe(true);
+  expect(requests()).toHaveLength(0);
+});
+
+it("cancels obsolete banner work and freezes template two's banner and hash for sending", async () => {
+  const oldRender = deferred<{ contextHash: string; dataUrl: string }>();
+  const brand = { name: "Genome Studio", tint: "#657960", imageUrl: "", contextHash: "c".repeat(64) };
+  const first = { ...preview, category: "organizationWithoutApp" as const, bannerBrand: brand };
+  const second = { ...first, templateVariant: 2 as const, subject: "Second branded template", bannerBrand: { ...brand, contextHash: "d".repeat(64) } };
+  const banner = { contextHash: second.bannerBrand.contextHash, dataUrl: "data:image/jpeg;base64,YmFubmVyMg==" };
+  const frozen = { ...second, banner, html: '<img src="cid:partner-publisher-app-banner">', previewHash: "b".repeat(64) };
+  jest.mocked(renderPartnerEmailBanner).mockReturnValueOnce(oldRender.promise).mockResolvedValueOnce(banner);
+  jest.mocked(sdkFetch).mockResolvedValueOnce(first).mockResolvedValueOnce(second).mockResolvedValueOnce(frozen).mockResolvedValueOnce(sent);
+  renderDialog();
+  await waitFor(() => expect(renderPartnerEmailBanner).toHaveBeenCalledTimes(1));
+  fireEvent.click(screen.getByRole("button", { name: "Template 2" }));
+  await screen.findByText(second.subject);
+  await act(async () => oldRender.resolve({ contextHash: brand.contextHash, dataUrl: "data:image/jpeg;base64,b2xk" }));
+  expect(requests()).toHaveLength(1);
+  expect(requests()[0][0]).toBe(`${ENDPOINT}/email-preview`);
+  expect(JSON.parse(String(requests()[0][1]?.body))).toEqual({ language: "es", templateVariant: 2, banner });
+  expect(screen.getByTitle("Email message preview").getAttribute("srcdoc")).toContain(banner.dataUrl);
+  fireEvent.click(screen.getByRole("button", { name: "Send email" }));
+  await screen.findByRole("region", { name: "Email sent" });
+  expect(JSON.parse(String(requests()[1][1]?.body))).toEqual({ language: "es", templateVariant: 2, banner, previewHash: frozen.previewHash, requestId: REQUEST_ID });
+});
+
+it("allows a new template after a confirmed rejection and creates a new reviewed send request", async () => {
+  const second = { ...preview, templateVariant: 2 as const, subject: "Second template", previewHash: "b".repeat(64) };
+  jest.spyOn(crypto, "randomUUID").mockReturnValueOnce(REQUEST_ID).mockReturnValueOnce(NEXT_REQUEST_ID);
+  jest.mocked(sdkFetch).mockResolvedValueOnce(preview).mockResolvedValueOnce({ ...sent, status: "failed", sentAt: null }).mockResolvedValueOnce(second).mockResolvedValueOnce({ ...sent, requestId: NEXT_REQUEST_ID });
+  renderDialog();
+  await ready();
+  fireEvent.click(screen.getByRole("button", { name: "Send email" }));
+  await screen.findByRole("button", { name: "Retry sending" });
+  expect(screen.getByRole("button", { name: "Template 2" })).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: "Template 2" }));
+  await screen.findByText(second.subject);
+  fireEvent.click(screen.getByRole("button", { name: "Send email" }));
+  await screen.findByRole("region", { name: "Email sent" });
+  expect(JSON.parse(String(requests()[1][1]?.body))).toEqual({ language: "es", templateVariant: 2, previewHash: second.previewHash, requestId: NEXT_REQUEST_ID });
 });

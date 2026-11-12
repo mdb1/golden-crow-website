@@ -5,6 +5,7 @@ import {
 } from "fastify-type-provider-zod";
 import type { AdminContext } from "../types/sdk.types.js";
 import { sealPublisherAccessKey } from "../lib/publisher-portal-credentials.js";
+import type { PartnerEmailTemplateVariant } from "../lib/connected-partner-email.js";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 const bannerDataUrl = `data:image/jpeg;base64,${readFileSync(join(process.cwd(), "src/__tests__/support/partner-banner.jpg")).toString("base64")}`;
@@ -111,13 +112,14 @@ const partner = {
 };
 const partnerPath = `connected-partners/${partnerId}`;
 const requestPath = `${PARTNER_EMAIL_SENDS_COLLECTION}/${requestId}`;
-async function input() {
-  const base = await previewPartnerEmail(context, partnerId);
+async function input(templateVariant: PartnerEmailTemplateVariant = 1) {
+  const base = await previewPartnerEmail(context, partnerId, "es", undefined, templateVariant);
   const banner = base.bannerBrand ? { contextHash: base.bannerBrand.contextHash, dataUrl: bannerDataUrl } : undefined;
-  const preview = banner ? await previewPartnerEmail(context, partnerId, "es", banner) : base;
+  const preview = banner ? await previewPartnerEmail(context, partnerId, "es", banner, templateVariant) : base;
   return {
     requestId,
     language: "es" as const,
+    templateVariant,
     previewHash: preview.previewHash,
     ...(banner ? { banner } : {}),
   };
@@ -188,13 +190,14 @@ beforeEach(() => {
   jest.mocked(sendGmailMessage).mockReset().mockResolvedValue(undefined);
 });
 
-it("previews current live data without writes or transport and sends exactly the frozen server-generated message", async () => {
-  const preview = await previewPartnerEmail(context, partnerId);
+it.each([1, 2] as const)("sends exactly the reviewed server-generated template %s without writes during preview", async (templateVariant) => {
+  const preview = await previewPartnerEmail(context, partnerId, "es", undefined, templateVariant);
   expect(mockDocs.size).toBe(1);
   expect(sendGmailMessage).not.toHaveBeenCalled();
   const command = await sendPartnerEmail(context, partnerId, {
     requestId,
     language: "es",
+    templateVariant,
     previewHash: preview.previewHash,
   });
   expect(command).toEqual({
@@ -216,6 +219,7 @@ it("previews current live data without writes or transport and sends exactly the
       status: "sent",
       previewHash: preview.previewHash,
       requestedByEmail: context.email,
+      templateVariant,
     }),
   );
   expect(Object.keys(mockDocs.get(requestPath)!)).not.toEqual(
@@ -364,13 +368,14 @@ it("does not send if the durable reservation fails", async () => {
   expect(sendGmailMessage).not.toHaveBeenCalled();
 });
 
-it("rejects request-ID reuse for a different partner, hash or language without re-reading mutable contacts", async () => {
+it("rejects request-ID reuse for a different partner, hash, language or template without re-reading mutable contacts", async () => {
   const args = await input();
   await sendPartnerEmail(context, partnerId, args);
   for (const [id, changed] of [
     ["different_partner", args],
     [partnerId, { ...args, previewHash: "a".repeat(64) }],
     [partnerId, { ...args, language: "en" as const }],
+    [partnerId, { ...args, templateVariant: 2 as const }],
   ] as const)
     await expect(sendPartnerEmail(context, id, changed)).rejects.toMatchObject({
       statusCode: 409,
@@ -428,6 +433,7 @@ it("authenticates preview/send routes and rejects client recipients, bodies, unk
   });
   expect(preview.statusCode).toBe(200);
   expect(preview.json().language).toBe("es");
+  expect(preview.json().templateVariant).toBe(1);
   expect(preview.headers["cache-control"]).toBe("private, no-store");
   expect(
     (
@@ -437,10 +443,19 @@ it("authenticates preview/send routes and rejects client recipients, bodies, unk
       })
     ).statusCode,
   ).toBe(400);
+  const second = await app.inject({ method: "GET", url: `/admin/connected-partners/${partnerId}/email-preview?language=en&templateVariant=2` });
+  expect(second.statusCode).toBe(200);
+  expect(second.json()).toMatchObject({ language: "en", templateVariant: 2, subject: "Join us on Pocket Genes!" });
+  for (const query of ["templateVariant=3", "templateVariant=1.0", "template_variant=2"]) {
+    expect((await app.inject({ method: "GET", url: `/admin/connected-partners/${partnerId}/email-preview?${query}` })).statusCode).toBe(400);
+  }
   for (const extra of [
     { to: "attacker@example.com" },
     { html: "changed" },
     { preview_hash: args.previewHash },
+    { templateVariant: 3 },
+    { templateVariant: "2" },
+    { template_variant: 2 },
   ])
     expect(
       (
@@ -495,4 +510,58 @@ it("returns an unsent precondition failure if a preview's live app becomes unava
   ).rejects.toMatchObject({ statusCode: 412 });
   expect(sendGmailMessage).not.toHaveBeenCalled();
   expect(mockDocs.has(requestPath)).toBe(false);
+});
+
+it("rejects a template switch paired with the old preview hash before reserving or sending", async () => {
+  const args = await input(1);
+  await expect(sendPartnerEmail(context, partnerId, { ...args, templateVariant: 2 })).rejects.toMatchObject({ statusCode: 412 });
+  expect(sendGmailMessage).not.toHaveBeenCalled();
+  expect(mockDocs.has(requestPath)).toBe(false);
+});
+
+it("binds the banner to the chosen template and sends the exact second-template API preview", async () => {
+  mockDocs.set(partnerPath, { ...partner, linkedOrganizationId: "org_one" });
+  mockDocs.set("feed_organizations/org_one", { name: "Genome Studio", colorHex: "#657960" });
+  const first = await input(1);
+  await expect(previewPartnerEmail(context, partnerId, "es", first.banner, 2)).rejects.toMatchObject({ statusCode: 412 });
+  const app = await server();
+  try {
+    const initial = (await app.inject({ method: "GET", url: `/admin/connected-partners/${partnerId}/email-preview?templateVariant=2` })).json();
+    const banner = { contextHash: initial.bannerBrand.contextHash, dataUrl: bannerDataUrl };
+    const prepared = await app.inject({ method: "POST", url: `/admin/connected-partners/${partnerId}/email-preview`, payload: { language: "es", templateVariant: 2, banner } });
+    expect(prepared.statusCode).toBe(200);
+    const preview = prepared.json();
+    expect(preview).toMatchObject({ templateVariant: 2, subject: "¡Una app para Genome Studio!", banner });
+    const sent = await app.inject({ method: "POST", url: `/admin/connected-partners/${partnerId}/email`, payload: { language: "es", templateVariant: 2, banner, previewHash: preview.previewHash, requestId } });
+    expect(sent.statusCode).toBe(200);
+    expect(sent.json().status).toBe("sent");
+    expect(sendGmailMessage).toHaveBeenCalledWith(expect.objectContaining({ subject: preview.subject, html: preview.html, text: preview.text, inlineAttachments: [expect.objectContaining({ contentBase64: bannerDataUrl.split(",")[1] })] }));
+    expect(mockDocs.get(requestPath)?.templateVariant).toBe(2);
+  } finally {
+    await app.close();
+  }
+});
+
+it("replays historical template-one commands with no saved variant before reading mutable contacts", async () => {
+  const args = await input(1);
+  const first = await sendPartnerEmail(context, partnerId, args);
+  delete mockDocs.get(requestPath)!.templateVariant;
+  mockDocs.delete(partnerPath);
+  mockReads.length = 0;
+  const { templateVariant, ...legacyInput } = args;
+  expect(templateVariant).toBe(1);
+  expect(await sendPartnerEmail(context, partnerId, legacyInput)).toEqual(first);
+  expect(mockReads).toEqual([requestPath]);
+  await expect(sendPartnerEmail(context, partnerId, { ...args, templateVariant: 2 })).rejects.toMatchObject({ statusCode: 409 });
+  expect(sendGmailMessage).toHaveBeenCalledTimes(1);
+});
+
+it("rejects a snake-case template alias in persisted delivery commands", async () => {
+  const args = await input(2);
+  await sendPartnerEmail(context, partnerId, args);
+  const stored = mockDocs.get(requestPath)!;
+  stored.template_variant = stored.templateVariant;
+  delete stored.templateVariant;
+  await expect(sendPartnerEmail(context, partnerId, args)).rejects.toMatchObject({ statusCode: 409 });
+  expect(sendGmailMessage).toHaveBeenCalledTimes(1);
 });

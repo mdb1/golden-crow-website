@@ -355,6 +355,7 @@ it("paginates 20 mixed publisher contacts in one shared section and opens the se
         ctaUrl: "https://example.test/publisher-portal/app/new",
         category: "individualWithoutApp",
         language: "es",
+        templateVariant: 1,
         previewHash: "a".repeat(64),
       } as never;
     if (value === `${PARTNERS_API_ROUTE}/${selectedIndividual.id}`)
