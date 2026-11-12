@@ -38,7 +38,7 @@ export const PARTNER_EMAIL_COPY: Record<
           "Sumarte es gratis. También te preparamos una demo gratuita de tu propia app.",
           "Dejanos los datos de {companyName} y empecemos.",
         ],
-        ctaLabel: "¡Quiero sumarme!",
+        ctaLabel: "¡Quiero mi demo gratuita!",
         closing: "¡Te esperamos!",
       },
       en: {
@@ -70,7 +70,7 @@ export const PARTNER_EMAIL_COPY: Record<
           "Entrá con la cuenta de publicador de {publisherName}.",
         ],
         ctaLabel: "¡Quiero mi demo!",
-        closing: "¡Hagámosla tuya!",
+        closing: "Ya probaste la app de Pocket Genes ¡Ahora podés tener la tuya!",
         callback: APP_NEW_PATH,
       },
       en: {
@@ -159,9 +159,9 @@ export const PARTNER_EMAIL_COPY: Record<
         lead: "¡Hagamos que más gente conozca {companyName}!",
         paragraphs: [
           "Compartí tus novedades, difundí tus eventos y conectá con la comunidad.",
-          "Y sí: también podés tener tu propia app.",
+          "Sumarte es gratis. También te preparamos una demo gratuita para que puedas visualizar como sería tu propia app.",
         ],
-        ctaLabel: "Quiero sumarme",
+        ctaLabel: "¡Quiero mi demo gratuita!",
         closing: "¡Te esperamos!",
       },
       en: {
@@ -261,7 +261,7 @@ export const PARTNER_EMAIL_COPY: Record<
           "Compartí tus proyectos, novedades y eventos. Conectá con profesionales, investigadores y organizaciones.",
           "Sumarte es gratis. Y también te preparamos una demo gratuita de tu propia app.",
         ],
-        ctaLabel: "¡Quiero sumarme!",
+        ctaLabel: "¡Quiero mi demo gratuita!",
         closing: "¡Te esperamos!",
       },
       en: {

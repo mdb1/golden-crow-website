@@ -9,7 +9,7 @@ Sin organización todavía	paragraph_1	Compartí tus proyectos, novedades y even
 Sin organización todavía	paragraph_2	Conectá con profesionales, investigadores y organizaciones.	Connect with professionals, researchers, and organizations.
 Sin organización todavía	paragraph_3	Sumarte es gratis. También te preparamos una demo gratuita de tu propia app.	Joining is free. We’ll also create a free demo of your own app.
 Sin organización todavía	paragraph_4	Dejanos los datos de {companyName} y empecemos.	Tell us about {companyName} and let’s get started.
-Sin organización todavía	button_text	¡Quiero sumarme!	Count me in!
+Sin organización todavía	button_text	¡Quiero mi demo gratuita!	Count me in!
 Sin organización todavía	button_url	https://goldencrowvs.com/pocket-genes/join-us/new/	https://goldencrowvs.com/pocket-genes/join-us/new/
 Sin organización todavía	closing	¡Te esperamos!	See you there!
 Sin organización todavía	signature	Equipo Pocket Genes	The Pocket Genes team
@@ -24,7 +24,7 @@ Sin app	paragraph_2	Nosotros armamos la demo. Vos la probás gratis con tu equip
 Sin app	paragraph_3	Entrá con la cuenta de publicador de {publisherName}.	Sign in with {publisherName}’s publisher account.
 Sin app	button_text	¡Quiero mi demo!	Create my free demo
 Sin app	button_url	{backofficeOrigin}/publisher-portal/login?email={recipientEmail}&callbackUrl=%2Fpublisher-portal%2Fapp%2Fnew	{backofficeOrigin}/publisher-portal/login?email={recipientEmail}&callbackUrl=%2Fpublisher-portal%2Fapp%2Fnew
-Sin app	closing	¡Hagámosla tuya!	Let’s make it yours!
+Sin app	closing	Ya probaste la app de Pocket Genes ¡Ahora podés tener la tuya!	Let’s make it yours!
 Sin app	signature	Equipo Pocket Genes	The Pocket Genes team
 Con app gratuita	subject	¡La app de {publisherName} está lista para probar!	{publisherName}’s app is ready to try!
 Con app gratuita	brand	Pocket Genes	Pocket Genes
