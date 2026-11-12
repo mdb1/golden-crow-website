@@ -3,7 +3,16 @@ import { PARTNERS_QUERY_KEY, type PartnerSection } from "@/lib/connected-partner
 export const PARTNER_EMAIL_HISTORY_QUERY_KEY = [...PARTNERS_QUERY_KEY, "email-history"] as const;
 
 export type PartnerEmailLanguage = "es" | "en";
-export type PartnerEmailTemplateVariant = 1 | 2;
+// Persisted IDs remain stable when the displayed template order changes.
+export const PARTNER_EMAIL_TEMPLATE_OPTIONS = [
+  { key: 3, label: "Template 1", detail: "Simple and clear" },
+  { key: 1, label: "Template 2", detail: "More detail" },
+  { key: 2, label: "Template 3", detail: "Short and direct" },
+] as const;
+export type PartnerEmailTemplateVariant =
+  (typeof PARTNER_EMAIL_TEMPLATE_OPTIONS)[number]["key"];
+export const DEFAULT_PARTNER_EMAIL_TEMPLATE_VARIANT =
+  PARTNER_EMAIL_TEMPLATE_OPTIONS[0].key;
 export type PartnerEmailBannerBrand = {
   name: string;
   tint: string;

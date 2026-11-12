@@ -2,6 +2,7 @@ import { buildConnectedPartnerEmail } from "../lib/connected-partner-email.js";
 import type { Partner } from "../contracts/connected-partners.js";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { load } from "cheerio";
 import { partnerBannerBrand } from "../lib/partner-email-banner.js";
 
 const base: Partner = {
@@ -302,9 +303,9 @@ it("keeps the desktop invitation frame and gives narrow email clients readable p
   );
 });
 
-it.each([1, 2] as const)("matches every supplied bilingual copy field and button URL for template %s", (variant) => {
+it.each([1, 2, 3] as const)("matches every supplied bilingual copy field and button URL for template %s", (variant) => {
   const partners: Record<string, Partner> = { "Sin organización todavía": base, "Sin app": withOrg, "Con app gratuita": withApp("active_for_testing"), "Con contrato": withApp("active") };
-  const filename = variant === 1 ? "partner-email-templates.tsv" : "partner-email-templates-2.tsv";
+  const filename = { 3: "partner-email-templates.tsv", 1: "partner-email-templates-2.tsv", 2: "partner-email-templates-3.tsv" }[variant];
   const rows = readFileSync(join(process.cwd(), "docs", filename), "utf8").trimEnd().split("\n").slice(1);
   expect(rows).toHaveLength(52);
   const interpolate = (value: string) => value.replaceAll("{firstName}", base.firstName).replaceAll("{companyName}", base.companyName).replaceAll("{publisherName}", org.name);
@@ -316,7 +317,8 @@ it.each([1, 2] as const)("matches every supplied bilingual copy field and button
       expect(preview.templateVariant).toBe(variant);
       if (field === "subject") expect(preview.subject).toBe(expected);
       else if (field === "button_text") expect(preview.ctaLabel).toBe(expected);
-      else if (field === "brand" || field === "preheader") expect(preview.html).toContain(expected);
+      else if (field === "brand") expect(load(preview.html)(".pg-email-header").text()).toContain(expected);
+      else if (field === "preheader") expect(load(preview.html)("body > div").first().text()).toBe(expected);
       else if (field === "button_url") expect(preview.ctaUrl).toBe(expected.replaceAll("{backofficeOrigin}", new URL(preview.ctaUrl).origin).replaceAll("{recipientEmail}", encodeURIComponent(base.email)));
       else if (expected) expect(preview.text).toContain(expected);
     }
@@ -338,9 +340,9 @@ it("places the inline banner before the text and keeps one final purple action a
   expect(buildConnectedPartnerEmail(base).bannerBrand).toBeUndefined();
 });
 
-it.each(["es", "en"] as const)("keeps only the final CTA in both %s no-app templates for organizations and individuals", (language) => {
+it.each(["es", "en"] as const)("keeps only the final CTA in all three %s no-app templates for organizations and individuals", (language) => {
   for (const partner of [withOrg, { ...base, linkedIndividualPublisherId: individual.id, linkedIndividualPublisher: individual }]) {
-    for (const variant of [1, 2] as const) {
+    for (const variant of [1, 2, 3] as const) {
       const name = partner.linkedOrganization?.name ?? partner.linkedIndividualPublisher!.name;
       const brand = partnerBannerBrand(name, "#657960", "", language, "demo");
       const preview = buildConnectedPartnerEmail(partner, language, undefined, {
@@ -365,7 +367,7 @@ it("uses the live banner publisher name in copy even if the app carries an older
 });
 
 it.each([["es", "Hola,"], ["en", "Hi,"]] as const)("uses a natural %s greeting when a contact's personal name is unknown", (language, greeting) => {
-  for (const variant of [1, 2] as const) {
+  for (const variant of [1, 2, 3] as const) {
     const preview = buildConnectedPartnerEmail({ ...base, firstName: "", lastName: "" }, language, undefined, undefined, variant);
     expect(preview.text.split("\n")[0]).toBe(greeting);
     expect(preview.html).not.toContain("Hola ,");
@@ -377,10 +379,15 @@ it.each([base, withOrg, withApp("active_for_testing"), withApp("active")])("bind
   for (const language of ["es", "en"] as const) {
     const first = buildConnectedPartnerEmail(partner, language, "KEY12345", undefined, 1);
     const second = buildConnectedPartnerEmail(partner, language, "KEY12345", undefined, 2);
+    const third = buildConnectedPartnerEmail(partner, language, "KEY12345", undefined, 3);
     expect(second.category).toBe(first.category);
     expect(second.ctaUrl).toBe(first.ctaUrl);
     expect(second.previewHash).not.toBe(first.previewHash);
     expect(second.subject).not.toBe(first.subject);
+    expect(third.category).toBe(first.category);
+    expect(third.ctaUrl).toBe(first.ctaUrl);
+    expect(new Set([first.previewHash, second.previewHash, third.previewHash]).size).toBe(3);
+    expect(third.text).not.toMatch(/\{(?:companyName|publisherName|firstName)\}/);
     expect(second.text).not.toMatch(/\{(?:companyName|publisherName|firstName)\}/);
   }
 });

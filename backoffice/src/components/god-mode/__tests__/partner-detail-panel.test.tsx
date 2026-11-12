@@ -218,7 +218,7 @@ it("opens the email preview from the detail panel without sending and keeps the 
         language: "es",
         partnerName: "Acme",
         from: "federico@goldencrowvs.com",
-        templateVariant: 1,
+        templateVariant: 3,
         previewHash: "a".repeat(64),
       } as never;
     if (path === `${PARTNERS_API_ROUTE}/${partner.id}`)

@@ -356,7 +356,7 @@ describe("publisher email access-token fallback", () => {
   }
 
   it.each([
-    ["organization", null, 1, "/publisher-portal/app/new"],
+    ["organization", null, 3, "/publisher-portal/app/new"],
     [
       "organization",
       "active_for_testing",
@@ -556,7 +556,7 @@ beforeEach(() => {
   jest.mocked(sendGmailMessage).mockReset().mockResolvedValue(undefined);
 });
 
-it.each([1, 2] as const)(
+it.each([1, 2, 3] as const)(
   "sends exactly the reviewed server-generated template %s without writes during preview",
   async (templateVariant) => {
     const preview = await previewPartnerEmail(
@@ -843,8 +843,11 @@ it("authenticates preview/send routes and rejects client recipients, bodies, unk
     templateVariant: 2,
     subject: "Join us on Pocket Genes!",
   });
+  const firstOption = await app.inject({ method: "GET", url: `/admin/connected-partners/${partnerId}/email-preview?language=en&templateVariant=3` });
+  expect(firstOption.statusCode).toBe(200);
+  expect(firstOption.json()).toMatchObject({ language: "en", templateVariant: 3, subject: "Genome Studio, join us on Pocket Genes!" });
   for (const query of [
-    "templateVariant=3",
+    "templateVariant=4",
     "templateVariant=1.0",
     "template_variant=2",
   ]) {
@@ -862,7 +865,7 @@ it("authenticates preview/send routes and rejects client recipients, bodies, unk
     { from: "no-reply@example.com" },
     { html: "changed" },
     { preview_hash: args.previewHash },
-    { templateVariant: 3 },
+    { templateVariant: 4 },
     { templateVariant: "2" },
     { template_variant: 2 },
   ])

@@ -1,53 +1,53 @@
 template	field	es	en
-Sin organización todavía	subject	¡Sumate a Pocket Genes!	Join us on Pocket Genes!
+Sin organización todavía	subject	¡{companyName}, sumate a Pocket Genes!	{companyName}, join us on Pocket Genes!
 Sin organización todavía	brand	Pocket Genes	Pocket Genes
-Sin organización todavía	preheader	Que más gente conozca el trabajo de {companyName}.	Let more people discover {companyName}.
+Sin organización todavía	preheader	Compartí tu trabajo, conectá con la red y descubrí tu propia app.	Share your work, connect with the community, and discover your own app.
 Sin organización todavía	heading	¡Sumate a Pocket Genes!	Join us on Pocket Genes!
 Sin organización todavía	greeting	Hola {firstName},	Hi {firstName},
-Sin organización todavía	lead	¡Hagamos que más gente conozca {companyName}!	Let’s put {companyName} in front of more people!
-Sin organización todavía	paragraph_1	Compartí tus novedades, difundí tus eventos y conectá con la comunidad.	Share your news, spread the word about your events, and meet the community.
-Sin organización todavía	paragraph_2	Y sí: también podés tener tu propia app.	And yes—you can have your own app, too.
-Sin organización todavía	paragraph_3	""	""
-Sin organización todavía	paragraph_4	""	""
-Sin organización todavía	button_text	Quiero sumarme	Count me in
+Sin organización todavía	lead	¡Queremos a {companyName} en nuestra red!	We’d love to have {companyName} in our community!
+Sin organización todavía	paragraph_1	Compartí tus proyectos, novedades y eventos.	Share your projects, news, and events.
+Sin organización todavía	paragraph_2	Conectá con profesionales, investigadores y organizaciones.	Connect with professionals, researchers, and organizations.
+Sin organización todavía	paragraph_3	Sumarte es gratis. También te preparamos una demo gratuita de tu propia app.	Joining is free. We’ll also create a free demo of your own app.
+Sin organización todavía	paragraph_4	Dejanos los datos de {companyName} y empecemos.	Tell us about {companyName} and let’s get started.
+Sin organización todavía	button_text	¡Quiero sumarme!	Count me in!
 Sin organización todavía	button_url	https://goldencrowvs.com/pocket-genes/join-us/new/	https://goldencrowvs.com/pocket-genes/join-us/new/
 Sin organización todavía	closing	¡Te esperamos!	See you there!
 Sin organización todavía	signature	Equipo Pocket Genes	The Pocket Genes team
-Sin app	subject	¡Una app para {publisherName}!	An app of your own, {publisherName}!
+Sin app	subject	¡Vamos con la app de {publisherName}!	Let’s create {publisherName}’s app!
 Sin app	brand	Pocket Genes	Pocket Genes
-Sin app	preheader	Tu marca tiene mucho para contar. Dale su propia app.	Your brand has a story to tell. Give it an app of its own.
-Sin app	heading	¡Dale a {publisherName} su propia app!	Give {publisherName} its own app!
+Sin app	preheader	Tu marca, tus contenidos, tu comunidad. Empezá con una demo gratis.	Your brand, your content, your community. Start with a free demo.
+Sin app	heading	¡Estrená tu propia app!	Say hello to your own app!
 Sin app	greeting	Hola {firstName},	Hi {firstName},
-Sin app	lead	Tus novedades, tus eventos y tu comunidad. Todo con tu marca.	Your news, your events, your community. All under your brand.
-Sin app	paragraph_1	¿La probamos?	Ready to try it?
-Sin app	paragraph_2	""	""
-Sin app	paragraph_3	""	""
-Sin app	button_text	Quiero mi demo gratis	Get my free demo
+Sin app	lead	¡Hagamos la app de {publisherName}!	Let’s make {publisherName}’s app happen!
+Sin app	paragraph_1	Elegí las funciones, los colores y las plataformas.	Choose your features, colors, and platforms.
+Sin app	paragraph_2	Nosotros armamos la demo. Vos la probás gratis con tu equipo.	We build the demo. You try it with your team, for free.
+Sin app	paragraph_3	Entrá con la cuenta de publicador de {publisherName}.	Sign in with {publisherName}’s publisher account.
+Sin app	button_text	¡Quiero mi demo!	Create my free demo
 Sin app	button_url	{backofficeOrigin}/publisher-portal/login?email={recipientEmail}&callbackUrl=%2Fpublisher-portal%2Fapp%2Fnew	{backofficeOrigin}/publisher-portal/login?email={recipientEmail}&callbackUrl=%2Fpublisher-portal%2Fapp%2Fnew
-Sin app	closing	""	""
+Sin app	closing	¡Hagámosla tuya!	Let’s make it yours!
 Sin app	signature	Equipo Pocket Genes	The Pocket Genes team
-Con app gratuita	subject	¡Llevemos la app de {publisherName} al mundo!	Let’s launch {publisherName}’s app!
+Con app gratuita	subject	¡La app de {publisherName} está lista para probar!	{publisherName}’s app is ready to try!
 Con app gratuita	brand	Pocket Genes	Pocket Genes
-Con app gratuita	preheader	Tu marca, más cerca de tu comunidad.	Bring your brand closer to your community.
-Con app gratuita	heading	¡Que tu app salga al mundo!	Let’s get your app out there!
+Con app gratuita	preheader	Tu demo ya está lista. Probala con tu equipo y preparemos el lanzamiento.	Your demo is ready. Try it with your team, then let’s plan your launch.
+Con app gratuita	heading	¡Tenemos lista la app de {publisherName}!	{publisherName}’s app is ready!
 Con app gratuita	greeting	Hola {firstName},	Hi {firstName},
-Con app gratuita	lead	¿Llevamos la app de {publisherName} a tu comunidad?	Ready to share {publisherName}’s app with your community?
-Con app gratuita	paragraph_1	Tus novedades, tus eventos y tus contenidos, en un lugar propio.	Give your news, events, and content a home of their own.
-Con app gratuita	paragraph_2	""	""
-Con app gratuita	paragraph_3	""	""
-Con app gratuita	button_text	Quiero publicar mi app	Let’s launch my app
+Con app gratuita	lead	Probá la demo con tu equipo. ¿La lanzamos?	Try the demo with your team. Ready to launch?
+Con app gratuita	paragraph_1	Revisá y aceptá las condiciones en el portal para pedir la publicación.	Review and accept the terms in the portal to request publication.
+Con app gratuita	paragraph_2	Después, consultá la información de pago y coordiná el lanzamiento con nosotros.	Then check the payment details and plan the launch with us.
+Con app gratuita	paragraph_3	Entrá con la cuenta de publicador de {publisherName}.	Sign in with {publisherName}’s publisher account.
+Con app gratuita	button_text	¡Vamos a publicarla!	Let’s launch my app!
 Con app gratuita	button_url	{backofficeOrigin}/publisher-portal/login?email={recipientEmail}&callbackUrl=%2Fpublisher-portal%2Fapp%2Faccept-terms-and-conditions	{backofficeOrigin}/publisher-portal/login?email={recipientEmail}&callbackUrl=%2Fpublisher-portal%2Fapp%2Faccept-terms-and-conditions
-Con app gratuita	closing	¡Hagámoslo!	Let’s make it happen!
+Con app gratuita	closing	¡Vamos con ese lanzamiento!	Let’s get your app out there!
 Con app gratuita	signature	Equipo Pocket Genes	The Pocket Genes team
-Con contrato	subject	¿Qué hay de nuevo en {publisherName}?	What’s new at {publisherName}?
+Con contrato	subject	¡Dale tu toque a la app de {publisherName}!	Make {publisherName}’s app your own!
 Con contrato	brand	Pocket Genes	Pocket Genes
-Con contrato	preheader	Dale un nuevo toque a tu app.	Give your app a fresh touch.
-Con contrato	heading	¡Que tu app siga tu ritmo!	Keep your app fresh!
+Con contrato	preheader	Ajustá tu app desde el portal. Estamos para ayudarte.	Fine-tune your app in the portal. We’re here to help.
+Con contrato	heading	¡Tu app, a tu manera!	Your app, your way!
 Con contrato	greeting	Hola {firstName},	Hi {firstName},
-Con contrato	lead	¿Novedades en {publisherName}? Que también se noten en tu app.	Something new at {publisherName}? Give your app a refresh.
-Con contrato	paragraph_1	""	""
-Con contrato	paragraph_2	""	""
-Con contrato	button_text	Actualizar mi app	Update my app
+Con contrato	lead	Todo para gestionar la app de {publisherName}, en un solo lugar.	One place to manage {publisherName}’s app.
+Con contrato	paragraph_1	Entrá al portal para ajustar la configuración. ¿Necesitás ayuda? Respondé a este correo.	Open the portal to update your settings. Need a hand? Reply to this email.
+Con contrato	paragraph_2	Entrá con la cuenta de publicador de {publisherName}.	Sign in with {publisherName}’s publisher account.
+Con contrato	button_text	Gestionar mi app	Manage my app
 Con contrato	button_url	{backofficeOrigin}/publisher-portal/login?email={recipientEmail}&callbackUrl=%2Fpublisher-portal%2Fapp%2Fedit	{backofficeOrigin}/publisher-portal/login?email={recipientEmail}&callbackUrl=%2Fpublisher-portal%2Fapp%2Fedit
-Con contrato	closing	¿Tenés una idea? ¡Contanos!	Have an idea? Tell us!
+Con contrato	closing	¡Seguimos con vos!	We’re here for you!
 Con contrato	signature	Equipo Pocket Genes	The Pocket Genes team

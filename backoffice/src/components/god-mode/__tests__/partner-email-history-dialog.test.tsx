@@ -68,7 +68,7 @@ it("loads a 20-row page and fetches each recorded message only when expanded", a
   );
   expect(screen.getByText(email.from!)).toBeVisible();
   expect(screen.getByText(email.to)).toBeVisible();
-  expect(screen.getByText("Template 2")).toBeVisible();
+  expect(screen.getByText("Template 3")).toBeVisible();
   expect(screen.getByText("Sent")).toBeVisible();
   expect(sdkFetch).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByRole("button", { name: "View message" }));
@@ -83,6 +83,12 @@ it("loads a 20-row page and fetches each recorded message only when expanded", a
   fireEvent.click(screen.getByRole("button", { name: "Hide message" }));
   fireEvent.click(screen.getByRole("button", { name: "View message" }));
   expect(sdkFetch).toHaveBeenCalledTimes(2);
+});
+
+it.each([[3, "Template 1"], [1, "Template 2"], [2, "Template 3"]] as const)("labels saved variant %s with its current template name", async (templateVariant, label) => {
+  jest.mocked(sdkFetch).mockResolvedValueOnce({ emails: [{ ...email, templateVariant }], nextCursor: null });
+  open();
+  expect(await screen.findByText(label)).toBeVisible();
 });
 
 it("loads more only on request and resets to the first page when refreshed", async () => {

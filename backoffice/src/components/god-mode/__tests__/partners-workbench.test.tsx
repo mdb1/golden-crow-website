@@ -369,7 +369,7 @@ it("paginates 20 mixed publisher contacts in one shared section and opens the se
         language: "es",
         partnerName: "Acme",
         from: "federico@goldencrowvs.com",
-        templateVariant: 1,
+        templateVariant: 3,
         previewHash: "a".repeat(64),
       } as never;
     if (value === `${PARTNERS_API_ROUTE}/${selectedIndividual.id}`)

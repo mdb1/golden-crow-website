@@ -106,6 +106,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Partner email history record not found.": "No se encontró el registro del envío.",
   "Template 1": "Plantilla 1",
   "Template 2": "Plantilla 2",
+  "Template 3": "Plantilla 3",
+  "Simple and clear": "Simple y clara",
   "More detail": "Más detalles",
   "Short and direct": "Breve y directa",
   "Preparing email preview...": "Preparando la vista previa del email...",

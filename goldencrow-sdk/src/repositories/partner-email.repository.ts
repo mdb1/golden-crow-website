@@ -29,6 +29,7 @@ export const PartnerEmailLanguageSchema = z.enum(["es", "en"]);
 export const PartnerEmailTemplateVariantSchema = z.union([
   z.literal(1),
   z.literal(2),
+  z.literal(3),
 ]);
 export const PartnerEmailSendInputSchema = z
   .object({

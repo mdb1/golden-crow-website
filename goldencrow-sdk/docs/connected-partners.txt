@@ -201,11 +201,16 @@ Backoffice routes:
   /god-mode/partners/:partnerId/edit
 
 Partner email preview and delivery:
-  GET /admin/connected-partners/:partnerId/email-preview[?language=es|en&templateVariant=1|2]
+  GET /admin/connected-partners/:partnerId/email-preview[?language=es|en&templateVariant=1|2|3]
     Returns { partnerId, partnerName, from, to, subject, text, html, ctaLabel, ctaUrl, category,
-      language, templateVariant, previewHash }. Spanish and template 1 are the defaults.
-    Template 1 uses the first supplied bilingual table (more detail); template 2
-    uses the second supplied table (short and direct). No email is sent.
+      language, templateVariant, previewHash }. Spanish is the language default.
+    The preview opens with the newly supplied copy as Template 1, followed by the
+    original detailed copy as Template 2 and the original short copy as Template 3.
+    Persisted variant IDs remain stable: displayed Template 1 is ID 3, Template 2
+    is ID 1, and Template 3 is ID 2. The UI explicitly requests ID 3 initially;
+    omitted API variants still default to ID 1 for existing clients and safe
+    command replays. Historical IDs and frozen messages are never rewritten.
+    History badges use the current display label for each stable ID. No email is sent.
     Builds the exact sender content using the current contact and directly linked
     publishers/app, with the same purple Pocket Genes styling as publisher access
     invitations. Historical snapshots never select a message or establish status.
@@ -214,7 +219,7 @@ Partner email preview and delivery:
     authored or overridden by the client.
     noOrganization: request an organization profile at the exact public join-us
     URL; the message invites the company to share its work and connect with the
-    community. Template 1 also describes free joining and a free app demo.
+    community. Templates 1 and 2 also describe free joining and a free app demo.
     organizationWithoutApp/individualWithoutApp: publisher login with callbackUrl
     /publisher-portal/app/new. The publisher chooses app platforms/features/colors
     and submits the request for review and preparation of a testing sample.
@@ -233,9 +238,9 @@ Partner email preview and delivery:
     other (inactive, unavailable or mismatched links) returns 409 for deliberate
     connection review instead of sending an invitation for the wrong stage.
   POST /admin/connected-partners/:partnerId/email with strict body
-    { language: es|en, templateVariant: 1|2, previewHash: <64 lowercase hex>, requestId: <UUID>, banner?: <reviewed JPEG> }
+    { language: es|en, templateVariant: 1|2|3, previewHash: <64 lowercase hex>, requestId: <UUID>, banner?: <reviewed JPEG> }
     Omitted templateVariant defaults to 1 for existing clients. JSON bodies use
-    numeric variants; the GET query uses the strings 1 or 2. Other values and
+    numeric variants; the GET query uses the strings 1, 2 or 3. Other values and
     template_variant aliases are rejected.
     Returns HTTP 200 { status: sent|sending|unknown|failed, to,
       sentAt: <ISO timestamp or null>, requestId, error?: <operator message> }.
@@ -269,7 +274,7 @@ Email command persistence:
   Document ID: requestId (UUID; one directly read document per command)
   Strict lower camel case fields, validated by StoredSendSchema:
     requestId: UUID; partnerId: canonical partner ID; previewHash: SHA-256 hex;
-    language: es|en; templateVariant: 1|2; to: validated contact email;
+    language: es|en; templateVariant: 1|2|3; to: validated contact email;
     status: sending|sent|unknown|failed;
     createdAt/updatedAt: ISO UTC datetime;
     sentAt: nullable ISO UTC datetime;
@@ -328,9 +333,11 @@ Only its credential-free text history snapshot is retained for the history modal
 Status replays still resolve the prior command before reading live data or
 rebuilding images. The no-organization invitation has no publisher banner.
 Approved bilingual wording is mirrored in docs/partner-email-templates.tsv for
-template 1 and docs/partner-email-templates-2.tsv for template 2. Blank paragraphs
+displayed Template 1 (ID 3), docs/partner-email-templates-2.tsv for displayed
+Template 2 (ID 1), and docs/partner-email-templates-3.tsv for displayed Template 3
+(ID 2). Blank paragraphs
 and closings from the supplied tables are omitted from the rendered email.
-The preview offers Template 1 / Template 2 beside the existing language choice.
+The preview offers Template 1 / Template 2 / Template 3 beside the language choice.
 Switching either choice prepares a new reviewed hash and cancels obsolete banner
 work. Both choices are locked during sending or uncertain delivery. A confirmed
 rejection permits choosing another template and starting a new reviewed request;

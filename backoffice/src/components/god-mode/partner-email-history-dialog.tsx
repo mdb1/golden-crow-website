@@ -26,6 +26,7 @@ import {
 } from "@/lib/connected-partners";
 import {
   PARTNER_EMAIL_HISTORY_QUERY_KEY,
+  PARTNER_EMAIL_TEMPLATE_OPTIONS,
   type PartnerEmailHistoryPage,
   type PartnerEmailHistoryRecord,
 } from "@/lib/partner-email";
@@ -58,6 +59,9 @@ function HistoryEmail({ email }: { email: PartnerEmailHistoryRecord }) {
       ),
   });
   const status = STATUSES[email.status];
+  const template = PARTNER_EMAIL_TEMPLATE_OPTIONS.find(
+    (option) => option.key === email.templateVariant,
+  );
   const category = [...PARTNER_SECTIONS, ...PARTNER_INDIVIDUAL_SECTIONS].find(
     (section) => section.key === email.category,
   )?.label;
@@ -80,9 +84,9 @@ function HistoryEmail({ email }: { email: PartnerEmailHistoryRecord }) {
       </div>
       <div className="flex flex-wrap gap-2">
         {category && <Badge variant="outline">{t(category)}</Badge>}
-        {email.templateVariant !== null && (
+        {template && (
           <Badge variant="violet">
-            {t(email.templateVariant === 1 ? "Template 1" : "Template 2")}
+            {t(template.label)}
           </Badge>
         )}
         <Badge variant="secondary">

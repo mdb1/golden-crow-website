@@ -161,8 +161,8 @@ export async function connectedPartnersRoutes(
         querystring: z
           .object({
             language: PartnerEmailLanguageSchema.default("es"),
-            templateVariant: z.enum(["1", "2"]).default("1")
-              .transform((value) => value === "2" ? (2 as const) : (1 as const)),
+            templateVariant: z.enum(["1", "2", "3"]).default("1")
+              .transform((value) => value === "3" ? (3 as const) : value === "2" ? (2 as const) : (1 as const)),
           })
           .strict(),
       },
