@@ -103,6 +103,8 @@ describe("PublisherAppPromoBanner atomic renderer", () => {
         accentLight: "#7AFF9E",
         companyName: "DNA Institute",
         actionLabel: "Editar mi app",
+        showPricing: true,
+        showAction: true,
         brandLogoUrl: "https://example.org/dna-institute.png",
         backgroundDepthOpacity: 1,
         cornerShadeOpacity: 0.65,
@@ -126,5 +128,36 @@ describe("PublisherAppPromoBanner atomic renderer", () => {
 
     unmount();
     expect(destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it("omits price and action labels when rendering the no-app email showcase", async () => {
+    const mountAtomicBanner = jest.fn(() => ({
+      destroy: jest.fn(),
+      update: jest.fn(),
+    }));
+    window.ATOMIC_ASSETS = {};
+    window.mountAtomicBanner = mountAtomicBanner;
+    render(
+      <PublisherAppPromoBanner
+        organizationName="DNA INSTITUTE"
+        showPricing={false}
+        showAction={false}
+      />,
+    );
+    const banner = screen.getByTestId("publisher-app-banner");
+    await waitFor(() =>
+      expect(mountAtomicBanner).toHaveBeenCalledWith(
+        banner,
+        expect.objectContaining({
+          companyName: "DNA INSTITUTE",
+          showPricing: false,
+          showAction: false,
+        }),
+      ),
+    );
+    expect(screen.queryByText("99.99")).toBeNull();
+    expect(screen.queryByText("59.99")).toBeNull();
+    expect(screen.queryByText("Crear mi app")).toBeNull();
+    expect(screen.getByText("La app de DNA INSTITUTE")).toBeTruthy();
   });
 });

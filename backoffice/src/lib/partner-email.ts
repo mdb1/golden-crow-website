@@ -1,7 +1,18 @@
-import type { PartnerSection } from "@/lib/connected-partners";
+import { PARTNERS_QUERY_KEY, type PartnerSection } from "@/lib/connected-partners";
+
+export const PARTNER_EMAIL_HISTORY_QUERY_KEY = [...PARTNERS_QUERY_KEY, "email-history"] as const;
 
 export type PartnerEmailLanguage = "es" | "en";
-export type PartnerEmailTemplateVariant = 1 | 2;
+// Persisted IDs remain stable when the displayed template order changes.
+export const PARTNER_EMAIL_TEMPLATE_OPTIONS = [
+  { key: 3, label: "Template 1", detail: "Simple and clear" },
+  { key: 1, label: "Template 2", detail: "More detail" },
+  { key: 2, label: "Template 3", detail: "Short and direct" },
+] as const;
+export type PartnerEmailTemplateVariant =
+  (typeof PARTNER_EMAIL_TEMPLATE_OPTIONS)[number]["key"];
+export const DEFAULT_PARTNER_EMAIL_TEMPLATE_VARIANT =
+  PARTNER_EMAIL_TEMPLATE_OPTIONS[0].key;
 export type PartnerEmailBannerBrand = {
   name: string;
   tint: string;
@@ -12,6 +23,8 @@ export type PartnerEmailBannerInput = { contextHash: string; dataUrl: string };
 
 export type PartnerEmailPreview = {
   partnerId: string;
+  partnerName: string;
+  from: string;
   to: string;
   subject: string;
   text: string;
@@ -42,6 +55,30 @@ export type PartnerEmailSendResult = {
   sentAt: string | null;
   requestId: string;
   error?: string;
+};
+
+export type PartnerEmailHistoryRecord = {
+  requestId: string;
+  partnerId: string;
+  partnerName: string | null;
+  from: string | null;
+  to: string;
+  subject: string | null;
+  category: PartnerSection | null;
+  language: PartnerEmailLanguage;
+  templateVariant: PartnerEmailTemplateVariant | null;
+  status: PartnerEmailSendResult["status"];
+  createdAt: string;
+  updatedAt: string;
+  sentAt: string | null;
+  requestedByEmail: string;
+  messageAvailable: boolean;
+  accessKeyOmitted: boolean;
+  messageText?: string | null;
+};
+export type PartnerEmailHistoryPage = {
+  emails: PartnerEmailHistoryRecord[];
+  nextCursor: string | null;
 };
 
 // Preserve the email's exact presentation while making this a read-only preview.

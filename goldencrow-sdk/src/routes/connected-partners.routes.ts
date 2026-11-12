@@ -30,6 +30,9 @@ import {
   PartnerEmailLanguageSchema,
   PartnerEmailTemplateVariantSchema,
   PartnerEmailSendInputSchema,
+  PartnerEmailHistoryQuerySchema,
+  listPartnerEmailHistory,
+  getPartnerEmailHistory,
   previewPartnerEmail,
   sendPartnerEmail,
 } from "../repositories/partner-email.repository.js";
@@ -127,6 +130,17 @@ export async function connectedPartnersRoutes(
   );
 
   f.get(
+    `${ROUTE}/sent-email-log`,
+    { schema: { querystring: PartnerEmailHistoryQuerySchema } },
+    async (request) => listPartnerEmailHistory(request.adminContext!, request.query),
+  );
+  f.get(
+    `${ROUTE}/sent-email-log/:requestId`,
+    { schema: { params: z.object({ requestId: z.uuid() }).strict() } },
+    async (request) => ({ email: await getPartnerEmailHistory(request.adminContext!, request.params.requestId) }),
+  );
+
+  f.get(
     `${ROUTE}/:partnerId`,
     {
       schema: { params: ParamsSchema },
@@ -147,8 +161,8 @@ export async function connectedPartnersRoutes(
         querystring: z
           .object({
             language: PartnerEmailLanguageSchema.default("es"),
-            templateVariant: z.enum(["1", "2"]).default("1")
-              .transform((value) => value === "2" ? (2 as const) : (1 as const)),
+            templateVariant: z.enum(["1", "2", "3"]).default("1")
+              .transform((value) => value === "3" ? (3 as const) : value === "2" ? (2 as const) : (1 as const)),
           })
           .strict(),
       },

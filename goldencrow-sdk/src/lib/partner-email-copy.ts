@@ -1,6 +1,10 @@
 export type PartnerEmailLanguage = "es" | "en";
-export type PartnerEmailTemplateVariant = 1 | 2;
-export type PartnerEmailStage = "noOrganization" | "withoutApp" | "freeApp" | "contract";
+export type PartnerEmailTemplateVariant = 1 | 2 | 3;
+export type PartnerEmailStage =
+  | "noOrganization"
+  | "withoutApp"
+  | "freeApp"
+  | "contract";
 export type PartnerEmailCopy = {
   subject: string;
   preheader: string;
@@ -24,7 +28,8 @@ export const PARTNER_EMAIL_COPY: Record<
     noOrganization: {
       es: {
         subject: "¡{companyName}, sumate a Pocket Genes!",
-        preheader: "Compartí tu trabajo, conectá con la red y descubrí tu propia app.",
+        preheader:
+          "Compartí tu trabajo, conectá con la red y descubrí tu propia app.",
         heading: "¡Sumate a Pocket Genes!",
         lead: "¡Queremos a {companyName} en nuestra red!",
         paragraphs: [
@@ -33,12 +38,13 @@ export const PARTNER_EMAIL_COPY: Record<
           "Sumarte es gratis. También te preparamos una demo gratuita de tu propia app.",
           "Dejanos los datos de {companyName} y empecemos.",
         ],
-        ctaLabel: "¡Quiero sumarme!",
+        ctaLabel: "¡Quiero mi demo gratuita!",
         closing: "¡Te esperamos!",
       },
       en: {
         subject: "{companyName}, join us on Pocket Genes!",
-        preheader: "Share your work, connect with the community, and discover your own app.",
+        preheader:
+          "Share your work, connect with the community, and discover your own app.",
         heading: "Join us on Pocket Genes!",
         lead: "We’d love to have {companyName} in our community!",
         paragraphs: [
@@ -54,7 +60,8 @@ export const PARTNER_EMAIL_COPY: Record<
     withoutApp: {
       es: {
         subject: "¡Vamos con la app de {publisherName}!",
-        preheader: "Tu marca, tus contenidos, tu comunidad. Empezá con una demo gratis.",
+        preheader:
+          "Tu marca, tus contenidos, tu comunidad. Empezá con una demo gratis.",
         heading: "¡Estrená tu propia app!",
         lead: "¡Hagamos la app de {publisherName}!",
         paragraphs: [
@@ -63,12 +70,13 @@ export const PARTNER_EMAIL_COPY: Record<
           "Entrá con la cuenta de publicador de {publisherName}.",
         ],
         ctaLabel: "¡Quiero mi demo!",
-        closing: "¡Hagámosla tuya!",
+        closing: "Ya probaste la app de Pocket Genes ¡Ahora podés tener la tuya!",
         callback: APP_NEW_PATH,
       },
       en: {
         subject: "Let’s create {publisherName}’s app!",
-        preheader: "Your brand, your content, your community. Start with a free demo.",
+        preheader:
+          "Your brand, your content, your community. Start with a free demo.",
         heading: "Say hello to your own app!",
         lead: "Let’s make {publisherName}’s app happen!",
         paragraphs: [
@@ -84,7 +92,8 @@ export const PARTNER_EMAIL_COPY: Record<
     freeApp: {
       es: {
         subject: "¡La app de {publisherName} está lista para probar!",
-        preheader: "Tu demo ya está lista. Probala con tu equipo y preparemos el lanzamiento.",
+        preheader:
+          "Tu demo ya está lista. Probala con tu equipo y preparemos el lanzamiento.",
         heading: "¡Tenemos lista la app de {publisherName}!",
         lead: "Probá la demo con tu equipo. ¿La lanzamos?",
         paragraphs: [
@@ -98,7 +107,8 @@ export const PARTNER_EMAIL_COPY: Record<
       },
       en: {
         subject: "{publisherName}’s app is ready to try!",
-        preheader: "Your demo is ready. Try it with your team, then let’s plan your launch.",
+        preheader:
+          "Your demo is ready. Try it with your team, then let’s plan your launch.",
         heading: "{publisherName}’s app is ready!",
         lead: "Try the demo with your team. Ready to launch?",
         paragraphs: [
@@ -149,9 +159,9 @@ export const PARTNER_EMAIL_COPY: Record<
         lead: "¡Hagamos que más gente conozca {companyName}!",
         paragraphs: [
           "Compartí tus novedades, difundí tus eventos y conectá con la comunidad.",
-          "Y sí: también podés tener tu propia app.",
+          "Sumarte es gratis. También te preparamos una demo gratuita para que puedas visualizar como sería tu propia app.",
         ],
-        ctaLabel: "Quiero sumarme",
+        ctaLabel: "¡Quiero mi demo gratuita!",
         closing: "¡Te esperamos!",
       },
       en: {
@@ -195,7 +205,9 @@ export const PARTNER_EMAIL_COPY: Record<
         preheader: "Tu marca, más cerca de tu comunidad.",
         heading: "¡Que tu app salga al mundo!",
         lead: "¿Llevamos la app de {publisherName} a tu comunidad?",
-        paragraphs: ["Tus novedades, tus eventos y tus contenidos, en un lugar propio."],
+        paragraphs: [
+          "Tus novedades, tus eventos y tus contenidos, en un lugar propio.",
+        ],
         ctaLabel: "Quiero publicar mi app",
         closing: "¡Hagámoslo!",
         callback: APP_TERMS_PATH,
@@ -205,7 +217,9 @@ export const PARTNER_EMAIL_COPY: Record<
         preheader: "Bring your brand closer to your community.",
         heading: "Let’s get your app out there!",
         lead: "Ready to share {publisherName}’s app with your community?",
-        paragraphs: ["Give your news, events, and content a home of their own."],
+        paragraphs: [
+          "Give your news, events, and content a home of their own.",
+        ],
         ctaLabel: "Let’s launch my app",
         closing: "Let’s make it happen!",
         callback: APP_TERMS_PATH,
@@ -230,6 +244,113 @@ export const PARTNER_EMAIL_COPY: Record<
         paragraphs: [],
         ctaLabel: "Update my app",
         closing: "Have an idea? Tell us!",
+        callback: APP_EDIT_PATH,
+      },
+    },
+  },
+  // IDs 1 and 2 keep their existing copy; the new first option uses ID 3.
+  3: {
+    noOrganization: {
+      es: {
+        subject: "¡{companyName}, sumate a Pocket Genes!",
+        preheader:
+          "Compartí tus proyectos y eventos con la comunidad. Sumarte es gratis.",
+        heading: "¡Sumate a Pocket Genes!",
+        lead: "¡Queremos a {companyName} en nuestra comunidad!",
+        paragraphs: [
+          "Compartí tus proyectos, novedades y eventos. Conectá con profesionales, investigadores y organizaciones.",
+          "Sumarte es gratis. Y también te preparamos una demo gratuita de tu propia app.",
+        ],
+        ctaLabel: "¡Quiero mi demo gratuita!",
+        closing: "¡Te esperamos!",
+      },
+      en: {
+        subject: "{companyName}, join us on Pocket Genes!",
+        preheader:
+          "Share your projects and events with the community. Joining is free.",
+        heading: "Join us on Pocket Genes!",
+        lead: "We'd love to welcome {companyName} to Pocket Genes!",
+        paragraphs: [
+          "Share your projects, news, and events. Connect with professionals, researchers, and organizations.",
+          "Joining is free. We'll also create a free demo of your own app.",
+        ],
+        ctaLabel: "Join Pocket Genes",
+        closing: "See you there!",
+      },
+    },
+    withoutApp: {
+      es: {
+        subject: "¡Hagamos la app de {publisherName}!",
+        preheader: "Te preparamos una demo gratis de tu propia app.",
+        heading: "¡Hagamos tu app!",
+        lead: "Te preparamos una demo gratis con el nombre y la imagen de {publisherName}.",
+        paragraphs: [
+          "Compartí tus novedades y eventos con tu comunidad desde tu propia app.",
+        ],
+        ctaLabel: "¡Quiero mi demo gratis!",
+        closing: "",
+        callback: APP_NEW_PATH,
+      },
+      en: {
+        subject: "Let's create an app for {publisherName}!",
+        preheader: "We'll create a free demo of your own app.",
+        heading: "Let's create your app!",
+        lead: "We'll create a free app demo with {publisherName}'s name and branding.",
+        paragraphs: [
+          "Share news and events with your community through your own app.",
+        ],
+        ctaLabel: "Get my free app demo",
+        closing: "",
+        callback: APP_NEW_PATH,
+      },
+    },
+    freeApp: {
+      es: {
+        subject: "¡Tenemos lista tu app de {publisherName}!",
+        preheader: "Probá tu demo gratis. ¿La publicamos?",
+        heading: "¡Tenemos lista tu app de {publisherName}!",
+        lead: "Probá la demo gratis con tu equipo. ¿La publicamos?",
+        paragraphs: [
+          "Llevá tus novedades y eventos a tu comunidad desde la app de {publisherName}.",
+        ],
+        ctaLabel: "¡Quiero publicar mi app!",
+        closing: "",
+        callback: APP_TERMS_PATH,
+      },
+      en: {
+        subject: "Your {publisherName} app is ready!",
+        preheader: "Try your free demo. Ready to publish?",
+        heading: "Your {publisherName} app is ready!",
+        lead: "Try the free demo with your team. Ready to publish your app?",
+        paragraphs: [
+          "Bring news and events to your community through the {publisherName} app.",
+        ],
+        ctaLabel: "Publish my app",
+        closing: "",
+        callback: APP_TERMS_PATH,
+      },
+    },
+    contract: {
+      es: {
+        subject: "Gestioná la app de {publisherName}",
+        preheader: "Actualizá la configuración de tu app desde el portal.",
+        heading: "Gestioná tu app",
+        lead: "Entrá al portal para actualizar la configuración de la app de {publisherName}.",
+        paragraphs: [
+          "¿Necesitás ayuda? Respondé a este correo y lo vemos juntos.",
+        ],
+        ctaLabel: "Gestionar mi app",
+        closing: "",
+        callback: APP_EDIT_PATH,
+      },
+      en: {
+        subject: "Manage your {publisherName} app",
+        preheader: "Update your app's settings in the portal.",
+        heading: "Manage your app",
+        lead: "Open the portal to update your {publisherName} app's settings.",
+        paragraphs: ["Need a hand? Reply to this email and we'll help."],
+        ctaLabel: "Manage my app",
+        closing: "",
         callback: APP_EDIT_PATH,
       },
     },

@@ -122,7 +122,7 @@ export async function renderPartnerEmailBanner(
                 borderRadius: 16,
               }}
             >
-            {Array.from(brand.name)[0]?.toUpperCase()}
+              {Array.from(brand.name)[0]?.toUpperCase()}
             </span>
           )}
           <strong
@@ -140,6 +140,8 @@ export async function renderPartnerEmailBanner(
           organizationTint={brand.tint}
           organizationImageUrl={brand.imageUrl}
           language={language}
+          showPricing={!newApp}
+          showAction={!newApp}
           ctaLabel={
             language === "es"
               ? newApp

@@ -27,6 +27,8 @@ import {
 } from "@/lib/connected-partners";
 import {
   partnerEmailPreviewDocument,
+  DEFAULT_PARTNER_EMAIL_TEMPLATE_VARIANT,
+  PARTNER_EMAIL_TEMPLATE_OPTIONS,
   type PartnerEmailLanguage,
   type PartnerEmailPreview,
   type PartnerEmailSendInput,
@@ -52,7 +54,9 @@ export function PartnerEmailPreviewDialog({
   const [emailLanguage, setEmailLanguage] =
     useState<PartnerEmailLanguage>("es");
   const [templateVariant, setTemplateVariant] =
-    useState<PartnerEmailTemplateVariant>(1);
+    useState<PartnerEmailTemplateVariant>(
+      DEFAULT_PARTNER_EMAIL_TEMPLATE_VARIANT,
+    );
   const [revision, setRevision] = useState(0);
   const [preparedPreview, setPreview] = useState<PartnerEmailPreview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -288,12 +292,9 @@ export function PartnerEmailPreviewDialog({
               <div
                 role="group"
                 aria-label={t("Email template")}
-                className="grid grid-cols-2 gap-3"
+                className="grid grid-cols-1 gap-3 sm:grid-cols-3"
               >
-                {([
-                  { key: 1, label: "Template 1", detail: "More detail" },
-                  { key: 2, label: "Template 2", detail: "Short and direct" },
-                ] as const).map((option) => (
+                {PARTNER_EMAIL_TEMPLATE_OPTIONS.map((option) => (
                   <button
                     key={option.key}
                     type="button"
@@ -360,6 +361,8 @@ export function PartnerEmailPreviewDialog({
               {preview && (
                 <>
                   <dl className="grid gap-3 rounded-2xl border bg-background/80 p-4 text-sm sm:grid-cols-[auto_minmax(0,1fr)] sm:gap-x-4">
+                    <dt className="text-muted-foreground">{t("From")}</dt>
+                    <dd className="break-all font-medium">{preview.from}</dd>
                     <dt className="text-muted-foreground">{t("Recipient")}</dt>
                     <dd className="break-all font-medium">{preview.to}</dd>
                     <dt className="text-muted-foreground">{t("Subject")}</dt>

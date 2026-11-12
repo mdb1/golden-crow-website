@@ -201,20 +201,25 @@ Backoffice routes:
   /god-mode/partners/:partnerId/edit
 
 Partner email preview and delivery:
-  GET /admin/connected-partners/:partnerId/email-preview[?language=es|en&templateVariant=1|2]
-    Returns { partnerId, to, subject, text, html, ctaLabel, ctaUrl, category,
-      language, templateVariant, previewHash }. Spanish and template 1 are the defaults.
-    Template 1 uses the first supplied bilingual table (more detail); template 2
-    uses the second supplied table (short and direct). No email is sent.
+  GET /admin/connected-partners/:partnerId/email-preview[?language=es|en&templateVariant=1|2|3]
+    Returns { partnerId, partnerName, from, to, subject, text, html, ctaLabel, ctaUrl, category,
+      language, templateVariant, previewHash }. Spanish is the language default.
+    The preview opens with the newly supplied copy as Template 1, followed by the
+    original detailed copy as Template 2 and the original short copy as Template 3.
+    Persisted variant IDs remain stable: displayed Template 1 is ID 3, Template 2
+    is ID 1, and Template 3 is ID 2. The UI explicitly requests ID 3 initially;
+    omitted API variants still default to ID 1 for existing clients and safe
+    command replays. Historical IDs and frozen messages are never rewritten.
+    History badges use the current display label for each stable ID. No email is sent.
     Builds the exact sender content using the current contact and directly linked
     publishers/app, with the same purple Pocket Genes styling as publisher access
     invitations. Historical snapshots never select a message or establish status.
-    The template variant, rendered message and authoritative publisher/app identity are bound into
+    The partner name, sender, template variant, rendered message and authoritative publisher/app identity are bound into
     previewHash (SHA-256). Contact email, subject, body, HTML and CTA cannot be
     authored or overridden by the client.
     noOrganization: request an organization profile at the exact public join-us
     URL; the message invites the company to share its work and connect with the
-    community. Template 1 also describes free joining and a free app demo.
+    community. Templates 1 and 2 also describe free joining and a free app demo.
     organizationWithoutApp/individualWithoutApp: publisher login with callbackUrl
     /publisher-portal/app/new. The publisher chooses app platforms/features/colors
     and submits the request for review and preparation of a testing sample.
@@ -233,9 +238,9 @@ Partner email preview and delivery:
     other (inactive, unavailable or mismatched links) returns 409 for deliberate
     connection review instead of sending an invitation for the wrong stage.
   POST /admin/connected-partners/:partnerId/email with strict body
-    { language: es|en, templateVariant: 1|2, previewHash: <64 lowercase hex>, requestId: <UUID>, banner?: <reviewed JPEG> }
+    { language: es|en, templateVariant: 1|2|3, previewHash: <64 lowercase hex>, requestId: <UUID>, banner?: <reviewed JPEG> }
     Omitted templateVariant defaults to 1 for existing clients. JSON bodies use
-    numeric variants; the GET query uses the strings 1 or 2. Other values and
+    numeric variants; the GET query uses the strings 1, 2 or 3. Other values and
     template_variant aliases are rejected.
     Returns HTTP 200 { status: sent|sending|unknown|failed, to,
       sentAt: <ISO timestamp or null>, requestId, error?: <operator message> }.
@@ -250,6 +255,18 @@ Partner email preview and delivery:
     a different partner, preview hash, language or template variant (409). A 412 is a known unsent
     precondition failure that requires a new preview; a 409 can represent a prior
     uncertain command and must not authorize a new send automatically.
+  GET /admin/connected-partners/sent-email-log[?limit=20&cursor=<opaque>]
+    Returns { emails, nextCursor }. Lists every recorded send command, including
+    sent, sending, unknown and failed outcomes; the UI distinguishes each status.
+    Orders by updatedAt descending then document ID descending, so a later retry
+    appears with the latest activity. Reads at most 21
+    projected summaries, returns at most 20, and never loads message bodies or
+    mutable partner/publisher documents. The pel1 cursor stores the last visible
+    updatedAt and requestId and remains usable after that record is deleted.
+  GET /admin/connected-partners/sent-email-log/:requestId
+    Returns { email } with the frozen messageText using one direct document read.
+    Both history routes require GOD MODE and use private, no-store responses.
+    Invalid limits/cursors/IDs return 400; missing detail records return 404.
 
 Email command persistence:
   Firestore project: mydnamap
@@ -257,12 +274,23 @@ Email command persistence:
   Document ID: requestId (UUID; one directly read document per command)
   Strict lower camel case fields, validated by StoredSendSchema:
     requestId: UUID; partnerId: canonical partner ID; previewHash: SHA-256 hex;
-    language: es|en; templateVariant: 1|2; to: validated contact email;
+    language: es|en; templateVariant: 1|2|3; to: validated contact email;
     status: sending|sent|unknown|failed;
     createdAt/updatedAt: ISO UTC datetime;
     sentAt: nullable ISO UTC datetime;
     requestedByEmail: authenticated GOD MODE operator email.
-  No subject, HTML, text, full partner/snapshot record or credentials are stored.
+    historySnapshot: nullable server-managed map containing partnerName, from,
+      subject, category, messageText and accessKeyOmitted.
+  The frozen history snapshot is reserved atomically with the send command before
+  transport. It survives partner edits/deletion and never rebuilds old copy from
+  a current template. messageText retains the reviewed wording and destination,
+  removing only the accessKey query parameter. Plaintext credentials, HTML, banner
+  data and full partner/publisher snapshots are never stored in the command.
+  History list responses omit messageText; details load only on expansion.
+  Existing commands without historySnapshot remain visible with date, recipient,
+  status and operator. Their unrecorded sender, subject, partner name and body
+  remain null instead of being guessed. A missing historical templateVariant is
+  shown as unrecorded by history while command replay still defaults it to 1.
   Historical commands without templateVariant decode as 1 for safe status replays.
   A Firestore transaction reserves sending before Gmail is called. Concurrent
   double-clicks share the reservation. A known Gmail rejection or pre-send failure
@@ -271,6 +299,10 @@ Email command persistence:
   resent. Confirmation-persistence failure keeps the durable sending reservation
   and returns unknown; subsequent checks still cannot send again. Operators must
   verify Sent mail before starting another independent send after uncertainty.
+  Delivery uses Federico Bustos Fierro <federico@goldencrowvs.com> and the Federico
+  Gmail mailbox explicitly, using CRM_GMAIL_CLIENT_ID/SECRET/REFRESH_TOKEN with
+  generic OAuth credential fallbacks. MAIL_FROM, GMAIL_USER and CRM sender/user
+  overrides cannot change the partner sender. There is no no-reply fallback.
   Delivery uses the established Gmail transport without appending a signature, so
   the preview HTML/text exactly match the outbound content. Partner deletion does
   not cascade to delivery commands, preserving safe status checks and audit state.
@@ -281,7 +313,13 @@ PublisherAppPromoBanner used by the portal home. The GOD MODE preview reads the
 live app owner's publisher name, imageUrl/imageUploadDataUrl and colorHex. The
 browser renders that shared atomic scene (including the branded phones), adds
 the publisher icon/name, waits for fonts and every image, and captures a bounded
-1024px JPEG. English previews also localize the scene labels. Missing images or
+1024px JPEG. No-app organization and individual emails omit the banner's entire
+price/discount blocks and its creation action, retaining the branded phones and
+publisher identity. Other portal banners keep their existing promotion controls.
+Every partner email has one purple CTA after its explanatory paragraphs; the
+banner is a presentation image rather than a second link or action. The banner
+renderer context is versioned so older promotional captures need a fresh preview.
+English previews also localize the scene labels. Missing images or
 render errors block sending and expose retry; no generic placeholder is sent.
 GET email-preview returns bannerBrand and its contextHash. POST email-preview
 accepts { language, templateVariant, banner: { contextHash, dataUrl } } and freezes the reviewed
@@ -291,18 +329,22 @@ language, template variant, action, message content or image require a new revie
 methods use no-store. The banner is a CID inline JPEG attachment in Gmail MIME;
 the inert preview substitutes only that image source with the exact data URL.
 No image, HTML, credential or full preview is persisted in partner_email_sends.
+Only its credential-free text history snapshot is retained for the history modal.
 Status replays still resolve the prior command before reading live data or
 rebuilding images. The no-organization invitation has no publisher banner.
 Approved bilingual wording is mirrored in docs/partner-email-templates.tsv for
-template 1 and docs/partner-email-templates-2.tsv for template 2. Blank paragraphs
+displayed Template 1 (ID 3), docs/partner-email-templates-2.tsv for displayed
+Template 2 (ID 1), and docs/partner-email-templates-3.tsv for displayed Template 3
+(ID 2). Blank paragraphs
 and closings from the supplied tables are omitted from the rendered email.
-The preview offers Template 1 / Template 2 beside the existing language choice.
+The preview offers Template 1 / Template 2 / Template 3 beside the language choice.
 Switching either choice prepares a new reviewed hash and cancels obsolete banner
 work. Both choices are locked during sending or uncertain delivery. A confirmed
 rejection permits choosing another template and starting a new reviewed request;
 checking uncertain delivery always keeps the original variant, hash and request ID.
 
-For the three publisher stages, the preview includes the publisher's saved accessKey together with email and the existing callbackUrl only when the recipient has an active matching organization_publisher or individual_publisher role and the stored credential belongs to that email and publisher/app owner. Missing keys or mismatched recipients keep an email-only URL with an explanation in the preview. The public join form never receives a credential. Previews no longer generate temporary signed access codes.
+For the three publisher stages, the preview first uses the publisher's saved accessKey together with email and the existing callbackUrl when the recipient has an active matching organization_publisher or individual_publisher role and the stored credential belongs to that email and publisher/app owner. If no usable stored key is available, it falls back to a signed pgp1 access token for the same recipient and linked publisher/app owner. Issuance requires an active publisher role, an existing publisher, and a matching enabled primary Firebase account. A missing, inactive or mismatched account keeps an email-only URL with an explanation in the preview. The public join form never receives a credential.
+Fallback tokens use the existing stable UTC daily window, remain valid for 24–48 hours, and expose accessCodeExpiresAt in the preview. Preparing and sending a reviewed message regenerate the same token within that window; identity, revocation or window changes require a fresh preview. Neither preview nor send stores the token or changes a password, publisher credential or role. History strips the token's accessKey parameter just as it strips a saved key.
 The preview shows the complete destination above the inert email iframe and opens it in a separate tab with no opener or referrer. When a publisher login link includes both email and accessKey, the page automatically attempts the same sign-in as the access button, showing only an access-in-progress status from its initial server render through the successful session handoff and callback redirect. It attempts once per visit, including React effect replays. A failed attempt reveals the normal form and its error for manual correction or retry. Links without either credential keep the manual login. The publisher login removes accessKey from browser history after loading and sends no referrer. Other login surfaces do not prefill or automatically submit publisher credentials. Existing signed pgp1 access links use their usual custom-token exchange; stored passwords use normal email/password authentication.
 
 Publisher credential storage and GOD MODE modals
@@ -310,10 +352,22 @@ The canonical optional nullable field portalAccessKey on feed_organizations and 
 Ciphertext uses the pgpk1 version prefix, a random nonce, an authentication tag, and authenticated publisher kind/id. Its encrypted payload contains the normalized account email and exact access key. The lazily derived encryption key uses PUBLISHER_PORTAL_CREDENTIALS_SECRET (at least 32 bytes) or a domain-separated HKDF of the existing primary MyDNAMap Admin private key. No optional-project credentials are required at startup.
 GET /discover/publisher-credentials/:kind/:publisherId returns availability and contact email only. POST on its /reveal child returns the decrypted { email, accessKey }. PUT accepts only { accessKey } and transactionally fills an absent/null field, rejecting an already populated field. Every operation requires GOD MODE and uses no-store. Manual entry records the existing password; it never changes Firebase Auth, creates an account or grants a role. Ordinary profile mutation bodies cannot author this field.
 Organization and individual details show the credential action only to GOD MODE. Opening its modal loads metadata; Revelation is an explicit separate action. Closing or hiding clears the revealed key. Empty records allow manual input; copying requires a revealed key. Newly saved keys stay masked until explicitly revealed.
-Compatibility: previously issued pgp1 signed links from version 3.680 remain redeemable until their original 24–48 hour expiry through POST /publisher-portal/access-code. These long credentials are distinguished from saved passwords (maximum 256 characters); new partner previews use only the stored Firebase key and the usual password sign-in flow.
+Signed pgp1 links, including previously issued links still within their original expiry, are redeemed through POST /publisher-portal/access-code. Redemption rechecks the current role, publisher identity, enabled Firebase account, UID and tokensValidAfterTime before issuing a primary Firebase custom token. The publisher login distinguishes these long signed credentials from saved passwords (maximum 256 characters), exchanges signed tokens automatically, and uses the normal password sign-in flow for saved keys.
 
 Discover exports leave unknown organizational contact names blank. Those files
 are directly importable when companyName and email are valid; mononym individual
 publishers do not require a last name. Export reviews only flag actual validation
 failures, not absent optional names. Partner forms allow the same empty names.
 Emails greet nameless contacts with Hola, / Hi, without fabricating personal data.
+
+GET /discover/partner-csv-export?kind=organization|individual&limit=20&cursor=...
+requires GOD MODE and returns { items, nextCursor } with private, no-store caching.
+Each page reads at most 20 publishers using Discover's existing cursor and one
+batch of their canonical app_configs/{kind}_{publisherId} ownership fields.
+The export includes linkedAppId as the existing app document ID, regardless of
+app status or whether a public appProviderIdentifier has been assigned. Missing
+apps or mismatched publisherKind/publisherId leave that column empty. Individual
+exports retain their parent organization link but do not inherit its app.
+The response projects only id, name, contactEmail, internalNotes, the individual's
+linkedParentOrganizationId, and linkedAppId. It never exports access keys or app
+configuration content. Phone and meeting date remain blank in the CSV.

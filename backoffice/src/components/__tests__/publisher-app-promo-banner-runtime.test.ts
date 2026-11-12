@@ -175,4 +175,46 @@ describe("PocketGenes atomic banner material contract", () => {
 
     instance?.destroy();
   });
+
+  it("removes the entire pricing and creation elements while retaining the branded phone scene", () => {
+    const host = document.createElement("div");
+    host.getBoundingClientRect = () =>
+      ({ width: 1024, height: 500 }) as DOMRect;
+    document.body.append(host);
+    const instance = runtimeWindow.mountAtomicBanner?.(host, {
+      companyName: "DNA INSTITUTE",
+      showPricing: false,
+      showAction: false,
+    });
+    expect(instance).toBeDefined();
+    for (const text of [
+      "99.99",
+      "59.99",
+      "USD / MES",
+      "AHORA",
+      "Crear mi app",
+    ]) {
+      expect(host.textContent).not.toContain(text);
+    }
+    for (const part of [
+      "surface-price-strike",
+      "price-contact-support",
+      "panel-local-glow",
+      "surface-price-panel",
+      "surface-panel-rim",
+      "surface-now-chip",
+      "surface-cta",
+      "cta-directional-support",
+      "cta-face-highlight",
+      "cta-filled-spark",
+    ]) {
+      expect(host.querySelector(`[data-part="${part}"]`)).toBeNull();
+      expect(instance?.getLayout().some(({ id }) => id === part)).toBe(false);
+    }
+    expect(host.querySelector(".atomic-action")).toBeNull();
+    expect(host.textContent).toContain("DNA INSTITUTE");
+    expect(host.querySelectorAll(".atomic-device")).toHaveLength(3);
+    expect(host.querySelectorAll(".atomic-raster")).toHaveLength(3);
+    instance?.destroy();
+  });
 });

@@ -1,19 +1,22 @@
 import { z } from "zod";
+import { FieldPath } from "firebase-admin/firestore";
 import { adminDbFor } from "../config/firebase.js";
-import { PartnerIdSchema } from "../contracts/connected-partners.js";
+import {
+  PartnerIdSchema,
+  PartnerSectionSchema,
+} from "../contracts/connected-partners.js";
 import {
   buildConnectedPartnerEmail,
   type PartnerEmailPreview,
   type PartnerEmailTemplateVariant,
 } from "../lib/connected-partner-email.js";
-import {
-  GmailDeliveryOutcomeUnknownError,
-  sendGmailMessage,
-} from "../lib/gmail-mailer.js";
+import { GmailDeliveryOutcomeUnknownError } from "../lib/gmail-mailer.js";
+import { sendPartnerEmailMessage } from "../lib/partner-email-delivery.js";
 import type { AdminContext } from "../types/sdk.types.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 import { getPartner } from "./connected-partners.repository.js";
 import { partnerPublisherStoredAccessKey } from "./publisher-portal-credentials.repository.js";
+import { partnerPublisherAccessCode } from "./publisher-access-code.repository.js";
 import {
   PartnerEmailBannerInputSchema,
   partnerBannerAttachment,
@@ -24,7 +27,9 @@ import {
 export const PARTNER_EMAIL_SENDS_COLLECTION = "partner_email_sends";
 export const PartnerEmailLanguageSchema = z.enum(["es", "en"]);
 export const PartnerEmailTemplateVariantSchema = z.union([
-  z.literal(1), z.literal(2),
+  z.literal(1),
+  z.literal(2),
+  z.literal(3),
 ]);
 export const PartnerEmailSendInputSchema = z
   .object({
@@ -33,6 +38,16 @@ export const PartnerEmailSendInputSchema = z
     previewHash: z.string().regex(/^[a-f0-9]{64}$/),
     requestId: z.uuid(),
     banner: PartnerEmailBannerInputSchema.optional(),
+  })
+  .strict();
+const HistorySnapshotSchema = z
+  .object({
+    partnerName: z.string().min(1).max(180),
+    from: z.email(),
+    subject: z.string().min(1).max(1000),
+    category: PartnerSectionSchema,
+    messageText: z.string().min(1).max(20000),
+    accessKeyOmitted: z.boolean(),
   })
   .strict();
 const StoredSendSchema = PartnerEmailSendInputSchema.omit({ banner: true })
@@ -44,9 +59,73 @@ const StoredSendSchema = PartnerEmailSendInputSchema.omit({ banner: true })
     updatedAt: z.iso.datetime(),
     sentAt: z.iso.datetime().nullable(),
     requestedByEmail: z.string(),
+    historySnapshot: HistorySnapshotSchema.nullable().default(null),
   })
   .strict();
 type StoredSend = z.infer<typeof StoredSendSchema>;
+const HistoryStoredSchema = StoredSendSchema.extend({
+  templateVariant: PartnerEmailTemplateVariantSchema.optional(),
+});
+const HistorySummaryStoredSchema = HistoryStoredSchema.extend({
+  historySnapshot: HistorySnapshotSchema.omit({ messageText: true })
+    .nullable()
+    .default(null),
+});
+export const PartnerEmailHistoryQuerySchema = z
+  .object({
+    cursor: z.string().min(1).max(1024).optional(),
+    limit: z.coerce.number().int().min(1).max(20).default(20),
+  })
+  .strict();
+const HistoryCursorSchema = z
+  .object({
+    updatedAt: z.iso.datetime(),
+    requestId: z.uuid(),
+  })
+  .strict();
+const HISTORY_SUMMARY_FIELDS = [
+  "requestId",
+  "partnerId",
+  "language",
+  "templateVariant",
+  "previewHash",
+  "to",
+  "status",
+  "createdAt",
+  "updatedAt",
+  "sentAt",
+  "requestedByEmail",
+  "historySnapshot.partnerName",
+  "historySnapshot.from",
+  "historySnapshot.subject",
+  "historySnapshot.category",
+  "historySnapshot.accessKeyOmitted",
+];
+export type PartnerEmailHistoryRecord = Pick<
+  StoredSend,
+  | "requestId"
+  | "partnerId"
+  | "language"
+  | "to"
+  | "status"
+  | "createdAt"
+  | "updatedAt"
+  | "sentAt"
+  | "requestedByEmail"
+> & {
+  templateVariant: PartnerEmailTemplateVariant | null;
+  partnerName: string | null;
+  from: string | null;
+  subject: string | null;
+  category: z.infer<typeof PartnerSectionSchema> | null;
+  messageAvailable: boolean;
+  accessKeyOmitted: boolean;
+  messageText?: string | null;
+};
+export type PartnerEmailHistoryPage = {
+  emails: PartnerEmailHistoryRecord[];
+  nextCursor: string | null;
+};
 export type PartnerEmailSendResult = Pick<
   StoredSend,
   "status" | "to" | "sentAt" | "requestId"
@@ -103,6 +182,116 @@ function result(record: StoredSend): PartnerEmailSendResult {
   };
 }
 
+function historySnapshot(preview: PartnerEmailPreview) {
+  const url = new URL(preview.ctaUrl);
+  const accessKeyOmitted = url.searchParams.has("accessKey");
+  url.searchParams.delete("accessKey");
+  return HistorySnapshotSchema.parse({
+    partnerName: preview.partnerName,
+    from: preview.from,
+    subject: preview.subject,
+    category: preview.category,
+    messageText: accessKeyOmitted
+      ? preview.text.replaceAll(preview.ctaUrl, url.toString())
+      : preview.text,
+    accessKeyOmitted,
+  });
+}
+
+function historyRecord(
+  record: z.infer<typeof HistorySummaryStoredSchema>,
+): PartnerEmailHistoryRecord {
+  return {
+    requestId: record.requestId,
+    partnerId: record.partnerId,
+    language: record.language,
+    templateVariant: record.templateVariant ?? null,
+    to: record.to,
+    status: record.status,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+    sentAt: record.sentAt,
+    requestedByEmail: record.requestedByEmail,
+    partnerName: record.historySnapshot?.partnerName ?? null,
+    from: record.historySnapshot?.from ?? null,
+    subject: record.historySnapshot?.subject ?? null,
+    category: record.historySnapshot?.category ?? null,
+    messageAvailable: Boolean(record.historySnapshot),
+    accessKeyOmitted: record.historySnapshot?.accessKeyOmitted ?? false,
+  };
+}
+
+function decodeHistoryCursor(cursor: string | undefined) {
+  if (!cursor) return null;
+  try {
+    if (!cursor.startsWith("pel1.") || cursor.length > 1024) throw new Error();
+    const encoded = cursor.slice(5);
+    const bytes = Buffer.from(encoded, "base64url");
+    if (bytes.toString("base64url") !== encoded) throw new Error();
+    return HistoryCursorSchema.parse(JSON.parse(bytes.toString("utf8")));
+  } catch {
+    throw new AdminRepositoryError("Invalid partner email history cursor", 400);
+  }
+}
+
+export async function listPartnerEmailHistory(
+  context: AdminContext,
+  rawOptions: z.input<typeof PartnerEmailHistoryQuerySchema> = {},
+): Promise<PartnerEmailHistoryPage> {
+  requireGodMode(context);
+  const options = PartnerEmailHistoryQuerySchema.parse(rawOptions);
+  const cursor = decodeHistoryCursor(options.cursor);
+  let query = adminDbFor("mydnamap")
+    .collection(PARTNER_EMAIL_SENDS_COLLECTION)
+    .orderBy("updatedAt", "desc")
+    .orderBy(FieldPath.documentId(), "desc")
+    .select(...HISTORY_SUMMARY_FIELDS);
+  if (cursor) query = query.startAfter(cursor.updatedAt, cursor.requestId);
+  const snapshot = await query.limit(options.limit + 1).get();
+  const visible = snapshot.docs.slice(0, options.limit);
+  const emails = visible.map((doc) => {
+    const record = HistorySummaryStoredSchema.safeParse(doc.data());
+    if (!record.success || record.data.requestId !== doc.id)
+      throw new AdminRepositoryError(
+        "The email history record is invalid.",
+        409,
+      );
+    return historyRecord(record.data);
+  });
+  const last = emails.at(-1);
+  const nextCursor =
+    snapshot.docs.length > options.limit && last
+      ? `pel1.${Buffer.from(JSON.stringify({ updatedAt: last.updatedAt, requestId: last.requestId })).toString("base64url")}`
+      : null;
+  return { emails, nextCursor };
+}
+
+export async function getPartnerEmailHistory(
+  context: AdminContext,
+  requestId: string,
+) {
+  requireGodMode(context);
+  const parsedId = z.uuid().safeParse(requestId);
+  if (!parsedId.success)
+    throw new AdminRepositoryError("Invalid partner email history ID", 400);
+  const snapshot = await adminDbFor("mydnamap")
+    .collection(PARTNER_EMAIL_SENDS_COLLECTION)
+    .doc(parsedId.data)
+    .get();
+  if (!snapshot.exists)
+    throw new AdminRepositoryError(
+      "Partner email history record not found.",
+      404,
+    );
+  const record = HistoryStoredSchema.safeParse(snapshot.data());
+  if (!record.success || record.data.requestId !== snapshot.id)
+    throw new AdminRepositoryError("The email history record is invalid.", 409);
+  return {
+    ...historyRecord(record.data),
+    messageText: record.data.historySnapshot?.messageText ?? null,
+  };
+}
+
 export async function previewPartnerEmail(
   context: AdminContext,
   partnerId: string,
@@ -112,10 +301,15 @@ export async function previewPartnerEmail(
 ): Promise<PartnerEmailPreview> {
   requireGodMode(context);
   const parsedLanguage = PartnerEmailLanguageSchema.parse(language);
-  const parsedVariant = PartnerEmailTemplateVariantSchema.parse(templateVariant);
+  const parsedVariant =
+    PartnerEmailTemplateVariantSchema.parse(templateVariant);
   const partner = await getPartner(context, partnerId);
   const base = buildConnectedPartnerEmail(
-    partner, parsedLanguage, undefined, undefined, parsedVariant,
+    partner,
+    parsedLanguage,
+    undefined,
+    undefined,
+    parsedVariant,
   );
   if (base.category === "noOrganization") {
     if (banner)
@@ -125,7 +319,11 @@ export async function previewPartnerEmail(
       );
     return base;
   }
-  const accessKey = await partnerPublisherStoredAccessKey(context, partner);
+  const storedAccessKey = await partnerPublisherStoredAccessKey(context, partner);
+  const accessCode = storedAccessKey
+    ? null
+    : await partnerPublisherAccessCode(context, partner);
+  const accessKey = storedAccessKey ?? accessCode?.accessKey;
   const kind =
     partner.linkedApp?.publisherKind ??
     (partner.linkedOrganization ? "organization" : "individual");
@@ -152,7 +350,9 @@ export async function previewPartnerEmail(
   const imageUrl = [data.imageUrl, data.imageUploadDataUrl].find(
     (value) =>
       typeof value === "string" &&
-      /^(https:\/\/|data:image\/(png|jpeg|webp|svg\+xml|x-icon|vnd\.microsoft\.icon);base64,)/.test(value),
+      /^(https:\/\/|data:image\/(png|jpeg|webp|svg\+xml|x-icon|vnd\.microsoft\.icon);base64,)/.test(
+        value,
+      ),
   ) as string | undefined;
   const tint =
     typeof data.colorHex === "string" && /^#?[a-f0-9]{6}$/i.test(data.colorHex)
@@ -181,13 +381,13 @@ export async function previewPartnerEmail(
     { brand, banner },
     parsedVariant,
   );
-  return accessKey
-    ? preview
-    : {
-        ...preview,
-        accessCodeUnavailableReason:
-          "No saved access key matches this recipient. Save the current key in the linked publisher's detail to include it in this link.",
-      };
+  if (accessCode) return { ...preview, accessCodeExpiresAt: accessCode.expiresAt };
+  if (accessKey) return preview;
+  return {
+    ...preview,
+    accessCodeUnavailableReason:
+      "This recipient does not have an active publisher account matching the linked publisher. The link includes their email only.",
+  };
 }
 
 export async function sendPartnerEmail(
@@ -243,6 +443,7 @@ export async function sendPartnerEmail(
     );
 
   const now = new Date().toISOString();
+  const frozenHistory = historySnapshot(preview);
   const reservation = await db.runTransaction(async (transaction) => {
     const snapshot = await transaction.get(ref);
     if (snapshot.exists) {
@@ -250,7 +451,12 @@ export async function sendPartnerEmail(
       requireSameRequest(existing, partnerId, input);
       if (existing.status !== "failed")
         return { execute: false, record: existing };
-      const retry = { ...existing, status: "sending" as const, updatedAt: now };
+      const retry = {
+        ...existing,
+        status: "sending" as const,
+        updatedAt: now,
+        historySnapshot: frozenHistory,
+      };
       transaction.set(ref, retry);
       return { execute: true, record: retry };
     }
@@ -266,6 +472,7 @@ export async function sendPartnerEmail(
       updatedAt: now,
       sentAt: null,
       requestedByEmail: context.email,
+      historySnapshot: frozenHistory,
     };
     transaction.create(ref, record);
     return { execute: true, record };
@@ -275,7 +482,7 @@ export async function sendPartnerEmail(
   // Only failures positively known to precede acceptance may be retried.
   // Network loss and Gmail 5xx responses are explicitly indeterminate.
   try {
-    await sendGmailMessage({
+    await sendPartnerEmailMessage({
       to: preview.to,
       subject: preview.subject,
       text: preview.text,

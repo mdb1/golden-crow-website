@@ -34,7 +34,7 @@ export function partnerBannerBrand(
   const contextHash = createHash("sha256")
     .update(
       JSON.stringify({
-        renderer: "publisher-portal-atomic-v1",
+        renderer: "publisher-portal-atomic-v2",
         ...brand,
         language,
         ctaLabel,

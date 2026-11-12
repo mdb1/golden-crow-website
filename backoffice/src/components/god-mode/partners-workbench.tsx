@@ -11,6 +11,7 @@ import {
   FileUp,
   Grid2X2,
   Loader2,
+  Mail,
   Pencil,
   Plus,
   RefreshCw,
@@ -62,6 +63,7 @@ import {
   PartnerCsvImportDialog,
   PartnerCsvImportRulesDialog,
 } from "@/components/god-mode/partner-csv-import-dialog";
+import { PartnerEmailHistoryDialog } from "@/components/god-mode/partner-email-history-dialog";
 
 function useText() {
   const { language } = useAppLanguage();
@@ -599,6 +601,7 @@ export function PartnersBrowser({
   >({});
   const [editor, setEditor] = useState<string | null>(initialEditor ?? null);
   const [csvDialog, setCsvDialog] = useState<"import" | "rules" | null>(null);
+  const [emailHistoryOpen, setEmailHistoryOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [detail, setDetail] = useState<{
@@ -879,6 +882,14 @@ export function PartnersBrowser({
             </Button>
           )}
           <Button
+            variant="outline"
+            className="rounded-xl"
+            onClick={() => setEmailHistoryOpen(true)}
+          >
+            <Mail className="size-4" />
+            {t("All emails sent")}
+          </Button>
+          <Button
             onClick={() => setEditor("new")}
             className="h-10 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 text-white shadow-lg shadow-violet-500/15"
           >
@@ -1144,6 +1155,7 @@ export function PartnersBrowser({
       {csvDialog === "rules" && (
         <PartnerCsvImportRulesDialog onClose={closeCsvDialog} />
       )}
+      {emailHistoryOpen && <PartnerEmailHistoryDialog onClose={() => setEmailHistoryOpen(false)} />}
     </section>
   );
 }
