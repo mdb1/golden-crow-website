@@ -20,6 +20,130 @@ export function toggleAppLanguage(language: AppLanguage): AppLanguage {
 }
 
 const SPANISH_TEXT: Record<string, string> = {
+  "You can import the valid rows now. Invalid rows will be skipped and listed in the result.": "Podés importar las filas válidas ahora. Las inválidas se omitirán y se detallarán en el resultado.",
+  "No valid new partner rows are available to import. Correct the invalid rows and try again.": "No hay filas válidas nuevas para importar. Corregí las filas inválidas y volvé a intentar.",
+  "Rows not imported": "Filas no importadas",
+  "Correct these rows and upload the file again. Partners already imported will be skipped as duplicates.": "Corregí estas filas y volvé a subir el archivo. Los partners ya importados se omitirán como duplicados.",
+  "Generate the app banner before sending this email.": "Generá el banner de la app antes de enviar este email.",
+  "The app banner is invalid. Generate a new email preview.": "El banner de la app no es válido. Generá una nueva vista previa del email.",
+  "Could not load the publisher icon or app banner. Try again.": "No se pudo cargar el ícono del publicador o el banner de la app. Volvé a intentar.",
+  "Could not prepare the app banner. Try again.": "No se pudo preparar el banner de la app. Volvé a intentar.",
+  "Publisher branding changed. Generate a new email preview.": "Cambió la identidad del publicador. Generá una nueva vista previa del email.",
+  "Access key": "Clave de acceso",
+  "Portal access key": "Clave de acceso al portal",
+  "Reveal the saved key for this publisher.": "Revelá la clave guardada de este publicador.",
+  "Save the current key to include it in partner email links.": "Guardá la clave vigente para incluirla en los enlaces de los emails a partners.",
+  "This publisher does not have a saved access key.": "Este publicador no tiene una clave de acceso guardada.",
+  "Enter the existing Firebase access key. Saving it here does not change the account password.": "Ingresá la clave vigente de Firebase. Guardarla aquí no modifica la contraseña de la cuenta.",
+  "Save access key": "Guardar clave de acceso",
+  "Access key saved.": "Clave de acceso guardada.",
+  "No contact email": "Sin email de contacto",
+  "Unable to load the publisher access key.": "No se pudo cargar la clave de acceso del publicador.",
+  "Unable to reveal the publisher access key.": "No se pudo revelar la clave de acceso del publicador.",
+  "Unable to save the publisher access key.": "No se pudo guardar la clave de acceso del publicador.",
+  "Unable to copy the access key.": "No se pudo copiar la clave de acceso.",
+  "Save a contact email for this publisher first.": "Primero guardá un email de contacto para este publicador.",
+  "This publisher already has a saved access key. Close and reopen this dialog to reveal it.": "Este publicador ya tiene una clave guardada. Cerrá y abrí el modal para revelarla.",
+  "No saved access key matches this recipient. Save the current key in the linked publisher's detail to include it in this link.": "No hay una clave guardada para este destinatario. Guardá la clave vigente en el detalle del publicador vinculado para incluirla en este enlace.",
+  "Open link": "Abrir enlace",
+  "Access code valid until": "Código de acceso válido hasta",
+  "This recipient does not have an active publisher account matching the linked publisher. The link includes their email only.": "Este destinatario no tiene una cuenta activa de publicador que coincida con el publicador vinculado. El enlace incluye únicamente su email.",
+  "Export as partners CSV": "Exportar como CSV de partners",
+  "Export all existing organizations, across all pages and statuses. List filters do not apply.":
+    "Exportá todas las organizaciones existentes, de todas las páginas y estados. No se aplican los filtros de la lista.",
+  "Export all existing individual publishers, across all pages and statuses. List filters do not apply.":
+    "Exportá todos los publicadores individuales existentes, de todas las páginas y estados. No se aplican los filtros de la lista.",
+  "Preparing partners CSV...": "Preparando el CSV de partners...",
+  "Publishers read": "Publicadores leídos",
+  "Could not prepare the partners CSV. Try again.": "No se pudo preparar el CSV de partners. Volvé a intentar.",
+  "A publisher exceeds the CSV file size limit. Shorten its internal notes and try again.":
+    "Un publicador supera el tamaño máximo del CSV. Acortá sus notas internas y volvé a intentar.",
+  "The export could not read the next page. Try again.": "No se pudo leer la siguiente página de la exportación. Volvé a intentar.",
+  "There are no publishers to export.": "No hay publicadores para exportar.",
+  "CSV files": "Archivos CSV",
+  "Rows": "Filas",
+  "Rows to complete or correct": "Filas para completar o corregir",
+  "Publisher names, contact emails, internal notes, and publisher links are included. Phone, meeting date, and app ID are left blank because they are not stored in these profiles.":
+    "Se incluyen nombres, emails de contacto, notas internas y vínculos a publicadores. El teléfono, la fecha de reunión y el ID de app quedan vacíos porque no se guardan en estos perfiles.",
+  "Contact first and last names are optional. Organizations export them blank and can be imported without completing them.":
+    "El nombre y apellido del contacto son opcionales. Las organizaciones los exportan vacíos y se pueden importar sin completarlos.",
+  "Individual display names are split at the first space into firstName and lastName. Review compound names before importing. Existing parent organization links are included.":
+    "El nombre del publicador individual se divide en el primer espacio para completar firstName y lastName. Revisá los nombres compuestos antes de importar. Se incluye el vínculo existente con su organización.",
+  "Each file stays within 200 rows and 256 KiB. Download every part and import them separately in Partners.":
+    "Cada archivo respeta el límite de 200 filas y 256 KiB. Descargá todas las partes e importalas por separado en Partners.",
+  "Complete or correct these fields before importing. All publishers remain in the CSV.":
+    "Completá o corregí estos campos antes de importar. Todos los publicadores se conservan en el CSV.",
+  "Showing the first 10 rows that need review.": "Se muestran las primeras 10 filas para revisar.",
+  "Repeated contact emails": "Emails de contacto repetidos",
+  "The importer keeps only the first occurrence of an email and skips existing partners. Review shared emails before importing.":
+    "La importación conserva solo la primera aparición de cada email y omite los partners existentes. Revisá los emails compartidos antes de importar.",
+  "Download CSV": "Descargar CSV",
+  "Go to Partners": "Ir a Partners",
+  "Without app": "Sin app",
+  "With free app": "Con app gratuita",
+  "With contract": "Con contrato",
+  "Email preview": "Vista previa del email",
+  "Review the recipient and message before sending.": "Revisá el destinatario y el mensaje antes de enviar.",
+  "Email language": "Idioma del email",
+  "Email template": "Plantilla del email",
+  "Template 1": "Plantilla 1",
+  "Template 2": "Plantilla 2",
+  "More detail": "Más detalles",
+  "Short and direct": "Breve y directa",
+  "Preparing email preview...": "Preparando la vista previa del email...",
+  "Could not prepare the email preview.": "No se pudo preparar la vista previa del email.",
+  "Retry preview": "Reintentar vista previa",
+  "Email message preview": "Vista previa del mensaje",
+  "Purple button destination": "Destino del botón violeta",
+  "Could not send this email.": "No se pudo enviar este email.",
+  "The partner or message changed. Refresh the preview and review it before sending.": "El partner o el mensaje cambió. Actualizá la vista previa y revisala antes de enviar.",
+  "Refresh preview": "Actualizar vista previa",
+  "Delivery is not confirmed. Keep this preview open to check delivery, and check your sent mail before starting another email.": "Todavía no se confirmó el envío. Mantené esta vista abierta para consultar su estado y revisá los correos enviados antes de iniciar otro email.",
+  "Checking delivery...": "Consultando el estado del envío...",
+  "Sending email...": "Enviando email...",
+  "Check delivery": "Consultar estado del envío",
+  "Retry sending": "Reintentar envío",
+  "This email send is still in progress. Check its delivery status using the same request.": "El envío sigue en curso. Consultá su estado desde esta misma vista.",
+  "Email delivery could not be confirmed. Check Sent mail before starting another send. This request will not send the email again.": "No se pudo confirmar el envío. Revisá los correos enviados antes de iniciar otro; consultar el estado de este envío no lo repite.",
+  "The email was not accepted for delivery. You can retry this same request after checking the mail configuration.": "El email no fue aceptado para envío. Revisá la configuración del correo y volvé a intentar desde esta vista.",
+  "The email send record is invalid. Review delivery before starting another send.": "No se puede confirmar el estado de este envío. Revisá los correos enviados antes de iniciar otro.",
+  "This send belongs to another preview. Check Sent mail before starting another send.": "Este envío corresponde a otra vista previa. Revisá los correos enviados antes de iniciar otro.",
+  "Partner details changed. Generate a new email preview before sending.": "Los datos del partner cambiaron. Generá una nueva vista previa antes de enviar.",
+  "Review the partner's missing connections or app status before sending an email.": "Revisá los vínculos y el estado de la app del partner antes de enviar un email.",
+  "Send an email": "Enviar un email",
+  "Review the partner's connections and app status before sending an email.": "Revisá los vínculos y el estado de la app del partner antes de enviar un email.",
+  "View partner details": "Ver detalles del partner",
+  "Partner details": "Detalles del partner",
+  "Resize partner detail panel": "Ajustar ancho del detalle del partner",
+  "Partner ID": "ID del partner",
+  "Organization ID": "ID de la organización",
+  "Individual publisher ID": "ID del publicador individual",
+  "Publisher type": "Tipo de publicador",
+  "Publisher ID": "ID del publicador",
+  "App identifier": "Identificador de la app",
+  "Stored connection snapshots": "Datos guardados de los vínculos",
+  "Saved when the partner was linked. Current connections and app status are shown above.": "Datos guardados al vincular el partner. Los vínculos y el estado actual de la app se muestran arriba.",
+  "Saved app status": "Estado guardado de la app",
+  "Loading partner details...": "Cargando detalles del partner...",
+  "Could not load partner details.": "No se pudieron cargar los detalles del partner.",
+  "Retry detail": "Reintentar detalle",
+  "Refresh section": "Actualizar sección",
+  "Partner pagination below results": "Paginación de partners debajo de los resultados",
+  "Partner view": "Vista de partners",
+  "Grid": "Tarjetas",
+  "Table": "Tabla",
+  "Partners table": "Tabla de partners",
+  "Publishers": "Publicadores",
+  "View notes": "Ver notas",
+  "Select this page": "Seleccionar esta página",
+  "partners on this page": "partners en esta página",
+  "Partner pagination": "Paginación de partners",
+  "20 per page": "20 por página",
+  "Find more partners": "Buscar más partners",
+  "Keep looking in this section.": "Continuá buscando en esta sección.",
+  "No partners on this page.": "No hay partners en esta página.",
+  "No partners in this section.": "No hay partners en esta sección.",
+  "Could not continue loading partners. Please try again.": "No se pudo continuar cargando partners. Intentá de nuevo.",
   "Partner CSV import rules": "Reglas para importar partners desde CSV",
   "Prepare your partner CSV using these exact columns and rules.":
     "Prepará tu CSV de partners con estas columnas y reglas exactas.",
@@ -28,8 +152,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "Download the template and add one partner per row.":
     "Descargá la plantilla y agregá un partner por fila.",
   "Review the preview": "Revisar la vista previa",
-  "Upload the CSV, review skipped rows, and correct every error.":
-    "Subí el CSV, revisá las filas omitidas y corregí todos los errores.",
+  "Upload the CSV and review valid, duplicate, and invalid rows. You can import valid rows first.":
+    "Subí el CSV y revisá las filas válidas, duplicadas e inválidas. Podés importar primero las válidas.",
   "Confirm the import": "Confirmar la importación",
   "Choose Import partners. Your existing partners stay unchanged.":
     "Elegí Importar partners. Los partners existentes no se modifican.",
@@ -40,10 +164,10 @@ const SPANISH_TEXT: Record<string, string> = {
   "Download rules": "Descargar reglas",
   "Required. Company or partner name, up to 180 characters.":
     "Obligatorio. Nombre de la empresa o del partner, hasta 180 caracteres.",
-  "Required. Contact first name, up to 140 characters.":
-    "Obligatorio. Nombre del contacto, hasta 140 caracteres.",
-  "Required. Contact last name, up to 140 characters.":
-    "Obligatorio. Apellido del contacto, hasta 140 caracteres.",
+  "Optional. Contact first name, up to 140 characters. Leave blank when unknown.":
+    "Opcional. Nombre del contacto, hasta 140 caracteres. Dejalo vacío si no lo conocés.",
+  "Optional. Contact last name, up to 140 characters. Leave blank when unknown.":
+    "Opcional. Apellido del contacto, hasta 140 caracteres. Dejalo vacío si no lo conocés.",
   "Required. A valid contact email, up to 254 characters. Converted to lowercase.":
     "Obligatorio. Email válido del contacto, hasta 254 caracteres. Se convierte a minúsculas.",
   "Optional. Up to 50 characters. Leave blank when unknown.":
@@ -66,8 +190,8 @@ const SPANISH_TEXT: Record<string, string> = {
     "Reemplazá la fila de ejemplo de la plantilla por tus partners reales antes de subir el archivo.",
   "The first non-empty row must contain column headers. Header spelling and capitalization are case-sensitive. Surrounding whitespace is ignored. Columns may appear in any order.":
     "La primera fila no vacía debe contener los encabezados. Respetá exactamente su escritura, mayúsculas y minúsculas. Se ignoran los espacios al principio y al final. Las columnas pueden estar en cualquier orden.",
-  "Include companyName, firstName, lastName, and email. Optional columns may be omitted or left blank. Unknown or repeated headers are rejected.":
-    "Incluí companyName, firstName, lastName y email. Las columnas opcionales se pueden omitir o dejar vacías. Se rechazan los encabezados desconocidos o repetidos.",
+  "Include companyName and email. First and last names are optional; leave them blank when unknown. Optional columns may be omitted. Unknown or repeated headers are rejected.":
+    "Incluí companyName y email. El nombre y apellido son opcionales; dejalos vacíos si no los conocés. Podés omitir las columnas opcionales. Se rechazan los encabezados desconocidos o repetidos.",
   "Use one partner per row. The maximum is 200 partner rows and 256 KiB per file. Completely empty rows are ignored.":
     "Usá una fila por partner. El máximo es de 200 partners y 256 KiB por archivo. Las filas completamente vacías se ignoran.",
   "Values are trimmed around their edges. Emails are converted to lowercase. Blank phone numbers remain empty; blank dates, notes, and link IDs become empty optional values.":
@@ -80,10 +204,10 @@ const SPANISH_TEXT: Record<string, string> = {
     "Para encontrar un ID, abrí el paso Conexiones de un partner y explorá los publicadores o las apps. Cada resultado muestra el ID debajo de su nombre.",
   "An app ID can be its document ID or unique public app identifier. The app's own publisher is linked automatically. A supplied publisher of the same type must match the app's owner; the other publisher link is kept.":
     "El ID de una app puede ser el ID de su registro o su identificador público único. Su publicador se vincula automáticamente. Si indicás un publicador del mismo tipo, debe coincidir con el dueño de la app; se conserva el vínculo al otro tipo de publicador.",
-  "Email identifies duplicates for imports. The first occurrence in the file is considered; later occurrences and partners whose email already exists are skipped. Existing partners are never overwritten.":
-    "El email identifica los duplicados al importar. Se considera la primera aparición del archivo; se omiten las siguientes y los partners cuyo email ya existe. Nunca se sobrescriben los partners existentes.",
-  "Every row is validated, including duplicates. Any invalid row blocks the entire import. Correct the file and upload it again; no partner is created before you confirm the preview.":
-    "Se validan todas las filas, incluso los duplicados. Una fila inválida bloquea toda la importación. Corregí el archivo y volvé a subirlo; no se crea ningún partner antes de confirmar la vista previa.",
+  "Email identifies duplicates for imports. The first valid occurrence in the file is considered; later valid occurrences and partners whose email already exists are skipped. Existing partners are never overwritten.":
+    "El email identifica los duplicados al importar. Se considera la primera aparición válida del archivo; se omiten las siguientes válidas y los partners cuyo email ya existe. Nunca se sobrescriben los partners existentes.",
+  "Every row is validated, including duplicates. Confirm to import valid rows; invalid rows are skipped and listed in the result. Correct them and upload the file again. No partner is created before confirmation.":
+    "Se validan todas las filas, incluso los duplicados. Confirmá para importar las válidas; las inválidas se omiten y se detallan en el resultado. Corregilas y volvé a subir el archivo. No se crea ningún partner antes de confirmar.",
   "Error row numbers refer to the starting line in your CSV, including the header and any line breaks inside quoted cells.":
     "Los números de fila de los errores indican la línea de inicio dentro del CSV, contando el encabezado y los saltos de línea dentro de los campos entre comillas.",
   "The import validates the file again before saving. If a response is interrupted, retry the same import to confirm its result safely without creating another copy.":
@@ -115,8 +239,6 @@ const SPANISH_TEXT: Record<string, string> = {
   "CSV preview": "Vista previa del CSV",
   "Total rows": "Filas totales",
   "Rows to fix": "Filas para corregir",
-  "Correct every invalid row and upload the file again. No partners have been added.":
-    "Corregí todas las filas inválidas y volvé a subir el archivo. No se agregó ningún partner.",
   "No new partners to import. Existing partners will stay unchanged.":
     "No hay partners nuevos para importar. Los existentes no se modificarán.",
   "Invalid row": "Fila inválida",

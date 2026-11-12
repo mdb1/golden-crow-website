@@ -37,6 +37,7 @@ export default async function DiscoverOrganizationsPage() {
           initialNextCursor={page.nextCursor}
           canCreateOrganizations={isGlobalAdminRole(adminContext.role)}
           canManageOrganizationStatus={isGlobalAdminRole(adminContext.role)}
+          canExportPartnersCsv={isGlobalAdminRole(adminContext.role)}
         />
       </HeaderUnclutterScope>
     </div>

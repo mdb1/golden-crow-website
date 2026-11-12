@@ -35,6 +35,7 @@ import {
 import {
   PARTNERS_API_ROUTE,
   PARTNERS_QUERY_KEY,
+  partnerContactName,
 } from "@/lib/connected-partners";
 import {
   PARTNER_CSV_COLUMNS,
@@ -115,7 +116,7 @@ export function PartnerCsvImportRulesDialog({
               {
                 number: "2",
                 title: "Review the preview",
-                text: "Upload the CSV, review skipped rows, and correct every error.",
+                text: "Upload the CSV and review valid, duplicate, and invalid rows. You can import valid rows first.",
               },
               {
                 number: "3",
@@ -233,6 +234,7 @@ export function PartnerCsvImportDialog({ onClose }: { onClose: () => void }) {
   const generation = useRef(0);
   const importLock = useRef(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const invalidRows = result?.invalidRows ?? [];
   useEffect(
     () => () => {
       generation.current += 1;
@@ -297,7 +299,6 @@ export function PartnerCsvImportDialog({ onClose }: { onClose: () => void }) {
     if (
       !file ||
       !preview ||
-      preview.summary.invalid ||
       !preview.summary.ready ||
       needsValidation ||
       importLock.current
@@ -386,7 +387,7 @@ export function PartnerCsvImportDialog({ onClose }: { onClose: () => void }) {
                   <p className="mt-2 text-sm text-muted-foreground">
                     {t("Your partner list has been updated.")}
                   </p>
-                  <dl className="mt-4 grid grid-cols-2 gap-3">
+                  <dl className="mt-4 grid grid-cols-3 gap-3">
                     <div>
                       <dt className="text-sm text-muted-foreground">
                         {t("Partners added")}
@@ -400,11 +401,37 @@ export function PartnerCsvImportDialog({ onClose }: { onClose: () => void }) {
                         {t("Duplicates skipped")}
                       </dt>
                       <dd className="mt-1 text-3xl font-semibold">
-                        {result.skippedCount}
+                        {result.skippedCount - invalidRows.length}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm text-muted-foreground">
+                        {t("Rows to fix")}
+                      </dt>
+                      <dd className="mt-1 text-3xl font-semibold">
+                        {invalidRows.length}
                       </dd>
                     </div>
                   </dl>
                 </div>
+                {invalidRows.length > 0 && (
+                  <section className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50/60 p-4 dark:border-amber-400/25 dark:bg-amber-500/5">
+                    <h4 className="font-semibold">{t("Rows not imported")}</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {t("Correct these rows and upload the file again. Partners already imported will be skipped as duplicates.")}
+                    </p>
+                    {invalidRows.map((row) => (
+                      <article key={row.rowNumber} className="rounded-xl border bg-background p-3 text-sm">
+                        <h5 className="font-semibold">{t("Row")} {row.rowNumber}</h5>
+                        <ul className="mt-2 space-y-1 text-destructive">
+                          {row.errors.map((rowError, index) => (
+                            <li key={index}>{rowError}</li>
+                          ))}
+                        </ul>
+                      </article>
+                    ))}
+                  </section>
+                )}
               </section>
             ) : (
               <>
@@ -553,7 +580,9 @@ export function PartnerCsvImportDialog({ onClose }: { onClose: () => void }) {
                       >
                         <TriangleAlert className="mt-0.5 size-4 shrink-0" />
                         {t(
-                          "Correct every invalid row and upload the file again. No partners have been added.",
+                          preview.summary.ready > 0
+                            ? "You can import the valid rows now. Invalid rows will be skipped and listed in the result."
+                            : "No valid new partner rows are available to import. Correct the invalid rows and try again.",
                         )}
                       </p>
                     )}
@@ -586,7 +615,7 @@ export function PartnerCsvImportDialog({ onClose }: { onClose: () => void }) {
                               </h4>
                               {row.input && (
                                 <p className="mt-1 break-words text-sm text-muted-foreground">
-                                  {row.input.firstName} {row.input.lastName} ·{" "}
+                                  {partnerContactName(row.input) && `${partnerContactName(row.input)} · `}
                                   {row.input.email}
                                 </p>
                               )}
@@ -727,7 +756,6 @@ export function PartnerCsvImportDialog({ onClose }: { onClose: () => void }) {
                   validating ||
                   importing ||
                   !preview ||
-                  preview.summary.invalid > 0 ||
                   preview.summary.ready === 0 ||
                   needsValidation
                 }

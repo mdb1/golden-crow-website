@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { PUBLISHER_PORTAL_ENTRY_ROUTE } from "@/lib/publisher-portal-routes";
+import { publisherPortalPostLoginRoute } from "@/lib/publisher-portal-routes";
 import { sdkFetch } from "@/lib/sdk-client";
 
 export function PublisherProfileCompletion() {
@@ -27,7 +27,10 @@ export function PublisherProfileCompletion() {
     void request
       .then(() => {
         if (active) {
-          router.replace(PUBLISHER_PORTAL_ENTRY_ROUTE);
+          const callback = new URLSearchParams(window.location.search).get(
+            "callbackUrl",
+          );
+          router.replace(publisherPortalPostLoginRoute(callback));
         }
       })
       .catch(() => {

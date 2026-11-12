@@ -12,6 +12,7 @@ import {
   isAdminRepositoryError,
 } from "./admin-errors.js";
 import { isGlobalAdminRole } from "../lib/admin-roles.js";
+import { PUBLISHER_ACCESS_KEY_FIELD } from "../lib/publisher-portal-credentials.js";
 import {
   discoverIndividualCategoryProvider,
   discoverOrganizationCategoryProvider,
@@ -2717,6 +2718,7 @@ function publicOrganizationRequestDocument(input: PublicPublisherRequestInput) {
   );
 
   return {
+    [PUBLISHER_ACCESS_KEY_FIELD]: null,
     name,
     imageUrl: normalizeHttpsUrl(input.imageUrl, "Organization image URL"),
     ...publicImageUploadDocumentFields(input),
@@ -2788,6 +2790,7 @@ function publicIndividualRequestDocument(input: PublicPublisherRequestInput) {
   const name = normalizeRequiredString(input.name, "Individual publisher name");
 
   return {
+    [PUBLISHER_ACCESS_KEY_FIELD]: null,
     name,
     imageUrl: normalizeHttpsUrl(
       input.imageUrl,
@@ -3730,6 +3733,7 @@ export async function createDiscoverOrganization(
   );
   const organizationData = withoutUndefined({
     ...organizationDocument(input, context),
+    [PUBLISHER_ACCESS_KEY_FIELD]: null,
     linkedIndividualProfessionals,
     createdAt: FieldValue.serverTimestamp(),
     createdByUserId: context.uid,
@@ -4218,15 +4222,11 @@ export async function evaluateDiscoverOrganizationSubmission(
     contactEmail,
   });
 
-  await existing.ref.set(
-    withoutUndefined({
-      ...existing.data(),
-      status: "active",
-      updatedAt: FieldValue.serverTimestamp(),
-      updatedByUserId: context.uid,
-    }),
-    { merge: false },
-  );
+  await existing.ref.update({
+    status: "active",
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedByUserId: context.uid,
+  });
 
   return {
     decision,
@@ -4353,6 +4353,7 @@ export async function createDiscoverIndividual(
   const parentOrganization = await linkedParentOrganizationFields(input);
   const individualData = withoutUndefined({
     ...individualDocument(input, context),
+    [PUBLISHER_ACCESS_KEY_FIELD]: null,
     ...parentOrganization,
     createdAt: FieldValue.serverTimestamp(),
     createdByUserId: context.uid,
@@ -4613,15 +4614,11 @@ export async function evaluateDiscoverIndividualSubmission(
     contactEmail,
   });
 
-  await existing.ref.set(
-    withoutUndefined({
-      ...existing.data(),
-      status: "active",
-      updatedAt: FieldValue.serverTimestamp(),
-      updatedByUserId: context.uid,
-    }),
-    { merge: false },
-  );
+  await existing.ref.update({
+    status: "active",
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedByUserId: context.uid,
+  });
 
   return {
     decision,

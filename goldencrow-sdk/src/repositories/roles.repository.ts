@@ -38,6 +38,10 @@ import {
 } from "../lib/patient-portal-credentials.js";
 import { sendPGFlexDispatcherInviteEmail } from "../lib/pgflex-dispatcher-email.js";
 import { sendPublisherPortalInviteEmail } from "../lib/publisher-portal-email.js";
+import {
+  PUBLISHER_ACCESS_KEY_FIELD,
+  sealPublisherAccessKey,
+} from "../lib/publisher-portal-credentials.js";
 
 const USER_ROLES_COLLECTION = "user_roles";
 const FEED_ORGANIZATIONS_COLLECTION = "feed_organizations";
@@ -2599,17 +2603,37 @@ export async function provisionPublisherPortalRoleForContext(
   });
 
   const temporaryPassword = generatePatientTemporaryPassword();
-  const { user } = await provisionPatientFirebaseAccount(
-    adminAuthFor("mydnamap"),
-    {
+  const publisherRef = adminDb
+    .collection(input.kind === "organization" ? FEED_ORGANIZATIONS_COLLECTION : FEED_INDIVIDUALS_COLLECTION)
+    .doc(input.publisherId);
+  const publisherSnapshot = await publisherRef.get();
+  if (!publisherSnapshot.exists) {
+    throw new AdminRepositoryError("Publisher not found.", 404);
+  }
+  const previousKey = publisherSnapshot.data()?.[PUBLISHER_ACCESS_KEY_FIELD] ?? null;
+  const savedKey = sealPublisherAccessKey(
+    input.kind,
+    input.publisherId,
+    normalizedEmail,
+    temporaryPassword,
+  );
+  await publisherRef.set({ [PUBLISHER_ACCESS_KEY_FIELD]: savedKey }, { merge: true });
+  let provisioned;
+  try {
+    provisioned = await provisionPatientFirebaseAccount(adminAuthFor("mydnamap"), {
       email: normalizedEmail,
       displayName,
       temporaryPassword,
-    },
-  );
-  const roleRef = adminDb
-    .collection(USER_ROLES_COLLECTION)
-    .doc(normalizedEmail);
+    });
+  } catch (error) {
+    await publisherRef.set(
+      { [PUBLISHER_ACCESS_KEY_FIELD]: previousKey },
+      { merge: true },
+    );
+    throw error;
+  }
+  const { user } = provisioned;
+  const roleRef = adminDb.collection(USER_ROLES_COLLECTION).doc(normalizedEmail);
 
   try {
     await sendPublisherPortalInviteEmail(

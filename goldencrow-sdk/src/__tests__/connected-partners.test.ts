@@ -5,7 +5,9 @@ import {
 } from "fastify-type-provider-zod";
 import {
   PartnerInputSchema,
+  PARTNER_SECTION_KEYS,
   type PartnerInput,
+  type PartnerSection,
 } from "../contracts/connected-partners.js";
 import type { AdminContext } from "../types/sdk.types.js";
 
@@ -91,10 +93,12 @@ import {
   deletePartners,
   getPartner,
   listPartners,
+  listPartnersBySection,
   listPartnerLinkOptions,
   updatePartner,
 } from "../repositories/connected-partners.repository.js";
 import { connectedPartnersRoutes } from "../routes/connected-partners.routes.js";
+import { partnerSection } from "../lib/partner-section.js";
 
 const context: AdminContext = {
   uid: "god",
@@ -208,6 +212,7 @@ it("rejects unauthorized repository access before touching Firestore", async () 
   const regular = { ...context, isBootstrap: false };
   for (const operation of [
     () => listPartners(regular),
+    () => listPartnersBySection(regular, "noOrganization"),
     () => getPartner(regular, "one"),
     () => createPartner(regular, input),
     () => updatePartner(regular, "one", input),
@@ -227,7 +232,8 @@ it("normalizes omitted nullable fields and rejects aliases, unrelated fields, ba
     { publisherId: "linked" },
     { meetingDate: "2026-02-30" },
     { email: "invalid" },
-    { firstName: " " },
+    { firstName: "x".repeat(141) },
+    { lastName: "x".repeat(141) },
     { linked_organization_id: "org" },
     { linked_app_id: "app" },
     { linked_individual_publisher_id: "person" },
@@ -251,6 +257,11 @@ it("normalizes omitted nullable fields and rejects aliases, unrelated fields, ba
     expect(PartnerInputSchema.safeParse({ ...input, ...extra }).success).toBe(
       false,
     );
+});
+
+it("stores unknown optional contact names as empty strings without requiring invented values", () => {
+  expect(PartnerInputSchema.parse({ companyName: "Genome Studio", email: "hello@example.com" })).toMatchObject({ firstName: "", lastName: "", phoneNumber: "" });
+  expect(PartnerInputSchema.parse({ ...input, firstName: "   ", lastName: " " })).toMatchObject({ firstName: "", lastName: "" });
 });
 
 it("exposes create, read, edit, pagination and bulk deletion through the protected API", async () => {
@@ -310,6 +321,7 @@ it.each([401, 403])("gates every endpoint for status %s", async (status) => {
   try {
     for (const request of [
       { method: "GET" as const, url: "/admin/connected-partners" },
+      { method: "GET" as const, url: "/admin/connected-partners?section=noOrganization" },
       { method: "GET" as const, url: "/admin/connected-partners/one" },
       { method: "GET" as const, url: "/admin/connected-partners/link-options?kind=organization" },
       {
@@ -663,4 +675,241 @@ it("exposes individual link choices and optional phone through the protected API
     expect(response.statusCode).toBe(201);
     expect(response.json().partner).toMatchObject({ phoneNumber: "", linkedIndividualPublisherId: individual.id, linkedApp: { publisherKind: "individual" } });
   } finally { await app.close(); }
+});
+
+it("pages section matches beyond the first global page without dropping fetched records", async () => {
+  seedOrganization();
+  const expected: string[] = [];
+  for (let index = 0; index < 95; index++) {
+    const id = `p${String(index).padStart(3, "0")}`;
+    const matching = index % 3 === 0;
+    mockDocs.set(id, { ...input, linkedOrganizationId: matching ? null : "org" });
+    if (matching) expected.push(id);
+  }
+  const first = await listPartnersBySection(context, "noOrganization");
+  expect(first.items.map((partner) => partner.id)).toEqual(expected.slice(0, 20));
+  expect(first.scanIncomplete).toBe(false);
+  expect(first.nextCursor).toMatch(/^ps1\./);
+  mockDocs.delete(first.items.at(-1)!.id);
+  const second = await listPartnersBySection(context, "noOrganization", first.nextCursor!);
+  expect(second.items.map((partner) => partner.id)).toEqual(expected.slice(20));
+  expect(second.nextCursor).toBeNull();
+  expect(second.scanIncomplete).toBe(false);
+  expect(mockReads.every((read) => read.collection === "connected-partners" && read.limit <= 40)).toBe(true);
+  expect(mockDirectReads).toEqual(["feed_organizations/org", "feed_organizations/org"]);
+});
+
+it("caps sparse section scans and returns an honest continuation rather than a false empty section", async () => {
+  seedOrganization();
+  for (let index = 0; index < 500; index++) {
+    mockDocs.set(`p${String(index).padStart(3, "0")}`, {
+      ...input, linkedOrganizationId: index === 450 ? null : "org",
+    });
+  }
+  const first = await listPartnersBySection(context, "noOrganization");
+  expect(first).toMatchObject({ items: [], scanIncomplete: true });
+  expect(mockReads).toHaveLength(5);
+  expect(mockReads.reduce((total, read) => total + read.limit, 0)).toBe(200);
+  const second = await listPartnersBySection(context, "noOrganization", first.nextCursor!);
+  expect(second).toMatchObject({ items: [], scanIncomplete: true });
+  const third = await listPartnersBySection(context, "noOrganization", second.nextCursor!);
+  expect(third.items.map((partner) => partner.id)).toEqual(["p450"]);
+  expect(third.nextCursor).toBeNull();
+  expect(third.scanIncomplete).toBe(false);
+  expect(mockReads.every((read) => read.limit <= 40)).toBe(true);
+  expect(mockDirectReads).toEqual([
+    "feed_organizations/org", "feed_organizations/org", "feed_organizations/org",
+  ]);
+});
+
+it.each([20, 30])("preserves the unexamined matches of a short %s-record source chunk", async (count) => {
+  for (let index = 0; index < count; index++) {
+    mockDocs.set(`p${String(index).padStart(3, "0")}`, input);
+  }
+  const first = await listPartnersBySection(context, "noOrganization");
+  expect(first.items).toHaveLength(20);
+  if (count === 20) {
+    expect(first.nextCursor).toBeNull();
+  } else {
+    expect(first.nextCursor).not.toBeNull();
+    const second = await listPartnersBySection(context, "noOrganization", first.nextCursor!);
+    expect(second.items.map((partner) => partner.id)).toEqual(
+      Array.from({ length: 10 }, (_, index) => `p${String(index + 20).padStart(3, "0")}`),
+    );
+    expect(second.nextCursor).toBeNull();
+  }
+});
+
+it("supports a remaining page limit without skipping the unused part of a source chunk", async () => {
+  for (let index = 0; index < 45; index++) {
+    mockDocs.set(`p${String(index).padStart(3, "0")}`, input);
+  }
+  const prefix = await listPartnersBySection(context, "noOrganization", undefined, 3);
+  expect(prefix.items.map((partner) => partner.id)).toEqual(["p000", "p001", "p002"]);
+  const rest = await listPartnersBySection(context, "noOrganization", prefix.nextCursor!, 17);
+  expect(rest.items).toHaveLength(17);
+  expect(rest.items[0]?.id).toBe("p003");
+  expect(rest.items.at(-1)?.id).toBe("p019");
+  const nextPage = await listPartnersBySection(context, "noOrganization", rest.nextCursor!);
+  expect(nextPage.items).toHaveLength(20);
+  expect(nextPage.items[0]?.id).toBe("p020");
+  expect(nextPage.items.at(-1)?.id).toBe("p039");
+  const finalPage = await listPartnersBySection(context, "noOrganization", nextPage.nextCursor!);
+  expect(finalPage.items.map((partner) => partner.id)).toEqual(["p040", "p041", "p042", "p043", "p044"]);
+  expect(finalPage.nextCursor).toBeNull();
+});
+
+it("does not claim exhaustion at an exact source scan boundary", async () => {
+  seedOrganization();
+  for (let index = 0; index < 200; index++) {
+    mockDocs.set(`p${String(index).padStart(3, "0")}`, { ...input, linkedOrganizationId: "org" });
+  }
+  const first = await listPartnersBySection(context, "noOrganization");
+  expect(first).toMatchObject({ items: [], scanIncomplete: true });
+  const end = await listPartnersBySection(context, "noOrganization", first.nextCursor!);
+  expect(end).toEqual({ items: [], nextCursor: null, scanIncomplete: false });
+});
+
+it("classifies every organization and individual section from live related records", async () => {
+  seedOrganization();
+  seedIndividual();
+  const cases = [
+    ["noOrganization", {}],
+    ["organizationWithoutApp", { linkedOrganizationId: "org" }],
+    ["freeApp", { linkedOrganizationId: "org", linkedAppId: "org_free" }],
+    ["contract", { linkedOrganizationId: "org", linkedAppId: "org_contract" }],
+    ["individualWithoutApp", { linkedIndividualPublisherId: "person" }],
+    ["individualFreeApp", { linkedIndividualPublisherId: "person", linkedAppId: "person_free" }],
+    ["individualContract", { linkedIndividualPublisherId: "person", linkedAppId: "person_contract" }],
+    ["other", { linkedOrganizationId: "org", linkedAppId: "org_pending" }],
+  ] as const;
+  for (const [id, kind, owner, status] of [
+    ["org_free", "organization", "org", "active_for_testing"],
+    ["org_contract", "organization", "org", "active_waiting_for_upload"],
+    ["person_free", "individual", "person", "active_for_testing"],
+    ["person_contract", "individual", "person", "active"],
+    ["org_pending", "organization", "org", "pending_revision"],
+  ]) mockCollectionDocs("app_configs").set(id!, {
+    publisherKind: kind, publisherId: owner, publisherName: "Publisher", status,
+  });
+  for (const [section, links] of cases) mockDocs.set(section, { ...input, ...links });
+  for (const section of PARTNER_SECTION_KEYS) {
+    const page = await listPartnersBySection(context, section);
+    const counterparts: Partial<Record<PartnerSection, PartnerSection>> = {
+      organizationWithoutApp: "individualWithoutApp",
+      freeApp: "individualFreeApp",
+      contract: "individualContract",
+    };
+    const counterpart = counterparts[section];
+    const expected = counterpart ? [section, counterpart].sort() : [section];
+    expect(page.items.map((partner) => partner.id)).toEqual(expected);
+    for (const partner of page.items)
+      expect(partnerSection(partner)).toBe(partner.id);
+    expect(page.nextCursor).toBeNull();
+  }
+});
+
+it.each(["active", "active_waiting_for_payment", "active_waiting_for_upload"] as const)(
+  "uses current %s app status instead of a frozen testing snapshot",
+  async (status) => {
+    seedOrganization();
+    const app = seedApp();
+    const partner = await createPartner(context, { ...input, linkedAppId: app.id });
+    mockCollectionDocs("app_configs").get(app.id)!.status = status;
+    expect((await listPartnersBySection(context, "freeApp")).items).toEqual([]);
+    expect((await listPartnersBySection(context, "contract")).items[0]?.id).toBe(partner.id);
+    expect(mockDocs.get(partner.id)?.linkedAppSnapshot).toMatchObject({ status: "active_for_testing" });
+  },
+);
+
+it("preserves organization grouping for an individual-owned app and exposes missing explicit publishers", async () => {
+  seedOrganization();
+  seedIndividual();
+  const app = seedIndividualApp();
+  mockCollectionDocs("app_configs").get(app.id)!.status = "active_for_testing";
+  const partner = await createPartner(context, { ...input, linkedOrganizationId: "org", linkedAppId: app.id });
+  expect((await listPartnersBySection(context, "freeApp")).items[0]?.id).toBe(partner.id);
+  expect((await listPartnersBySection(context, "individualFreeApp")).items).toEqual([]);
+  mockCollectionDocs("feed_organizations").delete("org");
+  expect((await listPartnersBySection(context, "freeApp")).items).toEqual([]);
+  expect((await listPartnersBySection(context, "other")).items[0]?.id).toBe(partner.id);
+});
+
+it("binds section cursors to their section and validates the new API without changing legacy pagination", async () => {
+  for (let index = 0; index < 42; index++) mockDocs.set(`p${String(index).padStart(3, "0")}`, input);
+  const first = await listPartnersBySection(context, "noOrganization");
+  const oldReadCount = mockReads.length;
+  await expect(listPartnersBySection(context, "contract", first.nextCursor!)).rejects.toMatchObject({ statusCode: 400 });
+  expect(mockReads).toHaveLength(oldReadCount);
+  const app = await server();
+  try {
+    const response = await app.inject("/admin/connected-partners?section=noOrganization&limit=2");
+    expect(response.statusCode).toBe(200);
+    expect(response.json().items).toHaveLength(2);
+    expect(response.json().scanIncomplete).toBe(false);
+    const next = await app.inject(`/admin/connected-partners?section=noOrganization&limit=3&cursor=${response.json().nextCursor}`);
+    expect(next.json().items.map((partner: { id: string }) => partner.id)).toEqual(["p002", "p003", "p004"]);
+    expect((await app.inject("/admin/connected-partners?cursor=p019")).json().items[0].id).toBe("p020");
+    for (const query of [
+      "section=unknown", "section=noOrganization&limit=0", "section=noOrganization&limit=21",
+      "section=noOrganization&limit=1.5", "limit=20", "section=noOrganization&cursor=p019",
+      `section=contract&cursor=${first.nextCursor}`, "section=noOrganization&cursor=ps2.abc",
+      "section=noOrganization&cursor=ps1.bm90LWpzb24", "cursor=bad%2Fid",
+    ]) expect((await app.inject(`/admin/connected-partners?${query}`)).statusCode).toBe(400);
+  } finally { await app.close(); }
+});
+
+
+it.each([
+  ["organizationWithoutApp", "individualWithoutApp", null],
+  ["freeApp", "individualFreeApp", "active_for_testing"],
+  ["contract", "individualContract", "active_waiting_for_upload"],
+] as const)("mixes organization and individual partners within the same ordered %s page window", async (section, individualSection, appStatus) => {
+  seedOrganization();
+  seedIndividual();
+  if (appStatus) {
+    mockCollectionDocs("app_configs").set("organization_shared", { publisherKind: "organization", publisherId: "org", publisherName: "Organization", status: appStatus });
+    mockCollectionDocs("app_configs").set("individual_shared", { publisherKind: "individual", publisherId: "person", publisherName: "Individual", status: appStatus === "active_waiting_for_upload" ? "active" : appStatus });
+  }
+  const expected: string[] = [];
+  const expectedIndividual: string[] = [];
+  for (let index = 0; index < 95; index++) {
+    const id = `mixed_${String(index).padStart(3, "0")}`;
+    const matches = index % 3 !== 2;
+    const individual = index % 2 === 1;
+    mockDocs.set(id, {
+      ...input,
+      linkedOrganizationId: matches && !individual ? "org" : null,
+      linkedIndividualPublisherId: matches && individual ? "person" : null,
+      linkedAppId: matches && appStatus ? (individual ? "individual_shared" : "organization_shared") : null,
+    });
+    if (matches) expected.push(id);
+    if (matches && individual) expectedIndividual.push(id);
+  }
+  async function collect(selected: PartnerSection) {
+    const collected: string[] = [];
+    const lengths: number[] = [];
+    let cursor: string | undefined;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const page = await listPartnersBySection(context, selected, cursor);
+      expect(page.items.length).toBeLessThanOrEqual(20);
+      expect(page.scanIncomplete).toBe(false);
+      lengths.push(page.items.length);
+      const ids = page.items.map((partner) => partner.id);
+      expect(ids).toEqual([...ids].sort());
+      collected.push(...ids);
+      if (!page.nextCursor) return { collected, lengths };
+      expect(page.nextCursor).not.toBe(cursor);
+      cursor = page.nextCursor;
+    }
+    throw new Error("Pagination did not finish");
+  }
+  const merged = await collect(section);
+  expect(merged.collected).toEqual(expected);
+  expect(merged.lengths).toEqual([20, 20, 20, 4]);
+  expect(new Set(merged.collected).size).toBe(expected.length);
+  const scoped = await collect(individualSection);
+  expect(scoped.collected).toEqual(expectedIndividual);
+  expect(scoped.lengths).toEqual([20, 12]);
+  expect(mockReads.every((read) => read.collection === "connected-partners" && read.limit <= 40)).toBe(true);
 });

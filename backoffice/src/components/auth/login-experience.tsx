@@ -2,6 +2,8 @@
 
 import {
   useEffect,
+  useEffectEvent,
+  useRef,
   useState,
   type ChangeEvent,
   type FormEvent,
@@ -13,6 +15,7 @@ import {
   GoogleAuthProvider,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
+  signInWithCustomToken,
   signInWithPopup,
   signOut as firebaseSignOut,
 } from "firebase/auth";
@@ -64,7 +67,7 @@ import {
 } from "@/lib/pgflex-routes";
 import {
   normalizePublisherPortalCallbackUrl,
-  PUBLISHER_PORTAL_ENTRY_ROUTE,
+  publisherPortalPostLoginRoute,
 } from "@/lib/publisher-portal-routes";
 import type { AdminRole } from "@/lib/admin-areas";
 
@@ -159,6 +162,9 @@ const PASSWORD_SIGN_IN_METHOD = "password";
 const LOGIN_LANGUAGE_OPTIONS: AppLanguage[] = ["en", "es"];
 
 const LOGIN_SPANISH_TEXT: Record<string, string> = {
+  "Could not use this access link": "No pudimos usar este enlace de acceso",
+  "This access link is invalid or expired. Request a new email or use your usual access key.": "Este enlace no es válido o venció. Pedí un nuevo email o usá tu clave de acceso habitual.",
+  "Publisher access is temporarily unavailable. Try again.": "El acceso de publicadores no está disponible por el momento. Volvé a intentar.",
   "full admin": "administrador total",
   "organization publisher": "publicador de organizacion",
   "individual publisher": "editor",
@@ -295,6 +301,7 @@ const LOGIN_SPANISH_TEXT: Record<string, string> = {
   "Welcome back": "Bienvenido de nuevo",
   "Patient portal": "Portal de pacientes",
   "Publisher portal": "Portal de publicadores",
+  "Accessing publisher portal...": "Accediendo al portal…",
   PGFlex: "PGFlex",
   "Use the patient portal login": "Usá el login del portal de pacientes",
   "Use the backoffice login": "Usá el login del backoffice",
@@ -1743,9 +1750,11 @@ function ProjectOption({
 export function LoginExperience({
   surface,
   initialEmail,
+  initialAccessKey,
 }: {
   surface: LoginSurface;
   initialEmail?: string;
+  initialAccessKey?: string;
 }) {
   const isPatientPortal = surface === "patient-portal";
   const isPGFlexPortal = surface === "pgflex";
@@ -1755,13 +1764,21 @@ export function LoginExperience({
   const normalizedInitialEmail = isExclusivePortal
     ? normalizeAuthEmail(initialEmail ?? "")
     : "";
+  const hasPublisherAccessLink = Boolean(
+    isPublisherPortal && normalizedInitialEmail && initialAccessKey,
+  );
+  const [publisherLinkSignInPending, setPublisherLinkSignInPending] =
+    useState(hasPublisherAccessLink);
+  const publisherLinkSignInStarted = useRef(false);
   const [loginLanguage, setLoginLanguage] = useState<AppLanguage>(
     isExclusivePortal ? "es" : "en",
   );
   const [loading, setLoading] = useState<LoadingState>(null);
   const [notice, setNotice] = useState<AuthNotice | null>(null);
   const [email, setEmail] = useState(normalizedInitialEmail);
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState(
+    isPublisherPortal && normalizedInitialEmail ? initialAccessKey ?? "" : "",
+  );
   const [emailPasswordReady, setEmailPasswordReady] = useState(
     Boolean(normalizedInitialEmail),
   );
@@ -1785,6 +1802,19 @@ export function LoginExperience({
     projectAccess: ProjectKey[];
     redirectTo: string;
   } | null>(null);
+
+  useEffect(() => {
+    if (!isPublisherPortal || !initialAccessKey) return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("accessKey")) {
+      url.searchParams.delete("accessKey");
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${url.pathname}${url.search}${url.hash}`,
+      );
+    }
+  }, [isPublisherPortal, initialAccessKey]);
 
   useEffect(() => {
     if (isExclusivePortal) {
@@ -1914,6 +1944,7 @@ export function LoginExperience({
       contextData.context?.projectAccess,
     );
     const patientCallback = isPatientPortal ? patientPortalCallbackUrl() : undefined;
+    const publisherCallback = isPublisherPortal ? publisherPortalCallbackUrl() : undefined;
     const needsCompletion = profileSetupData.state?.needsCompletion;
     const redirectTo = needsCompletion
       ? isPatientPortal
@@ -1921,14 +1952,14 @@ export function LoginExperience({
         : isPGFlexPortal
           ? "/pgflex/complete-profile"
           : isPublisherPortal
-            ? "/publisher-portal/complete-profile"
+            ? publisherPortalPostLoginRoute(publisherCallback, true)
             : "/complete-profile"
       : isPatientPortal
         ? (patientCallback ?? PATIENT_PORTAL_ENTRY_ROUTE)
         : isPGFlexPortal
           ? (pgflexCallbackUrl() ?? PGFLEX_ENTRY_ROUTE)
           : isPublisherPortal
-            ? (publisherPortalCallbackUrl() ?? PUBLISHER_PORTAL_ENTRY_ROUTE)
+            ? publisherPortalPostLoginRoute(publisherCallback)
             : "/2pq-dashboard";
 
     if (needsCompletion) {
@@ -2216,19 +2247,43 @@ export function LoginExperience({
     }
   }
 
-  async function handleEmailSignIn(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleEmailSignIn(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
     const loginEmail = normalizeAuthEmail(email);
     setLoading("email");
     setNotice(null);
     setEmail(loginEmail);
 
     try {
-      const result = await signInWithEmailAndPassword(
-        auth,
-        loginEmail,
-        password,
-      );
+      let result;
+      if (
+        isPublisherPortal &&
+        initialAccessKey?.startsWith("pgp1.") &&
+        initialAccessKey.length > 256 &&
+        password === initialAccessKey &&
+        loginEmail === normalizedInitialEmail
+      ) {
+        const response = await fetch("/api/sdk/publisher-portal/access-code", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: loginEmail, accessKey: password }),
+        });
+        const data = await readJson(response);
+        if (!response.ok || typeof data.customToken !== "string") {
+          setNotice({
+            tone: "error",
+            title: "Could not use this access link",
+            message:
+              response.status === 401
+                ? "This access link is invalid or expired. Request a new email or use your usual access key."
+                : "Publisher access is temporarily unavailable. Try again.",
+          });
+          return;
+        }
+        result = await signInWithCustomToken(auth, data.customToken);
+      } else {
+        result = await signInWithEmailAndPassword(auth, loginEmail, password);
+      }
       await handleAuthSuccess({
         idToken: await result.user.getIdToken(),
         name: result.user.displayName ?? "",
@@ -2255,6 +2310,22 @@ export function LoginExperience({
       setLoading(null);
     }
   }
+
+  const signInFromPublisherLink = useEffectEvent(() => {
+    void handleEmailSignIn();
+  });
+
+  useEffect(() => {
+    if (!hasPublisherAccessLink || publisherLinkSignInStarted.current) return;
+    publisherLinkSignInStarted.current = true;
+    signInFromPublisherLink();
+  }, [hasPublisherAccessLink]);
+
+  useEffect(() => {
+    if (publisherLinkSignInPending && notice) {
+      setPublisherLinkSignInPending(false);
+    }
+  }, [publisherLinkSignInPending, notice]);
 
   function handleChangeEmail() {
     setEmailPasswordReady(false);
@@ -2683,6 +2754,17 @@ export function LoginExperience({
     isPGFlexPortal || isPublisherPortal
       ? "If you did not receive it, ask an administrator to send it again."
       : "If you did not receive it, ask your doctor to send it again.";
+
+  if (publisherLinkSignInPending) {
+    return (
+      <main className="fixed inset-0 flex min-h-screen items-center justify-center bg-white px-5 text-slate-950">
+        <div role="status" className="flex flex-col items-center gap-4 text-center">
+          <Loader2 className="size-10 animate-spin text-violet-600" aria-hidden />
+          <p className="text-lg font-semibold">{t("Accessing publisher portal...")}</p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main

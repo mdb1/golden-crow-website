@@ -17,6 +17,7 @@ jest.mock("@/lib/sdk-client", () => ({
 describe("PublisherProfileCompletion", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    window.history.replaceState({}, "", "/publisher-portal/complete-profile");
   });
 
   it("completes the publisher profile automatically and opens the portal", async () => {
@@ -36,4 +37,47 @@ describe("PublisherProfileCompletion", () => {
       expect(replace).toHaveBeenCalledWith("/publisher-portal/home"),
     );
   });
+
+  it.each([
+    "/publisher-portal/app/new",
+    "/publisher-portal/app/accept-terms-and-conditions",
+  ])(
+    "continues to the email destination %s after first-time setup",
+    async (callback) => {
+      (sdkFetch as jest.Mock).mockResolvedValue({ state: {} });
+      window.history.replaceState(
+        {},
+        "",
+        `/publisher-portal/complete-profile?callbackUrl=${encodeURIComponent(callback)}`,
+      );
+
+      render(<PublisherProfileCompletion />);
+
+      await waitFor(() => expect(replace).toHaveBeenCalledWith(callback));
+    },
+  );
+
+  it.each([
+    "https://example.com/outside",
+    "//example.com/outside",
+    "/2pq-dashboard",
+    "/publisher-portal/%2e%2e/login",
+    "/publisher-portal/complete-profile?callbackUrl=/publisher-portal/app/new",
+  ])(
+    "returns safely home for the invalid setup callback %s",
+    async (callback) => {
+      (sdkFetch as jest.Mock).mockResolvedValue({ state: {} });
+      window.history.replaceState(
+        {},
+        "",
+        `/publisher-portal/complete-profile?callbackUrl=${encodeURIComponent(callback)}`,
+      );
+
+      render(<PublisherProfileCompletion />);
+
+      await waitFor(() =>
+        expect(replace).toHaveBeenCalledWith("/publisher-portal/home"),
+      );
+    },
+  );
 });

@@ -1754,6 +1754,89 @@ describe("publisher app config contract", () => {
     expect(mockGetProfileSetupState).not.toHaveBeenCalled();
   });
 
+  it.each(["organization", "individual"] as const)("lets GOD MODE delete %s apps in every status without deleting publishers", async (kind) => {
+    if (kind === "individual") {
+      context = individualContext();
+      seedPublisher(kind, "shared-publisher-id", { name: "Individual Publisher" });
+    }
+    const created = await fastify.inject({ method: "POST", url: "/publisher-app/config", payload: validBody });
+    expect(created.statusCode).toBe(201);
+    const config = created.json().config;
+    for (const status of ["pending_revision", "active_for_testing", "active_waiting_for_payment", "active_waiting_for_upload", "active", "approved", "changes_requested", "rejected"]) {
+      collectionStore("app_configs").set(config.id, { ...config, status });
+      context = makeAdminContext({ isBootstrap: true });
+      const response = await fastify.inject({ method: "DELETE", url: `/admin/publisher-app-configs/${config.id}`, payload: { expectedUpdatedAt: config.updatedAt } });
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ deleted: true, configId: config.id });
+      expect(collectionStore("app_configs").has(config.id)).toBe(false);
+      expect(collectionStore(kind === "organization" ? "feed_organizations" : "feed_individuals").has("shared-publisher-id")).toBe(true);
+    }
+  });
+
+  it("atomically removes a GOD MODE app from the catalog and keeps identifier reservations and linked content", async () => {
+    await fastify.inject({ method: "POST", url: "/publisher-app/config", payload: validBody });
+    const activated = await fastify.inject({ method: "POST", url: "/publisher-app/config/identifier" });
+    const target = activated.json().config;
+    context = individualContext();
+    seedPublisher("individual", "shared-publisher-id", { name: "Individual Publisher" });
+    await fastify.inject({ method: "POST", url: "/publisher-app/config", payload: validBody });
+    await fastify.inject({ method: "POST", url: "/publisher-app/config/identifier" });
+    context = makeAdminContext({ isBootstrap: true, uid: "deleting-operator" });
+    await fastify.inject({ method: "PUT", url: "/admin/publisher-app-configs/snapshot" });
+    collectionStore("connected-partners").set("partner", { linkedAppId: target.id });
+    collectionStore("feed_items").set("publication", { publisherId: target.publisherId });
+    mockQueryReadCollections.length = 0;
+    const beforeTransactions = mockRunTransaction.mock.calls.length;
+    const response = await fastify.inject({ method: "DELETE", url: `/admin/publisher-app-configs/${target.id}`, payload: { expectedUpdatedAt: target.updatedAt } });
+    expect(response.statusCode).toBe(200);
+    expect(mockRunTransaction.mock.calls.length).toBe(beforeTransactions + 1);
+    expect(mockQueryReadCollections).toEqual([]);
+    const snapshot = collectionStore("custom_apps_snapshot").get("simple")!;
+    expect(snapshot).toMatchObject({ totalCount: 1, activeCount: 1, inactiveCount: 0, updatedByUserId: "deleting-operator" });
+    expect(snapshot.apps).toEqual([expect.objectContaining({ id: "individual_shared-publisher-id" })]);
+    expect(snapshot.statusCounts).toEqual(expect.arrayContaining([{ status: "active_for_testing", count: 1 }]));
+    expect(collectionStore("app_config_identifiers").size).toBe(2);
+    expect(collectionStore("feed_organizations").has("shared-publisher-id")).toBe(true);
+    expect(collectionStore("connected-partners").get("partner")).toEqual({ linkedAppId: target.id });
+    expect(collectionStore("feed_items").has("publication")).toBe(true);
+    const replay = await fastify.inject({ method: "DELETE", url: `/admin/publisher-app-configs/${target.id}`, payload: { expectedUpdatedAt: target.updatedAt } });
+    expect(replay.statusCode).toBe(200);
+    expect(collectionStore("custom_apps_snapshot").get("simple")?.totalCount).toBe(1);
+  });
+
+  it("rejects stale GOD MODE deletions, including a recreated app with the same id", async () => {
+    const created = await fastify.inject({ method: "POST", url: "/publisher-app/config", payload: validBody });
+    const config = created.json().config;
+    const replacement = { ...collectionStore("app_configs").get(config.id), updatedAt: new Date(FIXED_TIME + 60_000) };
+    collectionStore("app_configs").set(config.id, replacement);
+    context = makeAdminContext({ isBootstrap: true });
+    const response = await fastify.inject({ method: "DELETE", url: `/admin/publisher-app-configs/${config.id}`, payload: { expectedUpdatedAt: config.updatedAt } });
+    expect(response.statusCode).toBe(409);
+    expect(collectionStore("app_configs").get(config.id)).toEqual(replacement);
+  });
+
+  it.each([undefined, organizationContext(), makeAdminContext()])("denies unprivileged GOD MODE deletions before reading Firestore (%j)", async (caller) => {
+    context = caller;
+    const response = await fastify.inject({ method: "DELETE", url: "/admin/publisher-app-configs/organization_target", payload: { expectedUpdatedAt: new Date(FIXED_TIME).toISOString() } });
+    expect(response.statusCode).toBe(caller ? 403 : 401);
+    expect(mockCollection).not.toHaveBeenCalled();
+  });
+
+  it("also enforces GOD MODE access in the deletion repository", async () => {
+    const { deletePublisherAppConfigById } = await import("../repositories/publisher-app-config.repository.js");
+    await expect(deletePublisherAppConfigById(makeAdminContext(), "organization_target", new Date(FIXED_TIME).toISOString())).rejects.toMatchObject({ statusCode: 403 });
+    expect(mockCollection).not.toHaveBeenCalled();
+  });
+
+  it("validates the deletion timestamp and document id before accessing Firestore", async () => {
+    context = makeAdminContext({ isBootstrap: true });
+    for (const payload of [{}, { expectedUpdatedAt: "yesterday" }]) {
+      expect((await fastify.inject({ method: "DELETE", url: "/admin/publisher-app-configs/organization_target", payload })).statusCode).toBe(400);
+    }
+    expect((await fastify.inject({ method: "DELETE", url: "/admin/publisher-app-configs/invalid%2Fid", payload: { expectedUpdatedAt: new Date(FIXED_TIME).toISOString() } })).statusCode).toBe(400);
+    expect(mockCollection).not.toHaveBeenCalled();
+  });
+
   it("deletes a pending-revision app config for its scoped publisher", async () => {
     const createResponse = await fastify.inject({
       method: "POST",

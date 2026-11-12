@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { ActionToast, type ActionToastState } from "@/components/action-toast";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
+import { DiscoverPartnerCsvExportButton } from "@/components/discover/partner-csv-export-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -346,6 +347,7 @@ function DiscoverPublisherBrowser({
   initialNextCursor,
   canCreatePublishers = true,
   canManagePublisherStatus = true,
+  canExportPartnersCsv = false,
   routeBase,
 }: {
   publisherKind: PublisherKind;
@@ -353,6 +355,7 @@ function DiscoverPublisherBrowser({
   initialNextCursor: string | null;
   canCreatePublishers?: boolean;
   canManagePublisherStatus?: boolean;
+  canExportPartnersCsv?: boolean;
   routeBase?: string;
 }) {
   const { language } = useAppLanguage();
@@ -599,6 +602,9 @@ function DiscoverPublisherBrowser({
             <HeaderUnclutterButton />
           </div>
           <div className="flex flex-wrap gap-2">
+            {canExportPartnersCsv ? (
+              <DiscoverPartnerCsvExportButton kind={publisherKind} />
+            ) : null}
             <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={pending}>
               <RefreshCcw className="h-3.5 w-3.5" />
               {pending ? t("Working...") : t("Refresh")}
@@ -981,12 +987,14 @@ export function DiscoverOrganizationBrowser({
   initialNextCursor,
   canCreateOrganizations = true,
   canManageOrganizationStatus = true,
+  canExportPartnersCsv = false,
   routeBase,
 }: {
   initialOrganizations: DiscoverOrganizationRecord[];
   initialNextCursor: string | null;
   canCreateOrganizations?: boolean;
   canManageOrganizationStatus?: boolean;
+  canExportPartnersCsv?: boolean;
   routeBase?: string;
 }) {
   return (
@@ -996,6 +1004,7 @@ export function DiscoverOrganizationBrowser({
       initialNextCursor={initialNextCursor}
       canCreatePublishers={canCreateOrganizations}
       canManagePublisherStatus={canManageOrganizationStatus}
+      canExportPartnersCsv={canExportPartnersCsv}
       routeBase={routeBase}
     />
   );
@@ -1006,12 +1015,14 @@ export function DiscoverIndividualBrowser({
   initialNextCursor,
   canCreateIndividuals = true,
   canManageIndividualStatus = true,
+  canExportPartnersCsv = false,
   routeBase,
 }: {
   initialIndividuals: DiscoverIndividualRecord[];
   initialNextCursor: string | null;
   canCreateIndividuals?: boolean;
   canManageIndividualStatus?: boolean;
+  canExportPartnersCsv?: boolean;
   routeBase?: string;
 }) {
   return (
@@ -1021,6 +1032,7 @@ export function DiscoverIndividualBrowser({
       initialNextCursor={initialNextCursor}
       canCreatePublishers={canCreateIndividuals}
       canManagePublisherStatus={canManageIndividualStatus}
+      canExportPartnersCsv={canExportPartnersCsv}
       routeBase={routeBase}
     />
   );

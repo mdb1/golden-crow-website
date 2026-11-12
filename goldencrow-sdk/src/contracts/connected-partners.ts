@@ -40,8 +40,8 @@ export const PartnerAppSnapshotSchema = z
 export const PartnerInputSchema = z
   .object({
     companyName: z.string().trim().min(1).max(180),
-    firstName: z.string().trim().min(1).max(140),
-    lastName: z.string().trim().min(1).max(140),
+    firstName: z.string().trim().max(140).default(""),
+    lastName: z.string().trim().max(140).default(""),
     phoneNumber: z.string().trim().max(50).default(""),
     email: z.string().trim().toLowerCase().email().max(254),
     meetingDate: z.iso.date().nullable().default(null),
@@ -75,6 +75,23 @@ export type Partner = StoredPartner & {
   linkedApp: PartnerAppSnapshot | null;
 };
 export type PartnersPage = { items: Partner[]; nextCursor: string | null };
+export const PARTNER_SECTION_KEYS = [
+  "noOrganization",
+  "organizationWithoutApp",
+  "freeApp",
+  "contract",
+  "individualWithoutApp",
+  "individualFreeApp",
+  "individualContract",
+  "other",
+] as const;
+export const PartnerSectionSchema = z.enum(PARTNER_SECTION_KEYS);
+export type PartnerSection = z.infer<typeof PartnerSectionSchema>;
+export const PartnerSectionCursorSchema = z
+  .string()
+  .max(1024)
+  .regex(/^ps1\.[A-Za-z0-9_-]+$/);
+export type PartnerSectionPage = PartnersPage & { scanIncomplete: boolean };
 export type PartnerLinkOption = {
   id: string;
   name: string;

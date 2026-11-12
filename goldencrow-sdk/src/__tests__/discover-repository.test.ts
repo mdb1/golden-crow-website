@@ -1220,6 +1220,13 @@ describe("discover repository", () => {
     stored!.data.status = "pending_approval";
     stored!.data.contactEmail = "approval@example.org";
 
+    mockProvisionPublisherPortalRoleForContext.mockImplementationOnce(async () => {
+      // Provisioning writes after the evaluation loaded its original snapshot.
+      const current = mockOrganizationDocs.find(doc => doc.id === "org-1")!;
+      current.data = { ...current.data, portalAccessKey: "newly-saved-encrypted-key" };
+      return { role: "organization_publisher" };
+    });
+
     const result = await evaluateDiscoverOrganizationSubmission(
       fullAdminContext,
       "org-1",
@@ -1239,6 +1246,8 @@ describe("discover repository", () => {
     expect(result.organization.status).toBe("active");
     expect(nextStored?.data.status).toBe("active");
     expect(nextStored?.data.updatedByUserId).toBe("admin-1");
+    expect(nextStored?.data.portalAccessKey).toBe("newly-saved-encrypted-key");
+    expect(result.organization).not.toHaveProperty("portalAccessKey");
   });
 
   it("keeps regular organization updates from approving pending submissions", async () => {

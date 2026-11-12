@@ -2,8 +2,12 @@
 
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
+import { renderToStaticMarkup } from "react-dom/server.node";
+import { signIn } from "next-auth/react";
 import {
   signInWithEmailAndPassword,
+  signInWithCustomToken,
   signInWithPopup,
   signOut,
 } from "firebase/auth";
@@ -20,6 +24,7 @@ jest.mock("firebase/auth", () => ({
   },
   sendPasswordResetEmail: jest.fn(),
   signInWithEmailAndPassword: jest.fn(),
+  signInWithCustomToken: jest.fn(),
   signInWithPopup: jest.fn(),
   signOut: jest.fn(),
 }));
@@ -84,6 +89,17 @@ function invitedBackofficeSignupResponse() {
     clone() {
       return this;
     },
+    json: async () => body,
+    text: async () => JSON.stringify(body),
+  } as unknown as Response;
+}
+
+function jsonResponse(body: Record<string, unknown>, status = 200) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: { forEach: jest.fn() },
+    clone() { return this; },
     json: async () => body,
     text: async () => JSON.stringify(body),
   } as unknown as Response;
@@ -252,6 +268,9 @@ describe("publisher portal login", () => {
   beforeEach(() => {
     jest.restoreAllMocks();
     jest.clearAllMocks();
+    jest.mocked(signInWithEmailAndPassword).mockReset();
+    jest.mocked(signInWithCustomToken).mockReset();
+    jest.mocked(signIn).mockReset();
     fetchMock.mockReset();
     Object.defineProperty(globalThis, "fetch", {
       configurable: true,
@@ -259,6 +278,117 @@ describe("publisher portal login", () => {
       value: fetchMock,
     });
     window.localStorage.clear();
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("renders only the automatic access status in the initial server HTML", () => {
+    const html = renderToStaticMarkup(
+      <LoginExperience surface="publisher-portal" initialEmail="publisher@example.com" initialAccessKey="sample-key" />,
+    );
+    expect(html).toContain("Accediendo al portal…");
+    expect(html).not.toContain("<form");
+    expect(html).not.toContain("Acceder al portal");
+    expect(html).not.toContain("sample-key");
+    expect(signInWithEmailAndPassword).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each(["Sample+code&42", "pgp1.normal-password"])("automatically uses publisher key %s exactly once without showing the form", async (key) => {
+    jest.mocked(signInWithEmailAndPassword).mockImplementationOnce(() => new Promise<never>(() => {}));
+    window.history.replaceState(null, "", `/publisher-portal/login?email=publisher%2Bapp%40example.com&accessKey=${encodeURIComponent(key)}&callbackUrl=%2Fpublisher-portal%2Fapp%2Fnew`);
+    const view = <StrictMode><LoginExperience surface="publisher-portal" initialEmail="Publisher+app@Example.com " initialAccessKey={key} /></StrictMode>;
+    const { rerender } = render(view);
+    expect(screen.getByRole("status").textContent).toBe("Accediendo al portal…");
+    expect(screen.queryByLabelText("Clave de acceso")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Acceder al portal" })).toBeNull();
+    expect(signInWithEmailAndPassword).toHaveBeenCalledWith(expect.anything(), "publisher+app@example.com", key);
+    expect(signInWithEmailAndPassword).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(new URL(window.location.href).searchParams.has("accessKey")).toBe(false);
+    expect(new URL(window.location.href).searchParams.get("email")).toBe("publisher+app@example.com");
+    expect(new URL(window.location.href).searchParams.get("callbackUrl")).toBe("/publisher-portal/app/new");
+    rerender(view);
+    expect(signInWithEmailAndPassword).toHaveBeenCalledTimes(1);
+  });
+
+  it("automatically exchanges a publisher code and completes the usual session handoff", async () => {
+    const key = `pgp1.${"a".repeat(300)}.signature`;
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ customToken: "firebase-custom-token" }))
+      .mockResolvedValueOnce(jsonResponse({}))
+      .mockResolvedValueOnce(jsonResponse({ context: { projectAccess: ["mydnamap"] } }))
+      .mockResolvedValueOnce(jsonResponse({ state: { needsCompletion: false } }));
+    jest.mocked(signInWithCustomToken).mockResolvedValueOnce({ user: {
+      getIdToken: async () => "firebase-id-token",
+      email: "publisher@example.com",
+      displayName: "Publisher",
+    } } as never);
+    jest.mocked(signIn).mockResolvedValueOnce({ ok: true, status: 200, error: null, url: null });
+    jest.spyOn(console, "error").mockImplementation(() => {}); // jsdom cannot perform the final navigation.
+    window.history.replaceState(null, "", "/publisher-portal/login?callbackUrl=%2Fpublisher-portal%2Fapp%2Fnew");
+    render(<LoginExperience surface="publisher-portal" initialEmail="publisher@example.com" initialAccessKey={key} />);
+    expect(screen.queryByRole("button", { name: "Acceder al portal" })).toBeNull();
+    await waitFor(() => expect(signInWithCustomToken).toHaveBeenCalledWith(expect.anything(), "firebase-custom-token"));
+    expect(fetchMock).toHaveBeenCalledWith("/api/sdk/publisher-portal/access-code", expect.objectContaining({ method: "POST", body: JSON.stringify({ email: "publisher@example.com", accessKey: key }) }));
+    await waitFor(() => expect(signIn).toHaveBeenCalledWith("credentials", expect.objectContaining({ idToken: "firebase-id-token", accessSurface: "publisher-portal", project: "mydnamap", redirect: false })));
+    expect(fetchMock).toHaveBeenCalledWith("/api/sdk/auth/login", expect.objectContaining({ body: JSON.stringify({ idToken: "firebase-id-token", surface: "publisher-portal" }) }));
+    expect(screen.getByRole("status").textContent).toBe("Accediendo al portal…");
+    expect(screen.queryByLabelText("Clave de acceso")).toBeNull();
+    expect(signInWithEmailAndPassword).not.toHaveBeenCalled();
+  });
+
+  it("shows the form after an expired link and allows a manual retry without repeating the automatic attempt", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValueOnce(jsonResponse({ error: "Invalid code" }, 401));
+    const view = <LoginExperience surface="publisher-portal" initialEmail="publisher@example.com" initialAccessKey={`pgp1.${"a".repeat(300)}.invalid`} />;
+    const { rerender } = render(view);
+    await waitFor(() => expect(screen.getByText("No pudimos usar este enlace de acceso")).toBeTruthy());
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(signInWithCustomToken).not.toHaveBeenCalled();
+    expect(signInWithEmailAndPassword).not.toHaveBeenCalled();
+    rerender(view);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    jest.mocked(signInWithEmailAndPassword).mockRejectedValueOnce({ code: "auth/network-request-failed" });
+    await user.clear(screen.getByLabelText("Clave de acceso"));
+    await user.type(screen.getByLabelText("Clave de acceso"), "usual-key");
+    await user.click(screen.getByRole("button", { name: "Acceder al portal" }));
+    await waitFor(() => expect(signInWithEmailAndPassword).toHaveBeenCalledWith(expect.anything(), "publisher@example.com", "usual-key"));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns to the form if the server rejects the authenticated publisher session", async () => {
+    jest.mocked(signInWithEmailAndPassword).mockResolvedValueOnce({ user: {
+      getIdToken: async () => "firebase-id-token",
+      email: "publisher@example.com",
+    } } as never);
+    jest.mocked(signOut).mockResolvedValueOnce();
+    fetchMock.mockResolvedValueOnce(jsonResponse({ error: "Publisher access denied" }, 403));
+    render(<LoginExperience surface="publisher-portal" initialEmail="publisher@example.com" initialAccessKey="usual-key" />);
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Acceder al portal" })).toBeTruthy();
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(signIn).not.toHaveBeenCalled();
+    expect(signInWithEmailAndPassword).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["backoffice", "patient-portal", "pgflex"] as const)("does not prefill publisher keys on the %s authentication surface", (surface) => {
+    render(<LoginExperience surface={surface} initialEmail="publisher@example.com" initialAccessKey="publisher-only-key" />);
+    for (const input of document.querySelectorAll("input")) expect(input.value).not.toBe("publisher-only-key");
+    expect(signInWithEmailAndPassword).not.toHaveBeenCalled();
+    expect(signInWithCustomToken).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("ignores a key without its recipient email and clears a prefilled key when changing account", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<LoginExperience surface="publisher-portal" initialAccessKey="publisher-key" />);
+    expect(screen.queryByLabelText("Clave de acceso")).toBeNull();
+    unmount();
+    jest.mocked(signInWithEmailAndPassword).mockRejectedValueOnce({ code: "auth/network-request-failed" });
+    render(<LoginExperience surface="publisher-portal" initialEmail="publisher@example.com" initialAccessKey="publisher-key" />);
+    await user.click(await screen.findByRole("button", { name: "Cambiar email" }));
+    expect(screen.queryByLabelText("Clave de acceso")).toBeNull();
+    expect((screen.getByLabelText("Email") as HTMLInputElement).value).toBe("publisher@example.com");
   });
 
   it("uses the visible access-key step for invited publishers", async () => {

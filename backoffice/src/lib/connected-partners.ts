@@ -3,6 +3,7 @@ import type { PublisherAppStatus } from "@/lib/publisher-app-config";
 export const PARTNERS_API_ROUTE = "/admin/connected-partners";
 export const PARTNERS_ROUTE = "/god-mode/partners";
 export const PARTNERS_QUERY_KEY = ["connected-partners"] as const;
+export const PARTNER_PAGE_SIZE = 20;
 
 export type PartnerInput = {
   companyName: string;
@@ -37,6 +38,14 @@ export type Partner = PartnerInput & {
   linkedApp: PartnerAppSnapshot | null;
 };
 export type PartnersPage = { items: Partner[]; nextCursor: string | null };
+export function partnerContactName(
+  partner: Pick<PartnerInput, "firstName" | "lastName">,
+) {
+  return [partner.firstName.trim(), partner.lastName.trim()]
+    .filter(Boolean)
+    .join(" ");
+}
+export type PartnerSectionPage = PartnersPage & { scanIncomplete: boolean };
 export type PartnerLinkOption = {
   id: string;
   name: string;
@@ -52,14 +61,14 @@ export type PartnerLinkOptionsPage = {
 
 export const PARTNER_SECTIONS = [
   { key: "noOrganization", label: "No organization yet" },
-  { key: "organizationWithoutApp", label: "Organization without app" },
-  { key: "freeApp", label: "Organization with free app" },
-  { key: "contract", label: "Organization with contract" },
+  { key: "organizationWithoutApp", label: "Without app" },
+  { key: "freeApp", label: "With free app" },
+  { key: "contract", label: "With contract" },
 ] as const;
 export const PARTNER_INDIVIDUAL_SECTIONS = [
-  { key: "individualWithoutApp", label: "Individual publisher without app" },
-  { key: "individualFreeApp", label: "Individual publisher with free app" },
-  { key: "individualContract", label: "Individual publisher with contract" },
+  { key: "individualWithoutApp", label: "Without app" },
+  { key: "individualFreeApp", label: "With free app" },
+  { key: "individualContract", label: "With contract" },
 ] as const;
 export type PartnerSection =
   | (typeof PARTNER_SECTIONS)[number]["key"]

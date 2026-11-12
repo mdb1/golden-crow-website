@@ -147,8 +147,8 @@ it("previews a selected CSV without creating records until the user imports", as
   expect(mockClose).not.toHaveBeenCalled();
 });
 
-it("shows physical CSV row errors and prevents import when any row is invalid", async () => {
-  jest.mocked(sdkFetch).mockResolvedValue({
+it("imports valid rows and keeps physical row errors visible in the result", async () => {
+  jest.mocked(sdkFetch).mockResolvedValueOnce({
     rows: [
       ...ready.rows,
       {
@@ -159,14 +159,36 @@ it("shows physical CSV row errors and prevents import when any row is invalid", 
       },
     ],
     summary: { total: 2, ready: 1, duplicates: 0, invalid: 1 },
-  });
+  }).mockResolvedValueOnce({ importedCount: 1, skippedCount: 1, partnerIds: ["new"], invalidRows: [{ rowNumber: 5, errors: ["email: Invalid email address"] }] });
   renderImport();
   upload();
   expect(await screen.findByText(/email: Invalid email address/)).toBeVisible();
   expect(screen.getByText(/\b5\b/)).toBeVisible();
   expect(
     screen.getByRole("button", { name: "Import partners" }),
-  ).toBeDisabled();
+  ).toBeEnabled();
+  expect(sdkFetch).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole("button", { name: "Import partners" }));
+  await screen.findByText("Import complete");
+  expect(screen.getByText("Rows not imported")).toBeVisible();
+  expect(screen.getByText("email: Invalid email address")).toBeVisible();
+  expect(sdkFetch).toHaveBeenCalledTimes(2);
+});
+
+it("does not start an import when no valid new rows remain", async () => {
+  jest.mocked(sdkFetch).mockResolvedValueOnce({
+    rows: [{
+      rowNumber: 2,
+      input: null,
+      status: "invalid",
+      errors: ["email: Invalid email address"],
+    }],
+    summary: { total: 1, ready: 0, duplicates: 0, invalid: 1 },
+  });
+  renderImport();
+  upload();
+  expect(await screen.findByText("email: Invalid email address")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Import partners" })).toBeDisabled();
   expect(sdkFetch).toHaveBeenCalledTimes(1);
 });
 
@@ -386,7 +408,7 @@ it("explains required columns, optional phone, dates, duplicates and linking in 
 it("opens both import tools directly from the partner list", async () => {
   jest.mocked(sdkFetch).mockResolvedValue({ items: [], nextCursor: null });
   renderImport(<PartnersBrowser />);
-  await screen.findByText("No partners yet.");
+  expect(sdkFetch).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Import rules" }));
   expect(
     await screen.findByRole("dialog", { name: "Import rules" }),

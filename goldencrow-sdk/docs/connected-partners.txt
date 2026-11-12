@@ -6,8 +6,8 @@ Access: authenticated GOD MODE (isBootstrap) only, enforced in SDK routes and re
 
 Each document has these lower camel case contact and link fields:
   companyName: required trimmed string (1–180 characters)
-  firstName: required trimmed string (1–140 characters)
-  lastName: required trimmed string (1–140 characters)
+  firstName: optional trimmed string (max 140); omitted or blank becomes ""
+  lastName: optional trimmed string (max 140); omitted or blank becomes ""
   phoneNumber: optional trimmed string (max 50 characters); omitted or blank becomes ""
   email: required valid email, trimmed and lowercased (max 254 characters)
   meetingDate: nullable ISO civil date YYYY-MM-DD, without timezone conversion
@@ -46,16 +46,48 @@ use historical snapshots as proof of current identity or app status. List pages
 deduplicate direct linked-document reads within the current page; they never scan
 all publishers or apps. GET responses are private, no-store.
 
-Backoffice grouping uses live resolved links and app status. Organization cards keep
-the no-organization, organization-without-app, free-app (active_for_testing), and
-contract (active or other active_* statuses) groups. Individual publishers and
-non-active apps remain explicitly visible. Missing or mismatched links must never
-be presented as proof that a publisher or app is available.
+Backoffice grouping uses live resolved links and app status. The visible without-app,
+free-app (active_for_testing), and contract (active or other active_* statuses) stages
+combine organization and individual publishers within the same ordered page. The
+no-organization group still contains partners with no linked publisher or app, and
+non-active or unavailable links remain explicitly visible in other. Missing or
+mismatched links must never be presented as proof that a publisher or app is available.
+The granular partnerSection classification and email template/hash semantics remain
+unchanged: shared stage matching affects only list selection, not persisted data.
 
 SDK API:
   GET /admin/connected-partners[?cursor=<last document ID>]
     Returns { items, nextCursor }, 20 partner records per page, ordered by document ID.
     Reads at most 21 partner records plus bounded, deduplicated linked documents.
+  GET /admin/connected-partners?section=<section>[&limit=1..20][&cursor=<section cursor>]
+    Returns { items, nextCursor, scanIncomplete }, at most 20 matching partners
+    by default. limit can request the remaining 1–20 slots of a visible page.
+    Sections are noOrganization, organizationWithoutApp, freeApp, contract,
+    individualWithoutApp, individualFreeApp, individualContract, and other.
+    Shared stage selectors organizationWithoutApp, freeApp and contract match
+    their corresponding individualWithoutApp, individualFreeApp and individualContract
+    classifications too. Individual selectors remain scoped to individual-only
+    classifications for existing API callers. Shared selectors use the same single
+    document-ordered bounded scan and cursor, never a concatenation of publisher
+    pages; their page size is still at most 20 combined records.
+    Classification reads current linked records, including both publisher links;
+    any unavailable explicit publisher link belongs to other. A partner with an
+    organization and an individual-owned app remains in the organization groups
+    if both publishers are available and that app belongs to the linked individual.
+    No category or frozen app-status field is persisted or used as a query shortcut.
+    A request reads at most 200 partner documents, in chunks of at most 40,
+    with deduplicated direct reads of only their referenced publishers/apps.
+    A sparse section may return fewer than limit (including zero) with nextCursor
+    and scanIncomplete=true when that scan budget is reached. That is a bounded
+    continuation, not proof that the section is empty. Empty is established only
+    when nextCursor is null. A full source chunk can leave a potential cursor that
+    requires an empty probe to establish the collection's end.
+    Cursors use the opaque ps1.<base64url> format, bind the section, and resume
+    after the last examined document ID. They do not skip unused matches from
+    fetched chunks and remain usable after the cursor's source record is deleted.
+    Reusing a cursor for another section, malformed cursors, unsupported sections,
+    or limits outside 1–20 return 400. The unfiltered API retains its raw-ID cursor
+    and rejects a limit supplied without a section.
   GET /admin/connected-partners/:partnerId -> { partner }
   POST /admin/connected-partners/import/preview with { csv: <file text> }
     Returns { rows, summary }. Each row contains its physical starting rowNumber,
@@ -63,9 +95,10 @@ SDK API:
     ready|duplicate|invalid, errors[], and optional duplicateReason.
     summary contains total, ready, duplicates, invalid counts. This never writes.
   POST /admin/connected-partners/import with { csv: <same file text>, importId: <UUID> }
-    Returns { importedCount, skippedCount, partnerIds }. Revalidates the complete
+    Returns { importedCount, skippedCount, partnerIds, invalidRows }. Revalidates the complete
     file and live links inside a Firestore transaction before writing anything.
-    Any invalid row rejects the entire file with 400 and { error, preview }.
+    Invalid rows are skipped while valid new rows are committed. If no valid new
+    rows remain and invalid rows exist, return 400 and { error, preview }.
     Bad file structure/headers/size return 400 with { error } at either endpoint.
     GOD MODE is required; CSV request bodies have a 2 MiB JSON envelope limit.
   GET /admin/connected-partners/link-options?kind=organization|individual|app
@@ -99,13 +132,14 @@ CSV preparation and import rules:
      from the first nonempty record. Blank lines and entirely empty rows are ignored.
      Null bytes are not accepted. The browser rejects malformed UTF-8 file bytes.
   2. Include a header with these required columns, in any order:
-       companyName,firstName,lastName,email
-     Every partner needs a nonblank companyName (max 180), firstName (max 140),
-     lastName (max 140), and valid email (max 254). Header names are case-sensitive.
+       companyName,email
+     Every partner needs a nonblank companyName (max 180) and valid email (max 254).
+     firstName and lastName are optional, at most 140 characters each; omitted or
+     blank names are stored as empty strings, never invented. Header names are case-sensitive.
      Surrounding whitespace in headers and cells is trimmed. Unknown, duplicate,
      or blank headers and missing required columns reject the complete file.
   3. Optionally include any of:
-       phoneNumber,meetingDate,notes,linkedOrganizationId,linkedIndividualPublisherId,linkedAppId
+       firstName,lastName,phoneNumber,meetingDate,notes,linkedOrganizationId,linkedIndividualPublisherId,linkedAppId
      phoneNumber is optional (max 50); blank/omitted becomes an empty string.
      meetingDate must be a real civil date in YYYY-MM-DD, e.g. 2026-11-18; blank
      means no date. notes allows at most 10,000 characters; blank means null.
@@ -122,21 +156,25 @@ CSV preparation and import rules:
      double quotes. Escape a quote inside a quoted field as two double quotes:
        "Genome, Studio",Ada,Rivera,ada@example.com
        Genome Studio,Ada,Rivera,ada@example.com,"Asked for ""mobile app"" demo"
-     The second example assumes a notes column appended to the four required ones.
+     The second example assumes columns companyName,firstName,lastName,email,notes.
      Quotes must start a field and must close; optional whitespace after a closing
      quote is allowed before the next separator or line break. CRLF/LF are supported.
   6. Emails are trimmed and lowercased before duplicate checks. For repeated emails
-     in one file, only the first row is eligible. Existing partners with that email
+     in one file, only the first valid row is eligible. Existing partners with that email
      and later file rows are skipped without overwriting any contact or link.
      Every row still needs valid contact values and links, even if it is a duplicate.
-  7. Preview the file, fix all invalid rows, and preview again. The complete import
-     must be valid; there is no partial-success mode. Commit checks current data
-     again, so counts can change if another operator adds a matching partner or
-     changes/deletes a linked record after preview. Any invalid row creates nothing.
+  7. Preview the file and confirm to import its valid new rows. Invalid rows are
+     skipped and returned as invalidRows ({ rowNumber, errors }); they do not block
+     ready rows or reserve their email indexes. Commit revalidates current links
+     and duplicates, so counts and errors can change after preview. If no valid
+     new rows remain and invalid rows exist, return 400 with validation details
+     without writing a manifest. Valid rows and their indexes commit atomically.
   8. A retry for the same file must reuse its UUID importId. The import manifest
      connected-partner-imports/{UUID} stores only csvHash, importedCount,
-     skippedCount, partnerIds; the raw CSV is not stored. Exact replays return the
-     original result before consulting links, including when those later disappear.
+     skippedCount (duplicates plus invalid rows), partnerIds and invalidRows; the
+     raw CSV is not stored. Older manifests decode missing invalidRows as [].
+     Exact replays return the original result before consulting links, including
+     when those later disappear.
      Reusing an importId for different file text returns 409. A newly selected file
      gets a new UUID. Fresh imports of existing emails still skip them.
 
@@ -161,3 +199,121 @@ Backoffice routes:
   /god-mode/partners
   /god-mode/partners/new
   /god-mode/partners/:partnerId/edit
+
+Partner email preview and delivery:
+  GET /admin/connected-partners/:partnerId/email-preview[?language=es|en&templateVariant=1|2]
+    Returns { partnerId, to, subject, text, html, ctaLabel, ctaUrl, category,
+      language, templateVariant, previewHash }. Spanish and template 1 are the defaults.
+    Template 1 uses the first supplied bilingual table (more detail); template 2
+    uses the second supplied table (short and direct). No email is sent.
+    Builds the exact sender content using the current contact and directly linked
+    publishers/app, with the same purple Pocket Genes styling as publisher access
+    invitations. Historical snapshots never select a message or establish status.
+    The template variant, rendered message and authoritative publisher/app identity are bound into
+    previewHash (SHA-256). Contact email, subject, body, HTML and CTA cannot be
+    authored or overridden by the client.
+    noOrganization: request an organization profile at the exact public join-us
+    URL; the message invites the company to share its work and connect with the
+    community. Template 1 also describes free joining and a free app demo.
+    organizationWithoutApp/individualWithoutApp: publisher login with callbackUrl
+    /publisher-portal/app/new. The publisher chooses app platforms/features/colors
+    and submits the request for review and preparation of a testing sample.
+    freeApp/individualFreeApp (live active_for_testing): publisher login with
+    callbackUrl /publisher-portal/app/accept-terms-and-conditions. This protected
+    alias opens the canonical publication-terms review. Accepting and requesting
+    publication advances to the payment-information step, not instant publication.
+    contract/individualContract: every live non-testing active* status receives
+    an invitation to manage its app in the publisher portal, with callbackUrl
+    /publisher-portal/app/edit. Pending payment/publication steps are managed
+    through the existing app configuration screen rather than a separate email CTA.
+    All callback paths are under /publisher-portal. Login may prefill the partner
+    contact email. A stored access key is included only after checking that the
+    recipient is the account managing the linked publisher. Neither template nor
+    link parameters grant publisher roles or impersonate another identity.
+    other (inactive, unavailable or mismatched links) returns 409 for deliberate
+    connection review instead of sending an invitation for the wrong stage.
+  POST /admin/connected-partners/:partnerId/email with strict body
+    { language: es|en, templateVariant: 1|2, previewHash: <64 lowercase hex>, requestId: <UUID>, banner?: <reviewed JPEG> }
+    Omitted templateVariant defaults to 1 for existing clients. JSON bodies use
+    numeric variants; the GET query uses the strings 1 or 2. Other values and
+    template_variant aliases are rejected.
+    Returns HTTP 200 { status: sent|sending|unknown|failed, to,
+      sentAt: <ISO timestamp or null>, requestId, error?: <operator message> }.
+    Both endpoints require GOD MODE in routes and repositories. GET is no-store.
+    A fresh send or retry of a known rejection reads live partner data again and
+    rejects a changed preview or newly unsupported live category with 412 before calling Gmail. Unknown fields,
+    client recipients/content, snake_case aliases and invalid identifiers return
+    400. Unsupported language is rejected. Missing partners return 404.
+    Replaying a sent/sending/unknown request reads its command first and returns
+    the recorded outcome without touching mutable partner data or sending again,
+    including after contact edits or deletion. A request ID cannot be reused for
+    a different partner, preview hash, language or template variant (409). A 412 is a known unsent
+    precondition failure that requires a new preview; a 409 can represent a prior
+    uncertain command and must not authorize a new send automatically.
+
+Email command persistence:
+  Firestore project: mydnamap
+  Collection: partner_email_sends
+  Document ID: requestId (UUID; one directly read document per command)
+  Strict lower camel case fields, validated by StoredSendSchema:
+    requestId: UUID; partnerId: canonical partner ID; previewHash: SHA-256 hex;
+    language: es|en; templateVariant: 1|2; to: validated contact email;
+    status: sending|sent|unknown|failed;
+    createdAt/updatedAt: ISO UTC datetime;
+    sentAt: nullable ISO UTC datetime;
+    requestedByEmail: authenticated GOD MODE operator email.
+  No subject, HTML, text, full partner/snapshot record or credentials are stored.
+  Historical commands without templateVariant decode as 1 for safe status replays.
+  A Firestore transaction reserves sending before Gmail is called. Concurrent
+  double-clicks share the reservation. A known Gmail rejection or pre-send failure
+  records failed and may retry the same request ID after fresh preview validation.
+  Gmail network loss or 5xx response records unknown and is never automatically
+  resent. Confirmation-persistence failure keeps the durable sending reservation
+  and returns unknown; subsequent checks still cannot send again. Operators must
+  verify Sent mail before starting another independent send after uncertainty.
+  Delivery uses the established Gmail transport without appending a signature, so
+  the preview HTML/text exactly match the outbound content. Partner deletion does
+  not cascade to delivery commands, preserving safe status checks and audit state.
+
+Publisher login links from partner emails
+Publisher-stage emails include a personalized, email-safe image of the exact
+PublisherAppPromoBanner used by the portal home. The GOD MODE preview reads the
+live app owner's publisher name, imageUrl/imageUploadDataUrl and colorHex. The
+browser renders that shared atomic scene (including the branded phones), adds
+the publisher icon/name, waits for fonts and every image, and captures a bounded
+1024px JPEG. English previews also localize the scene labels. Missing images or
+render errors block sending and expose retry; no generic placeholder is sent.
+GET email-preview returns bannerBrand and its contextHash. POST email-preview
+accepts { language, templateVariant, banner: { contextHash, dataUrl } } and freezes the reviewed
+image into the message hash. The send input carries that same banner; its bytes
+and actual JPEG frame are validated. Changes to live identity, icon, color,
+language, template variant, action, message content or image require a new review. Both preview
+methods use no-store. The banner is a CID inline JPEG attachment in Gmail MIME;
+the inert preview substitutes only that image source with the exact data URL.
+No image, HTML, credential or full preview is persisted in partner_email_sends.
+Status replays still resolve the prior command before reading live data or
+rebuilding images. The no-organization invitation has no publisher banner.
+Approved bilingual wording is mirrored in docs/partner-email-templates.tsv for
+template 1 and docs/partner-email-templates-2.tsv for template 2. Blank paragraphs
+and closings from the supplied tables are omitted from the rendered email.
+The preview offers Template 1 / Template 2 beside the existing language choice.
+Switching either choice prepares a new reviewed hash and cancels obsolete banner
+work. Both choices are locked during sending or uncertain delivery. A confirmed
+rejection permits choosing another template and starting a new reviewed request;
+checking uncertain delivery always keeps the original variant, hash and request ID.
+
+For the three publisher stages, the preview includes the publisher's saved accessKey together with email and the existing callbackUrl only when the recipient has an active matching organization_publisher or individual_publisher role and the stored credential belongs to that email and publisher/app owner. Missing keys or mismatched recipients keep an email-only URL with an explanation in the preview. The public join form never receives a credential. Previews no longer generate temporary signed access codes.
+The preview shows the complete destination above the inert email iframe and opens it in a separate tab with no opener or referrer. When a publisher login link includes both email and accessKey, the page automatically attempts the same sign-in as the access button, showing only an access-in-progress status from its initial server render through the successful session handoff and callback redirect. It attempts once per visit, including React effect replays. A failed attempt reveals the normal form and its error for manual correction or retry. Links without either credential keep the manual login. The publisher login removes accessKey from browser history after loading and sends no referrer. Other login surfaces do not prefill or automatically submit publisher credentials. Existing signed pgp1 access links use their usual custom-token exchange; stored passwords use normal email/password authentication.
+
+Publisher credential storage and GOD MODE modals
+The canonical optional nullable field portalAccessKey on feed_organizations and feed_individuals stores an AES-256-GCM encrypted credential, never a plaintext password. New profiles initialize it to null. Approval/provisioning saves the exact generated Firebase key before sending the invitation and restores the previous field if Firebase provisioning fails. Approval status updates must preserve this newly saved field. Profile DTOs, lists, relationship snapshots and CSV exports never include it.
+Ciphertext uses the pgpk1 version prefix, a random nonce, an authentication tag, and authenticated publisher kind/id. Its encrypted payload contains the normalized account email and exact access key. The lazily derived encryption key uses PUBLISHER_PORTAL_CREDENTIALS_SECRET (at least 32 bytes) or a domain-separated HKDF of the existing primary MyDNAMap Admin private key. No optional-project credentials are required at startup.
+GET /discover/publisher-credentials/:kind/:publisherId returns availability and contact email only. POST on its /reveal child returns the decrypted { email, accessKey }. PUT accepts only { accessKey } and transactionally fills an absent/null field, rejecting an already populated field. Every operation requires GOD MODE and uses no-store. Manual entry records the existing password; it never changes Firebase Auth, creates an account or grants a role. Ordinary profile mutation bodies cannot author this field.
+Organization and individual details show the credential action only to GOD MODE. Opening its modal loads metadata; Revelation is an explicit separate action. Closing or hiding clears the revealed key. Empty records allow manual input; copying requires a revealed key. Newly saved keys stay masked until explicitly revealed.
+Compatibility: previously issued pgp1 signed links from version 3.680 remain redeemable until their original 24–48 hour expiry through POST /publisher-portal/access-code. These long credentials are distinguished from saved passwords (maximum 256 characters); new partner previews use only the stored Firebase key and the usual password sign-in flow.
+
+Discover exports leave unknown organizational contact names blank. Those files
+are directly importable when companyName and email are valid; mononym individual
+publishers do not require a last name. Export reviews only flag actual validation
+failures, not absent optional names. Partner forms allow the same empty names.
+Emails greet nameless contacts with Hola, / Hi, without fabricating personal data.

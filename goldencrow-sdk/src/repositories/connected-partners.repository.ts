@@ -1,10 +1,13 @@
 import { FieldPath, type Transaction } from "firebase-admin/firestore";
+import { z } from "zod";
 import { adminDbFor } from "../config/firebase.js";
 import {
   CONNECTED_PARTNERS_COLLECTION,
   PartnerIdSchema,
   PartnerInputSchema,
   PartnerLinkIdSchema,
+  PartnerSectionSchema,
+  PartnerSectionCursorSchema,
   PartnerAppSnapshotSchema,
   PartnerOrganizationSnapshotSchema,
   StoredPartnerSchema,
@@ -17,11 +20,16 @@ import {
   type Partner,
   type PartnerInput,
   type PartnersPage,
+  type PartnerSection,
+  type PartnerSectionPage,
 } from "../contracts/connected-partners.js";
+import { partnerMatchesSection } from "../lib/partner-section.js";
 import type { AdminContext } from "../types/sdk.types.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 
 const PAGE_SIZE = 20;
+const SECTION_SCAN_CHUNK_SIZE = 40;
+const SECTION_SCAN_LIMIT = 200;
 const ORGANIZATIONS_COLLECTION = "feed_organizations";
 const INDIVIDUALS_COLLECTION = "feed_individuals";
 const APPS_COLLECTION = "app_configs";
@@ -228,6 +236,103 @@ export async function listPartners(
     ),
     nextCursor:
       snapshot.docs.length > PAGE_SIZE ? docs[docs.length - 1]!.id : null,
+  };
+}
+
+const SectionCursorPayloadSchema = z
+  .object({
+    section: PartnerSectionSchema,
+    after: PartnerIdSchema,
+  })
+  .strict();
+
+function sectionCursor(section: PartnerSection, after: string) {
+  const payload = JSON.stringify({ section, after });
+  return `ps1.${Buffer.from(payload, "utf8").toString("base64url")}`;
+}
+
+function sectionCursorAfter(section: PartnerSection, cursor?: string) {
+  if (!cursor) return undefined;
+  try {
+    const token = PartnerSectionCursorSchema.parse(cursor).slice(4);
+    const decoded = Buffer.from(token, "base64url");
+    if (decoded.toString("base64url") !== token) {
+      throw new Error("Invalid encoding");
+    }
+    const payload = SectionCursorPayloadSchema.parse(
+      JSON.parse(decoded.toString("utf8")),
+    );
+    if (payload.section !== section) throw new Error("Wrong section");
+    return payload.after;
+  } catch {
+    throw new AdminRepositoryError("Invalid partner section cursor", 400);
+  }
+}
+
+export async function listPartnersBySection(
+  context: AdminContext,
+  section: PartnerSection,
+  cursor?: string,
+  limit = PAGE_SIZE,
+): Promise<PartnerSectionPage> {
+  const partners = collection(context);
+  if (!PartnerSectionSchema.safeParse(section).success) {
+    throw new AdminRepositoryError("Invalid partner section", 400);
+  }
+  if (!Number.isInteger(limit) || limit < 1 || limit > PAGE_SIZE) {
+    throw new AdminRepositoryError(
+      "Partner section page size must be between 1 and 20",
+      400,
+    );
+  }
+  let after = sectionCursorAfter(section, cursor);
+  let scanned = 0;
+  const items: Partner[] = [];
+  const reader = partnerLinkReader();
+
+  // The section depends on live related documents, so no stored category or
+  // historical app status is used as a query shortcut. Cap each request's
+  // source scan and return its exact continuation when a section is sparse.
+  while (scanned < SECTION_SCAN_LIMIT) {
+    const chunkSize = Math.min(
+      SECTION_SCAN_CHUNK_SIZE,
+      SECTION_SCAN_LIMIT - scanned,
+    );
+    let query = partners.orderBy(FieldPath.documentId());
+    if (after) query = query.startAfter(after);
+    const snapshot = await query.limit(chunkSize).get();
+    const docs = snapshot.docs;
+    if (!docs.length) {
+      return { items, nextCursor: null, scanIncomplete: false };
+    }
+    const resolved = await Promise.all(
+      docs.map((doc) => toPartner(doc.id, doc.data(), reader)),
+    );
+    for (let index = 0; index < resolved.length; index++) {
+      const partner = resolved[index]!;
+      scanned++;
+      after = partner.id;
+      if (partnerMatchesSection(partner, section)) items.push(partner);
+      if (items.length === limit) {
+        // Resume after the last examined record, rather than after the fetched
+        // chunk, because later matches in this chunk have not been returned.
+        const sourceRemaining =
+          index < docs.length - 1 || docs.length === chunkSize;
+        return {
+          items,
+          nextCursor: sourceRemaining ? sectionCursor(section, after) : null,
+          scanIncomplete: false,
+        };
+      }
+    }
+    if (docs.length < chunkSize) {
+      return { items, nextCursor: null, scanIncomplete: false };
+    }
+  }
+  return {
+    items,
+    nextCursor: sectionCursor(section, after!),
+    scanIncomplete: true,
   };
 }
 

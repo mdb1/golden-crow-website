@@ -1,10 +1,13 @@
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
+import { PartnerEmailBannerInputSchema } from "../lib/partner-email-banner.js";
 import {
   PartnerIdSchema,
   PartnerInputSchema,
   PartnerLinkIdSchema,
+  PartnerSectionSchema,
+  PartnerSectionCursorSchema,
 } from "../contracts/connected-partners.js";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import { PARTNER_CSV_MAX_BYTES } from "../lib/partner-csv.js";
@@ -18,9 +21,18 @@ import {
   deletePartners,
   getPartner,
   listPartners,
+  listPartnersBySection,
   listPartnerLinkOptions,
   updatePartner,
 } from "../repositories/connected-partners.repository.js";
+
+import {
+  PartnerEmailLanguageSchema,
+  PartnerEmailTemplateVariantSchema,
+  PartnerEmailSendInputSchema,
+  previewPartnerEmail,
+  sendPartnerEmail,
+} from "../repositories/partner-email.repository.js";
 
 const ParamsSchema = z.object({ partnerId: PartnerIdSchema }).strict();
 const ROUTE = "/admin/connected-partners";
@@ -72,11 +84,27 @@ export async function connectedPartnersRoutes(
     ROUTE,
     {
       schema: {
-        querystring: z.object({ cursor: PartnerIdSchema.optional() }).strict(),
+        querystring: z.union([
+          z.object({ cursor: PartnerIdSchema.optional() }).strict(),
+          z
+            .object({
+              section: PartnerSectionSchema,
+              cursor: PartnerSectionCursorSchema.optional(),
+              limit: z.coerce.number().int().min(1).max(20).optional(),
+            })
+            .strict(),
+        ]),
       },
     },
     async (request) =>
-      listPartners(request.adminContext!, request.query.cursor),
+      "section" in request.query
+        ? listPartnersBySection(
+            request.adminContext!,
+            request.query.section,
+            request.query.cursor,
+            request.query.limit,
+          )
+        : listPartners(request.adminContext!, request.query.cursor),
   );
 
   f.get(
@@ -109,6 +137,65 @@ export async function connectedPartnersRoutes(
         request.params.partnerId,
       ),
     }),
+  );
+
+  f.get(
+    `${ROUTE}/:partnerId/email-preview`,
+    {
+      schema: {
+        params: ParamsSchema,
+        querystring: z
+          .object({
+            language: PartnerEmailLanguageSchema.default("es"),
+            templateVariant: z.enum(["1", "2"]).default("1")
+              .transform((value) => value === "2" ? (2 as const) : (1 as const)),
+          })
+          .strict(),
+      },
+    },
+    async (request, reply) => {
+      reply.header("Cache-Control", "no-store");
+      return previewPartnerEmail(
+        request.adminContext!,
+        request.params.partnerId,
+        request.query.language,
+        undefined,
+        request.query.templateVariant,
+      );
+    },
+  );
+
+  f.post(
+    `${ROUTE}/:partnerId/email-preview`,
+    {
+      bodyLimit: 1024 * 1024,
+      schema: {
+        params: ParamsSchema,
+        body: z.object({
+          language: PartnerEmailLanguageSchema,
+          templateVariant: PartnerEmailTemplateVariantSchema.default(1),
+          banner: PartnerEmailBannerInputSchema,
+        }).strict(),
+      },
+    },
+    async (request, reply) => {
+      reply.header("Cache-Control", "no-store");
+      return previewPartnerEmail(
+        request.adminContext!, request.params.partnerId, request.body.language,
+        request.body.banner, request.body.templateVariant,
+      );
+    },
+  );
+
+  f.post(
+    `${ROUTE}/:partnerId/email`,
+    { bodyLimit: 1024 * 1024, schema: { params: ParamsSchema, body: PartnerEmailSendInputSchema } },
+    async (request) =>
+      sendPartnerEmail(
+        request.adminContext!,
+        request.params.partnerId,
+        request.body,
+      ),
   );
 
   f.post(

@@ -37,6 +37,7 @@ export default async function DiscoverIndividualsPage() {
           initialNextCursor={page.nextCursor}
           canCreateIndividuals={isGlobalAdminRole(adminContext.role)}
           canManageIndividualStatus={isGlobalAdminRole(adminContext.role)}
+          canExportPartnersCsv={isGlobalAdminRole(adminContext.role)}
         />
       </HeaderUnclutterScope>
     </div>
