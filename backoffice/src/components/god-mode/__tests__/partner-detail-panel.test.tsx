@@ -216,6 +216,8 @@ it("opens the email preview from the detail panel without sending and keeps the 
           "https://golden-crow-backoffice.vercel.app/publisher-portal/login?callbackUrl=%2Fpublisher-portal%2Fapp%2Fedit",
         category: "contract",
         language: "es",
+        partnerName: "Acme",
+        from: "federico@goldencrowvs.com",
         templateVariant: 1,
         previewHash: "a".repeat(64),
       } as never;

@@ -1,4 +1,6 @@
-import type { PartnerSection } from "@/lib/connected-partners";
+import { PARTNERS_QUERY_KEY, type PartnerSection } from "@/lib/connected-partners";
+
+export const PARTNER_EMAIL_HISTORY_QUERY_KEY = [...PARTNERS_QUERY_KEY, "email-history"] as const;
 
 export type PartnerEmailLanguage = "es" | "en";
 export type PartnerEmailTemplateVariant = 1 | 2;
@@ -12,6 +14,8 @@ export type PartnerEmailBannerInput = { contextHash: string; dataUrl: string };
 
 export type PartnerEmailPreview = {
   partnerId: string;
+  partnerName: string;
+  from: string;
   to: string;
   subject: string;
   text: string;
@@ -42,6 +46,30 @@ export type PartnerEmailSendResult = {
   sentAt: string | null;
   requestId: string;
   error?: string;
+};
+
+export type PartnerEmailHistoryRecord = {
+  requestId: string;
+  partnerId: string;
+  partnerName: string | null;
+  from: string | null;
+  to: string;
+  subject: string | null;
+  category: PartnerSection | null;
+  language: PartnerEmailLanguage;
+  templateVariant: PartnerEmailTemplateVariant | null;
+  status: PartnerEmailSendResult["status"];
+  createdAt: string;
+  updatedAt: string;
+  sentAt: string | null;
+  requestedByEmail: string;
+  messageAvailable: boolean;
+  accessKeyOmitted: boolean;
+  messageText?: string | null;
+};
+export type PartnerEmailHistoryPage = {
+  emails: PartnerEmailHistoryRecord[];
+  nextCursor: string | null;
 };
 
 // Preserve the email's exact presentation while making this a read-only preview.

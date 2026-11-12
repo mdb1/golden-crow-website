@@ -6,6 +6,7 @@ import type {
 import { ENV } from "../config/env.js";
 import { AdminRepositoryError } from "../repositories/admin-errors.js";
 import { partnerSection } from "./partner-section.js";
+import { PARTNER_EMAIL_FROM_EMAIL } from "./partner-email-delivery.js";
 import {
   PARTNER_BANNER_CONTENT_ID,
   type PartnerEmailBannerBrand,
@@ -24,6 +25,8 @@ export type {
 } from "./partner-email-copy.js";
 export type PartnerEmailPreview = {
   partnerId: string;
+  partnerName: string;
+  from: string;
   to: string;
   subject: string;
   text: string;
@@ -168,6 +171,8 @@ ${!presentation?.banner || copy.paragraphs.length ? ctaHtml : ""}
 <p style="margin:28px 0 0;font-size:16px;line-height:26px;color:#6b7280;">${escapeHtml(closing).replace(/\n/g, "<br>")}</p></td></tr></table></td></tr></table></body></html>`;
   const content = {
     partnerId: partner.id,
+    partnerName: partner.companyName,
+    from: PARTNER_EMAIL_FROM_EMAIL,
     to: partner.email,
     subject: copy.subject,
     text,

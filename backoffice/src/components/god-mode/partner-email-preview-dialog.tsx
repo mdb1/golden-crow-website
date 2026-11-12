@@ -360,6 +360,8 @@ export function PartnerEmailPreviewDialog({
               {preview && (
                 <>
                   <dl className="grid gap-3 rounded-2xl border bg-background/80 p-4 text-sm sm:grid-cols-[auto_minmax(0,1fr)] sm:gap-x-4">
+                    <dt className="text-muted-foreground">{t("From")}</dt>
+                    <dd className="break-all font-medium">{preview.from}</dd>
                     <dt className="text-muted-foreground">{t("Recipient")}</dt>
                     <dd className="break-all font-medium">{preview.to}</dd>
                     <dt className="text-muted-foreground">{t("Subject")}</dt>

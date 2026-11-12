@@ -202,14 +202,14 @@ Backoffice routes:
 
 Partner email preview and delivery:
   GET /admin/connected-partners/:partnerId/email-preview[?language=es|en&templateVariant=1|2]
-    Returns { partnerId, to, subject, text, html, ctaLabel, ctaUrl, category,
+    Returns { partnerId, partnerName, from, to, subject, text, html, ctaLabel, ctaUrl, category,
       language, templateVariant, previewHash }. Spanish and template 1 are the defaults.
     Template 1 uses the first supplied bilingual table (more detail); template 2
     uses the second supplied table (short and direct). No email is sent.
     Builds the exact sender content using the current contact and directly linked
     publishers/app, with the same purple Pocket Genes styling as publisher access
     invitations. Historical snapshots never select a message or establish status.
-    The template variant, rendered message and authoritative publisher/app identity are bound into
+    The partner name, sender, template variant, rendered message and authoritative publisher/app identity are bound into
     previewHash (SHA-256). Contact email, subject, body, HTML and CTA cannot be
     authored or overridden by the client.
     noOrganization: request an organization profile at the exact public join-us
@@ -250,6 +250,18 @@ Partner email preview and delivery:
     a different partner, preview hash, language or template variant (409). A 412 is a known unsent
     precondition failure that requires a new preview; a 409 can represent a prior
     uncertain command and must not authorize a new send automatically.
+  GET /admin/connected-partners/sent-email-log[?limit=20&cursor=<opaque>]
+    Returns { emails, nextCursor }. Lists every recorded send command, including
+    sent, sending, unknown and failed outcomes; the UI distinguishes each status.
+    Orders by updatedAt descending then document ID descending, so a later retry
+    appears with the latest activity. Reads at most 21
+    projected summaries, returns at most 20, and never loads message bodies or
+    mutable partner/publisher documents. The pel1 cursor stores the last visible
+    updatedAt and requestId and remains usable after that record is deleted.
+  GET /admin/connected-partners/sent-email-log/:requestId
+    Returns { email } with the frozen messageText using one direct document read.
+    Both history routes require GOD MODE and use private, no-store responses.
+    Invalid limits/cursors/IDs return 400; missing detail records return 404.
 
 Email command persistence:
   Firestore project: mydnamap
@@ -262,7 +274,18 @@ Email command persistence:
     createdAt/updatedAt: ISO UTC datetime;
     sentAt: nullable ISO UTC datetime;
     requestedByEmail: authenticated GOD MODE operator email.
-  No subject, HTML, text, full partner/snapshot record or credentials are stored.
+    historySnapshot: nullable server-managed map containing partnerName, from,
+      subject, category, messageText and accessKeyOmitted.
+  The frozen history snapshot is reserved atomically with the send command before
+  transport. It survives partner edits/deletion and never rebuilds old copy from
+  a current template. messageText retains the reviewed wording and destination,
+  removing only the accessKey query parameter. Plaintext credentials, HTML, banner
+  data and full partner/publisher snapshots are never stored in the command.
+  History list responses omit messageText; details load only on expansion.
+  Existing commands without historySnapshot remain visible with date, recipient,
+  status and operator. Their unrecorded sender, subject, partner name and body
+  remain null instead of being guessed. A missing historical templateVariant is
+  shown as unrecorded by history while command replay still defaults it to 1.
   Historical commands without templateVariant decode as 1 for safe status replays.
   A Firestore transaction reserves sending before Gmail is called. Concurrent
   double-clicks share the reservation. A known Gmail rejection or pre-send failure
@@ -271,6 +294,10 @@ Email command persistence:
   resent. Confirmation-persistence failure keeps the durable sending reservation
   and returns unknown; subsequent checks still cannot send again. Operators must
   verify Sent mail before starting another independent send after uncertainty.
+  Delivery uses Federico Bustos Fierro <federico@goldencrowvs.com> and the Federico
+  Gmail mailbox explicitly, using CRM_GMAIL_CLIENT_ID/SECRET/REFRESH_TOKEN with
+  generic OAuth credential fallbacks. MAIL_FROM, GMAIL_USER and CRM sender/user
+  overrides cannot change the partner sender. There is no no-reply fallback.
   Delivery uses the established Gmail transport without appending a signature, so
   the preview HTML/text exactly match the outbound content. Partner deletion does
   not cascade to delivery commands, preserving safe status checks and audit state.
@@ -291,6 +318,7 @@ language, template variant, action, message content or image require a new revie
 methods use no-store. The banner is a CID inline JPEG attachment in Gmail MIME;
 the inert preview substitutes only that image source with the exact data URL.
 No image, HTML, credential or full preview is persisted in partner_email_sends.
+Only its credential-free text history snapshot is retained for the history modal.
 Status replays still resolve the prior command before reading live data or
 rebuilding images. The no-organization invitation has no publisher banner.
 Approved bilingual wording is mirrored in docs/partner-email-templates.tsv for

@@ -122,6 +122,18 @@ function fillContact(phone = "") {
     target: { value: phone },
   });
 }
+
+it("opens the email history from the top button and reads nothing until requested", async () => {
+  jest.mocked(sdkFetch).mockResolvedValue({ emails: [], nextCursor: null });
+  renderWorkbench();
+  expect(sdkFetch).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "All emails sent" }));
+  const modal = await screen.findByRole("dialog", { name: "All emails sent" });
+  expect(await within(modal).findByText("No emails have been sent from Partners yet.")).toBeVisible();
+  expect(sdkFetch).toHaveBeenCalledWith(`${PARTNERS_API_ROUTE}/sent-email-log?limit=20`, expect.any(Object));
+  fireEvent.click(within(modal).getByRole("button", { name: "Finish" }));
+  expect(screen.queryByRole("dialog", { name: "All emails sent" })).not.toBeInTheDocument();
+});
 function review() {
   fireEvent.mouseDown(screen.getByRole("tab", { name: "Review" }));
 }
@@ -355,6 +367,8 @@ it("paginates 20 mixed publisher contacts in one shared section and opens the se
         ctaUrl: "https://example.test/publisher-portal/app/new",
         category: "individualWithoutApp",
         language: "es",
+        partnerName: "Acme",
+        from: "federico@goldencrowvs.com",
         templateVariant: 1,
         previewHash: "a".repeat(64),
       } as never;

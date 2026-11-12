@@ -30,6 +30,8 @@ const PARTNER_ID = "partner_one";
 const ENDPOINT = `${PARTNERS_API_ROUTE}/${PARTNER_ID}`;
 const preview: PartnerEmailPreview = {
   partnerId: PARTNER_ID,
+  partnerName: "Genome Studio",
+  from: "federico@goldencrowvs.com",
   to: "ana@example.com",
   subject: "Tu organización en Pocket Genes",
   text: "Hola Ana, conocé la red de Pocket Genes.",
@@ -112,6 +114,7 @@ it("prepares a Spanish, read-only preview without sending and shows recipient, s
     expect.objectContaining({ signal: expect.any(AbortSignal) }),
   );
   expect(screen.getByText(preview.to)).toBeVisible();
+  expect(screen.getByText(preview.from)).toBeVisible();
   expect(screen.getByText("No organization yet")).toBeVisible();
   expect(screen.getByText(preview.ctaLabel)).toBeVisible();
   expect(screen.getByText("Purple button destination")).toBeVisible();
