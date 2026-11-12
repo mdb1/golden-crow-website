@@ -19,12 +19,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { PARTNERS_ROUTE } from "@/lib/connected-partners";
-import type {
-  DiscoverIndividualsPage,
-  DiscoverOrganizationsPage,
-} from "@/lib/discover";
 import {
   collectDiscoverPartnerCsvExport,
+  type DiscoverPartnerExportPage,
   type DiscoverPartnerCsvExport,
   type PartnerExportPublisherKind,
 } from "@/lib/discover-partner-csv-export";
@@ -56,18 +53,12 @@ function PartnerCsvExportDialog({
       signal: controller.signal,
       onProgress: setProgress,
       fetchPage: async (cursor, signal) => {
-        const params = new URLSearchParams({ limit: "20" });
+        const params = new URLSearchParams({ kind, limit: "20" });
         if (cursor) params.set("cursor", cursor);
-        const endpoint =
-          kind === "organization" ? "organizations" : "individuals";
-        const page = await sdkFetch<
-          DiscoverOrganizationsPage | DiscoverIndividualsPage
-        >(`/discover/${endpoint}?${params}`, { signal });
-        return {
-          items:
-            "organizations" in page ? page.organizations : page.individuals,
-          nextCursor: page.nextCursor,
-        };
+        return sdkFetch<DiscoverPartnerExportPage>(
+          `/discover/partner-csv-export?${params}`,
+          { signal },
+        );
       },
     })
       .then((exported) => {
@@ -202,7 +193,7 @@ function PartnerCsvExportDialog({
               <div className="space-y-2 text-sm text-muted-foreground">
                 <p>
                   {t(
-                    "Publisher names, contact emails, internal notes, and publisher links are included. Phone, meeting date, and app ID are left blank because they are not stored in these profiles.",
+                    "Publisher names, contact emails, internal notes, publisher links, and existing app IDs are included. App ID is blank only when the publisher has no linked app. Phone and meeting date remain blank.",
                   )}
                 </p>
                 <p>

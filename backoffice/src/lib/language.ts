@@ -63,8 +63,8 @@ const SPANISH_TEXT: Record<string, string> = {
   "CSV files": "Archivos CSV",
   "Rows": "Filas",
   "Rows to complete or correct": "Filas para completar o corregir",
-  "Publisher names, contact emails, internal notes, and publisher links are included. Phone, meeting date, and app ID are left blank because they are not stored in these profiles.":
-    "Se incluyen nombres, emails de contacto, notas internas y vínculos a publicadores. El teléfono, la fecha de reunión y el ID de app quedan vacíos porque no se guardan en estos perfiles.",
+  "Publisher names, contact emails, internal notes, publisher links, and existing app IDs are included. App ID is blank only when the publisher has no linked app. Phone and meeting date remain blank.":
+    "Se incluyen nombres, emails de contacto, notas internas, vínculos a publicadores e IDs de apps existentes. El ID de app queda vacío solo cuando el publicador no tiene una app vinculada. El teléfono y la fecha de reunión quedan vacíos.",
   "Contact first and last names are optional. Organizations export them blank and can be imported without completing them.":
     "El nombre y apellido del contacto son opcionales. Las organizaciones los exportan vacíos y se pueden importar sin completarlos.",
   "Individual display names are split at the first space into firstName and lastName. Review compound names before importing. Existing parent organization links are included.":

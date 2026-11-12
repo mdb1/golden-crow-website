@@ -65,6 +65,22 @@ it("maps individual names and preserves both existing publisher links", () => {
   expect(review).toBeNull();
 });
 
+it.each(["organization", "individual"] as const)(
+  "exports the resolved %s app document ID in the importer's app column",
+  (kind) => {
+    const linkedAppId = `${kind}_${publisher.id}`;
+    const { input, review } = discoverPublisherPartnerRow(kind, {
+      ...publisher,
+      linkedAppId,
+    });
+    expect(input.linkedAppId).toBe(linkedAppId);
+    expect(serializePartnerCsvRow(input)).toMatch(
+      new RegExp(`,"${linkedAppId}"\\r\\n$`),
+    );
+    expect(review).toBeNull();
+  },
+);
+
 it("flags missing or invalid required data and overlong fields without removing or truncating rows", async () => {
   const items = [
     { ...publisher, name: "Prince", contactEmail: "" },
@@ -168,7 +184,11 @@ it("also splits by UTF-8 bytes, including the BOM, header and escaped quotes", a
 
 it("keeps the review sample bounded while counting every incomplete publisher", async () => {
   const result = await collect(
-    Array.from({ length: 25 }, (_, i) => ({ ...publisher, id: `p-${i}`, contactEmail: "" })),
+    Array.from({ length: 25 }, (_, i) => ({
+      ...publisher,
+      id: `p-${i}`,
+      contactEmail: "",
+    })),
     "organization",
   );
   expect(result.reviewSample).toHaveLength(10);
@@ -176,10 +196,17 @@ it("keeps the review sample bounded while counting every incomplete publisher", 
 });
 
 it("exports mononym professionals without requiring a surname", () => {
-  const { input, review } = discoverPublisherPartnerRow("individual", { ...publisher, name: "Prince" });
+  const { input, review } = discoverPublisherPartnerRow("individual", {
+    ...publisher,
+    name: "Prince",
+  });
   expect(input).toMatchObject({ firstName: "Prince", lastName: "" });
   expect(review).toBeNull();
-  expect(PARTNER_CSV_COLUMNS.filter(column => column.required).map(column => column.key)).toEqual(["companyName", "email"]);
+  expect(
+    PARTNER_CSV_COLUMNS.filter((column) => column.required).map(
+      (column) => column.key,
+    ),
+  ).toEqual(["companyName", "email"]);
 });
 
 it("returns no files for an empty collection", async () => {

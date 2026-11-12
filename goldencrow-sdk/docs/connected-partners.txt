@@ -345,3 +345,15 @@ are directly importable when companyName and email are valid; mononym individual
 publishers do not require a last name. Export reviews only flag actual validation
 failures, not absent optional names. Partner forms allow the same empty names.
 Emails greet nameless contacts with Hola, / Hi, without fabricating personal data.
+
+GET /discover/partner-csv-export?kind=organization|individual&limit=20&cursor=...
+requires GOD MODE and returns { items, nextCursor } with private, no-store caching.
+Each page reads at most 20 publishers using Discover's existing cursor and one
+batch of their canonical app_configs/{kind}_{publisherId} ownership fields.
+The export includes linkedAppId as the existing app document ID, regardless of
+app status or whether a public appProviderIdentifier has been assigned. Missing
+apps or mismatched publisherKind/publisherId leave that column empty. Individual
+exports retain their parent organization link but do not inherit its app.
+The response projects only id, name, contactEmail, internalNotes, the individual's
+linkedParentOrganizationId, and linkedAppId. It never exports access keys or app
+configuration content. Phone and meeting date remain blank in the CSV.

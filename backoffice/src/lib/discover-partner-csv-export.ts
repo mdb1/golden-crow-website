@@ -15,7 +15,14 @@ export type PartnerExportPublisher = Pick<
   DiscoverOrganizationRecord,
   "id" | "name" | "contactEmail" | "internalNotes"
 > &
-  Partial<Pick<DiscoverIndividualRecord, "linkedParentOrganizationId">>;
+  Partial<Pick<DiscoverIndividualRecord, "linkedParentOrganizationId">> & {
+    linkedAppId?: string | null;
+  };
+
+export type DiscoverPartnerExportPage = {
+  items: PartnerExportPublisher[];
+  nextCursor: string | null;
+};
 
 export type PartnerCsvExportReview = {
   publisherId: string;
@@ -66,7 +73,7 @@ export function discoverPublisherPartnerRow(
         ? publisher.id
         : publisher.linkedParentOrganizationId?.trim() || null,
     linkedIndividualPublisherId: kind === "individual" ? publisher.id : null,
-    linkedAppId: null,
+    linkedAppId: publisher.linkedAppId ?? null,
   };
   const parsed = ExportContactSchema.safeParse(input);
   return {
@@ -102,10 +109,7 @@ export async function collectDiscoverPartnerCsvExport({
   fetchPage: (
     cursor: string | null,
     signal: AbortSignal,
-  ) => Promise<{
-    items: PartnerExportPublisher[];
-    nextCursor: string | null;
-  }>;
+  ) => Promise<DiscoverPartnerExportPage>;
   signal: AbortSignal;
   onProgress?: (total: number) => void;
   date?: Date;

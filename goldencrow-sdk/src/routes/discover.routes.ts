@@ -13,6 +13,10 @@ import {
 import { canAccessDiscover } from "../repositories/roles.repository.js";
 import { isGlobalAdminRole } from "../lib/admin-roles.js";
 import {
+  DiscoverPartnerExportQuerySchema,
+  listDiscoverPartnerExport,
+} from "../repositories/discover-partner-export.repository.js";
+import {
   createDiscoverFeedItem,
   createDiscoverIndividual,
   createDiscoverOrganization,
@@ -792,6 +796,21 @@ export async function discoverRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(403).send({ error: "Discover access required" });
     }
   });
+
+  f.get(
+    "/discover/partner-csv-export",
+    { schema: { querystring: DiscoverPartnerExportQuerySchema } },
+    async (request, reply) => {
+      reply.header("Cache-Control", "private, no-store");
+      try {
+        return reply.send(
+          await listDiscoverPartnerExport(request.adminContext!, request.query),
+        );
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
 
   f.get(
     "/discover/organizations",

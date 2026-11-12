@@ -23,6 +23,7 @@ const publisher = {
   name: "Genome Lab",
   contactEmail: "HELLO@EXAMPLE.ORG",
   internalNotes: "Some notes",
+  linkedAppId: "organization_org-1",
 };
 
 function renderButton(
@@ -42,11 +43,13 @@ it("reads every bounded page on demand and downloads a linked CSV only when requ
   jest
     .mocked(sdkFetch)
     .mockResolvedValueOnce({
-      organizations: [publisher],
+      items: [publisher],
       nextCursor: "next / page",
     })
     .mockResolvedValueOnce({
-      organizations: [{ ...publisher, id: "org-2", name: "Second Lab" }],
+      items: [
+        { ...publisher, id: "org-2", name: "Second Lab", linkedAppId: null },
+      ],
       nextCursor: null,
     });
   renderButton();
@@ -59,15 +62,17 @@ it("reads every bounded page on demand and downloads a linked CSV only when requ
   });
   expect(sdkFetch).toHaveBeenNthCalledWith(
     1,
-    "/discover/organizations?limit=20",
+    "/discover/partner-csv-export?kind=organization&limit=20",
     { signal: expect.any(AbortSignal) },
   );
   expect(sdkFetch).toHaveBeenNthCalledWith(
     2,
-    "/discover/organizations?limit=20&cursor=next+%2F+page",
+    "/discover/partner-csv-export?kind=organization&limit=20&cursor=next+%2F+page",
     { signal: expect.any(AbortSignal) },
   );
-  expect(screen.getByText(/Contact first and last names are optional/)).toBeVisible();
+  expect(
+    screen.getByText(/Contact first and last names are optional/),
+  ).toBeVisible();
   expect(screen.queryByText(/Complete or correct these fields/)).toBeNull();
   expect(downloadPartnerCsvText).not.toHaveBeenCalled();
   fireEvent.click(download);
@@ -79,6 +84,10 @@ it("reads every bounded page on demand and downloads a linked CSV only when requ
   expect(jest.mocked(downloadPartnerCsvText).mock.calls[0][0]).toContain(
     "hello@example.org",
   );
+  expect(jest.mocked(downloadPartnerCsvText).mock.calls[0][0]).toContain(
+    '"org-1","","organization_org-1"',
+  );
+  expect(screen.getByText(/existing app IDs are included/)).toBeVisible();
   expect(screen.getByRole("link", { name: "Go to Partners" })).toHaveAttribute(
     "href",
     "/god-mode/partners",
@@ -87,12 +96,13 @@ it("reads every bounded page on demand and downloads a linked CSV only when requ
 
 it("exports individuals, including their parent organization, and explains name splitting", async () => {
   jest.mocked(sdkFetch).mockResolvedValue({
-    individuals: [
+    items: [
       {
         ...publisher,
         id: "person-1",
         name: "Ana Rivera",
         linkedParentOrganizationId: "parent-1",
+        linkedAppId: "individual_person-1",
       },
     ],
     nextCursor: null,
@@ -104,15 +114,18 @@ it("exports individuals, including their parent organization, and explains name 
   fireEvent.click(
     await screen.findByRole("button", { name: "Download CSV 1" }),
   );
-  expect(sdkFetch).toHaveBeenCalledWith("/discover/individuals?limit=20", {
-    signal: expect.any(AbortSignal),
-  });
+  expect(sdkFetch).toHaveBeenCalledWith(
+    "/discover/partner-csv-export?kind=individual&limit=20",
+    {
+      signal: expect.any(AbortSignal),
+    },
+  );
   expect(screen.getByText(/Review compound names/)).toBeVisible();
   expect(
     screen.queryByText(/All publishers remain in the CSV/),
   ).not.toBeInTheDocument();
   expect(downloadPartnerCsvText).toHaveBeenCalledWith(
-    expect.stringContaining('"parent-1","person-1",""'),
+    expect.stringContaining('"parent-1","person-1","individual_person-1"'),
     expect.any(String),
     "text/csv;charset=utf-8",
   );
@@ -121,7 +134,7 @@ it("exports individuals, including their parent organization, and explains name 
 it("withholds partial files on page failure and restarts from page one on retry", async () => {
   jest
     .mocked(sdkFetch)
-    .mockResolvedValueOnce({ organizations: [publisher], nextCursor: "next" })
+    .mockResolvedValueOnce({ items: [publisher], nextCursor: "next" })
     .mockRejectedValueOnce(new Error("Offline"));
   renderButton();
   fireEvent.click(
@@ -135,13 +148,13 @@ it("withholds partial files on page failure and restarts from page one on retry"
   ).not.toBeInTheDocument();
   jest
     .mocked(sdkFetch)
-    .mockResolvedValueOnce({ organizations: [publisher], nextCursor: null });
+    .mockResolvedValueOnce({ items: [publisher], nextCursor: null });
   fireEvent.click(screen.getByRole("button", { name: "Try again" }));
   expect(
     await screen.findByRole("button", { name: "Download CSV 1" }),
   ).toBeVisible();
   expect(jest.mocked(sdkFetch).mock.calls[2][0]).toBe(
-    "/discover/organizations?limit=20",
+    "/discover/partner-csv-export?kind=organization&limit=20",
   );
   expect(downloadPartnerCsvText).not.toHaveBeenCalled();
 });
@@ -164,7 +177,7 @@ it("cancels an in-flight export when closed and never starts the next page", asy
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   expect(signal.aborted).toBe(true);
   await act(async () =>
-    resolvePage({ organizations: [publisher], nextCursor: "next" }),
+    resolvePage({ items: [publisher], nextCursor: "next" }),
   );
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   expect(sdkFetch).toHaveBeenCalledTimes(1);
@@ -172,9 +185,7 @@ it("cancels an in-flight export when closed and never starts the next page", asy
 });
 
 it("shows the empty state without downloading a header-only file", async () => {
-  jest
-    .mocked(sdkFetch)
-    .mockResolvedValue({ organizations: [], nextCursor: null });
+  jest.mocked(sdkFetch).mockResolvedValue({ items: [], nextCursor: null });
   renderButton();
   fireEvent.click(
     screen.getByRole("button", { name: "Export as partners CSV" }),
@@ -190,9 +201,10 @@ it("shows the empty state without downloading a header-only file", async () => {
 it("offers separately downloadable parts that respect the import row limit", async () => {
   // More than 20 rows in this mock exercises file splitting; real calls always request limit=20.
   jest.mocked(sdkFetch).mockResolvedValue({
-    organizations: Array.from({ length: 201 }, (_, i) => ({
+    items: Array.from({ length: 201 }, (_, i) => ({
       ...publisher,
       id: `org-${i}`,
+      linkedAppId: null,
     })),
     nextCursor: null,
   });
