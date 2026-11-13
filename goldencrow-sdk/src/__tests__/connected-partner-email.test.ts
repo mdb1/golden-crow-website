@@ -385,7 +385,7 @@ it.each([base, withOrg, withApp("active_for_testing"), withApp("active")])("bind
     expect(second.category).toBe(first.category);
     expect(second.ctaUrl).toBe(first.ctaUrl);
     expect(second.previewHash).not.toBe(first.previewHash);
-    expect(second.subject).not.toBe(first.subject);
+    expect(second.text).not.toBe(first.text);
     expect(third.category).toBe(first.category);
     expect(third.ctaUrl).toBe(first.ctaUrl);
     expect(new Set([first.previewHash, second.previewHash, third.previewHash]).size).toBe(3);

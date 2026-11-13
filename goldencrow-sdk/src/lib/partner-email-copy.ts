@@ -59,7 +59,7 @@ export const PARTNER_EMAIL_COPY: Record<
     },
     withoutApp: {
       es: {
-        subject: "¡Vamos con la app de {publisherName}!",
+        subject: "¡Una app personalizada para {publisherName}!",
         preheader:
           "Tu marca, tus contenidos, tu comunidad. Empezá con una demo gratis.",
         heading: "¡Estrená tu propia app!",
@@ -74,7 +74,7 @@ export const PARTNER_EMAIL_COPY: Record<
         callback: APP_NEW_PATH,
       },
       en: {
-        subject: "Let’s create {publisherName}’s app!",
+        subject: "A personalized app for {publisherName}!",
         preheader:
           "Your brand, your content, your community. Start with a free demo.",
         heading: "Say hello to your own app!",
@@ -179,7 +179,7 @@ export const PARTNER_EMAIL_COPY: Record<
     },
     withoutApp: {
       es: {
-        subject: "¡Una app para {publisherName}!",
+        subject: "¡Una app personalizada para {publisherName}!",
         preheader: "Tu marca tiene mucho para contar. Dale su propia app.",
         heading: "¡Dale a {publisherName} su propia app!",
         lead: "Tus novedades, tus eventos y tu comunidad. Todo con tu marca.",
@@ -189,7 +189,7 @@ export const PARTNER_EMAIL_COPY: Record<
         callback: APP_NEW_PATH,
       },
       en: {
-        subject: "An app of your own, {publisherName}!",
+        subject: "A personalized app for {publisherName}!",
         preheader: "Your brand has a story to tell. Give it an app of its own.",
         heading: "Give {publisherName} its own app!",
         lead: "Your news, your events, your community. All under your brand.",
@@ -280,7 +280,7 @@ export const PARTNER_EMAIL_COPY: Record<
     },
     withoutApp: {
       es: {
-        subject: "¡Hagamos la app de {publisherName}!",
+        subject: "¡Una app personalizada para {publisherName}!",
         preheader: "Te preparamos una demo gratis de tu propia app.",
         heading: "¡Hagamos tu app!",
         lead: "Te preparamos una demo gratis con el nombre y la imagen de {publisherName}.",
@@ -292,7 +292,7 @@ export const PARTNER_EMAIL_COPY: Record<
         callback: APP_NEW_PATH,
       },
       en: {
-        subject: "Let's create an app for {publisherName}!",
+        subject: "A personalized app for {publisherName}!",
         preheader: "We'll create a free demo of your own app.",
         heading: "Let's create your app!",
         lead: "We'll create a free app demo with {publisherName}'s name and branding.",
