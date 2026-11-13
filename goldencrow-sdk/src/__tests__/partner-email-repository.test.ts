@@ -403,6 +403,9 @@ describe("publisher email access-token fallback", () => {
       expect(preview.accessCodeExpiresAt).toBe(
         new Date(payload.expiresAt * 1000).toISOString(),
       );
+      expect(Date.parse(preview.accessCodeExpiresAt!) - Date.now()).toBeGreaterThanOrEqual(
+        31 * 86_400_000,
+      );
       expect(preview.accessCodeUnavailableReason).toBeUndefined();
       expect(preview.previewHash).toBe(args.previewHash);
       expect(mockDocs.has(requestPath)).toBe(false);
@@ -426,6 +429,7 @@ describe("publisher email access-token fallback", () => {
       expect(mockDocs.get(publisherPath)).toEqual(publisherBefore);
       expect(mockPublisherCustomToken).not.toHaveBeenCalled();
 
+      jest.setSystemTime(new Date("2026-12-12T15:30:00Z"));
       expect(await exchangePublisherAccessCode(partner.email, token)).toEqual({
         customToken: "primary-publisher-custom-token",
       });

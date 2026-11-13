@@ -3,6 +3,8 @@ import { z } from "zod";
 import { AdminRepositoryError } from "../repositories/admin-errors.js";
 
 const DAY_SECONDS = 86_400;
+const ACCESS_CODE_LIFETIME_SECONDS = 32 * DAY_SECONDS;
+const LEGACY_ACCESS_CODE_LIFETIME_SECONDS = 2 * DAY_SECONDS;
 export const PublisherAccessCodeIdentitySchema = z.object({
   email: z.string().email().max(254),
   uid: z.string().min(1).max(128),
@@ -56,14 +58,15 @@ export function createPublisherAccessCode(
   partnerId: string,
   now = new Date(),
 ) {
-  // A stable daily window keeps previews reproducible. Codes remain valid for
-  // 24–48 hours, and role/identity/password revocation is checked at redemption.
+  // A stable daily issue time keeps reviewed emails reproducible. A 32-day
+  // window guarantees at least 31 full days from generation, even at day's end.
+  // Role/identity/password revocation is still checked at redemption.
   const issuedAt = Math.floor(now.getTime() / 1000 / DAY_SECONDS) * DAY_SECONDS;
   const payload = PayloadSchema.parse({
     ...identity,
     partnerId,
     issuedAt,
-    expiresAt: issuedAt + 2 * DAY_SECONDS,
+    expiresAt: issuedAt + ACCESS_CODE_LIFETIME_SECONDS,
   });
   const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
   return {
@@ -103,12 +106,16 @@ export function readPublisherAccessCode(
   }
   const parsed = PayloadSchema.safeParse(decoded);
   const seconds = Math.floor(now.getTime() / 1000);
+  const lifetimeSeconds = parsed.success
+    ? parsed.data.expiresAt - parsed.data.issuedAt
+    : null;
   if (
     !parsed.success ||
     parsed.data.email !== email.trim().toLowerCase() ||
     parsed.data.issuedAt > seconds ||
     parsed.data.expiresAt <= seconds ||
-    parsed.data.expiresAt - parsed.data.issuedAt !== 2 * DAY_SECONDS
+    (lifetimeSeconds !== ACCESS_CODE_LIFETIME_SECONDS &&
+      lifetimeSeconds !== LEGACY_ACCESS_CODE_LIFETIME_SECONDS)
   )
     throw invalid();
   return parsed.data;

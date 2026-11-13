@@ -1,3 +1,4 @@
+import { createHmac, hkdfSync } from "node:crypto";
 import { buildRouteServer, makeAdminContext } from "./support/route-harness.js";
 import type { Partner } from "../contracts/connected-partners.js";
 
@@ -60,6 +61,28 @@ const partner: Partner = {
 const now = new Date("2026-11-11T12:00:00Z");
 const secretEnv = "PUBLISHER_PORTAL_ACCESS_CODE_SIGNING_SECRET";
 const originalSecret = process.env[secretEnv];
+
+function signedCodeWithLifetime(days: number) {
+  const issuedAt = Date.parse("2026-11-11T00:00:00Z") / 1000;
+  const payload = Buffer.from(JSON.stringify({
+    ...identity,
+    partnerId: partner.id,
+    issuedAt,
+    expiresAt: issuedAt + days * 86_400,
+  })).toString("base64url");
+  const key = Buffer.from(hkdfSync(
+    "sha256",
+    process.env[secretEnv]!,
+    "pocketgenes-publisher-portal",
+    "access-code-v1",
+    32,
+  ));
+  const signature = createHmac("sha256", key)
+    .update(`pgp1.${payload}`)
+    .digest("base64url");
+  return `pgp1.${payload}.${signature}`;
+}
+
 beforeEach(() => {
   jest.resetAllMocks();
   docs.clear();
@@ -99,7 +122,7 @@ it("creates reproducible, scoped, expiring credentials and validates the recipie
   expect(
     readPublisherAccessCode(first.accessKey, " ANA@EXAMPLE.COM ", now),
   ).toMatchObject({ ...identity, partnerId: partner.id });
-  expect(first.expiresAt).toBe("2026-11-13T00:00:00.000Z");
+  expect(first.expiresAt).toBe("2026-12-13T00:00:00.000Z");
   expect(() =>
     readPublisherAccessCode(first.accessKey, "other@example.com", now),
   ).toThrow("invalid or expired");
@@ -117,6 +140,58 @@ it("creates reproducible, scoped, expiring credentials and validates the recipie
       new Date("2026-11-10T23:59:59Z"),
     ),
   ).toThrow("invalid or expired");
+});
+
+it.each([
+  "2026-01-31T00:00:00.000Z",
+  "2026-01-31T23:59:59.999Z",
+  "2026-02-28T23:59:59.999Z",
+  "2028-02-29T23:59:59.999Z",
+  "2026-12-31T23:59:59.999Z",
+])("guarantees at least 31 full days when generated at %s", (date) => {
+  const generatedAt = new Date(date);
+  const code = createPublisherAccessCode(identity, partner.id, generatedAt);
+  const expiresAt = Date.parse(code.expiresAt);
+  const minimumLifetime = 31 * 86_400_000;
+  expect(expiresAt - generatedAt.getTime()).toBeGreaterThanOrEqual(minimumLifetime);
+  expect(readPublisherAccessCode(
+    code.accessKey,
+    identity.email,
+    new Date(generatedAt.getTime() + minimumLifetime),
+  )).toMatchObject(identity);
+  expect(readPublisherAccessCode(
+    code.accessKey,
+    identity.email,
+    new Date(expiresAt - 1),
+  )).toMatchObject(identity);
+  expect(() => readPublisherAccessCode(
+    code.accessKey,
+    identity.email,
+    new Date(expiresAt),
+  )).toThrow("invalid or expired");
+});
+
+it("keeps already issued two-day codes valid only until their original expiry", () => {
+  const code = signedCodeWithLifetime(2);
+  expect(readPublisherAccessCode(code, identity.email, now)).toMatchObject(identity);
+  expect(readPublisherAccessCode(
+    code,
+    identity.email,
+    new Date("2026-11-12T23:59:59.999Z"),
+  )).toMatchObject(identity);
+  expect(() => readPublisherAccessCode(
+    code,
+    identity.email,
+    new Date("2026-11-13T00:00:00Z"),
+  )).toThrow("invalid or expired");
+});
+
+it.each([1, 31, 33, 365])("rejects signed codes with an unsupported %s-day lifetime", (days) => {
+  expect(() => readPublisherAccessCode(
+    signedCodeWithLifetime(days),
+    identity.email,
+    now,
+  )).toThrow("invalid or expired");
 });
 
 it("rejects tampering, malformed credentials, another signing purpose, and oversized inputs", () => {
