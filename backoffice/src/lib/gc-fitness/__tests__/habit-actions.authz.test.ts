@@ -419,6 +419,10 @@ describe("mintHabitPhotoUploadUrl", () => {
     await expect(mintHabitPhotoUploadUrl({ habitId: "h-own", contentLength: 0, contentType: "image/png" })).rejects.toThrow("BadRequest: contentLength");
     await expect(mintHabitPhotoUploadUrl({ habitId: "h-own", contentLength: 10 * 1024 * 1024 + 1, contentType: "image/png" })).rejects.toThrow("File too large");
     await expect(mintHabitPhotoUploadUrl({ habitId: "h-own", contentLength: 10, contentType: "image/gif" })).rejects.toThrow("BadRequest: contentType");
+    // inherited Object.prototype keys are not content types (#451)
+    for (const contentType of ["constructor", "toString", "__proto__", "hasOwnProperty"]) {
+      await expect(mintHabitPhotoUploadUrl({ habitId: "h-own", contentLength: 10, contentType })).rejects.toThrow("BadRequest: contentType");
+    }
     expect(mockStorage.getSignedUrl).not.toHaveBeenCalled();
   });
 
@@ -428,7 +432,13 @@ describe("mintHabitPhotoUploadUrl", () => {
       gsPath: "gs://gcfitness-3476b.firebasestorage.app/habits/h-own/photo.png",
     });
     expect(mockStorage.getSignedUrl).toHaveBeenCalledWith(
-      expect.objectContaining({ version: "v4", action: "write", contentType: "image/png" }),
+      expect.objectContaining({
+        version: "v4",
+        action: "write",
+        contentType: "image/png",
+        // #451 — the 10 MB cap is part of the signature.
+        extensionHeaders: { "x-goog-content-length-range": `0,${10 * 1024 * 1024}` },
+      }),
     );
     await mintHabitPhotoUploadUrl({ habitId: "tpl-own", ...ok });
     await mintHabitPhotoUploadUrl({ habitId: "habit-template-coach-a-new", contentLength: 5, contentType: "image/jpeg" });

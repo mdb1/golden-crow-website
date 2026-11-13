@@ -256,7 +256,7 @@ export const PARTNER_EMAIL_COPY: Record<
         preheader:
           "Compartí tus proyectos y eventos con la comunidad. Sumarte es gratis.",
         heading: "¡Sumate a Pocket Genes!",
-        lead: "¡Queremos a {companyName} en nuestra comunidad!",
+        lead: "¡Queremos que seas parte de nuestra comunidad!",
         paragraphs: [
           "Compartí tus proyectos, novedades y eventos. Conectá con profesionales, investigadores y organizaciones.",
           "Sumarte es gratis. Y también te preparamos una demo gratuita de tu propia app.",
