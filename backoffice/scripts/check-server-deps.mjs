@@ -12,7 +12,7 @@
 
 import { spawnSync } from "node:child_process";
 
-const SERVER_MODULES = ["firebase-admin/app", "firebase-admin/auth", "firebase-admin/firestore", "firebase-admin/storage", "firebase-admin/messaging", "next-firebase-auth-edge", "nodemailer"];
+const SERVER_MODULES = ["firebase-admin/app", "firebase-admin/auth", "firebase-admin/firestore", "firebase-admin/storage", "firebase-admin/messaging", "next-firebase-auth-edge", "jose", "nodemailer"];
 
 const failures = [];
 for (const mod of SERVER_MODULES) {

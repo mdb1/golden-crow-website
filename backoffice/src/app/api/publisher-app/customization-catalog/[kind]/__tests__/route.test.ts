@@ -1,8 +1,7 @@
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/session";
 import { GET } from "../route";
 
-jest.mock("next-auth", () => ({ getServerSession: jest.fn() }));
-jest.mock("@/lib/auth", () => ({ authOptions: { marker: "auth" } }));
+jest.mock("@/lib/session", () => ({ getServerSession: jest.fn() }));
 jest.mock("@/lib/publisher-app-customization-catalog-server", () => ({
   searchPublisherAppColorCatalog: jest.fn(() => ({
     catalogVersion: 1,

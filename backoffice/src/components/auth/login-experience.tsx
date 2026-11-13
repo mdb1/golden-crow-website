@@ -36,7 +36,7 @@ import {
   Mail,
   UserPlus,
 } from "lucide-react";
-import { signIn } from "next-auth/react";
+import { signIn } from "@/lib/session-client";
 import { auth } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import {
@@ -419,8 +419,8 @@ const LOGIN_SPANISH_TEXT: Record<string, string> = {
   "Creating account...": "Creando cuenta...",
   "Create account": "Crear cuenta",
   "Backoffice session handoff failed": "Fallo el traspaso de sesion",
-  "Firebase accepted the account, but NextAuth did not persist the browser session.":
-    "Firebase acepto la cuenta, pero NextAuth no persistio la sesion del navegador.",
+  "Firebase accepted the account, but the backoffice did not persist the browser session.":
+    "Firebase acepto la cuenta, pero el backoffice no persistio la sesion del navegador.",
   "Try again. If it repeats, clear this site's cookies and sign in again.":
     "Intenta de nuevo. Si se repite, borra las cookies de este sitio e inicia sesion otra vez.",
   "Email check could not run": "No se pudo verificar el email",
@@ -2009,7 +2009,7 @@ export function LoginExperience({
     }
 
     const message =
-      "Firebase accepted the account, but NextAuth did not persist the browser session.";
+      "Firebase accepted the account, but the backoffice did not persist the browser session.";
     setNotice({
       tone: "error",
       title: "Backoffice session handoff failed",
@@ -2018,7 +2018,7 @@ export function LoginExperience({
         "Try again. If it repeats, clear this site's cookies and sign in again.",
       ],
       log: authEventLog({
-        source: "next-auth",
+        source: "backoffice-session",
         event: "credentials-session-handoff",
         message,
         context: { project, redirectTo, signInResult },
@@ -2673,7 +2673,7 @@ export function LoginExperience({
         message,
         details: ["Try selecting the project again."],
         log: authErrorLog({
-          source: "next-auth",
+          source: "backoffice-session",
           event: "selected-project-session-handoff",
           message,
           error: err,

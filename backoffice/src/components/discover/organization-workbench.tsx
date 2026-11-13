@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { signOut } from "next-auth/react";
+import { signOut } from "@/lib/session-client";
 import {
   type ChangeEvent,
   type CSSProperties,

@@ -1,7 +1,6 @@
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 import { PatientProfileCompletion } from "@/components/auth/patient-profile-completion";
-import { authOptions } from "@/lib/auth";
 import { normalizePatientPortalCallbackUrl } from "@/lib/patient-portal-routes";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +10,7 @@ export default async function PatientPortalCompleteProfilePage({
 }: {
   searchParams?: Promise<{ callbackUrl?: string | string[] }>;
 } = {}) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   if (!session) {
     redirect("/patient-portal/login");
   }

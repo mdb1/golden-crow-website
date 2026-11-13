@@ -1,6 +1,6 @@
 "use client";
 
-import { signOut } from "next-auth/react";
+import { signOut } from "@/lib/session-client";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { AppearanceToggle } from "@/components/appearance-toggle";
@@ -40,7 +40,7 @@ export function PGFlexPortalHeader() {
     try {
       await fetch("/api/sdk/auth/logout", { method: "POST" });
     } catch {
-      // The NextAuth session is still cleared if the SDK logout is unavailable.
+      // The backoffice session is still cleared if the SDK logout is unavailable.
     } finally {
       await signOut({ callbackUrl: PGFLEX_LOGIN_ROUTE });
     }

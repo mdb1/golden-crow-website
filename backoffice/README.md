@@ -16,8 +16,8 @@ Create `backoffice/.env.local` with the following variables:
 |----------|-------------|
 | `GOLDENCROW_SDK_URL` | SDK base URL for server-side requests (e.g. `http://localhost:3000`) |
 | `NEXT_PUBLIC_SDK_URL` | SDK base URL for client-side requests (e.g. `http://localhost:3000`) |
-| `NEXTAUTH_SECRET` | Random secret for NextAuth session signing — generate with: `openssl rand -base64 32` |
-| `NEXTAUTH_URL` | Backoffice URL (e.g. `http://localhost:3001`) |
+| `NEXTAUTH_SECRET` | Root secret of the Pocket Genes session cookie (the name is historical — next-auth is gone since #470; renaming it signs everyone out). Generate with: `openssl rand -base64 32` |
+| `NEXTAUTH_URL` | No longer read by the backoffice since #470 (was next-auth's base URL). Harmless to keep. |
 | `NEXT_PUBLIC_FIREBASE_API_KEY` | Firebase web API key |
 | `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Firebase auth domain (e.g. `project-id.firebaseapp.com`) |
 | `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Firebase project ID |
@@ -77,7 +77,8 @@ merging, or the red shows up as a failed production deploy instead. The build is
 2. `next build` — includes the type check and the `"use server"` rules Jest can't see.
 3. `scripts/smoke-start.mjs` — `next start` **with require(esm) off (the Vercel
    runtime mode)**, then the requests of a sign-in on both surfaces: Pocket
-   Genes `/login`, NextAuth, dashboard/portal redirects; Corvo `/gc-fitness/login`,
+   Genes `/login`, `/api/auth/*` (session `{}`, login 400/403, old-tab csrf),
+   dashboard/portal redirects incl. a forged cookie; Corvo `/gc-fitness/login`,
    `/api/gc-fitness/login` with a bad token → 403 (firebase-admin loaded),
    dashboard redirect; the Open API upload without a token → 401; and no
    `ERR_REQUIRE_ESM` in the log. Proven against the 2026-10-15 outage: with
@@ -435,16 +436,12 @@ already protects production.
 
 `package.json` → `"overrides"` (JSON has no comments, so the reasons live here):
 
-- **`"next-auth": { "nodemailer": "$nodemailer" }`** — `next-auth@4` (latest
-  4.24.15) declares `peerOptional nodemailer@"^7.0.7"`. Without this override a
-  root `nodemailer` 8+ makes `npm install` / `npm ci` die with ERESOLVE, and
-  since `main` auto-deploys that is a production outage (#350, 2026-09-09, #395).
-  The override makes next-auth accept the root version (10.x). next-auth only
-  uses nodemailer from `EmailProvider`, which we don't use (Credentials only).
-  **Do not remove it while `next-auth@4` is installed.** Any change to it (or
-  a nodemailer bump) is tested with: `rm -rf node_modules && npm ci` (no
-  `--legacy-peer-deps` / `--force` — Vercel uses neither) → `npm run build` →
-  `npm run check:deploy-skew`.
+- ~~`"next-auth": { "nodemailer": "$nodemailer" }`~~ — **removed with next-auth
+  (#470).** It existed only because `next-auth@4` declared `peerOptional
+  nodemailer@"^7.0.7"` (ERESOLVE outages #350, 2026-09-09, #395). With next-auth
+  uninstalled a clean `npm ci` (no `--legacy-peer-deps` / `--force`) resolves
+  nodemailer 10 with no override. A nodemailer bump is still tested with
+  `rm -rf node_modules && npm ci` → `npm run build` → `npm run check:deploy-skew`.
 - **`"@grpc/grpc-js": "^1.14.6"`** — `@firebase/firestore` (client SDK) pins
   `~1.9.0`, which has no patched release for GHSA-m9gg-hp2v-232j /
   GHSA-f596-whhp-79r4. Forcing the 1.14 line (same one firebase-admin already
@@ -455,6 +452,54 @@ already protects production.
 ## Authentication
 
 Login is backend-controlled. Access is granted to emails in the SDK's `TEAM_ALLOWLIST` and to users with an active admin role assignment in Firebase (for example `full_admin`, `institution_admin`, or `institution_doctor`). Email account creation now checks that access first, creates the auth account only after approval, and then sends the authenticated user into a complete-profile flow that writes the required Firebase profile documents plus the matching `report_owners/{uid}` and `object_owners/{uid}` identities.
+
+### Pocket Genes session (no next-auth, #470)
+
+- **Login:** the browser gets a Firebase ID token (`goldencrow-pocketgenes`) and
+  `POST`s it to `/api/auth/login` with `project` + `accessSurface`. The route
+  (`src/app/api/auth/[...auth]/route.ts`) calls the SDK's `POST /auth/login`
+  (token verification + per-project `TEAM_ALLOWLIST` + surface, unchanged) via
+  `authorizeCredentials` in `src/lib/auth.ts`, then sets the session cookie.
+- **Cookie:** `__Secure-backoffice.session-token` (`backoffice.session-token`
+  over http): httpOnly, `SameSite=Lax`, a JWE (`dir`/A256GCM) keyed by HKDF of
+  `NEXTAUTH_SECRET` with its own label. Claims: `name`, `email`, `picture`,
+  `sub`, `project`, `accessSurface`. 30 days, rolled by `proxy.ts` once it is a
+  day old. Code: `src/lib/backoffice-session.ts`.
+- **Reading it:** `getServerSession()` from `@/lib/session` (server) and
+  `signIn` / `signOut` / `getSession` from `@/lib/session-client` (browser) —
+  same shapes as the next-auth calls they replaced. `proxy.ts` gates every
+  non-public path with the same redirects next-auth's `withAuth` did
+  (`/login`, `/patient-portal/login`, `/pgflex/login`, `/publisher-portal/login`
+  with `?callbackUrl=`; a `pgflex` / `publisher-portal` session on the main
+  surface goes to its own home).
+- **Isolation:** Corvo (`/gc-fitness/*`) keeps `GcFitnessAuthToken` +
+  `next-firebase-auth-edge`; neither cookie opens the other surface. We did not
+  move Pocket Genes onto `next-firebase-auth-edge`: it needs a
+  `goldencrow-pocketgenes` service account in the backoffice (new secrets), ties
+  the session to Firebase refresh tokens, and would have to store
+  `project`/`accessSurface` as custom claims on the shared Firebase users.
+
+#### Transition from next-auth — and its sunset
+
+Sessions minted by next-auth before #470 (`__Secure-next-auth.session-token`,
+or `next-auth.session-token` over http, incl. chunked `.0`/`.1`) keep working:
+`readSessionFromCookies` decrypts them with next-auth v4's derivation
+(HKDF-SHA256 of `NEXTAUTH_SECRET`, info `NextAuth.js Generated Encryption Key`,
+A256GCM) and `proxy.ts` / `GET /api/auth/session` re-issue them as the new
+cookie. The legacy cookie is **not** deleted on migration, so a
+`npx vercel rollback` keeps those users signed in (only users who signed in
+fresh after the deploy would have to sign in again after a rollback); logout and
+a fresh login delete it. Tabs opened before the deploy run next-auth/react's
+client, so `/api/auth/{csrf,providers,callback/credentials,signout,_log}` still
+answer its wire protocol. Tests pin all of it against cookies generated with the
+real next-auth 4.24.15 (`src/lib/__tests__/fixtures/next-auth-v4-sessions.json`).
+
+**Sunset — 30 days after #470 reaches production** (next-auth's `maxAge`;
+nothing refreshes a legacy cookie after the deploy, so none can still be valid):
+in a separate PR delete `decodeLegacyNextAuthToken`, `LEGACY_COOKIE_NAMES` and
+the legacy branch of `readSessionFromCookies`, the "TRANSITION" endpoints in
+`app/api/auth/[...auth]/route.ts`, and the fixtures. Keep `NEXTAUTH_SECRET` —
+it is the new cookie's root secret.
 
 ## Sections
 
@@ -698,7 +743,7 @@ Open:
 - Settings / quick replies: `http://localhost:3001/gc-fitness/settings`
 
 The GC Fitness routes use Firebase Auth plus the `GcFitnessAuthToken` cookie,
-not the PocketGenes NextAuth session. That is why `/gc-fitness/*` has its own
+not the PocketGenes backoffice session (`backoffice.session-token`). That is why `/gc-fitness/*` has its own
 login and logout flow.
 
 ### Seed the default exercise library

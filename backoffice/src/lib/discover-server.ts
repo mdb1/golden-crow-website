@@ -1,11 +1,10 @@
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/lib/auth";
 import { getAdminContextServer } from "@/lib/admin-context-server";
 import { isGlobalAdminRole } from "@/lib/admin-areas";
 
 export async function requireDiscoverFullAdmin() {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   const adminContext = await getAdminContextServer(session?.user?.project);
 
   if (!isGlobalAdminRole(adminContext.role) || adminContext.project !== "mydnamap") {
@@ -16,7 +15,7 @@ export async function requireDiscoverFullAdmin() {
 }
 
 export async function requireDiscoverAccess() {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   const adminContext = await getAdminContextServer(session?.user?.project);
 
   if (

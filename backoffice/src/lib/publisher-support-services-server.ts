@@ -1,9 +1,8 @@
 import "server-only";
 
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 import { getAdminContextServer } from "@/lib/admin-context-server";
-import { authOptions } from "@/lib/auth";
 import type {
   DiscoverIndividualRecord,
   DiscoverOrganizationRecord,
@@ -13,7 +12,7 @@ import { sdkFetchServer } from "@/lib/sdk-server";
 import type { SupportServiceProviderKind } from "@/lib/support-services";
 
 export async function requirePublisherSupportServicesAccess() {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   const adminContext = await getAdminContextServer(session?.user?.project);
   const organizationId = adminContext.organizationId?.trim();
   const individualId = adminContext.individualId?.trim();

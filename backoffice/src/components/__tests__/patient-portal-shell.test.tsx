@@ -23,7 +23,7 @@ jest.mock("next/navigation", () => ({
   useRouter: () => ({ replace: jest.fn(), refresh: jest.fn() }),
 }));
 
-jest.mock("next-auth/react", () => ({
+jest.mock("@/lib/session-client", () => ({
   signOut: jest.fn(),
 }));
 

@@ -31,7 +31,7 @@ jest.mock("next/navigation", () => ({
   }),
 }));
 
-jest.mock("next-auth/react", () => ({
+jest.mock("@/lib/session-client", () => ({
   signOut: (...args: unknown[]) => signOut(...args),
 }));
 

@@ -8,8 +8,11 @@
 // and sends the requests a browser sends when someone signs in, on BOTH
 // surfaces:
 //
-//   Pocket Genes   /login 200 · NextAuth providers/csrf 200 · dashboard → 307
-//                  /login · patient/publisher portals → 307 their own login
+//   Pocket Genes   /login 200 · /api/auth/session 200 {} · old-tab csrf 200 ·
+//                  POST /api/auth/login without a token → 400, cross-site → 403 ·
+//                  dashboard → 307 /login (also with a FORGED session cookie,
+//                  which proves jose loads and rejects it) · patient/publisher
+//                  portals → 307 their own login
 //   Corvo          /gc-fitness/login 200 · POST /api/gc-fitness/login with a
 //                  bad token → 403 (firebase-admin loaded and rejected it) ·
 //                  /gc-fitness/dashboard → 307 /gc-fitness/login
@@ -62,8 +65,8 @@ const check = (label, ok, detail = "") => {
 async function request(pathname, init = {}) {
   const res = await fetch(BASE + pathname, { redirect: "manual", ...init });
   const location = (res.headers.get("location") ?? "").replace(/^https?:\/\/[^/]+/, "");
-  await res.arrayBuffer();
-  return { status: res.status, location };
+  const body = await res.text();
+  return { status: res.status, location, body };
 }
 
 async function waitForReady() {
@@ -88,8 +91,8 @@ try {
       const r = await request(pathname, init);
       check(`${label} → ${status}`, r.status === status, `got ${r.status}${r.location ? ` → ${r.location}` : ""}`);
     };
-    const expectRedirect = async (label, pathname, target) => {
-      const r = await request(pathname);
+    const expectRedirect = async (label, pathname, target, init) => {
+      const r = await request(pathname, init);
       check(
         `${label} → 307 ${target}`,
         r.status === 307 && r.location.split("?")[0] === target,
@@ -99,9 +102,22 @@ try {
 
     // Pocket Genes
     await expectStatus("Pocket Genes login page", "/login", 200);
-    await expectStatus("NextAuth providers", "/api/auth/providers", 200);
-    await expectStatus("NextAuth csrf", "/api/auth/csrf", 200);
+    const forged = { headers: { cookie: "__Secure-backoffice.session-token=forged; __Secure-next-auth.session-token=forged" } };
+    const session = await request("/api/auth/session", forged);
+    check("Pocket Genes session API with a forged cookie → 200 {}", session.status === 200 && session.body.trim() === "{}", `got ${session.status} ${session.body.slice(0, 200)}`);
+    await expectStatus("old-tab next-auth csrf (transition)", "/api/auth/csrf", 200);
+    await expectStatus("Pocket Genes login API without a token", "/api/auth/login", 400, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    await expectStatus("Pocket Genes login API from another site", "/api/auth/login", 403, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: "https://evil.example" },
+      body: JSON.stringify({ idToken: "not-a-token" }),
+    });
     await expectRedirect("Pocket Genes dashboard without a session", "/", "/login");
+    await expectRedirect("Pocket Genes dashboard with a forged session cookie", "/2pq-dashboard", "/login", forged);
     await expectRedirect("patient portal without a session", "/patient-portal/home", "/patient-portal/login");
     await expectRedirect("publisher portal without a session", "/publisher-portal/home", "/publisher-portal/login");
 

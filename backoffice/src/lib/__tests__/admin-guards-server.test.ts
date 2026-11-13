@@ -24,10 +24,9 @@ jest.mock("next/navigation", () => ({
     throw new RedirectError(href);
   }),
 }));
-jest.mock("next-auth", () => ({
+jest.mock("@/lib/session", () => ({
   getServerSession: (...args: unknown[]) => mockGetServerSession(...args),
 }));
-jest.mock("@/lib/auth", () => ({ authOptions: { marker: "authOptions" } }));
 
 import {
   getAdminContextServer,
@@ -113,7 +112,7 @@ describe("getAdminContextServer", () => {
     await expect(getAdminContextServer()).rejects.toThrow("401");
   });
 
-  // #451: the active project comes from the next-auth session, i.e. from the
+  // #451: the active project comes from the backoffice session, i.e. from the
   // `project` the browser posted at sign-in. It is honoured only when the
   // SDK's projectAccess lists it.
   it("does not accept an active project outside projectAccess", async () => {
@@ -192,10 +191,10 @@ describe("requireDiscoverFullAdmin", () => {
     mockGetServerSession.mockResolvedValue({ user: { project: "mydnamap" } });
   });
 
-  it("passes the session to getServerSession(authOptions) and the project to the context", async () => {
+  it("passes the session to getServerSession() and the project to the context", async () => {
     givenContext();
     await requireDiscoverFullAdmin();
-    expect(mockGetServerSession).toHaveBeenCalledWith({ marker: "authOptions" });
+    expect(mockGetServerSession).toHaveBeenCalledWith();
   });
 
   it.each(["full_admin", "2pq_admin"])("allows %s on mydnamap", async (role) => {

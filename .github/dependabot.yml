@@ -11,9 +11,11 @@
 #     The uuid advisory that PR chased is closed with an npm override instead.
 #     scripts/check-server-deps.mjs now fails the build if this comes back.
 #
-# nodemailer is NOT ignored any more: next-auth 4's peerOptional nodemailer ^7
-# is satisfied by an npm override in backoffice/package.json (see
-# backoffice/README.md → "Dependency overrides").
+#   jose >= 6 (backoffice) — ESM-only, same trap. The Pocket Genes session
+#     cookie (#470) uses jose 5 directly; check-server-deps loads it too.
+#
+# nodemailer is NOT ignored: next-auth (whose peerOptional nodemailer ^7 needed
+# an npm override) was removed from the backoffice in #470.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -30,3 +32,5 @@ updates:
     ignore:
       - dependency-name: firebase-admin
         versions: [">=14"]
+      - dependency-name: jose
+        versions: [">=6"]

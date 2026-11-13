@@ -2,7 +2,7 @@
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { signOut as signOutFirebase } from "firebase/auth";
-import { signOut as signOutNextAuth } from "next-auth/react";
+import { signOut as signOutNextAuth } from "@/lib/session-client";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { PublisherPortalHeader } from "@/components/publisher-portal-header";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -20,7 +20,7 @@ jest.mock("next/navigation", () => ({
   }),
 }));
 
-jest.mock("next-auth/react", () => ({
+jest.mock("@/lib/session-client", () => ({
   signOut: jest.fn(),
 }));
 

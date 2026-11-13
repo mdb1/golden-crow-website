@@ -1,13 +1,12 @@
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 import { TransportDispatcherProfileCompletion } from "@/components/auth/transport-dispatcher-profile-completion";
-import { authOptions } from "@/lib/auth";
 import { PGFLEX_LOGIN_ROUTE } from "@/lib/pgflex-routes";
 
 export const dynamic = "force-dynamic";
 
 export default async function PGFlexCompleteProfilePage() {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   if (!session) {
     redirect(PGFLEX_LOGIN_ROUTE);
   }

@@ -8,16 +8,13 @@ import {
 } from "@/lib/publisher-support-services-server";
 import { PUBLISHER_PORTAL_HOME_ROUTE } from "@/lib/publisher-portal-routes";
 import { sdkFetchServer } from "@/lib/sdk-server";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 
-jest.mock("next-auth", () => ({
+jest.mock("@/lib/session", () => ({
   getServerSession: jest.fn(),
 }));
 
-jest.mock("@/lib/auth", () => ({
-  authOptions: { marker: "auth-options" },
-}));
 
 jest.mock("@/lib/admin-context-server", () => ({
   getAdminContextServer: jest.fn(),
