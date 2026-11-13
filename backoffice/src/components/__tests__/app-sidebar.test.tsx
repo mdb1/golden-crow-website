@@ -13,7 +13,7 @@ jest.mock("next/navigation", () => ({
   usePathname: () => pathname,
 }));
 
-jest.mock("next-auth/react", () => ({
+jest.mock("@/lib/session-client", () => ({
   signOut: jest.fn(),
 }));
 

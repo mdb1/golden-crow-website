@@ -4,7 +4,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { renderToStaticMarkup } from "react-dom/server.node";
-import { signIn } from "next-auth/react";
+import { signIn } from "@/lib/session-client";
 import {
   signInWithEmailAndPassword,
   signInWithCustomToken,
@@ -29,7 +29,7 @@ jest.mock("firebase/auth", () => ({
   signOut: jest.fn(),
 }));
 
-jest.mock("next-auth/react", () => ({
+jest.mock("@/lib/session-client", () => ({
   signIn: jest.fn(),
 }));
 

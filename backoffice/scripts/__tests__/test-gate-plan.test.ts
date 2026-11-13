@@ -53,7 +53,7 @@ describe("planTests — falls back to the full suite on any doubt", () => {
     "tsconfig.vercel.json",
     "next.config.ts",
     "src/lib/test-utils/fake-firestore-c.ts",
-    "src/types/next-auth.d.ts",
+    "src/types/session.d.ts",
     "scripts/test-gate.mjs",
     "scripts/test-gate-plan.cjs",
   ])("%s changing anywhere in the diff forces full", (file) => {

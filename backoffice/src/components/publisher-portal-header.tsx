@@ -1,6 +1,6 @@
 "use client";
 
-import { signOut } from "next-auth/react";
+import { signOut } from "@/lib/session-client";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { AppearanceToggle } from "@/components/appearance-toggle";

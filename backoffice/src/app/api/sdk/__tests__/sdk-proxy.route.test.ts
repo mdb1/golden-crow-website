@@ -3,12 +3,11 @@
 // Pins what the proxy forwards to the SDK (method, path, query, body, the
 // caller's headers incl. cookies) and what it strips (host, connection,
 // content-length, content-type on empty bodies, content-encoding on the way
-// back), the x-project injection from the NextAuth session, and the JSON
+// back), the x-project injection from the backoffice session, and the JSON
 // envelope for an empty upstream error. `fetch` is a jest mock.
 
 const mockGetServerSession = jest.fn();
-jest.mock("next-auth", () => ({ getServerSession: (...a: unknown[]) => mockGetServerSession(...a) }));
-jest.mock("@/lib/auth", () => ({ authOptions: { marker: "authOptions" } }));
+jest.mock("@/lib/session", () => ({ getServerSession: (...a: unknown[]) => mockGetServerSession(...a) }));
 
 import * as route from "@/app/api/sdk/[...sdkPath]/route";
 
@@ -75,7 +74,7 @@ it("GET: forwards path + query, caller cookies/auth, no body, strips hop headers
   expect(init.headers.get("content-type")).toBeNull();
   expect(init.headers.get("x-expected-session-uid")).toBe("publisher-1");
   expect(init.headers.get("x-project")).toBe("pocketgyms");
-  expect(mockGetServerSession).toHaveBeenCalledWith({ marker: "authOptions" });
+  expect(mockGetServerSession).toHaveBeenCalledWith();
 
   expect(res.status).toBe(200);
   expect(res.headers.get("content-encoding")).toBeNull();

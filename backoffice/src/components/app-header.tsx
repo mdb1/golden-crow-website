@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { onAuthStateChanged, type User as FirebaseUser } from "firebase/auth";
-import { signIn, signOut } from "next-auth/react";
+import { signIn, signOut } from "@/lib/session-client";
 import { usePathname, useRouter } from "next/navigation";
 import { AppearanceToggle } from "@/components/appearance-toggle";
 import { useAppLanguage } from "@/components/app-language-provider";
@@ -111,7 +111,7 @@ export function AppHeader({ user, adminContext }: AppHeaderProps) {
         method: "POST",
       });
     } catch {
-      // Best-effort logout of the SDK cookie before ending the NextAuth session.
+      // Best-effort logout of the SDK cookie before ending the backoffice session.
     } finally {
       await signOut({ callbackUrl: "/login" });
     }

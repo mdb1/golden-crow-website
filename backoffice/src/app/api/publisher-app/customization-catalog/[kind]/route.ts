@@ -1,5 +1,4 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getServerSession } from "@/lib/session";
 import {
   searchPublisherAppColorCatalog,
   searchPublisherAppTextCatalog,
@@ -22,7 +21,7 @@ export async function GET(
   request: Request,
   context: { params: Promise<{ kind: string }> },
 ) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   if (!session?.user?.email) {
     return Response.json(
       { error: "Authentication required." },

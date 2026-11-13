@@ -1,9 +1,4 @@
 import proxy, { config } from "../../proxy";
-import { withAuth } from "next-auth/middleware";
-
-jest.mock("next-auth/middleware", () => ({
-  withAuth: jest.fn(() => jest.fn(() => new Response("next-auth"))),
-}));
 
 jest.mock("next-firebase-auth-edge", () => ({
   authMiddleware: jest.fn(() => new Response("gc-fitness-auth")),
@@ -32,18 +27,16 @@ describe("proxy OpenAPI public routes", () => {
     expect(matcherIncludes("/2pq-dashboard/api-keys")).toBe(true);
   });
 
-  it("bypasses NextAuth if a public OpenAPI request reaches proxy directly", async () => {
-    const nextAuthHandler = (withAuth as jest.Mock).mock.results[0]
-      ?.value as jest.Mock;
-    nextAuthHandler.mockClear();
-
-    await proxy({
+  it("bypasses the session gate if a public OpenAPI request reaches proxy directly", async () => {
+    // A request without any session cookie: the gate would answer 307 /login.
+    const res = (await proxy({
       nextUrl: {
         pathname: "/open-api/oauth/token",
       },
       url: "https://golden-crow-backoffice.vercel.app/open-api/oauth/token",
-    } as never);
+    } as never)) as Response;
 
-    expect(nextAuthHandler).not.toHaveBeenCalled();
+    expect(res.status).not.toBe(307);
+    expect(res.headers.get("x-middleware-next")).toBe("1");
   });
 });

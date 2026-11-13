@@ -1,6 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { withAuth, type NextRequestWithAuth } from "next-auth/middleware";
 import { authMiddleware } from "next-firebase-auth-edge";
+import {
+  cookieJar,
+  getSessionSecret,
+  isSecureRequest,
+  readSessionFromCookies,
+  shouldReissue,
+  writeSessionCookie,
+  type Session,
+} from "@/lib/backoffice-session";
 
 // Next.js 16 `proxy.ts` file convention (renamed from src/middleware.ts in 02-03).
 // This file routes incoming requests to one of two auth stacks:
@@ -11,8 +19,9 @@ import { authMiddleware } from "next-firebase-auth-edge";
 //      flow. Public login/forbidden pages bypass the gate.)
 //   2. /open-api/*                                      →  public OpenAPI
 //      (client_id/client_secret and bearer tokens are validated inside handlers)
-//   3. Everything else                                  →  NextAuth `withAuth`
-//      (existing MyDNAMap / Pocket Gyms behavior preserved unchanged)
+//   3. Everything else                                  →  `sessionGate`
+//      (MyDNAMap / Pocket Gyms backoffice session cookie, #470 — was
+//      NextAuth `withAuth`, same redirects)
 //
 // Public gc-fitness pages (login, forbidden) bypass the auth check so users can
 // reach the sign-in CTA and the 403 page without a valid session. The login +
@@ -46,56 +55,65 @@ const PUBLISHER_PORTAL_PUBLIC_PATHS = new Set([
 ]);
 
 // The app-request review embeds this public asset. If it reaches the main
-// NextAuth branch, a publisher session is redirected to /publisher-portal/home
+// main session gate, a publisher session is redirected to /publisher-portal/home
 // and the iframe renders that page instead of PDF bytes.
 const PUBLIC_STATIC_DOCUMENT_PATHS = new Set([
   "/PocketGenesSDK_Terminos_y_Condiciones.pdf",
 ]);
 
-// NextAuth handler — reused for non-gc-fitness paths. Lazy-cached so we
-// don't pay the construction cost when only gc-fitness paths are hit.
-const nextAuthHandler = withAuth(
-  (request: NextRequestWithAuth) => {
-    if (request.nextauth.token?.accessSurface === "pgflex") {
-      return NextResponse.redirect(new URL("/pgflex/logistics", request.url));
-    }
+// Pocket Genes / Pocket Gyms session gate (#470: replaces next-auth's
+// `withAuth`, same semantics). No valid session → redirect to the surface's
+// sign-in page with `?callbackUrl=<path+search>`; a valid one runs `onValid`
+// (or passes through). A legacy next-auth cookie is accepted and re-issued as
+// the new cookie on the response, and a day-old new cookie is rolled, so the
+// session behaves like next-auth's 30-day rolling JWT.
+type GateOptions = {
+  signInPage: string;
+  onValid?: (session: Session, request: NextRequest) => NextResponse;
+};
 
-    if (request.nextauth.token?.accessSurface === "publisher-portal") {
-      return NextResponse.redirect(
-        new URL("/publisher-portal/home", request.url),
+async function sessionGate(request: NextRequest, options: GateOptions) {
+  const read = await readSessionFromCookies(cookieJar(request.cookies));
+  if (!read) {
+    const signInUrl = new URL(options.signInPage, request.nextUrl.origin);
+    signInUrl.searchParams.append(
+      "callbackUrl",
+      `${request.nextUrl.pathname}${request.nextUrl.search}`,
+    );
+    return NextResponse.redirect(signInUrl);
+  }
+
+  const response = options.onValid
+    ? options.onValid(read.session, request)
+    : NextResponse.next();
+
+  if (shouldReissue(read)) {
+    const secret = getSessionSecret();
+    if (secret) {
+      await writeSessionCookie(
+        response.cookies,
+        read.claims,
+        isSecureRequest(request),
+        secret,
       );
     }
+  }
+  return response;
+}
 
-    return NextResponse.next();
-  },
-  {
-    pages: {
-      signIn: "/login",
-      error: "/access-denied",
-    },
-  },
-);
+function mainSurfaceRedirects(session: Session, request: NextRequest) {
+  if (session.user.accessSurface === "pgflex") {
+    return NextResponse.redirect(new URL("/pgflex/logistics", request.url));
+  }
 
-const patientPortalAuthHandler = withAuth({
-  pages: {
-    signIn: "/patient-portal/login",
-    error: "/patient-portal/login",
-  },
-});
+  if (session.user.accessSurface === "publisher-portal") {
+    return NextResponse.redirect(
+      new URL("/publisher-portal/home", request.url),
+    );
+  }
 
-const pgflexAuthHandler = withAuth({
-  pages: {
-    signIn: "/pgflex/login",
-    error: "/pgflex/login",
-  },
-});
-
-const publisherPortalAuthHandler = withAuth({
-  pages: {
-    signIn: "/publisher-portal/login",
-    error: "/publisher-portal/login",
-  },
-});
+  return NextResponse.next();
+}
 
 export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -109,8 +127,7 @@ export default async function proxy(request: NextRequest) {
       return NextResponse.next();
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (patientPortalAuthHandler as any)(request);
+    return sessionGate(request, { signInPage: "/patient-portal/login" });
   }
 
   if (pathname.startsWith("/pgflex")) {
@@ -122,8 +139,7 @@ export default async function proxy(request: NextRequest) {
       return NextResponse.next();
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (pgflexAuthHandler as any)(request);
+    return sessionGate(request, { signInPage: "/pgflex/login" });
   }
 
   if (pathname.startsWith("/publisher-portal")) {
@@ -131,8 +147,7 @@ export default async function proxy(request: NextRequest) {
       return NextResponse.next();
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (publisherPortalAuthHandler as any)(request);
+    return sessionGate(request, { signInPage: "/publisher-portal/login" });
   }
 
   if (pathname === "/open-api" || pathname.startsWith("/open-api/")) {
@@ -255,11 +270,11 @@ export default async function proxy(request: NextRequest) {
     });
   }
 
-  // ── Existing NextAuth branch (unchanged behavior from pre-02-03) ────
-  // withAuth returns a Next.js middleware-shaped function. Invoke it with
-  // the request + an empty event placeholder (NextAuth doesn't use it).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (nextAuthHandler as any)(request);
+  // ── Pocket Genes / Pocket Gyms main surface (was NextAuth `withAuth`) ──
+  return sessionGate(request, {
+    signInPage: "/login",
+    onValid: mainSurfaceRedirects,
+  });
 }
 
 export const config = {
@@ -268,16 +283,16 @@ export const config = {
     // plus gc-fitness paths (handled in the branch above).
     // `__` excludes the Firebase Auth handler paths (/__/auth/*, /__/firebase/*)
     // self-hosted via next.config rewrites (#378) — otherwise this middleware
-    // would route them through the NextAuth branch and redirect the handler to
+    // would route them through the main session gate and redirect the handler to
     // /login, breaking the proxied sign-in flow.
     // `f` y `.well-known` son PÚBLICOS (#1037 / S6): `/f/r/{id}` es la landing del
     // link que alguien manda por WhatsApp — quien la abre normalmente no tiene
     // cuenta — y los dos archivos de `/.well-known/` los descargan los CDN de Apple
     // y Google, que no traen ninguna cookie. Sin esta exclusión los tres caen en la
-    // rama de NextAuth y terminan en /login: el link "no anda" y los Universal
+    // rama de la sesión principal y terminan en /login: el link "no anda" y los Universal
     // Links fallan en silencio, porque un AASA que responde 302 es un AASA que no
     // existe.
-    // Publisher-app API handlers validate the NextAuth session themselves.
+    // Publisher-app API handlers validate the backoffice session themselves.
     // Keep them outside this browser-surface gate: a publisher-portal token
     // reaching the main callback is intentionally redirected to
     // /publisher-portal/home, which turns an expected JSON response into HTML.

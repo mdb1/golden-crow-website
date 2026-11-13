@@ -1,6 +1,5 @@
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/lib/auth";
 import { getAdminContextServer } from "@/lib/admin-context-server";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { PublisherPortalHeader } from "@/components/publisher-portal-header";
@@ -16,7 +15,7 @@ export default async function PublisherPortalLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   if (!session) {
     redirect(PUBLISHER_PORTAL_LOGIN_ROUTE);
   }

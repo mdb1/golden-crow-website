@@ -24,15 +24,11 @@
 // Nothing in this file throws. A mail failure must never turn a completed
 // client-add into an error for the coach (see client-invite.ts).
 //
-// ⚠️ NODEMAILER 10 + next-auth 4 NEED THE `overrides` ENTRY IN package.json.
-// `next-auth@4.24.15` (latest 4.x) declares `peerOptional nodemailer@^7.0.7`;
-// without `"overrides": { "next-auth": { "nodemailer": "$nodemailer" } }` a root
-// nodemailer 8+ makes `npm install`/`npm ci` fail with ERESOLVE — a FAILED
-// PRODUCTION BUILD, because `main` auto-deploys (that is how #350, the
-// 2026-09-09 bump and #395 took the deploy down). next-auth only touches
-// nodemailer from EmailProvider, which this app does not use (Credentials
-// only). Do not remove the override while next-auth 4 is installed; see
-// backoffice/README.md → "Dependency overrides".
+// nodemailer used to need an `overrides` entry because next-auth@4 declared
+// `peerOptional nodemailer@^7.0.7` (ERESOLVE outages #350, 2026-09-09, #395).
+// next-auth is gone (#470) and so is the override. A nodemailer bump is still
+// tested with a clean `npm ci` (no flags) + `npm run build` +
+// `npm run check:deploy-skew`; see backoffice/README.md → "Dependency overrides".
 
 import "server-only";
 

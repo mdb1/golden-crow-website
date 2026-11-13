@@ -16,7 +16,7 @@ import {
   getSession,
   signIn as signInNextAuth,
   signOut as signOutNextAuth,
-} from "next-auth/react";
+} from "@/lib/session-client";
 
 jest.mock("@/lib/firebase", () => ({
   getFirebaseAuth: jest.fn(),
@@ -32,7 +32,7 @@ jest.mock("firebase/auth", () => ({
   signOut: jest.fn(),
 }));
 
-jest.mock("next-auth/react", () => ({
+jest.mock("@/lib/session-client", () => ({
   getSession: jest.fn(),
   signIn: jest.fn(),
   signOut: jest.fn(),
@@ -118,7 +118,7 @@ describe("SDK session recovery", () => {
       error: null,
       url: null,
     });
-    nextAuthSignOutMock.mockResolvedValue({ url: "" });
+    nextAuthSignOutMock.mockResolvedValue(undefined);
     Object.defineProperty(global, "fetch", {
       configurable: true,
       writable: true,

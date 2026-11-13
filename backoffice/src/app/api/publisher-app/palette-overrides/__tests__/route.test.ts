@@ -1,4 +1,4 @@
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/session";
 import { POST } from "../route";
 import { publisherAppColorsWithCounterpoints, publisherAppPreviousCounterpointColors, publisherAppSupersededCounterpointColors } from "@/lib/publisher-app-config";
 import { getLegacyPublisherAppColorCatalog, getPublisherAppColorCatalog } from "@/lib/publisher-app-customization-catalog-server";
@@ -13,8 +13,7 @@ import {
 } from "@/lib/publisher-app-palette-overrides";
 import { createLegacyPublisherAppPaletteOverridePlan, legacyPublisherAppCounterpointColors } from "@/lib/publisher-app-legacy-palette-overrides";
 
-jest.mock("next-auth", () => ({ getServerSession: jest.fn() }));
-jest.mock("@/lib/auth", () => ({ authOptions: { marker: "auth" } }));
+jest.mock("@/lib/session", () => ({ getServerSession: jest.fn() }));
 
 function colorContrast(left: string, right: string) {
   const luminance = (value: string) => [1, 3, 5].map(offset => Number.parseInt(value.slice(offset, offset + 2), 16) / 255)

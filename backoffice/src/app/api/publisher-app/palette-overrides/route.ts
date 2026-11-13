@@ -1,5 +1,4 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getServerSession } from "@/lib/session";
 import {
   normalizePublisherAppColor,
   publisherAppColorsWithCounterpoints,
@@ -67,7 +66,7 @@ function overrideMap(value: unknown, validKeys: Set<string>): Record<string, Pub
 }
 
 export async function POST(request: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   if (!session?.user?.email) {
     return Response.json({ error: "Authentication required." }, { status: 401 });
   }

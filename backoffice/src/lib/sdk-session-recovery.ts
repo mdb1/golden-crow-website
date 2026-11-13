@@ -1,7 +1,7 @@
 "use client";
 
 import type { User } from "firebase/auth";
-import type { Session } from "next-auth";
+import type { Session } from "@/lib/session-client";
 
 export type SdkSessionSurface = "backoffice" | "publisher-portal";
 
@@ -73,7 +73,7 @@ function pageSessionMatches(
 }
 
 async function requireMatchingPageSession(expected: SdkSessionIdentity) {
-  const { getSession } = await import("next-auth/react");
+  const { getSession } = await import("@/lib/session-client");
   const session = await getSession();
   if (!pageSessionMatches(session, expected)) {
     throw new SdkSessionRecoveryError(
@@ -144,7 +144,7 @@ async function completeInteractiveRecovery(
 ) {
   assertExpectedIdentity(user, expected);
   const idToken = await user.getIdToken(true);
-  const { getSession, signIn, signOut } = await import("next-auth/react");
+  const { getSession, signIn, signOut } = await import("@/lib/session-client");
   const nextAuthResult = await signIn("credentials", {
     idToken,
     name: user.displayName ?? "",

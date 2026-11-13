@@ -1,23 +1,17 @@
-// next-auth authorize() + jwt/session callbacks for the Pocket Genes login
-// (epic golden-crow-website#451).
+// authorizeCredentials() (was next-auth's CredentialsProvider.authorize, #470)
+// + the session shape, for the Pocket Genes login (epic golden-crow-website#451).
 //
-// The browser posts { idToken, email, name, ... } to signIn("credentials").
+// The browser posts { idToken, email, name, ... } to /api/auth/login.
 // Only the idToken is verified (by the SDK's POST /auth/login). The session
 // identity must therefore come from the SDK's reply, never from the
 // client-supplied `email` credential — except as a deploy-order fallback when
 // an older SDK replies `{ status: "ok" }` without identity fields.
 
-import { authOptions } from "@/lib/auth";
+import { authorizeCredentials } from "@/lib/auth";
+import { toSession } from "@/lib/backoffice-session";
 
-type AuthorizeFn = (
-  credentials: Record<string, string | undefined> | undefined,
-) => Promise<Record<string, unknown> | null>;
-
-function getAuthorize(): AuthorizeFn {
-  const provider = authOptions.providers[0] as unknown as {
-    options: { authorize: AuthorizeFn };
-  };
-  return provider.options.authorize;
+function getAuthorize() {
+  return authorizeCredentials;
 }
 
 function sdkReply(body: unknown, status = 200) {
@@ -39,7 +33,7 @@ afterEach(() => {
   global.fetch = originalFetch;
 });
 
-describe("authorize()", () => {
+describe("authorizeCredentials()", () => {
   it("returns null without calling the SDK when there is no idToken", async () => {
     await expect(getAuthorize()({ email: "a@b.com" })).resolves.toBeNull();
     await expect(getAuthorize()(undefined)).resolves.toBeNull();
@@ -147,63 +141,30 @@ describe("authorize()", () => {
   });
 });
 
-describe("jwt callback", () => {
-  const jwt = authOptions.callbacks!.jwt! as unknown as (args: {
-    token: Record<string, unknown>;
-    user?: Record<string, unknown>;
-  }) => Promise<Record<string, unknown>>;
-
-  it("copies project/accessSurface from the user on sign-in", async () => {
-    const token = await jwt({
-      token: { sub: "u" },
-      user: { project: "pocketgyms", accessSurface: "pgflex" },
-    });
-    expect(token).toMatchObject({ project: "pocketgyms", accessSurface: "pgflex" });
-  });
-
-  it("defaults project to mydnamap and normalises an unknown surface", async () => {
-    const token = await jwt({ token: {}, user: { accessSurface: "evil" } });
-    expect(token).toMatchObject({ project: "mydnamap", accessSurface: "backoffice" });
-  });
-
-  it("leaves the token untouched on refresh (no user)", async () => {
-    const token = { project: "mydnamap", accessSurface: "patient-portal" };
-    await expect(jwt({ token: { ...token } })).resolves.toEqual(token);
-  });
-});
-
-describe("session callback", () => {
-  const session = authOptions.callbacks!.session! as unknown as (args: {
-    session: { user?: Record<string, unknown> };
-    token: Record<string, unknown>;
-  }) => Promise<{ user?: Record<string, unknown> }>;
-
-  it("exposes project + normalised accessSurface on session.user", async () => {
-    const result = await session({
-      session: { user: { email: "a@b.com" } },
-      token: { project: "mydnamap", accessSurface: "publisher-portal" },
-    });
-    expect(result.user).toEqual({
+describe("session shape (was next-auth's jwt + session callbacks)", () => {
+  it("exposes project + normalised accessSurface on session.user", () => {
+    expect(
+      toSession(
+        { email: "a@b.com", project: "mydnamap", accessSurface: "publisher-portal" },
+        0,
+      ).user,
+    ).toEqual({
+      name: null,
       email: "a@b.com",
+      image: null,
       project: "mydnamap",
       accessSurface: "publisher-portal",
     });
   });
 
-  it("defaults accessSurface to backoffice when the token has none or garbage", async () => {
+  it("defaults accessSurface to backoffice when the token has none or garbage", () => {
     for (const accessSurface of [undefined, "admin", 42]) {
-      const result = await session({
-        session: { user: {} },
-        token: { accessSurface },
-      });
-      expect(result.user?.accessSurface).toBe("backoffice");
-      expect(result.user?.project).toBeUndefined();
+      const user = toSession(
+        { accessSurface: accessSurface as never },
+        0,
+      ).user;
+      expect(user.accessSurface).toBe("backoffice");
+      expect(user.project).toBeUndefined();
     }
-  });
-
-  it("does not crash when session.user is missing", async () => {
-    await expect(
-      session({ session: {}, token: { project: "mydnamap" } }),
-    ).resolves.toEqual({});
   });
 });

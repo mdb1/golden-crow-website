@@ -3,7 +3,7 @@
 //   patient-portal/(portal)/layout.tsx
 //   publisher-portal/(portal)/layout.tsx
 //
-// Each layout reads the next-auth session (accessSurface chosen at login) and
+// Each layout reads the backoffice session (accessSurface chosen at login) and
 // the SDK admin context, then either renders or redirects. redirect() throws
 // like Next's NEXT_REDIRECT so a guard that falls through is caught. UI
 // components are stubbed — only the routing decision is under test.
@@ -20,7 +20,7 @@ const mockGetServerSession = jest.fn();
 const mockGetAdminContextServer = jest.fn();
 const mockCookieGet = jest.fn();
 
-jest.mock("next-auth", () => ({
+jest.mock("@/lib/session", () => ({
   getServerSession: (...a: unknown[]) => mockGetServerSession(...a),
 }));
 jest.mock("next/navigation", () => ({
@@ -31,7 +31,6 @@ jest.mock("next/navigation", () => ({
 jest.mock("next/headers", () => ({
   cookies: async () => ({ get: mockCookieGet }),
 }));
-jest.mock("@/lib/auth", () => ({ authOptions: {} }));
 jest.mock("@/lib/admin-context-server", () => ({
   getAdminContextServer: (...a: unknown[]) => mockGetAdminContextServer(...a),
 }));

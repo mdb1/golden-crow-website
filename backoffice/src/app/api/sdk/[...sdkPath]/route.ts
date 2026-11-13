@@ -1,5 +1,4 @@
-import { getServerSession, type Session } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getServerSession, type Session } from "@/lib/session";
 import { resolveSdkBaseUrl } from "@/lib/sdk-url";
 
 const SESSION_RECOVERY_HEADER = "x-sdk-session-recovery";
@@ -84,7 +83,7 @@ async function proxyRequest(
   if (isSessionRecovery) {
     let pageSession: Session | null;
     try {
-      pageSession = await getServerSession(authOptions);
+      pageSession = await getServerSession();
     } catch {
       return identityRejected("The page session could not be verified.");
     }
@@ -113,7 +112,7 @@ async function proxyRequest(
   } else if (hasPageIdentityBinding) {
     let pageSession: Session | null;
     try {
-      pageSession = await getServerSession(authOptions);
+      pageSession = await getServerSession();
     } catch {
       return identityRejected(
         "The page session could not be verified.",
@@ -136,9 +135,9 @@ async function proxyRequest(
 
     headers.set("x-project", expectedPageIdentity.project);
   } else if (!path.startsWith("auth/")) {
-    // Inject project context from NextAuth session (per D-07).
+    // Inject project context from the backoffice session (per D-07).
     try {
-      const pageSession = await getServerSession(authOptions);
+      const pageSession = await getServerSession();
       if (pageSession?.user?.project) {
         headers.set("x-project", pageSession.user.project);
       }

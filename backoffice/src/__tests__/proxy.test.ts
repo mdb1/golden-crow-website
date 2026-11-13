@@ -1,40 +1,14 @@
 // __tests__/proxy.test.ts — the Next 16 `proxy.ts` (middleware).
 //
-// Pins: which auth stack each path is routed to, which paths are public, the
+// Pins: which auth stack each path is routed to (the Pocket Genes session
+// gate with real cookies, incl. a real next-auth v4 one — #470), which paths
+// are public, the
 // gc-fitness session-cookie config handed to next-firebase-auth-edge's
 // authMiddleware (which owns validation + refresh), the redirects for a
 // missing / invalid / email-less session, the hard 500 on missing env, and
 // the `config.matcher` (which paths reach the proxy at all).
 
 import { NextRequest, NextResponse } from "next/server";
-
-type WithAuthCall = {
-  fn?: (req: unknown) => unknown;
-  options: { pages: { signIn: string } };
-};
-jest.mock("next-auth/middleware", () => {
-  const calls: WithAuthCall[] = [];
-  return {
-    __calls: calls,
-    withAuth: jest.fn((a: unknown, b?: unknown) => {
-      const call: WithAuthCall =
-        typeof a === "function"
-          ? {
-              fn: a as WithAuthCall["fn"],
-              options: b as WithAuthCall["options"],
-            }
-          : { options: a as WithAuthCall["options"] };
-      calls.push(call);
-      return jest.fn(
-        async () =>
-          new Response(null, {
-            status: 299,
-            headers: { "x-handler": call.options.pages.signIn },
-          }),
-      );
-    }),
-  };
-});
 
 const mockAuthMiddleware = jest.fn();
 jest.mock("next-firebase-auth-edge", () => ({
@@ -43,10 +17,15 @@ jest.mock("next-firebase-auth-edge", () => ({
 
 import proxy, { config } from "@/proxy";
 import { setGcFitnessAuthEnv } from "@/lib/test-utils/fake-firestore-c";
+import fixtures from "@/lib/__tests__/fixtures/next-auth-v4-sessions.json";
+import {
+  SECURE_SESSION_COOKIE_NAME,
+  SESSION_UPDATE_AGE_SECONDS,
+  decodeSessionToken,
+  encodeSessionToken,
+} from "@/lib/backoffice-session";
 
-const mockWithAuthCalls = (
-  jest.requireMock("next-auth/middleware") as { __calls: WithAuthCall[] }
-).__calls;
+const LEGACY = "__Secure-next-auth.session-token";
 
 type AuthOpts = {
   loginPath: string;
@@ -64,15 +43,25 @@ type AuthOpts = {
   handleError: (e: unknown) => Promise<Response>;
 };
 
-function req(path: string) {
-  return new NextRequest(new URL(path, "https://bo.test"));
+function req(path: string, cookies: Record<string, string> = {}) {
+  const headers = new Headers();
+  const cookie = Object.entries(cookies)
+    .map(([k, v]) => `${k}=${v}`)
+    .join("; ");
+  if (cookie) headers.set("cookie", cookie);
+  return new NextRequest(new URL(path, "https://bo.test"), { headers });
 }
 
 async function route(
   path: string,
+  cookies?: Record<string, string>,
 ): Promise<{ res: Response; handler: string | null }> {
-  const res = (await proxy(req(path))) as Response;
+  const res = (await proxy(req(path, cookies))) as Response;
   return { res, handler: res.headers.get("x-handler") };
+}
+
+function setCookieNames(res: Response) {
+  return (res.headers.getSetCookie?.() ?? []).map((c) => c.split("=")[0]);
 }
 
 function isNext(res: Response) {
@@ -86,8 +75,13 @@ function authOpts(): AuthOpts {
 }
 
 let errSpy: jest.SpyInstance;
+const savedSecret = process.env.NEXTAUTH_SECRET;
+afterAll(() => {
+  process.env.NEXTAUTH_SECRET = savedSecret;
+});
 beforeEach(() => {
   setGcFitnessAuthEnv();
+  process.env.NEXTAUTH_SECRET = fixtures.secret;
   mockAuthMiddleware
     .mockReset()
     .mockResolvedValue(
@@ -105,9 +99,12 @@ describe("routing to auth stacks", () => {
     ["/", "/login"],
     ["/users", "/login"],
     ["/2pq-dashboard", "/login"],
-  ])("%s → NextAuth handler with signIn %s", async (path, signIn) => {
-    const { handler } = await route(path);
-    expect(handler).toBe(signIn);
+  ])("%s without a session → 307 %s?callbackUrl=<path>", async (path, signIn) => {
+    const { res } = await route(`${path}?tab=2`);
+    expect(res.status).toBe(307);
+    const location = new URL(res.headers.get("location")!);
+    expect(location.origin + location.pathname).toBe(`https://bo.test${signIn}`);
+    expect(location.searchParams.get("callbackUrl")).toBe(`${path}?tab=2`);
     expect(mockAuthMiddleware).not.toHaveBeenCalled();
   });
 
@@ -178,46 +175,99 @@ describe("routing to auth stacks", () => {
   });
 });
 
-describe("NextAuth main handler callback (accessSurface)", () => {
-  function mainCallback() {
-    const main = mockWithAuthCalls.find((c) => c.fn);
-    expect(main?.options).toEqual({
-      pages: { signIn: "/login", error: "/access-denied" },
-    });
-    return main!.fn!;
-  }
+describe("Pocket Genes session gate (was NextAuth withAuth, #470)", () => {
+  const SURFACES = [
+    ["/", "/login"],
+    ["/patient-portal/home", "/patient-portal/login"],
+    ["/pgflex/logistics", "/pgflex/login"],
+    ["/publisher-portal/home", "/publisher-portal/login"],
+  ] as const;
 
-  it.each([
-    ["pgflex", "https://bo.test/pgflex/logistics"],
-    ["publisher-portal", "https://bo.test/publisher-portal/home"],
-  ])(
-    "accessSurface=%s is redirected to its own surface",
-    (surface, location) => {
-      const r = Object.assign(req("/users"), {
-        nextauth: { token: { accessSurface: surface } },
+  it.each(SURFACES)(
+    "%s: a REAL next-auth v4 cookie passes and is re-issued as the new cookie",
+    async (path) => {
+      const { res } = await route(path, { [LEGACY]: fixtures.backoffice });
+      // `/` with a backoffice surface passes; sub-surfaces have no surface check.
+      expect(isNext(res)).toBe(true);
+      expect(setCookieNames(res)).toEqual([SECURE_SESSION_COOKIE_NAME]);
+      const value = res.headers
+        .getSetCookie()[0]
+        .split(";")[0]
+        .slice(SECURE_SESSION_COOKIE_NAME.length + 1);
+      await expect(decodeSessionToken(value, fixtures.secret)).resolves.toMatchObject({
+        email: "ada@example.com",
+        project: "mydnamap",
+        accessSurface: "backoffice",
       });
-      const res = mainCallback()(r) as Response;
-      expect(res.status).toBe(307);
-      expect(res.headers.get("location")).toBe(location);
     },
   );
 
-  it("backoffice token → next()", () => {
-    const r = Object.assign(req("/users"), {
-      nextauth: { token: { accessSurface: "backoffice" } },
-    });
-    expect(isNext(mainCallback()(r) as Response)).toBe(true);
+  it.each(SURFACES)(
+    "%s: expired / forged / foreign-secret cookies → its own login",
+    async (path, signIn) => {
+      for (const cookies of <Record<string, string>[]>[
+        { [LEGACY]: fixtures.expired },
+        { [LEGACY]: fixtures.otherSecret },
+        { [SECURE_SESSION_COOKIE_NAME]: "forged.token.value.x.y" },
+        { [SECURE_SESSION_COOKIE_NAME]: await encodeSessionToken({ email: "a@b.c" }, "attacker") },
+      ]) {
+        const { res } = await route(path, cookies);
+        expect(res.status).toBe(307);
+        expect(new URL(res.headers.get("location")!).pathname).toBe(signIn);
+      }
+    },
+  );
+
+  it.each([
+    ["pgflex", "https://bo.test/pgflex/logistics"],
+    ["publisherPortal", "https://bo.test/publisher-portal/home"],
+  ] as const)(
+    "main surface: a %s session is redirected to its own surface (legacy cookie too)",
+    async (fixture, location) => {
+      const { res } = await route("/users", { [LEGACY]: fixtures[fixture] });
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toBe(location);
+      // Still migrated on the way through.
+      expect(setCookieNames(res)).toEqual([SECURE_SESSION_COOKIE_NAME]);
+    },
+  );
+
+  it("main surface: backoffice and patient-portal sessions pass (the layouts route the rest)", async () => {
+    for (const fixture of ["backoffice", "patientPortal", "noSurface", "pocketGyms"] as const) {
+      const { res } = await route("/users", { [LEGACY]: fixtures[fixture] });
+      expect(isNext(res)).toBe(true);
+    }
   });
 
-  it("sub-surface handlers use their own login pages as signIn + error", () => {
-    const pages = mockWithAuthCalls
-      .filter((c) => !c.fn)
-      .map((c) => c.options.pages);
-    expect(pages).toEqual([
-      { signIn: "/patient-portal/login", error: "/patient-portal/login" },
-      { signIn: "/pgflex/login", error: "/pgflex/login" },
-      { signIn: "/publisher-portal/login", error: "/publisher-portal/login" },
-    ]);
+  it("a fresh new cookie passes without being rewritten", async () => {
+    const token = await encodeSessionToken({ email: "a@b.c", accessSurface: "backoffice" }, fixtures.secret);
+    const { res } = await route("/users", { [SECURE_SESSION_COOKIE_NAME]: token });
+    expect(isNext(res)).toBe(true);
+    expect(setCookieNames(res)).toEqual([]);
+  });
+
+  it("a day-old new cookie is rolled (30-day rolling session like next-auth)", async () => {
+    const realNow = Date.now;
+    Date.now = () => realNow() - (SESSION_UPDATE_AGE_SECONDS + 60) * 1000;
+    const token = await encodeSessionToken({ email: "a@b.c" }, fixtures.secret);
+    Date.now = realNow;
+    const { res } = await route("/users", { [SECURE_SESSION_COOKIE_NAME]: token });
+    expect(isNext(res)).toBe(true);
+    expect(setCookieNames(res)).toEqual([SECURE_SESSION_COOKIE_NAME]);
+  });
+
+  it("missing NEXTAUTH_SECRET fails closed (redirect to login)", async () => {
+    delete process.env.NEXTAUTH_SECRET;
+    delete process.env.AUTH_SECRET;
+    const { res } = await route("/users", { [LEGACY]: fixtures.backoffice });
+    expect(res.status).toBe(307);
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
+  });
+
+  it("the gc-fitness cookie never opens a Pocket Genes surface (isolated circuits)", async () => {
+    const { res } = await route("/users", { GcFitnessAuthToken: "anything" });
+    expect(res.status).toBe(307);
+    expect(mockAuthMiddleware).not.toHaveBeenCalled();
   });
 });
 
@@ -356,7 +406,7 @@ describe("config.matcher", () => {
     "/api/other",
     "/foo",
     "/god-mode",
-  ])("catch-all covers %s (NextAuth)", (path) =>
+  ])("catch-all covers %s (Pocket Genes session gate)", (path) =>
     expect(catchAllRe.test(path)).toBe(true),
   );
 
