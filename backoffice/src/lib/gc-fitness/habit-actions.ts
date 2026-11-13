@@ -1188,7 +1188,11 @@ export async function mintHabitPhotoUploadUrl(input: {
     throw new Error("File too large. The 10 MB photo ceiling was exceeded.");
   }
   // Content-type guard.
-  const ext = HABIT_PHOTO_CONTENT_TYPES[contentType];
+  // Own keys only — "constructor"/"__proto__" are truthy inherited properties
+  // (same fix as mintExerciseThumbnailUploadUrl, #451).
+  const ext = Object.hasOwn(HABIT_PHOTO_CONTENT_TYPES, contentType)
+    ? HABIT_PHOTO_CONTENT_TYPES[contentType]
+    : undefined;
   if (!ext) {
     throw new Error(
       "BadRequest: contentType must be one of image/jpeg, image/png, image/webp.",
@@ -1205,6 +1209,11 @@ export async function mintHabitPhotoUploadUrl(input: {
     action: "write",
     expires: Date.now() + HABIT_PHOTO_SIGNED_URL_TTL_MS,
     contentType,
+    // 10 MB cap bound into the signature (#451): a signed URL bypasses Storage
+    // rules, so Cloud Storage must reject an oversized body itself.
+    extensionHeaders: {
+      "x-goog-content-length-range": `0,${MAX_HABIT_PHOTO_UPLOAD_BYTES}`,
+    },
   });
 
   return {

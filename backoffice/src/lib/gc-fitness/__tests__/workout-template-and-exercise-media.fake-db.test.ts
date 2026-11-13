@@ -296,6 +296,9 @@ describe("mintExerciseThumbnailUploadUrl", () => {
     const { path, options } = mockSigned[0];
     expect(path).toBe(`exercises/custom-coach-a-abc-thumb.${ext}`);
     expect(options).toMatchObject({ version: "v4", action: "write", contentType });
+    // #451 — the 5 MB cap is bound into the signature, not just checked on the
+    // declared size: Cloud Storage rejects a PUT whose body exceeds it.
+    expect(options.extensionHeaders).toEqual({ "x-goog-content-length-range": `0,${5 * 1024 * 1024}` });
     const ttl = (options.expires as number) - before;
     expect(ttl).toBeGreaterThan(59 * 60 * 1000);
     expect(ttl).toBeLessThanOrEqual(60 * 60 * 1000 + 1000);
