@@ -44,6 +44,7 @@ import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { PublisherAppPaletteComposition } from "@/components/publisher-app-palette-composition";
 import { PublisherAppColorPicker } from "@/components/publisher-app-color-picker";
 import { PublisherAppVisualIdentityEditor } from "@/components/publisher-app-visual-identity-editor";
+import { PublisherAppDemoPreview } from "@/components/publisher-app-demo-preview";
 import {
   PublisherAppAdvancedConfigurationEditor,
   publisherAppBrandThemeStyle,
@@ -3117,16 +3118,27 @@ export function PublisherAppConfigWorkbench({
                       >
                         <Smartphone className="size-7" />
                       </span>
-                      <span
-                        data-testid={`publisher-app-platform-price-${option.value}`}
-                        className={cn(
-                          "rounded-full border px-3 py-1.5 text-[11px] font-bold tracking-[0.02em] shadow-sm",
-                          state.platformOption === option.value
-                            ? "border-white/30 bg-white/18 text-white"
-                            : "border-violet-200 bg-violet-50 text-violet-800",
+                      <span className="flex flex-col items-end gap-2">
+                        <span
+                          data-testid={`publisher-app-platform-price-${option.value}`}
+                          className={cn(
+                            "rounded-full border px-3 py-1.5 text-[11px] font-bold tracking-[0.02em] shadow-sm",
+                            state.platformOption === option.value
+                              ? "border-white/30 bg-white/18 text-white"
+                              : "border-violet-200 bg-violet-50 text-violet-800",
+                          )}
+                        >
+                          {option.price}
+                        </span>
+                        {state.platformOption === option.value && (
+                          <span
+                            data-testid="publisher-app-platform-demo"
+                            className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-800 shadow-sm"
+                          >
+                            <Sparkles className="size-3.5" />
+                            Demo gratuita
+                          </span>
                         )}
-                      >
-                        {option.price}
                       </span>
                       <span className="sr-only">
                         <RadioGroupItem
@@ -3516,7 +3528,8 @@ export function PublisherAppConfigWorkbench({
         </div>
 
           <div className="xl:sticky xl:top-24">
-            <PublisherAppLivePreview
+            <PublisherAppDemoPreview
+              stepIndex={stepIndex}
               publisherName={publisherName}
               state={state}
               colors={previewColors}

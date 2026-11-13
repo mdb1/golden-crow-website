@@ -203,6 +203,49 @@ describe("PublisherAppConfigWorkbench", () => {
     jest.mocked(fetchPublisherAppPaletteOverrides).mockImplementation(async (colors) => palettePlan(colors));
   });
 
+  it("keeps the free demo pill under the selected platform price", () => {
+    renderWorkbench();
+    const firstPill = screen.getByTestId("publisher-app-platform-demo");
+    expect(firstPill).toHaveTextContent("Demo gratuita");
+    expect(firstPill.previousElementSibling).toBe(screen.getByTestId("publisher-app-platform-price-ios"));
+    fireEvent.click(screen.getByRole("radio", { name: /iOS \+ Android/i }));
+    expect(screen.getAllByTestId("publisher-app-platform-demo")).toHaveLength(1);
+    expect(screen.getByTestId("publisher-app-platform-demo").previousElementSibling).toBe(screen.getByTestId("publisher-app-platform-price-ios_android"));
+    expect(screen.getByRole("radio", { name: /iOS \+ Android/i })).toHaveAttribute("data-state", "checked");
+  });
+
+  it("assembles and reverses the demo through all four steps without losing choices or creating an app", () => {
+    renderWorkbench();
+    const preview = screen.getByLabelText("Vista previa de la app");
+    expect(within(preview).getByText("Preparando tu demo")).toBeTruthy();
+    expect(preview).toHaveAttribute("data-step-index", "0");
+    fireEvent.click(screen.getByRole("radio", { name: /iOS \+ Android/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+    expect(preview).toHaveAttribute("data-step-index", "1");
+    expect(preview).toHaveAttribute("data-direction", "forward");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Sección Comunidad" }));
+    expect(screen.getByRole("checkbox", { name: "Sección Comunidad" })).toHaveAttribute("data-state", "unchecked");
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+    expect(preview).toHaveAttribute("data-step-index", "2");
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+    expect(preview).toHaveAttribute("data-step-index", "3");
+    for (const index of [2, 1, 0]) {
+      fireEvent.click(screen.getByRole("button", { name: "Anterior" }));
+      expect(preview).toHaveAttribute("data-step-index", String(index));
+      expect(preview).toHaveAttribute("data-direction", "backward");
+      if (index === 1) expect(screen.getByRole("checkbox", { name: "Sección Comunidad" })).toHaveAttribute("data-state", "unchecked");
+    }
+    expect(screen.getByRole("radio", { name: /iOS \+ Android/i })).toHaveAttribute("data-state", "checked");
+    fireEvent.click(screen.getByRole("button", { name: /Paso 4 Icono/i }));
+    expect(preview).toHaveAttribute("data-step-index", "3");
+    expect(preview).toHaveAttribute("data-direction", "forward");
+    fireEvent.click(screen.getByRole("button", { name: /Paso 2 Funciones/i }));
+    expect(preview).toHaveAttribute("data-step-index", "1");
+    expect(preview).toHaveAttribute("data-direction", "backward");
+    expect(screen.getByRole("checkbox", { name: "Sección Comunidad" })).toHaveAttribute("data-state", "unchecked");
+    expect(sdkFetch).not.toHaveBeenCalled();
+  });
+
   it("creates an app for testing after four steps without requiring a signature", async () => {
     const activatedConfig: PublisherAppConfig = {
       ...savedConfig,
