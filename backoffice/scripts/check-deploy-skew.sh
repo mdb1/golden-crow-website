@@ -122,6 +122,13 @@ check "login renders" 200 "$(code "http://localhost:$PORT/gc-fitness/login")"
 check "protected page redirects to login" "307 /gc-fitness/login" \
   "$(curl -s -o /dev/null -w "%{http_code} %{redirect_url}" "http://localhost:$PORT/gc-fitness/dashboard" | sed -E 's#https?://[^/]+##')"
 
+# Pocket Genes (#470: its own session cookie, no next-auth).
+check "Pocket Genes login renders" 200 "$(code "http://localhost:$PORT/login")"
+check "Pocket Genes protected page redirects to login" "307 /login" \
+  "$(curl -s -o /dev/null -w "%{http_code} %{redirect_url}" "http://localhost:$PORT/2pq-dashboard" | sed -E 's#https?://[^/]+##; s#\?.*##')"
+check "Pocket Genes session API answers {} to a forged cookie" "{}" \
+  "$(curl -s -H "Cookie: __Secure-backoffice.session-token=forged; __Secure-next-auth.session-token=forged" "http://localhost:$PORT/api/auth/session")"
+
 check "session API loads firebase-admin and rejects a bad token" 403 \
   "$(code -X POST "http://localhost:$PORT/api/gc-fitness/login" -H "Authorization: Bearer not-a-token" -H "Content-Type: application/json" --data '{}')"
 

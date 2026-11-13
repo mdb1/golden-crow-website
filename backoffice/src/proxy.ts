@@ -54,7 +54,7 @@ const PUBLISHER_PORTAL_PUBLIC_PATHS = new Set([
   "/publisher-portal/complete-profile",
 ]);
 
-// The app-request review embeds this public asset. If it reaches the main
+// The app-request review embeds this public asset. If it reaches the
 // main session gate, a publisher session is redirected to /publisher-portal/home
 // and the iframe renders that page instead of PDF bytes.
 const PUBLIC_STATIC_DOCUMENT_PATHS = new Set([
