@@ -849,7 +849,7 @@ it("authenticates preview/send routes and rejects client recipients, bodies, unk
   });
   const firstOption = await app.inject({ method: "GET", url: `/admin/connected-partners/${partnerId}/email-preview?language=en&templateVariant=3` });
   expect(firstOption.statusCode).toBe(200);
-  expect(firstOption.json()).toMatchObject({ language: "en", templateVariant: 3, subject: "Genome Studio, join us on Pocket Genes!" });
+  expect(firstOption.json()).toMatchObject({ language: "en", templateVariant: 3, subject: "Join us on Pocket Genes!" });
   for (const query of [
     "templateVariant=4",
     "templateVariant=1.0",

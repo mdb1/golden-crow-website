@@ -27,7 +27,7 @@ export const PARTNER_EMAIL_COPY: Record<
   1: {
     noOrganization: {
       es: {
-        subject: "¡{companyName}, sumate a Pocket Genes!",
+        subject: "¡Sumate a Pocket Genes!",
         preheader:
           "Compartí tu trabajo, conectá con la red y descubrí tu propia app.",
         heading: "¡Sumate a Pocket Genes!",
@@ -42,7 +42,7 @@ export const PARTNER_EMAIL_COPY: Record<
         closing: "¡Te esperamos!",
       },
       en: {
-        subject: "{companyName}, join us on Pocket Genes!",
+        subject: "Join us on Pocket Genes!",
         preheader:
           "Share your work, connect with the community, and discover your own app.",
         heading: "Join us on Pocket Genes!",
@@ -252,7 +252,7 @@ export const PARTNER_EMAIL_COPY: Record<
   3: {
     noOrganization: {
       es: {
-        subject: "¡{companyName}, sumate a Pocket Genes!",
+        subject: "¡Sumate a Pocket Genes!",
         preheader:
           "Compartí tus proyectos y eventos con la comunidad. Sumarte es gratis.",
         heading: "¡Sumate a Pocket Genes!",
@@ -265,7 +265,7 @@ export const PARTNER_EMAIL_COPY: Record<
         closing: "¡Te esperamos!",
       },
       en: {
-        subject: "{companyName}, join us on Pocket Genes!",
+        subject: "Join us on Pocket Genes!",
         preheader:
           "Share your projects and events with the community. Joining is free.",
         heading: "Join us on Pocket Genes!",
