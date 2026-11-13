@@ -355,6 +355,26 @@ describe("publisher email access-token fallback", () => {
     return id;
   }
 
+  it("previews and sends the short live organization name without changing the publisher record", async () => {
+    const id = linkAccount("organization");
+    const publisherPath = `feed_organizations/${id}`;
+    const fullName = "MedicGen — Instituto de genética clínica";
+    mockDocs.get(publisherPath)!.name = fullName;
+    const args = await input(3);
+    const preview = await previewPartnerEmail(context, partnerId, "es", args.banner, 3);
+    expect(preview.subject).toBe("¡Hagamos la app de MedicGen!");
+    expect(preview.bannerBrand?.name).toBe("MedicGen");
+    expect(preview.text).toContain("el nombre y la imagen de MedicGen");
+    expect(preview.text).not.toContain("Instituto de genética clínica");
+    expect(preview.html).not.toContain("Instituto de genética clínica");
+    expect((await sendPartnerEmail(context, partnerId, args)).status).toBe("sent");
+    expect(sendGmailMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ subject: preview.subject, text: preview.text, html: preview.html }),
+      expect.any(Object),
+    );
+    expect(mockDocs.get(publisherPath)!.name).toBe(fullName);
+  });
+
   it.each([
     ["organization", null, 3, "/publisher-portal/app/new"],
     [

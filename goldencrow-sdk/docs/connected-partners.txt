@@ -337,6 +337,12 @@ displayed Template 1 (ID 3), docs/partner-email-templates-2.tsv for displayed
 Template 2 (ID 1), and docs/partner-email-templates-3.tsv for displayed Template 3
 (ID 2). Blank paragraphs
 and closings from the supplied tables are omitted from the rendered email.
+Company and organization names in emails use the same short-name rule
+as the publisher portal banner: the trimmed prefix before the first punctuation
+separator, with the original trimmed name or "Tu marca" as fallback. Subjects,
+message text, HTML, banner headings and image alternative text use that display
+name. Individual publishers retain their personal name. Full source names remain
+in publisher records and banner review bindings.
 The preview offers Template 1 / Template 2 / Template 3 beside the language choice.
 Switching either choice prepares a new reviewed hash and cancels obsolete banner
 work. Both choices are locked during sending or uncertain delivery. A confirmed

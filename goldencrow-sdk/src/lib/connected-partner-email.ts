@@ -9,6 +9,7 @@ import { partnerSection } from "./partner-section.js";
 import { PARTNER_EMAIL_FROM_EMAIL } from "./partner-email-delivery.js";
 import {
   PARTNER_BANNER_CONTENT_ID,
+  partnerEmailDisplayName,
   type PartnerEmailBannerBrand,
   type PartnerEmailBannerInput,
 } from "./partner-email-banner.js";
@@ -68,6 +69,14 @@ function publisherLoginUrl(
   return url.toString();
 }
 
+function publisherDisplayName(partner: Partner, name: string) {
+  return partnerEmailDisplayName(
+    name,
+    partner.linkedApp?.publisherKind ??
+      (partner.linkedOrganization ? "organization" : "individual"),
+  );
+}
+
 function emailCopy(
   partner: Partner,
   category: PartnerSection,
@@ -91,13 +100,15 @@ function emailCopy(
       409,
     );
   const values: Record<string, string> = {
-    companyName: partner.companyName,
-    publisherName:
+    companyName: partnerEmailDisplayName(partner.companyName),
+    publisherName: publisherDisplayName(
+      partner,
       currentPublisherName ??
       partner.linkedApp?.publisherName ??
       partner.linkedOrganization?.name ??
       partner.linkedIndividualPublisher?.name ??
       partner.companyName,
+    ),
   };
   const interpolate = (value: string) =>
     value.replace(/\{(companyName|publisherName)\}/g, (_match, field: string) => values[field]!);
@@ -138,8 +149,11 @@ export function buildConnectedPartnerEmail(
   const signature =
     language === "es" ? "Equipo Pocket Genes" : "The Pocket Genes team";
   const closing = [copy.closing, signature].filter(Boolean).join("\n\n");
+  const bannerPublisherName = presentation
+    ? publisherDisplayName(partner, presentation.brand.name)
+    : "";
   const bannerHtml = presentation?.banner
-    ? `<div style="margin:0 0 24px;"><img src="cid:${PARTNER_BANNER_CONTENT_ID}" width="600" alt="${escapeHtml(language === "es" ? `Así podría verse la app de ${presentation.brand.name}` : `See what ${presentation.brand.name}’s app could look like`)}" style="display:block;width:100%;max-width:600px;height:auto;border:0;border-radius:14px;"></div>`
+    ? `<div style="margin:0 0 24px;"><img src="cid:${PARTNER_BANNER_CONTENT_ID}" width="600" alt="${escapeHtml(language === "es" ? `Así podría verse la app de ${bannerPublisherName}` : `See what ${bannerPublisherName}’s app could look like`)}" style="display:block;width:100%;max-width:600px;height:auto;border:0;border-radius:14px;"></div>`
     : "";
   const ctaHtml = `<a href="${escapeHtml(ctaUrl)}" class="pg-email-cta" style="display:block;max-width:100%;box-sizing:border-box;text-align:center;overflow-wrap:break-word;background:#6f3cc3;color:#ffffff;text-decoration:none;border-radius:12px;padding:22px 24px;font-size:17px;line-height:24px;font-weight:800;">${escapeHtml(copy.ctaLabel)}</a>`;
   const text = [

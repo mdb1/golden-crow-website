@@ -4,6 +4,19 @@ import { AdminRepositoryError } from "../repositories/admin-errors.js";
 import type { GmailInlineAttachmentInput } from "./gmail-mailer.js";
 
 export const PARTNER_BANNER_CONTENT_ID = "partner-publisher-app-banner";
+// Match the display-name rule used by PublisherAppPromoBanner in backoffice.
+const ORGANIZATION_NAME_DIVIDER =
+  /[,.;:|/\\_~=*•·‧⋅∙‣…()[\]{}\p{Dash_Punctuation}−，．、。；：｜／]/u;
+
+export function partnerEmailDisplayName(
+  name: string,
+  publisherKind: "organization" | "individual" = "organization",
+) {
+  if (publisherKind === "individual") return name.trim() || "Tu marca";
+  return name.split(ORGANIZATION_NAME_DIVIDER, 1)[0]?.trim() ||
+    name.trim() || "Tu marca";
+}
+
 export const PartnerEmailBannerInputSchema = z
   .object({
     contextHash: z.string().regex(/^[a-f0-9]{64}$/),
@@ -29,12 +42,15 @@ export function partnerBannerBrand(
   imageUrl: string,
   language: string,
   ctaLabel: string,
+  publisherKind: "organization" | "individual" = "organization",
 ): PartnerEmailBannerBrand {
-  const brand = { name, tint, imageUrl };
+  const brand = { name: partnerEmailDisplayName(name, publisherKind), tint, imageUrl };
   const contextHash = createHash("sha256")
     .update(
       JSON.stringify({
-        renderer: "publisher-portal-atomic-v2",
+        renderer: "publisher-portal-atomic-v3",
+        sourceName: name,
+        publisherKind,
         ...brand,
         language,
         ctaLabel,

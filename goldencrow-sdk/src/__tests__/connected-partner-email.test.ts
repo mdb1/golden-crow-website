@@ -249,7 +249,9 @@ it("escapes contact and publisher data and binds rendered message, language, rec
   };
   const preview = buildConnectedPartnerEmail(partner);
   expect(preview.html).not.toContain("<script>alert(1)</script>");
-  expect(preview.html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
+  expect(preview.html).toContain("&lt;script&gt;alert");
+  expect(load(preview.html)("script")).toHaveLength(0);
+  expect(preview.html).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
   expect(preview.html).not.toContain("<img src=x");
   expect(preview.previewHash).toMatch(/^[a-f0-9]{64}$/);
   expect(buildConnectedPartnerEmail(partner).previewHash).toBe(
@@ -361,11 +363,62 @@ it.each(["es", "en"] as const)("keeps only the final CTA in all three %s no-app 
 it("uses the live banner publisher name in copy even if the app carries an older publisher name", () => {
   const partner = withApp("active_for_testing");
   partner.linkedApp!.publisherName = "Previous publisher name";
-  const brand = partnerBannerBrand("Current publisher name", "#657960", "", "es", "Revisar condiciones de publicación");
+  const brand = partnerBannerBrand("Current publisher name — Full legal organization name", "#657960", "", "es", "Revisar condiciones de publicación");
   const preview = buildConnectedPartnerEmail(partner, "es", undefined, { brand });
   expect(preview.subject).toBe("¡La app de Current publisher name está lista para probar!");
   expect(preview.text).toContain("¡Tenemos lista la app de Current publisher name!");
   expect(preview.text).not.toContain("Previous publisher name");
+  expect(preview.text).not.toContain("Full legal organization name");
+});
+
+it.each(["es", "en"] as const)("uses short publisher names in every %s template, including banner alternative text", (language) => {
+  const fullName = "MedicGen — Instituto de genética clínica";
+  const partners: Partner[] = [
+    withOrg,
+    withApp("active_for_testing"),
+    withApp("active"),
+  ].map((partner) => ({
+    ...partner,
+    linkedOrganization: partner.linkedOrganization ? { ...partner.linkedOrganization, name: fullName } : null,
+    linkedIndividualPublisher: partner.linkedIndividualPublisher ? { ...partner.linkedIndividualPublisher, name: fullName } : null,
+    linkedApp: partner.linkedApp ? { ...partner.linkedApp, publisherName: fullName } : null,
+  }));
+  const brand = partnerBannerBrand(fullName, "#657960", "", language, "Demo");
+  const presentation = { brand, banner: { contextHash: brand.contextHash, dataUrl: "data:image/jpeg;base64,reviewed-image" } };
+  for (const variant of [1, 2, 3] as const) {
+    for (const partner of partners) {
+      for (const banner of [undefined, presentation]) {
+        const preview = buildConnectedPartnerEmail(partner, language, undefined, banner, variant);
+        for (const value of [preview.subject, preview.text, preview.html]) {
+          expect(value).toContain("MedicGen");
+          expect(value).not.toContain("Instituto de genética clínica");
+        }
+        if (banner) expect(preview.html).toContain(language === "es"
+          ? 'alt="Así podría verse la app de MedicGen"'
+          : 'alt="See what MedicGen’s app could look like"');
+      }
+    }
+  }
+});
+
+it.each(["es", "en"] as const)("preserves personal publisher names in every %s template", (language) => {
+  const partner: Partner = { ...base, linkedIndividualPublisherId: individual.id, linkedIndividualPublisher: individual };
+  const brand = partnerBannerBrand(individual.name, "#657960", "", language, "Demo", "individual");
+  for (const variant of [1, 2, 3] as const) {
+    for (const presentation of [undefined, { brand }]) {
+      const preview = buildConnectedPartnerEmail(partner, language, undefined, presentation, variant);
+      expect(preview.subject).toContain(individual.name);
+      expect(preview.text).toContain(individual.name);
+    }
+  }
+});
+
+it.each(["es", "en"] as const)("shortens the company name in %s invitations without a linked publisher", (language) => {
+  for (const variant of [1, 2, 3] as const) {
+    const preview = buildConnectedPartnerEmail({ ...base, companyName: "MedicGen — Instituto de genética clínica" }, language, undefined, undefined, variant);
+    for (const value of [preview.subject, preview.text, preview.html]) expect(value).not.toContain("Instituto de genética clínica");
+    if (variant !== 3) expect(preview.text).toContain("MedicGen");
+  }
 });
 
 it.each([["es", "Hola,"], ["en", "Hi,"]] as const)("uses a natural %s greeting when a contact's personal name is unknown", (language, greeting) => {

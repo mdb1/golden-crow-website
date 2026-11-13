@@ -364,6 +364,7 @@ export async function previewPartnerEmail(
     imageUrl ?? "",
     parsedLanguage,
     base.ctaLabel,
+    kind,
   );
   if (banner) {
     banner = PartnerEmailBannerInputSchema.parse(banner);

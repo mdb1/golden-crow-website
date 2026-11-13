@@ -1,11 +1,39 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { PartnerEmailBannerInputSchema, partnerBannerAttachment, partnerBannerBrand } from "../lib/partner-email-banner.js";
+import { PartnerEmailBannerInputSchema, partnerBannerAttachment, partnerBannerBrand, partnerEmailDisplayName } from "../lib/partner-email-banner.js";
 import { buildRawGmailMessage } from "../lib/gmail-mailer.js";
 
 const jpeg = readFileSync(join(process.cwd(), "src/__tests__/support/partner-banner.jpg"));
 const brand = partnerBannerBrand("Genome Studio", "#657960", "https://example.com/logo.png", "es", "Pedir mi demo gratis");
 const banner = { contextHash: brand.contextHash, dataUrl: `data:image/jpeg;base64,${jpeg.toString("base64")}` };
+it.each([
+  ["  DNA Institute, Research — Genetics  ", "DNA Institute"],
+  ["MedicGen — Centro de genética", "MedicGen"],
+  ["MedicGen – Centro de genética", "MedicGen"],
+  ["MedicGen - Centro de genética", "MedicGen"],
+  ["MedicGen | Medicina genómica", "MedicGen"],
+  ["MedicGen (Instituto de genética)", "MedicGen"],
+  ["MedicGen: Medicina genética", "MedicGen"],
+  ["MedicGen / Research", "MedicGen"],
+  ["MedicGen，Investigación", "MedicGen"],
+  ["Medicina Genómica Integral", "Medicina Genómica Integral"],
+  [" Épsilon Genómica ", "Épsilon Genómica"],
+  ["- MedicGen", "- MedicGen"],
+  ["   ", "Tu marca"],
+])("uses the banner's short display name for %s", (name, expected) => {
+  expect(partnerEmailDisplayName(name)).toBe(expected);
+});
+it("shows the short name while binding the banner to the full live name", () => {
+  const first = partnerBannerBrand("MedicGen — Centro de genética", brand.tint, brand.imageUrl, "es", "Demo");
+  const changed = partnerBannerBrand("MedicGen — Nuevo nombre legal", brand.tint, brand.imageUrl, "es", "Demo");
+  expect(first.name).toBe("MedicGen");
+  expect(changed.name).toBe("MedicGen");
+  expect(changed.contextHash).not.toBe(first.contextHash);
+});
+it("preserves an individual publisher's personal name", () => {
+  expect(partnerEmailDisplayName(" Dr. Rivera ", "individual")).toBe("Dr. Rivera");
+  expect(partnerBannerBrand("Dr. Rivera", brand.tint, brand.imageUrl, "es", "Demo", "individual").name).toBe("Dr. Rivera");
+});
 it("binds the banner to live name, icon, tint, language and action", () => {
   expect(partnerBannerBrand("Genome Studio", "#657960", "https://example.com/logo.png", "es", "Pedir mi demo gratis")).toEqual(brand);
   for (const next of [
