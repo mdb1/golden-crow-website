@@ -261,7 +261,7 @@ export const PARTNER_EMAIL_COPY: Record<
           "Compartí tus proyectos, novedades y eventos. Conectá con profesionales, investigadores y organizaciones.",
           "Sumarte es gratis. Y también te preparamos una demo gratuita de tu propia app.",
         ],
-        ctaLabel: "¡Quiero mi demo gratuita!",
+        ctaLabel: "¡Quiero darme de alta en la plataforma!",
         closing: "¡Te esperamos!",
       },
       en: {
@@ -269,12 +269,12 @@ export const PARTNER_EMAIL_COPY: Record<
         preheader:
           "Share your projects and events with the community. Joining is free.",
         heading: "Join us on Pocket Genes!",
-        lead: "We'd love to welcome {companyName} to Pocket Genes!",
+        lead: "We’d love for you to be part of our community!",
         paragraphs: [
           "Share your projects, news, and events. Connect with professionals, researchers, and organizations.",
           "Joining is free. We'll also create a free demo of your own app.",
         ],
-        ctaLabel: "Join Pocket Genes",
+        ctaLabel: "Sign me up for the platform!",
         closing: "See you there!",
       },
     },
