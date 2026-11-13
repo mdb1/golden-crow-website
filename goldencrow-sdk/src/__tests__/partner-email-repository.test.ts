@@ -968,7 +968,7 @@ it("binds the banner to the chosen template and sends the exact second-template 
     const preview = prepared.json();
     expect(preview).toMatchObject({
       templateVariant: 2,
-      subject: "¡Una app personalizada para Genome Studio!",
+      subject: "¡Hagamos la app de Genome Studio!",
       banner,
     });
     const sent = await app.inject({
