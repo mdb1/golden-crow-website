@@ -583,6 +583,13 @@ export async function mintExerciseMediaUploadUrl(input: {
     action: "write",
     expires: Date.now() + SIGNED_URL_TTL_MS,
     contentType: "video/mp4",
+    // The size cap is part of the signature (#451): the `contentLength` check
+    // above only covers what the caller DECLARED, and a signed URL bypasses
+    // Storage rules. With this header signed in, Cloud Storage itself rejects
+    // a PUT whose body is larger than the cap (or that omits the header).
+    extensionHeaders: {
+      "x-goog-content-length-range": `0,${MAX_UPLOAD_BYTES}`,
+    },
   });
 
   return {
@@ -665,6 +672,10 @@ export async function mintExerciseThumbnailUploadUrl(input: {
     action: "write",
     expires: Date.now() + SIGNED_URL_TTL_MS,
     contentType,
+    // 5 MB cap bound into the signature (#451) — see mintExerciseMediaUploadUrl.
+    extensionHeaders: {
+      "x-goog-content-length-range": `0,${MAX_THUMBNAIL_UPLOAD_BYTES}`,
+    },
   });
 
   return {

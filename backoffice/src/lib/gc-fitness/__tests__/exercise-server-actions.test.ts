@@ -469,6 +469,10 @@ describe("mintExerciseMediaUploadUrl", () => {
     expect(opts.version).toBe("v4");
     expect(opts.action).toBe("write");
     expect(opts.contentType).toBe("video/mp4");
+    // #451 — the 50 MB cap is signed in, so Storage rejects a bigger body.
+    expect(opts.extensionHeaders).toEqual({
+      "x-goog-content-length-range": `0,${50 * 1024 * 1024}`,
+    });
     // Expires must be in the future and ≤60 minutes from now.
     expect(opts.expires).toBeGreaterThanOrEqual(before + 59 * 60 * 1000);
     expect(opts.expires).toBeLessThanOrEqual(after + 60 * 60 * 1000);

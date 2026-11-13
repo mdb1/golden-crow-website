@@ -1,11 +1,8 @@
-// Epic #451 — the admin reporting integration-client routes answer an
-// unauthenticated caller with 500 (the SDK's /auth/context error bubbles into
-// the generic catch). The existing suite pins that CURRENT behaviour in
-// integration-clients.route.test.ts. The CORRECT answer is 401 without
-// leaking the upstream SDK error text; this is marked `it.failing` until the
-// route distinguishes "no session" from a real SDK failure. Do not "fix" the
-// test — fix the route (src/app/api/open-api/reporting/integration-clients/route.ts
-// GET catch → sdkErrorResponse) and flip it to `it`.
+// Epic #451 — the admin reporting integration-client routes used to answer an
+// unauthenticated caller with 500 (the SDK's /auth/context error bubbled into
+// the generic catch). Pinned as `it.failing` in #452; fixed since: the route
+// resolves the session with getAdminContextOrNull() and answers 401 before any
+// SDK call, without leaking the upstream error text. Keep this as a regression.
 
 jest.mock("@/lib/sdk-server", () => ({
   sdkFetchServer: jest.fn(async (path: string) => {
