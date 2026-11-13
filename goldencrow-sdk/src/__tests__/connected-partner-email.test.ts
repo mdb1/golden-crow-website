@@ -93,7 +93,7 @@ it("deep-links existing publishers without apps through their own portal login t
   expect(preview.text).toContain(org.name);
   expect(preview.text).toContain("Elegí las funciones, los colores y las plataformas.");
   expect(preview.text).toContain(
-    `Entrá con la cuenta de publicador de ${org.name}.`,
+    `Tocá el siguiente botón para descubrir cómo se vería la app de ${org.name}.`,
   );
 });
 
@@ -332,7 +332,9 @@ it("places the inline banner before the text and keeps one final purple action a
   expect(preview.html).toContain('src="cid:partner-publisher-app-banner"');
   expect(preview.html).toContain(`alt="Así podría verse la app de ${org.name}"`);
   expect(preview.html.indexOf('src="cid:partner-publisher-app-banner"')).toBeLessThan(preview.html.indexOf("Elegí las funciones"));
-  expect(preview.html.indexOf('class="pg-email-cta"')).toBeGreaterThan(preview.html.indexOf("Entrá con la cuenta de publicador"));
+  const invitationIndex = preview.html.indexOf("Tocá el siguiente botón");
+  expect(invitationIndex).toBeGreaterThan(-1);
+  expect(preview.html.indexOf('class="pg-email-cta"')).toBeGreaterThan(invitationIndex);
   expect(preview.html.match(/class="pg-email-cta"/g)).toHaveLength(1);
   expect(preview.html.match(/<a\b/g)).toHaveLength(1);
   expect(preview.html).toContain("padding:22px 24px");

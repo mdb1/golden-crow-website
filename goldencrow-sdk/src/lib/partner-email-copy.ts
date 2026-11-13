@@ -67,9 +67,9 @@ export const PARTNER_EMAIL_COPY: Record<
         paragraphs: [
           "Elegí las funciones, los colores y las plataformas.",
           "Nosotros armamos la demo. Vos la probás gratis con tu equipo.",
-          "Entrá con la cuenta de publicador de {publisherName}.",
+          "Tocá el siguiente botón para descubrir cómo se vería la app de {publisherName}.",
         ],
-        ctaLabel: "¡Quiero mi demo!",
+        ctaLabel: "¡Quiero mi demo gratuita!",
         closing: "Ya probaste la app de Pocket Genes ¡Ahora podés tener la tuya!",
         callback: APP_NEW_PATH,
       },
@@ -82,9 +82,9 @@ export const PARTNER_EMAIL_COPY: Record<
         paragraphs: [
           "Choose your features, colors, and platforms.",
           "We build the demo. You try it with your team, for free.",
-          "Sign in with {publisherName}’s publisher account.",
+          "Tap the button below to discover what {publisherName}’s app could look like.",
         ],
-        ctaLabel: "Create my free demo",
+        ctaLabel: "Get my free demo",
         closing: "Let’s make it yours!",
         callback: APP_NEW_PATH,
       },

@@ -21,8 +21,8 @@ Sin app	greeting	Hola {firstName},	Hi {firstName},
 Sin app	lead	¡Hagamos la app de {publisherName}!	Let’s make {publisherName}’s app happen!
 Sin app	paragraph_1	Elegí las funciones, los colores y las plataformas.	Choose your features, colors, and platforms.
 Sin app	paragraph_2	Nosotros armamos la demo. Vos la probás gratis con tu equipo.	We build the demo. You try it with your team, for free.
-Sin app	paragraph_3	Entrá con la cuenta de publicador de {publisherName}.	Sign in with {publisherName}’s publisher account.
-Sin app	button_text	¡Quiero mi demo!	Create my free demo
+Sin app	paragraph_3	Tocá el siguiente botón para descubrir cómo se vería la app de {publisherName}.	Tap the button below to discover what {publisherName}’s app could look like.
+Sin app	button_text	¡Quiero mi demo gratuita!	Get my free demo
 Sin app	button_url	{backofficeOrigin}/publisher-portal/login?email={recipientEmail}&callbackUrl=%2Fpublisher-portal%2Fapp%2Fnew	{backofficeOrigin}/publisher-portal/login?email={recipientEmail}&callbackUrl=%2Fpublisher-portal%2Fapp%2Fnew
 Sin app	closing	Ya probaste la app de Pocket Genes ¡Ahora podés tener la tuya!	Let’s make it yours!
 Sin app	signature	Equipo Pocket Genes	The Pocket Genes team
