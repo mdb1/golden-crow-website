@@ -71,7 +71,8 @@
     "settingsDescription": "Respuestas rápidas y preferencias del entrenador.",
     "adminDescription": "Accesos de coaches/admin y controles operativos.",
     "nutrition": "Nutrición",
-    "challenges": "Desafíos"
+    "challenges": "Desafíos",
+    "payments": "Pagos"
   },
   "shell": {
     "eyebrow": "Golden Crow",
@@ -381,7 +382,8 @@
         "recentLogs": "Actividad reciente",
         "personalRecords": "Récords personales",
         "dailySteps": "Pasos diarios",
-        "nutrition": "Nutrición"
+        "nutrition": "Nutrición",
+        "payments": "Pagos"
       },
       "personalRecords": {
         "title": "Récords personales",
@@ -2679,5 +2681,135 @@
       "notFound": "Ese desafío ya no existe.",
       "generic": "No pudimos guardar. Probá de nuevo."
     }
+  },
+  "payments": {
+    "title": "Pagos",
+    "subtitle": "Planes, cobros e historial de tus alumnos",
+    "collections": {
+      "title": "Cobros"
+    },
+    "plans": {
+      "title": "Planes",
+      "new": "Nuevo plan",
+      "edit": "Editar plan",
+      "archive": "Archivar",
+      "unarchive": "Restaurar",
+      "archived": "Archivado",
+      "name": "Nombre del plan",
+      "description": "Descripción",
+      "periodMonths": "Cada cuántos meses",
+      "classCount": "Cantidad de clases",
+      "currency": "Moneda",
+      "kindLabel": "Tipo",
+      "modalityLabel": "Modalidad",
+      "empty": "Todavía no creaste planes.",
+      "saved": "Plan guardado",
+      "kind": {
+        "per_class": "Por clase",
+        "class_pack": "Pack de clases",
+        "per_routine": "Por rutina",
+        "monthly": "Mensual",
+        "months_pack": "Pack de meses",
+        "custom": "Propio"
+      },
+      "modality": {
+        "none": "Sin especificar",
+        "online": "Online",
+        "in_person": "Presencial",
+        "hybrid": "Mixto"
+      }
+    },
+    "history": {
+      "title": "Historial",
+      "viewAll": "Ver historial",
+      "back": "Volver al cliente",
+      "allMonths": "Todos los meses",
+      "allClients": "Todos los alumnos",
+      "allMethods": "Todos los medios",
+      "loadMore": "Cargar más"
+    },
+    "status": {
+      "title": "Estado",
+      "none": "Sin plan",
+      "up_to_date": "Al día",
+      "due_soon": "Vence pronto",
+      "overdue": "Vencido"
+    },
+    "dueInDays": "{days, plural, one {Vence en # día} other {Vence en # días}}",
+    "dueToday": "Vence hoy",
+    "overdueDays": "{days, plural, one {Vencido hace # día} other {Vencido hace # días}}",
+    "classesLeft": "{count, plural, one {# clase disponible} other {# clases disponibles}}",
+    "noDue": "Sin vencimiento",
+    "nextDue": "Próximo vencimiento",
+    "lastPayment": "Último pago",
+    "record": "Registrar pago",
+    "recorded": "Pago registrado",
+    "remind": "Recordar",
+    "assignPlan": "Asignar plan",
+    "changePlan": "Cambiar plan",
+    "planAssigned": "Plan asignado",
+    "noPlanOption": "Sin plan",
+    "specialPrice": "Precio especial (opcional)",
+    "startDate": "Fecha de inicio",
+    "amount": "Monto",
+    "date": "Fecha",
+    "client": "Alumno",
+    "plan": "Plan",
+    "actions": "Acciones",
+    "method": {
+      "title": "Medio de pago",
+      "cash": "Efectivo",
+      "transfer": "Transferencia",
+      "mercadopago": "Mercado Pago",
+      "card": "Tarjeta",
+      "other": "Otro",
+      "note": "Detalle del medio"
+    },
+    "covers": {
+      "title": "Qué cubre",
+      "months": "{count, plural, one {# mes} other {# meses}}",
+      "classes": "{count, plural, one {# clase} other {# clases}}",
+      "monthsLabel": "Meses",
+      "classesLabel": "Clases",
+      "routine": "Rutina",
+      "other": "Otro"
+    },
+    "note": "Nota",
+    "void": {
+      "action": "Anular pago",
+      "confirm": "¿Anular este pago? Queda en el historial como anulado.",
+      "reason": "Motivo (opcional)",
+      "done": "Pago anulado"
+    },
+    "voided": "Anulado",
+    "collectedThisMonth": "Cobrado este mes",
+    "exportCsv": "Exportar CSV",
+    "empty": "Todavía no registraste pagos",
+    "noClients": "Todavía no tenés alumnos.",
+    "reminderDays": "Avisarme días antes",
+    "consumeClass": "Descontar clase",
+    "editDue": "Corregir vencimiento",
+    "dueUpdated": "Vencimiento actualizado",
+    "remindTitle": "Recordatorio de pago",
+    "copyText": "Copiar texto",
+    "copied": "Texto copiado",
+    "openWhatsapp": "Abrir WhatsApp",
+    "showAll": "Todos",
+    "csv": {
+      "date": "Fecha",
+      "client": "Alumno",
+      "amount": "Monto",
+      "currency": "Moneda",
+      "method": "Medio de pago",
+      "methodNote": "Detalle del medio",
+      "covers": "Qué cubre",
+      "plan": "Plan",
+      "note": "Nota",
+      "status": "Estado"
+    },
+    "errorGeneric": "Algo salió mal. Probá de nuevo.",
+    "errorAmount": "Ingresá un monto válido.",
+    "save": "Guardar",
+    "cancel": "Cancelar"
   }
 }

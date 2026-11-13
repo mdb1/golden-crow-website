@@ -71,7 +71,8 @@
     "settingsDescription": "Quick-reply templates + trainer preferences.",
     "adminDescription": "Coach/admin access and operator controls.",
     "nutrition": "Nutrition",
-    "challenges": "Challenges"
+    "challenges": "Challenges",
+    "payments": "Payments"
   },
   "shell": {
     "eyebrow": "Golden Crow",
@@ -381,7 +382,8 @@
         "recentLogs": "Recent activity",
         "personalRecords": "Personal records",
         "dailySteps": "Daily steps",
-        "nutrition": "Nutrition"
+        "nutrition": "Nutrition",
+        "payments": "Payments"
       },
       "personalRecords": {
         "title": "Personal records",
@@ -2679,5 +2681,135 @@
       "notFound": "That challenge no longer exists.",
       "generic": "We couldn't save. Try again."
     }
+  },
+  "payments": {
+    "title": "Payments",
+    "subtitle": "Plans, collections and history for your clients",
+    "collections": {
+      "title": "Collections"
+    },
+    "plans": {
+      "title": "Plans",
+      "new": "New plan",
+      "edit": "Edit plan",
+      "archive": "Archive",
+      "unarchive": "Restore",
+      "archived": "Archived",
+      "name": "Plan name",
+      "description": "Description",
+      "periodMonths": "Every how many months",
+      "classCount": "Number of classes",
+      "currency": "Currency",
+      "kindLabel": "Type",
+      "modalityLabel": "Modality",
+      "empty": "You haven't created any plans yet.",
+      "saved": "Plan saved",
+      "kind": {
+        "per_class": "Per class",
+        "class_pack": "Class pack",
+        "per_routine": "Per routine",
+        "monthly": "Monthly",
+        "months_pack": "Multi-month pack",
+        "custom": "Custom"
+      },
+      "modality": {
+        "none": "Not specified",
+        "online": "Online",
+        "in_person": "In person",
+        "hybrid": "Hybrid"
+      }
+    },
+    "history": {
+      "title": "History",
+      "viewAll": "View history",
+      "back": "Back to client",
+      "allMonths": "All months",
+      "allClients": "All clients",
+      "allMethods": "All methods",
+      "loadMore": "Load more"
+    },
+    "status": {
+      "title": "Status",
+      "none": "No plan",
+      "up_to_date": "Up to date",
+      "due_soon": "Due soon",
+      "overdue": "Overdue"
+    },
+    "dueInDays": "{days, plural, one {Due in # day} other {Due in # days}}",
+    "dueToday": "Due today",
+    "overdueDays": "{days, plural, one {# day overdue} other {# days overdue}}",
+    "classesLeft": "{count, plural, one {# class left} other {# classes left}}",
+    "noDue": "No due date",
+    "nextDue": "Next due date",
+    "lastPayment": "Last payment",
+    "record": "Record payment",
+    "recorded": "Payment recorded",
+    "remind": "Remind",
+    "assignPlan": "Assign plan",
+    "changePlan": "Change plan",
+    "planAssigned": "Plan assigned",
+    "noPlanOption": "No plan",
+    "specialPrice": "Special price (optional)",
+    "startDate": "Start date",
+    "amount": "Amount",
+    "date": "Date",
+    "client": "Client",
+    "plan": "Plan",
+    "actions": "Actions",
+    "method": {
+      "title": "Payment method",
+      "cash": "Cash",
+      "transfer": "Bank transfer",
+      "mercadopago": "Mercado Pago",
+      "card": "Card",
+      "other": "Other",
+      "note": "Method details"
+    },
+    "covers": {
+      "title": "Covers",
+      "months": "{count, plural, one {# month} other {# months}}",
+      "classes": "{count, plural, one {# class} other {# classes}}",
+      "monthsLabel": "Months",
+      "classesLabel": "Classes",
+      "routine": "Routine",
+      "other": "Other"
+    },
+    "note": "Note",
+    "void": {
+      "action": "Void payment",
+      "confirm": "Void this payment? It stays in the history as voided.",
+      "reason": "Reason (optional)",
+      "done": "Payment voided"
+    },
+    "voided": "Voided",
+    "collectedThisMonth": "Collected this month",
+    "exportCsv": "Export CSV",
+    "empty": "No payments recorded yet",
+    "noClients": "You don't have clients yet.",
+    "reminderDays": "Remind me days before",
+    "consumeClass": "Use one class",
+    "editDue": "Fix due date",
+    "dueUpdated": "Due date updated",
+    "remindTitle": "Payment reminder",
+    "copyText": "Copy text",
+    "copied": "Text copied",
+    "openWhatsapp": "Open WhatsApp",
+    "showAll": "All",
+    "csv": {
+      "date": "Date",
+      "client": "Client",
+      "amount": "Amount",
+      "currency": "Currency",
+      "method": "Payment method",
+      "methodNote": "Method details",
+      "covers": "Covers",
+      "plan": "Plan",
+      "note": "Note",
+      "status": "Status"
+    },
+    "errorGeneric": "Something went wrong. Try again.",
+    "errorAmount": "Enter a valid amount.",
+    "save": "Save",
+    "cancel": "Cancel"
   }
 }

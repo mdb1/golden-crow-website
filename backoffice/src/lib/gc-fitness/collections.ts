@@ -247,6 +247,17 @@ export const FirestoreCollections = {
    * read and resolved ONLY here. `allow read, write: if false` for every client.
    */
   socialReports: "social_reports",
+
+  // ── Pagos y cobros (gc-fitness #1540) ────────────────────────────────────
+  // Todo manual: el coach registra lo que cobró; no se procesa dinero. El alumno
+  // no lee ninguna de las tres (reglas). Spec común: `1540-SPEC` (campos/enums).
+
+  /** Biblioteca de planes del coach (`coachId`, `archived`; no se borran). */
+  coachPaymentPlans: "coach_payment_plans",
+  /** Plan vigente de un alumno con un coach. Doc id `${coachId}_${clientId}`. */
+  clientBilling: "client_billing",
+  /** Un pago registrado. Se anula (`voidedAt`), nunca se borra. */
+  clientPayments: "client_payments",
 } as const;
 
 /**

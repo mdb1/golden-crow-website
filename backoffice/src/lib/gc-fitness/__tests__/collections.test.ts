@@ -70,4 +70,10 @@ describe("FirestoreCollections — literal-string contract with Swift twin", () 
       }
     }
   });
+
+  it("payments collections (#1540) are coach_payment_plans / client_billing / client_payments", () => {
+    expect(FirestoreCollections.coachPaymentPlans).toBe("coach_payment_plans");
+    expect(FirestoreCollections.clientBilling).toBe("client_billing");
+    expect(FirestoreCollections.clientPayments).toBe("client_payments");
+  });
 });
