@@ -101,6 +101,13 @@ export default async function GCFitnessDashboardPage({
   const tDashboard = await getTranslations("dashboard");
   const tNav = await getTranslations("nav");
 
+  // Literal keys (the i18n-literal-keys gate checks them against the catalog).
+  const lastActionLabels = {
+    lastActionWorkout: tDashboard("lastActionWorkout"),
+    lastActionHabit: tDashboard("lastActionHabit"),
+    lastActionPhoto: tDashboard("lastActionPhoto"),
+    noActivity: tDashboard("noActivity"),
+  } as const;
   const activeClients = roster.filter((client) => client.source === "active");
   const lastActionRows = activeClients
     .map((client) => {
@@ -111,7 +118,7 @@ export default async function GCFitnessDashboardPage({
         lastActivityAt: client.lastActivityAt,
         // #488: the client's REAL last action (workout / habit / photo),
         // not a hardcoded "No activity" next to "4 days ago".
-        lastActionTitle: tDashboard(lastActionMessageKey(client.lastActivityKind)),
+        lastActionTitle: lastActionLabels[lastActionMessageKey(client.lastActivityKind)],
         // % adherence over the last 7 days — drives the activity progress bar.
         ratio: client.thisWeekComplianceRatio ?? 0,
       };
