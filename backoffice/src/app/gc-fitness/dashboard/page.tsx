@@ -74,10 +74,26 @@ export default async function GCFitnessDashboardPage({
   // 260529 RESILIENCE: each section loads behind `safe()` so a single failing
   // query (e.g. a composite index still BUILDING) degrades only that card
   // instead of 500ing the whole dashboard. See safe-load.ts for the why.
-  const roster = (await safe("client roster", () => listClientsForRoster())) ?? [];
+  //
+  // #490: the four loaders are independent — run them in PARALLEL. They used
+  // to be awaited one after another, so the page waited for the SUM of the
+  // four round-trips instead of the slowest one. Each loader re-checks auth;
+  // `getCurrentTrainer` is per-request cached (#491), so that costs nothing.
+  const [rosterResult, pulseResult, checklistResult, unassignedResult, tDashboard, tNav] =
+    await Promise.all([
+      safe("client roster", () => listClientsForRoster()),
+      safe("coach pulse", () => getCoachPulse()),
+      // Overdue + due-today checklist items for the dashboard widget.
+      safe("coach checklist", () => listPendingChecklistItems()),
+      // 260612-e9t (#245): active clients with nothing assigned in the next 4 days.
+      safe("unassigned clients", () => listClientsWithNothingAssignedSoon()),
+      getTranslations("dashboard"),
+      getTranslations("nav"),
+    ]);
+  const roster = rosterResult ?? [];
   // Full zeroed fallback so a failed pulse load degrades to empty cards
   // (never null-derefs in the JSX below).
-  const pulse = (await safe("coach pulse", () => getCoachPulse())) ?? {
+  const pulse = pulseResult ?? {
     habitDaily: [],
     workoutDaily: [],
     weekHabitPct: 0,
@@ -86,19 +102,8 @@ export default async function GCFitnessDashboardPage({
     topPerformersToday: [],
     customExerciseCount: 0,
   };
-  // Overdue + due-today checklist items for the dashboard widget. Behind
-  // `safe()` so a checklist read failure degrades to no widget, never a 500.
-  const pendingChecklist =
-    (await safe("coach checklist", () => listPendingChecklistItems())) ?? [];
-  // 260612-e9t (#245): active clients with nothing assigned in the next 4 days.
-  // Behind safe() so a query failure degrades to no card, never a 500.
-  const unassignedSoon =
-    (await safe("unassigned clients", () =>
-      listClientsWithNothingAssignedSoon(),
-    )) ?? [];
-
-  const tDashboard = await getTranslations("dashboard");
-  const tNav = await getTranslations("nav");
+  const pendingChecklist = checklistResult ?? [];
+  const unassignedSoon = unassignedResult ?? [];
 
   const activeClients = roster.filter((client) => client.source === "active");
   const lastActionRows = activeClients
