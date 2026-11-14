@@ -5,6 +5,10 @@ import { FieldValue } from "firebase-admin/firestore";
 import { z } from "zod";
 
 import { gcFitnessAuth, gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
+import {
+  revokeSessions,
+  revokeSessionsIfBackofficeRoleLost,
+} from "@/lib/gc-fitness/session-revocation";
 import { emailMatchesQuery, normalizeSearchQuery } from "@/lib/gc-fitness/admin-user-search";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { planChatCoachRepoint } from "@/lib/gc-fitness/chat-coach-repoint";
@@ -1525,6 +1529,9 @@ export async function deactivateClientForCoach(input: unknown): Promise<{ ok: tr
   } catch {
     // fail-soft
   }
+  // #482 — a disabled account must also lose the sessions it already has
+  // (backoffice cookie + app); disabling alone only blocks new sign-ins.
+  await revokeSessions(parsed.clientUid, "deactivate_client");
   await writeAdminOperationLog({
     actorUid: admin.uid,
     kind: "delete_client_cascade",
@@ -1650,11 +1657,15 @@ export async function transferClientToCoach(
   try {
     const authUser = await gcFitnessAuth().getUser(parsed.clientUid);
     const current = (authUser.customClaims ?? {}) as Record<string, unknown>;
-    await gcFitnessAuth().setCustomUserClaims(parsed.clientUid, {
-      ...current,
-      role: "client",
-      coachId: parsed.newCoachUid,
-    });
+    const next = { ...current, role: "client", coachId: parsed.newCoachUid };
+    await gcFitnessAuth().setCustomUserClaims(parsed.clientUid, next);
+    // #482 — only when this took a trainer/admin role away.
+    await revokeSessionsIfBackofficeRoleLost(
+      parsed.clientUid,
+      current,
+      next,
+      "transfer_client",
+    );
   } catch {
     // fail-soft
   }
@@ -1752,10 +1763,15 @@ export async function unlinkClientFromCoach(
       string,
       unknown
     >;
-    await gcFitnessAuth().setCustomUserClaims(parsed.clientUid, {
-      ...rest,
-      role: "client",
-    });
+    const next = { ...rest, role: "client" };
+    await gcFitnessAuth().setCustomUserClaims(parsed.clientUid, next);
+    // #482 — only when this took a trainer/admin role away.
+    await revokeSessionsIfBackofficeRoleLost(
+      parsed.clientUid,
+      authUser.customClaims as Record<string, unknown> | undefined,
+      next,
+      "unlink_client",
+    );
   } catch {
     // fail-soft
   }

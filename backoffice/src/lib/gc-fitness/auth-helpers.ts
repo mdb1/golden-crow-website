@@ -30,8 +30,11 @@
 
 import "server-only";
 
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { getTokens } from "next-firebase-auth-edge";
+
+import { assertSessionNotRevoked } from "./session-revocation";
 
 export interface CurrentTrainer {
   uid: string;
@@ -77,18 +80,19 @@ function normalizeRolesFromToken(decodedToken: Record<string, unknown>): string[
   return Array.from(set);
 }
 
-/**
- * Parses the `GcFitnessAuthToken` cookie, verifies the trainer role custom
- * claim, and returns the trainer identity on success.
- *
- * Throws `Error("Forbidden")` for any auth-gate failure (no cookie, wrong
- * role, invalid token). The uniform error message prevents leaking which
- * guard tripped via a side-channel error toast.
- *
- * Throws a different, descriptive error for misconfigured env vars — that
- * is a deployment bug, not an auth event.
- */
-export async function getCurrentGCFitnessUser(): Promise<CurrentGCFitnessUser> {
+type GcFitnessAuthEnv = {
+  apiKey: string;
+  cookieSignatureKey: string;
+  projectId: string;
+  clientEmail: string;
+  privateKey: string;
+};
+
+// #491 — the base64 → PEM decode used to run on every call; the env does not
+// change within an instance, so decode once.
+let cachedEnv: { raw: string; env: GcFitnessAuthEnv } | null = null;
+
+function readAuthEnv(): GcFitnessAuthEnv {
   const apiKey = process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_API_KEY;
   const cookieSignatureKey = process.env.GC_FITNESS_COOKIE_SIGNATURE_KEY;
   const projectId = process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_PROJECT_ID;
@@ -110,15 +114,49 @@ export async function getCurrentGCFitnessUser(): Promise<CurrentGCFitnessUser> {
       "gc-fitness/auth-helpers: server misconfigured — required env vars missing.",
     );
   }
+  const raw = [apiKey, cookieSignatureKey, projectId, clientEmail, privateKeyB64].join("\n");
+  if (cachedEnv?.raw !== raw) {
+    cachedEnv = {
+      raw,
+      env: {
+        apiKey,
+        cookieSignatureKey,
+        projectId,
+        clientEmail,
+        privateKey: Buffer.from(privateKeyB64, "base64").toString("utf8"),
+      },
+    };
+  }
+  return cachedEnv.env;
+}
 
+interface VerifiedSession {
+  idToken: string;
+  uid: string;
+  email: string;
+  roles: string[];
+}
+
+/**
+ * Reads the `GcFitnessAuthToken` cookie and checks the session is still alive
+ * (#482: not revoked, not disabled, user not deleted). Roles come from the
+ * user's CURRENT custom claims, not the token's sign-in snapshot, so a
+ * demotion applies on the next request.
+ *
+ * Wrapped in React `cache()` (#491): a render calls the auth helpers from the
+ * page and from every loader it awaits; they now share ONE cookie read and ONE
+ * user-record lookup per request.
+ */
+const readVerifiedSession = cache(async (): Promise<VerifiedSession> => {
+  const env = readAuthEnv();
   const tokens = await getTokens(await cookies(), {
-    apiKey,
+    apiKey: env.apiKey,
     cookieName: "GcFitnessAuthToken",
-    cookieSignatureKeys: [cookieSignatureKey],
+    cookieSignatureKeys: [env.cookieSignatureKey],
     serviceAccount: {
-      projectId,
-      clientEmail,
-      privateKey: Buffer.from(privateKeyB64, "base64").toString("utf8"),
+      projectId: env.projectId,
+      clientEmail: env.clientEmail,
+      privateKey: env.privateKey,
     },
   });
 
@@ -127,19 +165,43 @@ export async function getCurrentGCFitnessUser(): Promise<CurrentGCFitnessUser> {
   }
 
   const { decodedToken } = tokens;
-  const email = (decodedToken.email ?? "").toLowerCase();
   const tokenRecord = decodedToken as unknown as Record<string, unknown>;
-  const roles = normalizeRolesFromToken(tokenRecord);
-  const isTrainer = roles.includes("trainer");
-  const isAdmin = roles.includes("admin");
+  const authTime =
+    typeof tokenRecord.auth_time === "number" ? tokenRecord.auth_time : 0;
+  const state = await assertSessionNotRevoked(decodedToken.uid, authTime);
   return {
+    idToken: tokens.token,
     uid: decodedToken.uid,
-    email,
-    isTrainer,
-    isAdmin,
-    roles,
+    email: (decodedToken.email ?? "").toLowerCase(),
+    roles: normalizeRolesFromToken(state.customClaims ?? tokenRecord),
   };
-}
+});
+
+/**
+ * Parses the `GcFitnessAuthToken` cookie, verifies the session is still valid
+ * and returns the user's identity + roles.
+ *
+ * Throws `Error("Forbidden")` for any auth-gate failure (no cookie, invalid
+ * token, revoked / disabled / deleted account). The uniform error message
+ * prevents leaking which guard tripped via a side-channel error toast.
+ *
+ * Throws a different, descriptive error for misconfigured env vars — that
+ * is a deployment bug, not an auth event.
+ */
+export const getCurrentGCFitnessUser = cache(
+  async (): Promise<CurrentGCFitnessUser> => {
+    const session = await readVerifiedSession();
+    const isTrainer = session.roles.includes("trainer");
+    const isAdmin = session.roles.includes("admin");
+    return {
+      uid: session.uid,
+      email: session.email,
+      isTrainer,
+      isAdmin,
+      roles: session.roles,
+    };
+  },
+);
 
 export async function getCurrentTrainer(): Promise<CurrentTrainer> {
   const user = await getCurrentGCFitnessUser();
@@ -166,38 +228,9 @@ export async function getCurrentTrainerIdToken(): Promise<{
   uid: string;
   idToken: string;
 }> {
-  const apiKey = process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_API_KEY;
-  const cookieSignatureKey = process.env.GC_FITNESS_COOKIE_SIGNATURE_KEY;
-  const projectId = process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.GC_FITNESS_FIREBASE_ADMIN_CLIENT_EMAIL;
-  const privateKeyB64 = process.env.GC_FITNESS_FIREBASE_ADMIN_PRIVATE_KEY;
-  if (
-    !apiKey ||
-    !cookieSignatureKey ||
-    !projectId ||
-    !clientEmail ||
-    !privateKeyB64
-  ) {
-    throw new Error(
-      "gc-fitness/auth-helpers: server misconfigured — required env vars missing.",
-    );
-  }
-  const tokens = await getTokens(await cookies(), {
-    apiKey,
-    cookieName: "GcFitnessAuthToken",
-    cookieSignatureKeys: [cookieSignatureKey],
-    serviceAccount: {
-      projectId,
-      clientEmail,
-      privateKey: Buffer.from(privateKeyB64, "base64").toString("utf8"),
-    },
-  });
-  if (!tokens) throw new Error("Forbidden");
-  const roles = normalizeRolesFromToken(
-    tokens.decodedToken as unknown as Record<string, unknown>,
-  );
-  if (!roles.includes("trainer")) throw new Error("Forbidden");
-  return { uid: tokens.decodedToken.uid, idToken: tokens.token };
+  const session = await readVerifiedSession();
+  if (!session.roles.includes("trainer")) throw new Error("Forbidden");
+  return { uid: session.uid, idToken: session.idToken };
 }
 
 export async function getCurrentAdmin(): Promise<CurrentAdmin> {

@@ -72,6 +72,7 @@ import {
   type LinkRefusalMode,
 } from "./coach-link";
 import { planChatCoachRepoint } from "./chat-coach-repoint";
+import { revokeSessionsIfBackofficeRoleLost } from "./session-revocation";
 import { FirestoreCollections } from "./collections";
 import { normalizeMirrorEmail } from "./email-normalization";
 // #970 — the client invite email. Both helpers are ASYNC, which matters: this
@@ -995,10 +996,15 @@ export async function unlinkClient(input: unknown): Promise<{ ok: true }> {
       string,
       unknown
     >;
-    await gcFitnessAuth().setCustomUserClaims(parsed.clientId, {
-      ...rest,
-      role: "client",
-    });
+    const next = { ...rest, role: "client" };
+    await gcFitnessAuth().setCustomUserClaims(parsed.clientId, next);
+    // #482 — only when this took a trainer/admin role away.
+    await revokeSessionsIfBackofficeRoleLost(
+      parsed.clientId,
+      authUser.customClaims as Record<string, unknown> | undefined,
+      next,
+      "coach_unlink_client",
+    );
   } catch {
     // fail-soft — see the doc comment.
   }
