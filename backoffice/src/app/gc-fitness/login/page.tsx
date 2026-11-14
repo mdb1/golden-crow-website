@@ -29,7 +29,8 @@ import { BACKOFFICE_VERSION } from "@/lib/app-version";
 //      next-firebase-auth-edge's setAuthCookies (which reads the idToken
 //      from request.headers — the header transport is REQUIRED, not a body
 //      field).
-//   3. 403 from the route handler → redirect to /gc-fitness/forbidden.
+//   3. 403 from the route handler → the refusal is shown inline; a `code`
+//      (client / not-a-coach / coach-disabled, #510) picks translated copy.
 //   4. 200 → redirect to /gc-fitness/dashboard (the proxy's allowlist
 //      gate will pass because the email is allowlisted).
 //
@@ -84,7 +85,11 @@ export default function GCFitnessLoginPage() {
 
   async function readError(res: Response): Promise<string> {
     try {
-      const data = (await res.json()) as { error?: string };
+      const data = (await res.json()) as { error?: string; code?: string };
+      // #510: the refusals a person can act on come with a code → translated copy.
+      if (data.code === "client") return t("errors.client");
+      if (data.code === "not-a-coach") return t("errors.notACoach");
+      if (data.code === "coach-disabled") return t("errors.coachDisabled");
       if (data.error) return data.error;
     } catch {
       // The route should return JSON, but keep a stable fallback if it does not.
@@ -138,9 +143,8 @@ export default function GCFitnessLoginPage() {
             <Dumbbell />
           </span>
           <div className="space-y-1">
-            {/* TODO i18n: brand name */}
             <p className="font-heading text-2xl font-bold tracking-tight text-foreground">
-              Coach Portal
+              {t("brand")}
             </p>
             <p className="text-sm font-medium text-primary">Corvo</p>
           </div>
@@ -184,9 +188,7 @@ export default function GCFitnessLoginPage() {
               <ShieldCheck />
             </span>
             <p className="text-sm leading-6 text-muted-foreground">
-              {/* TODO i18n: authorized-trainers-only helper */}
-              Solo entrenadores autorizados pueden iniciar sesión con su cuenta
-              de Google habilitada.
+              {t("authorizedOnly")}
             </p>
           </div>
         </div>

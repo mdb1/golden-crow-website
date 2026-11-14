@@ -33,6 +33,8 @@ export interface CoachAdminRow {
   clientsCount: number;
   customWorkoutsCount: number;
   customExercisesCount: number;
+  /** #510: removed as a coach (`users/{uid}.coachDisabled`) — login refuses the role. */
+  coachDisabled: boolean;
 }
 
 type OperationMode = "dry_run" | "execute";
@@ -60,6 +62,8 @@ export interface AdminOperationRow {
 
 export interface CoachAdminDetail {
   coach: CoachAdminRow;
+  /** #510: mirror of `coach.coachDisabled`. */
+  coachDisabled: boolean;
   workoutAssignmentsCount: number;
   habitsCount: number;
   chatsCount: number;
@@ -179,6 +183,7 @@ export async function listCoachesForAdmin(): Promise<CoachAdminRow[]> {
         clientsCount: clientsSnap.docs.filter((d) => d.get("deleted") !== true).length,
         customWorkoutsCount: workoutsAgg.data().count,
         customExercisesCount: exercisesAgg.data().count,
+        coachDisabled: data.coachDisabled === true,
       } satisfies CoachAdminRow;
     }),
   );
@@ -392,6 +397,7 @@ export async function getCoachAdminDetail(coachUid: string): Promise<CoachAdminD
 
   return {
     coach,
+    coachDisabled: coach.coachDisabled,
     workoutAssignmentsCount: assignmentsAgg.data().count,
     habitsCount: habitsAgg.data().count,
     chatsCount: chatsAgg.data().count,

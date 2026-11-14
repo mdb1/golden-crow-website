@@ -800,8 +800,8 @@ describe("admin dashboard readers", () => {
     );
     const rows = await listCoachesForAdmin();
     expect(rows).toEqual([
-      { uid: COACH_A, email: "a@coach.com", displayName: "Coach A", roles: ["trainer", "admin"], clientsCount: 1, customWorkoutsCount: 1, customExercisesCount: 1 },
-      { uid: COACH_B, email: "b@coach.com", displayName: "", roles: [], clientsCount: 1, customWorkoutsCount: 0, customExercisesCount: 0 },
+      { uid: COACH_A, email: "a@coach.com", displayName: "Coach A", roles: ["trainer", "admin"], clientsCount: 1, customWorkoutsCount: 1, customExercisesCount: 1, coachDisabled: false },
+      { uid: COACH_B, email: "b@coach.com", displayName: "", roles: [], clientsCount: 1, customWorkoutsCount: 0, customExercisesCount: 0, coachDisabled: false },
     ]);
   });
 
