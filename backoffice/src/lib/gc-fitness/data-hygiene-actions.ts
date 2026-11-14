@@ -1,12 +1,13 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { gcFitnessFirestore, gcFitnessStorage } from "@/lib/firebase/gc-fitness-admin";
 
 import { getCurrentAdmin } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
+import { STANDARD_EXERCISES_CACHE_TAG } from "./exercise-row";
 import { deleteClientCascade, deleteCoachCascade } from "./admin-actions";
 
 const PAGE_SIZE = 20;
@@ -678,6 +679,9 @@ export async function purgeDataHygieneItem(formData: FormData): Promise<void> {
     case "exercise": {
       const exerciseId = String(formData.get("exerciseId") ?? id.replace(/^exercise:/, ""));
       await db.collection(FirestoreCollections.exercises).doc(exerciseId).delete();
+      // #495: the shared catalog is cached; a purged library doc must not
+      // keep showing in the pickers. `expire: 0` = gone on the next read.
+      revalidateTag(STANDARD_EXERCISES_CACHE_TAG, { expire: 0 });
       break;
     }
     default:

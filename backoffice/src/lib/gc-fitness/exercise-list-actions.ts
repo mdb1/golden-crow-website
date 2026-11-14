@@ -29,37 +29,69 @@
 
 "use server";
 
+import { unstable_cache } from "next/cache";
+
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 
 import { getCurrentGCFitnessUser } from "./auth-helpers";
-import { projectExercisesForViewer, type ExerciseRow } from "./exercise-row";
+import {
+  mergeViewerExercises,
+  projectSharedCatalog,
+  SHARED_EXERCISE_SOURCES,
+  STANDARD_EXERCISES_CACHE_TAG,
+  type ExerciseRow,
+} from "./exercise-row";
 
 const COLLECTION = "exercises";
 
 /**
+ * #495 — the shared catalog, cached across requests and coaches. Not exported
+ * (a `"use server"` module may only export async functions, and this must not
+ * be browser-callable: the auth check happens in the caller, BEFORE the cache).
+ * The value is `ExerciseRow[]` — ISO strings only, so it serializes.
+ *
+ * `in` on one field with no orderBy needs no composite index.
+ */
+const readSharedCatalog = unstable_cache(
+  async (): Promise<ExerciseRow[]> => {
+    const snap = await gcFitnessFirestore()
+      .collection(COLLECTION)
+      .where("source", "in", [...SHARED_EXERCISE_SOURCES])
+      .get();
+    return projectSharedCatalog(snap.docs);
+  },
+  ["gc-fitness-shared-exercise-catalog-v1"],
+  { tags: [STANDARD_EXERCISES_CACHE_TAG], revalidate: 3600 },
+);
+
+/**
  * Returns the exercise library as the CALLING coach is allowed to see it:
  * the shared catalog plus their own authored exercises, minus the
- * curation-soft-deleted docs.
+ * curation-soft-deleted docs, ordered `updatedAt desc`.
  *
  * Auth mirrors the Firestore rule this replaces (`allow read: if isSignedIn()`)
  * — any authenticated Corvo user may read the catalog; the per-row
- * ownership scope is applied in `projectExercisesForViewer`. Admins who are
- * not also trainers keep their access, which the client-SDK read gave them.
+ * ownership scope is applied in `mergeViewerExercises` /
+ * `projectExercisesForViewer`. Admins who are not also trainers keep their
+ * access, which the client-SDK read gave them.
  *
- * Ordering is `updatedAt desc`, served by Firestore's automatic single-field
- * index (no composite index, no equality predicate — see the note on
- * `projectExercisesForViewer` for why `deletedAt` is not a `where` clause).
+ * #495: two reads instead of a full-collection scan — the cached shared
+ * catalog and an uncached `ownerId == uid` equality (automatic single-field
+ * index). See the block comment above `SHARED_EXERCISE_SOURCES` for why the
+ * merged result equals the old scan, and why `deletedAt` is not a `where`.
  */
 export async function listExercisesForViewer(): Promise<{
   exercises: ExerciseRow[];
 }> {
   const viewer = await getCurrentGCFitnessUser();
 
-  const db = gcFitnessFirestore();
-  const snap = await db
-    .collection(COLLECTION)
-    .orderBy("updatedAt", "desc")
-    .get();
+  const [shared, ownSnap] = await Promise.all([
+    readSharedCatalog(),
+    gcFitnessFirestore()
+      .collection(COLLECTION)
+      .where("ownerId", "==", viewer.uid)
+      .get(),
+  ]);
 
-  return { exercises: projectExercisesForViewer(snap.docs, viewer.uid) };
+  return { exercises: mergeViewerExercises(shared, ownSnap.docs, viewer.uid) };
 }

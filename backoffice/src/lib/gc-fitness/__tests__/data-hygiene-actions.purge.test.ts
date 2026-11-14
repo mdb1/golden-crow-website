@@ -18,7 +18,11 @@ jest.mock("@/lib/gc-fitness/auth-helpers", () => ({
 }));
 
 const mockRevalidatePath = jest.fn();
-jest.mock("next/cache", () => ({ revalidatePath: (p: string) => mockRevalidatePath(p) }));
+const mockRevalidateTag = jest.fn();
+jest.mock("next/cache", () => ({
+  revalidatePath: (p: string) => mockRevalidatePath(p),
+  revalidateTag: (tag: string, profile: unknown) => mockRevalidateTag(tag, profile),
+}));
 const mockRedirect = jest.fn();
 jest.mock("next/navigation", () => ({ redirect: (url: string) => mockRedirect(url) }));
 
@@ -218,6 +222,8 @@ describe("purgeDataHygieneItem — per kind", () => {
   it("exercise → deletes that exercise only", async () => {
     await purgeDataHygieneItem(form({ kind: "exercise", id: "exercise:e2" }));
     expect(db.writes).toEqual([{ op: "delete", path: "exercises/e2" }]);
+    // #495 — the shared catalog is cached; the purge must drop it immediately.
+    expect(mockRevalidateTag).toHaveBeenCalledWith("gc-fitness:standard-exercises", { expire: 0 });
     expectRedirectFor("exercise");
   });
 

@@ -28,17 +28,36 @@ jest.mock("next-firebase-auth-edge", () => ({
   getTokens: jest.fn(),
 }));
 
-const mockGet = jest.fn();
-const mockOrderBy = jest.fn(() => ({ get: mockGet }));
-const mockCollection = jest.fn(() => ({ orderBy: mockOrderBy }));
+// #495 — the action runs TWO queries now: `where("source","in",[…])` for the
+// shared catalog (cached) and `where("ownerId","==",uid)` for the caller's own
+// docs. The fake answers each from one in-memory doc list (`mockDocs`), so a
+// test states the COLLECTION and the assertions see what each query returned.
+let mockDocs: Array<{ id: string; data: () => Record<string, unknown> }> = [];
+const mockWhere = jest.fn((field: string, op: string, value: unknown) => ({
+  get: jest.fn(async () => ({
+    docs: mockDocs.filter((d) => {
+      const v = d.data()[field];
+      return op === "in" ? (value as unknown[]).includes(v) : v === value;
+    }),
+  })),
+}));
+const mockOrderBy = jest.fn();
+const mockCollection = jest.fn(() => ({ where: mockWhere, orderBy: mockOrderBy }));
 jest.mock("@/lib/firebase/gc-fitness-admin", () => ({
   gcFitnessFirestore: jest.fn(() => ({ collection: mockCollection })),
   gcFitnessStorage: jest.fn(),
+}));
+// unstable_cache needs Next's incremental cache; in Jest it is a pass-through.
+// (Created inside the factory: the cached reader is built at import time,
+// before any top-level `const` of this file is initialized.)
+jest.mock("next/cache", () => ({
+  unstable_cache: jest.fn((fn: unknown) => fn),
 }));
 
 import { getTokens } from "next-firebase-auth-edge";
 
 import { listExercisesForViewer } from "../exercise-list-actions";
+import { projectExercisesForViewer, type ExerciseDocLike } from "../exercise-row";
 
 const mockedGetTokens = getTokens as jest.MockedFunction<typeof getTokens>;
 
@@ -74,7 +93,10 @@ function exerciseDoc(
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  mockWhere.mockClear();
+  mockOrderBy.mockClear();
+  mockCollection.mockClear();
+  mockDocs = [];
   process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_API_KEY = "fake-api-key";
   process.env.GC_FITNESS_COOKIE_SIGNATURE_KEY = "fake-cookie-sig";
   process.env.NEXT_PUBLIC_GC_FITNESS_FIREBASE_PROJECT_ID = "gcfitness-3476b";
@@ -91,18 +113,16 @@ describe("listExercisesForViewer", () => {
     await expect(listExercisesForViewer()).rejects.toThrow(/forbidden/i);
     // No read is even attempted — an unauthenticated caller must not cost us
     // a full-collection scan of the shared library.
-    expect(mockGet).not.toHaveBeenCalled();
+    expect(mockWhere).not.toHaveBeenCalled();
   });
 
   it("scopes to the uid on the VERIFIED TOKEN, not the browser session", async () => {
     mockedGetTokens.mockResolvedValue(fakeTokens(COACH_UID));
-    mockGet.mockResolvedValue({
-      docs: [
+    mockDocs = [
         exerciseDoc("1259", "wger", null),
         exerciseDoc("mine", "trainer", COACH_UID),
         exerciseDoc("theirs", "trainer", "another-coach"),
-      ],
-    });
+      ];
 
     const { exercises } = await listExercisesForViewer();
 
@@ -114,34 +134,96 @@ describe("listExercisesForViewer", () => {
 
   it("drops curation-soft-deleted docs", async () => {
     mockedGetTokens.mockResolvedValue(fakeTokens(COACH_UID));
-    mockGet.mockResolvedValue({
-      docs: [
+    mockDocs = [
         exerciseDoc("alive", "wger", null),
         exerciseDoc("dead", "wger", null, {
           deletedAt: "2026-06-12T00:00:00.000Z",
         }),
-      ],
-    });
+      ];
 
     const { exercises } = await listExercisesForViewer();
 
     expect(exercises.map((e) => e.id)).toEqual(["alive"]);
   });
 
-  it("orders by updatedAt desc with no equality predicate", async () => {
+  it("#495 — reads the cached shared catalog + `ownerId == me`, never the whole collection", async () => {
     mockedGetTokens.mockResolvedValue(fakeTokens(COACH_UID));
-    mockGet.mockResolvedValue({ docs: [] });
 
     await listExercisesForViewer();
 
     expect(mockCollection).toHaveBeenCalledWith("exercises");
-    // A single orderBy is served by Firestore's automatic single-field index.
-    // Adding a `where("deletedAt", "==", null)` here would BOTH need a
-    // composite index AND match zero rows — `==` does not match docs where
-    // the field is absent, which is the ~78 curation survivors. That combo
-    // once rendered an empty picker (debug session picker-empty-deletedat).
-    expect(mockOrderBy).toHaveBeenCalledWith("updatedAt", "desc");
-    expect(mockOrderBy).toHaveBeenCalledTimes(1);
+    expect(mockWhere.mock.calls).toEqual([
+      ["source", "in", ["wger", "free-exercise-db"]],
+      ["ownerId", "==", COACH_UID],
+    ]);
+    // No orderBy: equality / `in` alone are served by the automatic
+    // single-field indexes (an orderBy on top would need a composite).
+    // And still no `where("deletedAt","==",null)` — `==` does not match a
+    // MISSING field, which once rendered an empty picker.
+    expect(mockOrderBy).not.toHaveBeenCalled();
+    // The shared half is cached under a tag the purge path revalidates.
+    const { unstable_cache } = jest.requireMock("next/cache") as { unstable_cache: jest.Mock };
+    expect(unstable_cache).toHaveBeenCalledWith(
+      expect.any(Function),
+      ["gc-fitness-shared-exercise-catalog-v1"],
+      { tags: ["gc-fitness:standard-exercises"], revalidate: 3600 },
+    );
+  });
+
+  it("#495 — returns EXACTLY what the old full scan returned (same rows, same order)", async () => {
+    const OTHER = "another-coach";
+    const ts = (iso: string) => ({ toDate: () => new Date(iso) });
+    const fixture = [
+      exerciseDoc("w-old", "wger", null, { updatedAt: ts("2026-01-01T00:00:00.000Z") }),
+      exerciseDoc("w-new", "wger", null, { updatedAt: ts("2026-09-01T00:00:00.000Z") }),
+      exerciseDoc("f-1", "free-exercise-db", null, { updatedAt: ts("2026-05-01T00:00:00.000Z") }),
+      exerciseDoc("f-tie-a", "free-exercise-db", null, { updatedAt: ts("2026-05-01T00:00:00.000Z") }),
+      exerciseDoc("f-dead", "free-exercise-db", null, { deletedAt: ts("2026-06-01T00:00:00.000Z") }),
+      exerciseDoc("w-owned-by-other", "wger", OTHER),
+      exerciseDoc("mine", "trainer", COACH_UID, { updatedAt: ts("2026-07-01T00:00:00.000Z") }),
+      exerciseDoc("mine-dead", "trainer", COACH_UID, { deletedAt: "2026-07-02T00:00:00.000Z" }),
+      exerciseDoc("mine-manual", "manual", COACH_UID, { updatedAt: ts("2026-03-01T00:00:00.000Z") }),
+      exerciseDoc("mine-wger", "wger", COACH_UID, { updatedAt: ts("2026-02-01T00:00:00.000Z") }),
+      exerciseDoc("theirs", "trainer", OTHER),
+      exerciseDoc("alias", "standard_alias", null),
+      exerciseDoc("unknown-source-mine", "marketing-seed", COACH_UID),
+      // No updatedAt at all: the old orderBy excluded these silently.
+      doc("no-updated-at", { name: { en: "x", es: "" }, source: "wger", ownerId: null }),
+      doc("mine-no-updated-at", { name: { en: "y", es: "" }, source: "trainer", ownerId: COACH_UID }),
+      exerciseDoc("null-updated-at", "wger", null, { updatedAt: null }),
+    ];
+    // The old read, reproduced: Firestore's orderBy("updatedAt","desc") drops
+    // docs WITHOUT the field, sorts the rest desc with a `__name__ desc`
+    // tie-break, then the viewer projection runs over all of it.
+    const iso = (v: unknown) =>
+      v && typeof (v as { toDate?: unknown }).toDate === "function"
+        ? (v as { toDate: () => Date }).toDate().toISOString()
+        : (v as string | null);
+    const oldScan = fixture
+      .filter((d) => d.data().updatedAt !== undefined)
+      .sort((a, b) => {
+        const au = iso(a.data().updatedAt);
+        const bu = iso(b.data().updatedAt);
+        if (au !== bu) {
+          if (au === null) return 1;
+          if (bu === null) return -1;
+          return au < bu ? 1 : -1;
+        }
+        return a.id < b.id ? 1 : -1;
+      });
+    const expected = projectExercisesForViewer(oldScan as ExerciseDocLike[], COACH_UID);
+
+    mockedGetTokens.mockResolvedValue(fakeTokens(COACH_UID));
+    mockDocs = fixture;
+    const { exercises } = await listExercisesForViewer();
+
+    expect(exercises).toEqual(expected);
+    // Sanity: the fixture really exercises every branch.
+    expect(expected.map((e) => e.id)).toEqual(
+      expect.arrayContaining(["w-new", "mine", "mine-manual", "mine-wger", "w-owned-by-other", "unknown-source-mine"]),
+    );
+    expect(expected.map((e) => e.id)).not.toContain("theirs");
+    expect(expected.map((e) => e.id)).not.toContain("no-updated-at");
   });
 
   it("serves an admin who is not also a trainer", async () => {
@@ -149,7 +231,7 @@ describe("listExercisesForViewer", () => {
     // Narrowing it to `getCurrentTrainer()` would have locked admins out of
     // the library they can reach today.
     mockedGetTokens.mockResolvedValue(fakeTokens("admin-uid", "admin"));
-    mockGet.mockResolvedValue({ docs: [exerciseDoc("1259", "wger", null)] });
+    mockDocs = [exerciseDoc("1259", "wger", null)];
 
     const { exercises } = await listExercisesForViewer();
 
@@ -160,14 +242,12 @@ describe("listExercisesForViewer", () => {
     // The rows cross the Server Action boundary, which only carries
     // serializable values — a live Timestamp object would arrive mangled.
     mockedGetTokens.mockResolvedValue(fakeTokens(COACH_UID));
-    mockGet.mockResolvedValue({
-      docs: [
-        exerciseDoc("1259", "wger", null, {
-          updatedAt: { toDate: () => new Date("2026-09-01T10:00:00.000Z") },
-          createdAt: { toDate: () => new Date("2026-01-01T10:00:00.000Z") },
-        }),
-      ],
-    });
+    mockDocs = [
+      exerciseDoc("1259", "wger", null, {
+        updatedAt: { toDate: () => new Date("2026-09-01T10:00:00.000Z") },
+        createdAt: { toDate: () => new Date("2026-01-01T10:00:00.000Z") },
+      }),
+    ];
 
     const { exercises } = await listExercisesForViewer();
 
