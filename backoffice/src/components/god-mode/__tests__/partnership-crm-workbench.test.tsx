@@ -483,6 +483,44 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     });
   });
 
+  it("adds the selected CRM record as a partner from below Send Email without sending an email", async () => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      if (path === "/admin/partnership-crm/organizations/org-1/partner") {
+        return { partner: { id: "partner-from-crm" }, created: true };
+      }
+      if (path === "/admin/partnership-crm/organizations/org-1") {
+        return { organization };
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+
+    renderWorkbench();
+    await user.click(await screen.findByText(organization.name));
+    const panel = await screen.findByTestId("crm-detail-panel");
+    const addButton = within(panel).getByRole("button", { name: "Add as partner" });
+    await waitFor(() => expect(addButton).toBeEnabled());
+    expect(within(panel).getByRole("button", { name: "Send Email" }).nextElementSibling)
+      .toBe(within(panel).getByTestId("crm-add-partner"));
+    await user.click(addButton);
+
+    expect(await within(panel).findByRole("link", { name: "View partner" }))
+      .toHaveAttribute("href", "/god-mode/partners/partner-from-crm/edit");
+    expect(within(panel).getByRole("status")).toHaveTextContent("Partner created.");
+    expect(sdkFetch).toHaveBeenCalledWith(
+      "/admin/partnership-crm/organizations/org-1/partner",
+      expect.objectContaining({ method: "POST", body: "{}", headers: expect.any(Headers) }),
+    );
+    const headers = jest.mocked(sdkFetch).mock.calls.find(([path]) =>
+      path === "/admin/partnership-crm/organizations/org-1/partner",
+    )?.[1]?.headers;
+    expect(new Headers(headers).get("x-crm-usage-surface")).toBe("crm");
+    expect(new Headers(headers).get("x-crm-usage-event-id")).toBeTruthy();
+    expect(jest.mocked(sdkFetch).mock.calls.some(([path, init]) =>
+      String(path).endsWith("/email") && init?.method === "POST",
+    )).toBe(false);
+  });
+
   it("loads no CRM data until the operator explicitly applies or loads", async () => {
     const user = userEvent.setup();
     renderWorkbench("en", { autoLoad: false });

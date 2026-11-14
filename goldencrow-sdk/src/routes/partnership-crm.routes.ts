@@ -2,6 +2,7 @@ import { FastifyInstance, type FastifyReply } from "fastify";
 import { z } from "zod";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { isAdminRepositoryError } from "../repositories/admin-errors.js";
+import { addCrmTargetAsPartner } from "../repositories/crm-partners.repository.js";
 import {
   PARTNERSHIP_CRM_ACTIVITY_TYPES,
   PARTNERSHIP_CRM_STATUSES,
@@ -54,6 +55,7 @@ import {
 const CrmStatusSchema = z.enum(PARTNERSHIP_CRM_STATUSES);
 const CrmStatusBodySchema = z.object({ status: CrmStatusSchema }).strict();
 const CrmFavoriteBodySchema = z.object({ is_favorite: z.boolean() }).strict();
+const CrmPartnerBodySchema = z.object({}).strict();
 const CrmActivityTypeSchema = z.enum(PARTNERSHIP_CRM_ACTIVITY_TYPES);
 const CrmTemplateStatusSchema = z.enum(PARTNERSHIP_CRM_TEMPLATE_STATUSES);
 const CrmTemplateAudienceSchema = z.enum(PARTNERSHIP_CRM_TEMPLATE_AUDIENCES);
@@ -768,6 +770,19 @@ export async function partnershipCrmRoutes(
     },
   );
 
+  f.post(
+    "/admin/partnership-crm/organizations/:organizationId/partner",
+    { schema: { params: OrganizationParamsSchema, body: CrmPartnerBodySchema } },
+    async (request, reply) => {
+      try {
+        const result = await addCrmTargetAsPartner(request.adminContext!, "organizations", request.params.organizationId);
+        return reply.status(result.created ? 201 : 200).send(result);
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
   f.patch(
     "/admin/partnership-crm/organizations/:organizationId/status",
     {
@@ -911,6 +926,19 @@ export async function partnershipCrmRoutes(
           request.body,
         );
         return reply.send({ professional });
+      } catch (error) {
+        return sendRepositoryError(reply, error);
+      }
+    },
+  );
+
+  f.post(
+    "/admin/partnership-crm/professionals/:professionalId/partner",
+    { schema: { params: ProfessionalParamsSchema, body: CrmPartnerBodySchema } },
+    async (request, reply) => {
+      try {
+        const result = await addCrmTargetAsPartner(request.adminContext!, "professionals", request.params.professionalId);
+        return reply.status(result.created ? 201 : 200).send(result);
       } catch (error) {
         return sendRepositoryError(reply, error);
       }

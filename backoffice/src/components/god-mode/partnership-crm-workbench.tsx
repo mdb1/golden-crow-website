@@ -123,6 +123,7 @@ import {
 } from "@/components/god-mode/crm-category-select";
 import { CrmImportRulesDialog } from "@/components/god-mode/crm-import-rules-dialog";
 import { CrmTargetSegmentedControl } from "@/components/god-mode/crm-target-segmented-control";
+import { CrmAddPartnerButton, type CrmPartnerResult } from "@/components/god-mode/crm-add-partner-button";
 import { sdkFetch } from "@/lib/sdk-client";
 import { appText, type AppLanguage } from "@/lib/language";
 import {
@@ -630,7 +631,7 @@ function crmMutationTargetKind(
   }
 
   const pathname = path.split("?", 1)[0]?.replace(/\/+$/, "") ?? path;
-  if (pathname.endsWith("/import-preview")) {
+  if (pathname.endsWith("/import-preview") || pathname.endsWith("/partner")) {
     return null;
   }
 
@@ -658,7 +659,7 @@ function crmTargetMutationPath(path: string, init?: RequestInit) {
   const match = pathname.match(
     /^\/admin\/partnership-crm\/(organizations|professionals)\/([^/]+)(?:\/([^/]+))?$/,
   );
-  if (!match) {
+  if (!match || match[3] === "partner") {
     return null;
   }
 
@@ -12330,6 +12331,16 @@ export function PartnershipCrmWorkbench() {
                 <Mail className="h-4 w-4" />
                 {t("Send Email")}
               </Button>
+
+              <CrmAddPartnerButton
+                key={`${targetKind}:${selectedOrganization.id}:${crmTargetEmail(selectedOrganization, targetKind)}`}
+                email={crmTargetEmail(selectedOrganization, targetKind)}
+                disabled={freshActionsDisabled || selectedTargetDetailUnavailable}
+                onAdd={() => crmFetch<CrmPartnerResult>(
+                  `/admin/partnership-crm/${targetKind}/${encodeURIComponent(selectedOrganization.id)}/partner`,
+                  { method: "POST", body: JSON.stringify({}) },
+                )}
+              />
 
               <MoreInformationSection
                 organization={selectedOrganization}

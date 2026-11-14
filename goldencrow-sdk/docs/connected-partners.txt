@@ -56,6 +56,23 @@ The granular partnerSection classification and email template/hash semantics rem
 unchanged: shared stage matching affects only list selection, not persisted data.
 
 SDK API:
+  POST /admin/partnership-crm/organizations/:organizationId/partner
+  POST /admin/partnership-crm/professionals/:professionalId/partner
+    GOD MODE CRM action with a strict empty JSON body and the usual CRM usage
+    headers. Reads the current source record on the server. Returns
+    { partner, created } with 201 for creation or 200 for an existing partner.
+    Maps the organization/professional name, contact name, normalized email and
+    notes. Useful website, country, LinkedIn and professional context are kept
+    in notes. Phone is blank and meetingDate is null; neither is inferred.
+    Publisher/app links and snapshots remain null: a CRM prospect ID is not a
+    Discover publisher ID. A valid email is required, but personal names are
+    optional. Invalid source data fails before any write.
+    Reuses a partner with the same normalized email without overwriting it.
+    A bounded email lookup and deterministic crm_<SHA256(email)> document create
+    run in one transaction, making retries and simultaneous CRM clicks safe.
+    The CRM detail panel offers this action below Send Email; success links to
+    the partner editor and refreshes cached partner lists. It does not send an
+    email or change the prospect's CRM status.
   GET /admin/connected-partners[?cursor=<last document ID>]
     Returns { items, nextCursor }, 20 partner records per page, ordered by document ID.
     Reads at most 21 partner records plus bounded, deduplicated linked documents.

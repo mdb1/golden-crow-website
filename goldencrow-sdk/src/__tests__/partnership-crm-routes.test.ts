@@ -26,6 +26,11 @@ const mockConsumePartnershipCrmDailyUsage = jest.fn();
 const mockGetPartnershipCrmDailyUsage = jest.fn();
 const mockGetPartnershipCrmSnapshot = jest.fn();
 const mockRefreshPartnershipCrmSnapshot = jest.fn();
+const mockAddCrmTargetAsPartner = jest.fn();
+
+jest.mock("../repositories/crm-partners.repository.js", () => ({
+  addCrmTargetAsPartner: mockAddCrmTargetAsPartner,
+}));
 
 jest.mock("../repositories/partnership-crm.repository.js", () => ({
   PartnershipCrmSnapshotError: class PartnershipCrmSnapshotError extends Error {
@@ -302,6 +307,82 @@ describe("partnership CRM routes", () => {
       totals: { all: 3, organizations: 2, professionals: 1 },
       targets: {},
     });
+  });
+
+  it.each(["organizations", "professionals"] as const)(
+    "creates a partner from an authoritative %s CRM record",
+    async (targetKind) => {
+      mockAddCrmTargetAsPartner.mockResolvedValue({
+        partner: { id: "partner-1" },
+        created: true,
+      });
+      const fastify = await buildTestServer();
+      const response = await fastify.inject({
+        method: "POST",
+        url: `/admin/partnership-crm/${targetKind}/target-1/partner`,
+        headers: crmUsageHeaders,
+        payload: {},
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(response.json()).toMatchObject({
+        partner: { id: "partner-1" },
+        created: true,
+        usage: { surface: "crm", used: 1 },
+      });
+      expect(mockAddCrmTargetAsPartner).toHaveBeenCalledWith(
+        bootstrapContext, targetKind, "target-1",
+      );
+      expect(mockConsumePartnershipCrmDailyUsage).toHaveBeenCalledTimes(1);
+      await fastify.close();
+    },
+  );
+
+  it("returns an existing partner without claiming a second creation", async () => {
+    mockAddCrmTargetAsPartner.mockResolvedValue({
+      partner: { id: "already-a-partner" }, created: false,
+    });
+    const fastify = await buildTestServer();
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/partnership-crm/organizations/org-1/partner",
+      headers: crmUsageHeaders,
+      payload: {},
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      partner: { id: "already-a-partner" }, created: false,
+    });
+    await fastify.close();
+  });
+
+  it("rejects client-authored partner information", async () => {
+    const fastify = await buildTestServer();
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/partnership-crm/organizations/org-1/partner",
+      headers: crmUsageHeaders,
+      payload: { email: "replacement@example.com", linkedOrganizationId: "fake-publisher" },
+    });
+    expect(response.statusCode).toBe(400);
+    expect(mockAddCrmTargetAsPartner).not.toHaveBeenCalled();
+    await fastify.close();
+  });
+
+  it.each([
+    [null, 401],
+    [{ ...bootstrapContext, isBootstrap: false }, 403],
+  ] as const)("protects CRM partner creation for context %p", async (context, status) => {
+    const fastify = await buildTestServer(context);
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/partnership-crm/organizations/org-1/partner",
+      headers: crmUsageHeaders,
+      payload: {},
+    });
+    expect(response.statusCode).toBe(status);
+    expect(mockAddCrmTargetAsPartner).not.toHaveBeenCalled();
+    await fastify.close();
   });
 
   it("returns authoritative usage without headers or consuming quota", async () => {
