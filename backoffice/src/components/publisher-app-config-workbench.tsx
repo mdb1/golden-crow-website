@@ -45,6 +45,7 @@ import { PublisherAppPaletteComposition } from "@/components/publisher-app-palet
 import { PublisherAppColorPicker } from "@/components/publisher-app-color-picker";
 import { PublisherAppVisualIdentityEditor } from "@/components/publisher-app-visual-identity-editor";
 import { PublisherAppDemoPreview } from "@/components/publisher-app-demo-preview";
+import { PublisherAppInstructionsDownload } from "@/components/publisher-app-instructions-download";
 import {
   PublisherAppAdvancedConfigurationEditor,
   publisherAppBrandThemeStyle,
@@ -1187,6 +1188,7 @@ function PublisherAppEditSheet({
   canDelete,
   deletePending,
   hasPersistedConfig,
+  showInstructionsDownload,
   onUpdateState,
   onApplyPalette,
   onChooseIconSource,
@@ -1231,6 +1233,7 @@ function PublisherAppEditSheet({
   canDelete: boolean;
   deletePending: boolean;
   hasPersistedConfig: boolean;
+  showInstructionsDownload: boolean;
   onUpdateState: (patch: Partial<PublisherAppConfigInput>) => void;
   onApplyPalette: (colors: PublisherAppColors, paletteName: string) => Promise<boolean>;
   onChooseIconSource: (source: "publisher" | "custom") => void;
@@ -1314,6 +1317,8 @@ function PublisherAppEditSheet({
           </Link>
         </Button>
       </div>
+
+      {showInstructionsDownload ? <PublisherAppInstructionsDownload /> : null}
 
       <section
         data-testid="publisher-app-edit-sheet"
@@ -2253,6 +2258,7 @@ export function PublisherAppSuccessCelebration({
   backLabel,
   appProviderIdentifier,
   variant = "testing",
+  showInstructionsDownload = false,
 }: {
   publisherName: string;
   editHref: string;
@@ -2260,6 +2266,7 @@ export function PublisherAppSuccessCelebration({
   backLabel: string;
   appProviderIdentifier: string;
   variant?: "testing" | "publication";
+  showInstructionsDownload?: boolean;
 }) {
   return (
     <section
@@ -2307,6 +2314,10 @@ export function PublisherAppSuccessCelebration({
             <span>{variant === "testing" ? "La app está activa para pruebas con el identificador " : "Publicación solicitada · Pendiente de coordinar el pago. Identificador: "}<strong className="break-all font-mono">{appProviderIdentifier}</strong>.</span>
           </div>
         </div>
+
+        {variant === "testing" && showInstructionsDownload ? (
+          <PublisherAppInstructionsDownload className="mx-auto mt-8 max-w-[720px]" />
+        ) : null}
 
         <div className="mt-9 flex flex-col flex-wrap justify-center gap-4 sm:flex-row">
           <Link
@@ -2886,6 +2897,7 @@ export function PublisherAppConfigWorkbench({
           backHref={backHref}
           backLabel={backLabel}
           appProviderIdentifier={persistedConfig?.appProviderIdentifier ?? ""}
+          showInstructionsDownload={persistedConfig?.status === "active_for_testing"}
         />
       </section>
     );
@@ -2928,6 +2940,7 @@ export function PublisherAppConfigWorkbench({
           canDelete={canDelete}
           deletePending={deletePending}
           hasPersistedConfig={Boolean(persistedConfig)}
+          showInstructionsDownload={Boolean(persistedConfig) && persistedStatus === "active_for_testing"}
           onUpdateState={updateState}
           onApplyPalette={async (colors, paletteName) => {
             try { return Boolean(await applyPalette(colors, paletteName)); }

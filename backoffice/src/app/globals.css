@@ -1180,3 +1180,118 @@
     left: calc(var(--sidebar-width-icon) + 1rem);
   }
 }
+
+/* The app guide has its own continuously illuminated gold download action. */
+.publisher-app-instructions-download {
+  color: #422006;
+  border-color: #fcd34d;
+  background: linear-gradient(125deg, #fff6b6 0%, #fde047 28%, #fbbf24 58%, #ffe78a 82%, #facc15 100%);
+  box-shadow: 0 12px 30px -12px rgb(217 119 6 / 55%), inset 0 2px 0 rgb(255 255 255 / 85%), inset 0 -3px 0 rgb(180 83 9 / 16%);
+  text-decoration: none;
+  animation: publisher-app-instructions-glow 3.2s ease-in-out infinite;
+  transition: filter 180ms ease;
+}
+
+.publisher-app-instructions-download:hover {
+  filter: brightness(1.05);
+}
+
+.publisher-app-instructions-download:focus-visible {
+  outline: 3px solid #92400e;
+  outline-offset: 4px;
+}
+
+.publisher-app-instructions-download::before,
+.publisher-app-instructions-download::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.publisher-app-instructions-download::before {
+  inset: 1px 1px 48%;
+  border-radius: 0.9rem 0.9rem 40% 40%;
+  background: linear-gradient(rgb(255 255 255 / 58%), rgb(255 255 255 / 5%));
+}
+
+.publisher-app-instructions-download::after {
+  inset: -50% auto -50% -55%;
+  width: 45%;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 12%) 25%, rgb(255 255 255 / 75%) 50%, rgb(255 255 255 / 12%) 75%, transparent);
+  transform: skewX(-22deg);
+  animation: publisher-app-instructions-sheen 3.2s ease-in-out infinite;
+}
+
+.publisher-app-instructions-download__icon svg {
+  animation: publisher-app-instructions-download-bob 2.4s ease-in-out infinite;
+}
+
+.publisher-app-instructions-download__sparkles {
+  animation: publisher-app-instructions-sparkle 2.8s ease-in-out infinite;
+}
+
+.publisher-app-instructions-download__glint {
+  position: absolute;
+  z-index: 1;
+  width: 1rem;
+  height: 1rem;
+  pointer-events: none;
+  background: #fffef0;
+  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
+  animation: publisher-app-instructions-sparkle 2.8s ease-in-out infinite;
+}
+
+.publisher-app-instructions-download__glint--first {
+  left: 22%;
+  top: 7px;
+}
+
+.publisher-app-instructions-download__glint--second {
+  right: 18%;
+  bottom: 7px;
+  width: 0.75rem;
+  height: 0.75rem;
+  animation-delay: -1.4s;
+}
+
+@keyframes publisher-app-instructions-glow {
+  0%, 100% {
+    box-shadow: 0 12px 30px -12px rgb(217 119 6 / 55%), 0 0 16px -5px rgb(250 204 21 / 45%), inset 0 2px 0 rgb(255 255 255 / 85%), inset 0 -3px 0 rgb(180 83 9 / 16%);
+  }
+  50% {
+    box-shadow: 0 14px 36px -10px rgb(217 119 6 / 65%), 0 0 28px -3px rgb(250 204 21 / 65%), inset 0 2px 0 rgb(255 255 255 / 85%), inset 0 -3px 0 rgb(180 83 9 / 16%);
+  }
+}
+
+@keyframes publisher-app-instructions-sheen {
+  0% { transform: translateX(0) skewX(-22deg); }
+  65%, 100% { transform: translateX(370%) skewX(-22deg); }
+}
+
+@keyframes publisher-app-instructions-download-bob {
+  0%, 100% { transform: translateY(-2px); }
+  50% { transform: translateY(2px); }
+}
+
+@keyframes publisher-app-instructions-sparkle {
+  0%, 100% { opacity: 0.35; transform: scale(0.75) rotate(-8deg); }
+  50% { opacity: 1; transform: scale(1.1) rotate(8deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .publisher-app-instructions-download,
+  .publisher-app-instructions-download::after,
+  .publisher-app-instructions-download__icon svg,
+  .publisher-app-instructions-download__sparkles,
+  .publisher-app-instructions-download__glint {
+    animation: none;
+  }
+
+  .publisher-app-instructions-download {
+    transition: none;
+  }
+
+  .publisher-app-instructions-download::after {
+    display: none;
+  }
+}

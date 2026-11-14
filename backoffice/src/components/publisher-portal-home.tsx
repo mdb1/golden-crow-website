@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { PublisherAppPromoBanner } from "@/components/publisher-app-promo-banner";
 import { PublisherAppPrimaryAction } from "@/components/publisher-app-primary-action";
+import { PublisherAppInstructionsDownload } from "@/components/publisher-app-instructions-download";
 import type { PublisherAppStatus } from "@/lib/publisher-app-config";
 import {
   PUBLISHER_PORTAL_ACCOUNT_ROUTE,
@@ -343,6 +344,9 @@ export function PublisherPortalHome({
           status={publisherAppStatus}
           tint={publisherTint}
         />
+        {hasPublisherAppConfig && publisherAppStatus === "active_for_testing" ? (
+          <PublisherAppInstructionsDownload className="mt-4" />
+        ) : null}
       </section>
 
       <section
