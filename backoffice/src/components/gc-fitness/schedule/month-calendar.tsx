@@ -152,6 +152,18 @@ function workoutChipClass(status: MonthWorkoutChip["status"]): string {
   return STATUS_PALETTE[status];
 }
 
+/** The calendar chip for an assignment id, wherever it sits in the payload. */
+function findWorkoutChip(
+  workoutsByDay: Record<string, MonthWorkoutChip[]>,
+  id: string,
+): MonthWorkoutChip | null {
+  for (const chips of Object.values(workoutsByDay)) {
+    const hit = chips.find((c) => c.id === id);
+    if (hit) return hit;
+  }
+  return null;
+}
+
 function addCivilDays(civil: string, days: number): string {
   const [y, m, d] = civil.split("-").map(Number);
   const shifted = new Date(Date.UTC(y, m - 1, d) + days * 86_400_000);
@@ -461,6 +473,13 @@ export function MonthCalendar({
     const chip = dragChip;
     setDragChip(null);
     if (!chip) return;
+    requestMove(chip, targetDay);
+  }
+
+  // The ONE move path — shared by the HTML5 drop above and the detail
+  // dialog's "Mover a fecha…" (#493, keyboard/touch). Same-day is a no-op;
+  // a recurring chip asks for the scope first.
+  function requestMove(chip: MonthWorkoutChip, targetDay: string) {
     if (chip.scheduledFor === targetDay) return;
     if (chip.seriesId && chip.recurrenceKind && chip.recurrenceKind !== "single") {
       setPendingMove({ chip, newDate: targetDay });
@@ -1135,6 +1154,11 @@ export function MonthCalendar({
             });
             setDetailAssignmentId(null);
           }}
+          onMoveTo={(newDate) => {
+            const chip = findWorkoutChip(payload.workoutsByDay, detailAssignmentId);
+            setDetailAssignmentId(null);
+            if (chip) requestMove(chip, newDate);
+          }}
         />
       ) : null}
 
@@ -1777,6 +1801,7 @@ function AddPopover({
    *  cell that already has content can still take another workout/habit. */
   variant?: "icon" | "cell" | "row";
 }) {
+  const t = useTranslations("schedule.calendar");
   const [open, setOpen] = useState(false);
   const enabled: Array<"workout" | "habit"> = [
     ...(showWorkouts ? (["workout"] as const) : []),
@@ -1812,7 +1837,11 @@ function AddPopover({
       <button
         type="button"
         className={triggerClass}
-        aria-label={`Asignar ${only === "workout" ? "workout" : "hábito"} el ${civil}`}
+        aria-label={
+          only === "workout"
+            ? t("addWorkoutOnAria", { date: civil })
+            : t("addHabitOnAria", { date: civil })
+        }
         onClick={() => onPick(only)}
       >
         <PlusIcon className={plusClass} />
@@ -1826,7 +1855,7 @@ function AddPopover({
         <button
           type="button"
           className={triggerClass}
-          aria-label={`Asignar el ${civil}`}
+          aria-label={t("addOnAria", { date: civil })}
         >
           <PlusIcon className={plusClass} />
         </button>
@@ -1846,7 +1875,7 @@ function AddPopover({
           }}
         >
           <Dumbbell className="size-4 text-amber-600 dark:text-amber-400" />
-          Entrenamiento
+          {t("addMenuWorkout")}
         </button>
         <button
           type="button"
@@ -1857,7 +1886,7 @@ function AddPopover({
           }}
         >
           <Circle className="size-4 text-emerald-600 dark:text-emerald-400" />
-          Hábito
+          {t("addMenuHabit")}
         </button>
       </PopoverContent>
     </Popover>

@@ -512,6 +512,16 @@ export function TemplateForm({
     }
     return m;
   }, [exerciseLibrary]);
+  // #494 — names for the icon buttons' aria-labels and the remove confirm.
+  const exerciseNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const ex of exerciseLibrary ?? []) {
+      const primary = locale === "es" ? ex.name?.es : ex.name?.en;
+      const name = (primary || ex.name?.en || ex.name?.es || "").trim();
+      if (name) m.set(ex.id, name);
+    }
+    return m;
+  }, [exerciseLibrary, locale]);
   // 26-09 — exercises authored as "reps without weight" (tracksWeight:false)
   // seed the per-set "Sin peso" sentinel (`weightBySetKg: []`) when dropped
   // into a template, so the trainer doesn't have to toggle it by hand.
@@ -670,6 +680,34 @@ export function TemplateForm({
   // draft was restored from a prior session) we confirm first so the trainer
   // doesn't lose work by accident.
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  // #494 — index of the exercise waiting for "remove?" confirmation.
+  const [pendingRemoveIndex, setPendingRemoveIndex] = useState<number | null>(null);
+  const exerciseNameAt = (index: number): string | null => {
+    const id = watchedExercises[index]?.exerciseId ?? "";
+    return id ? exerciseNameById.get(id) ?? null : null;
+  };
+  // Icon-button labels carry the exercise name when the library knows it.
+  const moveUpLabel = (index: number) => {
+    const name = exerciseNameAt(index);
+    return name ? t("moveUpNamed", { name }) : t("moveUp");
+  };
+  const moveDownLabel = (index: number) => {
+    const name = exerciseNameAt(index);
+    return name ? t("moveDownNamed", { name }) : t("moveDown");
+  };
+  const removeLabel = (index: number) => {
+    const name = exerciseNameAt(index);
+    return name ? t("removeExerciseNamed", { name }) : t("removeExercise");
+  };
+  // An unpicked row has nothing to lose — remove it straight away; anything
+  // else asks first (a mis-tap used to drop the exercise and all its sets).
+  const requestRemove = (index: number) => {
+    if (!watchedExercises[index]?.exerciseId) {
+      remove(index);
+      return;
+    }
+    setPendingRemoveIndex(index);
+  };
 
   function performCancel() {
     cancellingRef.current = true;
@@ -1439,13 +1477,13 @@ export function TemplateForm({
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1 self-end sm:self-center">
-                      <Button type="button" variant="ghost" size="icon" onClick={() => move(index, index - 1)} disabled={index === 0}>
+                      <Button type="button" variant="ghost" size="icon" onClick={() => move(index, index - 1)} disabled={index === 0} aria-label={moveUpLabel(index)}>
                         <ArrowUp className="h-4 w-4" />
                       </Button>
-                      <Button type="button" variant="ghost" size="icon" onClick={() => move(index, index + 1)} disabled={index === fields.length - 1}>
+                      <Button type="button" variant="ghost" size="icon" onClick={() => move(index, index + 1)} disabled={index === fields.length - 1} aria-label={moveDownLabel(index)}>
                         <ArrowDown className="h-4 w-4" />
                       </Button>
-                      <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive hover:text-destructive">
+                      <Button type="button" variant="ghost" size="icon" onClick={() => requestRemove(index)} aria-label={removeLabel(index)} className="text-destructive hover:text-destructive">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -1576,8 +1614,7 @@ export function TemplateForm({
                           size="icon"
                           onClick={() => move(index, index - 1)}
                           disabled={index === 0}
-                          tabIndex={-1}
-                          aria-label={t("moveUp")}
+                          aria-label={moveUpLabel(index)}
                         >
                           <ArrowUp className="h-4 w-4" />
                         </Button>
@@ -1587,8 +1624,7 @@ export function TemplateForm({
                           size="icon"
                           onClick={() => move(index, index + 1)}
                           disabled={index === fields.length - 1}
-                          tabIndex={-1}
-                          aria-label={t("moveDown")}
+                          aria-label={moveDownLabel(index)}
                         >
                           <ArrowDown className="h-4 w-4" />
                         </Button>
@@ -1596,9 +1632,8 @@ export function TemplateForm({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          onClick={() => remove(index)}
-                          tabIndex={-1}
-                          aria-label={t("removeExercise")}
+                          onClick={() => requestRemove(index)}
+                          aria-label={removeLabel(index)}
                           className="text-destructive hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -2804,7 +2839,10 @@ export function TemplateForm({
               {quickCreated.map((exercise) => (
                 <div key={exercise.id} className="flex items-center justify-between rounded-md border border-emerald-400/50 bg-emerald-50/60 px-3 py-2 text-sm">
                   <span className="truncate">
-                    Created: <strong>{exercise.name}</strong>
+                    {t.rich("quickCreatedNotice", {
+                      name: exercise.name,
+                      strong: (chunks) => <strong>{chunks}</strong>,
+                    })}
                   </span>
                   <div className="ml-2 flex items-center gap-2">
                     <a
@@ -2813,13 +2851,14 @@ export function TemplateForm({
                       rel="noreferrer"
                       className="inline-flex items-center gap-1 text-emerald-900 underline"
                     >
-                      Edit in new tab
+                      {t("quickCreatedEdit")}
                       <ExternalLink className="h-3 w-3" />
                     </a>
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
+                      aria-label={t("quickCreatedDismissAria", { name: exercise.name })}
                       onClick={() =>
                         setQuickCreated((prev) => prev.filter((row) => row.id !== exercise.id))
                       }
@@ -2901,6 +2940,38 @@ export function TemplateForm({
 
       {/* Unsaved-changes guard — explicit Cancel discards the autosaved draft,
           so confirm before throwing away in-progress edits. */}
+      <AlertDialog
+        open={pendingRemoveIndex !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingRemoveIndex(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("removeExerciseConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingRemoveIndex !== null && exerciseNameAt(pendingRemoveIndex)
+                ? t("removeExerciseConfirmBody", {
+                    name: exerciseNameAt(pendingRemoveIndex) ?? "",
+                  })
+                : t("removeExerciseConfirmBodyUnnamed")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("removeExerciseConfirmCancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={() => {
+                if (pendingRemoveIndex !== null) remove(pendingRemoveIndex);
+                setPendingRemoveIndex(null);
+              }}
+            >
+              {t("removeExerciseConfirmAction")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
