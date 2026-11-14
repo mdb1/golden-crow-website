@@ -1318,8 +1318,6 @@ function PublisherAppEditSheet({
         </Button>
       </div>
 
-      {showInstructionsDownload ? <PublisherAppInstructionsDownload /> : null}
-
       <section
         data-testid="publisher-app-edit-sheet"
         className="overflow-hidden rounded-2xl border border-violet-100/80 bg-white/92 shadow-[0_22px_62px_-46px_rgba(109,40,217,0.46)] dark:border-violet-400/16 dark:bg-slate-950/50"
@@ -1416,7 +1414,7 @@ function PublisherAppEditSheet({
                   identifierPending ||
                   downloadPending
                 }
-                className="h-9 rounded-xl border-violet-200/80 bg-white/82 text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-50"
+                className="h-9 rounded-full border-violet-200/80 bg-white/82 text-violet-800 shadow-sm hover:border-violet-300 hover:bg-violet-50 dark:border-violet-400/24 dark:bg-violet-500/10 dark:text-violet-50"
               >
                 {downloadPending ? (
                   <LoaderCircle className="size-3.5 animate-spin" />
@@ -1425,6 +1423,7 @@ function PublisherAppEditSheet({
                 )}
                 Descargar configuración
               </Button>
+              {showInstructionsDownload ? <PublisherAppInstructionsDownload size="sm" /> : null}
             </div>
           </div>
         </header>
