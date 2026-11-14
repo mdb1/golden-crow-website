@@ -20,6 +20,12 @@
 //   [ chat | actividad reciente ]
 //   desvincular
 //
+// #502 (2.3.0): below the header, a sticky section nav and seven anchored
+// sections in nav order — resumen (calendario, plan, resumen IA) ·
+// entrenamiento (gráficos de entreno + actividad reciente) · hábitos (gráficos
+// de hábitos y pasos) · nutrición · pagos · progreso (peso + fotos) · chat.
+// The charts are split per section (`client-sections.ts`), one cookie.
+//
 // The `/clients/[id]/progress` route is gone: its two charts are slots in the
 // charts section, so comparing tonnage against weekly sets no longer means
 // changing page.
@@ -102,6 +108,11 @@ import { NutritionProfileWidget } from "./_components/NutritionProfileWidget";
 import { ClientPaymentsCard } from "./_components/ClientPaymentsCard";
 import { clientFirstName } from "@/lib/gc-fitness/payments-model";
 import { ClientCalendarPeek } from "./_components/ClientCalendarPeek";
+import { ClientSectionNav } from "./_components/ClientSectionNav";
+import {
+  CLIENT_SECTION_IDS,
+  CLIENT_SECTION_CHARTS,
+} from "@/lib/gc-fitness/client-sections";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
 // Tab title: "Corvo - <clients>" (issue #170).
@@ -269,6 +280,7 @@ export default async function ClientDetailPage({
   );
   const tSkeleton = await getTranslations("clients.detail.skeleton");
   const tCharts = await getTranslations("clients.detail.charts");
+  const tSections = await getTranslations("clients.detail.sections");
   const tExercise = await getTranslations("clients.exerciseProgress");
 
   // Anchor every range to today so the local filter windows match the other
@@ -405,6 +417,27 @@ export default async function ClientDetailPage({
     },
   ];
 
+  // #502 — the charts live in the section they belong to (training / habits /
+  // progress), each with its own configurator over ITS slots. They share the one
+  // hidden-charts cookie, and every toggle refreshes the page, so the `hidden`
+  // each instance receives is always the current list.
+  const chartsFor = (section: keyof typeof CLIENT_SECTION_CHARTS) => (
+    <ClientChartsSection
+      slots={chartSlots.filter((slot) =>
+        (CLIENT_SECTION_CHARTS[section] as readonly string[]).includes(slot.id),
+      )}
+      hidden={hiddenCharts}
+      labels={{
+        title: tCharts(`sectionTitles.${section}`),
+        subtitle: tCharts("subtitle"),
+        configure: tCharts("configure"),
+        configureTitle: tCharts("configureTitle"),
+        configureHelp: tCharts("configureHelp"),
+        allHidden: tCharts("allHidden"),
+      }}
+    />
+  );
+
   return (
     <div className="gc-page flex w-full flex-col gap-6">
       <ClientHeader
@@ -437,82 +470,93 @@ export default async function ClientDetailPage({
         }
       />
 
-      <ClientCalendarPeek clientId={id} initialPayload={calendarPeek} />
-
-      <ClientSummaryCard
-        clientId={id}
-        clientName={displayName}
-        coachId={trainer.uid}
-        timezone={timezone}
-        goals={goals}
+      {/* #502 — sticky section nav. Sections are anchors (not hidden tabs): the
+          order below IS the nav order, and `/clients/<id>#<section>` deep-links. */}
+      <ClientSectionNav
+        ariaLabel={tSections("navLabel")}
+        items={CLIENT_SECTION_IDS.map((sectionId) => ({
+          id: sectionId,
+          label: tSections(sectionId),
+        }))}
       />
 
-      <CoachWeeklySummaryCard clientId={id} initial={aiSummary} />
-
-      {/* #949 — nutrición era UN BOTÓN en el header y nada más. Ahora es una
-          sección propia, justo debajo del resumen, y con estado vacío: un
-          cliente sin plan es el caso más accionable y era el único del que la
-          página no decía nada. */}
-      <Suspense fallback={<WidgetSkeleton title={tSkeleton("nutrition")} />}>
-        <NutritionProfileWidget clientId={id} timezone={timezone} />
-      </Suspense>
-
-      {/* #1540 — pagos y cobros (manual): estado, plan, vencimiento y «Registrar pago».
-          El historial completo vive en `[id]/pagos`, igual que `[id]/nutricion`. Los
-          vencimientos son días civiles en la zona del COACH (la misma que usa /payments). */}
-      <Suspense fallback={<WidgetSkeleton title={tSkeleton("payments")} />}>
-        <ClientPaymentsCard
+      <section id="resumen" aria-label={tSections("resumen")} className="flex scroll-mt-16 flex-col gap-6">
+        <ClientCalendarPeek clientId={id} initialPayload={calendarPeek} />
+        <ClientSummaryCard
           clientId={id}
           clientName={displayName}
-          clientFirstName={clientFirstName({
-            displayName: client.displayName ?? "",
-            email: client.email ?? "",
-            coachNickname: client.coachNickname ?? null,
-          })}
-          todayCivil={civilDateToday(await getTrainerTimezone())}
+          coachId={trainer.uid}
+          timezone={timezone}
+          goals={goals}
         />
-      </Suspense>
+        <CoachWeeklySummaryCard clientId={id} initial={aiSummary} />
+      </section>
 
-      <ClientChartsSection
-        slots={chartSlots}
-        hidden={hiddenCharts}
-        labels={{
-          title: tCharts("title"),
-          subtitle: tCharts("subtitle"),
-          configure: tCharts("configure"),
-          configureTitle: tCharts("configureTitle"),
-          configureHelp: tCharts("configureHelp"),
-          allHidden: tCharts("allHidden"),
-        }}
-      />
-
-      <ProgressPhotosWidget
-        photos={progressPhotos}
-        clientId={id}
-        timezone={timezone}
-        requestSlot={
-          <ClientRequestRow
-            clientId={id}
-            clientName={displayName}
-            kind="progressPhotos"
-            timezone={timezone}
-            requestedAt={client.progressPhotosRequestedAt ?? null}
-            fulfilled={progressPhotosFulfilled}
-            checkInEligible={progressPhotosCheckIn.isEligible}
-            nextEligibleDate={progressPhotosCheckIn.nextEligibleDate}
-          />
-        }
-      />
-
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <Suspense fallback={<WidgetSkeleton title={tSkeleton("recentMessages")} />}>
-          <ChatHistoryWidget clientId={id} trainerUid={trainer.uid} timezone={timezone} />
-        </Suspense>
-
+      <section id="entrenamiento" aria-label={tSections("entrenamiento")} className="flex scroll-mt-16 flex-col gap-6">
+        {chartsFor("entrenamiento")}
         <Suspense fallback={<WidgetSkeleton title={tSkeleton("recentLogs")} />}>
           <ClientRecentLogsWidget clientId={id} timezone={timezone} />
         </Suspense>
-      </div>
+      </section>
+
+      <section id="habitos" aria-label={tSections("habitos")} className="flex scroll-mt-16 flex-col gap-6">
+        {chartsFor("habitos")}
+      </section>
+
+      <section id="nutricion" aria-label={tSections("nutricion")} className="flex scroll-mt-16 flex-col gap-6">
+        {/* #949 — nutrición era UN BOTÓN en el header y nada más. Ahora es una
+            sección propia, justo debajo del resumen, y con estado vacío: un
+            cliente sin plan es el caso más accionable y era el único del que la
+            página no decía nada. */}
+        <Suspense fallback={<WidgetSkeleton title={tSkeleton("nutrition")} />}>
+          <NutritionProfileWidget clientId={id} timezone={timezone} />
+        </Suspense>
+      </section>
+
+      <section id="pagos" aria-label={tSections("pagos")} className="flex scroll-mt-16 flex-col gap-6">
+        {/* #1540 — pagos y cobros (manual): estado, plan, vencimiento y «Registrar pago».
+            El historial completo vive en `[id]/pagos`, igual que `[id]/nutricion`. Los
+            vencimientos son días civiles en la zona del COACH (la misma que usa /payments). */}
+        <Suspense fallback={<WidgetSkeleton title={tSkeleton("payments")} />}>
+          <ClientPaymentsCard
+            clientId={id}
+            clientName={displayName}
+            clientFirstName={clientFirstName({
+              displayName: client.displayName ?? "",
+              email: client.email ?? "",
+              coachNickname: client.coachNickname ?? null,
+            })}
+            todayCivil={civilDateToday(await getTrainerTimezone())}
+          />
+        </Suspense>
+      </section>
+
+      <section id="progreso" aria-label={tSections("progreso")} className="flex scroll-mt-16 flex-col gap-6">
+        {chartsFor("progreso")}
+        <ProgressPhotosWidget
+          photos={progressPhotos}
+          clientId={id}
+          timezone={timezone}
+          requestSlot={
+            <ClientRequestRow
+              clientId={id}
+              clientName={displayName}
+              kind="progressPhotos"
+              timezone={timezone}
+              requestedAt={client.progressPhotosRequestedAt ?? null}
+              fulfilled={progressPhotosFulfilled}
+              checkInEligible={progressPhotosCheckIn.isEligible}
+              nextEligibleDate={progressPhotosCheckIn.nextEligibleDate}
+            />
+          }
+        />
+      </section>
+
+      <section id="chat" aria-label={tSections("chat")} className="flex scroll-mt-16 flex-col gap-6">
+        <Suspense fallback={<WidgetSkeleton title={tSkeleton("recentMessages")} />}>
+          <ChatHistoryWidget clientId={id} trainerUid={trainer.uid} timezone={timezone} />
+        </Suspense>
+      </section>
 
       {/* #970 — the "your coach added you" email. Above the unlink control on
           purpose: it is the harmless one of the two. */}

@@ -700,6 +700,11 @@
           "exerciseProgress": "Evolución por ejercicio",
           "dailySteps": "Pasos diarios",
           "personalRecords": "Récords personales"
+        },
+        "sectionTitles": {
+          "entrenamiento": "Gráficos de entrenamiento",
+          "habitos": "Gráficos de hábitos y actividad",
+          "progreso": "Gráficos corporales"
         }
       },
       "dailySteps": {
@@ -932,6 +937,16 @@
           "unavailable": "El servicio de IA no respondió. Probá de nuevo en un rato.",
           "generic": "No pudimos generar el resumen. Probá de nuevo."
         }
+      },
+      "sections": {
+        "navLabel": "Secciones del cliente",
+        "resumen": "Resumen",
+        "entrenamiento": "Entrenamiento",
+        "habitos": "Hábitos",
+        "nutricion": "Nutrición",
+        "pagos": "Pagos",
+        "progreso": "Progreso",
+        "chat": "Chat"
       }
     },
     "invite": {

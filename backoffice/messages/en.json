@@ -700,6 +700,11 @@
           "exerciseProgress": "Per-exercise progression",
           "dailySteps": "Daily steps",
           "personalRecords": "Personal records"
+        },
+        "sectionTitles": {
+          "entrenamiento": "Training charts",
+          "habitos": "Habit and activity charts",
+          "progreso": "Body charts"
         }
       },
       "dailySteps": {
@@ -932,6 +937,16 @@
           "unavailable": "The AI service did not respond. Try again in a while.",
           "generic": "We couldn't generate the summary. Try again."
         }
+      },
+      "sections": {
+        "navLabel": "Client sections",
+        "resumen": "Summary",
+        "entrenamiento": "Training",
+        "habitos": "Habits",
+        "nutricion": "Nutrition",
+        "pagos": "Payments",
+        "progreso": "Progress",
+        "chat": "Chat"
       }
     },
     "invite": {
