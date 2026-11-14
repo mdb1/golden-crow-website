@@ -223,6 +223,26 @@
     "missedWorkouts": "Entrenamientos perdidos",
     "lowCompliance": "Baja adherencia a hábitos",
     "inactive3Days": "Sin actividad hace 3+ días",
+    "attentionReasons": {
+      "inactive": "Sin actividad hace 3+ días",
+      "nothingAssigned": "Nada agendado en los próximos 4 días",
+      "missedWorkouts": "Entrenamientos perdidos esta semana",
+      "overduePayment": "Pago vencido",
+      "lowNutrition": "Nutrición bajo 60% esta semana",
+      "unreadChat": "Mensajes sin leer"
+    },
+    "sort": {
+      "label": "Ordenar por",
+      "attention": "Necesita atención",
+      "lastActivity": "Última actividad",
+      "name": "Nombre",
+      "habits": "Hábitos",
+      "nutrition": "Nutrición",
+      "workouts": "Entrenamientos del mes",
+      "unread": "Mensajes sin leer",
+      "ascending": "Ascendente",
+      "descending": "Descendente"
+    },
     "table": {
       "name": "Nombre",
       "lastActivity": "Última actividad",
@@ -680,6 +700,11 @@
           "exerciseProgress": "Evolución por ejercicio",
           "dailySteps": "Pasos diarios",
           "personalRecords": "Récords personales"
+        },
+        "sectionTitles": {
+          "entrenamiento": "Gráficos de entrenamiento",
+          "habitos": "Gráficos de hábitos y actividad",
+          "progreso": "Gráficos corporales"
         }
       },
       "dailySteps": {
@@ -912,6 +937,16 @@
           "unavailable": "El servicio de IA no respondió. Probá de nuevo en un rato.",
           "generic": "No pudimos generar el resumen. Probá de nuevo."
         }
+      },
+      "sections": {
+        "navLabel": "Secciones del cliente",
+        "resumen": "Resumen",
+        "entrenamiento": "Entrenamiento",
+        "habitos": "Hábitos",
+        "nutricion": "Nutrición",
+        "pagos": "Pagos",
+        "progreso": "Progreso",
+        "chat": "Chat"
       }
     },
     "invite": {
@@ -2626,7 +2661,30 @@
       "note": "Nota",
       "device": "App",
       "open": "Ver contexto",
-      "empty": "No hay respuestas reportadas."
+      "empty": "No hay respuestas reportadas.",
+      "state": "Estado",
+      "states": {
+        "all": "Todos",
+        "new": "Nuevos",
+        "reviewed": "Revisados",
+        "resolved": "Resueltos"
+      },
+      "filterLabel": "Filtrar por estado",
+      "countsUnavailable": "No se pudieron contar los reportes.",
+      "emptyFiltered": "No hay reportes en este estado.",
+      "triageNote": "Nota interna",
+      "triage": {
+        "title": "Triage",
+        "help": "El estado y la nota son internos: el usuario nunca los ve.",
+        "statusLabel": "Estado",
+        "noteLabel": "Nota interna",
+        "notePlaceholder": "Qué se revisó, qué se hizo…",
+        "save": "Guardar",
+        "saving": "Guardando…",
+        "saved": "Guardado",
+        "error": "No se pudo guardar: {error}",
+        "lastUpdate": "Última actualización: {time}"
+      }
     },
     "reasons": {
       "incorrect": "Incorrecta",
@@ -3420,14 +3478,14 @@
       },
       "filters": {
         "title": "Filtros",
-        "description": "El rango de fechas se aplica en la query; el resto filtra la ventana cargada en memoria. Horarios en UTC.",
+        "description": "El rango de fechas se lee en tu zona horaria ({timezone}), igual que las horas del feed. Los demás filtros se aplican a cada página; «Ver más antiguos» sigue hacia atrás con los mismos filtros.",
         "eventType": "Tipo de evento",
         "source": "Fuente",
         "actor": "Quién (uid / nombre / email)",
         "client": "Cliente (uid / nombre / email)",
         "contains": "contiene…",
-        "from": "Desde (UTC)",
-        "to": "Hasta (UTC)",
+        "from": "Desde",
+        "to": "Hasta",
         "lowSignal": "Mostrar también los writes de bajo nivel (toques de <code>updatedAt</code>, escrituras por serie durante un workout, refrescos de suscripción sin cambio de plan)",
         "apply": "Aplicar filtros",
         "clear": "Limpiar"
@@ -3442,7 +3500,14 @@
       "viewDetail": "ver detalle",
       "today": "Hoy · {day}",
       "yesterday": "Ayer · {day}",
-      "noDate": "sin fecha"
+      "noDate": "sin fecha",
+      "paging": {
+        "label": "Páginas del feed",
+        "older": "Ver más antiguos",
+        "newest": "Volver a lo más nuevo",
+        "olderPage": "Página anterior del feed.",
+        "exportCsv": "Exportar CSV"
+      }
     },
     "calendar": {
       "loadError": "No se pudo cargar ese mes.",

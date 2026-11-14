@@ -46,6 +46,7 @@ const mockUseChatMessages = jest.fn();
 const mockFetchNextPage = jest.fn();
 jest.mock("@/lib/gc-fitness/chat-listener", () => ({
   CHATS_BASE_KEY: ["gc-fitness", "chats"],
+  chatNewestPageKey: (id: string | null) => ["gc-fitness", "chats", id, "messages", "newest"],
   useChatMessages: (...args: unknown[]) => mockUseChatMessages(...args),
 }));
 

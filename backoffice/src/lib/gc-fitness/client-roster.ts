@@ -49,8 +49,10 @@ import { FirestoreCollections } from "./collections";
 import { coachVisibleClientName } from "./client-name";
 import { coerceLegacyHabitLogValue } from "./habit-compliance";
 import { isHabitNotDeleted } from "./habit-visibility";
-import { effectiveIsoWeekdays } from "./habit-schedule";
-import { civilDateToday } from "./civil-date";
+import { effectiveIsoWeekdays, isHabitScheduledOn } from "./habit-schedule";
+import { civilDateAddDays, civilDateToday } from "./civil-date";
+import { status as billingStatus } from "./billing";
+import { decodeBilling } from "./payments-model";
 import { getTrainerTimezone } from "./trainer-timezone";
 import { loadNutritionRosterSummaries } from "./nutrition-roster";
 import {
@@ -66,6 +68,7 @@ import {
   type LastActivityKind,
 } from "./last-activity-kind";
 import {
+  ATTENTION_RULES,
   clientNeedsAttention,
   type AttentionReason,
 } from "./client-attention";
@@ -134,12 +137,12 @@ export interface ClientRosterRow {
    */
   missedWorkoutsLast7Days: number;
   /**
-   * Derived flag from `clientNeedsAttention()` predicate.
-   * True iff the client has had zero activity for at least 3 days
-   * (see NEEDS_ATTENTION_INACTIVITY_HOURS in client-attention.ts).
+   * Derived flag from `clientNeedsAttention()` (#499): true iff ANY reason of
+   * the shared table in client-attention.ts fired (inactive, nothingAssigned,
+   * missedWorkouts, overduePayment, lowNutrition, unreadChat).
    */
   needsAttention: boolean;
-  /** Reasons the predicate fired. Empty when `needsAttention === false`. */
+  /** Reasons the predicate fired, most urgent first. Empty when `needsAttention === false`. */
   needsAttentionReasons: AttentionReason[];
   /** Habit completions in the last 7 calendar days (done / scheduled).
    *  "done" = non-deleted habit_logs whose civilDate falls in the window and
@@ -521,6 +524,23 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
     trainerTz,
   );
 
+  // #499 — ONE query for every billing of this coach (doc id `${coach}_${client}`),
+  // not one per client. Fail-soft: a failing read means "no overdue reason", never
+  // a broken roster.
+  const billingByClient = new Map<string, ReturnType<typeof decodeBilling>>();
+  try {
+    const billingSnap = await db
+      .collection(FirestoreCollections.clientBilling)
+      .where("coachId", "==", trainer.uid)
+      .get();
+    for (const doc of billingSnap.docs) {
+      const billing = decodeBilling(doc.data() as Record<string, unknown>);
+      if (billing.clientId) billingByClient.set(billing.clientId, billing);
+    }
+  } catch (err) {
+    console.error("[gc-fitness/roster] client_billing read failed", err);
+  }
+
   const rows: ClientRosterRow[] = await mapInBatches(
     clients,
     ROSTER_FANOUT_BATCH,
@@ -545,6 +565,17 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
       // slicing gives a "YYYY-MM" prefix; `<= prefix + "-31"` works because
       // civil-date strings compare lexicographically — May 31 sorts after
       // every May day and before any June day.
+      // #499 — «nothing assigned soon»: [today, today + windowDays - 1]. The
+      // 7-day assignments query below now reaches this far ahead too (same
+      // index, a few more docs), so the reason costs no extra query.
+      const soonEndCivil =
+        civilDateAddDays(today, ATTENTION_RULES.nothingAssigned.windowDays - 1) ?? today;
+      const soonDays: string[] = [];
+      for (let i = 0; i < ATTENTION_RULES.nothingAssigned.windowDays; i += 1) {
+        const d = civilDateAddDays(today, i);
+        if (d) soonDays.push(d);
+      }
+
       const monthStartCivil = `${today.slice(0, 7)}-01`;
       const monthEndCivil = `${today.slice(0, 7)}-31`;
 
@@ -619,7 +650,7 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
           .collection(FirestoreCollections.workoutAssignments)
           .where("clientId", "==", c.uid)
           .where("scheduledFor", ">=", windowStartCivil)
-          .where("scheduledFor", "<=", today)
+          .where("scheduledFor", "<=", soonEndCivil)
           .get(),
         // 11-06: logs started in the last 7 days (Timestamp comparison).
         db
@@ -795,7 +826,29 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         complianceCount > 0 ? complianceSum / complianceCount : 0;
 
       // 11-06: derive missed workouts + needs-attention.
-      const assignedCount = assignedLast7Snap.docs.filter(notInherited).length;
+      const assignmentDocs = assignedLast7Snap.docs.filter(notInherited);
+      const scheduledOf = (d: { get: (f: string) => unknown }) => {
+        const v = d.get("scheduledFor");
+        return typeof v === "string" ? v : "";
+      };
+      // The query reaches `soonEndCivil` (#499); the 7-day count stays ≤ today.
+      const assignedCount = assignmentDocs.filter((d) => scheduledOf(d) <= today).length;
+      // #499 — the attention reason counts only days already OVER (today is not a
+      // miss yet) and trusts the assignment `status`, like the month counts below
+      // and the apps' callable (which pairs a completed log per civil day).
+      const missedForAttention = assignmentDocs.filter((d) => {
+        const day = scheduledOf(d);
+        return day >= windowStartCivil && day < today && d.get("status") !== "completed";
+      }).length;
+      const hasSomethingAssignedSoon =
+        assignmentDocs.some((d) => {
+          const day = scheduledOf(d);
+          return day >= today && day <= soonEndCivil;
+        }) ||
+        habitDocs.some((h) => {
+          const habit = h.data() as Record<string, unknown>;
+          return soonDays.some((day) => isHabitScheduledOn(habit, day));
+        });
       const completedCount = completedLast7Snap.docs.filter(notInherited).filter((doc) => {
         const raw = doc.get("startedAt");
         const startedAt =
@@ -920,11 +973,31 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
       // Pending sign-in clients are never flagged at-risk: they have no
       // logged activity yet by definition, so the inactivity predicate
       // would always fire — that's noise, not a real signal.
+      const billing = billingByClient.get(c.uid);
+      const billingOverdue = billing
+        ? billingStatus(
+            {
+              planId: billing.planId,
+              plan: billing.plan,
+              startCivil: billing.startCivil,
+              nextDueCivil: billing.nextDueCivil,
+              classesRemaining: billing.classesRemaining,
+              reminderDaysBefore: billing.reminderDaysBefore,
+            },
+            today,
+          ).state === "overdue"
+        : false;
       const attention = isPending
         ? { needsAttention: false, reasons: [] as AttentionReason[] }
         : clientNeedsAttention({
             lastActivityAtMs: lastActivity?.getTime() ?? null,
             nowMs: Date.now(),
+            hasSomethingAssignedSoon,
+            missedWorkouts: missedForAttention,
+            billingOverdue,
+            nutritionRatio7Days: nutrition.ratio7d,
+            nutritionHasActivePlan: nutrition.hasActivePlan,
+            unreadChatCount,
           });
 
       return {

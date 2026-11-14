@@ -117,6 +117,11 @@
       "params": "optional"
     },
     {
+      "file": "src/lib/gc-fitness/activity-feed-actions.ts",
+      "export": "listActivityFeedPage",
+      "params": "optional"
+    },
+    {
       "file": "src/lib/gc-fitness/admin-actions.ts",
       "export": "addCoachEmailToAllowlist",
       "params": "arg"
@@ -258,8 +263,18 @@
     },
     {
       "file": "src/lib/gc-fitness/ai-coach-admin-actions.ts",
+      "export": "loadCorvoDashboardForReports",
+      "params": "arg"
+    },
+    {
+      "file": "src/lib/gc-fitness/ai-coach-admin-actions.ts",
       "export": "loadCorvoReportContext",
       "params": "arg, arg"
+    },
+    {
+      "file": "src/lib/gc-fitness/ai-coach-admin-actions.ts",
+      "export": "setCorvoReportTriage",
+      "params": "arg"
     },
     {
       "file": "src/lib/gc-fitness/chat-server-actions.ts",

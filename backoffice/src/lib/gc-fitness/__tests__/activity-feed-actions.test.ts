@@ -25,7 +25,7 @@ jest.mock("firebase-admin/firestore", () => ({
   FieldValue: { serverTimestamp: () => "TS" },
 }));
 
-import { listActivityFeed } from "@/lib/gc-fitness/activity-feed-actions";
+import { listActivityFeed, listActivityFeedPage } from "@/lib/gc-fitness/activity-feed-actions";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 
 const mockedGetCurrentAdmin = getCurrentAdmin as jest.MockedFunction<
@@ -640,5 +640,64 @@ describe("cross-source duplicates", () => {
     });
     const events = await listActivityFeed();
     expect(events.map((e) => e.id)).toContain("coach_activity:asg:other-series");
+  });
+});
+
+describe("#503 — cursor paging", () => {
+  beforeEach(() => {
+    queryGet.coach_activity = async () => ({
+      docs: ["10", "11", "12"].map((h) =>
+        doc(`ca-${h}`, {
+          trainerId: "coach1",
+          kind: "exercise_created",
+          title: `Ejercicio creado: E${h}`,
+          occurredAt: ts(`2026-07-20T${h}:00:00.000Z`),
+        }),
+      ),
+    });
+  });
+
+  it("walks the feed page by page without repeating or skipping", async () => {
+    const first = await listActivityFeedPage({ source: "coach_activity", limit: 2 });
+    expect(first.events.map((e) => e.subject)).toEqual(["E12", "E11"]);
+    expect(first.nextCursor).toEqual(expect.any(String));
+    const second = await listActivityFeedPage({
+      source: "coach_activity",
+      limit: 2,
+      cursor: first.nextCursor,
+    });
+    expect(second.events.map((e) => e.subject)).toEqual(["E10"]);
+    expect(second.nextCursor).toBeNull();
+  });
+
+  it("listActivityFeed keeps returning the first page as a plain array", async () => {
+    const events = await listActivityFeed({ source: "coach_activity", limit: 2 });
+    expect(events).toHaveLength(2);
+  });
+
+  it("reads the from/to days in the given zone (#503: no longer UTC days)", async () => {
+    const wheres: unknown[][] = [];
+    mockCollection.mockImplementation((name: string) => {
+      const builder: Record<string, unknown> = {
+        orderBy: () => builder,
+        where: (...args: unknown[]) => {
+          if (name === "coach_activity") wheres.push(args);
+          return builder;
+        },
+        limit: () => builder,
+        get: async () => ({ docs: [] }),
+        doc: (id: string) => ({ id, get: async () => ({ id, exists: false, data: () => ({}) }) }),
+      };
+      return builder;
+    });
+    await listActivityFeedPage({
+      fromISO: "2026-11-14",
+      toISO: "2026-11-14",
+      timeZone: "America/Argentina/Buenos_Aires",
+    });
+    expect(wheres).toEqual([
+      ["occurredAt", ">=", { __ts: "2026-11-14T03:00:00.000Z" }],
+      ["occurredAt", "<=", { __ts: "2026-11-15T02:59:59.999Z" }],
+    ]);
   });
 });
