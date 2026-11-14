@@ -261,8 +261,14 @@ function minLifetimeNearThreshold(): number | null {
   return limits.length > 0 ? Math.min(...limits) : null;
 }
 
-export async function loadCorvoDashboard(
-  options: { reportState?: ReportStateFilter } = {},
+/** The dashboard with the default report queue ("new"). Shape kept for #382. */
+export async function loadCorvoDashboard(): Promise<CorvoDashboard> {
+  return loadCorvoDashboardForReports("new");
+}
+
+/** #504 — the dashboard with the reports list filtered by triage state. */
+export async function loadCorvoDashboardForReports(
+  reportState: ReportStateFilter,
 ): Promise<CorvoDashboard> {
   await getCurrentAdmin();
   const db = gcFitnessFirestore();
@@ -340,7 +346,7 @@ export async function loadCorvoDashboard(
     return summarizeAcceptance(proposals);
   });
 
-  const reportFilter = options.reportState ?? "new";
+  const reportFilter = reportState;
   const reportsPromise = section(async () => {
     const [rows, counts] = await Promise.all([loadReportRows(reportFilter), loadReportCounts()]);
     return { filter: reportFilter, rows, counts } satisfies ReportsSection;

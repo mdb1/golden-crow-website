@@ -70,7 +70,11 @@ export function CorvoReportTriageForm({
               checked={status === value}
               onChange={() => setStatus(value)}
             />
-            {t(`states.${value}`)}
+            {value === "resolved"
+              ? t("states.resolved")
+              : value === "reviewed"
+                ? t("states.reviewed")
+                : t("states.new")}
           </label>
         ))}
       </fieldset>

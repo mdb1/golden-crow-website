@@ -33,6 +33,7 @@ const report = {
   platform: "ios",
   appVersion: "1.7.0",
   email: "user@x.com",
+  triage: { status: "new" as const, note: "", updatedAtISO: null, updatedBy: null },
 };
 
 describe("CorvoAcceptanceTable", () => {
@@ -80,6 +81,16 @@ describe("CorvoNearQuotaTable", () => {
 });
 
 describe("CorvoReportsTable", () => {
+  it("#504 — shows each report's triage state and internal note", () => {
+    render(
+      <CorvoReportsTable
+        rows={[{ ...report, triage: { status: "reviewed", note: "prompt ok", updatedAtISO: null, updatedBy: "a" } }]}
+      />,
+    );
+    expect(screen.getByTestId("report-state-re-m9")).toHaveTextContent("Reviewed");
+    expect(screen.getByTestId("report-state-re-m9")).toHaveTextContent("prompt ok");
+  });
+
   it("links each report to its own context route", () => {
     render(<CorvoReportsTable rows={[report]} />);
     const row = screen.getByTestId("report-re-m9");

@@ -112,6 +112,7 @@ import { ClientSectionNav } from "./_components/ClientSectionNav";
 import {
   CLIENT_SECTION_IDS,
   CLIENT_SECTION_CHARTS,
+  type ClientSectionId,
 } from "@/lib/gc-fitness/client-sections";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
@@ -421,6 +422,24 @@ export default async function ClientDetailPage({
   // progress), each with its own configurator over ITS slots. They share the one
   // hidden-charts cookie, and every toggle refreshes the page, so the `hidden`
   // each instance receives is always the current list.
+  const sectionLabel = (section: ClientSectionId): string => {
+    switch (section) {
+      case "resumen":
+        return tSections("resumen");
+      case "entrenamiento":
+        return tSections("entrenamiento");
+      case "habitos":
+        return tSections("habitos");
+      case "nutricion":
+        return tSections("nutricion");
+      case "pagos":
+        return tSections("pagos");
+      case "progreso":
+        return tSections("progreso");
+      case "chat":
+        return tSections("chat");
+    }
+  };
   const chartsFor = (section: keyof typeof CLIENT_SECTION_CHARTS) => (
     <ClientChartsSection
       slots={chartSlots.filter((slot) =>
@@ -428,7 +447,12 @@ export default async function ClientDetailPage({
       )}
       hidden={hiddenCharts}
       labels={{
-        title: tCharts(`sectionTitles.${section}`),
+        title:
+          section === "entrenamiento"
+            ? tCharts("sectionTitles.entrenamiento")
+            : section === "habitos"
+              ? tCharts("sectionTitles.habitos")
+              : tCharts("sectionTitles.progreso"),
         subtitle: tCharts("subtitle"),
         configure: tCharts("configure"),
         configureTitle: tCharts("configureTitle"),
@@ -476,11 +500,11 @@ export default async function ClientDetailPage({
         ariaLabel={tSections("navLabel")}
         items={CLIENT_SECTION_IDS.map((sectionId) => ({
           id: sectionId,
-          label: tSections(sectionId),
+          label: sectionLabel(sectionId),
         }))}
       />
 
-      <section id="resumen" aria-label={tSections("resumen")} className="flex scroll-mt-16 flex-col gap-6">
+      <section id="resumen" aria-label={sectionLabel("resumen")} className="flex scroll-mt-16 flex-col gap-6">
         <ClientCalendarPeek clientId={id} initialPayload={calendarPeek} />
         <ClientSummaryCard
           clientId={id}
@@ -492,18 +516,18 @@ export default async function ClientDetailPage({
         <CoachWeeklySummaryCard clientId={id} initial={aiSummary} />
       </section>
 
-      <section id="entrenamiento" aria-label={tSections("entrenamiento")} className="flex scroll-mt-16 flex-col gap-6">
+      <section id="entrenamiento" aria-label={sectionLabel("entrenamiento")} className="flex scroll-mt-16 flex-col gap-6">
         {chartsFor("entrenamiento")}
         <Suspense fallback={<WidgetSkeleton title={tSkeleton("recentLogs")} />}>
           <ClientRecentLogsWidget clientId={id} timezone={timezone} />
         </Suspense>
       </section>
 
-      <section id="habitos" aria-label={tSections("habitos")} className="flex scroll-mt-16 flex-col gap-6">
+      <section id="habitos" aria-label={sectionLabel("habitos")} className="flex scroll-mt-16 flex-col gap-6">
         {chartsFor("habitos")}
       </section>
 
-      <section id="nutricion" aria-label={tSections("nutricion")} className="flex scroll-mt-16 flex-col gap-6">
+      <section id="nutricion" aria-label={sectionLabel("nutricion")} className="flex scroll-mt-16 flex-col gap-6">
         {/* #949 — nutrición era UN BOTÓN en el header y nada más. Ahora es una
             sección propia, justo debajo del resumen, y con estado vacío: un
             cliente sin plan es el caso más accionable y era el único del que la
@@ -513,7 +537,7 @@ export default async function ClientDetailPage({
         </Suspense>
       </section>
 
-      <section id="pagos" aria-label={tSections("pagos")} className="flex scroll-mt-16 flex-col gap-6">
+      <section id="pagos" aria-label={sectionLabel("pagos")} className="flex scroll-mt-16 flex-col gap-6">
         {/* #1540 — pagos y cobros (manual): estado, plan, vencimiento y «Registrar pago».
             El historial completo vive en `[id]/pagos`, igual que `[id]/nutricion`. Los
             vencimientos son días civiles en la zona del COACH (la misma que usa /payments). */}
@@ -531,7 +555,7 @@ export default async function ClientDetailPage({
         </Suspense>
       </section>
 
-      <section id="progreso" aria-label={tSections("progreso")} className="flex scroll-mt-16 flex-col gap-6">
+      <section id="progreso" aria-label={sectionLabel("progreso")} className="flex scroll-mt-16 flex-col gap-6">
         {chartsFor("progreso")}
         <ProgressPhotosWidget
           photos={progressPhotos}
@@ -552,7 +576,7 @@ export default async function ClientDetailPage({
         />
       </section>
 
-      <section id="chat" aria-label={tSections("chat")} className="flex scroll-mt-16 flex-col gap-6">
+      <section id="chat" aria-label={sectionLabel("chat")} className="flex scroll-mt-16 flex-col gap-6">
         <Suspense fallback={<WidgetSkeleton title={tSkeleton("recentMessages")} />}>
           <ChatHistoryWidget clientId={id} trainerUid={trainer.uid} timezone={timezone} />
         </Suspense>

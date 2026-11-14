@@ -169,6 +169,7 @@ jest.mock("@/lib/firebase/gc-fitness-admin", () => ({
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import {
   loadCorvoDashboard,
+  loadCorvoDashboardForReports,
   loadCorvoReportContext,
   setCorvoReportTriage,
 } from "@/lib/gc-fitness/ai-coach-admin-actions";
@@ -375,13 +376,13 @@ describe("#504 — report triage", () => {
     expect(fresh.reports.data.rows.map((r) => r.messageId)).toEqual(["m2"]);
     expect(fresh.reports.data.counts).toEqual({ all: 3, new: 1, reviewed: 1, resolved: 1 });
 
-    const reviewed = await loadCorvoDashboard({ reportState: "reviewed" });
+    const reviewed = await loadCorvoDashboardForReports("reviewed");
     if (!reviewed.reports.ok) throw new Error("expected ok");
     expect(reviewed.reports.data.rows.map((r) => [r.messageId, r.triage.status, r.triage.note])).toEqual([
       ["m1", "reviewed", "x"],
     ]);
 
-    const all = await loadCorvoDashboard({ reportState: "all" });
+    const all = await loadCorvoDashboardForReports("all");
     if (!all.reports.ok) throw new Error("expected ok");
     expect(all.reports.data.rows.map((r) => `${r.messageId}:${r.triage.status}`).sort()).toEqual([
       "m1:reviewed",

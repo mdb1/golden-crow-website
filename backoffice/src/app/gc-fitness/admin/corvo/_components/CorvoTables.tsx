@@ -160,7 +160,11 @@ export function CorvoReportsTable({ rows, emptyText }: { rows: ReportRow[]; empt
                 </TableCell>
                 <TableCell data-testid={`report-state-${row.messageId}`}>
                   <span className="whitespace-nowrap rounded-full border px-2 py-0.5 text-xs">
-                    {t(`states.${row.triage?.status ?? "new"}`)}
+                    {row.triage?.status === "resolved"
+                      ? t("states.resolved")
+                      : row.triage?.status === "reviewed"
+                        ? t("states.reviewed")
+                        : t("states.new")}
                   </span>
                   {row.triage?.note ? (
                     <p

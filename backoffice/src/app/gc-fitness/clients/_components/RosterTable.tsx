@@ -46,7 +46,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
 import type { ClientRosterRow } from "@/lib/gc-fitness/client-roster";
 import {
-  ATTENTION_REASONS,
   attentionRank,
   type AttentionReason,
 } from "@/lib/gc-fitness/client-attention";
@@ -211,9 +210,40 @@ export function RosterTable({
   // renders as the id instead of crashing the roster).
   const tReason = useTranslations("clients.attentionReasons");
   function formatReason(reason: AttentionReason): string {
-    return (ATTENTION_REASONS as readonly string[]).includes(reason)
-      ? tReason(reason)
-      : String(reason);
+    switch (reason) {
+      case "inactive":
+        return tReason("inactive");
+      case "nothingAssigned":
+        return tReason("nothingAssigned");
+      case "missedWorkouts":
+        return tReason("missedWorkouts");
+      case "overduePayment":
+        return tReason("overduePayment");
+      case "lowNutrition":
+        return tReason("lowNutrition");
+      case "unreadChat":
+        return tReason("unreadChat");
+      default:
+        return String(reason);
+    }
+  }
+  function sortLabel(key: RosterSortKey): string {
+    switch (key) {
+      case "lastActivity":
+        return tSort("lastActivity");
+      case "attention":
+        return tSort("attention");
+      case "name":
+        return tSort("name");
+      case "habits":
+        return tSort("habits");
+      case "nutrition":
+        return tSort("nutrition");
+      case "workouts":
+        return tSort("workouts");
+      case "unread":
+        return tSort("unread");
+    }
   }
 
   // Computed against the FULL set so toggling the filter doesn't change
@@ -288,7 +318,7 @@ export function RosterTable({
           >
             {ROSTER_SORT_KEYS.map((key) => (
               <option key={key} value={key}>
-                {tSort(key)}
+                {sortLabel(key)}
               </option>
             ))}
           </select>

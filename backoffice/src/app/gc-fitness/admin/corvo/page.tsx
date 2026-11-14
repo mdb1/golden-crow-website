@@ -17,7 +17,7 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/gc-fitness/page-header";
-import { loadCorvoDashboard, type CorvoDashboard, type Section } from "@/lib/gc-fitness/ai-coach-admin-actions";
+import { loadCorvoDashboardForReports, type CorvoDashboard, type Section } from "@/lib/gc-fitness/ai-coach-admin-actions";
 import {
   AI_COACH_QUOTA,
   formatLatency,
@@ -68,7 +68,7 @@ export default async function CorvoAdminPage({
   try {
     // #504 — `?reports=new|reviewed|resolved|all`; the default is the queue: "new".
     const sp = (await searchParams) ?? {};
-    dashboard = await loadCorvoDashboard({ reportState: parseReportStateFilter(sp.reports) });
+    dashboard = await loadCorvoDashboardForReports(parseReportStateFilter(sp.reports));
   } catch (err) {
     const message = err instanceof Error ? err.message : "";
     if (message === "Forbidden") redirect("/gc-fitness/forbidden");
@@ -241,7 +241,13 @@ export default async function CorvoAdminPage({
                       value === filter ? "border-primary bg-primary text-primary-foreground" : "hover:bg-accent",
                     )}
                   >
-                    {t(`reports.states.${value}`)}
+                    {value === "all"
+                      ? t("reports.states.all")
+                      : value === "resolved"
+                        ? t("reports.states.resolved")
+                        : value === "reviewed"
+                          ? t("reports.states.reviewed")
+                          : t("reports.states.new")}
                     {counts ? <span className="ml-1 tabular-nums opacity-80">{counts[value]}</span> : null}
                   </Link>
                 ))}
