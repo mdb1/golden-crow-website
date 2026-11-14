@@ -23,6 +23,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { AdminNutritionCard } from "../../_components/admin-nutrition-card";
+import { AdminActionForm } from "../../_components/admin-action-form";
 import { AdminSubmitButton } from "../../_components/admin-submit-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -99,12 +100,12 @@ function formatDateWithAge(
   iso: string | null,
   nowMs: number,
   timezone: string,
+  ageLabel: (days: number) => string,
 ): string {
   if (!iso) return "—";
   const days = daysSince(iso, nowMs);
   if (days === null) return formatDate(iso, timezone);
-  const age = days === 0 ? "hoy" : days === 1 ? "hace 1 d" : `hace ${days} d`;
-  return `${formatDate(iso, timezone)} (${age})`;
+  return `${formatDate(iso, timezone)} (${ageLabel(days)})`;
 }
 
 function StatTile({ label, value, hint }: { label: string; value: string; hint?: string }) {
@@ -131,17 +132,19 @@ function ActivityRow({
   window: w,
   nowMs,
   timezone,
+  ageLabel,
 }: {
   label: string;
   window: ActivityWindow;
   nowMs: number;
   timezone: string;
+  ageLabel: (days: number) => string;
 }) {
   return (
     <TableRow>
       <TableCell>{label}</TableCell>
       <TableCell className="text-xs text-muted-foreground">
-        {formatDateWithAge(w.lastISO, nowMs, timezone)}
+        {formatDateWithAge(w.lastISO, nowMs, timezone, ageLabel)}
       </TableCell>
       <TableCell className="text-right tabular-nums">{w.last7Days}</TableCell>
       <TableCell className="text-right tabular-nums">{w.last30Days}</TableCell>
@@ -171,7 +174,28 @@ export default async function CoachlessUserDetailPage({
 
   const sp = await searchParams;
   const op = typeof sp.op === "string" ? sp.op : null;
-  const actionMessage = op && sp.ok === "1" ? `Action completed: ${op}.` : null;
+  const t = await getTranslations("admin.coachlessProfile");
+  const tc = await getTranslations("admin.common");
+  const tcl = await getTranslations("admin.coachless");
+  const tcd = await getTranslations("admin.clientDetail");
+  const actionMessage = op && sp.ok === "1" ? tc("actionCompleted", { op }) : null;
+  const ageLabel = (days: number): string => t("age", { days });
+  const statusLabel = (status: string): string => {
+    switch (status) {
+      case "completed":
+        return tcd("status.completed");
+      case "missed":
+        return tcd("status.missed");
+      case "started":
+        return tcd("status.started");
+      case "assigned":
+        return tcd("status.assigned");
+      case "skipped":
+        return tcd("status.skipped");
+      default:
+        return status;
+    }
+  };
 
   let profile: CoachlessUserProfile;
   try {
@@ -277,7 +301,7 @@ export default async function CoachlessUserDetailPage({
       <Button asChild variant="outline" size="sm" className="self-start rounded-full">
         <Link href={LIST_ROUTE}>
           <ArrowLeft className="h-4 w-4" />
-          Back to coach-less users
+          {t("backToList")}
         </Link>
       </Button>
 
@@ -286,12 +310,12 @@ export default async function CoachlessUserDetailPage({
           <span className="flex flex-wrap items-center gap-2">
             {displayName}
             <Badge variant={isPremium ? "success" : "secondary"}>
-              {isPremium ? "Premium" : "Free"}
+              {isPremium ? tcl("premium") : tcl("free")}
             </Badge>
-            <Badge variant="secondary">Coach-less</Badge>
+            <Badge variant="secondary">{t("coachlessBadge")}</Badge>
           </span>
         }
-        subtitle={`${profile.email || "no email"} · ${uid}`}
+        subtitle={`${profile.email || t("noEmail")} · ${uid}`}
       />
 
       {actionMessage ? (
@@ -302,64 +326,64 @@ export default async function CoachlessUserDetailPage({
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <StatTile
-          label="Last active"
+          label={t("stats.lastActive")}
           value={
             profile.activity.lastActiveISO
               ? (() => {
                   const d = daysSince(profile.activity.lastActiveISO, nowMs);
-                  return d === null ? "—" : d === 0 ? "hoy" : `${d} d`;
+                  return d === null ? "—" : t("daysShort", { days: d });
                 })()
-              : "never"
+              : t("never")
           }
           hint={formatDate(profile.activity.lastActiveISO, timezone)}
         />
         <StatTile
-          label="Workouts"
+          label={t("stats.workouts")}
           value={String(profile.activity.workouts.last30Days)}
-          hint={`last 30 d · ${profile.stats.workoutLogs} total`}
+          hint={t("stats.workoutsHint", { total: profile.stats.workoutLogs })}
         />
         <StatTile
-          label="Habit check-ins"
+          label={t("stats.habitCheckIns")}
           value={String(profile.activity.habitCheckIns.last30Days)}
-          hint="last 30 d"
+          hint={t("stats.last30")}
         />
-        <StatTile label="Routines" value={String(profile.stats.routines)} hint="self-created" />
-        <StatTile label="Habits" value={String(profile.stats.habits)} hint="self-created" />
+        <StatTile label={t("stats.routines")} value={String(profile.stats.routines)} hint={t("stats.selfCreated")} />
+        <StatTile label={t("stats.habits")} value={String(profile.stats.habits)} hint={t("stats.selfCreated")} />
         <StatTile
-          label="Photos"
+          label={t("stats.photos")}
           value={String(profile.stats.progressPhotos)}
-          hint={`weight logs: ${profile.activity.weightEntries.total}`}
+          hint={t("stats.weightLogs", { count: profile.activity.weightEntries.total })}
         />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-xl">Account</CardTitle>
+            <CardTitle className="text-xl">{t("account.title")}</CardTitle>
           </CardHeader>
           <CardContent>
             <dl className="grid grid-cols-2 gap-4">
-              <Field label="Email">{profile.email || "—"}</Field>
-              <Field label="UID">
+              <Field label={tc("email")}>{profile.email || "—"}</Field>
+              <Field label={tc("uid")}>
                 <span className="font-mono text-xs">{uid}</span>
               </Field>
-              <Field label="Signed up">{formatDateWithAge(profile.createdAtISO, nowMs, timezone)}</Field>
-              <Field label="Last sign-in">
-                {formatDateWithAge(profile.auth?.lastSignInISO ?? null, nowMs, timezone)}
+              <Field label={t("account.signedUp")}>{formatDateWithAge(profile.createdAtISO, nowMs, timezone, ageLabel)}</Field>
+              <Field label={t("account.lastSignIn")}>
+                {formatDateWithAge(profile.auth?.lastSignInISO ?? null, nowMs, timezone, ageLabel)}
               </Field>
-              <Field label="Sign-in providers">
+              <Field label={t("account.providers")}>
                 {profile.auth && profile.auth.providers.length > 0
                   ? profile.auth.providers.join(", ")
                   : "—"}
               </Field>
-              <Field label="Email verified">
-                {profile.auth ? (profile.auth.emailVerified ? "yes" : "no") : "—"}
+              <Field label={t("account.emailVerified")}>
+                {profile.auth ? (profile.auth.emailVerified ? tc("yes") : tc("no")) : "—"}
               </Field>
-              <Field label="Timezone">{profile.timezone || "—"}</Field>
+              <Field label={t("account.timezone")}>{profile.timezone || "—"}</Field>
               {/* #785 — "nos falta en cada perfil, qué versión de la app están
                   usando, y si es iOS o Android". One line per DEVICE: someone
                   with a phone and a tablet is on two versions at once. */}
-              <Field label="App">
+              <Field label={t("account.app")}>
                 {profile.devices.length > 0 ? (
                   <span className="flex flex-col gap-0.5">
                     {profile.devices.map((device, index) => (
@@ -368,7 +392,7 @@ export default async function CoachlessUserDetailPage({
                         {device.registeredAtISO ? (
                           <span className="text-muted-foreground">
                             {" · "}
-                            {formatDateWithAge(device.registeredAtISO, nowMs, timezone)}
+                            {formatDateWithAge(device.registeredAtISO, nowMs, timezone, ageLabel)}
                           </span>
                         ) : null}
                       </span>
@@ -378,10 +402,10 @@ export default async function CoachlessUserDetailPage({
                   "—"
                 )}
               </Field>
-              <Field label="Birth date">{profile.birthDate || "—"}</Field>
+              <Field label={t("account.birthDate")}>{profile.birthDate || "—"}</Field>
               {profile.auth?.disabled ? (
-                <Field label="Auth status">
-                  <Badge variant="destructive">disabled</Badge>
+                <Field label={t("account.authStatus")}>
+                  <Badge variant="destructive">{t("account.disabled")}</Badge>
                 </Field>
               ) : null}
             </dl>
@@ -390,29 +414,24 @@ export default async function CoachlessUserDetailPage({
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-xl">Coach</CardTitle>
+            <CardTitle className="text-xl">{t("coach.title")}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            <p className="text-sm text-muted-foreground">
-              This user is self-serve — nobody is coaching them. Assigning a coach
-              links them to that coach&apos;s roster, moves their chat thread, and
-              makes them premium for as long as the link lasts. All their existing
-              routines, habits and logs are kept.
-            </p>
+            <p className="text-sm text-muted-foreground">{t("coach.description")}</p>
             {coaches.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No coaches available.</p>
+              <p className="text-sm text-muted-foreground">{t("coach.noCoaches")}</p>
             ) : (
-              <form action={assignCoachAction} className="flex flex-wrap items-center gap-2">
+              <AdminActionForm action={assignCoachAction} className="flex flex-wrap items-center gap-2">
                 <input type="hidden" name="uid" value={uid} />
                 <select
                   name="newCoachUid"
                   required
                   defaultValue=""
-                  aria-label="Assign a coach to this user"
+                  aria-label={t("coach.assignLabel")}
                   className="h-8 max-w-[16rem] rounded-md border bg-background px-2 text-xs"
                 >
                   <option value="" disabled>
-                    Choose a coach…
+                    {t("coach.choose")}
                   </option>
                   {coaches.map((coach) => (
                     <option key={coach.uid} value={coach.uid}>
@@ -421,67 +440,69 @@ export default async function CoachlessUserDetailPage({
                   ))}
                 </select>
                 <AdminSubmitButton
-                  idleLabel="Assign coach"
-                  pendingLabel="Assigning…"
+                  idleLabel={t("coach.assign")}
+                  pendingLabel={tcl("assigning")}
                   className="h-8 rounded-full border px-3 text-xs hover:bg-muted"
                 />
-              </form>
+              </AdminActionForm>
             )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-xl">Subscription</CardTitle>
+            <CardTitle className="text-xl">{t("subscription.title")}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <dl className="grid grid-cols-2 gap-4">
-              <Field label="Tier">
+              <Field label={t("subscription.tier")}>
                 <Badge variant={isPremium ? "success" : "secondary"}>
-                  {isPremium ? "Premium" : "Free"}
+                  {isPremium ? tcl("premium") : tcl("free")}
                 </Badge>
               </Field>
-              <Field label="Source">{profile.entitlement?.source || "—"}</Field>
-              <Field label="Product">{profile.entitlement?.productId || "—"}</Field>
-              <Field label="Expires">{formatDate(profile.entitlement?.expiresAtISO ?? null, timezone)}</Field>
-              <Field label="Updated">
-                {formatDateWithAge(profile.entitlement?.updatedAtISO ?? null, nowMs, timezone)}
+              <Field label={t("subscription.source")}>{profile.entitlement?.source || "—"}</Field>
+              <Field label={t("subscription.product")}>{profile.entitlement?.productId || "—"}</Field>
+              <Field label={t("subscription.expires")}>{formatDate(profile.entitlement?.expiresAtISO ?? null, timezone)}</Field>
+              <Field label={t("subscription.updated")}>
+                {formatDateWithAge(profile.entitlement?.updatedAtISO ?? null, nowMs, timezone, ageLabel)}
               </Field>
             </dl>
 
             <div className="flex flex-col items-start gap-3 border-t pt-4">
-              <form action={setTierAction}>
+              <AdminActionForm action={setTierAction}>
                 <input type="hidden" name="uid" value={uid} />
                 <input type="hidden" name="tier" value={isPremium ? "free" : "premium"} />
                 <AdminSubmitButton
-                  idleLabel={isPremium ? "Revoke premium" : "Grant premium"}
-                  pendingLabel="Saving…"
+                  idleLabel={isPremium ? tcl("revokePremium") : tcl("grantPremium")}
+                  pendingLabel={tcl("saving")}
                   className="h-8 rounded-full border px-3 text-xs hover:bg-muted"
                 />
-              </form>
+              </AdminActionForm>
 
               <details>
                 <summary className="cursor-pointer text-xs text-destructive underline underline-offset-2">
-                  Delete user
+                  {tcl("deleteUser")}
                 </summary>
-                <form action={deleteUserAction} className="mt-2 flex flex-col items-start gap-2">
+                <AdminActionForm action={deleteUserAction} className="mt-2 flex flex-col items-start gap-2">
                   <input type="hidden" name="uid" value={uid} />
                   <p className="max-w-md text-[10px] text-muted-foreground">
-                    Irreversible: deletes Auth, all Firestore data, and Storage photos.
-                    Type <span className="font-mono">{profile.email}</span> to confirm.
+                    {tcl.rich("deleteWarning", {
+                      email: () => <span className="font-mono">{profile.email}</span>,
+                    })}
                   </p>
                   <Input
                     name="emailConfirmation"
-                    placeholder="type email to confirm"
+                    placeholder={tcl("deleteEmailPlaceholder")}
+                    aria-label={tcl("deleteEmailPlaceholder")}
                     className="h-8 w-64 text-xs"
                     autoComplete="off"
                   />
                   <AdminSubmitButton
-                    idleLabel="Delete forever"
-                    pendingLabel="Deleting…"
+                    idleLabel={tcl("deleteForever")}
+                    pendingLabel={tc("deleting")}
                     className="h-8 rounded-full bg-destructive px-3 text-xs text-destructive-foreground hover:bg-destructive/90"
                   />
-                </form>
+                </AdminActionForm>
               </details>
             </div>
           </CardContent>
@@ -490,32 +511,32 @@ export default async function CoachlessUserDetailPage({
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-xl">Activity</CardTitle>
+          <CardTitle className="text-xl">{t("activity.title")}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Stream</TableHead>
-                  <TableHead>Last</TableHead>
-                  <TableHead className="text-right">7 d</TableHead>
-                  <TableHead className="text-right">30 d</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead>{t("activity.stream")}</TableHead>
+                  <TableHead>{t("activity.last")}</TableHead>
+                  <TableHead className="text-right">{t("activity.days7")}</TableHead>
+                  <TableHead className="text-right">{t("activity.days30")}</TableHead>
+                  <TableHead className="text-right">{t("activity.total")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                <ActivityRow label="Workouts logged" window={profile.activity.workouts} nowMs={nowMs} timezone={timezone} />
+                <ActivityRow label={t("activity.workouts")} window={profile.activity.workouts} nowMs={nowMs} timezone={timezone} ageLabel={ageLabel} />
                 <ActivityRow
-                  label="Habit check-ins"
+                  label={t("activity.habitCheckIns")}
                   window={profile.activity.habitCheckIns}
-                  nowMs={nowMs} timezone={timezone}
+                  nowMs={nowMs} timezone={timezone} ageLabel={ageLabel}
                 />
-                <ActivityRow label="Progress photos" window={profile.activity.photos} nowMs={nowMs} timezone={timezone} />
+                <ActivityRow label={t("activity.photos")} window={profile.activity.photos} nowMs={nowMs} timezone={timezone} ageLabel={ageLabel} />
                 <ActivityRow
-                  label="Body-weight entries"
+                  label={t("activity.weight")}
                   window={profile.activity.weightEntries}
-                  nowMs={nowMs} timezone={timezone}
+                  nowMs={nowMs} timezone={timezone} ageLabel={ageLabel}
                 />
               </TableBody>
             </Table>
@@ -525,24 +546,24 @@ export default async function CoachlessUserDetailPage({
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-xl">Routines ({profile.routines.length})</CardTitle>
+          <CardTitle className="text-xl">{t("routines.title", { count: profile.routines.length })}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {profile.routines.length === 0 ? (
             <p className="px-6 pb-6 text-sm text-muted-foreground">
-              No self-created routines yet.
+              {t("routines.empty")}
             </p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Routine</TableHead>
-                    <TableHead>Tags</TableHead>
-                    <TableHead className="text-right">Exercises</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead>Updated</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>{t("routines.routine")}</TableHead>
+                    <TableHead>{t("routines.tags")}</TableHead>
+                    <TableHead className="text-right">{t("routines.exercises")}</TableHead>
+                    <TableHead>{t("routines.created")}</TableHead>
+                    <TableHead>{t("routines.updated")}</TableHead>
+                    <TableHead>{tc("status")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -561,9 +582,9 @@ export default async function CoachlessUserDetailPage({
                       </TableCell>
                       <TableCell>
                         {r.deleted ? (
-                          <Badge variant="secondary">deleted</Badge>
+                          <Badge variant="secondary">{tcd("habits.deleted")}</Badge>
                         ) : (
-                          <Badge variant="success">active</Badge>
+                          <Badge variant="success">{tcd("habits.active")}</Badge>
                         )}
                       </TableCell>
                     </TableRow>
@@ -577,20 +598,20 @@ export default async function CoachlessUserDetailPage({
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-xl">Habits ({habits.length})</CardTitle>
+          <CardTitle className="text-xl">{t("habitsTitle", { count: habits.length })}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {habits.length === 0 ? (
-            <p className="px-6 pb-6 text-sm text-muted-foreground">No habits yet.</p>
+            <p className="px-6 pb-6 text-sm text-muted-foreground">{t("habitsEmpty")}</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Habit</TableHead>
-                    <TableHead>Cadence</TableHead>
-                    <TableHead>Reminder</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>{tcd("habits.habit")}</TableHead>
+                    <TableHead>{tcd("habits.cadence")}</TableHead>
+                    <TableHead>{tcd("habits.reminder")}</TableHead>
+                    <TableHead>{tc("status")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -601,13 +622,13 @@ export default async function CoachlessUserDetailPage({
                         {[h.scheduleType, h.cadence].filter(Boolean).join(" · ") || "—"}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {h.reminderEnabled ? "On" : "Off"}
+                        {h.reminderEnabled ? tcd("habits.on") : tcd("habits.off")}
                       </TableCell>
                       <TableCell>
                         {h.deleted ? (
-                          <Badge variant="secondary">deleted</Badge>
+                          <Badge variant="secondary">{tcd("habits.deleted")}</Badge>
                         ) : (
-                          <Badge variant="success">active</Badge>
+                          <Badge variant="success">{tcd("habits.active")}</Badge>
                         )}
                       </TableCell>
                     </TableRow>
@@ -621,22 +642,22 @@ export default async function CoachlessUserDetailPage({
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-xl">Scheduled workouts ({assignments.length})</CardTitle>
+          <CardTitle className="text-xl">{t("scheduledTitle", { count: assignments.length })}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {assignments.length === 0 ? (
             <p className="px-6 pb-6 text-sm text-muted-foreground">
-              Nothing scheduled — this user has never planned a workout.
+              {t("scheduledEmpty")}
             </p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Time</TableHead>
-                    <TableHead>Workout</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>{tcd("assignments.date")}</TableHead>
+                    <TableHead>{tcd("assignments.time")}</TableHead>
+                    <TableHead>{tcd("assignments.workout")}</TableHead>
+                    <TableHead>{tc("status")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -663,10 +684,10 @@ export default async function CoachlessUserDetailPage({
                       <TableCell>
                         {a.recurrenceLabel ? (
                           <span className="text-xs tabular-nums text-muted-foreground">
-                            {a.completedCount}/{a.occurrences} completados
+                            {tcd("assignments.completedOf", { done: a.completedCount, total: a.occurrences })}
                           </span>
                         ) : (
-                          <Badge variant={assignmentStatusVariant(a.status)}>{a.status}</Badge>
+                          <Badge variant={assignmentStatusVariant(a.status)}>{statusLabel(a.status)}</Badge>
                         )}
                       </TableCell>
                     </TableRow>
@@ -680,7 +701,7 @@ export default async function CoachlessUserDetailPage({
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-xl">Calendar</CardTitle>
+          <CardTitle className="text-xl">{t("calendar")}</CardTitle>
         </CardHeader>
         <CardContent>
           {calendar ? (
@@ -695,14 +716,14 @@ export default async function CoachlessUserDetailPage({
               initialPayload={calendar}
             />
           ) : (
-            <p className="text-sm text-muted-foreground">Calendar unavailable.</p>
+            <p className="text-sm text-muted-foreground">{t("calendarUnavailable")}</p>
           )}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-xl">Recent activity</CardTitle>
+          <CardTitle className="text-xl">{tcd("recentActivity")}</CardTitle>
         </CardHeader>
         <CardContent>
           {logs && logs.logs.length > 0 ? (
@@ -721,7 +742,7 @@ export default async function CoachlessUserDetailPage({
               coachUid={uid}
             />
           ) : (
-            <p className="text-sm text-muted-foreground">No activity recorded yet.</p>
+            <p className="text-sm text-muted-foreground">{t("noActivity")}</p>
           )}
         </CardContent>
       </Card>
@@ -731,7 +752,7 @@ export default async function CoachlessUserDetailPage({
           these are the coach components verbatim; only the data gate differs. */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-xl">Workout trends</CardTitle>
+          <CardTitle className="text-xl">{t("workoutTrends")}</CardTitle>
         </CardHeader>
         <CardContent>
           <WorkoutTrendsWidget clientId={uid} timezone={timezone} />
@@ -741,7 +762,7 @@ export default async function CoachlessUserDetailPage({
       {exerciseProgress && exerciseProgress.availableMuscleGroups.length > 0 ? (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-xl">Weekly volume &amp; sets by muscle group</CardTitle>
+            <CardTitle className="text-xl">{t("muscleGroupVolume")}</CardTitle>
           </CardHeader>
           <CardContent>
             <MuscleGroupProgressClient
@@ -757,7 +778,7 @@ export default async function CoachlessUserDetailPage({
       {exerciseProgress && exerciseProgress.exercises.length > 0 ? (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-xl">Progress by exercise</CardTitle>
+            <CardTitle className="text-xl">{t("progressByExercise")}</CardTitle>
           </CardHeader>
           <CardContent>
             <ExerciseProgressClient
@@ -779,7 +800,7 @@ export default async function CoachlessUserDetailPage({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-xl">
-              Personal records ({personalRecords.records.length})
+              {t("personalRecords", { count: personalRecords.records.length })}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -793,7 +814,7 @@ export default async function CoachlessUserDetailPage({
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-xl">Habit adherence</CardTitle>
+          <CardTitle className="text-xl">{t("habitAdherence")}</CardTitle>
         </CardHeader>
         <CardContent>
           <HabitTrendsWidget clientId={uid} coachId={null} timezone={timezone} />
@@ -804,26 +825,26 @@ export default async function CoachlessUserDetailPage({
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-xl">Body weight</CardTitle>
+          <CardTitle className="text-xl">{t("bodyWeight")}</CardTitle>
         </CardHeader>
         <CardContent>
           {profile.activity.weightEntries.total > 0 ? (
             <BodyWeightTrendChart clientId={uid} timezone={timezone} />
           ) : (
-            <p className="text-sm text-muted-foreground">No body-weight entries yet.</p>
+            <p className="text-sm text-muted-foreground">{t("noBodyWeight")}</p>
           )}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-xl">Progress photos</CardTitle>
+          <CardTitle className="text-xl">{tcd("photos.title")}</CardTitle>
         </CardHeader>
         <CardContent>
           {photos.length > 0 ? (
             <ProgressPhotosGridClient photos={photos} timezone={timezone} />
           ) : (
-            <p className="text-sm text-muted-foreground">No progress photos yet.</p>
+            <p className="text-sm text-muted-foreground">{tcd("photos.empty")}</p>
           )}
         </CardContent>
       </Card>

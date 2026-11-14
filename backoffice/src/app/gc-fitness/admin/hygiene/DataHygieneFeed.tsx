@@ -2,6 +2,7 @@
 
 import type { ComponentType } from "react";
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import {
   AlertTriangle,
   Bolt,
@@ -27,15 +28,27 @@ import {
 
 const PAGE_SIZE = 20;
 
-const KIND_LABEL: Record<DataHygieneKind, string> = {
-  user: "User",
-  chat: "Chat",
-  photo: "Image",
-  template: "Workout template",
-  assignment: "Workout assignment",
-  log: "Workout log",
-  exercise: "Exercise",
-};
+function useKindLabel(): (kind: DataHygieneKind) => string {
+  const t = useTranslations("admin.hygiene.kinds");
+  return (kind) => {
+    switch (kind) {
+      case "user":
+        return t("user");
+      case "chat":
+        return t("chat");
+      case "photo":
+        return t("photo");
+      case "template":
+        return t("template");
+      case "assignment":
+        return t("assignment");
+      case "log":
+        return t("log");
+      case "exercise":
+        return t("exercise");
+    }
+  };
+}
 
 const KIND_ICON: Record<DataHygieneKind, ComponentType<{ className?: string }>> = {
   user: UserRoundX,
@@ -74,6 +87,7 @@ export function DataHygieneFeed({
   const [hasMore, setHasMore] = useState(initialPage.hasMore);
   const [summary, setSummary] = useState(initialPage.summary);
   const [pending, startTransition] = useTransition();
+  const t = useTranslations("admin.hygiene");
 
   function loadMore() {
     if (pending || !hasMore || offset === null) return;
@@ -93,42 +107,40 @@ export function DataHygieneFeed({
       {loadError ? (
         <Card className="border-destructive/30 bg-destructive/5">
           <CardHeader>
-            <CardTitle className="text-destructive">Hygiene scan could not load</CardTitle>
+            <CardTitle className="text-destructive">{t("loadErrorTitle")}</CardTitle>
             <CardDescription>
               {loadError}
             </CardDescription>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            The page is still usable, but the initial anomaly scan failed. Reloading after the underlying issue is fixed should restore the list.
+            {t("loadErrorBody")}
           </CardContent>
         </Card>
       ) : null}
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Hygiene summary</CardTitle>
-          <CardDescription>Preview of orphaned or suspicious Corvo records detected from recent scans.</CardDescription>
+          <CardTitle className="text-xl">{t("summaryTitle")}</CardTitle>
+          <CardDescription>{t("summaryDescription")}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard label="Users" value={summary.user} />
-          <SummaryCard label="Chats" value={summary.chat} />
-          <SummaryCard label="Images" value={summary.photo} />
-          <SummaryCard label="Workouts" value={summary.template + summary.assignment + summary.log + summary.exercise} />
-          <SummaryCard label="Total" value={total} />
+          <SummaryCard label={t("summary.users")} value={summary.user} />
+          <SummaryCard label={t("summary.chats")} value={summary.chat} />
+          <SummaryCard label={t("summary.images")} value={summary.photo} />
+          <SummaryCard label={t("summary.workouts")} value={summary.template + summary.assignment + summary.log + summary.exercise} />
+          <SummaryCard label={t("summary.total")} value={total} />
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Data issues</CardTitle>
-          <CardDescription>
-            Delete actions are explicit and destructive. Each row points at a record that is either orphaned or in a suspicious state.
-          </CardDescription>
+          <CardTitle className="text-xl">{t("issuesTitle")}</CardTitle>
+          <CardDescription>{t("issuesDescription")}</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           {rows.length === 0 ? (
             <div className="px-4 py-10 text-sm text-muted-foreground">
-              No anomalies found in the current scan window.
+              {t("empty")}
             </div>
           ) : (
             <div className="divide-y">
@@ -140,7 +152,7 @@ export function DataHygieneFeed({
           {hasMore ? (
             <div className="border-t px-4 py-3">
               <Button variant="outline" size="sm" className="rounded-full" onClick={loadMore} disabled={pending}>
-                {pending ? "Cargando..." : "Cargar más"}
+                {pending ? t("loading") : t("loadMore")}
               </Button>
             </div>
           ) : null}
@@ -161,6 +173,8 @@ function SummaryCard({ label, value }: { label: string; value: number }) {
 
 function DataHygieneRowCard({ row }: { row: DataHygieneRow }) {
   const Icon = KIND_ICON[row.kind];
+  const t = useTranslations("admin.hygiene");
+  const kindLabel = useKindLabel();
 
   return (
     <article className="flex flex-col gap-3 px-4 py-4 lg:flex-row lg:items-start lg:justify-between">
@@ -168,7 +182,7 @@ function DataHygieneRowCard({ row }: { row: DataHygieneRow }) {
         <div className="flex flex-wrap items-center gap-2">
           <UiBadge variant={KIND_VARIANT[row.kind]} className="gap-1 px-1.5 py-0 text-[11px] font-normal">
             <Icon className="size-3.5" />
-            {KIND_LABEL[row.kind]}
+            {kindLabel(row.kind)}
           </UiBadge>
           <span className="text-sm font-medium leading-tight">{row.title}</span>
         </div>
@@ -177,7 +191,7 @@ function DataHygieneRowCard({ row }: { row: DataHygieneRow }) {
           <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
           {row.issue}
         </p>
-        <p className="text-[11px] text-muted-foreground">Updated at: {row.sortAtISO ?? "—"}</p>
+        <p className="text-[11px] text-muted-foreground">{t("updatedAt", { date: row.sortAtISO ?? "—" })}</p>
       </div>
       <form action={purgeDataHygieneItem} className="flex shrink-0 flex-col gap-2 lg:items-end">
         <input type="hidden" name="kind" value={row.kind} />
@@ -196,13 +210,13 @@ function DataHygieneRowCard({ row }: { row: DataHygieneRow }) {
         <button
           type="submit"
           onClick={(event) => {
-            if (!window.confirm(`Delete this ${row.kind} record from Firestore?`)) {
+            if (!window.confirm(t("deleteConfirm", { kind: kindLabel(row.kind) }))) {
               event.preventDefault();
             }
           }}
           className="inline-flex h-10 items-center justify-center rounded-full border border-destructive/60 bg-transparent px-4 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
         >
-          Delete from DB
+          {t("delete")}
         </button>
       </form>
     </article>

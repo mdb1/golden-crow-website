@@ -13,6 +13,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,8 +24,6 @@ import { listModerationQueue, type ModerationQueuePage } from "@/lib/gc-fitness/
 import {
   REPORT_STATUSES,
   REPORT_TARGET_TYPES,
-  STATUS_LABEL,
-  TARGET_TYPE_LABEL,
   isReportStatus,
   isReportTargetType,
   type ReportStatus,
@@ -41,14 +40,6 @@ export const dynamic = "force-dynamic";
 function str(v: string | string[] | undefined): string {
   return typeof v === "string" ? v : "";
 }
-
-const OP_LABEL: Record<string, string> = {
-  hide: "Contenido ocultado.",
-  suspend: "Cuenta suspendida.",
-  dismiss: "Reportes descartados.",
-  unsuspend: "Suspensión levantada.",
-  unhide: "Contenido visible de nuevo.",
-};
 
 export default async function ModerationPage({
   searchParams,
@@ -69,7 +60,49 @@ export default async function ModerationPage({
     ? (str(sp.type) as ReportTargetType)
     : "all";
   const op = str(sp.op);
-  const banner = op && str(sp.ok) === "1" ? (OP_LABEL[op] ?? `Acción completada: ${op}.`) : null;
+  const tm = await getTranslations("admin.moderation");
+  const tc = await getTranslations("admin.common");
+  const opLabel = (value: string): string => {
+    switch (value) {
+      case "hide":
+        return tm("ops.hide");
+      case "suspend":
+        return tm("ops.suspend");
+      case "dismiss":
+        return tm("ops.dismiss");
+      case "unsuspend":
+        return tm("ops.unsuspend");
+      case "unhide":
+        return tm("ops.unhide");
+      default:
+        return tc("actionCompleted", { op: value });
+    }
+  };
+  const statusLabel = (value: ReportStatus): string => {
+    switch (value) {
+      case "open":
+        return tm("status.open");
+      case "actioned":
+        return tm("status.actioned");
+      case "dismissed":
+        return tm("status.dismissed");
+    }
+  };
+  const targetTypeLabel = (type: ReportTargetType): string => {
+    switch (type) {
+      case "profile":
+        return tm("targetType.profile");
+      case "routine":
+        return tm("targetType.routine");
+      case "comment":
+        return tm("targetType.comment");
+      case "message":
+        return tm("targetType.message");
+      case "challenge":
+        return tm("targetType.challenge");
+    }
+  };
+  const banner = op && str(sp.ok) === "1" ? opLabel(op) : null;
 
   let page: ModerationQueuePage | null = null;
   let loadError = false;
@@ -92,13 +125,13 @@ export default async function ModerationPage({
   return (
     <div className="gc-page flex flex-col gap-6">
       <PageHeader
-        title="Moderación"
-        subtitle="Reportes de perfiles, rutinas, comentarios y mensajes. Cada reporte tiene que resolverse dentro de las 24 horas (App Store 1.2). Ocultar y suspender son reversibles; descartar no toca el contenido."
+        title={tm("title")}
+        subtitle={tm("subtitle")}
         actions={
           <Button asChild variant="outline" size="sm" className="rounded-full">
             <Link href="/gc-fitness/admin">
               <ArrowLeft className="h-4 w-4" />
-              Back to admin
+              {tc("backToAdmin")}
             </Link>
           </Button>
         }
@@ -117,7 +150,7 @@ export default async function ModerationPage({
         activeKey={status}
         items={REPORT_STATUSES.map((s) => ({
           key: s,
-          label: STATUS_LABEL[s],
+          label: statusLabel(s),
           count: s === "open" && page ? page.openCount : undefined,
           href: hrefFor(s, targetType),
         }))}
@@ -125,22 +158,20 @@ export default async function ModerationPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Filtros</CardTitle>
-          <CardDescription>
-            El estado se aplica en la query; el tipo filtra la ventana cargada (últimos 300).
-          </CardDescription>
+          <CardTitle className="text-xl">{tm("filtersTitle")}</CardTitle>
+          <CardDescription>{tm("filtersDescription")}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
-            {(["all", ...REPORT_TARGET_TYPES] as const).map((t) => (
+            {(["all", ...REPORT_TARGET_TYPES] as const).map((type) => (
               <Button
-                key={t}
+                key={type}
                 asChild
-                variant={t === targetType ? "default" : "outline"}
+                variant={type === targetType ? "default" : "outline"}
                 size="sm"
                 className="rounded-full"
               >
-                <Link href={hrefFor(status, t)}>{t === "all" ? "Todos" : TARGET_TYPE_LABEL[t]}</Link>
+                <Link href={hrefFor(status, type)}>{type === "all" ? tm("allTypes") : targetTypeLabel(type)}</Link>
               </Button>
             ))}
           </div>
@@ -150,7 +181,7 @@ export default async function ModerationPage({
       {loadError || !page ? (
         <Card>
           <CardContent className="py-6 text-sm text-destructive">
-            No se pudo cargar la cola. Reintentá en un momento.
+            {tm("loadError")}
           </CardContent>
         </Card>
       ) : (

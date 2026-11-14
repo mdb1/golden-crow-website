@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
@@ -67,18 +68,21 @@ export default async function AdminUserSearchPage({
   const sp = await searchParams;
   const q = typeof sp.q === "string" ? sp.q.trim() : "";
   const rows = q.length > 0 ? await searchUsersByEmailForAdmin(q) : [];
+  const t = await getTranslations("admin.users");
+  const tc = await getTranslations("admin.common");
+  const tcl = await getTranslations("admin.coachless");
 
   return (
     <div className="gc-page flex flex-col gap-6">
       <PageHeader
-        title="User search"
-        subtitle="Find any user (client, coach, or admin) by email or email fragment, then open their profile."
+        title={t("title")}
+        subtitle={t("subtitle")}
       />
 
       <Button asChild variant="outline" size="sm" className="self-start rounded-full">
         <Link href="/gc-fitness/admin">
           <ArrowLeft className="h-4 w-4" />
-          Back to admin
+          {tc("backToAdmin")}
         </Link>
       </Button>
 
@@ -90,12 +94,13 @@ export default async function AdminUserSearchPage({
         <Input
           name="q"
           defaultValue={q}
-          placeholder="email or fragment"
+          placeholder={t("placeholder")}
+          aria-label={t("placeholder")}
           className="sm:max-w-md"
         />
         <AdminSubmitButton
-          idleLabel="Search"
-          pendingLabel="Searching…"
+          idleLabel={t("search")}
+          pendingLabel={t("searching")}
           className="h-10 rounded-full bg-primary px-5 text-primary-foreground hover:bg-primary/90"
         />
       </form>
@@ -104,23 +109,23 @@ export default async function AdminUserSearchPage({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>User</TableHead>
-              <TableHead>UID</TableHead>
-              <TableHead>Roles</TableHead>
-              <TableHead className="text-right">Profile</TableHead>
+              <TableHead>{t("user")}</TableHead>
+              <TableHead>{tc("uid")}</TableHead>
+              <TableHead>{t("roles")}</TableHead>
+              <TableHead className="text-right">{t("profile")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {q.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4} className="text-sm text-muted-foreground">
-                  Type an email or email fragment above to search.
+                  {t("prompt")}
                 </TableCell>
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4} className="text-sm text-muted-foreground">
-                  No matches.
+                  {t("noMatches")}
                 </TableCell>
               </TableRow>
             ) : (
@@ -144,7 +149,7 @@ export default async function AdminUserSearchPage({
                             {row.displayName || "—"}
                             {row.deleted ? (
                               <span className="ml-2 text-xs text-destructive">
-                                (deleted)
+                                {t("deleted")}
                               </span>
                             ) : null}
                           </div>
@@ -154,11 +159,11 @@ export default async function AdminUserSearchPage({
                           <div className="mt-0.5">
                             {resolveDisplayTier(row.entitlement) === "premium" ? (
                               <span className="inline-flex rounded-full border border-[color:var(--badge-success-border)] bg-[color:var(--badge-success-bg)] px-2 py-0.5 text-[10px] font-medium text-[color:var(--badge-success-fg)]">
-                                Premium
+                                {tcl("premium")}
                               </span>
                             ) : (
                               <span className="inline-flex rounded-full border bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                Free
+                                {tcl("free")}
                               </span>
                             )}
                           </div>
@@ -175,35 +180,35 @@ export default async function AdminUserSearchPage({
                           size="sm"
                           className="rounded-full"
                         >
-                          <Link href={href}>View</Link>
+                          <Link href={href}>{tc("view")}</Link>
                         </Button>
                       ) : (
                         <details className="text-left">
                           <summary className="cursor-pointer text-sm underline underline-offset-2">
-                            Admin profile (read-only)
+                            {t("adminProfile")}
                           </summary>
                           <div className="mt-2 space-y-1 rounded-xl border bg-muted/40 p-3 text-xs">
                             <div>
-                              <span className="text-muted-foreground">Email:</span>{" "}
+                              <span className="text-muted-foreground">{t("fields.email")}</span>{" "}
                               {row.email || "—"}
                             </div>
                             <div>
-                              <span className="text-muted-foreground">Name:</span>{" "}
+                              <span className="text-muted-foreground">{t("fields.name")}</span>{" "}
                               {row.displayName || "—"}
                             </div>
                             <div>
-                              <span className="text-muted-foreground">UID:</span>{" "}
+                              <span className="text-muted-foreground">{t("fields.uid")}</span>{" "}
                               <span className="font-mono">{row.uid}</span>
                             </div>
                             <div>
-                              <span className="text-muted-foreground">Roles:</span>{" "}
+                              <span className="text-muted-foreground">{t("fields.roles")}</span>{" "}
                               {row.roles.join(", ") || "—"}
                             </div>
                             <div>
-                              <span className="text-muted-foreground">Subscription:</span>{" "}
+                              <span className="text-muted-foreground">{t("fields.subscription")}</span>{" "}
                               {resolveDisplayTier(row.entitlement) === "premium"
-                                ? "Premium"
-                                : "Free"}
+                                ? tcl("premium")
+                                : tcl("free")}
                               {row.entitlement?.source
                                 ? ` (${row.entitlement.source})`
                                 : ""}

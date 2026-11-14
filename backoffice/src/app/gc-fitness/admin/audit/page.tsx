@@ -12,6 +12,7 @@
 // (reader); this page is filters + layout.
 
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { redirect } from "next/navigation";
 
 import { civilDateFormat } from "@/lib/gc-fitness/civil-date";
@@ -38,7 +39,7 @@ import {
 import type { FeedCategory } from "@/lib/gc-fitness/activity-feed-model";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
-import { ActivityFeedList, CATEGORY_LABEL } from "./_components/ActivityFeedList";
+import { ActivityFeedList } from "./_components/ActivityFeedList";
 
 // Tab title: "Corvo - <adminPanel>" (issue #170).
 export const generateMetadata = () => sectionMetadata("adminPanel");
@@ -68,14 +69,14 @@ const CATEGORY_OPTIONS: FeedCategory[] = [
   "admin",
 ];
 
-const SOURCE_OPTIONS: Array<{ value: "all" | FeedSource; label: string }> = [
-  { value: "all", label: "Todas las fuentes" },
-  { value: "audit_log", label: "App (writes de Firestore)" },
-  { value: "coach_activity", label: "Acciones de coach" },
-  { value: "admin_operations", label: "Operaciones de admin" },
-  { value: "progress_photos", label: "Fotos de progreso" },
-  { value: "habit_logs", label: "Hábitos marcados" },
-  { value: "nutrition_logs", label: "Comidas marcadas" },
+const SOURCE_OPTIONS: Array<"all" | FeedSource> = [
+  "all",
+  "audit_log",
+  "coach_activity",
+  "admin_operations",
+  "progress_photos",
+  "habit_logs",
+  "nutrition_logs",
 ];
 
 function str(value: string | string[] | undefined): string {
@@ -107,7 +108,7 @@ export default async function AuditPage({
   const tab = str(sp.tab) === "deletions" ? "deletions" : "timeline";
   const source = (() => {
     const v = str(sp.source);
-    return SOURCE_OPTIONS.some((o) => o.value === v) ? (v as "all" | FeedSource) : "all";
+    return SOURCE_OPTIONS.some((o) => o === v) ? (v as "all" | FeedSource) : "all";
   })();
   // Checked boxes. An empty set = "todos" (an untouched form and an
   // everything-unchecked form are indistinguishable over the wire — HTML omits
@@ -152,6 +153,55 @@ export default async function AuditPage({
   const timeZone = await getTrainerTimezone();
   const today = civilDateFormat(new Date(), timeZone);
 
+  const t = await getTranslations("admin.audit");
+  const tc = await getTranslations("admin.common");
+  const categoryLabel = (category: FeedCategory): string => {
+    switch (category) {
+      case "workout":
+        return t("categories.workout");
+      case "schedule":
+        return t("categories.schedule");
+      case "routine":
+        return t("categories.routine");
+      case "habit":
+        return t("categories.habit");
+      case "nutrition":
+        return t("categories.nutrition");
+      case "exercise":
+        return t("categories.exercise");
+      case "photo":
+        return t("categories.photo");
+      case "account":
+        return t("categories.account");
+      case "coach":
+        return t("categories.coach");
+      case "admin":
+        return t("categories.admin");
+      case "other":
+        return t("categories.other");
+    }
+  };
+  const sourceLabel = (value: "all" | FeedSource): string => {
+    switch (value) {
+      case "all":
+        return t("sources.all");
+      case "audit_log":
+        return t("sources.auditLog");
+      case "coach_activity":
+        return t("sources.coachActivity");
+      case "admin_operations":
+        return t("sources.adminOperations");
+      case "progress_photos":
+        return t("sources.progressPhotos");
+      case "habit_logs":
+        return t("sources.habitLogs");
+      case "nutrition_logs":
+        return t("sources.nutritionLogs");
+      default:
+        return value;
+    }
+  };
+
   const buildTabHref = (target: "timeline" | "deletions") => {
     const params = new URLSearchParams();
     params.set("tab", target);
@@ -170,13 +220,13 @@ export default async function AuditPage({
   return (
     <div className="gc-page flex flex-col gap-6">
       <PageHeader
-        title="Monitoring & observability"
-        subtitle="Qué está pasando en la app: workouts terminados, rutinas y hábitos creados, fotos, altas de usuarios, cambios de suscripción y operaciones de admin. Todo enlaza al detalle."
+        title={t("title")}
+        subtitle={t("subtitle")}
         actions={
           <Button asChild variant="outline" size="sm" className="rounded-full">
             <Link href="/gc-fitness/admin">
               <ArrowLeft className="h-4 w-4" />
-              Back to admin
+              {tc("backToAdmin")}
             </Link>
           </Button>
         }
@@ -185,18 +235,15 @@ export default async function AuditPage({
       <PillTabs
         activeKey={tab}
         items={[
-          { key: "timeline", label: "Actividad", href: buildTabHref("timeline") },
-          { key: "deletions", label: "Eliminaciones", href: buildTabHref("deletions") },
+          { key: "timeline", label: t("tabs.timeline"), href: buildTabHref("timeline") },
+          { key: "deletions", label: t("tabs.deletions"), href: buildTabHref("deletions") },
         ]}
       />
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Filtros</CardTitle>
-          <CardDescription>
-            El rango de fechas se aplica en la query; el resto filtra la ventana
-            cargada en memoria. Horarios en UTC.
-          </CardDescription>
+          <CardTitle className="text-xl">{t("filters.title")}</CardTitle>
+          <CardDescription>{t("filters.description")}</CardDescription>
         </CardHeader>
         <CardContent>
           <form
@@ -210,7 +257,7 @@ export default async function AuditPage({
                 para sacar un tipo de evento del feed. */}
             <fieldset className="flex flex-col gap-2 sm:col-span-2 lg:col-span-3">
               <legend className="text-xs font-medium text-muted-foreground">
-                Tipo de evento
+                {t("filters.eventType")}
               </legend>
               <div className="flex flex-wrap gap-x-4 gap-y-2">
                 {CATEGORY_OPTIONS.map((value) => (
@@ -227,44 +274,44 @@ export default async function AuditPage({
                       }
                       className="h-4 w-4 rounded border-input"
                     />
-                    {CATEGORY_LABEL[value]}
+                    {categoryLabel(value)}
                   </label>
                 ))}
               </div>
             </fieldset>
 
             <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-              Fuente
+              {t("filters.source")}
               <select
                 name="source"
                 defaultValue={source}
                 className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
               >
-                {SOURCE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
+                {SOURCE_OPTIONS.map((value) => (
+                  <option key={value} value={value}>
+                    {sourceLabel(value)}
                   </option>
                 ))}
               </select>
             </label>
 
             <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-              Quién (uid / nombre / email)
-              <Input name="actor" defaultValue={actorQuery} placeholder="contiene…" className="h-9" />
+              {t("filters.actor")}
+              <Input name="actor" defaultValue={actorQuery} placeholder={t("filters.contains")} className="h-9" />
             </label>
 
             <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-              Cliente (uid / nombre / email)
-              <Input name="client" defaultValue={clientQuery} placeholder="contiene…" className="h-9" />
+              {t("filters.client")}
+              <Input name="client" defaultValue={clientQuery} placeholder={t("filters.contains")} className="h-9" />
             </label>
 
             <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-              Desde (UTC)
+              {t("filters.from")}
               <Input name="from" type="date" defaultValue={fromISO} className="h-9" />
             </label>
 
             <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-              Hasta (UTC)
+              {t("filters.to")}
               <Input name="to" type="date" defaultValue={toISO} className="h-9" />
             </label>
 
@@ -276,17 +323,17 @@ export default async function AuditPage({
                 defaultChecked={includeLowSignal}
                 className="h-4 w-4 rounded border-input"
               />
-              Mostrar también los writes de bajo nivel (toques de{" "}
-              <span className="font-mono">updatedAt</span>, escrituras por serie
-              durante un workout, refrescos de suscripción sin cambio de plan)
+              {t.rich("filters.lowSignal", {
+                code: (chunks) => <span className="font-mono">{chunks}</span>,
+              })}
             </label>
 
             <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-3">
               <Button type="submit" className="rounded-full">
-                Aplicar filtros
+                {t("filters.apply")}
               </Button>
               <Button asChild variant="outline" className="rounded-full">
-                <Link href={`/gc-fitness/admin/audit?tab=${tab}`}>Limpiar</Link>
+                <Link href={`/gc-fitness/admin/audit?tab=${tab}`}>{t("filters.clear")}</Link>
               </Button>
             </div>
           </form>
@@ -296,19 +343,17 @@ export default async function AuditPage({
       <Card>
         <CardHeader>
           <CardTitle className="text-xl">
-            {tab === "deletions" ? "Eliminaciones" : "Actividad"}
+            {tab === "deletions" ? t("tabs.deletions") : t("tabs.timeline")}
           </CardTitle>
           <CardDescription>
-            {tab === "deletions"
-              ? "Todo lo que borró datos — bajas de coach/cliente, series de workouts eliminadas, hábitos y ejercicios dados de baja."
-              : "Acciones de clientes, coaches y admins en un único feed, de lo más nuevo a lo más viejo."}{" "}
-            {events.length} {events.length === 1 ? "evento" : "eventos"}.
+            {tab === "deletions" ? t("deletionsDescription") : t("timelineDescription")}{" "}
+            {t("eventCountSentence", { count: events.length })}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           {loadError ? (
             <p className="px-4 py-6 text-sm text-muted-foreground">
-              No se pudo cargar el feed. Probá acotando el rango de fechas.
+              {t("loadError")}
             </p>
           ) : (
             <ActivityFeedList
@@ -316,9 +361,7 @@ export default async function AuditPage({
               today={today}
               timeZone={timeZone}
               emptyLabel={
-                tab === "deletions"
-                  ? "No hay eliminaciones para estos filtros."
-                  : "No hay eventos para estos filtros."
+                tab === "deletions" ? t("emptyDeletions") : t("emptyEvents")
               }
             />
           )}
