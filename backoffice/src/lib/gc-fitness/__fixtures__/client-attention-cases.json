@@ -1,0 +1,21 @@
+{
+  "_doc": "#499 — shared case table for the «needs attention» reasons. Backoffice: client-attention.ts (clientNeedsAttention). Apps: functions/src/coach/coachAttention.ts (gc-fitness). nowMs = 2026-05-27T12:00:00Z. Omitted input fields = not evaluated / zero. expected = reasons, most urgent first.",
+  "nowMs": 1779883200000,
+  "cases": [
+    { "name": "never did anything", "input": { "lastActivityAtMs": null }, "expected": ["inactive"] },
+    { "name": "active 1h ago, nothing else", "input": { "lastActivityAtMs": 1779879600000 }, "expected": [] },
+    { "name": "71h of silence is not yet inactive", "input": { "lastActivityAtMs": 1779627600000 }, "expected": [] },
+    { "name": "73h of silence is inactive", "input": { "lastActivityAtMs": 1779620400000 }, "expected": ["inactive"] },
+    { "name": "nothing assigned in the next 4 days", "input": { "lastActivityAtMs": 1779879600000, "hasSomethingAssignedSoon": false }, "expected": ["nothingAssigned"] },
+    { "name": "something assigned soon", "input": { "lastActivityAtMs": 1779879600000, "hasSomethingAssignedSoon": true }, "expected": [] },
+    { "name": "one missed workout is enough", "input": { "lastActivityAtMs": 1779879600000, "missedWorkouts": 1 }, "expected": ["missedWorkouts"] },
+    { "name": "zero missed workouts", "input": { "lastActivityAtMs": 1779879600000, "missedWorkouts": 0 }, "expected": [] },
+    { "name": "payment overdue", "input": { "lastActivityAtMs": 1779879600000, "billingOverdue": true }, "expected": ["overduePayment"] },
+    { "name": "nutrition under 60% with an active plan", "input": { "lastActivityAtMs": 1779879600000, "nutritionHasActivePlan": true, "nutritionRatio7Days": 0.59 }, "expected": ["lowNutrition"] },
+    { "name": "nutrition exactly 60% is fine", "input": { "lastActivityAtMs": 1779879600000, "nutritionHasActivePlan": true, "nutritionRatio7Days": 0.6 }, "expected": [] },
+    { "name": "nutrition 0% but no plan in force is not low adherence", "input": { "lastActivityAtMs": 1779879600000, "nutritionHasActivePlan": false, "nutritionRatio7Days": 0 }, "expected": [] },
+    { "name": "active plan, nothing asked yet (null ratio)", "input": { "lastActivityAtMs": 1779879600000, "nutritionHasActivePlan": true, "nutritionRatio7Days": null }, "expected": [] },
+    { "name": "one unread message", "input": { "lastActivityAtMs": 1779879600000, "unreadChatCount": 1 }, "expected": ["unreadChat"] },
+    { "name": "every reason at once, ordered by rank", "input": { "lastActivityAtMs": null, "hasSomethingAssignedSoon": false, "missedWorkouts": 3, "billingOverdue": true, "nutritionHasActivePlan": true, "nutritionRatio7Days": 0.1, "unreadChatCount": 4 }, "expected": ["inactive", "nothingAssigned", "missedWorkouts", "overduePayment", "lowNutrition", "unreadChat"] }
+  ]
+}

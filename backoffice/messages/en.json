@@ -223,6 +223,26 @@
     "missedWorkouts": "Missed workouts",
     "lowCompliance": "Low habit compliance",
     "inactive3Days": "No activity in 3+ days",
+    "attentionReasons": {
+      "inactive": "No activity in 3+ days",
+      "nothingAssigned": "Nothing scheduled in the next 4 days",
+      "missedWorkouts": "Missed workouts this week",
+      "overduePayment": "Payment overdue",
+      "lowNutrition": "Nutrition under 60% this week",
+      "unreadChat": "Unread messages"
+    },
+    "sort": {
+      "label": "Sort by",
+      "attention": "Needs attention",
+      "lastActivity": "Last activity",
+      "name": "Name",
+      "habits": "Habits",
+      "nutrition": "Nutrition",
+      "workouts": "Workouts this month",
+      "unread": "Unread messages",
+      "ascending": "Ascending",
+      "descending": "Descending"
+    },
     "table": {
       "name": "Name",
       "lastActivity": "Last activity",

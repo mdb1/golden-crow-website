@@ -35,7 +35,7 @@
 
 import "@testing-library/jest-dom";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
 
@@ -277,7 +277,7 @@ describe("RosterTable — an empty roster", () => {
 describe("RosterTable — the nutrition column", () => {
   it("shows the 7-day adherence next to the habit one", () => {
     renderRoster([client({ nutritionRatio7Days: 0.62 })]);
-    expect(screen.getByText("Nutrition")).toBeInTheDocument();
+    expect(within(cardFor("Ana Gomez")).getByText("Nutrition")).toBeInTheDocument();
     expect(screen.getByText("62%")).toBeInTheDocument();
   });
 
@@ -369,5 +369,91 @@ describe("RosterTable — the nutrition column", () => {
     delete (legacy as Partial<ClientRosterRow>).nutritionRatio7Days;
     renderRoster([legacy]);
     expect(screen.queryByText("NaN%")).not.toBeInTheDocument();
+  });
+});
+
+describe("RosterTable — #499 attention reasons and sorting", () => {
+  const ROWS = [
+    client({
+      uid: "ana",
+      displayName: "Ana Gomez",
+      lastActivityAt: "2026-08-05T12:00:00.000Z",
+      nutritionRatio7Days: null,
+      unreadChatCount: 0,
+    }),
+    client({
+      uid: "beto",
+      displayName: "Beto Diaz",
+      lastActivityAt: "2026-08-01T12:00:00.000Z",
+      needsAttention: true,
+      needsAttentionReasons: ["overduePayment", "unreadChat"],
+      nutritionRatio7Days: 0.3,
+      unreadChatCount: 5,
+    }),
+    client({
+      uid: "caro",
+      displayName: "Caro Ruiz",
+      lastActivityAt: "2026-08-03T12:00:00.000Z",
+      needsAttention: true,
+      needsAttentionReasons: ["nothingAssigned"],
+      nutritionRatio7Days: 0.9,
+      unreadChatCount: 1,
+    }),
+  ];
+
+  function sortBy(user: ReturnType<typeof userEvent.setup>, key: string) {
+    return user.selectOptions(screen.getByRole("combobox", { name: "Sort by" }), key);
+  }
+
+  it("names every reason on the card, most urgent first", () => {
+    renderRoster(ROWS);
+    expect(
+      within(cardFor("Beto Diaz"))
+        .getAllByTestId("roster-attention-reason")
+        .map((n) => n.textContent),
+    ).toEqual(["Payment overdue", "Unread messages"]);
+    expect(within(cardFor("Ana Gomez")).queryAllByTestId("roster-attention-reason")).toHaveLength(0);
+  });
+
+  it("keeps the server order (last activity, newest first) by default", () => {
+    renderRoster(ROWS);
+    expect(visibleNames()).toEqual(["Ana Gomez", "Caro Ruiz", "Beto Diaz"]);
+  });
+
+  it("sorts by attention: most urgent reason first, clients with none last", async () => {
+    const { user } = renderRoster(ROWS);
+    await sortBy(user, "attention");
+    expect(visibleNames()).toEqual(["Caro Ruiz", "Beto Diaz", "Ana Gomez"]);
+  });
+
+  it("sorts by name and flips with the direction button", async () => {
+    const { user } = renderRoster([ROWS[2], ROWS[0], ROWS[1]]);
+    await sortBy(user, "name");
+    expect(visibleNames()).toEqual(["Ana Gomez", "Beto Diaz", "Caro Ruiz"]);
+    await user.click(screen.getByRole("button", { name: "Ascending" }));
+    expect(visibleNames()).toEqual(["Caro Ruiz", "Beto Diaz", "Ana Gomez"]);
+  });
+
+  it("sorts nutrition worst first, with «nothing asked» last in BOTH directions", async () => {
+    const { user } = renderRoster(ROWS);
+    await sortBy(user, "nutrition");
+    expect(visibleNames()).toEqual(["Beto Diaz", "Caro Ruiz", "Ana Gomez"]);
+    await user.click(screen.getByRole("button", { name: "Ascending" }));
+    expect(visibleNames()).toEqual(["Caro Ruiz", "Beto Diaz", "Ana Gomez"]);
+  });
+
+  it("sorts by unread messages, most first", async () => {
+    const { user } = renderRoster(ROWS);
+    await sortBy(user, "unread");
+    expect(visibleNames()).toEqual(["Beto Diaz", "Caro Ruiz", "Ana Gomez"]);
+  });
+
+  it("keeps pending sign-ins last whatever the sort", async () => {
+    const { user } = renderRoster([
+      client({ uid: "p", displayName: "Aaron Pending", email: "p@x.com", pendingProvisioning: true }),
+      ...ROWS,
+    ]);
+    await sortBy(user, "name");
+    expect(visibleNames().at(-1)).toBe("Aaron Pending");
   });
 });

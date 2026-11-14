@@ -223,6 +223,26 @@
     "missedWorkouts": "Entrenamientos perdidos",
     "lowCompliance": "Baja adherencia a hábitos",
     "inactive3Days": "Sin actividad hace 3+ días",
+    "attentionReasons": {
+      "inactive": "Sin actividad hace 3+ días",
+      "nothingAssigned": "Nada agendado en los próximos 4 días",
+      "missedWorkouts": "Entrenamientos perdidos esta semana",
+      "overduePayment": "Pago vencido",
+      "lowNutrition": "Nutrición bajo 60% esta semana",
+      "unreadChat": "Mensajes sin leer"
+    },
+    "sort": {
+      "label": "Ordenar por",
+      "attention": "Necesita atención",
+      "lastActivity": "Última actividad",
+      "name": "Nombre",
+      "habits": "Hábitos",
+      "nutrition": "Nutrición",
+      "workouts": "Entrenamientos del mes",
+      "unread": "Mensajes sin leer",
+      "ascending": "Ascendente",
+      "descending": "Descendente"
+    },
     "table": {
       "name": "Nombre",
       "lastActivity": "Última actividad",
