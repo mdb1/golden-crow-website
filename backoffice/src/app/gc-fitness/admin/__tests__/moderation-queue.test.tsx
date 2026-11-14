@@ -59,13 +59,13 @@ describe("ModerationQueue", () => {
   it("renders one row per target with every report, the content in context, and a breached SLA", () => {
     render(<ModerationQueue groups={[group()]} status="open" nowISO={NOW} />);
     const row = screen.getByTestId("moderation-group-routine-tpl-1");
-    expect(within(row).getByText("2 reportes")).toBeInTheDocument();
+    expect(within(row).getByText("2 reports")).toBeInTheDocument();
     expect(within(row).getByText("Push day · @lucia")).toBeInTheDocument();
     expect(within(row).getByText("Pecho y tríceps")).toBeInTheDocument();
     expect(within(row).getByText("Spam")).toBeInTheDocument();
-    expect(within(row).getByText("Acoso")).toBeInTheDocument();
+    expect(within(row).getByText("Harassment")).toBeInTheDocument();
     expect(within(row).getByText("“vende cosas”")).toBeInTheDocument();
-    expect(within(row).getByTestId("moderation-sla")).toHaveTextContent(/^SLA vencido/);
+    expect(within(row).getByTestId("moderation-sla")).toHaveTextContent(/^SLA breached/);
   });
 
   it("the three verbs carry the target triple and ONLY the open report ids", () => {
@@ -93,17 +93,17 @@ describe("ModerationQueue", () => {
         nowISO={NOW}
       />,
     );
-    expect(screen.queryByRole("button", { name: "Ocultar contenido" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Suspender autor" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Descartar" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Hide content" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Suspend author" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Dismiss" })).toBeInTheDocument();
   });
 
   it("cancelling the confirm blocks Ocultar and Suspender; Descartar does not ask", () => {
     const confirmSpy = jest.spyOn(window, "confirm").mockReturnValue(false);
     render(<ModerationQueue groups={[group()]} status="open" nowISO={NOW} />);
-    const hideForm = screen.getByRole("button", { name: "Ocultar contenido" }).closest("form")!;
-    const suspendForm = screen.getByRole("button", { name: "Suspender autor" }).closest("form")!;
-    const dismissForm = screen.getByRole("button", { name: "Descartar" }).closest("form")!;
+    const hideForm = screen.getByRole("button", { name: "Hide content" }).closest("form")!;
+    const suspendForm = screen.getByRole("button", { name: "Suspend author" }).closest("form")!;
+    const dismissForm = screen.getByRole("button", { name: "Dismiss" }).closest("form")!;
 
     // `fireEvent.submit` returns false whenever SOMETHING called preventDefault
     // — and React 19 does that itself for every `<form action={fn}>`, so the
@@ -127,10 +127,10 @@ describe("ModerationQueue", () => {
         nowISO={NOW}
       />,
     );
-    expect(screen.getByRole("button", { name: "Ocultar contenido" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Suspender autor" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Volver a mostrar" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Levantar suspensión" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hide content" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Suspend author" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Show again" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Lift suspension" })).toBeInTheDocument();
   });
 
   it("a challenge row (#1189) is labelled «Desafío», shows its name, and offers the three verbs with the challenge triple", () => {
@@ -148,10 +148,10 @@ describe("ModerationQueue", () => {
     });
     render(<ModerationQueue groups={[g]} status="open" nowISO={NOW} />);
     const row = screen.getByTestId("moderation-group-challenge-ch-1");
-    expect(within(row).getByText("Desafío")).toBeInTheDocument();
+    expect(within(row).getByText("Challenge")).toBeInTheDocument();
     expect(within(row).getByText("Semana sin excusas · @lucia")).toBeInTheDocument();
     expect(within(row).getByText("5 entrenos en 7 días · 2 miembros")).toBeInTheDocument();
-    expect(within(row).getByRole("button", { name: "Ocultar contenido" })).toBeInTheDocument();
+    expect(within(row).getByRole("button", { name: "Hide content" })).toBeInTheDocument();
     const forms = Array.from(row.querySelectorAll("form"));
     expect(forms).toHaveLength(3);
     for (const form of forms) {
@@ -172,13 +172,13 @@ describe("ModerationQueue", () => {
         nowISO={NOW}
       />,
     );
-    expect(screen.getByRole("button", { name: "Ocultar contenido" })).toBeDisabled();
-    const unhide = screen.getByRole("button", { name: "Volver a mostrar" }).closest("form")!;
+    expect(screen.getByRole("button", { name: "Hide content" })).toBeDisabled();
+    const unhide = screen.getByRole("button", { name: "Show again" }).closest("form")!;
     expect(hiddenFields(unhide)).toMatchObject({ targetType: "challenge", targetId: "ch-1" });
   });
 
   it("a resolved bandeja shows no verbs and the empty state names the bandeja", () => {
     render(<ModerationQueue groups={[]} status="dismissed" nowISO={NOW} />);
-    expect(screen.getByTestId("moderation-empty")).toHaveTextContent("Nada en esta bandeja.");
+    expect(screen.getByTestId("moderation-empty")).toHaveTextContent("Nothing in this tray.");
   });
 });

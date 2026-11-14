@@ -114,6 +114,9 @@
     "viewAll": "View all",
     "noRecentActivity": "No client activity yet.",
     "noActivity": "No activity",
+    "lastActionWorkout": "Last log: workout",
+    "lastActionHabit": "Last log: habit",
+    "lastActionPhoto": "Last log: progress photo",
     "noRecords": "No records.",
     "topPerformersTodayTitle": "Top performers · today",
     "topPerformersTodaySubtitle": "Habit completion so far today.",
@@ -930,6 +933,11 @@
       "toastCooldown": "You just sent it. Wait a few minutes before retrying.",
       "toastNoTarget": "Could not send: we could not find this client.",
       "toastNotConfigured": "Email sending is not configured in this environment."
+    },
+    "autoAssignedBanner": {
+      "titleOne": "1 new client signed up without a coach and was assigned to you",
+      "titleOther": "{count} new clients signed up without a coach and were assigned to you",
+      "body": "They're marked <badge>NEW</badge> below. Review them and, if they belong to another coach, transfer them from the admin panel."
     }
   },
   "templates": {
@@ -1145,7 +1153,18 @@
       "discardDialogKeepDraft": "Leave and keep draft",
       "draftRestoredBanner": "Restored your unsaved draft. Pick up where you left off.",
       "draftRestoredDiscard": "Discard draft",
-      "staleReloading": "A new version of the backoffice was published. Reloading the page — your changes are kept, just press Save again."
+      "staleReloading": "A new version of the backoffice was published. Reloading the page — your changes are kept, just press Save again.",
+      "moveUpNamed": "Move {name} up",
+      "moveDownNamed": "Move {name} down",
+      "removeExerciseNamed": "Remove {name}",
+      "removeExerciseConfirmTitle": "Remove this exercise?",
+      "removeExerciseConfirmBody": "{name} and its sets will be removed from this routine.",
+      "removeExerciseConfirmBodyUnnamed": "This exercise and its sets will be removed from this routine.",
+      "removeExerciseConfirmCancel": "Keep it",
+      "removeExerciseConfirmAction": "Remove",
+      "quickCreatedNotice": "Created: <strong>{name}</strong>",
+      "quickCreatedEdit": "Edit in new tab",
+      "quickCreatedDismissAria": "Dismiss the notice for {name}"
     }
   },
   "habits": {
@@ -1897,6 +1916,8 @@
       "nextAria": "Next",
       "clientsOnScreen": "Clients on screen",
       "clientsOnScreenHint": "Pick one or several. The calendar shows their workouts and habits together.",
+      "clientSearchPlaceholder": "Search clients",
+      "clientSearchEmpty": "No clients match your search.",
       "selectAll": "Select all",
       "clear": "Clear",
       "show": "Show",
@@ -1913,7 +1934,12 @@
       "freeWorkoutHint": "Free workout: the client built it while training",
       "pickClientsPrompt": "Pick one or more clients above to see their agenda.",
       "pickClientFirstToast": "Pick at least one client first",
-      "bulkAssignHabit": "Assign habit"
+      "bulkAssignHabit": "Assign habit",
+      "addWorkoutOnAria": "Assign workout on {date}",
+      "addHabitOnAria": "Assign habit on {date}",
+      "addOnAria": "Assign on {date}",
+      "addMenuWorkout": "Workout",
+      "addMenuHabit": "Habit"
     },
     "clientPicker": {
       "emptyTitle": "No clients yet",
@@ -2088,6 +2114,17 @@
       "successOnce": "Template assigned.",
       "successRecurring": "Recurring assignment created ({count} workouts).",
       "recurrencePreviewCount": "{count, plural, =0 {No dates match yet} one {# date highlighted on the calendar} other {# dates highlighted on the calendar}}"
+    },
+    "workoutDetail": {
+      "moveToDate": "Move to date…",
+      "moveDateLabel": "New date",
+      "moveDateHint": "Pick the day this workout should move to.",
+      "moveConfirm": "Move",
+      "moveCancel": "Cancel",
+      "moveSameDay": "Pick a different day than the current one.",
+      "setsRepsHeader": "Reps",
+      "setsSecondsHeader": "Sec",
+      "setsWeightHeader": "Weight"
     }
   },
   "picker": {
@@ -2341,7 +2378,14 @@
     "googleCta": "Sign in with Google",
     "signingIn": "Signing in…",
     "errorTitle": "Sign-in error",
-    "errorFallback": "Sign in failed. Please try again."
+    "errorFallback": "Sign in failed. Please try again.",
+    "brand": "Coach Portal",
+    "authorizedOnly": "Only authorized coaches can sign in, with their enabled Google account.",
+    "errors": {
+      "client": "This account is a client. Use the Corvo app on your phone.",
+      "notACoach": "This Google account isn't a Corvo coach. Ask an admin to add your email to the coach list.",
+      "coachDisabled": "Your coach access was removed. If you think this is a mistake, contact an admin."
+    }
   },
   "forbidden": {
     "eyebrow": "Corvo",
@@ -2811,5 +2855,626 @@
     "errorAmount": "Enter a valid amount.",
     "save": "Save",
     "cancel": "Cancel"
+  },
+  "admin": {
+    "common": {
+      "actionCompleted": "Action completed: {op}.",
+      "actionFailed": "Couldn't complete the action: {message}",
+      "email": "Email",
+      "action": "Action",
+      "yes": "yes",
+      "no": "no",
+      "remove": "Remove",
+      "removing": "Removing...",
+      "uid": "UID",
+      "clients": "Clients",
+      "customWorkouts": "Custom workouts",
+      "customExercises": "Custom exercises",
+      "open": "Open",
+      "view": "View",
+      "previewDeletion": "Preview deletion (dry run)",
+      "previewing": "Previewing...",
+      "previewResult": "Preview result",
+      "typeExactly": "Type exactly: {phrase}",
+      "deleting": "Deleting...",
+      "backToAdmin": "Back to admin",
+      "status": "Status",
+      "name": "Name",
+      "notAvailable": "—"
+    },
+    "home": {
+      "title": "Admin Console",
+      "subtitle": "Corvo operator tools. Multi-role is enabled: a user can be trainer and admin at the same time.",
+      "coachless": {
+        "title": "Coach-less users (god mode)",
+        "description": "Self-serve clients with no coach: subscription status, per-user content stats (routines, habits, photos, logs), grant/revoke premium, and full cascade delete.",
+        "open": "Open coach-less users"
+      },
+      "appVersion": {
+        "title": "App version (force update)",
+        "description": "Set the minimum supported app build per platform. Clients on an older build are forced to update before they can use the app.",
+        "open": "Manage app version"
+      },
+      "allowlistAdd": {
+        "title": "Add coach email to allowlist",
+        "description": "Store pending coach access emails in Firestore allowlist.",
+        "emailLabel": "Coach email",
+        "submit": "Add email",
+        "pending": "Adding..."
+      },
+      "promote": {
+        "title": "Promote existing user to admin",
+        "description": "Keeps trainer role and adds admin role (trainer + admin) in custom claims.",
+        "emailLabel": "User email",
+        "submit": "Promote user",
+        "pending": "Promoting..."
+      },
+      "allowlist": {
+        "title": "Coach allowlist",
+        "description": "Pending allowlist emails (already-trainer emails are hidden).",
+        "enabled": "Enabled",
+        "updatedAt": "Updated at (UTC)",
+        "empty": "No allowlist entries yet."
+      },
+      "userSearch": {
+        "title": "User search",
+        "description": "Find any user (client, coach, or admin) by email and open their profile.",
+        "open": "Open user search"
+      },
+      "coaches": {
+        "title": "Coaches",
+        "description": "Email, roles, clients, custom workouts, custom exercises.",
+        "coach": "Coach",
+        "roles": "Roles"
+      },
+      "activity": {
+        "title": "Recent coach activity",
+        "description": "Open the dedicated activity view with recurrence grouping and event details.",
+        "open": "Open recent coach activity"
+      },
+      "moderation": {
+        "title": "Moderation",
+        "description": "Reports on profiles, routines, comments and messages. 24 h SLA (App Store 1.2).",
+        "openReports": "{count, plural, =0 {No open reports.} one {There is # open report.} other {There are # open reports.}}",
+        "open": "Open moderation queue"
+      },
+      "monitoring": {
+        "title": "Monitoring & observability",
+        "description": "Feed of what is happening in the app — workouts finished, routines and habits created, photos uploaded, new users and subscription changes, coach and admin actions — plus a deletion history, all linked to the detail.",
+        "open": "Open monitoring dashboard"
+      },
+      "hygiene": {
+        "title": "Data hygiene",
+        "description": "Scan for orphaned users, chats, images, workouts and other suspicious records.",
+        "open": "Open hygiene dashboard"
+      },
+      "deleteCoach": {
+        "title": "Delete coach (cascade)",
+        "description": "Step 1: preview impact. Step 2: execute delete with explicit confirmation.",
+        "uidPlaceholder": "coach uid",
+        "uidSamePlaceholder": "coach uid (same as preview)",
+        "totalDocs": "Total docs approx: {count}",
+        "submit": "Confirm and delete coach"
+      }
+    },
+    "coachDetail": {
+      "title": "Coach detail",
+      "access": {
+        "title": "Coach access",
+        "activeBadge": "Active coach",
+        "disabledBadge": "Coach removed",
+        "activeDescription": "This account can sign in to the coach portal. Removing it takes away the coach role, signs it out everywhere, and the login will not give the role back.",
+        "disabledDescription": "This coach was removed: signing in does not restore the coach role. Their data and clients are untouched.",
+        "disable": "Remove as coach",
+        "disabling": "Removing...",
+        "disableConfirm": "Remove {name} as coach? They lose access to the coach portal and are signed out everywhere. Their data and clients are kept.",
+        "reactivate": "Reactivate coach",
+        "reactivating": "Reactivating..."
+      },
+      "metrics": {
+        "assignments": "Assignments",
+        "habits": "Habits",
+        "chats": "Chats"
+      },
+      "linked": {
+        "title": "Linked clients",
+        "description": "Current coach-client relationship and quick actions.",
+        "client": "Client",
+        "empty": "No linked clients.",
+        "deleted": "deleted",
+        "active": "active",
+        "transferLabel": "Transfer {name} to coach",
+        "transferTo": "Transfer to…",
+        "transfer": "Transfer",
+        "transferring": "Transferring...",
+        "unlink": "Remove as client",
+        "unlinkTitle": "Unlink from this coach — the user becomes coach-less and keeps all their data",
+        "deactivate": "Deactivate",
+        "deactivating": "Deactivating...",
+        "useInDelete": "Use in delete"
+      },
+      "deleteClient": {
+        "title": "Delete client (cascade)",
+        "description": "Step 1: preview impact. Step 2: execute with explicit confirmation.",
+        "direct": "Direct: auth account + users/'{clientUid}'",
+        "cascade": "Cascade: chat, workout logs, assignments, habits, goals, notes and progress photos metadata.",
+        "link": "The coach link is removed because the client document is deleted.",
+        "uidPlaceholder": "client uid",
+        "uidSamePlaceholder": "client uid (same as preview)",
+        "target": "Target: {role} · {name}",
+        "unknownRole": "unknown",
+        "targetNotFound": "Target not found in users collection.",
+        "submit": "Confirm and delete client",
+        "pending": "Deleting client...",
+        "dryRunFirst": "Run dry run first to enable delete."
+      },
+      "preview": {
+        "total": "Total approx: {count}",
+        "chat": "chat: {value}",
+        "logs": "logs: {count}",
+        "assignments": "assignments: {count}",
+        "habits": "habits: {count}",
+        "habitLogs": "habit logs: {count}",
+        "goals": "goals: {count}",
+        "notes": "notes: {count}",
+        "photos": "photos: {count}"
+      },
+      "pending": {
+        "title": "Pending clients",
+        "description": "Pre-provisioned clients in user_mirror for this coach.",
+        "empty": "No pending clients.",
+        "remove": "Remove pending"
+      },
+      "operations": {
+        "title": "Recent admin operations (target coach)",
+        "description": "From admin_operations.",
+        "when": "When (UTC)",
+        "kind": "Kind",
+        "mode": "Mode",
+        "error": "Error",
+        "empty": "No admin operations yet."
+      }
+    },
+    "clientDetail": {
+      "backToCoach": "Back to coach",
+      "readOnly": "Read-only",
+      "clientUid": "Client UID: {uid}",
+      "viewCoach": "View coach",
+      "coachLabel": "Coach:",
+      "recentActivity": "Recent activity",
+      "status": {
+        "completed": "completed",
+        "missed": "missed",
+        "started": "started",
+        "assigned": "assigned",
+        "skipped": "skipped"
+      },
+      "assignments": {
+        "title": "Workout assignments",
+        "empty": "No workout assignments yet.",
+        "date": "Date",
+        "time": "Time",
+        "workout": "Workout",
+        "completedOf": "{done}/{total} completed"
+      },
+      "habits": {
+        "title": "Habits",
+        "empty": "No habits assigned yet.",
+        "habit": "Habit",
+        "cadence": "Cadence",
+        "reminder": "Reminder",
+        "on": "On",
+        "off": "Off",
+        "deleted": "deleted",
+        "active": "active"
+      },
+      "photos": {
+        "title": "Progress photos",
+        "empty": "No progress photos yet."
+      },
+      "backToClient": "Back to client"
+    },
+    "nutrition": {
+      "title": "Nutrition",
+      "loadFailed": "Couldn't load nutrition.",
+      "activePhase": "active phase",
+      "noPlanYet": "no plan yet",
+      "noActivePhase": "no active phase",
+      "ends": "ends {date}",
+      "adherence": "7-day adherence:",
+      "notApplicableTitle": "Nothing was asked in the last 7 days",
+      "notApplicable": "n/a",
+      "noPhases": "No nutrition phases yet.",
+      "phase": "Phase",
+      "by": "By",
+      "starts": "Starts",
+      "endsColumn": "Ends",
+      "status": "Status",
+      "bySelf": "client (self)",
+      "byCoach": "coach",
+      "openEnded": "open-ended",
+      "deleted": "deleted",
+      "ended": "ended",
+      "active": "active"
+    },
+    "coachless": {
+      "title": "Coach-less users",
+      "subtitle": "Self-serve clients with no coach — subscription status, content stats, and god-mode actions (grant/revoke premium, delete). Search and sort the list; click a name to open their full profile.",
+      "searchPlaceholder": "Search name, email or uid…",
+      "searchLabel": "Search coach-less users",
+      "count": "{count, plural, one {# coach-less user.} other {# coach-less users.}}",
+      "countFiltered": "{visible} of {total} coach-less users.",
+      "sortBy": "Sort by {column}",
+      "columns": {
+        "user": "User",
+        "subscription": "Subscription",
+        "routines": "Routines",
+        "habits": "Habits",
+        "photos": "Photos",
+        "logs": "Logs",
+        "created": "Created",
+        "actions": "Actions"
+      },
+      "empty": "No coach-less users.",
+      "emptySearch": "No coach-less users match that search.",
+      "premium": "Premium",
+      "free": "Free",
+      "source": "source: {source}",
+      "expires": "expires: {date}",
+      "assignLabel": "Assign {name} to a coach",
+      "assignPlaceholder": "Assign coach…",
+      "assign": "Assign",
+      "assigning": "Assigning…",
+      "assignTitle": "Links this user to the coach — they stop being coach-less and gain coached premium",
+      "revokePremium": "Revoke premium",
+      "grantPremium": "Grant premium",
+      "saving": "Saving…",
+      "deleteUser": "Delete user",
+      "deleteWarning": "Irreversible: deletes Auth, all Firestore data, and Storage photos. Type <email></email> to confirm.",
+      "deleteEmailPlaceholder": "type email to confirm",
+      "deleteForever": "Delete forever"
+    },
+    "coachlessProfile": {
+      "age": "{days, plural, =0 {today} one {# day ago} other {# days ago}}",
+      "daysShort": "{days, plural, =0 {today} other {# d}}",
+      "never": "never",
+      "backToList": "Back to coach-less users",
+      "coachlessBadge": "Coach-less",
+      "noEmail": "no email",
+      "stats": {
+        "lastActive": "Last active",
+        "workouts": "Workouts",
+        "workoutsHint": "last 30 d · {total} total",
+        "habitCheckIns": "Habit check-ins",
+        "last30": "last 30 d",
+        "routines": "Routines",
+        "habits": "Habits",
+        "selfCreated": "self-created",
+        "photos": "Photos",
+        "weightLogs": "weight logs: {count}"
+      },
+      "account": {
+        "title": "Account",
+        "signedUp": "Signed up",
+        "lastSignIn": "Last sign-in",
+        "providers": "Sign-in providers",
+        "emailVerified": "Email verified",
+        "timezone": "Timezone",
+        "app": "App",
+        "birthDate": "Birth date",
+        "authStatus": "Auth status",
+        "disabled": "disabled"
+      },
+      "coach": {
+        "title": "Coach",
+        "description": "This user is self-serve — nobody is coaching them. Assigning a coach links them to that coach's roster, moves their chat thread, and makes them premium for as long as the link lasts. All their existing routines, habits and logs are kept.",
+        "noCoaches": "No coaches available.",
+        "assignLabel": "Assign a coach to this user",
+        "choose": "Choose a coach…",
+        "assign": "Assign coach"
+      },
+      "subscription": {
+        "title": "Subscription",
+        "tier": "Tier",
+        "source": "Source",
+        "product": "Product",
+        "expires": "Expires",
+        "updated": "Updated"
+      },
+      "activity": {
+        "title": "Activity",
+        "stream": "Stream",
+        "last": "Last",
+        "days7": "7 d",
+        "days30": "30 d",
+        "total": "Total",
+        "workouts": "Workouts logged",
+        "habitCheckIns": "Habit check-ins",
+        "photos": "Progress photos",
+        "weight": "Body-weight entries"
+      },
+      "routines": {
+        "title": "Routines ({count})",
+        "empty": "No self-created routines yet.",
+        "routine": "Routine",
+        "tags": "Tags",
+        "exercises": "Exercises",
+        "created": "Created",
+        "updated": "Updated"
+      },
+      "habitsTitle": "Habits ({count})",
+      "habitsEmpty": "No habits yet.",
+      "scheduledTitle": "Scheduled workouts ({count})",
+      "scheduledEmpty": "Nothing scheduled — this user has never planned a workout.",
+      "calendar": "Calendar",
+      "calendarUnavailable": "Calendar unavailable.",
+      "noActivity": "No activity recorded yet.",
+      "workoutTrends": "Workout trends",
+      "muscleGroupVolume": "Weekly volume & sets by muscle group",
+      "progressByExercise": "Progress by exercise",
+      "personalRecords": "Personal records ({count})",
+      "habitAdherence": "Habit adherence",
+      "bodyWeight": "Body weight",
+      "noBodyWeight": "No body-weight entries yet."
+    },
+    "users": {
+      "title": "User search",
+      "subtitle": "Find any user (client, coach, or admin) by email or email fragment, then open their profile.",
+      "placeholder": "email or fragment",
+      "search": "Search",
+      "searching": "Searching…",
+      "user": "User",
+      "roles": "Roles",
+      "profile": "Profile",
+      "prompt": "Type an email or email fragment above to search.",
+      "noMatches": "No matches.",
+      "deleted": "(deleted)",
+      "adminProfile": "Admin profile (read-only)",
+      "fields": {
+        "email": "Email:",
+        "name": "Name:",
+        "uid": "UID:",
+        "roles": "Roles:",
+        "subscription": "Subscription:"
+      }
+    },
+    "coachActivity": {
+      "title": "Recent coach activity",
+      "subtitle": "High-level usage events with recurring workout assignments collapsed into single rows.",
+      "streamTitle": "Activity stream",
+      "streamDescription": "Events include coach actions, client first logins and recurrence summaries.",
+      "columns": {
+        "when": "When (UTC)",
+        "coach": "Coach",
+        "event": "Event",
+        "client": "Client",
+        "recurrence": "Recurrence",
+        "occurrences": "Occurrences",
+        "source": "Source"
+      },
+      "empty": "No recent coach activity found."
+    },
+    "hygiene": {
+      "title": "Data hygiene",
+      "subtitle": "Inspect orphaned users, chats, images, workouts and other suspicious records before they pile up.",
+      "aboutTitle": "What this page does",
+      "aboutDescription": "The scan is intentionally conservative: it only shows records that look orphaned or structurally odd in the current sample window.",
+      "aboutBody": "Deletions are explicit, destructive and require a browser confirmation. For users, the action reuses the existing trainer/client cascade logic when possible.",
+      "kinds": {
+        "user": "User",
+        "chat": "Chat",
+        "photo": "Image",
+        "template": "Workout template",
+        "assignment": "Workout assignment",
+        "log": "Workout log",
+        "exercise": "Exercise"
+      },
+      "loadErrorTitle": "Hygiene scan could not load",
+      "loadErrorBody": "The page is still usable, but the initial anomaly scan failed. Reloading after the underlying issue is fixed should restore the list.",
+      "summaryTitle": "Hygiene summary",
+      "summaryDescription": "Preview of orphaned or suspicious Corvo records detected from recent scans.",
+      "summary": {
+        "users": "Users",
+        "chats": "Chats",
+        "images": "Images",
+        "workouts": "Workouts",
+        "total": "Total"
+      },
+      "issuesTitle": "Data issues",
+      "issuesDescription": "Delete actions are explicit and destructive. Each row points at a record that is either orphaned or in a suspicious state.",
+      "empty": "No anomalies found in the current scan window.",
+      "loading": "Loading...",
+      "loadMore": "Load more",
+      "updatedAt": "Updated at: {date}",
+      "deleteConfirm": "Delete this record ({kind}) from Firestore?",
+      "delete": "Delete from DB"
+    },
+    "appConfig": {
+      "title": "App Version",
+      "subtitle": "Set the minimum supported app build per platform. Clients on an older build are forced to update before they can use the app.",
+      "back": "Back to Admin Console",
+      "form": {
+        "saved": "App version requirements saved.",
+        "saveFailed": "Could not save. Try again.",
+        "platformDescription": "Clients on a build below the minimum see a non-dismissable update screen at launch.",
+        "minBuild": "Minimum build",
+        "buildHintIos": "Minimum CFBundleVersion (build number). Builds below this are blocked.",
+        "buildHintAndroid": "Minimum versionCode. Builds below this are blocked. Leave 0 until Android ships.",
+        "latestVersion": "Latest version",
+        "latestVersionHint": "Shown in the update message (display-only).",
+        "storeUrl": "Store URL",
+        "storeUrlHint": "Opened by the update button.",
+        "lastUpdated": "Last updated {date}",
+        "updatedBy": "by {email}",
+        "saving": "Saving…",
+        "save": "Save"
+      },
+      "validation": {
+        "wholeNumber": "Enter a whole number.",
+        "notNegative": "Cannot be negative.",
+        "tooLarge": "Too large.",
+        "dottedVersion": "Use a dotted version like 1.2.0 (or leave blank).",
+        "httpUrl": "Must be an http(s) URL (or leave blank)."
+      }
+    },
+    "moderation": {
+      "title": "Moderation",
+      "subtitle": "Reports on profiles, routines, comments and messages. Every report must be resolved within 24 hours (App Store 1.2). Hiding and suspending can be undone; dismissing doesn't touch the content.",
+      "filtersTitle": "Filters",
+      "filtersDescription": "The status is applied in the query; the type filters the loaded window (last 300).",
+      "allTypes": "All",
+      "loadError": "Couldn't load the queue. Try again in a moment.",
+      "ops": {
+        "hide": "Content hidden.",
+        "suspend": "Account suspended.",
+        "dismiss": "Reports dismissed.",
+        "unsuspend": "Suspension lifted.",
+        "unhide": "Content visible again."
+      },
+      "status": {
+        "open": "Open",
+        "actioned": "Actioned",
+        "dismissed": "Dismissed"
+      },
+      "targetType": {
+        "profile": "Profile",
+        "routine": "Routine",
+        "comment": "Comment",
+        "message": "Message",
+        "challenge": "Challenge"
+      },
+      "reason": {
+        "spam": "Spam",
+        "harassment": "Harassment",
+        "sexual": "Sexual content",
+        "violence": "Violence",
+        "impersonation": "Impersonation",
+        "other": "Other"
+      },
+      "age": {
+        "justNow": "just now",
+        "minutes": "{count} min ago",
+        "hours": "{count} h ago",
+        "days": "{count} d ago"
+      },
+      "emptyOpen": "No open reports. 🎉",
+      "emptyOther": "Nothing in this tray.",
+      "reportCount": "{count, plural, one {# report} other {# reports}}",
+      "badges": {
+        "hidden": "hidden",
+        "suspended": "author suspended",
+        "missing": "no longer exists"
+      },
+      "idLabel": "id:",
+      "ownerLabel": "owner:",
+      "byLabel": "by",
+      "sla": {
+        "breached": "SLA breached",
+        "dueSoon": "due soon"
+      },
+      "confirm": {
+        "hide": "Hide this content? It stops showing in the apps. It can be undone.",
+        "suspend": "Suspend the account? It leaves search, feed and suggestions, and its public routines are hidden. It can be undone."
+      },
+      "actions": {
+        "hide": "Hide content",
+        "hiding": "Hiding…",
+        "suspend": "Suspend author",
+        "suspending": "Suspending…",
+        "dismiss": "Dismiss",
+        "dismissing": "Dismissing…",
+        "unhide": "Show again",
+        "unhiding": "Showing…",
+        "unsuspend": "Lift suspension",
+        "unsuspending": "Lifting…"
+      }
+    },
+    "audit": {
+      "title": "Monitoring & observability",
+      "subtitle": "What's happening in the app: workouts finished, routines and habits created, photos, new users, subscription changes and admin operations. Everything links to the detail.",
+      "categories": {
+        "workout": "Workouts",
+        "schedule": "Schedule",
+        "routine": "Routines",
+        "habit": "Habits",
+        "nutrition": "Nutrition",
+        "exercise": "Exercises",
+        "photo": "Photos",
+        "account": "Accounts & subscriptions",
+        "coach": "Coach actions",
+        "admin": "Admin operations",
+        "other": "Other"
+      },
+      "sources": {
+        "all": "All sources",
+        "auditLog": "App (Firestore writes)",
+        "coachActivity": "Coach actions",
+        "adminOperations": "Admin operations",
+        "progressPhotos": "Progress photos",
+        "nutritionLogs": "Meals checked",
+        "habitLogs": "Habits checked"
+      },
+      "tabs": {
+        "timeline": "Activity",
+        "deletions": "Deletions"
+      },
+      "filters": {
+        "title": "Filters",
+        "description": "The date range is applied in the query; the rest filters the window loaded in memory. Times in UTC.",
+        "eventType": "Event type",
+        "source": "Source",
+        "actor": "Who (uid / name / email)",
+        "client": "Client (uid / name / email)",
+        "contains": "contains…",
+        "from": "From (UTC)",
+        "to": "To (UTC)",
+        "lowSignal": "Also show low-level writes (<code>updatedAt</code> touches, per-set writes during a workout, subscription refreshes with no plan change)",
+        "apply": "Apply filters",
+        "clear": "Clear"
+      },
+      "deletionsDescription": "Everything that deleted data — coach/client removals, deleted workout series, habits and exercises removed.",
+      "timelineDescription": "Client, coach and admin actions in a single feed, newest first.",
+      "eventCountSentence": "{count, plural, one {# event.} other {# events.}}",
+      "eventCount": "{count, plural, one {# event} other {# events}}",
+      "loadError": "Couldn't load the feed. Try narrowing the date range.",
+      "emptyDeletions": "No deletions for these filters.",
+      "emptyEvents": "No events for these filters.",
+      "viewDetail": "view detail",
+      "today": "Today · {day}",
+      "yesterday": "Yesterday · {day}",
+      "noDate": "no date"
+    },
+    "calendar": {
+      "loadError": "Could not load that month.",
+      "previousMonth": "Previous month",
+      "nextMonth": "Next month",
+      "monthWorkouts": "{count, plural, one {# workout this month} other {# workouts this month}}",
+      "loading": "loading…",
+      "legend": {
+        "scheduled": "scheduled",
+        "started": "started",
+        "completed": "completed",
+        "missed": "missed",
+        "selfCreated": "self-created",
+        "habits": "small dots = habits"
+      }
+    }
+  },
+  "commandPalette": {
+    "title": "Go to",
+    "description": "Search clients, chats, workouts, exercises and pages.",
+    "placeholder": "Search clients, workouts, exercises…",
+    "inputLabel": "Search the coach portal",
+    "trigger": "Search",
+    "triggerLabel": "Open search (Ctrl+K or ⌘K)",
+    "empty": "No results.",
+    "loading": "Loading…",
+    "loadError": "Couldn't load your clients and library. Pages are still available.",
+    "groupPages": "Pages",
+    "groupClients": "Clients",
+    "groupChats": "Chats",
+    "groupTemplates": "Workouts",
+    "groupExercises": "Exercises",
+    "chatWith": "Chat with {name}"
   }
 }

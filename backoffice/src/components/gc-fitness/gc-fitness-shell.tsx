@@ -38,6 +38,10 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { CoachCard } from "@/components/gc-fitness/coach-card";
+import {
+  CommandPaletteProvider,
+  CommandPaletteTrigger,
+} from "@/components/gc-fitness/command-palette";
 import { useTrainerChats } from "@/lib/gc-fitness/chat-listener";
 import { useActiveWorkoutSummaries } from "@/lib/gc-fitness/live-workout-listener";
 import { useNewClientActivationBadges } from "@/lib/gc-fitness/new-client-activation-listener";
@@ -201,116 +205,122 @@ export function GCFitnessShell({
   const coachName = trainerEmail ? deriveName(trainerEmail) : t("appName");
 
   return (
-    <SidebarProvider
-      // Widen the collapsed (icon-only) rail from the shadcn default 3rem so the
-      // larger, touch-friendly 44px nav buttons (see SidebarNavLink) sit centered
-      // with breathing room instead of cramped 32px icons in a 48px strip.
-      style={{ "--sidebar-width-icon": "3.75rem" } as React.CSSProperties}
-    >
-      <div className="gc-shell-bg flex min-h-screen w-full bg-background">
-        <Sidebar collapsible="icon">
-          <SidebarHeader className="px-3 py-4 group-data-[collapsible=icon]:px-2">
-            <Link
-              href="/gc-fitness/dashboard"
-              className="flex items-center gap-2.5 rounded-xl px-1 py-1 transition-colors hover:bg-sidebar-accent/60 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
-            >
-              <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-foreground shadow-sm">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={GOLDENCROW_LOGO_DATA_URI}
-                  alt=""
-                  className="h-6 w-6 object-contain"
-                />
-              </span>
-              <span className="min-w-0 group-data-[collapsible=icon]:hidden">
-                <span className="block truncate font-heading text-base font-bold leading-tight text-sidebar-foreground">
-                  {t("coachPortal")}
+    // #496 — ⌘K / Ctrl+K palette: mounted with the shell, so it exists on every
+    // coach page and never on the hidden-shell routes above.
+    <CommandPaletteProvider isAdmin={isAdmin}>
+      <SidebarProvider
+        // Widen the collapsed (icon-only) rail from the shadcn default 3rem so the
+        // larger, touch-friendly 44px nav buttons (see SidebarNavLink) sit centered
+        // with breathing room instead of cramped 32px icons in a 48px strip.
+        style={{ "--sidebar-width-icon": "3.75rem" } as React.CSSProperties}
+      >
+        <div className="gc-shell-bg flex min-h-screen w-full bg-background">
+          <Sidebar collapsible="icon">
+            <SidebarHeader className="px-3 py-4 group-data-[collapsible=icon]:px-2">
+              <Link
+                href="/gc-fitness/dashboard"
+                className="flex items-center gap-2.5 rounded-xl px-1 py-1 transition-colors hover:bg-sidebar-accent/60 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+              >
+                <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-foreground shadow-sm">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={GOLDENCROW_LOGO_DATA_URI}
+                    alt=""
+                    className="h-6 w-6 object-contain"
+                  />
                 </span>
-                <span className="block truncate text-xs text-sidebar-foreground/65">
-                  {coachName}
+                <span className="min-w-0 group-data-[collapsible=icon]:hidden">
+                  <span className="block truncate font-heading text-base font-bold leading-tight text-sidebar-foreground">
+                    {t("coachPortal")}
+                  </span>
+                  <span className="block truncate text-xs text-sidebar-foreground/65">
+                    {coachName}
+                  </span>
                 </span>
-              </span>
-            </Link>
-          </SidebarHeader>
+              </Link>
+              <CommandPaletteTrigger className="mt-2 group-data-[collapsible=icon]:hidden" />
+            </SidebarHeader>
 
-          <SidebarContent className="px-2">
-            {activeWorkoutQuery.data && activeWorkoutQuery.data.length > 0 ? (
-              <SidebarGroup>
-                <SidebarGroupLabel>{tNav("activeWorkout")}</SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {activeWorkoutQuery.data.map((item) => {
-                      const href = `/gc-fitness/clients/${item.clientId}/sessions/${item.assignmentId}/run`;
-                      const active =
-                        pathname === href || pathname.startsWith(`${href}/`);
-                      return (
-                        <SidebarMenuItem key={item.logId}>
+            <SidebarContent className="px-2">
+              {activeWorkoutQuery.data && activeWorkoutQuery.data.length > 0 ? (
+                <SidebarGroup>
+                  <SidebarGroupLabel>{tNav("activeWorkout")}</SidebarGroupLabel>
+                  <SidebarGroupContent>
+                    <SidebarMenu>
+                      {activeWorkoutQuery.data.map((item) => {
+                        const href = `/gc-fitness/clients/${item.clientId}/sessions/${item.assignmentId}/run`;
+                        const active =
+                          pathname === href || pathname.startsWith(`${href}/`);
+                        return (
+                          <SidebarMenuItem key={item.logId}>
+                            <SidebarNavLink
+                              href={href}
+                              label={`${item.clientName} · ${item.workoutName}`}
+                              isActive={active}
+                              icon={<Activity className="h-4 w-4" />}
+                              badge={null}
+                            />
+                          </SidebarMenuItem>
+                        );
+                      })}
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </SidebarGroup>
+              ) : null}
+
+              {resolvedSections.map((section) => (
+                <SidebarGroup key={section.sectionKey} className="py-1">
+                  <SidebarGroupLabel className="px-3 text-[0.7rem] font-semibold uppercase tracking-wider text-sidebar-foreground/70">
+                    {tNav(section.sectionKey)}
+                  </SidebarGroupLabel>
+                  <SidebarGroupContent>
+                    <SidebarMenu className="gap-1">
+                      {section.items.map((item) => (
+                        <SidebarMenuItem key={item.href}>
                           <SidebarNavLink
-                            href={href}
-                            label={`${item.clientName} · ${item.workoutName}`}
-                            isActive={active}
-                            icon={<Activity className="h-4 w-4" />}
-                            badge={null}
+                            href={item.href}
+                            label={tNav(item.labelKey)}
+                            isActive={isItemActive(item)}
+                            icon={<item.icon className="h-4 w-4" />}
+                            badge={navBadges[item.href] > 0 ? navBadges[item.href] : null}
+                            external={item.external}
                           />
                         </SidebarMenuItem>
-                      );
-                    })}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            ) : null}
+                      ))}
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </SidebarGroup>
+              ))}
+            </SidebarContent>
 
-            {resolvedSections.map((section) => (
-              <SidebarGroup key={section.sectionKey} className="py-1">
-                <SidebarGroupLabel className="px-3 text-[0.7rem] font-semibold uppercase tracking-wider text-sidebar-foreground/70">
-                  {tNav(section.sectionKey)}
-                </SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <SidebarMenu className="gap-1">
-                    {section.items.map((item) => (
-                      <SidebarMenuItem key={item.href}>
-                        <SidebarNavLink
-                          href={item.href}
-                          label={tNav(item.labelKey)}
-                          isActive={isItemActive(item)}
-                          icon={<item.icon className="h-4 w-4" />}
-                          badge={navBadges[item.href] > 0 ? navBadges[item.href] : null}
-                          external={item.external}
-                        />
-                      </SidebarMenuItem>
-                    ))}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            ))}
-          </SidebarContent>
+            <SidebarFooter className="px-3 pb-4 pt-2 group-data-[collapsible=icon]:px-2">
+              <CoachCard email={trainerEmail ?? ""} isAdmin={isAdmin} />
+            </SidebarFooter>
+          </Sidebar>
 
-          <SidebarFooter className="px-3 pb-4 pt-2 group-data-[collapsible=icon]:px-2">
-            <CoachCard email={trainerEmail ?? ""} isAdmin={isAdmin} />
-          </SidebarFooter>
-        </Sidebar>
-
-        <SidebarInset className="min-h-screen bg-transparent">
-          {/* Mobile-only top bar: hamburger + brand. Desktop pages own their
-              own title via the in-page PageHeader. */}
-          <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border/70 bg-background/85 px-3 backdrop-blur-sm md:hidden">
-            <SidebarTrigger className="-ml-1" />
-            <span className="font-heading text-sm font-bold text-foreground">
-              {t("coachPortal")}
-            </span>
-            {unreadChatTotal > 0 ? (
-              <Badge
-                variant="destructive"
-                className="ml-auto h-5 min-w-5 justify-center rounded-full px-1.5 text-[11px]"
-              >
-                {unreadChatTotal}
-              </Badge>
-            ) : null}
-          </header>
-          <main className="relative z-10 flex-1 overflow-auto">{children}</main>
-        </SidebarInset>
-      </div>
-    </SidebarProvider>
+          <SidebarInset className="min-h-screen bg-transparent">
+            {/* Mobile-only top bar: hamburger + brand. Desktop pages own their
+                own title via the in-page PageHeader. */}
+            <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border/70 bg-background/85 px-3 backdrop-blur-sm md:hidden">
+              <SidebarTrigger className="-ml-1" />
+              <span className="font-heading text-sm font-bold text-foreground">
+                {t("coachPortal")}
+              </span>
+              <CommandPaletteTrigger compact className="ml-auto size-9" />
+              {unreadChatTotal > 0 ? (
+                <Badge
+                  variant="destructive"
+                  className=" h-5 min-w-5 justify-center rounded-full px-1.5 text-[11px]"
+                >
+                  {unreadChatTotal}
+                </Badge>
+              ) : null}
+            </header>
+            <main className="relative z-10 flex-1 overflow-auto">{children}</main>
+          </SidebarInset>
+        </div>
+      </SidebarProvider>
+    </CommandPaletteProvider>
   );
 }
 

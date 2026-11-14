@@ -620,6 +620,7 @@ banner and recover from the draft.
 | **Deploy skew check** — builds `origin/main` and the working tree with the same key; every old action ID must still exist and point to the SAME action; then smoke-tests the new build under `--no-experimental-require-module` (login 200, protected page 307, session API loads firebase-admin → 403, all assets 200, an old ID still routed, no `ERR_REQUIRE_ESM`) | `npm run check:deploy-skew [base-ref]` (~1–2 min) | before merging any PR that touches a `"use server"` file **or dependencies** |
 | **Server packages load without require(esm)** — the Vercel function runtime refuses it; Node 24 locally does not, so everything was green while production 500'd (2026-10-15, firebase-admin 14 → jwks-rsa 4 → jose 6) | `src/lib/__tests__/server-deps-load-without-require-esm.test.ts` | always (part of `npx jest`) |
 | **No inline `"use server"` closures** | `src/lib/__tests__/no-inline-server-actions.test.ts` | always |
+| **Every exported Server Action checks auth** — each export of each `"use server"` file must call an auth helper (`getCurrentTrainer`/`getCurrentAdmin`/…), a same-file function that does, or a guarded export of another `"use server"` file it imports; deliberate exceptions go in `INTENTIONALLY_PUBLIC` with the reason (empty today). `countOpenReports` answered anyone until #451 | `src/lib/__tests__/server-actions-require-auth.test.ts` (#483) | always |
 | **Last boundary** — a ChunkLoadError / missing action reloads once onto the new deployment, never loops; other errors keep their flow | `src/app/__tests__/global-error.test.tsx`, `route-error-boundary.test.tsx`, `stale-aware-query-caches.test.ts` | always |
 
 What none of them can cover: the previous build's JS chunks (no Skew Protection) —
@@ -815,9 +816,24 @@ GC Fitness now supports multi-role custom claims:
 
 A single user can hold both roles at the same time (`trainer + admin`).
 
-On login (`/api/gc-fitness/login`), the system always ensures the user has
-`trainer` role and preserves any existing `admin` role. Claims are normalized
-as:
+On login (`/api/gc-fitness/login`), the trainer role is **re-affirmed, never
+created** (#510 — it used to be handed to any non-client account, so a removed
+coach could sign back in and get it back). `src/lib/gc-fitness/coach-access.ts`
+→ `decideCoachGrant` admits only:
+
+- an account whose claims already say coach (`role:"trainer"`, `roles[]` ∋
+  trainer/admin, `admin:true`) — every existing coach has this, so no backfill;
+- an email on the coach allowlist (`GC_FITNESS_TEAM_ALLOWLIST` env or an enabled
+  `coach_allowlist/{email}` doc — same predicate as the functions' allowlist);
+
+and never one with `users/{uid}.coachDisabled == true`. A `role:"trainer"` doc
+alone is not a grant. Refusals answer 403 with a `code` (`client`,
+`not-a-coach`, `coach-disabled`) that the login page translates. An admin removes
+or restores a coach from `/gc-fitness/admin/coaches/[uid]` (`disableCoach` /
+`reactivateCoach`): the mark, the claims (an admin role survives), the allowlist
+entry's `enabled`, and a session revocation. A removed coach who is also an admin
+gets an admin-only session. When accepted, the existing `admin` role is
+preserved. Claims are normalized as:
 
 - `role`: `"trainer"` (primary compatibility flag)
 - `roles`: string array (example: `["trainer", "admin"]`)
@@ -825,6 +841,28 @@ as:
 
 The login endpoint also upserts `users/{trainerUid}` with email, display name,
 photo URL, and trainer profile fields so clients can display coach identity.
+
+**Session revocation (#482).** The `GcFitnessAuthToken` cookie lives 12 days and
+`getTokens` only decodes it, so its claims are a sign-in snapshot. Two halves
+keep a removed coach out:
+
+- `auth-helpers.ts` (`getCurrentGCFitnessUser`, React `cache()`d — one check per
+  request, #491) asks `session-revocation.ts` → `assertSessionNotRevoked`, which
+  reads the Auth user record and refuses (`Forbidden` → the page redirects to
+  login) a deleted or disabled user, or one whose `tokensValidAfterTime` is after
+  the token's `auth_time`. Roles come from the record's CURRENT custom claims, so
+  a demotion applies on the next request. A successful lookup is reused for 30 s
+  per instance; refusals are never cached. It fails CLOSED if the lookup errors.
+- Writers: `deactivateClientForCoach` calls `revokeRefreshTokens`; the claim
+  rewrites (transfer / unlink) call `revokeSessionsIfBackofficeRoleLost`, which
+  revokes ONLY when a `trainer`/`admin` role goes away — revoking also signs the
+  person out of the mobile app, so a client changing coach is left alone. A new
+  path that disables an account or drops a role must do the same.
+
+`proxy.ts` does not check revocation (it runs on every request and prefetch);
+after a revocation its next token refresh fails and it redirects to login anyway.
+In Jest, `jest.setup.ts` replaces `assertSessionNotRevoked` with a pass-through;
+`session-revocation.test.ts` pins the real thing.
 
 1. Log in at `/gc-fitness/login`.
 
@@ -839,7 +877,9 @@ Current capabilities:
   - clients count
   - custom workouts count
   - custom exercises count
-- Add coach email to allowlist (`coach_allowlist/{email}` doc)
+- Add coach email to allowlist (`coach_allowlist/{email}` doc) — the way to make a
+  new web-only coach (#510)
+- Remove / reactivate a coach (`users/{uid}.coachDisabled`, #510)
 - Promote an existing user email to admin (`trainer + admin` by default)
 - Delete client with cascade
 - Delete coach with cascade (including linked clients)
@@ -849,7 +889,8 @@ If a non-admin user opens `/gc-fitness/admin`, the app redirects to
 
 ### Create a new admin user (runbook)
 
-1. Ensure the person can sign in with Google on `/gc-fitness/login`.
+1. Ensure the person can sign in with Google on `/gc-fitness/login` (since #510
+   that requires being a coach already — add their email to the allowlist first).
 2. Open `/gc-fitness/admin` with an existing admin account.
 3. In **Promote existing user to admin**, submit the target email.
 4. Ask that user to sign out and sign in again to refresh token claims.

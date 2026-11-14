@@ -5,6 +5,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +34,8 @@ export default async function AdminWorkoutLogDetailPage({
     throw err;
   }
 
+  const t = await getTranslations("admin.clientDetail");
+
   try {
     const detail = await getWorkoutLogDetailAsAdmin(uid, logId);
     return (
@@ -41,10 +44,10 @@ export default async function AdminWorkoutLogDetailPage({
           <Button asChild variant="outline" size="sm" className="gap-1 rounded-full">
             <Link href={`/gc-fitness/admin/coaches/${uid}/clients/${clientId}`}>
               <ArrowLeft className="h-4 w-4" />
-              Back to client
+              {t("backToClient")}
             </Link>
           </Button>
-          <Badge variant="secondary">Read-only</Badge>
+          <Badge variant="secondary">{t("readOnly")}</Badge>
         </div>
 
         <WorkoutLogDetailView detail={detail} />

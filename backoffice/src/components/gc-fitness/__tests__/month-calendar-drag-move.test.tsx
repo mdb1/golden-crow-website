@@ -76,8 +76,24 @@ jest.mock("@/components/gc-fitness/schedule/assign-template-modal", () => ({
 jest.mock("@/components/gc-fitness/schedule/new-habit-dialog", () => ({
   NewHabitDialog: () => null,
 }));
+// #493 — the detail dialog is stubbed down to the one prop this file cares
+// about: `onMoveTo`, the keyboard/touch "Mover a fecha…" path. The stub's
+// buttons stand in for the date the coach picked; the dialog's own date-input
+// contract is pinned in workout-detail-dialog.test.tsx.
 jest.mock("@/components/gc-fitness/schedule/workout-detail-dialog", () => ({
-  WorkoutDetailDialog: () => null,
+  WorkoutDetailDialog: (props: {
+    assignmentId: string;
+    onMoveTo?: (newDate: string) => void;
+  }) => (
+    <div data-testid="detail-dialog">
+      <button type="button" onClick={() => props.onMoveTo?.("2026-09-22")}>
+        detail-move-22
+      </button>
+      <button type="button" onClick={() => props.onMoveTo?.("2026-09-15")}>
+        detail-move-same-day
+      </button>
+    </div>
+  ),
 }));
 jest.mock("@/components/gc-fitness/schedule/habit-detail-dialog", () => ({
   HabitDetailDialog: () => null,
@@ -468,5 +484,53 @@ describe("MonthCalendar — a free workout says what was performed (#785)", () =
     const button = chipButton("Entreno libre");
     expect(button).not.toHaveTextContent("exercises");
     expect(button.getAttribute("title")).not.toContain("sets");
+  });
+});
+
+// #493 — "Mover a fecha…" from the detail dialog is the keyboard/touch twin of
+// the drag. It must take the SAME path: same write, same same-day no-op, same
+// recurrence prompt. A second, divergent move implementation is exactly what
+// this pins against.
+describe("MonthCalendar — moving from the detail dialog (#493)", () => {
+  function openDetailAndMove(chipName: string, button: string) {
+    fireEvent.click(chipButton(chipName));
+    fireEvent.click(screen.getByRole("button", { name: button }));
+  }
+
+  it("moves a one-off workout with scope 'one' to the picked date and closes the dialog", async () => {
+    renderCalendar([chip()]);
+
+    openDetailAndMove("Push Day", "detail-move-22");
+
+    await waitFor(() => expect(mockMoveAssignment).toHaveBeenCalledTimes(1));
+    expect(mockMoveAssignment).toHaveBeenCalledWith({
+      id: "assign-1",
+      newScheduledFor: TARGET_DAY,
+      scope: "one",
+    });
+    expect(screen.queryByTestId("detail-dialog")).not.toBeInTheDocument();
+  });
+
+  it("picking the workout's own day writes nothing", async () => {
+    renderCalendar([chip()]);
+
+    openDetailAndMove("Push Day", "detail-move-same-day");
+
+    await settle();
+    expect(mockMoveAssignment).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("move-dialog")).not.toBeInTheDocument();
+  });
+
+  it("a recurring workout gets the scope prompt with the picked date, and no write yet", async () => {
+    renderCalendar([
+      chip({ id: "assign-recurring", seriesId: "series-1", recurrenceKind: "weekly" }),
+    ]);
+
+    openDetailAndMove("Push Day", "detail-move-22");
+
+    expect(screen.getByTestId("move-dialog-chip")).toHaveTextContent(/^assign-recurring$/);
+    expect(screen.getByTestId("move-dialog-date")).toHaveTextContent(/^2026-09-22$/);
+    await settle();
+    expect(mockMoveAssignment).not.toHaveBeenCalled();
   });
 });

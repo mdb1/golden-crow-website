@@ -114,6 +114,9 @@
     "viewAll": "Ver Todos",
     "noRecentActivity": "Todavía no hay actividad de clientes.",
     "noActivity": "Sin actividad",
+    "lastActionWorkout": "Último registro: entrenamiento",
+    "lastActionHabit": "Último registro: hábito",
+    "lastActionPhoto": "Último registro: foto de progreso",
     "noRecords": "Sin registros.",
     "topPerformersTodayTitle": "Destacados · hoy",
     "topPerformersTodaySubtitle": "Cumplimiento de hábitos en lo que va del día.",
@@ -930,6 +933,11 @@
       "toastCooldown": "Recién lo enviaste. Esperá unos minutos antes de reintentar.",
       "toastNoTarget": "No se pudo enviar: no encontramos a este cliente.",
       "toastNotConfigured": "El envío de mails no está configurado en este entorno."
+    },
+    "autoAssignedBanner": {
+      "titleOne": "1 cliente nuevo se registró sin coach y quedó asignado a vos",
+      "titleOther": "{count} clientes nuevos se registraron sin coach y quedaron asignados a vos",
+      "body": "Están marcados con <badge>NEW</badge> abajo. Revisalos y, si corresponden a otro coach, transferilos desde el panel de admin."
     }
   },
   "templates": {
@@ -1145,7 +1153,18 @@
       "discardDialogKeepDraft": "Salir y guardar borrador",
       "draftRestoredBanner": "Recuperamos tu borrador sin guardar. Seguí donde lo dejaste.",
       "draftRestoredDiscard": "Descartar borrador",
-      "staleReloading": "Se publicó una versión nueva del backoffice. Recargamos la página y tus cambios quedan guardados: tocá Guardar de nuevo."
+      "staleReloading": "Se publicó una versión nueva del backoffice. Recargamos la página y tus cambios quedan guardados: tocá Guardar de nuevo.",
+      "moveUpNamed": "Subir {name}",
+      "moveDownNamed": "Bajar {name}",
+      "removeExerciseNamed": "Quitar {name}",
+      "removeExerciseConfirmTitle": "¿Quitar este ejercicio?",
+      "removeExerciseConfirmBody": "{name} y sus series se van a quitar de esta rutina.",
+      "removeExerciseConfirmBodyUnnamed": "Este ejercicio y sus series se van a quitar de esta rutina.",
+      "removeExerciseConfirmCancel": "Dejarlo",
+      "removeExerciseConfirmAction": "Quitar",
+      "quickCreatedNotice": "Creado: <strong>{name}</strong>",
+      "quickCreatedEdit": "Editar en otra pestaña",
+      "quickCreatedDismissAria": "Cerrar el aviso de {name}"
     }
   },
   "habits": {
@@ -1897,6 +1916,8 @@
       "nextAria": "Siguiente",
       "clientsOnScreen": "Clientes en pantalla",
       "clientsOnScreenHint": "Marcá uno o varios. El calendario va a mostrar sus entrenamientos y hábitos juntos.",
+      "clientSearchPlaceholder": "Buscar cliente",
+      "clientSearchEmpty": "Ningún cliente coincide con la búsqueda.",
       "selectAll": "Marcar todos",
       "clear": "Limpiar",
       "show": "Mostrar",
@@ -1913,7 +1934,12 @@
       "freeWorkoutHint": "Entreno libre: el cliente lo armó mientras entrenaba",
       "pickClientsPrompt": "Elegí uno o más clientes arriba para ver su agenda.",
       "pickClientFirstToast": "Elegí al menos un cliente primero",
-      "bulkAssignHabit": "Asignar hábito"
+      "bulkAssignHabit": "Asignar hábito",
+      "addWorkoutOnAria": "Asignar workout el {date}",
+      "addHabitOnAria": "Asignar hábito el {date}",
+      "addOnAria": "Asignar el {date}",
+      "addMenuWorkout": "Entrenamiento",
+      "addMenuHabit": "Hábito"
     },
     "clientPicker": {
       "emptyTitle": "Aún no tenés clientes",
@@ -2088,6 +2114,17 @@
       "successOnce": "Plantilla asignada.",
       "successRecurring": "Asignación recurrente creada ({count} entrenamientos).",
       "recurrencePreviewCount": "{count, plural, =0 {Todavía no hay fechas} one {# fecha marcada en el calendario} other {# fechas marcadas en el calendario}}"
+    },
+    "workoutDetail": {
+      "moveToDate": "Mover a fecha…",
+      "moveDateLabel": "Nueva fecha",
+      "moveDateHint": "Elegí el día al que querés mover este entrenamiento.",
+      "moveConfirm": "Mover",
+      "moveCancel": "Cancelar",
+      "moveSameDay": "Elegí un día distinto al actual.",
+      "setsRepsHeader": "Reps",
+      "setsSecondsHeader": "Seg",
+      "setsWeightHeader": "Peso"
     }
   },
   "picker": {
@@ -2341,7 +2378,14 @@
     "googleCta": "Iniciar sesión con Google",
     "signingIn": "Iniciando sesión…",
     "errorTitle": "Error al iniciar sesión",
-    "errorFallback": "Falló el inicio de sesión. Probá de nuevo."
+    "errorFallback": "Falló el inicio de sesión. Probá de nuevo.",
+    "brand": "Portal del coach",
+    "authorizedOnly": "Solo los coaches autorizados pueden iniciar sesión, con su cuenta de Google habilitada.",
+    "errors": {
+      "client": "Esta cuenta es de cliente. Usá la app de Corvo en tu teléfono.",
+      "notACoach": "Esta cuenta de Google no es de un coach de Corvo. Pedile a un admin que sume tu email a la lista de coaches.",
+      "coachDisabled": "Te dieron de baja como coach. Si creés que es un error, escribile a un admin."
+    }
   },
   "forbidden": {
     "eyebrow": "Corvo",
@@ -2811,5 +2855,626 @@
     "errorAmount": "Ingresá un monto válido.",
     "save": "Guardar",
     "cancel": "Cancelar"
+  },
+  "admin": {
+    "common": {
+      "actionCompleted": "Acción completada: {op}.",
+      "actionFailed": "No se pudo completar la acción: {message}",
+      "email": "Email",
+      "action": "Acción",
+      "yes": "sí",
+      "no": "no",
+      "remove": "Quitar",
+      "removing": "Quitando...",
+      "uid": "UID",
+      "clients": "Clientes",
+      "customWorkouts": "Entrenos propios",
+      "customExercises": "Ejercicios propios",
+      "open": "Abrir",
+      "view": "Ver",
+      "previewDeletion": "Previsualizar borrado (simulación)",
+      "previewing": "Previsualizando...",
+      "previewResult": "Resultado de la previsualización",
+      "typeExactly": "Escribí exactamente: {phrase}",
+      "deleting": "Borrando...",
+      "backToAdmin": "Volver al admin",
+      "status": "Estado",
+      "name": "Nombre",
+      "notAvailable": "—"
+    },
+    "home": {
+      "title": "Consola de admin",
+      "subtitle": "Herramientas de operación de Corvo. Multi-rol activado: un usuario puede ser coach y admin a la vez.",
+      "coachless": {
+        "title": "Usuarios sin coach (modo dios)",
+        "description": "Clientes autogestionados sin coach: estado de suscripción, estadísticas de contenido por usuario (rutinas, hábitos, fotos, registros), dar/quitar premium y borrado en cascada completo.",
+        "open": "Abrir usuarios sin coach"
+      },
+      "appVersion": {
+        "title": "Versión de la app (actualización forzada)",
+        "description": "Definí el build mínimo soportado por plataforma. Los clientes con un build anterior tienen que actualizar antes de usar la app.",
+        "open": "Gestionar versión de la app"
+      },
+      "allowlistAdd": {
+        "title": "Agregar email de coach a la allowlist",
+        "description": "Guarda emails de coaches con acceso pendiente en la allowlist de Firestore.",
+        "emailLabel": "Email del coach",
+        "submit": "Agregar email",
+        "pending": "Agregando..."
+      },
+      "promote": {
+        "title": "Promover un usuario existente a admin",
+        "description": "Mantiene el rol de coach y agrega el de admin (trainer + admin) en los custom claims.",
+        "emailLabel": "Email del usuario",
+        "submit": "Promover usuario",
+        "pending": "Promoviendo..."
+      },
+      "allowlist": {
+        "title": "Allowlist de coaches",
+        "description": "Emails pendientes en la allowlist (se ocultan los que ya son coach).",
+        "enabled": "Habilitado",
+        "updatedAt": "Actualizado (UTC)",
+        "empty": "Todavía no hay entradas en la allowlist."
+      },
+      "userSearch": {
+        "title": "Buscar usuarios",
+        "description": "Encontrá cualquier usuario (cliente, coach o admin) por email y abrí su perfil.",
+        "open": "Abrir búsqueda de usuarios"
+      },
+      "coaches": {
+        "title": "Coaches",
+        "description": "Email, roles, clientes, entrenos propios, ejercicios propios.",
+        "coach": "Coach",
+        "roles": "Roles"
+      },
+      "activity": {
+        "title": "Actividad reciente de coaches",
+        "description": "Abrí la vista de actividad con agrupación por recurrencia y detalle de cada evento.",
+        "open": "Abrir actividad reciente de coaches"
+      },
+      "moderation": {
+        "title": "Moderación",
+        "description": "Reportes de perfiles, rutinas, comentarios y mensajes. SLA de 24 h (App Store 1.2).",
+        "openReports": "{count, plural, =0 {Sin reportes abiertos.} one {Hay # reporte abierto.} other {Hay # reportes abiertos.}}",
+        "open": "Abrir cola de moderación"
+      },
+      "monitoring": {
+        "title": "Monitoreo y observabilidad",
+        "description": "Feed de lo que pasa en la app — entrenos terminados, rutinas y hábitos creados, fotos subidas, usuarios nuevos y cambios de suscripción, acciones de coaches y admins — más un historial de borrados, todo enlazado al detalle.",
+        "open": "Abrir panel de monitoreo"
+      },
+      "hygiene": {
+        "title": "Higiene de datos",
+        "description": "Busca usuarios, chats, imágenes, entrenos huérfanos y otros registros sospechosos.",
+        "open": "Abrir panel de higiene"
+      },
+      "deleteCoach": {
+        "title": "Borrar coach (cascada)",
+        "description": "Paso 1: previsualizá el impacto. Paso 2: ejecutá el borrado con confirmación explícita.",
+        "uidPlaceholder": "uid del coach",
+        "uidSamePlaceholder": "uid del coach (el mismo de la previsualización)",
+        "totalDocs": "Docs aprox. en total: {count}",
+        "submit": "Confirmar y borrar coach"
+      }
+    },
+    "coachDetail": {
+      "title": "Detalle del coach",
+      "access": {
+        "title": "Acceso de coach",
+        "activeBadge": "Coach activo",
+        "disabledBadge": "Coach dado de baja",
+        "activeDescription": "Esta cuenta puede entrar al portal de coaches. Darla de baja le quita el rol de coach, cierra sus sesiones en todos lados y el login no le devuelve el rol.",
+        "disabledDescription": "Este coach fue dado de baja: iniciar sesión no le devuelve el rol de coach. Sus datos y clientes no se tocan.",
+        "disable": "Dar de baja como coach",
+        "disabling": "Dando de baja...",
+        "disableConfirm": "¿Dar de baja a {name} como coach? Pierde el acceso al portal de coaches y se cierran sus sesiones en todos lados. Sus datos y clientes se conservan.",
+        "reactivate": "Reactivar coach",
+        "reactivating": "Reactivando..."
+      },
+      "metrics": {
+        "assignments": "Asignaciones",
+        "habits": "Hábitos",
+        "chats": "Chats"
+      },
+      "linked": {
+        "title": "Clientes vinculados",
+        "description": "Relación actual coach-cliente y acciones rápidas.",
+        "client": "Cliente",
+        "empty": "Sin clientes vinculados.",
+        "deleted": "borrado",
+        "active": "activo",
+        "transferLabel": "Transferir a {name} a otro coach",
+        "transferTo": "Transferir a…",
+        "transfer": "Transferir",
+        "transferring": "Transfiriendo...",
+        "unlink": "Quitar como cliente",
+        "unlinkTitle": "Desvincular de este coach — el usuario queda sin coach y conserva todos sus datos",
+        "deactivate": "Desactivar",
+        "deactivating": "Desactivando...",
+        "useInDelete": "Usar en el borrado"
+      },
+      "deleteClient": {
+        "title": "Borrar cliente (cascada)",
+        "description": "Paso 1: previsualizá el impacto. Paso 2: ejecutá con confirmación explícita.",
+        "direct": "Directo: cuenta de auth + users/'{clientUid}'",
+        "cascade": "Cascada: chat, registros de entrenos, asignaciones, hábitos, objetivos, notas y metadatos de fotos de progreso.",
+        "link": "El vínculo con el coach se quita porque se borra el documento del cliente.",
+        "uidPlaceholder": "uid del cliente",
+        "uidSamePlaceholder": "uid del cliente (el mismo de la previsualización)",
+        "target": "Destino: {role} · {name}",
+        "unknownRole": "desconocido",
+        "targetNotFound": "No se encontró el destino en la colección users.",
+        "submit": "Confirmar y borrar cliente",
+        "pending": "Borrando cliente...",
+        "dryRunFirst": "Corré la simulación primero para habilitar el borrado."
+      },
+      "preview": {
+        "total": "Total aprox.: {count}",
+        "chat": "chat: {value}",
+        "logs": "registros: {count}",
+        "assignments": "asignaciones: {count}",
+        "habits": "hábitos: {count}",
+        "habitLogs": "registros de hábitos: {count}",
+        "goals": "objetivos: {count}",
+        "notes": "notas: {count}",
+        "photos": "fotos: {count}"
+      },
+      "pending": {
+        "title": "Clientes pendientes",
+        "description": "Clientes pre-provisionados en user_mirror para este coach.",
+        "empty": "Sin clientes pendientes.",
+        "remove": "Quitar pendiente"
+      },
+      "operations": {
+        "title": "Operaciones de admin recientes (sobre este coach)",
+        "description": "Desde admin_operations.",
+        "when": "Cuándo (UTC)",
+        "kind": "Tipo",
+        "mode": "Modo",
+        "error": "Error",
+        "empty": "Todavía no hay operaciones de admin."
+      }
+    },
+    "clientDetail": {
+      "backToCoach": "Volver al coach",
+      "readOnly": "Solo lectura",
+      "clientUid": "UID del cliente: {uid}",
+      "viewCoach": "Ver coach",
+      "coachLabel": "Coach:",
+      "recentActivity": "Actividad reciente",
+      "status": {
+        "completed": "completado",
+        "missed": "perdido",
+        "started": "empezado",
+        "assigned": "asignado",
+        "skipped": "salteado"
+      },
+      "assignments": {
+        "title": "Entrenos asignados",
+        "empty": "Todavía no hay entrenos asignados.",
+        "date": "Fecha",
+        "time": "Hora",
+        "workout": "Entreno",
+        "completedOf": "{done}/{total} completados"
+      },
+      "habits": {
+        "title": "Hábitos",
+        "empty": "Todavía no hay hábitos asignados.",
+        "habit": "Hábito",
+        "cadence": "Frecuencia",
+        "reminder": "Recordatorio",
+        "on": "Activado",
+        "off": "Desactivado",
+        "deleted": "borrado",
+        "active": "activo"
+      },
+      "photos": {
+        "title": "Fotos de progreso",
+        "empty": "Todavía no hay fotos de progreso."
+      },
+      "backToClient": "Volver al cliente"
+    },
+    "nutrition": {
+      "title": "Nutrición",
+      "loadFailed": "No se pudo cargar la nutrición.",
+      "activePhase": "fase activa",
+      "noPlanYet": "todavía sin plan",
+      "noActivePhase": "sin fase activa",
+      "ends": "termina el {date}",
+      "adherence": "Adherencia 7 días:",
+      "notApplicableTitle": "No se pidió nada en los últimos 7 días",
+      "notApplicable": "n/d",
+      "noPhases": "Todavía no hay fases de nutrición.",
+      "phase": "Fase",
+      "by": "Por",
+      "starts": "Empieza",
+      "endsColumn": "Termina",
+      "status": "Estado",
+      "bySelf": "cliente (propio)",
+      "byCoach": "coach",
+      "openEnded": "sin fin",
+      "deleted": "borrada",
+      "ended": "terminada",
+      "active": "activa"
+    },
+    "coachless": {
+      "title": "Usuarios sin coach",
+      "subtitle": "Clientes autogestionados sin coach — estado de suscripción, estadísticas de contenido y acciones de modo dios (dar/quitar premium, borrar). Buscá y ordená la lista; tocá un nombre para abrir el perfil completo.",
+      "searchPlaceholder": "Buscar nombre, email o uid…",
+      "searchLabel": "Buscar usuarios sin coach",
+      "count": "{count, plural, one {# usuario sin coach.} other {# usuarios sin coach.}}",
+      "countFiltered": "{visible} de {total} usuarios sin coach.",
+      "sortBy": "Ordenar por {column}",
+      "columns": {
+        "user": "Usuario",
+        "subscription": "Suscripción",
+        "routines": "Rutinas",
+        "habits": "Hábitos",
+        "photos": "Fotos",
+        "logs": "Registros",
+        "created": "Creado",
+        "actions": "Acciones"
+      },
+      "empty": "No hay usuarios sin coach.",
+      "emptySearch": "Ningún usuario sin coach coincide con la búsqueda.",
+      "premium": "Premium",
+      "free": "Gratis",
+      "source": "origen: {source}",
+      "expires": "vence: {date}",
+      "assignLabel": "Asignar a {name} a un coach",
+      "assignPlaceholder": "Asignar coach…",
+      "assign": "Asignar",
+      "assigning": "Asignando…",
+      "assignTitle": "Vincula a este usuario con el coach — deja de estar sin coach y obtiene premium por coach",
+      "revokePremium": "Quitar premium",
+      "grantPremium": "Dar premium",
+      "saving": "Guardando…",
+      "deleteUser": "Borrar usuario",
+      "deleteWarning": "Irreversible: borra Auth, todos los datos de Firestore y las fotos de Storage. Escribí <email></email> para confirmar.",
+      "deleteEmailPlaceholder": "escribí el email para confirmar",
+      "deleteForever": "Borrar para siempre"
+    },
+    "coachlessProfile": {
+      "age": "{days, plural, =0 {hoy} one {hace # d} other {hace # d}}",
+      "daysShort": "{days, plural, =0 {hoy} other {# d}}",
+      "never": "nunca",
+      "backToList": "Volver a usuarios sin coach",
+      "coachlessBadge": "Sin coach",
+      "noEmail": "sin email",
+      "stats": {
+        "lastActive": "Última actividad",
+        "workouts": "Entrenos",
+        "workoutsHint": "últimos 30 d · {total} en total",
+        "habitCheckIns": "Check-ins de hábitos",
+        "last30": "últimos 30 d",
+        "routines": "Rutinas",
+        "habits": "Hábitos",
+        "selfCreated": "creados por el usuario",
+        "photos": "Fotos",
+        "weightLogs": "registros de peso: {count}"
+      },
+      "account": {
+        "title": "Cuenta",
+        "signedUp": "Alta",
+        "lastSignIn": "Último ingreso",
+        "providers": "Proveedores de ingreso",
+        "emailVerified": "Email verificado",
+        "timezone": "Zona horaria",
+        "app": "App",
+        "birthDate": "Fecha de nacimiento",
+        "authStatus": "Estado de auth",
+        "disabled": "deshabilitada"
+      },
+      "coach": {
+        "title": "Coach",
+        "description": "Este usuario es autogestionado — nadie lo entrena. Asignarle un coach lo suma a la lista de ese coach, mueve su hilo de chat y lo hace premium mientras dure el vínculo. Se conservan todas sus rutinas, hábitos y registros.",
+        "noCoaches": "No hay coaches disponibles.",
+        "assignLabel": "Asignar un coach a este usuario",
+        "choose": "Elegí un coach…",
+        "assign": "Asignar coach"
+      },
+      "subscription": {
+        "title": "Suscripción",
+        "tier": "Nivel",
+        "source": "Origen",
+        "product": "Producto",
+        "expires": "Vence",
+        "updated": "Actualizado"
+      },
+      "activity": {
+        "title": "Actividad",
+        "stream": "Tipo",
+        "last": "Último",
+        "days7": "7 d",
+        "days30": "30 d",
+        "total": "Total",
+        "workouts": "Entrenos registrados",
+        "habitCheckIns": "Check-ins de hábitos",
+        "photos": "Fotos de progreso",
+        "weight": "Registros de peso corporal"
+      },
+      "routines": {
+        "title": "Rutinas ({count})",
+        "empty": "Todavía no creó rutinas.",
+        "routine": "Rutina",
+        "tags": "Etiquetas",
+        "exercises": "Ejercicios",
+        "created": "Creada",
+        "updated": "Actualizada"
+      },
+      "habitsTitle": "Hábitos ({count})",
+      "habitsEmpty": "Todavía no hay hábitos.",
+      "scheduledTitle": "Entrenos programados ({count})",
+      "scheduledEmpty": "Nada programado — este usuario nunca planificó un entreno.",
+      "calendar": "Calendario",
+      "calendarUnavailable": "Calendario no disponible.",
+      "noActivity": "Todavía no hay actividad registrada.",
+      "workoutTrends": "Tendencias de entrenos",
+      "muscleGroupVolume": "Volumen y series semanales por grupo muscular",
+      "progressByExercise": "Progreso por ejercicio",
+      "personalRecords": "Récords personales ({count})",
+      "habitAdherence": "Adherencia a hábitos",
+      "bodyWeight": "Peso corporal",
+      "noBodyWeight": "Todavía no hay registros de peso corporal."
+    },
+    "users": {
+      "title": "Buscar usuarios",
+      "subtitle": "Encontrá cualquier usuario (cliente, coach o admin) por email o parte del email y abrí su perfil.",
+      "placeholder": "email o parte del email",
+      "search": "Buscar",
+      "searching": "Buscando…",
+      "user": "Usuario",
+      "roles": "Roles",
+      "profile": "Perfil",
+      "prompt": "Escribí un email o parte de uno arriba para buscar.",
+      "noMatches": "Sin coincidencias.",
+      "deleted": "(borrado)",
+      "adminProfile": "Perfil de admin (solo lectura)",
+      "fields": {
+        "email": "Email:",
+        "name": "Nombre:",
+        "uid": "UID:",
+        "roles": "Roles:",
+        "subscription": "Suscripción:"
+      }
+    },
+    "coachActivity": {
+      "title": "Actividad reciente de coaches",
+      "subtitle": "Eventos de uso de alto nivel, con las asignaciones recurrentes agrupadas en una sola fila.",
+      "streamTitle": "Flujo de actividad",
+      "streamDescription": "Incluye acciones de coaches, primeros ingresos de clientes y resúmenes de recurrencias.",
+      "columns": {
+        "when": "Cuándo (UTC)",
+        "coach": "Coach",
+        "event": "Evento",
+        "client": "Cliente",
+        "recurrence": "Recurrencia",
+        "occurrences": "Ocurrencias",
+        "source": "Origen"
+      },
+      "empty": "No se encontró actividad reciente de coaches."
+    },
+    "hygiene": {
+      "title": "Higiene de datos",
+      "subtitle": "Revisá usuarios, chats, imágenes, entrenos huérfanos y otros registros sospechosos antes de que se acumulen.",
+      "aboutTitle": "Qué hace esta página",
+      "aboutDescription": "El escaneo es conservador a propósito: sólo muestra registros que parecen huérfanos o estructuralmente raros en la ventana de muestra actual.",
+      "aboutBody": "Los borrados son explícitos, destructivos y piden confirmación en el navegador. Para usuarios, la acción reutiliza la lógica de borrado en cascada de coach/cliente cuando se puede.",
+      "kinds": {
+        "user": "Usuario",
+        "chat": "Chat",
+        "photo": "Imagen",
+        "template": "Plantilla de entreno",
+        "assignment": "Asignación de entreno",
+        "log": "Registro de entreno",
+        "exercise": "Ejercicio"
+      },
+      "loadErrorTitle": "No se pudo cargar el escaneo de higiene",
+      "loadErrorBody": "La página se puede usar igual, pero falló el escaneo inicial de anomalías. Recargá cuando se arregle el problema de fondo para recuperar la lista.",
+      "summaryTitle": "Resumen de higiene",
+      "summaryDescription": "Vista previa de registros de Corvo huérfanos o sospechosos detectados en escaneos recientes.",
+      "summary": {
+        "users": "Usuarios",
+        "chats": "Chats",
+        "images": "Imágenes",
+        "workouts": "Entrenos",
+        "total": "Total"
+      },
+      "issuesTitle": "Problemas de datos",
+      "issuesDescription": "Los borrados son explícitos y destructivos. Cada fila apunta a un registro huérfano o en un estado sospechoso.",
+      "empty": "No se encontraron anomalías en la ventana de escaneo actual.",
+      "loading": "Cargando...",
+      "loadMore": "Cargar más",
+      "updatedAt": "Actualizado: {date}",
+      "deleteConfirm": "¿Borrar este registro ({kind}) de Firestore?",
+      "delete": "Borrar de la base"
+    },
+    "appConfig": {
+      "title": "Versión de la app",
+      "subtitle": "Definí el build mínimo soportado por plataforma. Los clientes con un build anterior tienen que actualizar antes de usar la app.",
+      "back": "Volver a la consola de admin",
+      "form": {
+        "saved": "Requisitos de versión guardados.",
+        "saveFailed": "No se pudo guardar. Probá de nuevo.",
+        "platformDescription": "Los clientes con un build menor al mínimo ven al abrir la app una pantalla de actualización que no se puede cerrar.",
+        "minBuild": "Build mínimo",
+        "buildHintIos": "CFBundleVersion mínimo (número de build). Los builds menores quedan bloqueados.",
+        "buildHintAndroid": "versionCode mínimo. Los builds menores quedan bloqueados. Dejalo en 0 hasta que salga Android.",
+        "latestVersion": "Última versión",
+        "latestVersionHint": "Se muestra en el mensaje de actualización (sólo informativo).",
+        "storeUrl": "URL de la tienda",
+        "storeUrlHint": "La abre el botón de actualizar.",
+        "lastUpdated": "Última actualización: {date}",
+        "updatedBy": "por {email}",
+        "saving": "Guardando…",
+        "save": "Guardar"
+      },
+      "validation": {
+        "wholeNumber": "Ingresá un número entero.",
+        "notNegative": "No puede ser negativo.",
+        "tooLarge": "Demasiado grande.",
+        "dottedVersion": "Usá una versión con puntos como 1.2.0 (o dejalo vacío).",
+        "httpUrl": "Tiene que ser una URL http(s) (o dejalo vacío)."
+      }
+    },
+    "moderation": {
+      "title": "Moderación",
+      "subtitle": "Reportes de perfiles, rutinas, comentarios y mensajes. Cada reporte tiene que resolverse dentro de las 24 horas (App Store 1.2). Ocultar y suspender son reversibles; descartar no toca el contenido.",
+      "filtersTitle": "Filtros",
+      "filtersDescription": "El estado se aplica en la query; el tipo filtra la ventana cargada (últimos 300).",
+      "allTypes": "Todos",
+      "loadError": "No se pudo cargar la cola. Reintentá en un momento.",
+      "ops": {
+        "hide": "Contenido ocultado.",
+        "suspend": "Cuenta suspendida.",
+        "dismiss": "Reportes descartados.",
+        "unsuspend": "Suspensión levantada.",
+        "unhide": "Contenido visible de nuevo."
+      },
+      "status": {
+        "open": "Abiertos",
+        "actioned": "Con acción",
+        "dismissed": "Descartados"
+      },
+      "targetType": {
+        "profile": "Perfil",
+        "routine": "Rutina",
+        "comment": "Comentario",
+        "message": "Mensaje",
+        "challenge": "Desafío"
+      },
+      "reason": {
+        "spam": "Spam",
+        "harassment": "Acoso",
+        "sexual": "Contenido sexual",
+        "violence": "Violencia",
+        "impersonation": "Suplantación",
+        "other": "Otro"
+      },
+      "age": {
+        "justNow": "recién",
+        "minutes": "hace {count} min",
+        "hours": "hace {count} h",
+        "days": "hace {count} d"
+      },
+      "emptyOpen": "No hay reportes abiertos. 🎉",
+      "emptyOther": "Nada en esta bandeja.",
+      "reportCount": "{count, plural, one {# reporte} other {# reportes}}",
+      "badges": {
+        "hidden": "oculto",
+        "suspended": "autor suspendido",
+        "missing": "ya no existe"
+      },
+      "idLabel": "id:",
+      "ownerLabel": "dueño:",
+      "byLabel": "por",
+      "sla": {
+        "breached": "SLA vencido",
+        "dueSoon": "vence pronto"
+      },
+      "confirm": {
+        "hide": "¿Ocultar este contenido? Deja de mostrarse en las apps. Se puede revertir.",
+        "suspend": "¿Suspender la cuenta? Sale de búsqueda, feed y sugerencias, y sus rutinas públicas se esconden. Se puede revertir."
+      },
+      "actions": {
+        "hide": "Ocultar contenido",
+        "hiding": "Ocultando…",
+        "suspend": "Suspender autor",
+        "suspending": "Suspendiendo…",
+        "dismiss": "Descartar",
+        "dismissing": "Descartando…",
+        "unhide": "Volver a mostrar",
+        "unhiding": "Mostrando…",
+        "unsuspend": "Levantar suspensión",
+        "unsuspending": "Levantando…"
+      }
+    },
+    "audit": {
+      "title": "Monitoreo y observabilidad",
+      "subtitle": "Qué está pasando en la app: workouts terminados, rutinas y hábitos creados, fotos, altas de usuarios, cambios de suscripción y operaciones de admin. Todo enlaza al detalle.",
+      "categories": {
+        "workout": "Workouts",
+        "schedule": "Agenda",
+        "routine": "Rutinas",
+        "habit": "Hábitos",
+        "nutrition": "Nutrición",
+        "exercise": "Ejercicios",
+        "photo": "Fotos",
+        "account": "Cuentas y suscripciones",
+        "coach": "Acciones de coach",
+        "admin": "Operaciones de admin",
+        "other": "Otros"
+      },
+      "sources": {
+        "all": "Todas las fuentes",
+        "auditLog": "App (writes de Firestore)",
+        "coachActivity": "Acciones de coach",
+        "adminOperations": "Operaciones de admin",
+        "progressPhotos": "Fotos de progreso",
+        "nutritionLogs": "Comidas marcadas",
+        "habitLogs": "Hábitos marcados"
+      },
+      "tabs": {
+        "timeline": "Actividad",
+        "deletions": "Eliminaciones"
+      },
+      "filters": {
+        "title": "Filtros",
+        "description": "El rango de fechas se aplica en la query; el resto filtra la ventana cargada en memoria. Horarios en UTC.",
+        "eventType": "Tipo de evento",
+        "source": "Fuente",
+        "actor": "Quién (uid / nombre / email)",
+        "client": "Cliente (uid / nombre / email)",
+        "contains": "contiene…",
+        "from": "Desde (UTC)",
+        "to": "Hasta (UTC)",
+        "lowSignal": "Mostrar también los writes de bajo nivel (toques de <code>updatedAt</code>, escrituras por serie durante un workout, refrescos de suscripción sin cambio de plan)",
+        "apply": "Aplicar filtros",
+        "clear": "Limpiar"
+      },
+      "deletionsDescription": "Todo lo que borró datos — bajas de coach/cliente, series de workouts eliminadas, hábitos y ejercicios dados de baja.",
+      "timelineDescription": "Acciones de clientes, coaches y admins en un único feed, de lo más nuevo a lo más viejo.",
+      "eventCountSentence": "{count, plural, one {# evento.} other {# eventos.}}",
+      "eventCount": "{count, plural, one {# evento} other {# eventos}}",
+      "loadError": "No se pudo cargar el feed. Probá acotando el rango de fechas.",
+      "emptyDeletions": "No hay eliminaciones para estos filtros.",
+      "emptyEvents": "No hay eventos para estos filtros.",
+      "viewDetail": "ver detalle",
+      "today": "Hoy · {day}",
+      "yesterday": "Ayer · {day}",
+      "noDate": "sin fecha"
+    },
+    "calendar": {
+      "loadError": "No se pudo cargar ese mes.",
+      "previousMonth": "Mes anterior",
+      "nextMonth": "Mes siguiente",
+      "monthWorkouts": "{count, plural, one {# entreno este mes} other {# entrenos este mes}}",
+      "loading": "cargando…",
+      "legend": {
+        "scheduled": "programado",
+        "started": "empezado",
+        "completed": "completado",
+        "missed": "perdido",
+        "selfCreated": "creado por el usuario",
+        "habits": "puntos chicos = hábitos"
+      }
+    }
+  },
+  "commandPalette": {
+    "title": "Ir a",
+    "description": "Buscá clientes, chats, entrenamientos, ejercicios y páginas.",
+    "placeholder": "Buscar clientes, entrenamientos, ejercicios…",
+    "inputLabel": "Buscar en el portal del coach",
+    "trigger": "Buscar",
+    "triggerLabel": "Abrir búsqueda (Ctrl+K o ⌘K)",
+    "empty": "Sin resultados.",
+    "loading": "Cargando…",
+    "loadError": "No se pudieron cargar tus clientes y tu biblioteca. Las páginas siguen disponibles.",
+    "groupPages": "Páginas",
+    "groupClients": "Clientes",
+    "groupChats": "Chats",
+    "groupTemplates": "Entrenamientos",
+    "groupExercises": "Ejercicios",
+    "chatWith": "Chat con {name}"
   }
 }

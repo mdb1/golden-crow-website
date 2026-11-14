@@ -63,6 +63,16 @@
     },
     {
       "file": "src/app/gc-fitness/admin/coaches/[uid]/actions.ts",
+      "export": "disableCoachAction",
+      "params": "arg"
+    },
+    {
+      "file": "src/app/gc-fitness/admin/coaches/[uid]/actions.ts",
+      "export": "reactivateCoachAction",
+      "params": "arg"
+    },
+    {
+      "file": "src/app/gc-fitness/admin/coaches/[uid]/actions.ts",
       "export": "removePendingAction",
       "params": "arg"
     },
@@ -429,6 +439,11 @@
     {
       "file": "src/lib/gc-fitness/coach-pulse-actions.ts",
       "export": "getCoachPulse",
+      "params": ""
+    },
+    {
+      "file": "src/lib/gc-fitness/command-palette-actions.ts",
+      "export": "getCommandPaletteIndex",
       "params": ""
     },
     {

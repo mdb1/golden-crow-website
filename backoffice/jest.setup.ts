@@ -152,3 +152,17 @@ if (SHIFT_DAYS !== 0) {
   });
 }
 
+
+// #482 — the auth helper (`auth-helpers.ts`) asks the Auth user record whether
+// the session was revoked. ~25 suites run the REAL auth helper over a mocked
+// `getTokens` and a fake Firestore without an Auth `getUser`; for them the
+// check is a pass-through that keeps the token's claims. The revocation logic
+// itself is pinned in `session-revocation.test.ts` / `auth-helpers.test.ts`,
+// which `jest.unmock` this module.
+jest.mock("@/lib/gc-fitness/session-revocation", () => {
+  const actual = jest.requireActual("@/lib/gc-fitness/session-revocation");
+  return {
+    ...actual,
+    assertSessionNotRevoked: jest.fn(async () => ({ customClaims: null })),
+  };
+});

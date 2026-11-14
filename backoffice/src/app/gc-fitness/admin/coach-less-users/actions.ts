@@ -13,6 +13,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { toActionFailure, type ActionResult } from "@/lib/gc-fitness/action-result";
+
 import { transferClientToCoach } from "@/lib/gc-fitness/admin-actions";
 import {
   deleteCoachlessUser,
@@ -24,27 +26,39 @@ const ROUTE = "/gc-fitness/admin/coach-less-users";
 // Assigning a coach IS a transfer — from no coach to one. `transferClientToCoach`
 // already handles the null-coach origin (re-points the doc, moves the chat if
 // one exists, resyncs the coachId custom claim), so there's no second code path.
-export async function assignCoachAction(formData: FormData) {
+export async function assignCoachAction(formData: FormData): Promise<ActionResult> {
   const clientUid = String(formData.get("uid") ?? "");
   const newCoachUid = String(formData.get("newCoachUid") ?? "");
-  await transferClientToCoach({ clientUid, newCoachUid });
+  try {
+    await transferClientToCoach({ clientUid, newCoachUid });
+  } catch (err) {
+    return toActionFailure(err);
+  }
   revalidatePath(ROUTE);
   revalidatePath(`/gc-fitness/admin/coaches/${newCoachUid}`);
   redirect(`${ROUTE}?op=assign_coach&ok=1`);
 }
 
-export async function setTierAction(formData: FormData) {
+export async function setTierAction(formData: FormData): Promise<ActionResult> {
   const uid = String(formData.get("uid") ?? "");
   const tier = String(formData.get("tier") ?? "");
-  await setUserEntitlementTier({ uid, tier });
+  try {
+    await setUserEntitlementTier({ uid, tier });
+  } catch (err) {
+    return toActionFailure(err);
+  }
   revalidatePath(ROUTE);
   redirect(`${ROUTE}?op=set_${tier}&ok=1`);
 }
 
-export async function deleteUserAction(formData: FormData) {
+export async function deleteUserAction(formData: FormData): Promise<ActionResult> {
   const uid = String(formData.get("uid") ?? "");
   const emailConfirmation = String(formData.get("emailConfirmation") ?? "");
-  await deleteCoachlessUser({ uid, emailConfirmation });
+  try {
+    await deleteCoachlessUser({ uid, emailConfirmation });
+  } catch (err) {
+    return toActionFailure(err);
+  }
   revalidatePath(ROUTE);
   redirect(`${ROUTE}?op=delete_user&ok=1`);
 }

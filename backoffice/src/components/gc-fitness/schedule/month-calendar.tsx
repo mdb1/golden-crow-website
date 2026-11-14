@@ -37,12 +37,15 @@ import {
   Circle,
   Dumbbell,
   PlusIcon,
+  Search as SearchIcon,
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { filterClientsByQuery } from "@/lib/gc-fitness/client-name-search";
 import { PageHeader } from "@/components/gc-fitness/page-header";
 import { PillTabs } from "@/components/gc-fitness/pill-tabs";
 import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
@@ -86,6 +89,9 @@ interface MonthCalendarProps {
   todayCivil: string;
   trainerUid: string;
 }
+
+/** #485: the chip search box appears once the roster stops fitting at a glance. */
+const CLIENT_SEARCH_MIN_CLIENTS = 8;
 
 const MONTH_LABELS_ES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -144,6 +150,18 @@ const STATUS_PALETTE: Record<
 function workoutChipClass(status: MonthWorkoutChip["status"]): string {
   if (status === "scheduled") return "border-border bg-card text-foreground";
   return STATUS_PALETTE[status];
+}
+
+/** The calendar chip for an assignment id, wherever it sits in the payload. */
+function findWorkoutChip(
+  workoutsByDay: Record<string, MonthWorkoutChip[]>,
+  id: string,
+): MonthWorkoutChip | null {
+  for (const chips of Object.values(workoutsByDay)) {
+    const hit = chips.find((c) => c.id === id);
+    if (hit) return hit;
+  }
+  return null;
 }
 
 function addCivilDays(civil: string, days: number): string {
@@ -336,6 +354,15 @@ export function MonthCalendar({
     syncUrl(monthFirst, next);
   }
 
+  // #485: search box over the chip wall — with dozens of clients picking one
+  // by scanning chips is unusable. Filters what is SHOWN only; "Select all"
+  // still selects the whole roster.
+  const [clientQuery, setClientQuery] = useState("");
+  const visibleClients = useMemo(
+    () => filterClientsByQuery(clients, clientQuery),
+    [clients, clientQuery],
+  );
+
   function selectAll() {
     const nextIds = clients.map((c) => c.uid);
     const next = new Set(nextIds);
@@ -446,6 +473,13 @@ export function MonthCalendar({
     const chip = dragChip;
     setDragChip(null);
     if (!chip) return;
+    requestMove(chip, targetDay);
+  }
+
+  // The ONE move path — shared by the HTML5 drop above and the detail
+  // dialog's "Mover a fecha…" (#493, keyboard/touch). Same-day is a no-op;
+  // a recurring chip asks for the scope first.
+  function requestMove(chip: MonthWorkoutChip, targetDay: string) {
     if (chip.scheduledFor === targetDay) return;
     if (chip.seriesId && chip.recurrenceKind && chip.recurrenceKind !== "single") {
       setPendingMove({ chip, newDate: targetDay });
@@ -668,8 +702,30 @@ export function MonthCalendar({
             </Button>
           </div>
         </div>
+        {clients.length > CLIENT_SEARCH_MIN_CLIENTS ? (
+          <div className="relative mt-4 max-w-sm">
+            <SearchIcon
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              type="search"
+              value={clientQuery}
+              onChange={(e) => setClientQuery(e.target.value)}
+              placeholder={t("clientSearchPlaceholder")}
+              aria-label={t("clientSearchPlaceholder")}
+              className="min-h-[44px] rounded-full pl-9"
+              data-testid="calendar-client-search"
+            />
+          </div>
+        ) : null}
         <div className="mt-4 flex flex-wrap gap-2">
-          {clients.map((c) => {
+          {visibleClients.length === 0 && clientQuery.trim() ? (
+            <p className="text-sm text-muted-foreground">
+              {t("clientSearchEmpty")}
+            </p>
+          ) : null}
+          {visibleClients.map((c) => {
             const active = selectedIds.has(c.uid);
             const palette = paletteFor(c.uid, clientColorOrder);
             return (
@@ -1097,6 +1153,11 @@ export function MonthCalendar({
               queryKey: ["schedule"],
             });
             setDetailAssignmentId(null);
+          }}
+          onMoveTo={(newDate) => {
+            const chip = findWorkoutChip(payload.workoutsByDay, detailAssignmentId);
+            setDetailAssignmentId(null);
+            if (chip) requestMove(chip, newDate);
           }}
         />
       ) : null}
@@ -1740,6 +1801,7 @@ function AddPopover({
    *  cell that already has content can still take another workout/habit. */
   variant?: "icon" | "cell" | "row";
 }) {
+  const t = useTranslations("schedule.calendar");
   const [open, setOpen] = useState(false);
   const enabled: Array<"workout" | "habit"> = [
     ...(showWorkouts ? (["workout"] as const) : []),
@@ -1775,7 +1837,11 @@ function AddPopover({
       <button
         type="button"
         className={triggerClass}
-        aria-label={`Asignar ${only === "workout" ? "workout" : "hábito"} el ${civil}`}
+        aria-label={
+          only === "workout"
+            ? t("addWorkoutOnAria", { date: civil })
+            : t("addHabitOnAria", { date: civil })
+        }
         onClick={() => onPick(only)}
       >
         <PlusIcon className={plusClass} />
@@ -1789,7 +1855,7 @@ function AddPopover({
         <button
           type="button"
           className={triggerClass}
-          aria-label={`Asignar el ${civil}`}
+          aria-label={t("addOnAria", { date: civil })}
         >
           <PlusIcon className={plusClass} />
         </button>
@@ -1809,7 +1875,7 @@ function AddPopover({
           }}
         >
           <Dumbbell className="size-4 text-amber-600 dark:text-amber-400" />
-          Entrenamiento
+          {t("addMenuWorkout")}
         </button>
         <button
           type="button"
@@ -1820,7 +1886,7 @@ function AddPopover({
           }}
         >
           <Circle className="size-4 text-emerald-600 dark:text-emerald-400" />
-          Hábito
+          {t("addMenuHabit")}
         </button>
       </PopoverContent>
     </Popover>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,17 +35,19 @@ export default async function CoachActivityPage() {
   }
 
   const rows = await listRecentCoachActivity(160);
+  const t = await getTranslations("admin.coachActivity");
+  const tc = await getTranslations("admin.common");
 
   return (
     <div className="gc-page flex flex-col gap-6">
       <PageHeader
-        title="Recent coach activity"
-        subtitle="High-level usage events with recurring workout assignments collapsed into single rows."
+        title={t("title")}
+        subtitle={t("subtitle")}
         actions={
           <Button asChild variant="outline" size="sm" className="rounded-full">
             <Link href="/gc-fitness/admin">
               <ArrowLeft className="h-4 w-4" />
-              Back to admin
+              {tc("backToAdmin")}
             </Link>
           </Button>
         }
@@ -52,30 +55,28 @@ export default async function CoachActivityPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Activity stream</CardTitle>
-          <CardDescription>
-            Events include coach actions, client first logins and recurrence summaries.
-          </CardDescription>
+          <CardTitle className="text-xl">{t("streamTitle")}</CardTitle>
+          <CardDescription>{t("streamDescription")}</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>When (UTC)</TableHead>
-                  <TableHead>Coach</TableHead>
-                  <TableHead>Event</TableHead>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Recurrence</TableHead>
-                  <TableHead>Occurrences</TableHead>
-                  <TableHead>Source</TableHead>
+                  <TableHead>{t("columns.when")}</TableHead>
+                  <TableHead>{t("columns.coach")}</TableHead>
+                  <TableHead>{t("columns.event")}</TableHead>
+                  <TableHead>{t("columns.client")}</TableHead>
+                  <TableHead>{t("columns.recurrence")}</TableHead>
+                  <TableHead>{t("columns.occurrences")}</TableHead>
+                  <TableHead>{t("columns.source")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.length === 0 ? (
                   <TableRow>
                     <TableCell className="text-xs text-muted-foreground" colSpan={7}>
-                      No recent coach activity found.
+                      {t("empty")}
                     </TableCell>
                   </TableRow>
                 ) : (

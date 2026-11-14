@@ -5,6 +5,10 @@ import { FieldValue } from "firebase-admin/firestore";
 import { z } from "zod";
 
 import { gcFitnessAuth, gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
+import {
+  revokeSessions,
+  revokeSessionsIfBackofficeRoleLost,
+} from "@/lib/gc-fitness/session-revocation";
 import { emailMatchesQuery, normalizeSearchQuery } from "@/lib/gc-fitness/admin-user-search";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { planChatCoachRepoint } from "@/lib/gc-fitness/chat-coach-repoint";
@@ -29,6 +33,8 @@ export interface CoachAdminRow {
   clientsCount: number;
   customWorkoutsCount: number;
   customExercisesCount: number;
+  /** #510: removed as a coach (`users/{uid}.coachDisabled`) — login refuses the role. */
+  coachDisabled: boolean;
 }
 
 type OperationMode = "dry_run" | "execute";
@@ -56,6 +62,8 @@ export interface AdminOperationRow {
 
 export interface CoachAdminDetail {
   coach: CoachAdminRow;
+  /** #510: mirror of `coach.coachDisabled`. */
+  coachDisabled: boolean;
   workoutAssignmentsCount: number;
   habitsCount: number;
   chatsCount: number;
@@ -175,6 +183,7 @@ export async function listCoachesForAdmin(): Promise<CoachAdminRow[]> {
         clientsCount: clientsSnap.docs.filter((d) => d.get("deleted") !== true).length,
         customWorkoutsCount: workoutsAgg.data().count,
         customExercisesCount: exercisesAgg.data().count,
+        coachDisabled: data.coachDisabled === true,
       } satisfies CoachAdminRow;
     }),
   );
@@ -388,6 +397,7 @@ export async function getCoachAdminDetail(coachUid: string): Promise<CoachAdminD
 
   return {
     coach,
+    coachDisabled: coach.coachDisabled,
     workoutAssignmentsCount: assignmentsAgg.data().count,
     habitsCount: habitsAgg.data().count,
     chatsCount: chatsAgg.data().count,
@@ -1525,6 +1535,9 @@ export async function deactivateClientForCoach(input: unknown): Promise<{ ok: tr
   } catch {
     // fail-soft
   }
+  // #482 — a disabled account must also lose the sessions it already has
+  // (backoffice cookie + app); disabling alone only blocks new sign-ins.
+  await revokeSessions(parsed.clientUid, "deactivate_client");
   await writeAdminOperationLog({
     actorUid: admin.uid,
     kind: "delete_client_cascade",
@@ -1650,11 +1663,15 @@ export async function transferClientToCoach(
   try {
     const authUser = await gcFitnessAuth().getUser(parsed.clientUid);
     const current = (authUser.customClaims ?? {}) as Record<string, unknown>;
-    await gcFitnessAuth().setCustomUserClaims(parsed.clientUid, {
-      ...current,
-      role: "client",
-      coachId: parsed.newCoachUid,
-    });
+    const next = { ...current, role: "client", coachId: parsed.newCoachUid };
+    await gcFitnessAuth().setCustomUserClaims(parsed.clientUid, next);
+    // #482 — only when this took a trainer/admin role away.
+    await revokeSessionsIfBackofficeRoleLost(
+      parsed.clientUid,
+      current,
+      next,
+      "transfer_client",
+    );
   } catch {
     // fail-soft
   }
@@ -1752,10 +1769,15 @@ export async function unlinkClientFromCoach(
       string,
       unknown
     >;
-    await gcFitnessAuth().setCustomUserClaims(parsed.clientUid, {
-      ...rest,
-      role: "client",
-    });
+    const next = { ...rest, role: "client" };
+    await gcFitnessAuth().setCustomUserClaims(parsed.clientUid, next);
+    // #482 — only when this took a trainer/admin role away.
+    await revokeSessionsIfBackofficeRoleLost(
+      parsed.clientUid,
+      authUser.customClaims as Record<string, unknown> | undefined,
+      next,
+      "unlink_client",
+    );
   } catch {
     // fail-soft
   }

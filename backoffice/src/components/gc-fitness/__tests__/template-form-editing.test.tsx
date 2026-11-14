@@ -28,9 +28,12 @@ jest.mock("next/navigation", () => ({
   useRouter: () => ({ back: mockBack, push: jest.fn() }),
 }));
 
+// Mutable so the #494 aria-label tests can give the library real names; every
+// other test runs against the empty library (labels fall back to generic).
+let mockExerciseLibrary: Array<Record<string, unknown>> = [];
 jest.mock("@/lib/gc-fitness/exercises-listener", () => ({
   useExercisesQuery: () => ({
-    data: [],
+    data: mockExerciseLibrary,
     isLoading: false,
     error: null,
     hasSnapshot: true,
@@ -140,6 +143,7 @@ async function retype(
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockExerciseLibrary = [];
   window.localStorage.clear();
   jest.spyOn(console, "log").mockImplementation(() => {});
   jest.spyOn(console, "warn").mockImplementation(() => {});
@@ -189,16 +193,77 @@ describe("TemplateForm editing — exercise list (step 2 controls)", () => {
     expect(payload.exercises.map((e) => e.exerciseId)).toEqual(["a", "c", "b"]);
   });
 
-  it("Remove drops exactly that exercise", async () => {
+  it("Remove drops exactly that exercise — after confirming (#494)", async () => {
     const user = userEvent.setup();
     const { onSubmit } = renderForm(three());
     await goToDetails(user);
     await user.click(screen.getAllByRole("button", { name: "Remove exercise" })[1]);
+    const confirm = await screen.findByRole("alertdialog");
+    expect(within(confirm).getByText("Remove this exercise?")).toBeInTheDocument();
+    await user.click(within(confirm).getByRole("button", { name: "Remove" }));
     const payload = await save(user, onSubmit);
     expect(payload.exercises.map((e) => [e.exerciseId, e.order])).toEqual([
       ["a", 1],
       ["c", 2],
     ]);
+  });
+});
+
+describe("TemplateForm editing — icon buttons are labelled and remove confirms (#494)", () => {
+  const named = () =>
+    defaults([exercise({ exerciseId: "a" }), exercise({ exerciseId: "b" })]);
+
+  beforeEach(() => {
+    mockExerciseLibrary = [
+      { id: "a", name: { en: "Bench Press", es: "Press de banca" }, metric: "reps", muscleGroups: ["chest"] },
+      { id: "b", name: { en: "Squat", es: "Sentadilla" }, metric: "reps", muscleGroups: ["quads"] },
+    ];
+  });
+
+  it("step 2: move / remove buttons carry the exercise name and are keyboard-reachable", async () => {
+    const user = userEvent.setup();
+    renderForm(named());
+    await goToDetails(user);
+
+    const up = screen.getByRole("button", { name: "Move Squat up" });
+    const down = screen.getByRole("button", { name: "Move Bench Press down" });
+    const remove = screen.getByRole("button", { name: "Remove Squat" });
+    for (const el of [up, down, remove]) {
+      // tabIndex -1 used to take them out of the tab order entirely.
+      expect(el).not.toHaveAttribute("tabindex", "-1");
+    }
+  });
+
+  it("step 1: the same icon buttons are labelled too", () => {
+    renderForm(named());
+    expect(screen.getByRole("button", { name: "Move Bench Press down" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove Bench Press" })).toBeInTheDocument();
+  });
+
+  it("cancelling the confirmation keeps the exercise", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderForm(named());
+    await goToDetails(user);
+
+    await user.click(screen.getByRole("button", { name: "Remove Squat" }));
+    const confirm = await screen.findByRole("alertdialog");
+    expect(within(confirm).getByText(/Squat and its sets will be removed/)).toBeInTheDocument();
+    await user.click(within(confirm).getByRole("button", { name: "Keep it" }));
+
+    const payload = await save(user, onSubmit);
+    expect(payload.exercises.map((e) => e.exerciseId)).toEqual(["a", "b"]);
+  });
+
+  it("step 1 remove also asks before dropping a picked exercise", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderForm(named());
+
+    await user.click(screen.getByRole("button", { name: "Remove Bench Press" }));
+    const confirm = await screen.findByRole("alertdialog");
+    await user.click(within(confirm).getByRole("button", { name: "Remove" }));
+
+    const payload = await save(user, onSubmit);
+    expect(payload.exercises.map((e) => e.exerciseId)).toEqual(["b"]);
   });
 });
 

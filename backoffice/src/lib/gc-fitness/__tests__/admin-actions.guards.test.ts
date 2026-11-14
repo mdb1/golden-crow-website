@@ -33,6 +33,7 @@ const mockAuth = {
   setCustomUserClaims: jest.fn(async () => undefined),
   deleteUser: jest.fn(async () => undefined),
   updateUser: jest.fn(async () => undefined),
+  revokeRefreshTokens: jest.fn(async () => undefined),
 };
 jest.mock("@/lib/firebase/gc-fitness-admin", () => ({
   gcFitnessFirestore: () => mockDb.current,
@@ -140,6 +141,7 @@ function expectNoMutation() {
   expect(mockAuth.setCustomUserClaims).not.toHaveBeenCalled();
   expect(mockAuth.deleteUser).not.toHaveBeenCalled();
   expect(mockAuth.updateUser).not.toHaveBeenCalled();
+  expect(mockAuth.revokeRefreshTokens).not.toHaveBeenCalled();
 }
 
 // ── 1. Admin gate on every exported action ───────────────────────────────────
@@ -526,6 +528,8 @@ describe("deactivateClientForCoach", () => {
       },
     });
     expect(mockAuth.updateUser).toHaveBeenCalledWith(CLIENT_A, { disabled: true });
+    // #482 — the sessions it already has die with it.
+    expect(mockAuth.revokeRefreshTokens).toHaveBeenCalledWith(CLIENT_A);
     expect(db.writesTo("admin_operations/")[0].data).toMatchObject({
       targetUid: CLIENT_A,
       summary: { action: "deactivate_client", coachUid: COACH_A },
@@ -535,6 +539,14 @@ describe("deactivateClientForCoach", () => {
   it("still succeeds when disabling the Auth user fails (fail-soft)", async () => {
     mockAuth.updateUser.mockRejectedValueOnce(new Error("auth down"));
     await expect(deactivateClientForCoach({ coachUid: COACH_A, clientUid: CLIENT_A })).resolves.toEqual({ ok: true });
+  });
+
+  it("#482 still succeeds (and logs) when revoking the sessions fails", async () => {
+    const error = jest.spyOn(console, "error").mockImplementation(() => {});
+    mockAuth.revokeRefreshTokens.mockRejectedValueOnce(new Error("auth down"));
+    await expect(deactivateClientForCoach({ coachUid: COACH_A, clientUid: CLIENT_A })).resolves.toEqual({ ok: true });
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
   });
 });
 
@@ -591,6 +603,8 @@ describe("transferClientToCoach — guards", () => {
       coachId: COACH_B,
       extra: 1,
     });
+    // #482 — a client changing coach keeps their app session.
+    expect(mockAuth.revokeRefreshTokens).not.toHaveBeenCalled();
     expect(db.writesTo("admin_operations/")[0].data).toMatchObject({
       kind: "transfer_client",
       summary: { fromCoachId: COACH_A, toCoachId: COACH_B },
@@ -643,10 +657,24 @@ describe("unlinkClientFromCoach", () => {
     // chat history kept
     expect(db.all("chats/client-A1/messages")).toEqual({ m1: { text: "hi" } });
     expect(mockAuth.setCustomUserClaims).toHaveBeenCalledWith(CLIENT_A, { role: "client", extra: 1 });
+    expect(mockAuth.revokeRefreshTokens).not.toHaveBeenCalled();
     expect(db.writesTo("admin_operations/")[0].data).toMatchObject({
       kind: "unlink_client",
       summary: { action: "unlink_client", fromCoachId: COACH_A },
     });
+  });
+
+  it("#482 revokes the sessions when the rewrite takes a stale trainer claim away", async () => {
+    // Doc says client, Auth claims still say trainer (a divergence): the
+    // claim rewrite to `role: "client"` demotes them — their backoffice
+    // cookie must not outlive it.
+    mockAuth.getUser.mockImplementation(async (uid: string) => ({
+      uid,
+      customClaims: { role: "trainer", coachId: COACH_A },
+    }));
+    await unlinkClientFromCoach({ coachUid: COACH_A, clientUid: CLIENT_A });
+    expect(mockAuth.setCustomUserClaims).toHaveBeenCalledWith(CLIENT_A, { role: "client" });
+    expect(mockAuth.revokeRefreshTokens).toHaveBeenCalledWith(CLIENT_A);
   });
 });
 
@@ -772,8 +800,8 @@ describe("admin dashboard readers", () => {
     );
     const rows = await listCoachesForAdmin();
     expect(rows).toEqual([
-      { uid: COACH_A, email: "a@coach.com", displayName: "Coach A", roles: ["trainer", "admin"], clientsCount: 1, customWorkoutsCount: 1, customExercisesCount: 1 },
-      { uid: COACH_B, email: "b@coach.com", displayName: "", roles: [], clientsCount: 1, customWorkoutsCount: 0, customExercisesCount: 0 },
+      { uid: COACH_A, email: "a@coach.com", displayName: "Coach A", roles: ["trainer", "admin"], clientsCount: 1, customWorkoutsCount: 1, customExercisesCount: 1, coachDisabled: false },
+      { uid: COACH_B, email: "b@coach.com", displayName: "", roles: [], clientsCount: 1, customWorkoutsCount: 0, customExercisesCount: 0, coachDisabled: false },
     ]);
   });
 

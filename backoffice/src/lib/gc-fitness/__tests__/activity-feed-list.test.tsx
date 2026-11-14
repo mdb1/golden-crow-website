@@ -71,7 +71,7 @@ describe("ActivityFeedList", () => {
     );
 
     // 01:30Z del 1/8 = 22:30 del 31/7 en Buenos Aires ⇒ va bajo "Hoy · 2026-07-31".
-    expect(screen.getByText(/Hoy · 2026-07-31/)).toBeInTheDocument();
+    expect(screen.getByText(/Today · 2026-07-31/)).toBeInTheDocument();
     expect(screen.queryByText(/2026-08-01/)).not.toBeInTheDocument();
   });
 
@@ -105,7 +105,7 @@ describe("ActivityFeedList", () => {
     render(
       <ActivityFeedList events={[event({ id: "e1", subject: null })]} today="2026-07-31" />,
     );
-    expect(screen.getByRole("link", { name: "ver detalle" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "view detail" })).toBeInTheDocument();
   });
 
   it("groups by UTC day with Hoy / Ayer headers", () => {
@@ -119,8 +119,8 @@ describe("ActivityFeedList", () => {
         today="2026-07-31"
       />,
     );
-    expect(screen.getByText(/Hoy · 2026-07-31/)).toBeInTheDocument();
-    expect(screen.getByText(/Ayer · 2026-07-30/)).toBeInTheDocument();
+    expect(screen.getByText(/Today · 2026-07-31/)).toBeInTheDocument();
+    expect(screen.getByText(/Yesterday · 2026-07-30/)).toBeInTheDocument();
     expect(screen.getByText("2026-07-28")).toBeInTheDocument();
   });
 

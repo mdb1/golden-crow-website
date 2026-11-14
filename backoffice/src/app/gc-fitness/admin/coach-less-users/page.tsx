@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/gc-fitness/page-header";
@@ -35,7 +36,9 @@ export default async function CoachlessUsersPage({
   const sp = await searchParams;
   const op = typeof sp.op === "string" ? sp.op : null;
   const ok = sp.ok === "1";
-  const actionMessage = op && ok ? `Action completed: ${op}.` : null;
+  const t = await getTranslations("admin.coachless");
+  const tc = await getTranslations("admin.common");
+  const actionMessage = op && ok ? tc("actionCompleted", { op }) : null;
 
   const [rows, coaches] = await Promise.all([
     listCoachlessUsersWithStats(),
@@ -45,14 +48,14 @@ export default async function CoachlessUsersPage({
   return (
     <div className="gc-page flex flex-col gap-6">
       <PageHeader
-        title="Coach-less users"
-        subtitle="Self-serve clients with no coach — subscription status, content stats, and god-mode actions (grant/revoke premium, delete). Search and sort the list; click a name to open their full profile."
+        title={t("title")}
+        subtitle={t("subtitle")}
       />
 
       <Button asChild variant="outline" size="sm" className="self-start rounded-full">
         <Link href="/gc-fitness/admin">
           <ArrowLeft className="h-4 w-4" />
-          Back to admin
+          {tc("backToAdmin")}
         </Link>
       </Button>
 
