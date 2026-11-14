@@ -186,7 +186,8 @@ export function ChatConversation({
     markChatReadForTrainer(chatId)
       .then(() => {
         if (cancelled) return;
-        void queryClient.invalidateQueries({ queryKey: CHATS_BASE_KEY });
+        // #501 — exact: a prefix match would also reload every page of the thread.
+        void queryClient.invalidateQueries({ queryKey: CHATS_BASE_KEY, exact: true });
       })
       .catch((err) => {
         console.warn(`[chat] markChatReadForTrainer failed for ${chatId}`, err);
@@ -383,7 +384,7 @@ export function ChatConversation({
                     void queryClient.invalidateQueries({
                       queryKey: [...CHATS_BASE_KEY, chatId, "messages", "infinite"],
                     });
-                    void queryClient.invalidateQueries({ queryKey: CHATS_BASE_KEY });
+                    void queryClient.invalidateQueries({ queryKey: CHATS_BASE_KEY, exact: true });
                   }}
                   onReacted={() => {
                     void queryClient.invalidateQueries({
