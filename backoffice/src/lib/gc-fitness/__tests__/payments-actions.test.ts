@@ -384,6 +384,39 @@ describe("recordClientPayment", () => {
     expect(fake.doc(BILLING)).toMatchObject({ nextDueCivil: null, lastPaymentCivil: "2026-11-11" });
   });
 
+  it("#487: dos pagos concurrentes corren el vencimiento DOS veces (ninguno pisa al otro)", async () => {
+    const [a, b] = await Promise.all([recordClientPayment(input()), recordClientPayment(input())]);
+    expect(a.ok && b.ok).toBe(true);
+    expect(fake.db.transactionRetries).toBeGreaterThan(0);
+    // 2026-11-10 + 1 mes + 1 mes. Con el read → batch viejo quedaba en 2026-12-10.
+    expect(fake.doc(BILLING)).toMatchObject({ nextDueCivil: "2027-01-10" });
+    expect([...fake.db.docs.keys()].filter((k) => k.startsWith("client_payments/"))).toHaveLength(2);
+  });
+
+  it("#487: el mismo requestId registra el pago UNA vez (reintento / doble submit)", async () => {
+    const key = "3f2b8c1e-7a4d-4b9e-9c0a-1d2e3f4a5b6c";
+    const first = await recordClientPayment(input({ requestId: key }));
+    const again = await recordClientPayment(input({ requestId: key }));
+    expect(first).toEqual({ ok: true, id: `${COACH}_${key}` });
+    expect(again).toEqual(first);
+    expect([...fake.db.docs.keys()].filter((k) => k.startsWith("client_payments/"))).toEqual([
+      `client_payments/${COACH}_${key}`,
+    ]);
+    expect(fake.doc(BILLING)).toMatchObject({ nextDueCivil: "2026-12-10" });
+    // Concurrent duplicates also collapse to one.
+    const k2 = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    await Promise.all([recordClientPayment(input({ requestId: k2 })), recordClientPayment(input({ requestId: k2 }))]);
+    expect([...fake.db.docs.keys()].filter((k) => k.startsWith("client_payments/"))).toHaveLength(2);
+    expect(fake.doc(BILLING)).toMatchObject({ nextDueCivil: "2027-01-10" });
+    // The key is never written into the doc (same shape the apps write).
+    expect(fake.doc(`client_payments/${COACH}_${key}`)).not.toHaveProperty("requestId");
+  });
+
+  it("#487: un requestId mal formado se rechaza sin escribir", async () => {
+    await expect(recordClientPayment(input({ requestId: "../x" }))).resolves.toMatchObject({ ok: false });
+    expect(fake.db.writes).toEqual([]);
+  });
+
   it("rechaza monto ≤ 0, medio inválido y un alumno ajeno sin escribir", async () => {
     await expect(recordClientPayment(input({ amount: 0 }))).resolves.toMatchObject({ ok: false });
     await expect(recordClientPayment(input({ method: "bitcoin" }))).resolves.toMatchObject({ ok: false });
@@ -481,6 +514,17 @@ describe("billing por alumno", () => {
   it("descontar clase nunca baja de cero", async () => {
     await expect(consumeClientClass({ clientId: "client-1" })).resolves.toEqual({ ok: true, classesRemaining: 0 });
     await expect(consumeClientClass({ clientId: "client-1" })).resolves.toEqual({ ok: true, classesRemaining: 0 });
+  });
+
+  it("#487: dos «descontar clase» concurrentes descuentan DOS clases", async () => {
+    fake.seed({ [BILLING]: { ...fake.doc(BILLING), classesRemaining: 5 } });
+    const results = await Promise.all([
+      consumeClientClass({ clientId: "client-1" }),
+      consumeClientClass({ clientId: "client-1" }),
+    ]);
+    // Con el get → update viejo las dos leían 5 y escribían 4.
+    expect(fake.doc(BILLING)).toMatchObject({ classesRemaining: 3 });
+    expect(results.map((r) => (r.ok ? r.classesRemaining : null)).sort()).toEqual([3, 4]);
   });
 
   it("la corrección a mano escribe sólo vencimiento/saldo/aviso", async () => {
