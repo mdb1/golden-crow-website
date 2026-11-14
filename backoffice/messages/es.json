@@ -2661,7 +2661,30 @@
       "note": "Nota",
       "device": "App",
       "open": "Ver contexto",
-      "empty": "No hay respuestas reportadas."
+      "empty": "No hay respuestas reportadas.",
+      "state": "Estado",
+      "states": {
+        "all": "Todos",
+        "new": "Nuevos",
+        "reviewed": "Revisados",
+        "resolved": "Resueltos"
+      },
+      "filterLabel": "Filtrar por estado",
+      "countsUnavailable": "No se pudieron contar los reportes.",
+      "emptyFiltered": "No hay reportes en este estado.",
+      "triageNote": "Nota interna",
+      "triage": {
+        "title": "Triage",
+        "help": "El estado y la nota son internos: el usuario nunca los ve.",
+        "statusLabel": "Estado",
+        "noteLabel": "Nota interna",
+        "notePlaceholder": "Qué se revisó, qué se hizo…",
+        "save": "Guardar",
+        "saving": "Guardando…",
+        "saved": "Guardado",
+        "error": "No se pudo guardar: {error}",
+        "lastUpdate": "Última actualización: {time}"
+      }
     },
     "reasons": {
       "incorrect": "Incorrecta",

@@ -2661,7 +2661,30 @@
       "note": "Note",
       "device": "App",
       "open": "View context",
-      "empty": "No reported replies."
+      "empty": "No reported replies.",
+      "state": "Status",
+      "states": {
+        "all": "All",
+        "new": "New",
+        "reviewed": "Reviewed",
+        "resolved": "Resolved"
+      },
+      "filterLabel": "Filter by status",
+      "countsUnavailable": "Couldn't count the reports.",
+      "emptyFiltered": "No reports in this status.",
+      "triageNote": "Internal note",
+      "triage": {
+        "title": "Triage",
+        "help": "The status and note are internal: the user never sees them.",
+        "statusLabel": "Status",
+        "noteLabel": "Internal note",
+        "notePlaceholder": "What was checked, what was done…",
+        "save": "Save",
+        "saving": "Saving…",
+        "saved": "Saved",
+        "error": "Couldn't save: {error}",
+        "lastUpdate": "Last update: {time}"
+      }
     },
     "reasons": {
       "incorrect": "Incorrect",

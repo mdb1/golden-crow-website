@@ -132,7 +132,7 @@ export function corvoReportHref(row: Pick<ReportRow, "uid" | "messageId">): stri
   return `/gc-fitness/admin/corvo/reports/${encodeURIComponent(row.uid)}/${encodeURIComponent(row.messageId)}`;
 }
 
-export function CorvoReportsTable({ rows }: { rows: ReportRow[] }) {
+export function CorvoReportsTable({ rows, emptyText }: { rows: ReportRow[]; emptyText?: string }) {
   const t = useTranslations("corvoAdmin.reports");
   const tReason = useTranslations("corvoAdmin.reasons");
   return (
@@ -141,6 +141,7 @@ export function CorvoReportsTable({ rows }: { rows: ReportRow[] }) {
         <TableHeader>
           <TableRow>
             <TableHead>{t("date")}</TableHead>
+            <TableHead>{t("state")}</TableHead>
             <TableHead>{t("user")}</TableHead>
             <TableHead>{t("reason")}</TableHead>
             <TableHead>{t("note")}</TableHead>
@@ -150,12 +151,25 @@ export function CorvoReportsTable({ rows }: { rows: ReportRow[] }) {
         </TableHeader>
         <TableBody>
           {rows.length === 0 ? (
-            <EmptyRow colSpan={6} text={t("empty")} />
+            <EmptyRow colSpan={7} text={emptyText ?? t("empty")} />
           ) : (
             rows.map((row) => (
               <TableRow key={`${row.uid}/${row.messageId}`} data-testid={`report-${row.messageId}`}>
                 <TableCell className="whitespace-nowrap text-xs tabular-nums">
                   {row.createdAtISO ? row.createdAtISO.slice(0, 16).replace("T", " ") : "—"}
+                </TableCell>
+                <TableCell data-testid={`report-state-${row.messageId}`}>
+                  <span className="whitespace-nowrap rounded-full border px-2 py-0.5 text-xs">
+                    {t(`states.${row.triage?.status ?? "new"}`)}
+                  </span>
+                  {row.triage?.note ? (
+                    <p
+                      className="mt-1 max-w-[14rem] truncate text-xs text-muted-foreground"
+                      title={row.triage.note}
+                    >
+                      {t("triageNote")}: {row.triage.note}
+                    </p>
+                  ) : null}
                 </TableCell>
                 <TableCell>
                   <div className="font-medium">{row.email ?? "—"}</div>

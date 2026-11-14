@@ -26,6 +26,11 @@ import {
   usageChartPoints,
 } from "@/lib/gc-fitness/ai-coach-admin-model";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
+import {
+  REPORT_STATE_FILTERS,
+  parseReportStateFilter,
+} from "@/lib/gc-fitness/ai-coach-report-triage";
+import { cn } from "@/lib/utils";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
 import { CorvoAcceptanceTable, CorvoNearQuotaTable, CorvoReportsTable } from "./_components/CorvoTables";
@@ -45,7 +50,11 @@ function Stat({ label, value, detail }: { label: string; value: string; detail?:
   );
 }
 
-export default async function CorvoAdminPage() {
+export default async function CorvoAdminPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   try {
     await getCurrentAdmin();
   } catch (err) {
@@ -57,7 +66,9 @@ export default async function CorvoAdminPage() {
   const t = await getTranslations("corvoAdmin");
   let dashboard: CorvoDashboard;
   try {
-    dashboard = await loadCorvoDashboard();
+    // #504 — `?reports=new|reviewed|resolved|all`; the default is the queue: "new".
+    const sp = (await searchParams) ?? {};
+    dashboard = await loadCorvoDashboard({ reportState: parseReportStateFilter(sp.reports) });
   } catch (err) {
     const message = err instanceof Error ? err.message : "";
     if (message === "Forbidden") redirect("/gc-fitness/forbidden");
@@ -213,7 +224,37 @@ export default async function CorvoAdminPage() {
           <CardDescription>{t("reports.subtitle")}</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          {sectionBody(dashboard.reports, (rows) => <CorvoReportsTable rows={rows} />)}
+          {sectionBody(dashboard.reports, ({ filter, rows, counts }) => (
+            <>
+              <nav
+                aria-label={t("reports.filterLabel")}
+                className="flex flex-wrap gap-2 px-6 pb-3"
+                data-testid="corvo-report-filters"
+              >
+                {REPORT_STATE_FILTERS.map((value) => (
+                  <Link
+                    key={value}
+                    href={`/gc-fitness/admin/corvo?reports=${value}`}
+                    aria-current={value === filter ? "page" : undefined}
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-sm",
+                      value === filter ? "border-primary bg-primary text-primary-foreground" : "hover:bg-accent",
+                    )}
+                  >
+                    {t(`reports.states.${value}`)}
+                    {counts ? <span className="ml-1 tabular-nums opacity-80">{counts[value]}</span> : null}
+                  </Link>
+                ))}
+                {counts ? null : (
+                  <span className="text-xs text-muted-foreground">{t("reports.countsUnavailable")}</span>
+                )}
+              </nav>
+              <CorvoReportsTable
+                rows={rows}
+                emptyText={filter === "all" ? undefined : t("reports.emptyFiltered")}
+              />
+            </>
+          ))}
         </CardContent>
       </Card>
     </div>
