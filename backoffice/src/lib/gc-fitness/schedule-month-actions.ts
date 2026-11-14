@@ -41,11 +41,32 @@ import type { HabitType } from "./habit-schema";
 // set_type-only warmup must be skipped like an is_warmup one).
 import { effectiveSetType } from "./set-type";
 import { effectiveIsoWeekdays } from "./habit-schedule";
+import { chunkList, mapInBatches } from "./map-in-batches";
 
 const ASSIGNMENTS = FirestoreCollections.workoutAssignments;
 const LOGS = FirestoreCollections.workoutLogs;
 const HABITS = FirestoreCollections.habits;
 const HABIT_LOGS = FirestoreCollections.habitLogs;
+/** Firestore's ceiling on the values of one `in` filter. */
+const FIRESTORE_IN_LIMIT = 30;
+/** #485: upper bound on the clients one calendar load reads (abuse backstop,
+ *  well above any real roster's "Select all"). */
+const MAX_CALENDAR_CLIENTS = 500;
+
+function timestampMs(raw: unknown): number {
+  if (raw && typeof (raw as { toMillis?: () => number }).toMillis === "function") {
+    return (raw as { toMillis: () => number }).toMillis();
+  }
+  if (raw && typeof (raw as { toDate?: () => Date }).toDate === "function") {
+    return (raw as { toDate: () => Date }).toDate().getTime();
+  }
+  if (raw instanceof Date) return raw.getTime();
+  if (typeof raw === "string") {
+    const ms = Date.parse(raw);
+    return Number.isNaN(ms) ? 0 : ms;
+  }
+  return 0;
+}
 
 export interface MonthWorkoutChip {
   id: string;
@@ -734,8 +755,9 @@ export async function listMonthForClients(
   // getAssignmentDetail make). Foreign / unknown ids are DROPPED rather than
   // thrown: the page passes its roster ids, and one client that just moved to
   // another coach must not break the whole calendar. Point reads, not getAll
-  // (getAll fails silently on Vercel). Deduped + capped at the same 30 the
-  // loader's IN query takes, so the read fan-out stays bounded.
+  // (getAll fails silently on Vercel). Deduped + capped at
+  // MAX_CALENDAR_CLIENTS (#485: was 30, which made "Select all" show N/N
+  // chips while loading only 30 clients), so the read fan-out stays bounded.
   const clientIds = await filterClientIdsOnRoster(trainer.uid, input.clientIds);
   return loadMonthForClients({ ...input, clientIds, viewerUid: trainer.uid });
 }
@@ -750,15 +772,13 @@ async function filterClientIdsOnRoster(
         (id): id is string => typeof id === "string" && id.trim().length > 0,
       ),
     ),
-  ).slice(0, 30);
+  ).slice(0, MAX_CALENDAR_CLIENTS);
   if (candidates.length === 0) return [];
   const users = gcFitnessFirestore().collection(FirestoreCollections.users);
-  const owned = await Promise.all(
-    candidates.map(async (id) => {
-      const snap = await users.doc(id).get();
-      return snap.exists && snap.get("coachId") === trainerUid;
-    }),
-  );
+  const owned = await mapInBatches(candidates, 50, async (id) => {
+    const snap = await users.doc(id).get();
+    return snap.exists && snap.get("coachId") === trainerUid;
+  });
   return candidates.filter((_, i) => owned[i]);
 }
 
@@ -832,9 +852,18 @@ async function loadMonthForClients(
     return { monthStart, monthEnd, workoutsByDay: {}, habitsByDay: {} };
   }
 
-  // Firestore IN supports max 30 values; trainers with > 30 active filter
-  // chips at once is hypothetical — cap defensively.
-  const clientIds = input.clientIds.slice(0, 30);
+  // #485: Firestore `in` takes at most 30 values, so every `clientId in`
+  // query below runs ONCE PER CHUNK of 30 ids and the docs are merged. The
+  // old `slice(0, 30)` dropped clients 31+ silently: "Select all" showed N/N
+  // chips selected and the calendar rendered the 31st onward empty.
+  const clientIds = input.clientIds.slice(0, MAX_CALENDAR_CLIENTS);
+  const idChunks = chunkList(clientIds, FIRESTORE_IN_LIMIT);
+  const inChunks = async (
+    build: (ids: string[]) => FirebaseFirestore.Query,
+  ): Promise<FirebaseFirestore.QueryDocumentSnapshot[]> => {
+    const snaps = await Promise.all(idChunks.map((ids) => build(ids).get()));
+    return snaps.flatMap((snap) => snap.docs);
+  };
 
   // Pull every assignment in the month for the requested clients.
   // Composite index used: (clientId ASC, scheduledFor ASC) — already
@@ -845,23 +874,26 @@ async function loadMonthForClients(
   // apply here — this is the Admin SDK. Adding `trainerId ==` here would
   // require a third-axis composite (trainerId, clientId, scheduledFor) for
   // no gain.
-  const [assignSnap, logSnap, habitSnap] = await Promise.all([
-    db
-      .collection(ASSIGNMENTS)
-      .where("clientId", "in", clientIds)
-      .where("scheduledFor", ">=", monthStart)
-      .where("scheduledFor", "<=", monthEnd)
-      .get(),
+  const [assignDocs, logDocsUnsorted, habitDocs] = await Promise.all([
+    inChunks((ids) =>
+      db
+        .collection(ASSIGNMENTS)
+        .where("clientId", "in", ids)
+        .where("scheduledFor", ">=", monthStart)
+        .where("scheduledFor", "<=", monthEnd),
+    ),
     // Same reasoning as the assignments query above: clientIds are roster-
     // scoped on the caller and rules enforce ownership, so the redundant
     // trainerId equality (which would require a new composite index) is
     // dropped. Index used: (clientId, startedAt DESC).
-    db
-      .collection(LOGS)
-      .where("clientId", "in", clientIds)
-      .orderBy("startedAt", "desc")
-      .limit(200)
-      .get(),
+    // limit(200) applies per chunk; the merged docs are re-sorted below.
+    inChunks((ids) =>
+      db
+        .collection(LOGS)
+        .where("clientId", "in", ids)
+        .orderBy("startedAt", "desc")
+        .limit(200),
+    ),
     // Issue #437: do NOT add `.where("deleted", "==", false)` here. A Firestore
     // equality filter only matches docs where the field EXISTS — and
     // client-created habits (issue #400) are created WITHOUT a `deleted` field
@@ -870,8 +902,13 @@ async function loadMonthForClients(
     // `deleted === true` in memory below instead. `clientId in` also captures
     // client-created habits, whose `trainerId` is the client's own uid (not the
     // coach's), so no trainerId filter is used here either.
-    db.collection(HABITS).where("clientId", "in", clientIds).get(),
+    inChunks((ids) => db.collection(HABITS).where("clientId", "in", ids)),
   ]);
+  // Each chunk came back newest-first; restore ONE global newest-first order
+  // so "first log seen per assignment" means the same as with a single query.
+  const logDocs = [...logDocsUnsorted].sort(
+    (a, b) => timestampMs(b.get("startedAt")) - timestampMs(a.get("startedAt")),
+  );
 
   // Build an assignmentId → log status map for the assignment status flip.
   //
@@ -888,7 +925,7 @@ async function loadMonthForClients(
   // libre"), so this is the only thing that can answer "¿qué fue eso?" without
   // opening it.
   const loggedByAssignment = new Map<string, MonthWorkoutLoggedSummary>();
-  for (const doc of logSnap.docs) {
+  for (const doc of logDocs) {
     const data = doc.data() as {
       assignmentId?: string;
       status?: string;
@@ -904,7 +941,7 @@ async function loadMonthForClients(
   }
 
   const workoutsByDay: Record<string, MonthWorkoutChip[]> = {};
-  for (const doc of assignSnap.docs) {
+  for (const doc of assignDocs) {
     const data = doc.data() as {
       trainerId?: string;
       clientId?: string;
@@ -993,7 +1030,7 @@ async function loadMonthForClients(
     string,
     { name: string; type: HabitType; targetValue: number | undefined; clientOwned: boolean; inherited: boolean }
   >();
-  for (const doc of habitSnap.docs) {
+  for (const doc of habitDocs) {
     const data = doc.data() as Record<string, unknown>;
     const clientId = typeof data.clientId === "string" ? data.clientId : "";
     if (!clientId) continue;
@@ -1031,13 +1068,14 @@ async function loadMonthForClients(
   // error (same degrade as the old per-habit try/catch).
   const logByCivilByHabit = new Map<string, Map<string, HabitLogRow>>();
   try {
-    const monthHabitLogsSnap = await db
-      .collection(HABIT_LOGS)
-      .where("clientId", "in", clientIds)
-      .where("civilDate", ">=", monthStart)
-      .where("civilDate", "<=", monthEnd)
-      .get();
-    for (const ldoc of monthHabitLogsSnap.docs) {
+    const monthHabitLogDocs = await inChunks((ids) =>
+      db
+        .collection(HABIT_LOGS)
+        .where("clientId", "in", ids)
+        .where("civilDate", ">=", monthStart)
+        .where("civilDate", "<=", monthEnd),
+    );
+    for (const ldoc of monthHabitLogDocs) {
       const data = ldoc.data() as Record<string, unknown>;
       const habitId = typeof data.habitId === "string" ? data.habitId : "";
       const civil = typeof data.civilDate === "string" ? data.civilDate : "";
