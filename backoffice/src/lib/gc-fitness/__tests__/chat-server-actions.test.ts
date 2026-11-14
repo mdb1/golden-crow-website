@@ -463,23 +463,51 @@ describe("setTrainerMessageReaction", () => {
 });
 
 describe("listChatsForTrainer", () => {
-  it("scopes the query to coachId == session.uid and never returns another coach's chat", async () => {
+  it("scopes the query to coachId == session.uid, ORDERED by lastMessageAt desc (#486), never another coach's chat", async () => {
+    fake.seed({
+      "chats/client-1": { coachId: COACH, clientId: "client-1", lastMessageAt: ts("2026-10-01T10:00:00Z") },
+      "chats/client-2": { coachId: OTHER, clientId: "client-2", lastMessageAt: ts("2026-10-02T10:00:00Z") },
+    });
     const rows = await listChatsForTrainer();
+    expect(fake.db.queries).toHaveLength(1);
     expect(fake.db.queries[0]).toMatchObject({
       path: "chats",
       filters: [["coachId", "==", COACH]],
+      orders: [["lastMessageAt", "desc"]],
       limit: 200,
     });
     expect(rows.map((r) => r.id)).toEqual(["client-1"]);
   });
 
-  it("projects denorm, merges legacy unreadCount keys, falls back to the latest message, sorts desc", async () => {
+  it("#486: with more than 200 chats the 200 NEWEST come back, and no per-chat message query runs", async () => {
+    const seed: Record<string, Record<string, unknown>> = {};
+    for (let i = 0; i < 230; i += 1) {
+      const day = new Date(Date.UTC(2026, 0, 1) + i * 3600_000).toISOString();
+      // Seeded oldest-first so an unordered read would return the OLDEST 200.
+      seed[`chats/c${String(i).padStart(3, "0")}`] = {
+        coachId: COACH,
+        lastMessageAt: ts(day),
+        lastMessage: { kind: "text", text: `m${i}`, senderId: "x", createdAt: ts(day) },
+      };
+    }
+    fake.seed(seed);
+    const rows = await listChatsForTrainer();
+    expect(rows).toHaveLength(200);
+    expect(rows[0].id).toBe("c229");
+    expect(rows.map((r) => r.id)).not.toContain("c029");
+    expect(rows.map((r) => r.id)).toContain("c030");
+    expect(fake.db.queries).toHaveLength(1);
+  });
+
+  it("projects denorm, merges legacy unreadCount keys, sorts desc; a chat without lastMessageAt is left to the roster fill", async () => {
     fake.seed({
       "chats/client-1": {
         coachId: COACH,
         "unreadCount.coach-A": 2,
         "unreadCount.": 9,
         unreadCount: { "client-1": 1, bad: "x" },
+        lastMessage: { text: "hi", senderId: "client-1", createdAt: ts("2026-10-01T10:00:00Z"), kind: "text" },
+        lastMessageAt: ts("2026-10-01T10:00:00Z"),
       },
       "chats/c-new": {
         coachId: COACH,
@@ -489,10 +517,11 @@ describe("listChatsForTrainer", () => {
         createdAt: "2026-09-01T00:00:00.000Z",
         updatedAt: new Date("2026-10-03T00:00:00Z"),
       },
-      "chats/c-empty": { coachId: COACH, lastMessage: { kind: "sticker", createdAt: ts("2026-01-01T00:00:00Z") } },
+      // Provisioned chat, no message yet: no lastMessageAt → not in the query.
+      "chats/c-empty": { coachId: COACH },
     });
     const rows = await listChatsForTrainer();
-    expect(rows.map((r) => r.id)).toEqual(["c-new", "client-1", "c-empty"]);
+    expect(rows.map((r) => r.id)).toEqual(["c-new", "client-1"]);
     expect(rows[0]).toEqual({
       id: "c-new",
       clientId: "c-new",
@@ -509,7 +538,6 @@ describe("listChatsForTrainer", () => {
       lastMessageAt: "2026-10-01T10:00:00.000Z",
       unreadCount: { "coach-A": 2, "client-1": 1 },
     });
-    expect(rows[2]).toMatchObject({ lastMessage: undefined, lastMessageAt: null, coachId: COACH });
   });
 });
 

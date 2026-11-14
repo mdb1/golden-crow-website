@@ -60,10 +60,18 @@ import {
 } from "./habit-compliance";
 import type { HabitType } from "./habit-schema";
 import { normalizeMirrorEmail } from "./email-normalization";
+import { mapInBatches } from "./map-in-batches";
+import {
+  pickLastActivityKind,
+  type LastActivityKind,
+} from "./last-activity-kind";
 import {
   clientNeedsAttention,
   type AttentionReason,
 } from "./client-attention";
+
+/** #484: clients whose per-row queries run concurrently in one wave. */
+const ROSTER_FANOUT_BATCH = 25;
 
 export interface ClientRosterEntry {
   uid: string;
@@ -108,8 +116,10 @@ export interface ClientRosterRow {
   /** True when this client was auto-attached to the default coach at sign-up
    *  (no user_mirror). Drives the "NEW" roster badge + new-clients notification. */
   autoAssignedCoach: boolean;
-  /** ISO-8601 of the most recent activity across workout/habit/chat — or null if no activity. */
+  /** ISO-8601 of the most recent activity across workout/habit/photo — or null if no activity. */
   lastActivityAt: string | null;
+  /** #488: which surface `lastActivityAt` came from (null iff no activity). */
+  lastActivityKind: LastActivityKind | null;
   /** Compliance ratio in [0, 1] averaged across this client's habits over the last 7 days. */
   thisWeekComplianceRatio: number;
   /** Unread chat messages for this trainer reading this client's thread. */
@@ -411,7 +421,12 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
   const activeEmails = new Set(
     base.map((client) => normalizeMirrorEmail(client.email)).filter(Boolean),
   );
-  const activeClients = base.slice(0, 50);
+  // #484: NO cap. The old `base.slice(0, 50)` silently dropped every client
+  // past the 50th alphabetically from /clients, the dashboard KPIs and the
+  // "needs attention" list. The per-client fan-out below runs in bounded
+  // waves (ROSTER_FANOUT_BATCH) instead, so a large roster costs reads in
+  // proportion to its size without a burst of 8×N concurrent queries.
+  const activeClients = base;
   const pendingClients: ClientRosterEntry[] = mirrorSnap.docs
     .reduce<ClientRosterEntry[]>((rows, doc) => {
       const data = doc.data() as {
@@ -506,8 +521,10 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
     trainerTz,
   );
 
-  const rows: ClientRosterRow[] = await Promise.all(
-    clients.map(async (c): Promise<ClientRosterRow> => {
+  const rows: ClientRosterRow[] = await mapInBatches(
+    clients,
+    ROSTER_FANOUT_BATCH,
+    async (c): Promise<ClientRosterRow> => {
       // Compute "today" in the client's timezone so the 7-day compliance
       // window aligns with the client's civil-date semantics (matches
       // habit-compliance-actions.ts). When the client has no stored tz we
@@ -685,6 +702,14 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         candidates.length > 0
           ? new Date(Math.max(...candidates.map((d) => d.getTime())))
           : null;
+      // #488: WHICH surface produced `lastActivity`, so the dashboard's
+      // "needs attention" row can say what the client last did instead of a
+      // hardcoded "No activity". Ties resolve workout → habit → photo.
+      const lastActivityKind = pickLastActivityKind({
+        workout: tsWorkout,
+        habit: tsHabit,
+        photo: tsPhoto,
+      });
 
       // chats.unreadCount[trainerUid] — read ONLY the calling trainer's
       // counter (T-11-05-CHAT-UNREAD-SPOOF mitigation: never project a
@@ -913,6 +938,7 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         pendingProvisioning: isPending,
         autoAssignedCoach: isPending ? false : c.autoAssignedCoach,
         lastActivityAt: lastActivity?.toISOString() ?? null,
+        lastActivityKind,
         thisWeekComplianceRatio,
         unreadChatCount,
         missedWorkoutsLast7Days,
@@ -927,7 +953,7 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         workoutsScheduledThisMonth,
         goalsCount,
       };
-    }),
+    },
   );
 
   // Sort: lastActivityAt DESC (ISO-8601 sorts lexicographically); nulls last;

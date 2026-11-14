@@ -64,7 +64,6 @@ import {
   FieldPath,
   FieldValue,
   type Firestore,
-  type QueryDocumentSnapshot,
 } from "firebase-admin/firestore";
 
 import {
@@ -550,34 +549,31 @@ export async function listChatsForTrainer(): Promise<ChatRow[]> {
   const session = await getCurrentTrainer();
   const db = gcFitnessFirestore();
 
+  // #486: ORDERED by lastMessageAt DESC (served by the deployed
+  // `chats (coachId ASC, lastMessageAt DESC)` index). The unordered
+  // `.limit(200)` it replaces returned an ARBITRARY 200 chats, so past 200 a
+  // coach's newest conversations could be the ones left out.
+  //
+  // A chat doc with no `lastMessageAt` (provisioned by preCreateMirror before
+  // the first message) is excluded by the orderBy — on purpose: it has no
+  // messages to preview, and ChatThreadList already fills every roster client
+  // without a row with a synthetic "start a conversation" entry (same id).
+  //
+  // The old per-chat `messages orderBy createdAt limit 1` fallback inside the
+  // loop (one extra query per chat lacking the denorm, from before the
+  // onMessageCreated denormalizer existed) is gone: every chat this query can
+  // return carries `lastMessageAt`, and `lastMessage` is written alongside it.
   const snap = await db
     .collection(CHATS)
     .where("coachId", "==", session.uid)
+    .orderBy("lastMessageAt", "desc")
     .limit(200)
     .get();
 
-  const rows = await Promise.all(snap.docs.map(async (doc) => {
+  const rows: ChatRow[] = snap.docs.map((doc) => {
     const data = doc.data();
-    let lastMessage = projectLastMessage(data.lastMessage as Parameters<typeof projectLastMessage>[0]);
-    let lastMessageAt = toIso(data.lastMessageAt);
-
-    // Local-dev fallback: Cloud Functions may not be deployed yet, so the
-    // parent chat doc can lack lastMessage/lastMessageAt even while messages
-    // exist in the subcollection. Compute a read-side preview so the inbox is
-    // usable before the denormalizer is live.
-    if (!lastMessage || !lastMessageAt) {
-      const latest = await doc.ref
-        .collection(MESSAGES)
-        .orderBy("createdAt", "desc")
-        .limit(1)
-        .get();
-      const latestDoc = latest.docs[0] as QueryDocumentSnapshot | undefined;
-      if (latestDoc) {
-        lastMessage = projectLastMessage(latestDoc.data() as Parameters<typeof projectLastMessage>[0]);
-        lastMessageAt = lastMessage?.createdAt ?? lastMessageAt;
-      }
-    }
-
+    const lastMessage = projectLastMessage(data.lastMessage as Parameters<typeof projectLastMessage>[0]);
+    const lastMessageAt = toIso(data.lastMessageAt);
     return {
       id: doc.id,
       clientId: (data.clientId as string) ?? doc.id,
@@ -588,7 +584,7 @@ export async function listChatsForTrainer(): Promise<ChatRow[]> {
       createdAt: toIso(data.createdAt),
       updatedAt: toIso(data.updatedAt),
     } satisfies ChatRow;
-  }));
+  });
 
   rows.sort((a, b) => {
     const ta = a.lastMessageAt ?? a.lastMessage?.createdAt ?? a.updatedAt ?? a.createdAt ?? "";

@@ -61,6 +61,12 @@ function initialState(billing: ClientBillingView | null, todayCivil: string) {
   };
 }
 
+function newPaymentRequestId(): string {
+  return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
 export function RecordPaymentDialog({ clientId, clientName, billing, todayCivil, open, onOpenChange }: Props) {
   const t = useTranslations("payments");
   const labels = usePaymentLabels();
@@ -68,11 +74,16 @@ export function RecordPaymentDialog({ clientId, clientName, billing, todayCivil,
   const [pending, startTransition] = useTransition();
   const [form, setForm] = useState(() => initialState(billing, todayCivil));
   const [error, setError] = useState<string | null>(null);
+  // #487: one idempotency key per dialog session — a retry after a network error or a
+  // double submit lands on the same payment doc instead of recording it twice. A new
+  // key is minted only on open and after a successful record.
+  const [requestId, setRequestId] = useState(newPaymentRequestId);
 
   function handleOpenChange(next: boolean) {
     if (next) {
       setForm(initialState(billing, todayCivil));
       setError(null);
+      setRequestId(newPaymentRequestId());
     }
     onOpenChange(next);
   }
@@ -110,11 +121,13 @@ export function RecordPaymentDialog({ clientId, clientName, billing, todayCivil,
             classes: form.coversKind === "classes" && hasCount && count > 0 ? count : null,
           },
           note: form.note,
+          requestId,
         });
         if (!result.ok) {
           setError(result.error);
           return;
         }
+        setRequestId(newPaymentRequestId());
         toast.success(t("recorded"));
         onOpenChange(false);
         router.refresh();

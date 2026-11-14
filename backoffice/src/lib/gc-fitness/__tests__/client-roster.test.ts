@@ -271,6 +271,7 @@ describe("listClientsForRoster", () => {
       pendingProvisioning: false,
       autoAssignedCoach: false,
       lastActivityAt: null,
+      lastActivityKind: null,
       thisWeekComplianceRatio: 0,
       unreadChatCount: 0,
       missedWorkoutsLast7Days: 0,
@@ -634,16 +635,31 @@ describe("listClientsForRoster", () => {
     ]);
   });
 
-  it("CURRENT: only the first 50 roster entries (alphabetical) get a row — the rest are not shown", async () => {
-    // Documented read-budget cap ("50-client cap per call"). Pinned so the
-    // limit is a visible decision: a coach with 51 clients does not see the
-    // 51st on /gc-fitness/clients, and a pending client past position 50 is
-    // dropped too (its email is in the deduplication set).
-    for (let i = 0; i < 51; i += 1) seedClient(`u${String(i).padStart(2, "0")}`);
+  it("#484: a coach with 60 clients gets a row for EVERY client (no silent 50 cap)", async () => {
+    for (let i = 0; i < 60; i += 1) seedClient(`u${String(i).padStart(2, "0")}`);
     db.seed("user_mirror/zzz@x.com", { coachId: "coach-a", email: "zzz@x.com" });
+    // The alphabetically-last active client is the one the old cap dropped.
+    db.seed("workout_logs/w-last", { clientId: "u59", startedAt: ago(HOUR) });
     const rows = await listClientsForRoster();
-    expect(rows).toHaveLength(50);
-    expect(rows.map((r) => r.uid)).not.toContain("u50");
-    expect(rows.map((r) => r.uid)).not.toContain("mirror:zzz@x.com");
+    expect(rows).toHaveLength(61);
+    const uids = rows.map((r) => r.uid);
+    expect(uids).toContain("u50");
+    expect(uids).toContain("mirror:zzz@x.com");
+    // Attention / KPIs are computed over all of them: 59 inactive, u59 active.
+    expect(rows.filter((r) => r.needsAttention)).toHaveLength(59);
+    expect(rows[0]).toMatchObject({ uid: "u59", lastActivityKind: "workout", needsAttention: false });
+  });
+
+  it("#488: lastActivityKind names the surface that produced lastActivityAt", async () => {
+    seedClient("w");
+    seedClient("h");
+    seedClient("p");
+    db.seed("workout_logs/w1", { clientId: "w", startedAt: ago(4 * DAY) });
+    db.seed("habit_logs/h-old", { clientId: "w", habitId: "x", civilDate: "2026-06-01", updatedAt: ago(10 * DAY) });
+    seedHabitLog("hl1", "h", "hh", "2026-06-12", { updatedAt: ago(5 * DAY) });
+    db.seed("progress_photos/ph1", { clientId: "p", createdAt: ago(6 * DAY) });
+    const rows = await listClientsForRoster();
+    const kind = (uid: string) => rows.find((r) => r.uid === uid)?.lastActivityKind;
+    expect([kind("w"), kind("h"), kind("p")]).toEqual(["workout", "habit", "photo"]);
   });
 });

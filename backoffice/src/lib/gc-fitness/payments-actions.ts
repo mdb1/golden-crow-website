@@ -9,7 +9,8 @@
 //     (`users/{clientId}.coachId == uid`). Lo ya creado queda del coach que lo cargó
 //     aunque el alumno se vaya (decisión del dueño): anular un pago viejo sólo pide que
 //     el pago sea suyo.
-//   - Registrar / anular = UN batch (pago + billing), como lo hacen las apps.
+//   - Registrar = UNA transacción (billing leído + pago + billing, #487); anular = UN
+//     batch (pago + billing), como lo hacen las apps.
 //   - El Admin SDK tira con `undefined`: todo opcional se escribe como `null`.
 //
 // "use server" ⇒ sólo se exportan funciones async (#785). Los esquemas, decoders y el
@@ -285,13 +286,21 @@ export async function consumeClientClass(input: {
   try {
     const trainer = await getCurrentTrainer();
     if (typeof input?.clientId !== "string" || !input.clientId) throw new Error("Forbidden");
-    const ref = gcFitnessFirestore()
+    const db = gcFitnessFirestore();
+    const ref = db
       .collection(FirestoreCollections.clientBilling)
       .doc(billingDocId(trainer.uid, input.clientId));
-    const snap = await ref.get();
-    if (!snap.exists || snap.get("coachId") !== trainer.uid) throw new Error("Forbidden");
-    const classesRemaining = consumeClass(decodeBilling(snap.data() as Raw));
-    await ref.update({ classesRemaining, updatedAt: FieldValue.serverTimestamp() });
+    // #487: read-modify-write INSIDE a transaction. The old get → update let two
+    // concurrent "descontar clase" (web + app, or two tabs) both read N and both
+    // write N-1 — one class lost. Not `FieldValue.increment(-1)`: the balance
+    // must clamp at zero (`consumeClass`), which an increment can't express.
+    const classesRemaining = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists || snap.get("coachId") !== trainer.uid) throw new Error("Forbidden");
+      const next = consumeClass(decodeBilling(snap.data() as Raw));
+      tx.update(ref, { classesRemaining: next, updatedAt: FieldValue.serverTimestamp() });
+      return next;
+    });
     return { ok: true, classesRemaining };
   } catch (err) {
     return toActionFailure(err);
@@ -315,61 +324,79 @@ export async function recordClientPayment(input: unknown): Promise<ActionResult<
     const billingRef = db
       .collection(FirestoreCollections.clientBilling)
       .doc(billingDocId(trainer.uid, parsed.clientId));
-    const billingSnap = await billingRef.get();
-    if (billingSnap.exists && billingSnap.get("coachId") !== trainer.uid) {
-      throw new Error("Forbidden");
-    }
-    const billing = billingSnap.exists ? decodeBilling(billingSnap.data() as Raw) : null;
+    // #487: an idempotency key (one per open of the dialog) makes the payment doc id
+    // deterministic, so a retried / double-submitted "Registrar pago" lands on the SAME
+    // doc instead of recording the payment twice. Prefixed with the coach uid so two
+    // coaches can never collide on a key.
+    const payments = db.collection(FirestoreCollections.clientPayments);
+    const paymentRef = parsed.requestId
+      ? payments.doc(`${trainer.uid}_${parsed.requestId}`)
+      : payments.doc();
 
-    const paymentRef = db.collection(FirestoreCollections.clientPayments).doc();
-    const now = FieldValue.serverTimestamp();
-    const batch = db.batch();
-    batch.set(paymentRef, {
-      coachId: trainer.uid,
-      clientId: parsed.clientId,
-      amount: parsed.amount,
-      currency: parsed.currency ?? billing?.plan?.currency ?? "ARS",
-      paidCivil: parsed.paidCivil,
-      method: parsed.method,
-      methodNote: parsed.methodNote,
-      covers: parsed.covers,
-      planName: billing?.plan?.name ?? null,
-      note: parsed.note,
-      createdAt: now,
-      voidedAt: null,
-      voidReason: null,
-    });
-    if (billing) {
-      // Sin plan no hay vencimiento que correr: sólo se guarda el último pago.
-      const hasPlan = billing.planId != null || billing.plan != null;
-      const due = hasPlan
-        ? applyPayment(toBillingLike(billing), parsed.covers, parsed.paidCivil)
-        : { nextDueCivil: billing.nextDueCivil, classesRemaining: billing.classesRemaining };
-      batch.update(billingRef, {
-        nextDueCivil: due.nextDueCivil,
-        classesRemaining: due.classesRemaining,
-        lastPaymentCivil: parsed.paidCivil,
-        lastPaymentAmount: parsed.amount,
-        updatedAt: now,
-      });
-    } else {
-      batch.set(billingRef, {
+    // #487: billing read + payment create + billing update in ONE transaction. The old
+    // read → batch let a concurrent payment / class consume (web + app) move the billing
+    // between the read and the write; the loser's update was computed from a stale
+    // `nextDueCivil` / `classesRemaining` and overwrote it.
+    await db.runTransaction(async (tx) => {
+      const billingSnap = await tx.get(billingRef);
+      if (billingSnap.exists && billingSnap.get("coachId") !== trainer.uid) {
+        throw new Error("Forbidden");
+      }
+      if (parsed.requestId) {
+        const existing = await tx.get(paymentRef);
+        if (existing.exists) {
+          if (existing.get("coachId") !== trainer.uid) throw new Error("Forbidden");
+          return; // already recorded by an earlier submit with this key
+        }
+      }
+      const billing = billingSnap.exists ? decodeBilling(billingSnap.data() as Raw) : null;
+      const now = FieldValue.serverTimestamp();
+      tx.set(paymentRef, {
         coachId: trainer.uid,
         clientId: parsed.clientId,
-        planId: null,
-        plan: null,
-        amount: null,
-        startCivil: null,
-        nextDueCivil: null,
-        classesRemaining: null,
-        reminderDaysBefore: 3,
-        lastPaymentCivil: parsed.paidCivil,
-        lastPaymentAmount: parsed.amount,
+        amount: parsed.amount,
+        currency: parsed.currency ?? billing?.plan?.currency ?? "ARS",
+        paidCivil: parsed.paidCivil,
+        method: parsed.method,
+        methodNote: parsed.methodNote,
+        covers: parsed.covers,
+        planName: billing?.plan?.name ?? null,
+        note: parsed.note,
         createdAt: now,
-        updatedAt: now,
+        voidedAt: null,
+        voidReason: null,
       });
-    }
-    await batch.commit();
+      if (billing) {
+        // Sin plan no hay vencimiento que correr: sólo se guarda el último pago.
+        const hasPlan = billing.planId != null || billing.plan != null;
+        const due = hasPlan
+          ? applyPayment(toBillingLike(billing), parsed.covers, parsed.paidCivil)
+          : { nextDueCivil: billing.nextDueCivil, classesRemaining: billing.classesRemaining };
+        tx.update(billingRef, {
+          nextDueCivil: due.nextDueCivil,
+          classesRemaining: due.classesRemaining,
+          lastPaymentCivil: parsed.paidCivil,
+          lastPaymentAmount: parsed.amount,
+          updatedAt: now,
+        });
+      } else {
+        tx.set(billingRef, {
+          coachId: trainer.uid,
+          clientId: parsed.clientId,
+          planId: null,
+          plan: null,
+          amount: null,
+          startCivil: null,
+          nextDueCivil: null,
+          classesRemaining: null,
+          reminderDaysBefore: 3,
+          lastPaymentCivil: parsed.paidCivil,
+          lastPaymentAmount: parsed.amount,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+    });
     return { ok: true, id: paymentRef.id };
   } catch (err) {
     return toActionFailure(err);

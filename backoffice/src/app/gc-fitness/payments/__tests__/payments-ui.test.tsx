@@ -102,8 +102,33 @@ describe("RecordPaymentDialog", () => {
       methodNote: "",
       covers: { kind: "months", months: 1, classes: null },
       note: "",
+      requestId: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/),
     });
     expect(routerRefresh).toHaveBeenCalled();
+  });
+
+  it("#487: reintentar tras un error reusa la MISMA clave de idempotencia", async () => {
+    (recordClientPayment as jest.Mock)
+      .mockResolvedValueOnce({ ok: false, error: "network" })
+      .mockResolvedValueOnce({ ok: true, id: "p1" });
+    render(
+      <RecordPaymentDialog
+        clientId="client-1"
+        clientName="Juan Pérez"
+        billing={billing({ amount: 20000 })}
+        todayCivil="2026-11-11"
+        open
+        onOpenChange={() => {}}
+      />,
+    );
+    await userEvent.click(screen.getByTestId("payment-method-cash"));
+    await userEvent.click(screen.getByTestId("record-payment-submit"));
+    await waitFor(() => expect(recordClientPayment).toHaveBeenCalledTimes(1));
+    await userEvent.click(screen.getByTestId("record-payment-submit"));
+    await waitFor(() => expect(recordClientPayment).toHaveBeenCalledTimes(2));
+    const keys = (recordClientPayment as jest.Mock).mock.calls.map(([arg]) => arg.requestId);
+    expect(keys[0]).toEqual(expect.any(String));
+    expect(keys[1]).toBe(keys[0]);
   });
 
   it("un pack de clases prellena classCount y acepta «25.000» como veinticinco mil", async () => {

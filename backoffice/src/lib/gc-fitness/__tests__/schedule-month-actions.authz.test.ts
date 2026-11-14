@@ -160,11 +160,30 @@ describe("listMonthForClients", () => {
     }
   });
 
-  it("caps the IN list at 30 client ids", async () => {
-    const ids = Array.from({ length: 35 }, (_, i) => `c${i}`);
-    for (const id of ids) db.seed(`users/${id}`, { coachId: "coach-a", role: "client" });
-    await listMonthForClients({ ...RANGE, clientIds: ids });
-    expect((db.queries[0].filters[0].value as string[]).length).toBe(30);
+  it("#485: 45 selected clients ALL load — every `in` query runs in chunks of ≤30 and is merged", async () => {
+    const ids = Array.from({ length: 45 }, (_, i) => `k${String(i).padStart(2, "0")}`);
+    const snap = { name: { en: "Push" }, exercises: [] };
+    for (const id of ids) {
+      db.seed(`users/${id}`, { coachId: "coach-a", role: "client" });
+      db.seed(`workout_assignments/as-${id}`, { trainerId: "coach-a", clientId: id, scheduledFor: "2026-06-15", status: "scheduled", templateSnapshot: snap });
+      db.seed(`habits/h-${id}`, { trainerId: "coach-a", clientId: id, name: { en: "Water" }, scheduleType: "recurring", scheduleCadence: "daily", startsOn: "2026-06-01" });
+    }
+    // A log for a client in the SECOND chunk flips its assignment to completed.
+    db.seed("workout_logs/l-k40", { clientId: "k40", trainerId: "coach-a", assignmentId: "as-k40", status: "completed", startedAt: new Date("2026-06-15T10:00:00Z") });
+    const out = await listMonthForClients({ ...RANGE, clientIds: ids });
+
+    const chips = out.workoutsByDay["2026-06-15"] ?? [];
+    expect(new Set(chips.map((c) => c.clientId))).toEqual(new Set(ids));
+    expect(chips.find((c) => c.clientId === "k40")?.status).toBe("completed");
+    const habitClients = new Set(Object.values(out.habitsByDay).flat().map((h) => h.clientId));
+    expect(habitClients).toEqual(new Set(ids));
+
+    const inSizes = db.queries
+      .filter((q) => q.filters[0]?.op === "in")
+      .map((q) => (q.filters[0].value as string[]).length);
+    expect(Math.max(...inSizes)).toBeLessThanOrEqual(30);
+    // 4 collections × 2 chunks (30 + 15).
+    expect(inSizes.sort((a, b) => a - b)).toEqual([15, 15, 15, 15, 30, 30, 30, 30]);
   });
 
   it("flips an assignment's status from its log and attaches the logged summary", async () => {

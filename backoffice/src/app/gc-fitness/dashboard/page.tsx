@@ -28,6 +28,7 @@ import {
   type CurrentTrainer,
 } from "@/lib/gc-fitness/auth-helpers";
 import { listClientsForRoster } from "@/lib/gc-fitness/client-roster";
+import { lastActionMessageKey } from "@/lib/gc-fitness/last-activity-kind";
 import { getCoachPulse } from "@/lib/gc-fitness/coach-pulse-actions";
 import { listClientsWithNothingAssignedSoon } from "@/lib/gc-fitness/coach-attention-actions";
 import { listPendingChecklistItems } from "@/lib/gc-fitness/coach-checklist-actions";
@@ -105,6 +106,13 @@ export default async function GCFitnessDashboardPage({
   const pendingChecklist = checklistResult ?? [];
   const unassignedSoon = unassignedResult ?? [];
 
+  // Literal keys (the i18n-literal-keys gate checks them against the catalog).
+  const lastActionLabels = {
+    lastActionWorkout: tDashboard("lastActionWorkout"),
+    lastActionHabit: tDashboard("lastActionHabit"),
+    lastActionPhoto: tDashboard("lastActionPhoto"),
+    noActivity: tDashboard("noActivity"),
+  } as const;
   const activeClients = roster.filter((client) => client.source === "active");
   const lastActionRows = activeClients
     .map((client) => {
@@ -113,7 +121,9 @@ export default async function GCFitnessDashboardPage({
         name: client.displayName,
         photoURL: client.photoURL,
         lastActivityAt: client.lastActivityAt,
-        lastActionTitle: tDashboard("noActivity"),
+        // #488: the client's REAL last action (workout / habit / photo),
+        // not a hardcoded "No activity" next to "4 days ago".
+        lastActionTitle: lastActionLabels[lastActionMessageKey(client.lastActivityKind)],
         // % adherence over the last 7 days — drives the activity progress bar.
         ratio: client.thisWeekComplianceRatio ?? 0,
       };
