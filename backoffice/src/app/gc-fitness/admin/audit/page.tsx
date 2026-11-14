@@ -17,7 +17,7 @@ import { redirect } from "next/navigation";
 
 import { civilDateFormat } from "@/lib/gc-fitness/civil-date";
 import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ChevronsRight, Download } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -32,10 +32,17 @@ import { PageHeader } from "@/components/gc-fitness/page-header";
 import { PillTabs } from "@/components/gc-fitness/pill-tabs";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import {
-  listActivityFeed,
+  listActivityFeedPage,
   type ActivityFeedEvent,
   type FeedSource,
 } from "@/lib/gc-fitness/activity-feed-actions";
+import {
+  AUDIT_CATEGORY_OPTIONS as CATEGORY_OPTIONS,
+  AUDIT_SOURCE_OPTIONS as SOURCE_OPTIONS,
+  auditFeedFilters,
+  auditFeedQuery,
+  parseAuditFeedParams,
+} from "@/lib/gc-fitness/audit-feed-params";
 import type { FeedCategory } from "@/lib/gc-fitness/activity-feed-model";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
@@ -45,49 +52,6 @@ import { ActivityFeedList } from "./_components/ActivityFeedList";
 export const generateMetadata = () => sectionMetadata("adminPanel");
 
 export const dynamic = "force-dynamic";
-
-/**
- * #762 — the quick-filter checkboxes, in the order they render. `other` is
- * deliberately absent: it is the classifier's fallback for a collection this
- * reader does not know yet, so there is nothing an operator would go looking
- * for under that name. It is unfilterable-by-checkbox and therefore always
- * shown, which is the safe direction (a new event kind stays visible).
- */
-const CATEGORY_OPTIONS: FeedCategory[] = [
-  "workout",
-  "schedule",
-  "routine",
-  "habit",
-  // #949 — `nutrition` was missing from this list while nutrition events were
-  // already being classified under it, so checking ANY box hid every nutrition
-  // row (an unlisted category can never be in the surviving set).
-  "nutrition",
-  "exercise",
-  "photo",
-  "account",
-  "coach",
-  "admin",
-];
-
-const SOURCE_OPTIONS: Array<"all" | FeedSource> = [
-  "all",
-  "audit_log",
-  "coach_activity",
-  "admin_operations",
-  "progress_photos",
-  "habit_logs",
-  "nutrition_logs",
-];
-
-function str(value: string | string[] | undefined): string {
-  return typeof value === "string" ? value : "";
-}
-
-/** Repeated `?cat=` params — one per checked box. */
-function strList(value: string | string[] | undefined): string[] {
-  if (Array.isArray(value)) return value;
-  return typeof value === "string" && value.length > 0 ? [value] : [];
-}
 
 export default async function AuditPage({
   searchParams,
@@ -104,54 +68,43 @@ export default async function AuditPage({
     throw err;
   }
 
-  const sp = await searchParams;
-  const tab = str(sp.tab) === "deletions" ? "deletions" : "timeline";
-  const source = (() => {
-    const v = str(sp.source);
-    return SOURCE_OPTIONS.some((o) => o === v) ? (v as "all" | FeedSource) : "all";
-  })();
-  // Checked boxes. An empty set = "todos" (an untouched form and an
-  // everything-unchecked form are indistinguishable over the wire — HTML omits
-  // unchecked boxes — so both mean no filter).
-  const selectedCategories = strList(sp.cat).filter((v): v is FeedCategory =>
-    (CATEGORY_OPTIONS as string[]).includes(v),
-  );
-  const allCategoriesSelected =
-    selectedCategories.length === 0 || selectedCategories.length === CATEGORY_OPTIONS.length;
-  const actorQuery = str(sp.actor).trim();
-  const clientQuery = str(sp.client).trim();
-  const fromISO = str(sp.from).trim();
-  const toISO = str(sp.to).trim();
-  const includeLowSignal = str(sp.raw) === "1";
-
-  let events: ActivityFeedEvent[] = [];
-  let loadError = false;
-  try {
-    events = await listActivityFeed({
-      source,
-      // All boxes checked ⇒ no filter at all, so `other` (which has no box —
-      // see CATEGORY_OPTIONS) keeps showing instead of being filtered out by
-      // an all-checked form submit.
-      categories: allCategoriesSelected ? [] : selectedCategories,
-      actorQuery,
-      clientQuery,
-      fromISO,
-      toISO,
-      includeLowSignal,
-      deletionsOnly: tab === "deletions",
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "";
-    if (message === "Forbidden") redirect("/gc-fitness/forbidden");
-    loadError = true;
-  }
+  const params = parseAuditFeedParams(await searchParams);
+  const {
+    tab,
+    source,
+    selectedCategories,
+    allCategoriesSelected,
+    actorQuery,
+    clientQuery,
+    fromISO,
+    toISO,
+    includeLowSignal,
+    before,
+  } = params;
 
   // #736 — "hoy" en la zona del USUARIO, no del servidor. `new Date().toISOString()`
   // devolvía el día UTC, que en Vercel es el día del servidor: cerca de la medianoche
   // argentina el encabezado "Hoy" se adelantaba y los eventos de la noche caían bajo la
   // fecha de mañana. Misma pareja de helpers que ya usa `workout-assignment-actions`.
+  // #503 — la misma zona define los días de «Desde/Hasta».
   const timeZone = await getTrainerTimezone();
   const today = civilDateFormat(new Date(), timeZone);
+
+  let events: ActivityFeedEvent[] = [];
+  let nextCursor: string | null = null;
+  let loadError = false;
+  try {
+    const page = await listActivityFeedPage({
+      ...auditFeedFilters(params, timeZone),
+      cursor: before || null,
+    });
+    events = page.events;
+    nextCursor = page.nextCursor;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (message === "Forbidden") redirect("/gc-fitness/forbidden");
+    loadError = true;
+  }
 
   const t = await getTranslations("admin.audit");
   const tc = await getTranslations("admin.common");
@@ -202,20 +155,13 @@ export default async function AuditPage({
     }
   };
 
-  const buildTabHref = (target: "timeline" | "deletions") => {
-    const params = new URLSearchParams();
-    params.set("tab", target);
-    if (source !== "all") params.set("source", source);
-    if (!allCategoriesSelected) {
-      for (const c of selectedCategories) params.append("cat", c);
-    }
-    if (actorQuery) params.set("actor", actorQuery);
-    if (clientQuery) params.set("client", clientQuery);
-    if (fromISO) params.set("from", fromISO);
-    if (toISO) params.set("to", toISO);
-    if (includeLowSignal) params.set("raw", "1");
-    return `/gc-fitness/admin/audit?${params.toString()}`;
-  };
+  const buildTabHref = (target: "timeline" | "deletions") =>
+    `/gc-fitness/admin/audit?${auditFeedQuery(params, { tab: target })}`;
+  const newestHref = `/gc-fitness/admin/audit?${auditFeedQuery(params)}`;
+  const olderHref = nextCursor
+    ? `/gc-fitness/admin/audit?${auditFeedQuery(params, { before: nextCursor })}`
+    : null;
+  const exportHref = `/api/gc-fitness/admin/audit-export?${auditFeedQuery(params)}`;
 
   return (
     <div className="gc-page flex flex-col gap-6">
@@ -243,7 +189,7 @@ export default async function AuditPage({
       <Card>
         <CardHeader>
           <CardTitle className="text-xl">{t("filters.title")}</CardTitle>
-          <CardDescription>{t("filters.description")}</CardDescription>
+          <CardDescription>{t("filters.description", { timezone: timeZone })}</CardDescription>
         </CardHeader>
         <CardContent>
           <form
@@ -348,7 +294,17 @@ export default async function AuditPage({
           <CardDescription>
             {tab === "deletions" ? t("deletionsDescription") : t("timelineDescription")}{" "}
             {t("eventCountSentence", { count: events.length })}
+            {before ? ` ${t("paging.olderPage")}` : ""}
           </CardDescription>
+          <div className="flex flex-wrap gap-2 pt-2">
+            <Button asChild variant="outline" size="sm" className="rounded-full">
+              {/* A plain link: the route streams the CSV as an attachment. */}
+              <a href={exportHref} download>
+                <Download className="h-4 w-4" />
+                {t("paging.exportCsv")}
+              </a>
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           {loadError ? (
@@ -356,14 +312,38 @@ export default async function AuditPage({
               {t("loadError")}
             </p>
           ) : (
-            <ActivityFeedList
-              events={events}
-              today={today}
-              timeZone={timeZone}
-              emptyLabel={
-                tab === "deletions" ? t("emptyDeletions") : t("emptyEvents")
-              }
-            />
+            <>
+              <ActivityFeedList
+                events={events}
+                today={today}
+                timeZone={timeZone}
+                emptyLabel={
+                  tab === "deletions" ? t("emptyDeletions") : t("emptyEvents")
+                }
+              />
+              {before || olderHref ? (
+                <nav
+                  aria-label={t("paging.label")}
+                  className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-3"
+                >
+                  {before ? (
+                    <Button asChild variant="ghost" size="sm" className="rounded-full">
+                      <Link href={newestHref}>{t("paging.newest")}</Link>
+                    </Button>
+                  ) : (
+                    <span />
+                  )}
+                  {olderHref ? (
+                    <Button asChild variant="outline" size="sm" className="rounded-full">
+                      <Link href={olderHref} data-testid="audit-older-page">
+                        {t("paging.older")}
+                        <ChevronsRight className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                  ) : null}
+                </nav>
+              ) : null}
+            </>
           )}
         </CardContent>
       </Card>

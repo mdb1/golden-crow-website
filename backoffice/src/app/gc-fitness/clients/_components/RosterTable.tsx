@@ -18,12 +18,19 @@
 // The "At-risk clients (N)" toggle and its full-set count are preserved
 // verbatim from the table version. A name/email search box is added on top
 // (purely client-side filtering of the already-loaded rows).
+//
+// #499 — every card lists its attention reasons as chips (most urgent first),
+// and the toolbar sorts the roster by any of the card's columns. Default sort
+// stays "last activity" (the server order), so nothing moves until the coach
+// asks for it.
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import {
   AlertCircle,
+  ArrowDownWideNarrow,
+  ArrowUpNarrowWide,
   CheckCircle2,
   Clock,
   Search,
@@ -39,7 +46,10 @@ import { Card, CardContent } from "@/components/ui/card";
 
 import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
 import type { ClientRosterRow } from "@/lib/gc-fitness/client-roster";
-import type { AttentionReason } from "@/lib/gc-fitness/client-attention";
+import {
+  attentionRank,
+  type AttentionReason,
+} from "@/lib/gc-fitness/client-attention";
 import { nutritionNeedsAttention } from "@/lib/gc-fitness/nutrition-coach-reply";
 import {
   isBulkSelectable,
@@ -57,6 +67,98 @@ export interface RosterTableProps {
   initialNeedsAttentionOnly?: boolean;
   /** The coach's IANA zone, resolved server-side (#747). */
   timezone: string;
+}
+
+export const ROSTER_SORT_KEYS = [
+  "lastActivity",
+  "attention",
+  "name",
+  "habits",
+  "nutrition",
+  "workouts",
+  "unread",
+] as const;
+export type RosterSortKey = (typeof ROSTER_SORT_KEYS)[number];
+
+/** The direction a column reads best in when first picked ("worst first" for the metrics). */
+const DEFAULT_DIRECTION: Record<RosterSortKey, "asc" | "desc"> = {
+  lastActivity: "desc",
+  attention: "asc",
+  name: "asc",
+  habits: "asc",
+  nutrition: "asc",
+  workouts: "asc",
+  unread: "desc",
+};
+
+function monthRatio(r: ClientRosterRow): number | null {
+  return r.workoutsScheduledThisMonth > 0
+    ? r.workoutsCompletedThisMonth / r.workoutsScheduledThisMonth
+    : null;
+}
+
+function finiteOrNull(v: number | null | undefined): number | null {
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+/**
+ * Pure comparator for the roster sort (#499). Rows without a value for the
+ * column (no nutrition asked, nothing scheduled this month, never active) go
+ * LAST in both directions — an em dash is not "the worst" nor "the best".
+ * Pending sign-ins always go last, like the server order. Ties → name.
+ */
+export function compareRosterRows(
+  a: ClientRosterRow,
+  b: ClientRosterRow,
+  key: RosterSortKey,
+  direction: "asc" | "desc",
+): number {
+  if (a.pendingProvisioning !== b.pendingProvisioning) {
+    return a.pendingProvisioning ? 1 : -1;
+  }
+  const byName = a.displayName.localeCompare(b.displayName, undefined, { sensitivity: "base" });
+  const sign = direction === "asc" ? 1 : -1;
+  const nullable = (x: number | null, y: number | null): number => {
+    if (x === null && y === null) return byName;
+    if (x === null) return 1;
+    if (y === null) return -1;
+    return x === y ? byName : (x - y) * sign;
+  };
+  switch (key) {
+    case "name":
+      return byName * sign;
+    case "lastActivity":
+      return nullable(
+        a.lastActivityAt ? Date.parse(a.lastActivityAt) : null,
+        b.lastActivityAt ? Date.parse(b.lastActivityAt) : null,
+      );
+    case "attention": {
+      // Most urgent reason first, then how many reasons; clients with none last.
+      const ra = attentionRank(a.needsAttentionReasons);
+      const rb = attentionRank(b.needsAttentionReasons);
+      if (ra !== rb) {
+        if (!Number.isFinite(ra)) return 1;
+        if (!Number.isFinite(rb)) return -1;
+        return (ra - rb) * sign;
+      }
+      const ca = a.needsAttentionReasons.length;
+      const cb = b.needsAttentionReasons.length;
+      return ca === cb ? byName : (cb - ca) * sign;
+    }
+    case "habits":
+      return nullable(
+        a.habitsScheduledThisWeek > 0 ? finiteOrNull(a.thisWeekComplianceRatio) : null,
+        b.habitsScheduledThisWeek > 0 ? finiteOrNull(b.thisWeekComplianceRatio) : null,
+      );
+    case "nutrition":
+      return nullable(finiteOrNull(a.nutritionRatio7Days), finiteOrNull(b.nutritionRatio7Days));
+    case "workouts":
+      return nullable(monthRatio(a), monthRatio(b));
+    case "unread":
+      return a.unreadChatCount === b.unreadChatCount
+        ? byName
+        : (a.unreadChatCount - b.unreadChatCount) * sign;
+  }
 }
 
 function GoalPill({ label, count }: { label: string; count: number }) {
@@ -113,12 +215,48 @@ export function RosterTable({
   // search changes (Gmail-style); the dialog lists exactly who gets it.
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
 
-  // Locale-aware label for an attention reason string. Kept in lockstep with
-  // the Pitfall-7-locked union in `client-attention.ts`.
+  const tSort = useTranslations("clients.sort");
+  const [sortKey, setSortKey] = useState<RosterSortKey>("lastActivity");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
+  // Locale-aware label for an attention reason. Kept in lockstep with the
+  // shared table in `client-attention.ts` (an unknown id from an older row
+  // renders as the id instead of crashing the roster).
+  const tReason = useTranslations("clients.attentionReasons");
   function formatReason(reason: AttentionReason): string {
     switch (reason) {
-      case "inactive-3-days":
-        return t("inactive3Days");
+      case "inactive":
+        return tReason("inactive");
+      case "nothingAssigned":
+        return tReason("nothingAssigned");
+      case "missedWorkouts":
+        return tReason("missedWorkouts");
+      case "overduePayment":
+        return tReason("overduePayment");
+      case "lowNutrition":
+        return tReason("lowNutrition");
+      case "unreadChat":
+        return tReason("unreadChat");
+      default:
+        return String(reason);
+    }
+  }
+  function sortLabel(key: RosterSortKey): string {
+    switch (key) {
+      case "lastActivity":
+        return tSort("lastActivity");
+      case "attention":
+        return tSort("attention");
+      case "name":
+        return tSort("name");
+      case "habits":
+        return tSort("habits");
+      case "nutrition":
+        return tSort("nutrition");
+      case "workouts":
+        return tSort("workouts");
+      case "unread":
+        return tSort("unread");
     }
   }
 
@@ -138,8 +276,8 @@ export function RosterTable({
         if (!hay.includes(q)) return false;
       }
       return true;
-    });
-  }, [rows, needsAttentionOnly, query]);
+    }).sort((a, b) => compareRosterRows(a, b, sortKey, sortDirection));
+  }, [rows, needsAttentionOnly, query, sortKey, sortDirection]);
 
   const visibleSelectableIds = useMemo(
     () => filteredRows.filter(isBulkSelectable).map((r) => r.uid),
@@ -204,6 +342,39 @@ export function RosterTable({
             {tCommon("clearFilter")}
           </Button>
         ) : null}
+        <div className="flex shrink-0 items-center gap-1">
+          <select
+            aria-label={tSort("label")}
+            value={sortKey}
+            onChange={(e) => {
+              const key = e.target.value as RosterSortKey;
+              setSortKey(key);
+              setSortDirection(DEFAULT_DIRECTION[key]);
+            }}
+            className="h-11 rounded-full border border-input bg-background px-4 text-sm text-foreground"
+          >
+            {ROSTER_SORT_KEYS.map((key) => (
+              <option key={key} value={key}>
+                {sortLabel(key)}
+              </option>
+            ))}
+          </select>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => setSortDirection((d) => (d === "asc" ? "desc" : "asc"))}
+            aria-label={sortDirection === "asc" ? tSort("ascending") : tSort("descending")}
+            title={sortDirection === "asc" ? tSort("ascending") : tSort("descending")}
+            className="size-11 rounded-full"
+          >
+            {sortDirection === "asc" ? (
+              <ArrowUpNarrowWide className="size-4" />
+            ) : (
+              <ArrowDownWideNarrow className="size-4" />
+            )}
+          </Button>
+        </div>
       </div>
 
       {anySelectable ? (
@@ -341,6 +512,16 @@ export function RosterTable({
                             {tCommon("pendingSignIn")}
                           </Badge>
                         ) : null}
+                        {row.needsAttentionReasons.map((reason) => (
+                          <Badge
+                            key={reason}
+                            variant="outline"
+                            data-testid="roster-attention-reason"
+                            className="border-chart-4/40 text-chart-4"
+                          >
+                            {formatReason(reason)}
+                          </Badge>
+                        ))}
                       </div>
                     </div>
                     {row.needsAttention ? (

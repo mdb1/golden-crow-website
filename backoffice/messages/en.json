@@ -223,6 +223,26 @@
     "missedWorkouts": "Missed workouts",
     "lowCompliance": "Low habit compliance",
     "inactive3Days": "No activity in 3+ days",
+    "attentionReasons": {
+      "inactive": "No activity in 3+ days",
+      "nothingAssigned": "Nothing scheduled in the next 4 days",
+      "missedWorkouts": "Missed workouts this week",
+      "overduePayment": "Payment overdue",
+      "lowNutrition": "Nutrition under 60% this week",
+      "unreadChat": "Unread messages"
+    },
+    "sort": {
+      "label": "Sort by",
+      "attention": "Needs attention",
+      "lastActivity": "Last activity",
+      "name": "Name",
+      "habits": "Habits",
+      "nutrition": "Nutrition",
+      "workouts": "Workouts this month",
+      "unread": "Unread messages",
+      "ascending": "Ascending",
+      "descending": "Descending"
+    },
     "table": {
       "name": "Name",
       "lastActivity": "Last activity",
@@ -680,6 +700,11 @@
           "exerciseProgress": "Per-exercise progression",
           "dailySteps": "Daily steps",
           "personalRecords": "Personal records"
+        },
+        "sectionTitles": {
+          "entrenamiento": "Training charts",
+          "habitos": "Habit and activity charts",
+          "progreso": "Body charts"
         }
       },
       "dailySteps": {
@@ -912,6 +937,16 @@
           "unavailable": "The AI service did not respond. Try again in a while.",
           "generic": "We couldn't generate the summary. Try again."
         }
+      },
+      "sections": {
+        "navLabel": "Client sections",
+        "resumen": "Summary",
+        "entrenamiento": "Training",
+        "habitos": "Habits",
+        "nutricion": "Nutrition",
+        "pagos": "Payments",
+        "progreso": "Progress",
+        "chat": "Chat"
       }
     },
     "invite": {
@@ -2660,7 +2695,30 @@
       "note": "Note",
       "device": "App",
       "open": "View context",
-      "empty": "No reported replies."
+      "empty": "No reported replies.",
+      "state": "Status",
+      "states": {
+        "all": "All",
+        "new": "New",
+        "reviewed": "Reviewed",
+        "resolved": "Resolved"
+      },
+      "filterLabel": "Filter by status",
+      "countsUnavailable": "Couldn't count the reports.",
+      "emptyFiltered": "No reports in this status.",
+      "triageNote": "Internal note",
+      "triage": {
+        "title": "Triage",
+        "help": "The status and note are internal: the user never sees them.",
+        "statusLabel": "Status",
+        "noteLabel": "Internal note",
+        "notePlaceholder": "What was checked, what was done…",
+        "save": "Save",
+        "saving": "Saving…",
+        "saved": "Saved",
+        "error": "Couldn't save: {error}",
+        "lastUpdate": "Last update: {time}"
+      }
     },
     "reasons": {
       "incorrect": "Incorrect",
@@ -3454,14 +3512,14 @@
       },
       "filters": {
         "title": "Filters",
-        "description": "The date range is applied in the query; the rest filters the window loaded in memory. Times in UTC.",
+        "description": "The date range is read in your time zone ({timezone}), like the feed's times. The other filters apply to each page; “Older events” keeps going back with the same filters.",
         "eventType": "Event type",
         "source": "Source",
         "actor": "Who (uid / name / email)",
         "client": "Client (uid / name / email)",
         "contains": "contains…",
-        "from": "From (UTC)",
-        "to": "To (UTC)",
+        "from": "From",
+        "to": "To",
         "lowSignal": "Also show low-level writes (<code>updatedAt</code> touches, per-set writes during a workout, subscription refreshes with no plan change)",
         "apply": "Apply filters",
         "clear": "Clear"
@@ -3476,7 +3534,14 @@
       "viewDetail": "view detail",
       "today": "Today · {day}",
       "yesterday": "Yesterday · {day}",
-      "noDate": "no date"
+      "noDate": "no date",
+      "paging": {
+        "label": "Feed pages",
+        "older": "Older events",
+        "newest": "Back to newest",
+        "olderPage": "Older page of the feed.",
+        "exportCsv": "Export CSV"
+      }
     },
     "calendar": {
       "loadError": "Could not load that month.",
