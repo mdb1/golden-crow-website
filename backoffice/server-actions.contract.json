@@ -392,6 +392,11 @@
       "params": ""
     },
     {
+      "file": "src/lib/gc-fitness/coach-broadcast-actions.ts",
+      "export": "sendCoachBroadcast",
+      "params": "arg, arg"
+    },
+    {
       "file": "src/lib/gc-fitness/coach-challenge-actions.ts",
       "export": "createCoachChallenge",
       "params": "arg"

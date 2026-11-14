@@ -211,3 +211,25 @@ describe("BulkAssignForm — failure handling", () => {
     expect(mockToastSuccess).not.toHaveBeenCalled();
   });
 });
+
+// #500 — the roster's «Asignar rutina» lands here with `?clients=` already
+// parsed into `initialSelectedUids`; those clients must arrive ticked.
+describe("BulkAssignForm — preselection from the roster", () => {
+  it("starts with the preselected clients ticked", () => {
+    render(
+      <BulkAssignForm
+        clients={CLIENTS as never}
+        trainerTimezone="America/Argentina/Buenos_Aires"
+        initialSelectedUids={["client-1", "client-3"]}
+      />,
+    );
+    expect(screen.getByRole("checkbox", { name: /Ana/ })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Beto/ })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Cami/ })).toBeChecked();
+  });
+
+  it("starts empty without a preselection", () => {
+    renderForm();
+    expect(screen.getByRole("checkbox", { name: /Ana/ })).not.toBeChecked();
+  });
+});

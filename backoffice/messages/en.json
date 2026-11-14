@@ -938,6 +938,40 @@
       "titleOne": "1 new client signed up without a coach and was assigned to you",
       "titleOther": "{count} new clients signed up without a coach and were assigned to you",
       "body": "They're marked <badge>NEW</badge> below. Review them and, if they belong to another coach, transfer them from the admin panel."
+    },
+    "bulk": {
+      "selectAll": "Select all",
+      "selectClientAria": "Select {name}",
+      "selectedCount": "{count, plural, one {# selected} other {# selected}}",
+      "toolbarLabel": "Bulk actions",
+      "sendMessage": "Send message",
+      "assignWorkout": "Assign workout",
+      "clear": "Clear",
+      "dialog": {
+        "title": "Message {count, plural, one {# client} other {# clients}}",
+        "description": "Each client receives it in their chat with you, as a regular message.",
+        "recipientsLabel": "To",
+        "recipientsMore": "and {count} more",
+        "messageLabel": "Message",
+        "placeholder": "Write your message…",
+        "counter": "{used}/{max}",
+        "send": "Send",
+        "sending": "Sending…",
+        "cancel": "Cancel",
+        "tooMany": "You can message up to {max} clients at once. You selected {count}.",
+        "tooLong": "The message can be up to {max} characters."
+      },
+      "toast": {
+        "sent": "Message sent to {count, plural, one {# client} other {# clients}}",
+        "skipped": "{count, plural, one {# is no longer your client and didn't get it.} other {# are no longer your clients and didn't get it.}}"
+      },
+      "errors": {
+        "daily_cap": "You hit the limit of 10 bulk sends in 24 h. Try again later.",
+        "forbidden": "You can't message these clients.",
+        "text": "The message must be between 1 and 1000 characters.",
+        "recipients": "Pick between 1 and 200 clients.",
+        "generic": "Couldn't send the message. Try again."
+      }
     }
   },
   "templates": {

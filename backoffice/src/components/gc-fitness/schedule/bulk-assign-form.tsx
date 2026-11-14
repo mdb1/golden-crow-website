@@ -65,6 +65,8 @@ const RECURRENCE_PREVIEW_CLASS =
 interface BulkAssignFormProps {
   clients: ClientRosterEntry[];
   trainerTimezone?: string;
+  /** #500 — clients preselected via `?clients=` (roster «Asignar rutina»). */
+  initialSelectedUids?: readonly string[];
 }
 
 // 260612-e9t (#175): same cadence vocabulary the single-client
@@ -104,6 +106,7 @@ function formatLocalDateToCivil(date: Date): string {
 export function BulkAssignForm({
   clients,
   trainerTimezone,
+  initialSelectedUids,
 }: BulkAssignFormProps) {
   const t = useTranslations("schedule.bulkAssign");
   const router = useRouter();
@@ -119,7 +122,9 @@ export function BulkAssignForm({
   );
   const [scheduledTime, setScheduledTime] = useState<string>("");
   const [meetingNotes, setMeetingNotes] = useState<string>("");
-  const [selectedUids, setSelectedUids] = useState<Set<string>>(new Set());
+  const [selectedUids, setSelectedUids] = useState<Set<string>>(
+    () => new Set(initialSelectedUids ?? []),
+  );
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 

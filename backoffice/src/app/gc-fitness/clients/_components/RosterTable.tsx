@@ -33,6 +33,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -40,8 +41,14 @@ import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
 import type { ClientRosterRow } from "@/lib/gc-fitness/client-roster";
 import type { AttentionReason } from "@/lib/gc-fitness/client-attention";
 import { nutritionNeedsAttention } from "@/lib/gc-fitness/nutrition-coach-reply";
+import {
+  isBulkSelectable,
+  selectAllState,
+  toggleAllVisible,
+} from "@/lib/gc-fitness/coach-broadcast-model";
 import { cn } from "@/lib/utils";
 import { RelativeTime } from "./RelativeTime";
+import { RosterBulkActions } from "./RosterBulkActions";
 import { RosterEmptyState } from "./RosterEmptyState";
 
 export interface RosterTableProps {
@@ -95,10 +102,16 @@ export function RosterTable({
   const t = useTranslations("clients");
   const tTable = useTranslations("clients.table");
   const tCommon = useTranslations("common");
+  const tBulk = useTranslations("clients.bulk");
   const [needsAttentionOnly, setNeedsAttentionOnly] = useState(
     initialNeedsAttentionOnly,
   );
   const [query, setQuery] = useState("");
+  // #500 — bulk selection. Only ACTIVE clients with an account
+  // (`isBulkSelectable`): a pending invite has no chat thread and
+  // `bulkAssignTemplate` rejects `mirror:` ids. Selection survives filter /
+  // search changes (Gmail-style); the dialog lists exactly who gets it.
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
 
   // Locale-aware label for an attention reason string. Kept in lockstep with
   // the Pitfall-7-locked union in `client-attention.ts`.
@@ -127,6 +140,29 @@ export function RosterTable({
       return true;
     });
   }, [rows, needsAttentionOnly, query]);
+
+  const visibleSelectableIds = useMemo(
+    () => filteredRows.filter(isBulkSelectable).map((r) => r.uid),
+    [filteredRows],
+  );
+  const anySelectable = useMemo(() => rows.some(isBulkSelectable), [rows]);
+  // In roster order, and only rows still present (a refresh can drop one).
+  const selectedRecipients = useMemo(
+    () =>
+      rows
+        .filter((r) => selected.has(r.uid) && isBulkSelectable(r))
+        .map((r) => ({ uid: r.uid, displayName: r.displayName })),
+    [rows, selected],
+  );
+
+  function toggleOne(uid: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(uid)) next.delete(uid);
+      else next.add(uid);
+      return next;
+    });
+  }
 
   // 12-04 — designed empty state when no clients are assigned at all.
   if (rows.length === 0) {
@@ -169,6 +205,30 @@ export function RosterTable({
           </Button>
         ) : null}
       </div>
+
+      {anySelectable ? (
+        <div className="flex items-center gap-2 px-1">
+          <Checkbox
+            id="roster-select-all"
+            checked={selectAllState(selected, visibleSelectableIds)}
+            disabled={visibleSelectableIds.length === 0}
+            onCheckedChange={() =>
+              setSelected((prev) => toggleAllVisible(prev, visibleSelectableIds))
+            }
+          />
+          <label
+            htmlFor="roster-select-all"
+            className="cursor-pointer text-sm text-muted-foreground"
+          >
+            {tBulk("selectAll")}
+          </label>
+        </div>
+      ) : null}
+
+      <RosterBulkActions
+        recipients={selectedRecipients}
+        onClear={() => setSelected(new Set())}
+      />
 
       {filteredRows.length === 0 ? (
         <Card>
@@ -227,9 +287,18 @@ export function RosterTable({
               ? `/gc-fitness/clients/pending/${encodeURIComponent(row.email)}`
               : `/gc-fitness/clients/${row.uid}`;
 
+            const selectable = isBulkSelectable(row);
             return (
+              <div key={row.uid} className="relative">
+              {selectable ? (
+                <Checkbox
+                  checked={selected.has(row.uid)}
+                  onCheckedChange={() => toggleOne(row.uid)}
+                  aria-label={tBulk("selectClientAria", { name: row.displayName })}
+                  className="absolute left-5 top-5 z-[1]"
+                />
+              ) : null}
               <Card
-                key={row.uid}
                 role="link"
                 tabIndex={0}
                 onClick={() => router.push(href)}
@@ -243,7 +312,7 @@ export function RosterTable({
               >
                 <CardContent className="flex flex-col gap-4 p-5">
                   {/* Header: avatar + name/email + status icon */}
-                  <div className="flex items-start gap-3">
+                  <div className={cn("flex items-start gap-3", anySelectable && "pl-7")}>
                     <ClientAvatar
                       name={row.displayName}
                       photoURL={row.photoURL}
@@ -421,6 +490,7 @@ export function RosterTable({
                   </div>
                 </CardContent>
               </Card>
+              </div>
             );
           })}
         </div>

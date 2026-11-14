@@ -46,6 +46,16 @@ jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: (...args: unknown[]) => mockPush(...args) }),
 }));
 
+// #500 — the bulk bar's «Mandar mensaje» goes through this Server Action.
+const mockSendBroadcast = jest.fn();
+jest.mock("@/lib/gc-fitness/coach-broadcast-actions", () => ({
+  sendCoachBroadcast: (...args: unknown[]) => mockSendBroadcast(...args),
+}));
+const mockToastSuccess = jest.fn();
+jest.mock("sonner", () => ({
+  toast: { success: (...args: unknown[]) => mockToastSuccess(...args), error: jest.fn() },
+}));
+
 import { RosterTable } from "../RosterTable";
 
 const TRAINER = "trainer-1";
@@ -369,5 +379,114 @@ describe("RosterTable — the nutrition column", () => {
     delete (legacy as Partial<ClientRosterRow>).nutritionRatio7Days;
     renderRoster([legacy]);
     expect(screen.queryByText("NaN%")).not.toBeInTheDocument();
+  });
+});
+
+// #500 — bulk selection + «Mandar mensaje» / «Asignar rutina».
+//
+// What matters:
+//   • a pending invite has NO checkbox (no chat thread, and bulkAssignTemplate
+//     rejects `mirror:` ids);
+//   • ticking a box does NOT open the client (the checkbox is a sibling of the
+//     card link, not nested inside it);
+//   • «Seleccionar todos» picks the VISIBLE selectable rows only;
+//   • the dialog sends exactly the selected uids + the trimmed text, shows the
+//     count from the RESPONSE, and a returned failure stays in the dialog.
+describe("RosterTable — bulk actions (#500)", () => {
+  const ROWS = [
+    client({ uid: "ana", displayName: "Ana Gomez", email: "ana@example.com" }),
+    client({ uid: "beto", displayName: "Beto Diaz", email: "beto@example.com", needsAttention: true }),
+    client({
+      uid: "mirror:caro@example.com",
+      displayName: "Caro Ruiz",
+      email: "caro@example.com",
+      pendingProvisioning: true,
+      source: "pending",
+    }),
+  ];
+
+  it("offers a checkbox only for active clients", () => {
+    renderRoster(ROWS);
+    expect(screen.getByRole("checkbox", { name: "Select Ana Gomez" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Select Beto Diaz" })).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Select Caro Ruiz" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("roster-bulk-bar")).not.toBeInTheDocument();
+  });
+
+  it("ticking a client shows the bar and does not open the client", async () => {
+    const { user } = renderRoster(ROWS);
+    await user.click(screen.getByRole("checkbox", { name: "Select Ana Gomez" }));
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(screen.getByTestId("roster-bulk-bar")).toHaveTextContent("1 selected");
+    await user.click(screen.getByRole("button", { name: /^Clear$/ }));
+    expect(screen.queryByTestId("roster-bulk-bar")).not.toBeInTheDocument();
+  });
+
+  it("select all picks only the visible selectable rows", async () => {
+    const { user } = renderRoster(ROWS);
+    // Filter to Beto first — Ana is hidden, Caro is pending.
+    await user.click(screen.getByRole("button", { name: /Needs attention \(1\)/ }));
+    await user.click(screen.getByRole("checkbox", { name: "Select all" }));
+    expect(screen.getByTestId("roster-bulk-bar")).toHaveTextContent("1 selected");
+    await user.click(screen.getByRole("button", { name: /Needs attention \(1\)/ }));
+    await user.click(screen.getByRole("checkbox", { name: "Select all" }));
+    expect(screen.getByTestId("roster-bulk-bar")).toHaveTextContent("2 selected");
+  });
+
+  it("«Assign workout» opens /schedule/bulk with the clients preselected", async () => {
+    const { user } = renderRoster(ROWS);
+    await user.click(screen.getByRole("checkbox", { name: "Select all" }));
+    await user.click(screen.getByRole("button", { name: /Assign workout/ }));
+    expect(mockPush).toHaveBeenCalledWith("/gc-fitness/schedule/bulk?clients=ana%2Cbeto");
+  });
+
+  it("sends the selected uids + trimmed text and reports the response count", async () => {
+    mockSendBroadcast.mockResolvedValue({ ok: true, sent: 1, skipped: 1, remaining: 9 });
+    const { user } = renderRoster(ROWS);
+    await user.click(screen.getByRole("checkbox", { name: "Select all" }));
+    await user.click(screen.getByRole("button", { name: /Send message/ }));
+
+    expect(screen.getByTestId("broadcast-recipients")).toHaveTextContent("Ana Gomez, Beto Diaz");
+    const send = screen.getByRole("button", { name: "Send" });
+    expect(send).toBeDisabled(); // empty text
+    await user.type(screen.getByLabelText("Message"), "  Hola equipo  ");
+    expect(screen.getByTestId("broadcast-counter")).toHaveTextContent("15/1000");
+    await user.click(send);
+
+    expect(mockSendBroadcast).toHaveBeenCalledWith(["ana", "beto"], "Hola equipo");
+    expect(mockToastSuccess).toHaveBeenCalledWith("Message sent to 1 client", {
+      description: "1 is no longer your client and didn't get it.",
+    });
+    // Sent → selection cleared, bar gone.
+    expect(screen.queryByTestId("roster-bulk-bar")).not.toBeInTheDocument();
+  });
+
+  it("keeps the dialog open with the daily-cap copy on a returned failure", async () => {
+    mockSendBroadcast.mockResolvedValue({ ok: false, error: "daily_cap" });
+    const { user } = renderRoster(ROWS);
+    await user.click(screen.getByRole("checkbox", { name: "Select Ana Gomez" }));
+    await user.click(screen.getByRole("button", { name: /Send message/ }));
+    await user.type(screen.getByLabelText("Message"), "Hola");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "You hit the limit of 10 bulk sends in 24 h. Try again later.",
+    );
+    expect(mockToastSuccess).not.toHaveBeenCalled();
+    expect(screen.getByTestId("roster-bulk-bar")).toHaveTextContent("1 selected");
+  });
+
+  it("blocks sending to more than 200 clients", async () => {
+    const many = Array.from({ length: 201 }, (_, i) =>
+      client({ uid: `c${i}`, displayName: `Client ${i}`, email: `c${i}@example.com` }),
+    );
+    const { user } = renderRoster(many);
+    await user.click(screen.getByRole("checkbox", { name: "Select all" }));
+    await user.click(screen.getByRole("button", { name: /Send message/ }));
+    await user.type(screen.getByLabelText("Message"), "Hola");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "You can message up to 200 clients at once. You selected 201.",
+    );
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
   });
 });
