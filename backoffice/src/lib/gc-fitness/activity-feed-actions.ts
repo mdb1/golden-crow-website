@@ -67,6 +67,16 @@ import {
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { COACH_ACTIVITY_COLLECTION } from "@/lib/gc-fitness/coach-activity-log";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
+import { civilDateAddDays } from "@/lib/gc-fitness/civil-date";
+import { startOfZonedDayMs } from "@/lib/gc-fitness/coach-challenges";
+import {
+  cutFeedPage,
+  decodeFeedCursor,
+  encodeFeedCursor,
+  newWindowHorizon,
+  noteWindow,
+  type WindowHorizon,
+} from "@/lib/gc-fitness/activity-feed-paging";
 import { bilingualText } from "@/lib/gc-fitness/coachless-user-model";
 
 export type FeedSource =
@@ -143,6 +153,19 @@ export interface ActivityFeedFilters {
   /** Only entries that removed something. */
   deletionsOnly?: boolean;
   limit?: number;
+  /**
+   * #503 — the IANA zone the from/to DAYS are read in (the zone the feed is
+   * displayed in, since #736). Absent = UTC days, the pre-#503 behavior.
+   */
+  timeZone?: string | null;
+  /** #503 — opaque cursor from a previous page's `nextCursor`. */
+  cursor?: string | null;
+}
+
+export interface ActivityFeedPage {
+  events: ActivityFeedEvent[];
+  /** Pass back as `cursor` for the next (older) page; null = nothing older. */
+  nextCursor: string | null;
 }
 
 const PER_SOURCE_CAP = 400;
@@ -230,34 +253,49 @@ async function rangedQuery(
   from: Date | null,
   to: Date | null,
   label: string,
-  options: { limit?: number; equals?: { field: string; value: unknown } } = {},
+  options: {
+    limit?: number;
+    equals?: { field: string; value: unknown };
+    /** #503 — records how far back this window reached when it came back full. */
+    horizon?: WindowHorizon;
+  } = {},
 ): Promise<FirebaseFirestore.QuerySnapshot | null> {
   let q = db.collection(collection).orderBy(timeField, "desc") as FirebaseFirestore.Query;
   if (options.equals) q = q.where(options.equals.field, "==", options.equals.value);
   if (from) q = q.where(timeField, ">=", Timestamp.fromDate(from));
   if (to) q = q.where(timeField, "<=", Timestamp.fromDate(to));
-  return q
-    .limit(options.limit ?? PER_SOURCE_CAP)
+  const limit = options.limit ?? PER_SOURCE_CAP;
+  const snap = await q
+    .limit(limit)
     .get()
     .catch((err) => {
       console.warn(`[gc-fitness/feed] ${label} query failed`, err);
       return null;
     });
+  if (snap) {
+    const docs = snap.docs ?? [];
+    const oldest = docs.length > 0 ? toIso(docs[docs.length - 1]!.get?.(timeField)) : null;
+    const oldestMs = oldest ? Date.parse(oldest) : NaN;
+    noteWindow(options.horizon, docs.length, limit, Number.isNaN(oldestMs) ? null : oldestMs);
+  }
+  return snap;
 }
 
 async function fetchAuditRecords(
   db: Firestore,
   from: Date | null,
   to: Date | null,
+  horizon?: WindowHorizon,
 ): Promise<AuditRecord[]> {
   // One global window plus one per monitored collection, so a high-volume
   // writer cannot starve the rest out of the page (see PER_COLLECTION_CAP).
   const snaps = await Promise.all([
-    rangedQuery(db, FirestoreCollections.auditLog, "occurredAt", from, to, "audit_log"),
+    rangedQuery(db, FirestoreCollections.auditLog, "occurredAt", from, to, "audit_log", { horizon }),
     ...AUDITED_COLLECTIONS.map((name) =>
       rangedQuery(db, FirestoreCollections.auditLog, "occurredAt", from, to, `audit_log/${name}`, {
         limit: PER_COLLECTION_CAP,
         equals: { field: "collection", value: name },
+        horizon,
       }),
     ),
   ]);
@@ -325,6 +363,7 @@ async function fetchCoachEvents(
   db: Firestore,
   from: Date | null,
   to: Date | null,
+  horizon?: WindowHorizon,
 ): Promise<RawCoachEvent[]> {
   const snap = await rangedQuery(
     db,
@@ -333,6 +372,7 @@ async function fetchCoachEvents(
     from,
     to,
     "coach_activity",
+    { horizon },
   );
   if (!snap) return [];
   return snap.docs.map((doc) => {
@@ -369,6 +409,7 @@ async function fetchAdminOperations(
   db: Firestore,
   from: Date | null,
   to: Date | null,
+  horizon?: WindowHorizon,
 ): Promise<RawAdminOperation[]> {
   const snap = await rangedQuery(
     db,
@@ -377,6 +418,7 @@ async function fetchAdminOperations(
     from,
     to,
     "admin_operations",
+    { horizon },
   );
   if (!snap) return [];
   return snap.docs.map((doc) => {
@@ -413,6 +455,7 @@ async function fetchPhotoUploads(
   db: Firestore,
   from: Date | null,
   to: Date | null,
+  horizon?: WindowHorizon,
 ): Promise<RawPhotoUpload[]> {
   const snap = await rangedQuery(
     db,
@@ -421,6 +464,7 @@ async function fetchPhotoUploads(
     from,
     to,
     "progress_photos",
+    { horizon },
   );
   if (!snap) return [];
   return snap.docs.map((doc) => {
@@ -453,6 +497,7 @@ async function fetchHabitCheckIns(
   db: Firestore,
   from: Date | null,
   to: Date | null,
+  horizon?: WindowHorizon,
 ): Promise<RawHabitCheckIn[]> {
   // Ordered/ranged on `createdAt`, NOT on `civilDate`: the feed is a timeline of
   // when things HAPPENED, and a back-dated tick ("marqué el hábito de ayer")
@@ -466,6 +511,7 @@ async function fetchHabitCheckIns(
     from,
     to,
     "habit_logs",
+    { horizon },
   );
   if (!snap) return [];
   return snap.docs.map((doc) => {
@@ -497,6 +543,7 @@ async function fetchNutritionDays(
   db: Firestore,
   from: Date | null,
   to: Date | null,
+  horizon?: WindowHorizon,
 ): Promise<RawNutritionDay[]> {
   // Ranged on `updatedAt`, NOT `createdAt` — unlike every other source here.
   // The day's document is created by the FIRST mark and rewritten by each one
@@ -512,6 +559,7 @@ async function fetchNutritionDays(
     from,
     to,
     "nutrition_logs",
+    { horizon },
   );
   if (!snap) return [];
   return snap.docs.flatMap((doc) => {
@@ -917,16 +965,17 @@ function groupPhotoUploads(raw: RawPhotoUpload[]): Array<RawPhotoUpload & { coun
 async function collectFeed(
   from: Date | null,
   to: Date | null,
+  horizon?: WindowHorizon,
 ): Promise<ActivityFeedEvent[]> {
   const db = gcFitnessFirestore();
   const [auditRaw, coachRaw, adminRaw, photoRaw, habitCheckInRaw, nutritionDayRaw] =
     await Promise.all([
-      fetchAuditRecords(db, from, to),
-      fetchCoachEvents(db, from, to),
-      fetchAdminOperations(db, from, to),
-      fetchPhotoUploads(db, from, to),
-      fetchHabitCheckIns(db, from, to),
-      fetchNutritionDays(db, from, to),
+      fetchAuditRecords(db, from, to, horizon),
+      fetchCoachEvents(db, from, to, horizon),
+      fetchAdminOperations(db, from, to, horizon),
+      fetchPhotoUploads(db, from, to, horizon),
+      fetchHabitCheckIns(db, from, to, horizon),
+      fetchNutritionDays(db, from, to, horizon),
     ]);
 
   // Collapse recurring-series writes (one coach edit → one doc per occurrence).
@@ -1227,6 +1276,23 @@ function clampLimit(limit: number | undefined): number {
   return Math.max(1, Math.min(Math.trunc(limit), MAX_LIMIT));
 }
 
+/** First instant of the civil `day` — in `timeZone` when given, else UTC (pre-#503). */
+function dayStart(day: string | null | undefined, timeZone: string | null | undefined): Date | null {
+  if (!day) return null;
+  if (!timeZone) return startOfDayUtc(day);
+  const ms = startOfZonedDayMs(day, timeZone);
+  return ms === null ? startOfDayUtc(day) : new Date(ms);
+}
+
+/** Last instant of the civil `day` (= the next day's start − 1 ms). */
+function dayEnd(day: string | null | undefined, timeZone: string | null | undefined): Date | null {
+  if (!day) return null;
+  if (!timeZone) return endOfDayUtc(day);
+  const next = civilDateAddDays(day, 1);
+  const ms = next ? startOfZonedDayMs(next, timeZone) : null;
+  return ms === null ? endOfDayUtc(day) : new Date(ms - 1);
+}
+
 /**
  * Admin-gated activity feed: what people are doing in the app, newest first.
  * The date range is applied server-side (single-field range + matching orderBy,
@@ -1235,11 +1301,35 @@ function clampLimit(limit: number | undefined): number {
 export async function listActivityFeed(
   filters: ActivityFeedFilters = {},
 ): Promise<ActivityFeedEvent[]> {
+  return (await listActivityFeedPage(filters)).events;
+}
+
+/**
+ * #503 — one page of the feed plus the cursor to the next (older) one. The
+ * cursor resumes every source from where the page stopped, so the filters no
+ * longer apply only to "the loaded window": paging walks the whole trail.
+ * See `activity-feed-paging.ts` for why a page stops at the safe horizon.
+ */
+export async function listActivityFeedPage(
+  filters: ActivityFeedFilters = {},
+): Promise<ActivityFeedPage> {
   await getCurrentAdmin();
-  const from = startOfDayUtc(filters.fromISO);
-  const to = endOfDayUtc(filters.toISO);
-  const all = await collectFeed(from, to);
-  const page = applyFilters(all, filters).slice(0, clampLimit(filters.limit));
+  const from = dayStart(filters.fromISO, filters.timeZone);
+  let to = dayEnd(filters.toISO, filters.timeZone);
+  const cursor = decodeFeedCursor(filters.cursor);
+  if (cursor) {
+    // Re-read up to the END of the cursor's millisecond: Firestore keeps
+    // microseconds, the cursor (an ISO string's ms) does not.
+    const resume = new Date(cursor.beforeMs + 1);
+    if (!to || resume < to) to = resume;
+  }
+  const horizon = newWindowHorizon();
+  const all = await collectFeed(from, to, horizon);
+  const { page, nextCursor } = cutFeedPage(applyFilters(all, filters), {
+    limit: clampLimit(filters.limit),
+    horizon,
+    cursor,
+  });
 
   // Name the entities of the events that survived — a workout log's routine, a
   // habit whose only changed field was its schedule, an assignment's template.
@@ -1247,7 +1337,7 @@ export async function listActivityFeed(
     gcFitnessFirestore(),
     page.map((e) => e.subjectRef).filter((r): r is FeedSubjectRef => !!r),
   );
-  return page.map((event) => {
+  const events = page.map((event) => {
     if (!event.subjectRef) return event;
     const { subjectRef, ...rest } = event;
     return {
@@ -1256,4 +1346,5 @@ export async function listActivityFeed(
         event.subject ?? names.get(`${subjectRef.collection}:${subjectRef.id}`) ?? null,
     };
   });
+  return { events, nextCursor: nextCursor ? encodeFeedCursor(nextCursor) : null };
 }

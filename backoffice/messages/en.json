@@ -3455,14 +3455,14 @@
       },
       "filters": {
         "title": "Filters",
-        "description": "The date range is applied in the query; the rest filters the window loaded in memory. Times in UTC.",
+        "description": "The date range is read in your time zone ({timezone}), like the feed's times. The other filters apply to each page; “Older events” keeps going back with the same filters.",
         "eventType": "Event type",
         "source": "Source",
         "actor": "Who (uid / name / email)",
         "client": "Client (uid / name / email)",
         "contains": "contains…",
-        "from": "From (UTC)",
-        "to": "To (UTC)",
+        "from": "From",
+        "to": "To",
         "lowSignal": "Also show low-level writes (<code>updatedAt</code> touches, per-set writes during a workout, subscription refreshes with no plan change)",
         "apply": "Apply filters",
         "clear": "Clear"
@@ -3477,7 +3477,14 @@
       "viewDetail": "view detail",
       "today": "Today · {day}",
       "yesterday": "Yesterday · {day}",
-      "noDate": "no date"
+      "noDate": "no date",
+      "paging": {
+        "label": "Feed pages",
+        "older": "Older events",
+        "newest": "Back to newest",
+        "olderPage": "Older page of the feed.",
+        "exportCsv": "Export CSV"
+      }
     },
     "calendar": {
       "loadError": "Could not load that month.",

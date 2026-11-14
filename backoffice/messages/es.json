@@ -3455,14 +3455,14 @@
       },
       "filters": {
         "title": "Filtros",
-        "description": "El rango de fechas se aplica en la query; el resto filtra la ventana cargada en memoria. Horarios en UTC.",
+        "description": "El rango de fechas se lee en tu zona horaria ({timezone}), igual que las horas del feed. Los demás filtros se aplican a cada página; «Ver más antiguos» sigue hacia atrás con los mismos filtros.",
         "eventType": "Tipo de evento",
         "source": "Fuente",
         "actor": "Quién (uid / nombre / email)",
         "client": "Cliente (uid / nombre / email)",
         "contains": "contiene…",
-        "from": "Desde (UTC)",
-        "to": "Hasta (UTC)",
+        "from": "Desde",
+        "to": "Hasta",
         "lowSignal": "Mostrar también los writes de bajo nivel (toques de <code>updatedAt</code>, escrituras por serie durante un workout, refrescos de suscripción sin cambio de plan)",
         "apply": "Aplicar filtros",
         "clear": "Limpiar"
@@ -3477,7 +3477,14 @@
       "viewDetail": "ver detalle",
       "today": "Hoy · {day}",
       "yesterday": "Ayer · {day}",
-      "noDate": "sin fecha"
+      "noDate": "sin fecha",
+      "paging": {
+        "label": "Páginas del feed",
+        "older": "Ver más antiguos",
+        "newest": "Volver a lo más nuevo",
+        "olderPage": "Página anterior del feed.",
+        "exportCsv": "Exportar CSV"
+      }
     },
     "calendar": {
       "loadError": "No se pudo cargar ese mes.",

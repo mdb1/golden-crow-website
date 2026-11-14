@@ -358,7 +358,7 @@ export function monthBounds(month: string): { start: string; end: string } {
 
 // ── CSV ──────────────────────────────────────────────────────────────────────────
 
-function csvCell(value: string | number | null | undefined): string {
+export function csvCell(value: string | number | null | undefined): string {
   const s = value == null ? "" : String(value);
   // Una celda que empieza con = + - @ se ejecuta como fórmula en una planilla.
   const safe = /^[=+\-@\t\r]/.test(s) && typeof value !== "number" ? `'${s}` : s;
