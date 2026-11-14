@@ -17,7 +17,7 @@
 // is never trusted server-side).
 
 import { useState, useTransition } from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { ChevronLeft, ChevronRight, Dumbbell, History, User } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -74,6 +74,7 @@ export function AdminReadOnlyCalendar({
   initialPayload: MonthCalendarPayload;
 }) {
   const locale = useLocale();
+  const t = useTranslations("admin.calendar");
   const [monthCivil, setMonthCivil] = useState(initialMonthFirst);
   const [payload, setPayload] = useState(initialPayload);
   const [error, setError] = useState<string | null>(null);
@@ -92,7 +93,7 @@ export function AdminReadOnlyCalendar({
         setMonthCivil(nextMonth);
         setPayload(next);
       } catch {
-        setError("Could not load that month.");
+        setError(t("loadError"));
       }
     });
   }
@@ -117,7 +118,7 @@ export function AdminReadOnlyCalendar({
             variant="outline"
             size="icon"
             className="size-8 rounded-full"
-            aria-label="Previous month"
+            aria-label={t("previousMonth")}
             disabled={isPending}
             onClick={() => goToMonth(previousMonthFirst(monthCivil))}
           >
@@ -130,7 +131,7 @@ export function AdminReadOnlyCalendar({
             variant="outline"
             size="icon"
             className="size-8 rounded-full"
-            aria-label="Next month"
+            aria-label={t("nextMonth")}
             disabled={isPending}
             onClick={() => goToMonth(nextMonthFirst(monthCivil))}
           >
@@ -138,8 +139,8 @@ export function AdminReadOnlyCalendar({
           </Button>
         </div>
         <span className="text-xs text-muted-foreground">
-          {monthWorkouts} workout{monthWorkouts === 1 ? "" : "s"} this month
-          {isPending ? " · loading…" : ""}
+          {t("monthWorkouts", { count: monthWorkouts })}
+          {isPending ? ` · ${t("loading")}` : ""}
         </span>
       </div>
 
@@ -229,14 +230,14 @@ export function AdminReadOnlyCalendar({
       </div>
 
       <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-        <LegendDot className="bg-amber-500" label="scheduled" />
-        <LegendDot className="bg-sky-500" label="started" />
-        <LegendDot className="bg-emerald-500" label="completed" />
-        <LegendDot className="bg-rose-500" label="missed" />
+        <LegendDot className="bg-amber-500" label={t("legend.scheduled")} />
+        <LegendDot className="bg-sky-500" label={t("legend.started")} />
+        <LegendDot className="bg-emerald-500" label={t("legend.completed")} />
+        <LegendDot className="bg-rose-500" label={t("legend.missed")} />
         <span className="inline-flex items-center gap-1">
-          <User className="size-3" aria-hidden /> self-created
+          <User className="size-3" aria-hidden /> {t("legend.selfCreated")}
         </span>
-        <span>· small dots = habits</span>
+        <span>· {t("legend.habits")}</span>
       </div>
     </div>
   );

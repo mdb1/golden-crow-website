@@ -54,7 +54,7 @@ const ROWS: CoachlessUserRow[] = [
   }),
 ];
 
-const noop = async () => {};
+const noop = async () => ({ ok: true as const });
 
 function renderTable() {
   return render(

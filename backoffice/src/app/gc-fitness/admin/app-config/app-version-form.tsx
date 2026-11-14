@@ -16,8 +16,9 @@
 // English literals (no next-intl): the whole Admin Console is English-only,
 // unlike the trainer Settings surface.
 
-import { useTransition } from "react";
+import { useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -46,32 +47,36 @@ import {
   type AppVersionConfig,
 } from "@/lib/gc-fitness/admin-actions";
 
-const platformSchema = z.object({
-  minBuild: z.coerce
-    .number()
-    .int("Enter a whole number.")
-    .min(0, "Cannot be negative.")
-    .max(2_147_483_647, "Too large."),
-  latestVersion: z
-    .string()
-    .trim()
-    .max(20)
-    .refine((v) => v === "" || /^\d+(\.\d+){0,3}$/.test(v), {
-      message: "Use a dotted version like 1.2.0 (or leave blank).",
-    }),
-  storeUrl: z
-    .string()
-    .trim()
-    .max(300)
-    .refine((v) => v === "" || /^https?:\/\//i.test(v), {
-      message: "Must be an http(s) URL (or leave blank).",
-    }),
-});
+type Translate = (key: "wholeNumber" | "notNegative" | "tooLarge" | "dottedVersion" | "httpUrl") => string;
 
-const formSchema = z.object({
-  ios: platformSchema,
-  android: platformSchema,
-});
+// Built per render so the validation copy follows the admin's locale (#497).
+function makeFormSchema(tv: Translate) {
+  const platformSchema = z.object({
+    minBuild: z.coerce
+      .number()
+      .int(tv("wholeNumber"))
+      .min(0, tv("notNegative"))
+      .max(2_147_483_647, tv("tooLarge")),
+    latestVersion: z
+      .string()
+      .trim()
+      .max(20)
+      .refine((v) => v === "" || /^\d+(\.\d+){0,3}$/.test(v), {
+        message: tv("dottedVersion"),
+      }),
+    storeUrl: z
+      .string()
+      .trim()
+      .max(300)
+      .refine((v) => v === "" || /^https?:\/\//i.test(v), {
+        message: tv("httpUrl"),
+      }),
+  });
+  return z.object({
+    ios: platformSchema,
+    android: platformSchema,
+  });
+}
 
 export interface AppVersionFormProps {
   initialConfig: AppVersionConfig;
@@ -83,13 +88,11 @@ const PLATFORMS = [
   {
     key: "ios" as const,
     label: "iOS",
-    buildHint: "Minimum CFBundleVersion (build number). Builds below this are blocked.",
     storePlaceholder: "https://apps.apple.com/app/id000000000",
   },
   {
     key: "android" as const,
     label: "Android",
-    buildHint: "Minimum versionCode. Builds below this are blocked. Leave 0 until Android ships.",
     storePlaceholder: "https://play.google.com/store/apps/details?id=com.goldencrow.fitness",
   },
 ];
@@ -97,6 +100,27 @@ const PLATFORMS = [
 export function AppVersionForm({ initialConfig, timezone }: AppVersionFormProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const t = useTranslations("admin.appConfig.form");
+  const tv = useTranslations("admin.appConfig.validation");
+  const locale = useLocale();
+  const formSchema = useMemo(
+    () =>
+      makeFormSchema((key) => {
+        switch (key) {
+          case "wholeNumber":
+            return tv("wholeNumber");
+          case "notNegative":
+            return tv("notNegative");
+          case "tooLarge":
+            return tv("tooLarge");
+          case "dottedVersion":
+            return tv("dottedVersion");
+          case "httpUrl":
+            return tv("httpUrl");
+        }
+      }),
+    [tv],
+  );
 
   const form = useForm({
     // Input (number field gives a string) vs output (coerced number) types
@@ -122,12 +146,12 @@ export function AppVersionForm({ initialConfig, timezone }: AppVersionFormProps)
     startTransition(async () => {
       try {
         await updateAppVersionConfig(values);
-        toast.success("App version requirements saved.");
+        toast.success(t("saved"));
         router.refresh();
       } catch (err) {
         console.error("[app-version-form] save failed", err);
         const message =
-          err instanceof Error ? err.message : "Could not save. Try again.";
+          err instanceof Error ? err.message : t("saveFailed");
         toast.error(message);
       }
     });
@@ -140,10 +164,7 @@ export function AppVersionForm({ initialConfig, timezone }: AppVersionFormProps)
           <Card key={platform.key}>
             <CardHeader>
               <CardTitle className="text-lg">{platform.label}</CardTitle>
-              <CardDescription>
-                Clients on a build below the minimum see a non-dismissable
-                update screen at launch.
-              </CardDescription>
+              <CardDescription>{t("platformDescription")}</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-3">
               <FormField
@@ -151,7 +172,7 @@ export function AppVersionForm({ initialConfig, timezone }: AppVersionFormProps)
                 name={`${platform.key}.minBuild` as const}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Minimum build</FormLabel>
+                    <FormLabel>{t("minBuild")}</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
@@ -161,7 +182,9 @@ export function AppVersionForm({ initialConfig, timezone }: AppVersionFormProps)
                         {...field}
                       />
                     </FormControl>
-                    <FormDescription>{platform.buildHint}</FormDescription>
+                    <FormDescription>
+                      {platform.key === "ios" ? t("buildHintIos") : t("buildHintAndroid")}
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -171,13 +194,11 @@ export function AppVersionForm({ initialConfig, timezone }: AppVersionFormProps)
                 name={`${platform.key}.latestVersion` as const}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Latest version</FormLabel>
+                    <FormLabel>{t("latestVersion")}</FormLabel>
                     <FormControl>
                       <Input placeholder="1.2.0" {...field} />
                     </FormControl>
-                    <FormDescription>
-                      Shown in the update message (display-only).
-                    </FormDescription>
+                    <FormDescription>{t("latestVersionHint")}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -187,13 +208,11 @@ export function AppVersionForm({ initialConfig, timezone }: AppVersionFormProps)
                 name={`${platform.key}.storeUrl` as const}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Store URL</FormLabel>
+                    <FormLabel>{t("storeUrl")}</FormLabel>
                     <FormControl>
                       <Input placeholder={platform.storePlaceholder} {...field} />
                     </FormControl>
-                    <FormDescription>
-                      Opened by the update button.
-                    </FormDescription>
+                    <FormDescription>{t("storeUrlHint")}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -205,17 +224,18 @@ export function AppVersionForm({ initialConfig, timezone }: AppVersionFormProps)
         <div className="flex items-center justify-end gap-3">
           {initialConfig.updatedAtISO ? (
             <span className="text-xs text-muted-foreground">
-              Last updated{" "}
-              {new Date(initialConfig.updatedAtISO).toLocaleString(undefined, {
-                dateStyle: "medium",
-                timeStyle: "short",
-                timeZone: timezone,
+              {t("lastUpdated", {
+                date: new Date(initialConfig.updatedAtISO).toLocaleString(locale, {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                  timeZone: timezone,
+                }),
               })}
-              {initialConfig.updatedBy ? ` by ${initialConfig.updatedBy}` : ""}
+              {initialConfig.updatedBy ? ` ${t("updatedBy", { email: initialConfig.updatedBy })}` : ""}
             </span>
           ) : null}
           <Button type="submit" disabled={pending}>
-            {pending ? "Saving…" : "Save"}
+            {pending ? t("saving") : t("save")}
           </Button>
         </div>
       </form>

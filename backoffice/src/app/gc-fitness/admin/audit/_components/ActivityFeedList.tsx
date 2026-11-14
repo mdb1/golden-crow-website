@@ -10,6 +10,7 @@
 // Las horas y el agrupado por día se muestran en la zona del proyecto (#736), no en UTC.
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import {
   Activity,
   Apple,
@@ -43,20 +44,6 @@ const CATEGORY_ICON: Record<FeedCategory, React.ComponentType<{ className?: stri
   coach: Activity,
   admin: ShieldAlert,
   other: Activity,
-};
-
-export const CATEGORY_LABEL: Record<FeedCategory, string> = {
-  workout: "Workouts",
-  schedule: "Agenda",
-  routine: "Rutinas",
-  habit: "Hábitos",
-  nutrition: "Nutrición",
-  exercise: "Ejercicios",
-  photo: "Fotos",
-  account: "Cuentas y suscripciones",
-  coach: "Acciones de coach",
-  admin: "Operaciones de admin",
-  other: "Otros",
 };
 
 /** Token-based tint per category — no raw hex, both themes work. */
@@ -108,10 +95,12 @@ function timeOfDay(iso: string | null, timeZone: string): string {
  * `en-CA` porque da "YYYY-MM-DD" — el mismo formato que `civilDateFormat`, así que la clave
  * que se calcula acá y el "hoy" que llega por prop son comparables sin normalizar nada.
  */
+const NO_DATE = "no-date";
+
 function dayKey(iso: string | null, timeZone: string): string {
-  if (!iso) return "sin fecha";
+  if (!iso) return NO_DATE;
   const ms = Date.parse(iso);
-  if (Number.isNaN(ms)) return "sin fecha";
+  if (Number.isNaN(ms)) return NO_DATE;
   return new Intl.DateTimeFormat("en-CA", {
     timeZone,
     year: "numeric",
@@ -120,13 +109,19 @@ function dayKey(iso: string | null, timeZone: string): string {
   }).format(ms);
 }
 
-function dayLabel(day: string, today: string, timeZone: string): string {
-  if (day === today) return `Hoy · ${day}`;
+function dayLabel(
+  day: string,
+  today: string,
+  timeZone: string,
+  labels: { today: (day: string) => string; yesterday: (day: string) => string; noDate: string },
+): string {
+  if (day === NO_DATE) return labels.noDate;
+  if (day === today) return labels.today(day);
   // Se resta desde el MEDIODÍA y no desde la medianoche: en un día de cambio de horario
   // de verano el día dura 23 o 25 horas, y restar 24 desde las 00:00 cae en el día
   // equivocado. Desde las 12:00 sobra margen en las dos direcciones.
   const yesterday = dayKey(new Date(Date.parse(`${today}T12:00:00.000Z`) - 86_400_000).toISOString(), timeZone);
-  if (day === yesterday) return `Ayer · ${day}`;
+  if (day === yesterday) return labels.yesterday(day);
   return day;
 }
 
@@ -154,6 +149,7 @@ function lowerFirst(text: string): string {
 
 function FeedRow({ event, timeZone }: { event: ActivityFeedEvent; timeZone: string }) {
   const Icon = CATEGORY_ICON[event.category] ?? Activity;
+  const t = useTranslations("admin.audit");
   const subject = event.subject?.trim();
 
   return (
@@ -192,7 +188,7 @@ function FeedRow({ event, timeZone }: { event: ActivityFeedEvent; timeZone: stri
             )
           ) : event.href ? (
             <Link href={event.href} className="text-xs underline underline-offset-2">
-              ver detalle
+              {t("viewDetail")}
             </Link>
           ) : null}
           {event.client ? (
@@ -245,7 +241,7 @@ export function ActivityFeedList({
   events,
   today,
   timeZone = "UTC",
-  emptyLabel = "No hay eventos para estos filtros.",
+  emptyLabel,
 }: {
   events: ActivityFeedEvent[];
   /** "YYYY-MM-DD" en `timeZone`, para los rótulos Hoy/Ayer — entra por prop para que esto siga siendo puro. */
@@ -258,9 +254,15 @@ export function ActivityFeedList({
   timeZone?: string;
   emptyLabel?: string;
 }) {
+  const t = useTranslations("admin.audit");
   if (events.length === 0) {
-    return <p className="px-4 py-6 text-sm text-muted-foreground">{emptyLabel}</p>;
+    return <p className="px-4 py-6 text-sm text-muted-foreground">{emptyLabel ?? t("emptyEvents")}</p>;
   }
+  const dayLabels = {
+    today: (day: string) => t("today", { day }),
+    yesterday: (day: string) => t("yesterday", { day }),
+    noDate: t("noDate"),
+  };
 
   const days: Array<{ day: string; items: ActivityFeedEvent[] }> = [];
   for (const event of events) {
@@ -275,9 +277,9 @@ export function ActivityFeedList({
       {days.map((group) => (
         <section key={group.day}>
           <h3 className="sticky top-0 z-10 border-y bg-muted/60 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur">
-            {dayLabel(group.day, today, timeZone)}
+            {dayLabel(group.day, today, timeZone, dayLabels)}
             <span className="ml-2 font-normal normal-case">
-              {group.items.length} {group.items.length === 1 ? "evento" : "eventos"}
+              {t("eventCount", { count: group.items.length })}
             </span>
           </h3>
           <ul className="divide-y">

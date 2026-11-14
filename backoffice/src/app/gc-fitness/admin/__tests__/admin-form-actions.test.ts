@@ -7,7 +7,9 @@
 // keepTrainer) decide how dangerous the click is. Pinned per wrapper:
 //   - field → argument mapping (incl. defaults for missing fields);
 //   - revalidatePath + redirect targets;
-//   - a rejected lib call propagates and skips revalidate/redirect.
+//   - a rejected lib call is RETURNED as `{ ok: false, error }` (#498 — a thrown
+//     error reaches a production browser as "Minified React error #441") and
+//     skips revalidate/redirect.
 // The admin gate + ownership checks live in the lib actions (tested in
 // src/lib/gc-fitness/__tests__/admin-actions.guards.test.ts and
 // admin-coachless-actions.test.ts); here they are mocked.
@@ -44,6 +46,19 @@ jest.mock("@/lib/gc-fitness/admin-actions", () => ({
 jest.mock("@/lib/gc-fitness/admin-coachless-actions", () => ({
   deleteCoachlessUser: (i: unknown) => mockLib.deleteCoachlessUser(i),
   setUserEntitlementTier: (i: unknown) => mockLib.setUserEntitlementTier(i),
+}));
+
+const mockCoachAccess = {
+  disableCoach: jest.fn(async (_i: unknown) => ({ ok: true as const, uid: "coach-A1" }) as unknown),
+  reactivateCoach: jest.fn(async (_i: unknown) => ({ ok: true as const, uid: "coach-A1" }) as unknown),
+};
+jest.mock("@/lib/gc-fitness/coach-access", () => ({
+  disableCoach: (i: unknown) => mockCoachAccess.disableCoach(i),
+  reactivateCoach: (i: unknown) => mockCoachAccess.reactivateCoach(i),
+}));
+const mockGetCurrentAdmin = jest.fn(async () => ({ uid: "admin-1" }));
+jest.mock("@/lib/gc-fitness/auth-helpers", () => ({
+  getCurrentAdmin: () => mockGetCurrentAdmin(),
 }));
 
 import * as consoleActions from "@/app/gc-fitness/admin/actions";
@@ -110,11 +125,30 @@ describe("admin/actions.ts (console)", () => {
     });
   });
 
-  it("a rejected lib call (e.g. Forbidden) propagates and skips revalidate + redirect", async () => {
+  it("#498 — a rejected lib call (e.g. Forbidden) is RETURNED, not thrown, and skips revalidate + redirect", async () => {
     mockLib.deleteCoachCascade.mockRejectedValueOnce(new Error("Forbidden"));
     await expect(
       consoleActions.deleteCoachAction(form({ coachUid: "coach-A1", confirmation: "x", mode: "execute" })),
-    ).rejects.toThrow("Forbidden");
+    ).resolves.toEqual({ ok: false, error: "Forbidden" });
+    expectNav([], null);
+  });
+
+  it("#498 — every console action returns a failure instead of throwing", async () => {
+    mockLib.addCoachEmailToAllowlist.mockRejectedValueOnce(new Error("bad email"));
+    mockLib.promoteUserToAdmin.mockRejectedValueOnce(new Error("no user"));
+    mockLib.removeCoachEmailFromAllowlist.mockRejectedValueOnce(new Error("nope"));
+    await expect(consoleActions.addAllowlistEmailAction(form({ email: "x" }))).resolves.toEqual({
+      ok: false,
+      error: "bad email",
+    });
+    await expect(consoleActions.promoteToAdminAction(form({ email: "x" }))).resolves.toEqual({
+      ok: false,
+      error: "no user",
+    });
+    await expect(consoleActions.removeAllowlistEmailAction(form({ email: "x" }))).resolves.toEqual({
+      ok: false,
+      error: "nope",
+    });
     expectNav([], null);
   });
 });
@@ -180,11 +214,58 @@ describe("admin/coaches/[uid]/actions.ts", () => {
     );
   });
 
-  it("an ownership refusal from the lib propagates with no revalidate/redirect", async () => {
+  it("#498 — an ownership refusal from the lib is returned with no revalidate/redirect", async () => {
     mockLib.unlinkClientFromCoach.mockRejectedValueOnce(new Error("Client is not linked to this coach."));
     await expect(
       coachActions.unlinkClientAction(form({ coachUid: "coach-A1", clientUid: "client-B1" })),
-    ).rejects.toThrow("Client is not linked to this coach.");
+    ).resolves.toEqual({ ok: false, error: "Client is not linked to this coach." });
+    expectNav([], null);
+  });
+
+  it("#498 — deactivate / transfer / remove pending / delete return failures instead of throwing", async () => {
+    mockLib.deactivateClientForCoach.mockRejectedValueOnce(new Error("e1"));
+    mockLib.transferClientToCoach.mockRejectedValueOnce(new Error("e2"));
+    mockLib.removePendingClientForCoach.mockRejectedValueOnce(new Error("e3"));
+    mockLib.deleteClientCascade.mockRejectedValueOnce(new Error("e4"));
+    const fd = form({ coachUid: "coach-A1", clientUid: "client-A1", newCoachUid: "coach-B1", email: "p@x.com" });
+    await expect(coachActions.deactivateClientAction(fd)).resolves.toEqual({ ok: false, error: "e1" });
+    await expect(coachActions.transferClientAction(fd)).resolves.toEqual({ ok: false, error: "e2" });
+    await expect(coachActions.removePendingAction(fd)).resolves.toEqual({ ok: false, error: "e3" });
+    await expect(coachActions.deleteClientAction(fd)).resolves.toEqual({ ok: false, error: "e4" });
+    expectNav([], null);
+  });
+
+  it("deactivate / remove pending return ok:true on success (no redirect)", async () => {
+    await expect(
+      coachActions.deactivateClientAction(form({ coachUid: "coach-A1", clientUid: "client-A1" })),
+    ).resolves.toEqual({ ok: true });
+    await expect(
+      coachActions.removePendingAction(form({ coachUid: "coach-A1", email: "p@x.com" })),
+    ).resolves.toEqual({ ok: true });
+  });
+
+  it("#510 — disableCoachAction / reactivateCoachAction call the lib with the bound uid and revalidate", async () => {
+    await expect(coachActions.disableCoachAction("coach-A1")).resolves.toEqual({ ok: true });
+    expect(mockCoachAccess.disableCoach).toHaveBeenCalledWith({ coachUid: "coach-A1" });
+    expectNav(["/gc-fitness/admin/coaches/coach-A1", "/gc-fitness/admin"], null);
+    mockRevalidatePath.mockClear();
+    await expect(coachActions.reactivateCoachAction("coach-A1")).resolves.toEqual({ ok: true });
+    expect(mockCoachAccess.reactivateCoach).toHaveBeenCalledWith({ coachUid: "coach-A1" });
+    expectNav(["/gc-fitness/admin/coaches/coach-A1", "/gc-fitness/admin"], null);
+  });
+
+  it("#510 — a lib failure or a non-admin caller is returned, nothing revalidated", async () => {
+    mockCoachAccess.disableCoach.mockResolvedValueOnce({ ok: false, error: "Coach not found." });
+    await expect(coachActions.disableCoachAction("coach-X")).resolves.toEqual({
+      ok: false,
+      error: "Coach not found.",
+    });
+    mockGetCurrentAdmin.mockRejectedValueOnce(new Error("Forbidden"));
+    await expect(coachActions.reactivateCoachAction("coach-A1")).resolves.toEqual({
+      ok: false,
+      error: "Forbidden",
+    });
+    expect(mockCoachAccess.reactivateCoach).not.toHaveBeenCalled();
     expectNav([], null);
   });
 });
@@ -216,11 +297,25 @@ describe("admin/coach-less-users/actions.ts (list)", () => {
     expectNav([ROUTE], `${ROUTE}?op=delete_user&ok=1`);
   });
 
-  it("a refused delete (email mismatch) propagates with no redirect", async () => {
+  it("#498 — a refused delete (email mismatch) is returned with no redirect", async () => {
     mockLib.deleteCoachlessUser.mockRejectedValueOnce(new Error("Email confirmation does not match the target user."));
     await expect(
       listActions.deleteUserAction(form({ uid: "solo-user1", emailConfirmation: "nope" })),
-    ).rejects.toThrow("Email confirmation does not match");
+    ).resolves.toEqual({ ok: false, error: "Email confirmation does not match the target user." });
+    expectNav([], null);
+  });
+
+  it("#498 — assign / set tier failures are returned, not thrown", async () => {
+    mockLib.transferClientToCoach.mockRejectedValueOnce(new Error("t"));
+    mockLib.setUserEntitlementTier.mockRejectedValueOnce(new Error("s"));
+    await expect(listActions.assignCoachAction(form({ uid: "u", newCoachUid: "c" }))).resolves.toEqual({
+      ok: false,
+      error: "t",
+    });
+    await expect(listActions.setTierAction(form({ uid: "u", tier: "free" }))).resolves.toEqual({
+      ok: false,
+      error: "s",
+    });
     expectNav([], null);
   });
 
@@ -260,11 +355,22 @@ describe("admin/coach-less-users/[uid]/actions.ts (profile)", () => {
     expectNav([LIST], `${LIST}?op=delete_user&ok=1`);
   });
 
-  it("a Forbidden lib call propagates with no revalidate/redirect", async () => {
+  it("#498 — a Forbidden lib call is returned with no revalidate/redirect", async () => {
     mockLib.setUserEntitlementTier.mockRejectedValueOnce(new Error("Forbidden"));
-    await expect(profileActions.setTierAction(form({ uid: "solo-user1", tier: "free" }))).rejects.toThrow(
-      "Forbidden",
-    );
+    await expect(profileActions.setTierAction(form({ uid: "solo-user1", tier: "free" }))).resolves.toEqual({
+      ok: false,
+      error: "Forbidden",
+    });
+    mockLib.transferClientToCoach.mockRejectedValueOnce(new Error("t"));
+    mockLib.deleteCoachlessUser.mockRejectedValueOnce(new Error("d"));
+    await expect(profileActions.assignCoachAction(form({ uid: "u", newCoachUid: "c" }))).resolves.toEqual({
+      ok: false,
+      error: "t",
+    });
+    await expect(profileActions.deleteUserAction(form({ uid: "u", emailConfirmation: "e" }))).resolves.toEqual({
+      ok: false,
+      error: "d",
+    });
     expectNav([], null);
   });
 });

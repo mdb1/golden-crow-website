@@ -254,3 +254,78 @@ export function projectExercisesForViewer(
     .filter((r) => !r.deletedAt)
     .filter((r) => canTrainerAccessExercise(r, viewerUid));
 }
+
+// ── #495 — the library is read in TWO queries, not one full scan ─────────────
+//
+// Until 2.3.0 `listExercisesForViewer` read the WHOLE `exercises` collection
+// (every coach's private library included, ~1.3k docs) on every picker open
+// and filtered in memory. It now reads:
+//
+//   (a) the SHARED catalog — `source in SHARED_EXERCISE_SOURCES` — once per
+//       hour per region through `unstable_cache` (tag below), because it is
+//       the same for every coach; and
+//   (b) the caller's own docs — `ownerId == uid` — uncached (coaches edit
+//       these constantly; a stale cache there would be a visible bug).
+//
+// The output must be IDENTICAL to `projectExercisesForViewer` over the old
+// `orderBy("updatedAt","desc")` scan; `exercise-list-actions.test.ts` pins that
+// on a mixed fixture. The pieces that make it identical:
+//   - SHARED_EXERCISE_SOURCES are exactly the raw values `snapToRow` does NOT
+//     coerce to "trainer", i.e. exactly the rows `canTrainerAccessExercise`
+//     shows to everyone. Every other row is visible only when
+//     `ownerId === viewer`, which query (b) returns.
+//   - The old `orderBy` silently EXCLUDED docs without an `updatedAt` field;
+//     the new queries have no orderBy, so `hasUpdatedAtField` drops them.
+//   - Order is re-applied in memory: updatedAt desc, then id desc (Firestore's
+//     implicit `__name__` tie-break takes the last orderBy's direction).
+
+/** Raw `source` values whose docs are the shared catalog. Keep in sync with `snapToRow`. */
+export const SHARED_EXERCISE_SOURCES = ["wger", "free-exercise-db"] as const;
+
+/**
+ * Cache tag of the shared catalog. Revalidate it from every backoffice path
+ * that writes a NON-trainer exercise (today only the admin hygiene purge —
+ * coach actions can only write `source: "trainer"` docs, which are never in
+ * the cached set). Scripts that seed the library run outside Next.js; the
+ * one-hour `revalidate` is what picks their writes up.
+ */
+export const STANDARD_EXERCISES_CACHE_TAG = "gc-fitness:standard-exercises";
+
+function hasUpdatedAtField(d: ExerciseDocLike): boolean {
+  const data = d.data();
+  return data !== undefined && data.updatedAt !== undefined;
+}
+
+function compareForLibrary(a: ExerciseRow, b: ExerciseRow): number {
+  const au = a.updatedAt;
+  const bu = b.updatedAt;
+  if (au !== bu) {
+    if (au === null) return 1;
+    if (bu === null) return -1;
+    return au < bu ? 1 : -1;
+  }
+  if (a.id === b.id) return 0;
+  return a.id < b.id ? 1 : -1;
+}
+
+/** The cacheable half: shared rows only, live only, plain JSON. */
+export function projectSharedCatalog(docs: ExerciseDocLike[]): ExerciseRow[] {
+  return docs
+    .filter(hasUpdatedAtField)
+    .map(snapToRow)
+    .filter((r) => !r.deletedAt && r.source !== "trainer");
+}
+
+/** Joins the cached shared rows with the caller's own docs, in library order. */
+export function mergeViewerExercises(
+  shared: ExerciseRow[],
+  ownDocs: ExerciseDocLike[],
+  viewerUid: string | null,
+): ExerciseRow[] {
+  const byId = new Map<string, ExerciseRow>();
+  for (const row of shared) byId.set(row.id, row);
+  for (const row of projectExercisesForViewer(ownDocs.filter(hasUpdatedAtField), viewerUid)) {
+    byId.set(row.id, row);
+  }
+  return [...byId.values()].sort(compareForLibrary);
+}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,11 +23,14 @@ import {
   listCoachesForAdmin,
   previewClientCascade,
 } from "@/lib/gc-fitness/admin-actions";
+import { AdminActionForm } from "../../_components/admin-action-form";
 import { AdminSubmitButton } from "../../_components/admin-submit-button";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 import {
   deactivateClientAction,
   deleteClientAction,
+  disableCoachAction,
+  reactivateCoachAction,
   removePendingAction,
   transferClientAction,
   unlinkClientAction,
@@ -61,7 +65,10 @@ export default async function CoachAdminDetailPage({
   const ok = typeof sp.ok === "string" ? sp.ok : null;
   const detail = await getCoachAdminDetail(uid);
   if (!detail) notFound();
-  const actionMessage = op && ok === "1" ? `Action completed: ${op}.` : null;
+  const t = await getTranslations("admin.coachDetail");
+  const tc = await getTranslations("admin.common");
+  const actionMessage = op && ok === "1" ? tc("actionCompleted", { op }) : null;
+  const coachDisabled = detail.coachDisabled === true;
 
   // Destination coaches for the transfer control — every coach except this one.
   const allCoaches = await listCoachesForAdmin();
@@ -82,7 +89,7 @@ export default async function CoachAdminDetailPage({
   return (
     <div className="gc-page flex flex-col gap-6">
       <PageHeader
-        title="Coach detail"
+        title={t("title")}
         subtitle={
           <>
             {detail.coach.displayName || "—"} · {detail.coach.email}
@@ -93,7 +100,7 @@ export default async function CoachAdminDetailPage({
           <Button asChild variant="outline" size="sm" className="rounded-full">
             <Link href="/gc-fitness/admin">
               <ArrowLeft className="h-4 w-4" />
-              Back to admin
+              {tc("backToAdmin")}
             </Link>
           </Button>
         }
@@ -105,36 +112,78 @@ export default async function CoachAdminDetailPage({
         </div>
       ) : null}
 
+      <Card className={coachDisabled ? "border-destructive/35" : undefined}>
+        <CardHeader>
+          <CardTitle className="flex flex-wrap items-center gap-2 text-xl">
+            {t("access.title")}
+            {coachDisabled ? (
+              <Badge variant="destructive" data-testid="coach-disabled-badge">
+                {t("access.disabledBadge")}
+              </Badge>
+            ) : (
+              <Badge variant="success">{t("access.activeBadge")}</Badge>
+            )}
+          </CardTitle>
+          <CardDescription>
+            {coachDisabled ? t("access.disabledDescription") : t("access.activeDescription")}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {coachDisabled ? (
+            <AdminActionForm action={reactivateCoachAction.bind(null, detail.coach.uid)}>
+              <AdminSubmitButton
+                idleLabel={t("access.reactivate")}
+                pendingLabel={t("access.reactivating")}
+                className="inline-flex h-9 items-center rounded-md border px-4 text-sm font-medium hover:bg-muted"
+              />
+            </AdminActionForm>
+          ) : (
+            <AdminActionForm
+              action={disableCoachAction.bind(null, detail.coach.uid)}
+              confirmMessage={t("access.disableConfirm", {
+                name: detail.coach.displayName || detail.coach.email || detail.coach.uid,
+              })}
+            >
+              <AdminSubmitButton
+                idleLabel={t("access.disable")}
+                pendingLabel={t("access.disabling")}
+                className="inline-flex h-9 items-center rounded-md border border-destructive/60 px-4 text-sm font-medium text-destructive hover:bg-destructive/10"
+              />
+            </AdminActionForm>
+          )}
+        </CardContent>
+      </Card>
+
       <section className="grid gap-4 sm:grid-cols-3">
-        <Metric label="Clients" value={detail.coach.clientsCount} />
-        <Metric label="Custom workouts" value={detail.coach.customWorkoutsCount} />
-        <Metric label="Custom exercises" value={detail.coach.customExercisesCount} />
-        <Metric label="Assignments" value={detail.workoutAssignmentsCount} />
-        <Metric label="Habits" value={detail.habitsCount} />
-        <Metric label="Chats" value={detail.chatsCount} />
+        <Metric label={tc("clients")} value={detail.coach.clientsCount} />
+        <Metric label={tc("customWorkouts")} value={detail.coach.customWorkoutsCount} />
+        <Metric label={tc("customExercises")} value={detail.coach.customExercisesCount} />
+        <Metric label={t("metrics.assignments")} value={detail.workoutAssignmentsCount} />
+        <Metric label={t("metrics.habits")} value={detail.habitsCount} />
+        <Metric label={t("metrics.chats")} value={detail.chatsCount} />
       </section>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Linked clients</CardTitle>
-          <CardDescription>Current coach-client relationship and quick actions.</CardDescription>
+          <CardTitle className="text-xl">{t("linked.title")}</CardTitle>
+          <CardDescription>{t("linked.description")}</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Client</TableHead>
-                  <TableHead>UID</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
+                  <TableHead>{t("linked.client")}</TableHead>
+                  <TableHead>{tc("uid")}</TableHead>
+                  <TableHead>{tc("status")}</TableHead>
+                  <TableHead className="text-right">{tc("action")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {detail.linkedClients.length === 0 ? (
                   <TableRow>
                     <TableCell className="text-muted-foreground" colSpan={4}>
-                      No linked clients.
+                      {t("linked.empty")}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -153,23 +202,23 @@ export default async function CoachAdminDetailPage({
                       </TableCell>
                       <TableCell className="font-mono text-xs">{client.uid}</TableCell>
                       <TableCell>
-                        {client.deleted ? <Badge variant="secondary">deleted</Badge> : <Badge variant="success">active</Badge>}
+                        {client.deleted ? <Badge variant="secondary">{t("linked.deleted")}</Badge> : <Badge variant="success">{t("linked.active")}</Badge>}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex flex-wrap items-center justify-end gap-2">
                           {!client.deleted && otherCoaches.length > 0 ? (
-                            <form action={transferClientAction} className="flex items-center gap-1">
+                            <AdminActionForm action={transferClientAction} className="flex flex-wrap items-center gap-1">
                               <input type="hidden" name="coachUid" value={detail.coach.uid} />
                               <input type="hidden" name="clientUid" value={client.uid} />
                               <select
                                 name="newCoachUid"
                                 required
                                 defaultValue=""
-                                aria-label={`Transfer ${client.displayName || client.email} to coach`}
+                                aria-label={t("linked.transferLabel", { name: client.displayName || client.email })}
                                 className="h-8 max-w-[12rem] rounded-md border bg-background px-2 text-xs"
                               >
                                 <option value="" disabled>
-                                  Transfer to…
+                                  {t("linked.transferTo")}
                                 </option>
                                 {otherCoaches.map((coach) => (
                                   <option key={coach.uid} value={coach.uid}>
@@ -178,39 +227,39 @@ export default async function CoachAdminDetailPage({
                                 ))}
                               </select>
                               <AdminSubmitButton
-                                idleLabel="Transfer"
-                                pendingLabel="Transferring..."
+                                idleLabel={t("linked.transfer")}
+                                pendingLabel={t("linked.transferring")}
                                 className="inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium hover:bg-muted"
                               />
-                            </form>
+                            </AdminActionForm>
                           ) : null}
                           {/* Ends the coaching relationship WITHOUT deleting
                               anything: the person keeps their data and shows up
                               under Admin → Coach-less users. */}
-                          <form action={unlinkClientAction}>
+                          <AdminActionForm action={unlinkClientAction}>
                             <input type="hidden" name="coachUid" value={detail.coach.uid} />
                             <input type="hidden" name="clientUid" value={client.uid} />
                             <AdminSubmitButton
-                              idleLabel="Remove as client"
-                              pendingLabel="Removing..."
-                              title="Unlink from this coach — the user becomes coach-less and keeps all their data"
+                              idleLabel={t("linked.unlink")}
+                              pendingLabel={tc("removing")}
+                              title={t("linked.unlinkTitle")}
                               className="inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium hover:bg-muted"
                             />
-                          </form>
+                          </AdminActionForm>
                           {!client.deleted ? (
-                            <form action={deactivateClientAction}>
+                            <AdminActionForm action={deactivateClientAction}>
                               <input type="hidden" name="coachUid" value={detail.coach.uid} />
                               <input type="hidden" name="clientUid" value={client.uid} />
                               <AdminSubmitButton
-                                idleLabel="Deactivate"
-                                pendingLabel="Deactivating..."
+                                idleLabel={t("linked.deactivate")}
+                                pendingLabel={t("linked.deactivating")}
                                 className="inline-flex h-8 items-center rounded-md border border-destructive/60 px-3 text-xs font-medium text-destructive hover:bg-destructive/10"
                               />
-                            </form>
+                            </AdminActionForm>
                           ) : null}
                           <Button asChild variant="outline" size="sm" className="rounded-full">
                             <Link href={`/gc-fitness/admin/coaches/${detail.coach.uid}?clientUid=${encodeURIComponent(client.uid)}`}>
-                              Use in delete
+                              {t("linked.useInDelete")}
                             </Link>
                           </Button>
                         </div>
@@ -226,93 +275,91 @@ export default async function CoachAdminDetailPage({
 
       <Card className="border-destructive/35">
         <CardHeader>
-          <CardTitle className="text-destructive">Delete client (cascade)</CardTitle>
-          <CardDescription>
-            Step 1: preview impact. Step 2: execute with explicit confirmation.
-          </CardDescription>
+          <CardTitle className="text-destructive">{t("deleteClient.title")}</CardTitle>
+          <CardDescription>{t("deleteClient.description")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
-            <li>Direct: auth account + users/{`{clientUid}`}</li>
-            <li>Cascade: chat, workout logs, assignments, habits, goals, notes and progress photos metadata.</li>
-            <li>The coach link is removed because the client document is deleted.</li>
+            <li>{t("deleteClient.direct")}</li>
+            <li>{t("deleteClient.cascade")}</li>
+            <li>{t("deleteClient.link")}</li>
           </ul>
 
           <form method="get" action={`/gc-fitness/admin/coaches/${detail.coach.uid}`} className="space-y-2">
-            <Input name="clientUid" required defaultValue={previewClientUid} placeholder="client uid" />
+            <Input name="clientUid" required defaultValue={previewClientUid} placeholder={t("deleteClient.uidPlaceholder")} />
             <AdminSubmitButton
-              idleLabel="Preview deletion (dry run)"
-              pendingLabel="Previewing..."
+              idleLabel={tc("previewDeletion")}
+              pendingLabel={tc("previewing")}
               className="h-10 rounded-md border px-4 text-sm font-medium hover:bg-muted"
             />
           </form>
 
           {clientPreview ? (
             <div className="rounded-2xl border border-[color:var(--badge-warning-border)] bg-[color:var(--badge-warning-bg)] p-4 text-xs">
-              <p className="font-semibold text-[color:var(--badge-warning-fg)]">Preview result</p>
+              <p className="font-semibold text-[color:var(--badge-warning-fg)]">{tc("previewResult")}</p>
               {targetInfo?.exists ? (
                 <p className="mt-1 text-muted-foreground">
-                  Target: {targetInfo.role ?? "unknown"} · {targetInfo.displayName || targetInfo.email || "—"}
+                  {t("deleteClient.target", { role: targetInfo.role ?? t("deleteClient.unknownRole"), name: targetInfo.displayName || targetInfo.email || "—" })}
                 </p>
               ) : (
-                <p className="mt-1 text-muted-foreground">Target not found in users collection.</p>
+                <p className="mt-1 text-muted-foreground">{t("deleteClient.targetNotFound")}</p>
               )}
               <div className="mt-2 grid grid-cols-2 gap-1 text-muted-foreground sm:grid-cols-3">
-                <span>Total approx: {clientPreview.totalApprox}</span>
-                <span>chat: {clientPreview.chatDocExists ? "yes" : "no"}</span>
-                <span>logs: {clientPreview.workoutLogs}</span>
-                <span>assignments: {clientPreview.workoutAssignments}</span>
-                <span>habits: {clientPreview.habits}</span>
-                <span>habit logs: {clientPreview.habitLogs}</span>
-                <span>goals: {clientPreview.clientGoals}</span>
-                <span>notes: {clientPreview.clientNotes}</span>
-                <span>photos: {clientPreview.progressPhotos}</span>
+                <span>{t("preview.total", { count: clientPreview.totalApprox })}</span>
+                <span>{t("preview.chat", { value: clientPreview.chatDocExists ? tc("yes") : tc("no") })}</span>
+                <span>{t("preview.logs", { count: clientPreview.workoutLogs })}</span>
+                <span>{t("preview.assignments", { count: clientPreview.workoutAssignments })}</span>
+                <span>{t("preview.habits", { count: clientPreview.habits })}</span>
+                <span>{t("preview.habitLogs", { count: clientPreview.habitLogs })}</span>
+                <span>{t("preview.goals", { count: clientPreview.clientGoals })}</span>
+                <span>{t("preview.notes", { count: clientPreview.clientNotes })}</span>
+                <span>{t("preview.photos", { count: clientPreview.progressPhotos })}</span>
               </div>
             </div>
           ) : null}
 
-          <form action={deleteClientAction} className="space-y-2">
+          <AdminActionForm action={deleteClientAction} className="space-y-2">
             <input type="hidden" name="coachUid" value={detail.coach.uid} />
             <Input
               name="clientUid"
               required
               defaultValue={previewClientUid}
-              placeholder="client uid (same as preview)"
+              placeholder={t("deleteClient.uidSamePlaceholder")}
             />
-            <Input name="confirmation" required placeholder="Type exactly: DELETE CLIENT" />
+            <Input name="confirmation" required placeholder={tc("typeExactly", { phrase: "DELETE CLIENT" })} />
             <AdminSubmitButton
-              idleLabel="Confirm and delete client"
-              pendingLabel="Deleting client..."
+              idleLabel={t("deleteClient.submit")}
+              pendingLabel={t("deleteClient.pending")}
               disabled={!canExecuteClientDelete}
               className="h-10 rounded-md bg-destructive px-4 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
             />
             {!canExecuteClientDelete ? (
-              <p className="text-xs text-muted-foreground">Run dry run first to enable delete.</p>
+              <p className="text-xs text-muted-foreground">{t("deleteClient.dryRunFirst")}</p>
             ) : null}
-          </form>
+          </AdminActionForm>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Pending clients</CardTitle>
-          <CardDescription>Pre-provisioned clients in user_mirror for this coach.</CardDescription>
+          <CardTitle className="text-xl">{t("pending.title")}</CardTitle>
+          <CardDescription>{t("pending.description")}</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
+                  <TableHead>{tc("email")}</TableHead>
+                  <TableHead>{tc("name")}</TableHead>
+                  <TableHead className="text-right">{tc("action")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {detail.pendingClients.length === 0 ? (
                   <TableRow>
                     <TableCell className="text-muted-foreground" colSpan={3}>
-                      No pending clients.
+                      {t("pending.empty")}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -321,15 +368,15 @@ export default async function CoachAdminDetailPage({
                       <TableCell>{pending.email}</TableCell>
                       <TableCell>{pending.displayName || "—"}</TableCell>
                       <TableCell className="text-right">
-                        <form action={removePendingAction} className="inline-block">
+                        <AdminActionForm action={removePendingAction} className="inline-block">
                           <input type="hidden" name="coachUid" value={detail.coach.uid} />
                           <input type="hidden" name="email" value={pending.email} />
                           <AdminSubmitButton
-                            idleLabel="Remove pending"
-                            pendingLabel="Removing..."
+                            idleLabel={t("pending.remove")}
+                            pendingLabel={tc("removing")}
                             className="inline-flex h-8 items-center rounded-md border border-destructive/60 px-3 text-xs font-medium text-destructive hover:bg-destructive/10"
                           />
-                        </form>
+                        </AdminActionForm>
                       </TableCell>
                     </TableRow>
                   ))
@@ -342,26 +389,26 @@ export default async function CoachAdminDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Recent admin operations (target coach)</CardTitle>
-          <CardDescription>From `admin_operations`.</CardDescription>
+          <CardTitle className="text-xl">{t("operations.title")}</CardTitle>
+          <CardDescription>{t("operations.description")}</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>When (UTC)</TableHead>
-                  <TableHead>Kind</TableHead>
-                  <TableHead>Mode</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Error</TableHead>
+                  <TableHead>{t("operations.when")}</TableHead>
+                  <TableHead>{t("operations.kind")}</TableHead>
+                  <TableHead>{t("operations.mode")}</TableHead>
+                  <TableHead>{tc("status")}</TableHead>
+                  <TableHead>{t("operations.error")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {detail.recentOperations.length === 0 ? (
                   <TableRow>
                     <TableCell className="text-muted-foreground" colSpan={5}>
-                      No admin operations yet.
+                      {t("operations.empty")}
                     </TableCell>
                   </TableRow>
                 ) : (

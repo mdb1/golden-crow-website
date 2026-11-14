@@ -14,9 +14,12 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { ArrowDown, ArrowUp, ChevronsUpDown, Search } from "lucide-react";
 
+import { AdminActionForm } from "../../_components/admin-action-form";
 import { AdminSubmitButton } from "../../_components/admin-submit-button";
+import type { ActionResult } from "@/lib/gc-fitness/action-result";
 import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
 import { Input } from "@/components/ui/input";
 import {
@@ -50,9 +53,9 @@ export interface CoachOption {
 export interface CoachlessUsersTableProps {
   rows: CoachlessUserRow[];
   coaches: CoachOption[];
-  assignCoachAction: (formData: FormData) => Promise<void>;
-  setTierAction: (formData: FormData) => Promise<void>;
-  deleteUserAction: (formData: FormData) => Promise<void>;
+  assignCoachAction: (formData: FormData) => Promise<ActionResult>;
+  setTierAction: (formData: FormData) => Promise<ActionResult>;
+  deleteUserAction: (formData: FormData) => Promise<ActionResult>;
   /** The admin's IANA zone, resolved server-side (#747). */
   timezone: string;
 }
@@ -74,8 +77,11 @@ function SortableHead({
   sort,
   onSort,
   numeric,
+  sortLabel,
 }: {
   label: string;
+  /** Translated "Sort by …" for the button's accessible name. */
+  sortLabel: string;
   sortKey: CoachlessSortKey;
   sort: CoachlessSort;
   onSort: (key: CoachlessSortKey) => void;
@@ -88,7 +94,7 @@ function SortableHead({
       <button
         type="button"
         onClick={() => onSort(sortKey)}
-        aria-label={`Sort by ${label}`}
+        aria-label={sortLabel}
         className={cn(
           "inline-flex items-center gap-1 rounded px-1 py-0.5 hover:text-foreground",
           numeric && "flex-row-reverse",
@@ -110,6 +116,8 @@ export function CoachlessUsersTable({
   deleteUserAction,
   timezone,
 }: CoachlessUsersTableProps) {
+  const t = useTranslations("admin.coachless");
+  const tc = useTranslations("admin.common");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<CoachlessSort>(DEFAULT_COACHLESS_SORT);
 
@@ -131,15 +139,15 @@ export function CoachlessUsersTable({
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search name, email or uid…"
-            aria-label="Search coach-less users"
+            placeholder={t("searchPlaceholder")}
+            aria-label={t("searchLabel")}
             className="h-9 pl-9"
           />
         </div>
         <div className="text-sm text-muted-foreground">
           {visible.length === rows.length
-            ? `${rows.length} coach-less user${rows.length === 1 ? "" : "s"}.`
-            : `${visible.length} of ${rows.length} coach-less users.`}
+            ? t("count", { count: rows.length })
+            : t("countFiltered", { visible: visible.length, total: rows.length })}
         </div>
       </div>
 
@@ -147,28 +155,27 @@ export function CoachlessUsersTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <SortableHead label="User" sortKey="user" sort={sort} onSort={onSort} />
+              <SortableHead label={t("columns.user")} sortLabel={t("sortBy", { column: t("columns.user") })} sortKey="user" sort={sort} onSort={onSort} />
               <SortableHead
-                label="Subscription"
+                label={t("columns.subscription")}
+                sortLabel={t("sortBy", { column: t("columns.subscription") })}
                 sortKey="subscription"
                 sort={sort}
                 onSort={onSort}
               />
-              <SortableHead label="Routines" sortKey="routines" sort={sort} onSort={onSort} numeric />
-              <SortableHead label="Habits" sortKey="habits" sort={sort} onSort={onSort} numeric />
-              <SortableHead label="Photos" sortKey="photos" sort={sort} onSort={onSort} numeric />
-              <SortableHead label="Logs" sortKey="logs" sort={sort} onSort={onSort} numeric />
-              <SortableHead label="Created" sortKey="created" sort={sort} onSort={onSort} />
-              <TableHead className="text-right">Actions</TableHead>
+              <SortableHead label={t("columns.routines")} sortLabel={t("sortBy", { column: t("columns.routines") })} sortKey="routines" sort={sort} onSort={onSort} numeric />
+              <SortableHead label={t("columns.habits")} sortLabel={t("sortBy", { column: t("columns.habits") })} sortKey="habits" sort={sort} onSort={onSort} numeric />
+              <SortableHead label={t("columns.photos")} sortLabel={t("sortBy", { column: t("columns.photos") })} sortKey="photos" sort={sort} onSort={onSort} numeric />
+              <SortableHead label={t("columns.logs")} sortLabel={t("sortBy", { column: t("columns.logs") })} sortKey="logs" sort={sort} onSort={onSort} numeric />
+              <SortableHead label={t("columns.created")} sortLabel={t("sortBy", { column: t("columns.created") })} sortKey="created" sort={sort} onSort={onSort} />
+              <TableHead className="text-right">{t("columns.actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {visible.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="text-sm text-muted-foreground">
-                  {rows.length === 0
-                    ? "No coach-less users."
-                    : "No coach-less users match that search."}
+                  {rows.length === 0 ? t("empty") : t("emptySearch")}
                 </TableCell>
               </TableRow>
             ) : (
@@ -211,13 +218,13 @@ export function CoachlessUsersTable({
                             : "inline-flex rounded-full border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
                         }
                       >
-                        {isPremium ? "Premium" : "Free"}
+                        {isPremium ? t("premium") : t("free")}
                       </span>
                       {row.entitlement ? (
                         <div className="mt-1 space-y-0.5 text-[10px] text-muted-foreground">
-                          <div>source: {row.entitlement.source || "—"}</div>
+                          <div>{t("source", { source: row.entitlement.source || "—" })}</div>
                           {row.entitlement.expiresAtISO ? (
-                            <div>expires: {formatDate(row.entitlement.expiresAtISO, timezone)}</div>
+                            <div>{t("expires", { date: formatDate(row.entitlement.expiresAtISO, timezone) })}</div>
                           ) : null}
                         </div>
                       ) : null}
@@ -236,17 +243,17 @@ export function CoachlessUsersTable({
                     <TableCell className="text-right">
                       <div className="flex flex-col items-end gap-2">
                         {coaches.length > 0 ? (
-                          <form action={assignCoachAction} className="flex items-center gap-1">
+                          <AdminActionForm action={assignCoachAction} className="flex flex-wrap items-center justify-end gap-1">
                             <input type="hidden" name="uid" value={row.uid} />
                             <select
                               name="newCoachUid"
                               required
                               defaultValue=""
-                              aria-label={`Assign ${label} to a coach`}
+                              aria-label={t("assignLabel", { name: label })}
                               className="h-8 max-w-[11rem] rounded-md border bg-background px-2 text-xs"
                             >
                               <option value="" disabled>
-                                Assign coach…
+                                {t("assignPlaceholder")}
                               </option>
                               {coaches.map((coach) => (
                                 <option key={coach.uid} value={coach.uid}>
@@ -255,50 +262,51 @@ export function CoachlessUsersTable({
                               ))}
                             </select>
                             <AdminSubmitButton
-                              idleLabel="Assign"
-                              pendingLabel="Assigning…"
-                              title="Links this user to the coach — they stop being coach-less and gain coached premium"
+                              idleLabel={t("assign")}
+                              pendingLabel={t("assigning")}
+                              title={t("assignTitle")}
                               className="h-8 rounded-full border px-3 text-xs hover:bg-muted"
                             />
-                          </form>
+                          </AdminActionForm>
                         ) : null}
 
-                        <form action={setTierAction}>
+                        <AdminActionForm action={setTierAction}>
                           <input type="hidden" name="uid" value={row.uid} />
                           <input type="hidden" name="tier" value={isPremium ? "free" : "premium"} />
                           <AdminSubmitButton
-                            idleLabel={isPremium ? "Revoke premium" : "Grant premium"}
-                            pendingLabel="Saving…"
+                            idleLabel={isPremium ? t("revokePremium") : t("grantPremium")}
+                            pendingLabel={t("saving")}
                             className="h-8 rounded-full border px-3 text-xs hover:bg-muted"
                           />
-                        </form>
+                        </AdminActionForm>
 
                         <details className="text-right">
                           <summary className="cursor-pointer text-xs text-destructive underline underline-offset-2">
-                            Delete user
+                            {t("deleteUser")}
                           </summary>
-                          <form
+                          <AdminActionForm
                             action={deleteUserAction}
                             className="mt-2 flex flex-col items-end gap-2"
                           >
                             <input type="hidden" name="uid" value={row.uid} />
                             <p className="max-w-[16rem] text-left text-[10px] text-muted-foreground">
-                              Irreversible: deletes Auth, all Firestore data, and Storage
-                              photos. Type <span className="font-mono">{row.email}</span> to
-                              confirm.
+                              {t.rich("deleteWarning", {
+                                email: () => <span className="font-mono">{row.email}</span>,
+                              })}
                             </p>
                             <Input
                               name="emailConfirmation"
-                              placeholder="type email to confirm"
+                              placeholder={t("deleteEmailPlaceholder")}
+                              aria-label={t("deleteEmailPlaceholder")}
                               className="h-8 w-64 text-xs"
                               autoComplete="off"
                             />
                             <AdminSubmitButton
-                              idleLabel="Delete forever"
-                              pendingLabel="Deleting…"
+                              idleLabel={t("deleteForever")}
+                              pendingLabel={tc("deleting")}
                               className="h-8 rounded-full bg-destructive px-3 text-xs text-destructive-foreground hover:bg-destructive/90"
                             />
-                          </form>
+                          </AdminActionForm>
                         </details>
                       </div>
                     </TableCell>

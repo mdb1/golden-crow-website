@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 import {
   getAppVersionConfig,
@@ -45,11 +46,13 @@ export default async function AppConfigPage() {
     config = EMPTY_CONFIG;
   }
 
+  const t = await getTranslations("admin.appConfig");
+
   return (
     <div className="gc-page flex flex-col gap-6">
       <PageHeader
-        title="App Version"
-        subtitle="Set the minimum supported app build per platform. Clients on an older build are forced to update before they can use the app."
+        title={t("title")}
+        subtitle={t("subtitle")}
       />
 
       <Link
@@ -57,7 +60,7 @@ export default async function AppConfigPage() {
         className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="size-4" />
-        Back to Admin Console
+        {t("back")}
       </Link>
 
       <AppVersionForm initialConfig={config} timezone={await getTrainerTimezone()} />

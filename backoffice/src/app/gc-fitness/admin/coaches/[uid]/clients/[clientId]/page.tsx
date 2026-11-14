@@ -42,6 +42,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/gc-fitness/page-header";
 import { ArrowLeft, UserRound } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 import { AdminNutritionCard } from "../../../../_components/admin-nutrition-card";
 import { ClientRecentLogsFeed } from "@/app/gc-fitness/clients/[id]/_components/ClientRecentLogsFeed";
@@ -117,13 +118,32 @@ export default async function AdminCoachClientPage({
       ? storedTimezone
       : await getTrainerTimezone();
 
+  const t = await getTranslations("admin.clientDetail");
+  const tc = await getTranslations("admin.common");
+  const statusLabel = (status: string): string => {
+    switch (status) {
+      case "completed":
+        return t("status.completed");
+      case "missed":
+        return t("status.missed");
+      case "started":
+        return t("status.started");
+      case "assigned":
+        return t("status.assigned");
+      case "skipped":
+        return t("status.skipped");
+      default:
+        return status;
+    }
+  };
+
   return (
     <div className="gc-page flex flex-col gap-6">
       <div>
         <Button asChild variant="outline" size="sm" className="rounded-full">
           <Link href={`/gc-fitness/admin/coaches/${uid}`}>
             <ArrowLeft className="h-4 w-4" />
-            Back to coach
+            {t("backToCoach")}
           </Link>
         </Button>
       </div>
@@ -132,22 +152,22 @@ export default async function AdminCoachClientPage({
         title={
           <span className="flex flex-wrap items-center gap-2">
             {clientName}
-            <Badge variant="secondary">Read-only</Badge>
+            <Badge variant="secondary">{t("readOnly")}</Badge>
           </span>
         }
-        subtitle={`Client UID: ${clientId}`}
+        subtitle={t("clientUid", { uid: clientId })}
         actions={
           <Button asChild variant="outline" size="sm" className="rounded-full">
             <Link href={`/gc-fitness/admin/coaches/${uid}`}>
               <UserRound className="h-4 w-4" />
-              Ver coach
+              {t("viewCoach")}
             </Link>
           </Button>
         }
       />
 
       <p className="-mt-2 text-sm text-muted-foreground">
-        Coach:{" "}
+        {t("coachLabel")}{" "}
         <Link
           href={`/gc-fitness/admin/coaches/${uid}`}
           className="font-medium text-foreground underline-offset-4 hover:underline"
@@ -159,7 +179,7 @@ export default async function AdminCoachClientPage({
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-xl">Recent activity</CardTitle>
+          <CardTitle className="text-xl">{t("recentActivity")}</CardTitle>
         </CardHeader>
         <CardContent>
           {/* showActions=false — admin is read-only and the chat / workout-detail
@@ -181,22 +201,22 @@ export default async function AdminCoachClientPage({
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-xl">Workout assignments</CardTitle>
+          <CardTitle className="text-xl">{t("assignments.title")}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {assignments.length === 0 ? (
             <p className="px-6 pb-6 text-sm text-muted-foreground">
-              No workout assignments yet.
+              {t("assignments.empty")}
             </p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Time</TableHead>
-                    <TableHead>Workout</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>{t("assignments.date")}</TableHead>
+                    <TableHead>{t("assignments.time")}</TableHead>
+                    <TableHead>{t("assignments.workout")}</TableHead>
+                    <TableHead>{tc("status")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -223,11 +243,11 @@ export default async function AdminCoachClientPage({
                       <TableCell>
                         {a.recurrenceLabel ? (
                           <span className="text-xs tabular-nums text-muted-foreground">
-                            {a.completedCount}/{a.occurrences} completados
+                            {t("assignments.completedOf", { done: a.completedCount, total: a.occurrences })}
                           </span>
                         ) : (
                           <Badge variant={assignmentStatusVariant(a.status)}>
-                            {a.status}
+                            {statusLabel(a.status)}
                           </Badge>
                         )}
                       </TableCell>
@@ -242,22 +262,22 @@ export default async function AdminCoachClientPage({
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-xl">Habits</CardTitle>
+          <CardTitle className="text-xl">{t("habits.title")}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {habits.length === 0 ? (
             <p className="px-6 pb-6 text-sm text-muted-foreground">
-              No habits assigned yet.
+              {t("habits.empty")}
             </p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Habit</TableHead>
-                    <TableHead>Cadence</TableHead>
-                    <TableHead>Reminder</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>{t("habits.habit")}</TableHead>
+                    <TableHead>{t("habits.cadence")}</TableHead>
+                    <TableHead>{t("habits.reminder")}</TableHead>
+                    <TableHead>{tc("status")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -269,13 +289,13 @@ export default async function AdminCoachClientPage({
                           "—"}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {h.reminderEnabled ? "On" : "Off"}
+                        {h.reminderEnabled ? t("habits.on") : t("habits.off")}
                       </TableCell>
                       <TableCell>
                         {h.deleted ? (
-                          <Badge variant="secondary">deleted</Badge>
+                          <Badge variant="secondary">{t("habits.deleted")}</Badge>
                         ) : (
-                          <Badge variant="success">active</Badge>
+                          <Badge variant="success">{t("habits.active")}</Badge>
                         )}
                       </TableCell>
                     </TableRow>
@@ -292,14 +312,14 @@ export default async function AdminCoachClientPage({
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-xl">Progress photos</CardTitle>
+          <CardTitle className="text-xl">{t("photos.title")}</CardTitle>
         </CardHeader>
         <CardContent>
           {photos.length > 0 ? (
             <ProgressPhotosGridClient photos={photos} timezone={timezone} />
           ) : (
             <p className="text-sm text-muted-foreground">
-              No progress photos yet.
+              {t("photos.empty")}
             </p>
           )}
         </CardContent>

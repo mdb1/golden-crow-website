@@ -9,6 +9,7 @@ import {
 } from "@/lib/gc-fitness/admin-actions";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { countOpenReports } from "@/lib/gc-fitness/moderation-actions";
+import { AdminActionForm } from "./_components/admin-action-form";
 import { AdminSubmitButton } from "./_components/admin-submit-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,7 +54,6 @@ export default async function AdminPage({
   const sp = await searchParams;
   const op = typeof sp.op === "string" ? sp.op : null;
   const ok = typeof sp.ok === "string" ? sp.ok : null;
-  const actionMessage = op && ok === "1" ? `Action completed: ${op}.` : null;
   const deleteTarget = typeof sp.deleteTarget === "string" ? sp.deleteTarget : null;
   const targetUid = typeof sp.targetUid === "string" ? sp.targetUid.trim() : "";
   let coachPreview: Awaited<ReturnType<typeof previewCoachCascade>> | null = null;
@@ -73,12 +73,15 @@ export default async function AdminPage({
   const allowlistRows = await listCoachAllowlist();
   const openReportsCount = await countOpenReports().catch(() => 0);
   const tCorvo = await getTranslations("corvoAdmin");
+  const t = await getTranslations("admin.home");
+  const tc = await getTranslations("admin.common");
+  const actionMessage = op && ok === "1" ? tc("actionCompleted", { op }) : null;
 
   return (
     <div className="gc-page flex flex-col gap-6">
       <PageHeader
-        title="Admin Console"
-        subtitle="Corvo operator tools. Multi-role is enabled: a user can be trainer and admin at the same time."
+        title={t("title")}
+        subtitle={t("subtitle")}
       />
 
       {actionMessage ? (
@@ -89,31 +92,24 @@ export default async function AdminPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Coach-less users (god mode)</CardTitle>
-          <CardDescription>
-            Self-serve clients with no coach: subscription status, per-user
-            content stats (routines, habits, photos, logs), grant/revoke premium,
-            and full cascade delete.
-          </CardDescription>
+          <CardTitle className="text-xl">{t("coachless.title")}</CardTitle>
+          <CardDescription>{t("coachless.description")}</CardDescription>
         </CardHeader>
         <CardContent>
           <Button asChild>
-            <Link href="/gc-fitness/admin/coach-less-users">Open coach-less users</Link>
+            <Link href="/gc-fitness/admin/coach-less-users">{t("coachless.open")}</Link>
           </Button>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">App version (force update)</CardTitle>
-          <CardDescription>
-            Set the minimum supported app build per platform. Clients on an
-            older build are forced to update before they can use the app.
-          </CardDescription>
+          <CardTitle className="text-xl">{t("appVersion.title")}</CardTitle>
+          <CardDescription>{t("appVersion.description")}</CardDescription>
         </CardHeader>
         <CardContent>
           <Button asChild>
-            <Link href="/gc-fitness/admin/app-config">Manage app version</Link>
+            <Link href="/gc-fitness/admin/app-config">{t("appVersion.open")}</Link>
           </Button>
         </CardContent>
       </Card>
@@ -121,69 +117,69 @@ export default async function AdminPage({
       <section className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-xl">Add coach email to allowlist</CardTitle>
-            <CardDescription>Store pending coach access emails in Firestore allowlist.</CardDescription>
+            <CardTitle className="text-xl">{t("allowlistAdd.title")}</CardTitle>
+            <CardDescription>{t("allowlistAdd.description")}</CardDescription>
           </CardHeader>
           <CardContent>
-            <form action={addAllowlistEmailAction} className="space-y-3">
-              <Input name="email" type="email" required placeholder="coach@email.com" />
-              <AdminSubmitButton idleLabel="Add email" pendingLabel="Adding..." className="h-10" />
-            </form>
+            <AdminActionForm action={addAllowlistEmailAction} className="space-y-3">
+              <Input name="email" type="email" required placeholder="coach@email.com" aria-label={t("allowlistAdd.emailLabel")} />
+              <AdminSubmitButton idleLabel={t("allowlistAdd.submit")} pendingLabel={t("allowlistAdd.pending")} className="h-10" />
+            </AdminActionForm>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-xl">Promote existing user to admin</CardTitle>
-            <CardDescription>Keeps trainer role and adds admin role (`trainer` + `admin`) in custom claims.</CardDescription>
+            <CardTitle className="text-xl">{t("promote.title")}</CardTitle>
+            <CardDescription>{t("promote.description")}</CardDescription>
           </CardHeader>
           <CardContent>
-            <form action={promoteToAdminAction} className="space-y-3">
-              <Input name="email" type="email" required placeholder="user@email.com" />
-              <AdminSubmitButton idleLabel="Promote user" pendingLabel="Promoting..." className="h-10" />
-            </form>
+            <AdminActionForm action={promoteToAdminAction} className="space-y-3">
+              <Input name="email" type="email" required placeholder="user@email.com" aria-label={t("promote.emailLabel")} />
+              <AdminSubmitButton idleLabel={t("promote.submit")} pendingLabel={t("promote.pending")} className="h-10" />
+            </AdminActionForm>
           </CardContent>
         </Card>
       </section>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Coach allowlist</CardTitle>
-          <CardDescription>Pending allowlist emails (already-trainer emails are hidden).</CardDescription>
+          <CardTitle className="text-xl">{t("allowlist.title")}</CardTitle>
+          <CardDescription>{t("allowlist.description")}</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Enabled</TableHead>
-                  <TableHead>Updated at (UTC)</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
+                  <TableHead>{tc("email")}</TableHead>
+                  <TableHead>{t("allowlist.enabled")}</TableHead>
+                  <TableHead>{t("allowlist.updatedAt")}</TableHead>
+                  <TableHead className="text-right">{tc("action")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {allowlistRows.length === 0 ? (
                   <TableRow>
                     <TableCell className="text-xs text-muted-foreground" colSpan={4}>
-                      No allowlist entries yet.
+                      {t("allowlist.empty")}
                     </TableCell>
                   </TableRow>
                 ) : (
                   allowlistRows.map((row) => (
                     <TableRow key={row.email}>
                       <TableCell className="font-medium">{row.email}</TableCell>
-                      <TableCell>{row.enabled ? "yes" : "no"}</TableCell>
+                      <TableCell>{row.enabled ? tc("yes") : tc("no")}</TableCell>
                       <TableCell>{row.updatedAtISO ?? "—"}</TableCell>
                       <TableCell className="text-right">
-                        <form action={removeAllowlistEmailAction}>
+                        <AdminActionForm action={removeAllowlistEmailAction}>
                           <input type="hidden" name="email" value={row.email} />
                           <AdminSubmitButton
-                            idleLabel="Remove"
-                            pendingLabel="Removing..."
+                            idleLabel={tc("remove")}
+                            pendingLabel={tc("removing")}
                             className="h-8 border border-destructive/60 bg-transparent px-3 text-xs text-destructive hover:bg-destructive/10"
                           />
-                        </form>
+                        </AdminActionForm>
                       </TableCell>
                     </TableRow>
                   ))
@@ -196,33 +192,33 @@ export default async function AdminPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">User search</CardTitle>
-          <CardDescription>Find any user (client, coach, or admin) by email and open their profile.</CardDescription>
+          <CardTitle className="text-xl">{t("userSearch.title")}</CardTitle>
+          <CardDescription>{t("userSearch.description")}</CardDescription>
         </CardHeader>
         <CardContent>
           <Button asChild variant="outline" className="rounded-full">
-            <Link href="/gc-fitness/admin/users">Open user search</Link>
+            <Link href="/gc-fitness/admin/users">{t("userSearch.open")}</Link>
           </Button>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Coaches</CardTitle>
-          <CardDescription>Email, roles, clients, custom workouts, custom exercises.</CardDescription>
+          <CardTitle className="text-xl">{t("coaches.title")}</CardTitle>
+          <CardDescription>{t("coaches.description")}</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Coach</TableHead>
-                  <TableHead>UID</TableHead>
-                  <TableHead>Roles</TableHead>
-                  <TableHead>Clients</TableHead>
-                  <TableHead>Custom workouts</TableHead>
-                  <TableHead>Custom exercises</TableHead>
-                  <TableHead className="text-right">Open</TableHead>
+                  <TableHead>{t("coaches.coach")}</TableHead>
+                  <TableHead>{tc("uid")}</TableHead>
+                  <TableHead>{t("coaches.roles")}</TableHead>
+                  <TableHead>{tc("clients")}</TableHead>
+                  <TableHead>{tc("customWorkouts")}</TableHead>
+                  <TableHead>{tc("customExercises")}</TableHead>
+                  <TableHead className="text-right">{tc("open")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -241,7 +237,7 @@ export default async function AdminPage({
                     <TableCell>{coach.customExercisesCount}</TableCell>
                     <TableCell className="text-right">
                       <Button asChild variant="outline" size="sm" className="rounded-full">
-                        <Link href={`/gc-fitness/admin/coaches/${coach.uid}`}>View</Link>
+                        <Link href={`/gc-fitness/admin/coaches/${coach.uid}`}>{tc("view")}</Link>
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -254,29 +250,26 @@ export default async function AdminPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Recent coach activity</CardTitle>
-          <CardDescription>Open the dedicated activity view with recurrence grouping and event details.</CardDescription>
+          <CardTitle className="text-xl">{t("activity.title")}</CardTitle>
+          <CardDescription>{t("activity.description")}</CardDescription>
         </CardHeader>
         <CardContent>
           <Button asChild variant="outline" className="rounded-full">
-            <Link href="/gc-fitness/admin/coach-activity">Open recent coach activity</Link>
+            <Link href="/gc-fitness/admin/coach-activity">{t("activity.open")}</Link>
           </Button>
         </CardContent>
       </Card>
 
       <Card className={openReportsCount > 0 ? "border-amber-500/50" : undefined}>
         <CardHeader>
-          <CardTitle className="text-xl">Moderación</CardTitle>
+          <CardTitle className="text-xl">{t("moderation.title")}</CardTitle>
           <CardDescription>
-            Reportes de perfiles, rutinas, comentarios y mensajes. SLA de 24 h (App Store 1.2).
-            {openReportsCount > 0
-              ? ` Hay ${openReportsCount} ${openReportsCount === 1 ? "reporte abierto" : "reportes abiertos"}.`
-              : " Sin reportes abiertos."}
+            {t("moderation.description")} {t("moderation.openReports", { count: openReportsCount })}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Button asChild variant="outline" className="rounded-full">
-            <Link href="/gc-fitness/admin/moderation">Abrir cola de moderación</Link>
+            <Link href="/gc-fitness/admin/moderation">{t("moderation.open")}</Link>
           </Button>
         </CardContent>
       </Card>
@@ -295,65 +288,58 @@ export default async function AdminPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Monitoring &amp; observability</CardTitle>
-          <CardDescription>
-            Feed of what is happening in the app — workouts finished, routines and
-            habits created, photos uploaded, new users and subscription changes,
-            coach and admin actions — plus a deletion history, all linked to the
-            detail.
-          </CardDescription>
+          <CardTitle className="text-xl">{t("monitoring.title")}</CardTitle>
+          <CardDescription>{t("monitoring.description")}</CardDescription>
         </CardHeader>
         <CardContent>
           <Button asChild variant="outline" className="rounded-full">
-            <Link href="/gc-fitness/admin/audit">Open monitoring dashboard</Link>
+            <Link href="/gc-fitness/admin/audit">{t("monitoring.open")}</Link>
           </Button>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Data hygiene</CardTitle>
-          <CardDescription>Scan for orphaned users, chats, images, workouts and other suspicious records.</CardDescription>
+          <CardTitle className="text-xl">{t("hygiene.title")}</CardTitle>
+          <CardDescription>{t("hygiene.description")}</CardDescription>
         </CardHeader>
         <CardContent>
           <Button asChild variant="outline" className="rounded-full">
-            <Link href="/gc-fitness/admin/hygiene">Open hygiene dashboard</Link>
+            <Link href="/gc-fitness/admin/hygiene">{t("hygiene.open")}</Link>
           </Button>
         </CardContent>
       </Card>
 
       <Card className="border-destructive/35">
         <CardHeader>
-          <CardTitle className="text-destructive">Delete coach (cascade)</CardTitle>
-          <CardDescription>
-            Step 1: preview impact. Step 2: execute delete with explicit confirmation.
-          </CardDescription>
+          <CardTitle className="text-destructive">{t("deleteCoach.title")}</CardTitle>
+          <CardDescription>{t("deleteCoach.description")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <form action="/gc-fitness/admin" method="get" className="space-y-3">
             <input type="hidden" name="deleteTarget" value="coach" />
-            <Input name="targetUid" required placeholder="coach uid" defaultValue={targetUid} />
-            <Button type="submit" variant="outline" className="rounded-full">Preview deletion (dry run)</Button>
+            <Input name="targetUid" required placeholder={t("deleteCoach.uidPlaceholder")} defaultValue={targetUid} />
+            <Button type="submit" variant="outline" className="rounded-full">{tc("previewDeletion")}</Button>
           </form>
 
           {coachPreview ? (
             <div className="rounded-2xl border border-[color:var(--badge-warning-border)] bg-[color:var(--badge-warning-bg)] p-4 text-sm text-[color:var(--badge-warning-fg)]">
-              <p className="font-semibold">Preview result</p>
-              <p className="mt-1 text-xs opacity-80">Total docs approx: {coachPreview.totalApprox}</p>
+              <p className="font-semibold">{tc("previewResult")}</p>
+              <p className="mt-1 text-xs opacity-80">{t("deleteCoach.totalDocs", { count: coachPreview.totalApprox })}</p>
             </div>
           ) : null}
 
-          <form action={deleteCoachAction} className="space-y-3">
-            <Input name="coachUid" required placeholder="coach uid (same as preview)" defaultValue={targetUid} />
-            <Input name="confirmation" required placeholder="Type exactly: DELETE COACH" />
+          <AdminActionForm action={deleteCoachAction} className="space-y-3">
+            <Input name="coachUid" required placeholder={t("deleteCoach.uidSamePlaceholder")} defaultValue={targetUid} />
+            <Input name="confirmation" required placeholder={tc("typeExactly", { phrase: "DELETE COACH" })} />
             <input type="hidden" name="mode" value="execute" />
             <AdminSubmitButton
-              idleLabel="Confirm and delete coach"
-              pendingLabel="Deleting..."
+              idleLabel={t("deleteCoach.submit")}
+              pendingLabel={tc("deleting")}
               disabled={!canExecuteCoachDelete}
               className="h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
             />
-          </form>
+          </AdminActionForm>
         </CardContent>
       </Card>
     </div>

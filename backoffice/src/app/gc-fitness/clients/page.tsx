@@ -74,14 +74,17 @@ export default async function ClientsPage({
           <div className="flex flex-col gap-0.5">
             <p className="font-medium text-foreground">
               {newAutoAssigned.length === 1
-                ? "1 cliente nuevo se registró sin coach y quedó asignado a vos"
-                : `${newAutoAssigned.length} clientes nuevos se registraron sin coach y quedaron asignados a vos`}
+                ? t("autoAssignedBanner.titleOne")
+                : t("autoAssignedBanner.titleOther", {
+                    count: newAutoAssigned.length,
+                  })}
             </p>
             <p className="text-muted-foreground">
-              Están marcados con{" "}
-              <span className="font-semibold text-foreground">NEW</span> abajo.
-              Revisalos y, si corresponden a otro coach, transferilos desde el
-              panel de admin.
+              {t.rich("autoAssignedBanner.body", {
+                badge: (chunks) => (
+                  <span className="font-semibold text-foreground">{chunks}</span>
+                ),
+              })}
             </p>
           </div>
         </div>
