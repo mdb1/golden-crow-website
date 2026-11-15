@@ -68,6 +68,14 @@ import {
   type LastActivityKind,
 } from "./last-activity-kind";
 import {
+  decodeClientStats,
+  EMPTY_CLIENT_STATS,
+  encodeClientStats,
+  isClientStatsFresh,
+  type ClientStatsDoc,
+  type ClientStatsValues,
+} from "./client-stats";
+import {
   ATTENTION_RULES,
   clientNeedsAttention,
   type AttentionReason,
@@ -382,6 +390,462 @@ export const listClients = cache(
   },
 );
 
+/** Pulls the latest Date-valued field off a 1-doc snapshot. */
+function latestDate(
+  snap: FirebaseFirestore.QuerySnapshot,
+  field: string,
+): Date | null {
+  const doc = snap.docs[0];
+  if (!doc) return null;
+  const raw = doc.get(field);
+  if (raw && typeof (raw as { toDate?: () => Date }).toDate === "function") {
+    return (raw as { toDate: () => Date }).toDate();
+  }
+  if (raw instanceof Date) return raw;
+  if (typeof raw === "string") {
+    const d = new Date(raw);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
+
+/**
+ * #506 — the SLOW path of a roster row: the per-client fan-out (7 queries) that
+ * produces the cacheable numbers stored in `client_stats/{clientId}`. Runs only
+ * when the cached doc is missing or stale (`isClientStatsFresh`). `today` is the
+ * client's civil date in `tzForToday` (client tz, else the trainer's), and
+ * `coachUid` decides what counts as inherited from a former coach (#1504).
+ */
+async function computeClientStats(
+  db: FirebaseFirestore.Firestore,
+  clientUid: string,
+  coachUid: string,
+  tzForToday: string,
+  today: string,
+): Promise<ClientStatsValues> {
+  // 7-day window bounds. The assignments collection uses `scheduledFor`
+  // as a CIVIL DATE STRING ("YYYY-MM-DD" — Pitfall 1 / Pitfall 8); we
+  // compare lexicographically against `windowStartCivil`. The workout
+  // logs use `startedAt` as a Firestore Timestamp; we pass a Date.
+  const sevenDaysAgoMs = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const sevenDaysAgoDate = new Date(sevenDaysAgoMs);
+  const windowStartCivil = civilDateToday(tzForToday, sevenDaysAgoDate);
+
+  // Month window — civil-date strings clamped to the first/last day of
+  // the calendar month containing `today`. `today` is "YYYY-MM-DD" so
+  // slicing gives a "YYYY-MM" prefix; `<= prefix + "-31"` works because
+  // civil-date strings compare lexicographically — May 31 sorts after
+  // every May day and before any June day.
+  // #499 — «nothing assigned soon»: [today, today + windowDays - 1]. The
+  // 7-day assignments query below now reaches this far ahead too (same
+  // index, a few more docs), so the reason costs no extra query.
+  const soonEndCivil =
+    civilDateAddDays(today, ATTENTION_RULES.nothingAssigned.windowDays - 1) ?? today;
+  const soonDays: string[] = [];
+  for (let i = 0; i < ATTENTION_RULES.nothingAssigned.windowDays; i += 1) {
+    const d = civilDateAddDays(today, i);
+    if (d) soonDays.push(d);
+  }
+
+  const monthStartCivil = `${today.slice(0, 7)}-01`;
+  const monthEndCivil = `${today.slice(0, 7)}-31`;
+
+  const [
+    recentHabitLogs,
+    latestProgressPhoto,
+    clientHabits,
+    assignedLast7Snap,
+    completedLast7Snap,
+    assignedThisMonthSnap,
+    windowedHabitLogs,
+  ] = await Promise.all([
+    // Habit logs reflect the client's own check-in; the dashboard's
+    // "last action" feed surfaces them, so sorting must too.
+    //
+    // NO orderBy: some legacy/iOS-written habit logs are missing
+    // `loggedAt` entirely (the canonical iOS writer populates it, but
+    // older writes only have updatedAt/createdAt). An orderBy(loggedAt)
+    // query silently EXCLUDES those docs — which is the bug that made
+    // Nico Rey show "no activity" and Nico Carba show stale 19h-ago
+    // despite habit_logs written today. We mirror the recent-logs
+    // pattern: broad-fetch, compute max(updatedAt, createdAt, loggedAt)
+    // per doc in memory. The cap is safely above a normal single-client
+    // recent window while keeping roster first load bounded.
+    db
+      .collection(FirestoreCollections.habitLogs)
+      .where("clientId", "==", clientUid)
+      .limit(30)
+      .get(),
+    // Progress photos are a separate client surface — counts here too.
+    db
+      .collection(FirestoreCollections.progressPhotos)
+      .where("clientId", "==", clientUid)
+      .orderBy("createdAt", "desc")
+      .limit(1)
+      .get()
+      .catch(() => null),
+    // Issue #437/#400: fetch by clientId only; filter `deleted === true`
+    // in memory (isHabitNotDeleted) below. A `.where("deleted","==",false)`
+    // equality drops client-created habits that never write the field, so
+    // the compliance counts under-reported them. PR #230 pattern.
+    db
+      .collection(FirestoreCollections.habits)
+      .where("clientId", "==", clientUid)
+      // 260529 cost backstop: a roster row never needs more than a
+      // sane ceiling of habits; the compliance math below tolerates the
+      // cap (no real client carries >60 active habits).
+      // WR-03: the cap counts SOFT-DELETED docs too (filtered in memory
+      // after the fetch) and soft-delete is the only delete path, so
+      // deleted docs accumulate toward it over a client's lifetime —
+      // raised 60 → 150; a truncation warning fires below when the raw
+      // fetch hits the cap. Costs nothing unless the docs exist
+      // (limit is a ceiling, not a fetch-always).
+      .limit(150)
+      .get(),
+    // 11-06: assignments scheduled in the last 7 civil days. scheduledFor
+    // is a "YYYY-MM-DD" string — lexicographic comparison is correct
+    // because civil-date strings sort identically to civil-date order.
+    // 260529: upper-bound the range at `today`. Without it the query
+    // returned EVERY future assignment too (recurring schedules run
+    // months ahead), which (a) inflated `assignedCount` → wrong
+    // `missedWorkoutsLast7Days`, and (b) read a unbounded slice per
+    // client. The (clientId, scheduledFor) index serves the two-sided
+    // range; it is confirmed deployed in production.
+    db
+      .collection(FirestoreCollections.workoutAssignments)
+      .where("clientId", "==", clientUid)
+      .where("scheduledFor", ">=", windowStartCivil)
+      .where("scheduledFor", "<=", soonEndCivil)
+      .get(),
+    // 11-06: logs started in the last 7 days (Timestamp comparison).
+    db
+      .collection(FirestoreCollections.workoutLogs)
+      .where("clientId", "==", clientUid)
+      .orderBy("startedAt", "desc")
+      .limit(30)
+      .get(),
+    // 260528: assignments scheduled IN this calendar month (string range).
+    // BOTH month-workout numbers derive from THIS single snapshot — see
+    // the count computation below. `status` on the assignment is the
+    // source of truth iOS maintains (WorkoutAssignmentRepository
+    // .transitionToCompleted flips it to "completed" on workout finish),
+    // and it's what the client's own calendar renders.
+    db
+      .collection(FirestoreCollections.workoutAssignments)
+      .where("clientId", "==", clientUid)
+      .where("scheduledFor", ">=", monthStartCivil)
+      .where("scheduledFor", "<=", monthEndCivil)
+      .get(),
+    // 260531-fwc COST: ONE windowed habit_logs query per client (served by
+    // the live (clientId, civilDate) index) replaces the old per-habit
+    // fan-out that ran TWO *sequential* habit_logs queries PER habit — the
+    // compliance loop AND the trailing-7 habit-count loop. Grouped by
+    // habitId in memory below. Fallback to an unwindowed clientId query if
+    // the composite index is ever still building (mirrors recent-logs).
+    db
+      .collection(FirestoreCollections.habitLogs)
+      .where("clientId", "==", clientUid)
+      .where("civilDate", ">=", windowStartCivil)
+      .orderBy("civilDate", "desc")
+      .limit(150)
+      .get()
+      .catch(() =>
+        db
+          .collection(FirestoreCollections.habitLogs)
+          .where("clientId", "==", clientUid)
+          .limit(200)
+          .get(),
+      ),
+  ]);
+
+  // 260531-fwc: the latest workout is completedLast7Snap.docs[0] (ordered
+  // startedAt desc, NO date filter), so the dedicated limit(1) query the
+  // old `latestWorkoutLog` ran was redundant.
+  const tsWorkout = latestDate(completedLast7Snap, "startedAt");
+  // Walk every habit-log doc and take the max event-time across the
+  // three timestamp fields. Some docs only have updatedAt; others only
+  // loggedAt — picking ANY non-null field is what makes the bug go
+  // away (260528 bug). Reads the raw Timestamp via doc.get() so we
+  // handle Firestore Timestamp + Date + ISO string identically.
+  let tsHabit: Date | null = null;
+  const habitTimestampFields = ["updatedAt", "createdAt", "loggedAt"] as const;
+  for (const doc of recentHabitLogs.docs) {
+    // Skip soft-deleted rows — recent-logs surface filters them too.
+    if (doc.get("deleted") === true) continue;
+    for (const field of habitTimestampFields) {
+      const raw = doc.get(field);
+      let candidate: Date | null = null;
+      if (raw && typeof (raw as { toDate?: () => Date }).toDate === "function") {
+        candidate = (raw as { toDate: () => Date }).toDate();
+      } else if (raw instanceof Date) {
+        candidate = raw;
+      } else if (typeof raw === "string") {
+        const parsed = new Date(raw);
+        if (!Number.isNaN(parsed.getTime())) candidate = parsed;
+      }
+      if (candidate && (!tsHabit || candidate > tsHabit)) {
+        tsHabit = candidate;
+      }
+    }
+  }
+  const tsPhoto = latestProgressPhoto
+    ? latestDate(latestProgressPhoto, "createdAt")
+    : null;
+
+  // This-week compliance. 260531-fwc: group the SINGLE windowed habit_logs
+  // snapshot by habitId ONCE (replaces a per-habit query fan-out), then
+  // compute per-habit ratio via the Pattern-B pure function and average.
+  // The same grouped map feeds the trailing-7 habit-count loop below.
+  if (clientHabits.docs.length >= 150) {
+    // WR-03: raw habit fetch filled the cap — soft-deleted docs consume
+    // the budget, so live habits (and the compliance denominators built
+    // from them) may be truncated for this client.
+    console.warn(
+      "[gc-fitness/roster] habit fetch hit its cap — live habits may be truncated",
+      { clientId: clientUid, cap: 150 },
+    );
+  }
+  // #1504 — what a former coach left on the client's plan is not this coach's
+  // to answer for: no compliance, no «faltó a N», no month count.
+  const notInherited = (d: { data: () => unknown }) =>
+    assignedBy(d.data() as Record<string, unknown>, { coachId: coachUid }) !== "former";
+  const habitDocs = clientHabits.docs.filter(
+    (d) => isHabitNotDeleted(d.data() as Record<string, unknown>) && notInherited(d),
+  );
+  const windowedLogsByHabit = new Map<string, HabitLogRow[]>();
+  for (const ldoc of windowedHabitLogs.docs) {
+    const data = ldoc.data() as Record<string, unknown>;
+    const hid = typeof data.habitId === "string" ? data.habitId : "";
+    if (!hid) continue;
+    const row: HabitLogRow = {
+      habitId: hid,
+      clientId: (data.clientId as string) ?? "",
+      civilDate: typeof data.civilDate === "string" ? data.civilDate : "",
+      value: coerceLegacyHabitLogValue(data.value),
+      unit: typeof data.unit === "string" ? data.unit : undefined,
+      deleted: data.deleted === true,
+    };
+    const bucket = windowedLogsByHabit.get(hid);
+    if (bucket) bucket.push(row);
+    else windowedLogsByHabit.set(hid, [row]);
+  }
+
+  // #451: the denominator is the number of SCHEDULED days in the window
+  // per `isHabitScheduledOn` (twin of iOS `HabitSchedule.isActive` /
+  // `HabitStreakCalculator.computeAdherenceRatio`, Android twin of the
+  // same name) — NOT a flat 7. A weekly Mon+Thu habit done on both days
+  // reads 100%, not 2/7. Habits with no scheduled day in the window (a
+  // monthly habit whose day fell outside it, a one-time habit, one not
+  // started yet) are not "due" this week, so they don't drag the average.
+  let complianceSum = 0;
+  let complianceCount = 0;
+  for (const hdoc of habitDocs) {
+    const logs = windowedLogsByHabit.get(hdoc.id) ?? [];
+    const { ratio, scheduledDays } = computeAdherence(
+      hdoc.data() as Record<string, unknown>,
+      logs,
+      7,
+      today,
+    );
+    if (scheduledDays === 0) continue;
+    complianceSum += ratio;
+    complianceCount += 1;
+  }
+  // No habits yet → show 0% instead of the vacuous 100% that read as
+  // "already perfect" for brand-new clients. The attention predicate
+  // below is based on activity recency only, so this stays visual.
+  const thisWeekComplianceRatio =
+    complianceCount > 0 ? complianceSum / complianceCount : 0;
+
+  // 11-06: derive missed workouts + needs-attention.
+  const assignmentDocs = assignedLast7Snap.docs.filter(notInherited);
+  const scheduledOf = (d: { get: (f: string) => unknown }) => {
+    const v = d.get("scheduledFor");
+    return typeof v === "string" ? v : "";
+  };
+  // The query reaches `soonEndCivil` (#499); the 7-day count stays ≤ today.
+  const assignedCount = assignmentDocs.filter((d) => scheduledOf(d) <= today).length;
+  // #499 — the attention reason counts only days already OVER (today is not a
+  // miss yet) and trusts the assignment `status`, like the month counts below
+  // and the apps' callable (which pairs a completed log per civil day).
+  const missedForAttention = assignmentDocs.filter((d) => {
+    const day = scheduledOf(d);
+    return day >= windowStartCivil && day < today && d.get("status") !== "completed";
+  }).length;
+  const hasSomethingAssignedSoon =
+    assignmentDocs.some((d) => {
+      const day = scheduledOf(d);
+      return day >= today && day <= soonEndCivil;
+    }) ||
+    habitDocs.some((h) => {
+      const habit = h.data() as Record<string, unknown>;
+      return soonDays.some((day) => isHabitScheduledOn(habit, day));
+    });
+  const completedCount = completedLast7Snap.docs.filter(notInherited).filter((doc) => {
+    const raw = doc.get("startedAt");
+    const startedAt =
+      raw && typeof (raw as { toDate?: () => Date }).toDate === "function"
+        ? (raw as { toDate: () => Date }).toDate()
+        : raw instanceof Date
+          ? raw
+          : null;
+    return startedAt ? startedAt >= sevenDaysAgoDate : false;
+  }).length;
+  const missedWorkoutsLast7Days = Math.max(
+    0,
+    assignedCount - completedCount,
+  );
+
+  // Month-window workout counts. BOTH numbers come from the SAME
+  // `workout_assignments` snapshot (scheduledFor in-month), so completed
+  // can never exceed scheduled:
+  //   - scheduled = every assignment doc scheduled this month
+  //   - completed = of those, the ones whose `status === "completed"`
+  // 260531 fix: the prior version counted `completed` from a SEPARATE
+  // `workout_logs` query (status==="completed", startedAt in-month). That
+  // mixed two collections and produced nonsense like "24/6" — a workout
+  // assigned in a PREVIOUS month but finished this month counted toward
+  // completed-this-month but never toward scheduled-this-month, and
+  // re-logged/ad-hoc logs double-counted. The assignment `status` is the
+  // single source of truth iOS maintains (transitionToCompleted on finish)
+  // and what the client's own calendar shows.
+  const assignedThisMonth = assignedThisMonthSnap.docs.filter(notInherited);
+  const workoutsScheduledThisMonth = assignedThisMonth.length;
+  const workoutsCompletedThisMonth = assignedThisMonth.filter(
+    (doc) => doc.get("status") === "completed",
+  ).length;
+
+  // 260528 — habit counts for the trailing 7 days. "Scheduled" sums each
+  // habit's cadence (daily=7; weekly with weekdays selected = how many of
+  // those weekdays fall in the 7-day window; monthly=at most 1). Logs
+  // already loaded in the per-habit compliance loop above provide the
+  // "completed" count via `boolCompleted` over the same window.
+  let habitsCompletedThisWeek = 0;
+  let habitsScheduledThisWeek = 0;
+  const windowDays: string[] = [];
+  for (let i = 0; i < 7; i += 1) {
+    const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+    windowDays.push(civilDateToday(tzForToday, d));
+  }
+  const windowSet = new Set(windowDays);
+  for (const hdoc of habitDocs) {
+    const habit = hdoc.data() as {
+      scheduleType?: string;
+      scheduleCadence?: string;
+      scheduleWeekdays?: number[];
+      scheduleDayOfMonth?: number;
+      scheduleMonthDays?: number[];
+    };
+    // scheduleType === "one-time" habits don't appear on per-day
+    // checklists in the trailing-7 sense; skip them here.
+    if (habit.scheduleType === "one-time") continue;
+    const cadence = habit.scheduleCadence ?? "daily";
+    if (cadence === "daily") {
+      habitsScheduledThisWeek += 7;
+    } else if (cadence === "weekly") {
+      // gc-fitness#1343 — marker-aware effective ISO days.
+      const weekdays = effectiveIsoWeekdays(
+        hdoc.data() as Record<string, unknown>,
+      );
+      // iOS uses 1=Mon..7=Sun; JS Date.getDay() uses 0=Sun..6=Sat.
+      // Map iOS 7 → JS 0 (Sun), otherwise iOS N → JS N.
+      const normalized = new Set(
+        weekdays.map((d) => (d === 7 ? 0 : d)),
+      );
+      for (const civil of windowDays) {
+        const [y, m, d] = civil.split("-").map(Number);
+        const jsDay = new Date(y, m - 1, d).getDay();
+        if (normalized.has(jsDay)) habitsScheduledThisWeek += 1;
+      }
+    } else if (cadence === "monthly") {
+      const dayOfMonth = habit.scheduleDayOfMonth;
+      const monthDays = Array.isArray(habit.scheduleMonthDays)
+        ? habit.scheduleMonthDays
+        : dayOfMonth
+          ? [dayOfMonth]
+          : [];
+      for (const civil of windowDays) {
+        const day = Number(civil.slice(8, 10));
+        if (monthDays.includes(day)) habitsScheduledThisWeek += 1;
+      }
+    }
+  }
+  // Count completed habit logs in the 7-day window. 260531-fwc: reuse the
+  // grouped `windowedLogsByHabit` map built above — the old code re-ran the
+  // per-habit habit_logs fan-out a SECOND time (doubling the read budget).
+  for (const hdoc of habitDocs) {
+    const habit = hdoc.data() as { type?: HabitType; targetValue?: number };
+    const habitType: HabitType = (habit.type ?? "binary") as HabitType;
+    const targetValue =
+      typeof habit.targetValue === "number" ? habit.targetValue : undefined;
+    const logs = windowedLogsByHabit.get(hdoc.id) ?? [];
+    for (const row of logs) {
+      if (!windowSet.has(row.civilDate)) continue;
+      if (!logCountsAsCompleted(row, habitType, targetValue)) continue;
+      habitsCompletedThisWeek += 1;
+    }
+  }
+
+  return {
+    lastWorkoutAtMs: tsWorkout?.getTime() ?? null,
+    lastHabitAtMs: tsHabit?.getTime() ?? null,
+    lastPhotoAtMs: tsPhoto?.getTime() ?? null,
+    thisWeekComplianceRatio,
+    habitsCompletedThisWeek,
+    habitsScheduledThisWeek,
+    missedWorkoutsLast7Days,
+    missedForAttention,
+    hasSomethingAssignedSoon,
+    workoutsCompletedThisMonth,
+    workoutsScheduledThisMonth,
+  };
+}
+
+/** #506 — every cached stats doc computed for this coach, in ONE query. Fail-soft. */
+async function loadClientStatsForCoach(
+  db: FirebaseFirestore.Firestore,
+  coachUid: string,
+): Promise<Map<string, ClientStatsDoc>> {
+  const byClient = new Map<string, ClientStatsDoc>();
+  try {
+    const snap = await db
+      .collection(FirestoreCollections.clientStats)
+      .where("coachId", "==", coachUid)
+      .get();
+    for (const doc of snap.docs) {
+      const decoded = decodeClientStats(doc.data() as Record<string, unknown>);
+      if (decoded) byClient.set(doc.id, decoded);
+    }
+  } catch (err) {
+    console.error("[gc-fitness/roster] client_stats read failed", err);
+  }
+  return byClient;
+}
+
+/**
+ * #506 — writes the recomputed docs back (merge, never `dirtyAt`). Fail-soft: a
+ * failed write only means the next load recomputes. Awaited on purpose — an
+ * unawaited promise may be frozen with the serverless instance.
+ */
+async function saveClientStats(
+  db: FirebaseFirestore.Firestore,
+  docs: Array<{ clientId: string; data: Record<string, unknown> }>,
+): Promise<void> {
+  for (let i = 0; i < docs.length; i += 400) {
+    const batch = db.batch();
+    for (const { clientId, data } of docs.slice(i, i + 400)) {
+      batch.set(db.collection(FirestoreCollections.clientStats).doc(clientId), data, {
+        merge: true,
+      });
+    }
+    try {
+      await batch.commit();
+    } catch (err) {
+      console.error("[gc-fitness/roster] client_stats write failed", err);
+    }
+  }
+}
+
 /**
  * Trainer roster aggregator for `/gc-fitness/clients` (P11-05). Closes BO-07.
  *
@@ -392,14 +856,16 @@ export const listClients = cache(
  *     that had at least one scheduled day in the window (deleted excluded)
  *   - unreadChatCount: `chats/{clientId}.unreadCount[trainer.uid]`
  *
- * Read budget (CONTEXT decision — v1 trainers have small rosters):
- *   - 50-client cap per call
- *   - Per client: 3 single-doc queries (last workout / habit / chat message)
- *     + 1 chat doc + 1 habits query + N habit_logs reads (one per habit, bound to 50)
- *   - Worst-case: 50 clients * ~5 reads = 250 reads + per-habit log fetches.
- *
- * V2 carry-forward: denormalize `lastActivityAt` onto `/users/{uid}` via
- * Cloud Function triggers so the roster collapses to a single query.
+ * Read budget (#506):
+ *   - Roster-wide, one query each: client_stats, goals, billing, nutrition.
+ *   - Per client, cache HIT (`client_stats/{uid}` fresh — see client-stats.ts):
+ *     just the chat doc (unread counter).
+ *   - Per client, cache MISS: the chat doc + the 7-query fan-out in
+ *     `computeClientStats` (up to ~300 docs), then ONE stats write.
+ *   - Pending (mirror) clients read nothing per client.
+ *   gc-fitness Cloud Functions `clientStatsDirty*` mark a client's doc dirty
+ *   when one of its workout logs / habit logs / habits / assignments / photos
+ *   changes, so a hit never hides a change for longer than the trigger lag.
  *
  * Sort: lastActivityAt DESC (most recently active first). Clients with no
  * activity (`lastActivityAt === null`) go to the end, sorted by displayName.
@@ -492,25 +958,6 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
     // Goals collection might be empty / missing rules — fail soft, render 0/0/0.
   }
 
-  // Helper: pull the latest Date-valued field off a 1-doc snapshot.
-  const latestDate = (
-    snap: FirebaseFirestore.QuerySnapshot,
-    field: string,
-  ): Date | null => {
-    const doc = snap.docs[0];
-    if (!doc) return null;
-    const raw = doc.get(field);
-    if (raw && typeof (raw as { toDate?: () => Date }).toDate === "function") {
-      return (raw as { toDate: () => Date }).toDate();
-    }
-    if (raw instanceof Date) return raw;
-    if (typeof raw === "string") {
-      const d = new Date(raw);
-      return Number.isNaN(d.getTime()) ? null : d;
-    }
-    return null;
-  };
-
   // Resolve the trainer's own timezone ONCE so we never fall back to the
   // accidental server UTC zone for a client that has no stored timezone.
   const trainerTz = await getTrainerTimezone();
@@ -541,191 +988,55 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
     console.error("[gc-fitness/roster] client_billing read failed", err);
   }
 
+  // #506 — cached numbers per client (`client_stats`), ONE query for the roster.
+  // `startedAtMs` is taken BEFORE any per-client read: it is the `computedAt` of
+  // every doc this load writes, so a source write landing mid-load (event time
+  // ≥ it) keeps that doc dirty. See client-stats.ts.
+  const startedAtMs = Date.now();
+  const statsByClient = await loadClientStatsForCoach(db, trainer.uid);
+  const statsToWrite: Array<{ clientId: string; data: Record<string, unknown> }> = [];
+
   const rows: ClientRosterRow[] = await mapInBatches(
     clients,
     ROSTER_FANOUT_BATCH,
     async (c): Promise<ClientRosterRow> => {
+      const isPending = c.uid.startsWith("mirror:");
       // Compute "today" in the client's timezone so the 7-day compliance
       // window aligns with the client's civil-date semantics (matches
       // habit-compliance-actions.ts). When the client has no stored tz we
       // fall back to the trainer's own cookie tz rather than literal "UTC".
       const tzForToday = c.timezone ?? trainerTz;
       const today = civilDateToday(tzForToday);
+      const statsKey = { coachId: trainer.uid, timezone: tzForToday, civilDate: today };
 
-      // 7-day window bounds. The assignments collection uses `scheduledFor`
-      // as a CIVIL DATE STRING ("YYYY-MM-DD" — Pitfall 1 / Pitfall 8); we
-      // compare lexicographically against `windowStartCivil`. The workout
-      // logs use `startedAt` as a Firestore Timestamp; we pass a Date.
-      const sevenDaysAgoMs = Date.now() - 7 * 24 * 60 * 60 * 1000;
-      const sevenDaysAgoDate = new Date(sevenDaysAgoMs);
-      const windowStartCivil = civilDateToday(tzForToday, sevenDaysAgoDate);
+      // A pending (mirror) client has no data under a real uid yet: zeros, no
+      // reads. Otherwise the cached doc when fresh, else the 7-query fan-out
+      // (written back below). Chat messages are intentionally NOT counted as
+      // "last action" — a trainer-sent chat would otherwise bump the client to
+      // the top of every roster (260528 bug); the chat doc is read only for the
+      // unread counter.
+      const cached = statsByClient.get(c.uid);
+      const [stats, chatDocSnap] = isPending
+        ? [EMPTY_CLIENT_STATS, null]
+        : await Promise.all([
+            isClientStatsFresh(cached, statsKey, startedAtMs)
+              ? Promise.resolve(cached.values)
+              : computeClientStats(db, c.uid, trainer.uid, tzForToday, today).then(
+                  (values) => {
+                    statsToWrite.push({
+                      clientId: c.uid,
+                      data: encodeClientStats(c.uid, statsKey, startedAtMs, values),
+                    });
+                    return values;
+                  },
+                ),
+            db.collection(FirestoreCollections.chats).doc(c.uid).get(),
+          ]);
 
-      // Month window — civil-date strings clamped to the first/last day of
-      // the calendar month containing `today`. `today` is "YYYY-MM-DD" so
-      // slicing gives a "YYYY-MM" prefix; `<= prefix + "-31"` works because
-      // civil-date strings compare lexicographically — May 31 sorts after
-      // every May day and before any June day.
-      // #499 — «nothing assigned soon»: [today, today + windowDays - 1]. The
-      // 7-day assignments query below now reaches this far ahead too (same
-      // index, a few more docs), so the reason costs no extra query.
-      const soonEndCivil =
-        civilDateAddDays(today, ATTENTION_RULES.nothingAssigned.windowDays - 1) ?? today;
-      const soonDays: string[] = [];
-      for (let i = 0; i < ATTENTION_RULES.nothingAssigned.windowDays; i += 1) {
-        const d = civilDateAddDays(today, i);
-        if (d) soonDays.push(d);
-      }
-
-      const monthStartCivil = `${today.slice(0, 7)}-01`;
-      const monthEndCivil = `${today.slice(0, 7)}-31`;
-
-      const [
-        recentHabitLogs,
-        latestProgressPhoto,
-        chatDocSnap,
-        clientHabits,
-        assignedLast7Snap,
-        completedLast7Snap,
-        assignedThisMonthSnap,
-        windowedHabitLogs,
-      ] = await Promise.all([
-        // Habit logs reflect the client's own check-in; the dashboard's
-        // "last action" feed surfaces them, so sorting must too.
-        //
-        // NO orderBy: some legacy/iOS-written habit logs are missing
-        // `loggedAt` entirely (the canonical iOS writer populates it, but
-        // older writes only have updatedAt/createdAt). An orderBy(loggedAt)
-        // query silently EXCLUDES those docs — which is the bug that made
-        // Nico Rey show "no activity" and Nico Carba show stale 19h-ago
-        // despite habit_logs written today. We mirror the recent-logs
-        // pattern: broad-fetch, compute max(updatedAt, createdAt, loggedAt)
-        // per doc in memory. The cap is safely above a normal single-client
-        // recent window while keeping roster first load bounded.
-        db
-          .collection(FirestoreCollections.habitLogs)
-          .where("clientId", "==", c.uid)
-          .limit(30)
-          .get(),
-        // Progress photos are a separate client surface — counts here too.
-        db
-          .collection(FirestoreCollections.progressPhotos)
-          .where("clientId", "==", c.uid)
-          .orderBy("createdAt", "desc")
-          .limit(1)
-          .get()
-          .catch(() => null),
-        // Chat messages are intentionally NOT counted as "last action" —
-        // a trainer-sent chat would otherwise bump the client to the top of
-        // every roster (260528 bug). Mirrors the exclusion in
-        // listRecentLogsForTrainer.
-        db.collection(FirestoreCollections.chats).doc(c.uid).get(),
-        // Issue #437/#400: fetch by clientId only; filter `deleted === true`
-        // in memory (isHabitNotDeleted) below. A `.where("deleted","==",false)`
-        // equality drops client-created habits that never write the field, so
-        // the compliance counts under-reported them. PR #230 pattern.
-        db
-          .collection(FirestoreCollections.habits)
-          .where("clientId", "==", c.uid)
-          // 260529 cost backstop: a roster row never needs more than a
-          // sane ceiling of habits; the compliance math below tolerates the
-          // cap (no real client carries >60 active habits).
-          // WR-03: the cap counts SOFT-DELETED docs too (filtered in memory
-          // after the fetch) and soft-delete is the only delete path, so
-          // deleted docs accumulate toward it over a client's lifetime —
-          // raised 60 → 150; a truncation warning fires below when the raw
-          // fetch hits the cap. Costs nothing unless the docs exist
-          // (limit is a ceiling, not a fetch-always).
-          .limit(150)
-          .get(),
-        // 11-06: assignments scheduled in the last 7 civil days. scheduledFor
-        // is a "YYYY-MM-DD" string — lexicographic comparison is correct
-        // because civil-date strings sort identically to civil-date order.
-        // 260529: upper-bound the range at `today`. Without it the query
-        // returned EVERY future assignment too (recurring schedules run
-        // months ahead), which (a) inflated `assignedCount` → wrong
-        // `missedWorkoutsLast7Days`, and (b) read a unbounded slice per
-        // client. The (clientId, scheduledFor) index serves the two-sided
-        // range; it is confirmed deployed in production.
-        db
-          .collection(FirestoreCollections.workoutAssignments)
-          .where("clientId", "==", c.uid)
-          .where("scheduledFor", ">=", windowStartCivil)
-          .where("scheduledFor", "<=", soonEndCivil)
-          .get(),
-        // 11-06: logs started in the last 7 days (Timestamp comparison).
-        db
-          .collection(FirestoreCollections.workoutLogs)
-          .where("clientId", "==", c.uid)
-          .orderBy("startedAt", "desc")
-          .limit(30)
-          .get(),
-        // 260528: assignments scheduled IN this calendar month (string range).
-        // BOTH month-workout numbers derive from THIS single snapshot — see
-        // the count computation below. `status` on the assignment is the
-        // source of truth iOS maintains (WorkoutAssignmentRepository
-        // .transitionToCompleted flips it to "completed" on workout finish),
-        // and it's what the client's own calendar renders.
-        db
-          .collection(FirestoreCollections.workoutAssignments)
-          .where("clientId", "==", c.uid)
-          .where("scheduledFor", ">=", monthStartCivil)
-          .where("scheduledFor", "<=", monthEndCivil)
-          .get(),
-        // 260531-fwc COST: ONE windowed habit_logs query per client (served by
-        // the live (clientId, civilDate) index) replaces the old per-habit
-        // fan-out that ran TWO *sequential* habit_logs queries PER habit — the
-        // compliance loop AND the trailing-7 habit-count loop. Grouped by
-        // habitId in memory below. Fallback to an unwindowed clientId query if
-        // the composite index is ever still building (mirrors recent-logs).
-        db
-          .collection(FirestoreCollections.habitLogs)
-          .where("clientId", "==", c.uid)
-          .where("civilDate", ">=", windowStartCivil)
-          .orderBy("civilDate", "desc")
-          .limit(150)
-          .get()
-          .catch(() =>
-            db
-              .collection(FirestoreCollections.habitLogs)
-              .where("clientId", "==", c.uid)
-              .limit(200)
-              .get(),
-          ),
-      ]);
-
-      // 260531-fwc: the latest workout is completedLast7Snap.docs[0] (ordered
-      // startedAt desc, NO date filter), so the dedicated limit(1) query the
-      // old `latestWorkoutLog` ran was redundant.
-      const tsWorkout = latestDate(completedLast7Snap, "startedAt");
-      // Walk every habit-log doc and take the max event-time across the
-      // three timestamp fields. Some docs only have updatedAt; others only
-      // loggedAt — picking ANY non-null field is what makes the bug go
-      // away (260528 bug). Reads the raw Timestamp via doc.get() so we
-      // handle Firestore Timestamp + Date + ISO string identically.
-      let tsHabit: Date | null = null;
-      const habitTimestampFields = ["updatedAt", "createdAt", "loggedAt"] as const;
-      for (const doc of recentHabitLogs.docs) {
-        // Skip soft-deleted rows — recent-logs surface filters them too.
-        if (doc.get("deleted") === true) continue;
-        for (const field of habitTimestampFields) {
-          const raw = doc.get(field);
-          let candidate: Date | null = null;
-          if (raw && typeof (raw as { toDate?: () => Date }).toDate === "function") {
-            candidate = (raw as { toDate: () => Date }).toDate();
-          } else if (raw instanceof Date) {
-            candidate = raw;
-          } else if (typeof raw === "string") {
-            const parsed = new Date(raw);
-            if (!Number.isNaN(parsed.getTime())) candidate = parsed;
-          }
-          if (candidate && (!tsHabit || candidate > tsHabit)) {
-            tsHabit = candidate;
-          }
-        }
-      }
-      const tsPhoto = latestProgressPhoto
-        ? latestDate(latestProgressPhoto, "createdAt")
-        : null;
+      const asDate = (ms: number | null) => (ms === null ? null : new Date(ms));
+      const tsWorkout = asDate(stats.lastWorkoutAtMs);
+      const tsHabit = asDate(stats.lastHabitAtMs);
+      const tsPhoto = asDate(stats.lastPhotoAtMs);
       const candidates: Date[] = [tsWorkout, tsHabit, tsPhoto].filter(
         (d): d is Date => d instanceof Date,
       );
@@ -748,7 +1059,7 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
       // 260524 — also tolerate the legacy flat top-level
       // `"unreadCount.{trainerUid}"` field that pre-fix Cloud Function writes
       // produced (see `readUnreadCountFromRaw` in chat-server-actions.ts).
-      const chatData = (chatDocSnap.data() ?? {}) as Record<string, unknown>;
+      const chatData = (chatDocSnap?.data() ?? {}) as Record<string, unknown>;
       const nestedMap =
         (chatData.unreadCount as Record<string, number> | undefined) ?? {};
       const legacyFlat = chatData[`unreadCount.${trainer.uid}`];
@@ -759,200 +1070,16 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
             ? (legacyFlat as number)
             : 0;
       const unreadChatCount = rawUnread > 0 ? rawUnread : 0;
-
-      // This-week compliance. 260531-fwc: group the SINGLE windowed habit_logs
-      // snapshot by habitId ONCE (replaces a per-habit query fan-out), then
-      // compute per-habit ratio via the Pattern-B pure function and average.
-      // The same grouped map feeds the trailing-7 habit-count loop below.
-      if (clientHabits.docs.length >= 150) {
-        // WR-03: raw habit fetch filled the cap — soft-deleted docs consume
-        // the budget, so live habits (and the compliance denominators built
-        // from them) may be truncated for this client.
-        console.warn(
-          "[gc-fitness/roster] habit fetch hit its cap — live habits may be truncated",
-          { clientId: c.uid, cap: 150 },
-        );
-      }
-      // #1504 — what a former coach left on the client's plan is not this coach's
-      // to answer for: no compliance, no «faltó a N», no month count.
-      const notInherited = (d: { data: () => unknown }) =>
-        assignedBy(d.data() as Record<string, unknown>, { coachId: trainer.uid }) !== "former";
-      const habitDocs = clientHabits.docs.filter(
-        (d) => isHabitNotDeleted(d.data() as Record<string, unknown>) && notInherited(d),
-      );
-      const windowedLogsByHabit = new Map<string, HabitLogRow[]>();
-      for (const ldoc of windowedHabitLogs.docs) {
-        const data = ldoc.data() as Record<string, unknown>;
-        const hid = typeof data.habitId === "string" ? data.habitId : "";
-        if (!hid) continue;
-        const row: HabitLogRow = {
-          habitId: hid,
-          clientId: (data.clientId as string) ?? "",
-          civilDate: typeof data.civilDate === "string" ? data.civilDate : "",
-          value: coerceLegacyHabitLogValue(data.value),
-          unit: typeof data.unit === "string" ? data.unit : undefined,
-          deleted: data.deleted === true,
-        };
-        const bucket = windowedLogsByHabit.get(hid);
-        if (bucket) bucket.push(row);
-        else windowedLogsByHabit.set(hid, [row]);
-      }
-
-      // #451: the denominator is the number of SCHEDULED days in the window
-      // per `isHabitScheduledOn` (twin of iOS `HabitSchedule.isActive` /
-      // `HabitStreakCalculator.computeAdherenceRatio`, Android twin of the
-      // same name) — NOT a flat 7. A weekly Mon+Thu habit done on both days
-      // reads 100%, not 2/7. Habits with no scheduled day in the window (a
-      // monthly habit whose day fell outside it, a one-time habit, one not
-      // started yet) are not "due" this week, so they don't drag the average.
-      let complianceSum = 0;
-      let complianceCount = 0;
-      for (const hdoc of habitDocs) {
-        const logs = windowedLogsByHabit.get(hdoc.id) ?? [];
-        const { ratio, scheduledDays } = computeAdherence(
-          hdoc.data() as Record<string, unknown>,
-          logs,
-          7,
-          today,
-        );
-        if (scheduledDays === 0) continue;
-        complianceSum += ratio;
-        complianceCount += 1;
-      }
-      // No habits yet → show 0% instead of the vacuous 100% that read as
-      // "already perfect" for brand-new clients. The attention predicate
-      // below is based on activity recency only, so this stays visual.
-      const thisWeekComplianceRatio =
-        complianceCount > 0 ? complianceSum / complianceCount : 0;
-
-      // 11-06: derive missed workouts + needs-attention.
-      const assignmentDocs = assignedLast7Snap.docs.filter(notInherited);
-      const scheduledOf = (d: { get: (f: string) => unknown }) => {
-        const v = d.get("scheduledFor");
-        return typeof v === "string" ? v : "";
-      };
-      // The query reaches `soonEndCivil` (#499); the 7-day count stays ≤ today.
-      const assignedCount = assignmentDocs.filter((d) => scheduledOf(d) <= today).length;
-      // #499 — the attention reason counts only days already OVER (today is not a
-      // miss yet) and trusts the assignment `status`, like the month counts below
-      // and the apps' callable (which pairs a completed log per civil day).
-      const missedForAttention = assignmentDocs.filter((d) => {
-        const day = scheduledOf(d);
-        return day >= windowStartCivil && day < today && d.get("status") !== "completed";
-      }).length;
-      const hasSomethingAssignedSoon =
-        assignmentDocs.some((d) => {
-          const day = scheduledOf(d);
-          return day >= today && day <= soonEndCivil;
-        }) ||
-        habitDocs.some((h) => {
-          const habit = h.data() as Record<string, unknown>;
-          return soonDays.some((day) => isHabitScheduledOn(habit, day));
-        });
-      const completedCount = completedLast7Snap.docs.filter(notInherited).filter((doc) => {
-        const raw = doc.get("startedAt");
-        const startedAt =
-          raw && typeof (raw as { toDate?: () => Date }).toDate === "function"
-            ? (raw as { toDate: () => Date }).toDate()
-            : raw instanceof Date
-              ? raw
-              : null;
-        return startedAt ? startedAt >= sevenDaysAgoDate : false;
-      }).length;
-      const missedWorkoutsLast7Days = Math.max(
-        0,
-        assignedCount - completedCount,
-      );
-
-      // Month-window workout counts. BOTH numbers come from the SAME
-      // `workout_assignments` snapshot (scheduledFor in-month), so completed
-      // can never exceed scheduled:
-      //   - scheduled = every assignment doc scheduled this month
-      //   - completed = of those, the ones whose `status === "completed"`
-      // 260531 fix: the prior version counted `completed` from a SEPARATE
-      // `workout_logs` query (status==="completed", startedAt in-month). That
-      // mixed two collections and produced nonsense like "24/6" — a workout
-      // assigned in a PREVIOUS month but finished this month counted toward
-      // completed-this-month but never toward scheduled-this-month, and
-      // re-logged/ad-hoc logs double-counted. The assignment `status` is the
-      // single source of truth iOS maintains (transitionToCompleted on finish)
-      // and what the client's own calendar shows.
-      const assignedThisMonth = assignedThisMonthSnap.docs.filter(notInherited);
-      const workoutsScheduledThisMonth = assignedThisMonth.length;
-      const workoutsCompletedThisMonth = assignedThisMonth.filter(
-        (doc) => doc.get("status") === "completed",
-      ).length;
-
-      // 260528 — habit counts for the trailing 7 days. "Scheduled" sums each
-      // habit's cadence (daily=7; weekly with weekdays selected = how many of
-      // those weekdays fall in the 7-day window; monthly=at most 1). Logs
-      // already loaded in the per-habit compliance loop above provide the
-      // "completed" count via `boolCompleted` over the same window.
-      let habitsCompletedThisWeek = 0;
-      let habitsScheduledThisWeek = 0;
-      const windowDays: string[] = [];
-      for (let i = 0; i < 7; i += 1) {
-        const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
-        windowDays.push(civilDateToday(tzForToday, d));
-      }
-      const windowSet = new Set(windowDays);
-      for (const hdoc of habitDocs) {
-        const habit = hdoc.data() as {
-          scheduleType?: string;
-          scheduleCadence?: string;
-          scheduleWeekdays?: number[];
-          scheduleDayOfMonth?: number;
-          scheduleMonthDays?: number[];
-        };
-        // scheduleType === "one-time" habits don't appear on per-day
-        // checklists in the trailing-7 sense; skip them here.
-        if (habit.scheduleType === "one-time") continue;
-        const cadence = habit.scheduleCadence ?? "daily";
-        if (cadence === "daily") {
-          habitsScheduledThisWeek += 7;
-        } else if (cadence === "weekly") {
-          // gc-fitness#1343 — marker-aware effective ISO days.
-          const weekdays = effectiveIsoWeekdays(
-            hdoc.data() as Record<string, unknown>,
-          );
-          // iOS uses 1=Mon..7=Sun; JS Date.getDay() uses 0=Sun..6=Sat.
-          // Map iOS 7 → JS 0 (Sun), otherwise iOS N → JS N.
-          const normalized = new Set(
-            weekdays.map((d) => (d === 7 ? 0 : d)),
-          );
-          for (const civil of windowDays) {
-            const [y, m, d] = civil.split("-").map(Number);
-            const jsDay = new Date(y, m - 1, d).getDay();
-            if (normalized.has(jsDay)) habitsScheduledThisWeek += 1;
-          }
-        } else if (cadence === "monthly") {
-          const dayOfMonth = habit.scheduleDayOfMonth;
-          const monthDays = Array.isArray(habit.scheduleMonthDays)
-            ? habit.scheduleMonthDays
-            : dayOfMonth
-              ? [dayOfMonth]
-              : [];
-          for (const civil of windowDays) {
-            const day = Number(civil.slice(8, 10));
-            if (monthDays.includes(day)) habitsScheduledThisWeek += 1;
-          }
-        }
-      }
-      // Count completed habit logs in the 7-day window. 260531-fwc: reuse the
-      // grouped `windowedLogsByHabit` map built above — the old code re-ran the
-      // per-habit habit_logs fan-out a SECOND time (doubling the read budget).
-      for (const hdoc of habitDocs) {
-        const habit = hdoc.data() as { type?: HabitType; targetValue?: number };
-        const habitType: HabitType = (habit.type ?? "binary") as HabitType;
-        const targetValue =
-          typeof habit.targetValue === "number" ? habit.targetValue : undefined;
-        const logs = windowedLogsByHabit.get(hdoc.id) ?? [];
-        for (const row of logs) {
-          if (!windowSet.has(row.civilDate)) continue;
-          if (!logCountsAsCompleted(row, habitType, targetValue)) continue;
-          habitsCompletedThisWeek += 1;
-        }
-      }
+      const {
+        thisWeekComplianceRatio,
+        missedWorkoutsLast7Days,
+        missedForAttention,
+        hasSomethingAssignedSoon,
+        habitsCompletedThisWeek,
+        habitsScheduledThisWeek,
+        workoutsCompletedThisMonth,
+        workoutsScheduledThisMonth,
+      } = stats;
 
       const goalsCount = goalsByClient.get(c.uid) ?? {
         short: 0,
@@ -969,7 +1096,6 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         neverHadPlan: true,
       };
 
-      const isPending = c.uid.startsWith("mirror:");
       // Pending sign-in clients are never flagged at-risk: they have no
       // logged activity yet by definition, so the inactivity predicate
       // would always fire — that's noise, not a real signal.
@@ -1044,6 +1170,8 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
       sensitivity: "base",
     });
   });
+
+  await saveClientStats(db, statsToWrite);
 
   return rows;
 }
