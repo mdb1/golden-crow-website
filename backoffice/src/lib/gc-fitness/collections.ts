@@ -258,6 +258,14 @@ export const FirestoreCollections = {
   clientBilling: "client_billing",
   /** Un pago registrado. Se anula (`voidedAt`), nunca se borra. */
   clientPayments: "client_payments",
+
+  /**
+   * #506 — per-client roster stats cache (doc id = clientId). Written by the
+   * backoffice roster (Admin SDK) when it computes a row; Cloud Functions
+   * `clientStatsDirty*` stamp `dirtyAt` when a source doc changes. Server-written
+   * only; the client and its coach may read it. See `client-stats.ts`.
+   */
+  clientStats: "client_stats",
 } as const;
 
 /**

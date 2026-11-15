@@ -54,6 +54,10 @@ describe("FirestoreCollections — literal-string contract with Swift twin", () 
     expect(FirestoreCollections.appConfig).toBe("app_config");
   });
 
+  it("clientStats is 'client_stats' (#506 — gc-fitness functions clientStatsDirty twin, no Swift twin)", () => {
+    expect(FirestoreCollections.clientStats).toBe("client_stats");
+  });
+
   it("auditLog is 'audit_log' (#312 PR2 — server/functions-only, no Swift twin)", () => {
     expect(FirestoreCollections.auditLog).toBe("audit_log");
   });
