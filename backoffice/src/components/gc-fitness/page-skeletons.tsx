@@ -2,12 +2,12 @@
 //
 // Building blocks for the `loading.tsx` of the heavy gc-fitness routes, so they
 // all share one look (same as dashboard/loading.tsx: token-based `Skeleton`,
-// rounded-[1.25rem] cards, works in both themes). Server-safe: no hooks, no
+// rounded-card cards, works in both themes). Server-safe: no hooks, no
 // data. Each block carries `aria-hidden`; the wrapper is `aria-busy`.
 
 import { Skeleton } from "@/components/ui/skeleton";
 
-const CARD = "rounded-[1.25rem] border bg-card p-5 shadow-sm";
+const CARD = "rounded-card border bg-card p-5 shadow-sm";
 
 /** Page wrapper: `gc-page` (main sections) or the narrow sub-page column. */
 export function PageSkeleton({

@@ -5,7 +5,7 @@
 // Self-contained recurrence controls for a coach reminder, shared by the create
 // form and the edit dialog. Renders REAL named form inputs so the host's
 // uncontrolled FormData submit picks them up:
-//   - <select name="recurrence">              none | daily | weekly | monthly
+//   - <FormSelect name="recurrence">          none | daily | weekly | monthly
 //   - <input name="recurrenceEndsOn" type=date> end date (any recurrence)
 //   - weekday checkboxes name="recurrenceWeekdays" value 1..7 (Mon..Sun) — weekly
 //   - month-day checkboxes name="recurrenceMonthDays" value 1..31 — monthly
@@ -18,12 +18,10 @@
 
 import { useEffect, useState } from "react";
 
+import { FormSelect } from "@/components/gc-fitness/form-select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-
-const SELECT_CLASS =
-  "flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 // Mon=1 … Sun=7 (matches the habit/workout schedule weekday convention).
 const WEEKDAYS: Array<{ value: number; label: string }> = [
@@ -141,18 +139,19 @@ export function ChecklistRecurrenceFields({
     <div className="grid gap-3">
       <div className="grid gap-2 sm:max-w-xs">
         <Label htmlFor={`${idPrefix}-recurrence`}>Recurrencia</Label>
-        <select
+        <FormSelect
           id={`${idPrefix}-recurrence`}
           name="recurrence"
           value={recurrence}
-          onChange={(e) => changeRecurrence(e.target.value as Recurrence)}
-          className={SELECT_CLASS}
-        >
-          <option value="none">Única</option>
-          <option value="daily">Diaria</option>
-          <option value="weekly">Semanal</option>
-          <option value="monthly">Mensual</option>
-        </select>
+          onValueChange={(v) => changeRecurrence(v as Recurrence)}
+          className="data-[size=default]:h-11"
+          options={[
+            { value: "none", label: "Única" },
+            { value: "daily", label: "Diaria" },
+            { value: "weekly", label: "Semanal" },
+            { value: "monthly", label: "Mensual" },
+          ]}
+        />
       </div>
 
       {recurrence !== "none" ? (

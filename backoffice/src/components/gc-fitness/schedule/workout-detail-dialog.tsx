@@ -94,8 +94,8 @@ const STATUS_LABEL: Record<AssignmentDetail["status"], string> = {
 const STATUS_TONE: Record<AssignmentDetail["status"], string> = {
   scheduled: "bg-muted text-muted-foreground",
   started: "bg-muted text-muted-foreground",
-  completed: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300",
-  missed: "bg-rose-500/15 text-rose-800 dark:text-rose-300",
+  completed: "bg-success/15 text-success",
+  missed: "bg-danger/15 text-danger",
 };
 
 function recurrenceLabel(recurrence: Record<string, unknown> | null): string | null {
@@ -612,19 +612,19 @@ function DetailBody({ data }: { data: AssignmentDetail }) {
                   key={`${ex.exerciseId}-${ex.index}`}
                   className={
                     ex.supersetGroup
-                      ? "rounded-md border border-amber-500/40 bg-amber-50/40 p-3 dark:border-amber-400/40 dark:bg-amber-950/20"
+                      ? "rounded-md border border-warning/40 bg-warning-soft p-3"
                       : "rounded-md border bg-background p-3"
                   }
                 >
                   {isSupersetStart ? (
-                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-warning">
                       Superserie {ex.supersetGroup}
                     </p>
                   ) : null}
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-medium">{ex.exerciseName}</p>
                     {ex.supersetGroup ? (
-                      <span className="inline-flex h-5 items-center rounded-full bg-amber-500/20 px-2 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-400/20 dark:text-amber-200">
+                      <span className="inline-flex h-5 items-center rounded-full bg-warning/20 px-2 text-[10px] font-semibold uppercase tracking-wide text-warning">
                         {ex.supersetGroup}
                       </span>
                     ) : null}
@@ -637,7 +637,7 @@ function DetailBody({ data }: { data: AssignmentDetail }) {
                   ) : null}
                   {/* D10 — one group rest line for the whole superset block. */}
                   {isBlockEnd && groupRoundRest !== null ? (
-                    <p className="mt-2 text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                    <p className="mt-2 text-[10px] font-medium text-warning">
                       Descanso de la superserie: {groupRoundRest}s
                     </p>
                   ) : null}

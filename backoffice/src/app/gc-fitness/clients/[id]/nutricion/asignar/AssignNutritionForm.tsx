@@ -640,7 +640,7 @@ export function AssignNutritionForm({
         <div
           role="status"
           data-testid="nutrition-draft-restored"
-          className="flex flex-col gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+          className="flex flex-col gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
         >
           <span>{t("draftRestored")}</span>
           <Button type="button" variant="ghost" size="sm" onClick={discardDraft}>
@@ -784,7 +784,7 @@ export function AssignNutritionForm({
                 value and typing the original back stops being a modification. */}
             {dailyDeviated ? (
               <span
-                className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-100"
+                className="rounded-full bg-warning-soft px-2 py-0.5 text-xs font-medium text-warning"
                 data-testid="nutrition-deviation-daily"
               >
                 {t("retouched")}
@@ -877,7 +877,7 @@ export function AssignNutritionForm({
             <div key={meal.key} className="flex flex-col gap-3 rounded-lg border p-3">
               {deviatedMealIndexes.has(mealIndex) ? (
                 <span
-                  className="self-start rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-100"
+                  className="self-start rounded-full bg-warning-soft px-2 py-0.5 text-xs font-medium text-warning"
                   data-testid={`nutrition-deviation-meal-${mealIndex}`}
                 >
                   {t("retouched")}
@@ -1265,7 +1265,7 @@ function MealRollupDelta({
   }
   if (line.delta === null) return null;
   if (!rollupDeltaIsWorthShowing(line, metric)) {
-    return <span className="text-[11px] font-medium text-emerald-600">{t("rollupOnTarget")}</span>;
+    return <span className="text-[11px] font-medium text-success">{t("rollupOnTarget")}</span>;
   }
   return (
     <span className="text-chart-4 text-[11px] font-medium tabular-nums">
@@ -1374,7 +1374,7 @@ function OverlapNotice({ notices }: { notices: NutritionOverlapNotice[] | null }
 
   return (
     <div
-      className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3"
+      className="rounded-lg border border-warning/40 bg-warning/10 p-3"
       data-testid="nutrition-overlap-notice"
     >
       <p className="text-sm font-medium">{t("overlapTitle")}</p>

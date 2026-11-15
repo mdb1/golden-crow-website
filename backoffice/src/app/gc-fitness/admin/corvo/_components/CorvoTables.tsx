@@ -114,7 +114,7 @@ export function CorvoNearQuotaTable({ rows }: { rows: NearQuotaUser[] }) {
                 <TableCell className="text-right tabular-nums">
                   <span data-testid={`near-quota-usage-${row.uid}`}>{`${row.used}/${row.limit}`}</span>
                   {row.reachedQuota ? (
-                    <span className="ml-2 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-700 dark:text-amber-300">
+                    <span className="ml-2 rounded-full bg-warning/15 px-2 py-0.5 text-xs text-warning">
                       {t("reached")}
                     </span>
                   ) : null}

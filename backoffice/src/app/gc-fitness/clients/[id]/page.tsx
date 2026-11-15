@@ -641,7 +641,7 @@ function toDate(value: unknown): Date | null {
 
 function WidgetSkeleton({ title }: { title: string }) {
   return (
-    <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
+    <section className="rounded-card border border-border bg-card p-5 shadow-sm">
       <h2 className="mb-3 font-medium">{title}</h2>
       <Skeleton className="h-32 w-full" />
     </section>
@@ -690,7 +690,7 @@ function PendingClientView({
         <p className="text-sm text-muted-foreground">{email}</p>
       </header>
 
-      <section className="rounded-[1.25rem] border border-border bg-card p-6 shadow-sm">
+      <section className="rounded-card border border-border bg-card p-6 shadow-sm">
         <h2 className="mb-2 text-lg font-semibold">Pendiente de ingreso</h2>
         <p className="text-sm text-muted-foreground">
           Este cliente fue pre-invitado y todavía no inició sesión por

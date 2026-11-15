@@ -406,7 +406,7 @@ function ActiveWorkoutCard({
   const elapsedLabel = formatWorkoutElapsed(item.elapsedSeconds);
 
   return (
-    <section className="overflow-hidden rounded-[1.25rem] border border-primary/40 bg-gradient-to-br from-primary/10 via-card to-card p-5 shadow-sm">
+    <section className="overflow-hidden rounded-card border border-primary/40 bg-gradient-to-br from-primary/10 via-card to-card p-5 shadow-sm">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-3">
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-primary">
@@ -539,7 +539,7 @@ function NotificationRow({
 }) {
   return (
     <div
-      className={`flex flex-col gap-3 rounded-[1.25rem] border bg-card p-4 transition-colors hover:bg-accent/40 sm:flex-row sm:items-start sm:justify-between ${
+      className={`flex flex-col gap-3 rounded-card border bg-card p-4 transition-colors hover:bg-accent/40 sm:flex-row sm:items-start sm:justify-between ${
         featured
           ? "border-primary/70 shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--primary)_35%,transparent)]"
           : "border-border"

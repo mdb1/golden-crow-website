@@ -11,14 +11,14 @@
 //   CLAUDE.md mandates "no new frameworks" — recharts, nivo, victory, etc.
 //   are all heavyweight + bundle-bloat for a 30-bar bar chart. Inline SVG
 //   is ~40 lines of declarative rendering, server-renderable, and uses the
-//   shadcn theme variables (`fill-green-500`, `fill-muted-foreground/30`)
+//   shadcn theme variables (`fill-success`, `fill-muted-foreground/30`)
 //   so it matches the rest of the trainer surface palette.
 //
 // ACCESSIBILITY:
 //   - `role="img"` + `aria-label` describes the chart for screen readers.
 //   - Per-bar `<title>` element provides hover-tooltips natively (HTML5 SVG
 //     standard, no JS, no a11y plugin needed).
-//   - High-contrast theme tokens (fill-green-500 vs fill-muted-foreground/30)
+//   - High-contrast theme tokens (fill-success vs fill-muted-foreground/30)
 //     keep the chart readable in both light and dark modes (Tailwind v4
 //     theme variables auto-swap).
 
@@ -65,7 +65,7 @@ export function ComplianceSparkline({ counts }: ComplianceSparklineProps) {
             height={h}
             rx={1}
             className={
-              c.completed ? "fill-green-500" : "fill-muted-foreground/30"
+              c.completed ? "fill-success" : "fill-muted-foreground/30"
             }
           >
             <title>

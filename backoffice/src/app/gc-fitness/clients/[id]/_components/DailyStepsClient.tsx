@@ -120,7 +120,7 @@ export function DailyStepsClient({
   const average = totals.days > 0 ? Math.round(totals.total / totals.days) : 0;
 
   return (
-    <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
+    <section className="rounded-card border border-border bg-card p-5 shadow-sm">
       <div className="mb-3 flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h2 className="truncate font-medium">{labels.title}</h2>

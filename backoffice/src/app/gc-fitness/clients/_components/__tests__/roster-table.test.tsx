@@ -57,6 +57,7 @@ jest.mock("sonner", () => ({
 }));
 
 import { RosterTable } from "../RosterTable";
+import { chooseFormSelectValue } from "@/lib/test-utils/form-select";
 
 const TRAINER = "trainer-1";
 const TZ = "America/Argentina/Buenos_Aires";
@@ -521,7 +522,7 @@ describe("RosterTable — #499 attention reasons and sorting", () => {
   ];
 
   function sortBy(user: ReturnType<typeof userEvent.setup>, key: string) {
-    return user.selectOptions(screen.getByRole("combobox", { name: "Sort by" }), key);
+    return chooseFormSelectValue(user, screen.getByRole("combobox", { name: "Sort by" }), key);
   }
 
   it("names every reason on the card, most urgent first", () => {

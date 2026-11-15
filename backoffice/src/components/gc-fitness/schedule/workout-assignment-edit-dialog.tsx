@@ -589,7 +589,7 @@ export function WorkoutAssignmentEditDialog({
             </span>
           </div>
           {isSeries ? (
-            <div className="rounded-lg border border-amber-400/40 bg-amber-500/5 px-3 py-2 text-sm text-amber-700 dark:text-amber-100">
+            <div className="rounded-lg border border-warning/40 bg-warning/5 px-3 py-2 text-sm text-warning">
               Esta asignación pertenece a una recurrencia. Elegí abajo si los
               cambios aplican solo a esta fecha o también a las siguientes
               ocurrencias antes de guardar.
@@ -647,12 +647,12 @@ export function WorkoutAssignmentEditDialog({
                     <div key={draft.rowId} className="rounded-lg border p-3">
                       {/* D10 — one group rest editor per superset block. */}
                       {isSupersetStart ? (
-                        <div className="mb-3 rounded-md border border-amber-400/50 bg-amber-50/60 p-3 dark:border-amber-300/35 dark:bg-amber-950/20">
-                          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                        <div className="mb-3 rounded-md border border-warning/50 bg-warning-soft p-3">
+                          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-warning">
                             Superserie {group}
                           </p>
                           <div className="grid gap-2 sm:grid-cols-2">
-                            <label className="text-xs text-amber-800 dark:text-amber-200">
+                            <label className="text-xs text-warning">
                               Descanso de la superserie (s)
                               <input
                                 type="text"
@@ -664,7 +664,7 @@ export function WorkoutAssignmentEditDialog({
                                 className="mt-1 h-8 w-full rounded-md border bg-background px-2 text-sm text-foreground"
                               />
                             </label>
-                            <label className="text-xs text-amber-800 dark:text-amber-200">
+                            <label className="text-xs text-warning">
                               Descanso al terminar la superserie (s)
                               <input
                                 type="text"
@@ -951,7 +951,7 @@ export function WorkoutAssignmentEditDialog({
                       {/* D10 — superset members edit the after-superset rest at
                           the group level (above); hide the per-member field. */}
                       {isInSuperset ? null : (
-                      <label className="mt-2 flex flex-wrap items-center gap-1.5 rounded-md border border-amber-400/60 bg-amber-500/5 px-2 py-1.5 text-xs text-amber-700 dark:text-amber-100">
+                      <label className="mt-2 flex flex-wrap items-center gap-1.5 rounded-md border border-warning/60 bg-warning/5 px-2 py-1.5 text-xs text-warning">
                         Descanso entre ejercicios (s)
                         <InfoTooltip
                           text="Este es el descanso que el cliente ve después de terminar el ejercicio anterior. Si el siguiente ejercicio planificado es distinto, se usa como pausa antes de empezar el siguiente bloque."
@@ -966,7 +966,7 @@ export function WorkoutAssignmentEditDialog({
                               transitionRest: e.target.value,
                             })
                           }
-                          className="h-8 w-20 rounded-md border border-amber-400/50 bg-background px-2 text-sm text-foreground"
+                          className="h-8 w-20 rounded-md border border-warning/50 bg-background px-2 text-sm text-foreground"
                         />
                       </label>
                       )}
@@ -1019,7 +1019,7 @@ export function WorkoutAssignmentEditDialog({
                       Fecha de fin de la serie
                     </label>
                     {seriesEndDateChanged ? (
-                      <span className="text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                      <span className="text-[10px] font-medium text-warning">
                         Se actualizará
                       </span>
                     ) : null}

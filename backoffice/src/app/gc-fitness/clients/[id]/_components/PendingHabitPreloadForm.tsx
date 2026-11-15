@@ -6,6 +6,7 @@ import {
   END_DATE_PRESET_MONTHS,
   type EndDatePresetMonths,
 } from "@/lib/gc-fitness/end-date-presets";
+import { FormSelect } from "@/components/gc-fitness/form-select";
 
 // Habits are binary-only (yes/no) now.
 type HabitScheduleType = "one-time" | "recurring";
@@ -79,19 +80,16 @@ export function PendingHabitPreloadForm({
       <div className="grid gap-3">
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium">Hábito existente (opcional)</span>
-          <select
+          <FormSelect
             name="templateId"
             value={templateId}
-            onChange={(event) => setTemplateId(event.target.value)}
-            className="rounded border bg-background px-3 py-2 text-sm"
-          >
-            <option value="">Crear uno nuevo…</option>
-            {templates.map((template) => (
-              <option key={template.id} value={template.id}>
-                {template.label}
-              </option>
-            ))}
-          </select>
+            onValueChange={setTemplateId}
+            className="data-[size=default]:h-9"
+            options={[
+              { value: "", label: "Crear uno nuevo…" },
+              ...templates.map((template) => ({ value: template.id, label: template.label })),
+            ]}
+          />
           <span className="text-xs text-muted-foreground">
             Si elegís un hábito existente, se ignoran los campos de abajo y se pre-carga esa plantilla.
           </span>
@@ -121,15 +119,16 @@ export function PendingHabitPreloadForm({
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium">Tipo de recurrencia</span>
-            <select
+            <FormSelect
               name="scheduleType"
               value={scheduleType}
-              onChange={(event) => setScheduleType(event.target.value as HabitScheduleType)}
-              className="rounded border bg-background px-3 py-2 text-sm"
-            >
-              <option value="recurring">Recurrente</option>
-              <option value="one-time">Una vez</option>
-            </select>
+              onValueChange={(v) => setScheduleType(v as HabitScheduleType)}
+              className="data-[size=default]:h-9"
+              options={[
+                { value: "recurring", label: "Recurrente" },
+                { value: "one-time", label: "Una vez" },
+              ]}
+            />
           </label>
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium">Inicio</span>
@@ -179,22 +178,23 @@ export function PendingHabitPreloadForm({
           {showCadence ? (
             <label className="flex flex-col gap-1 text-sm">
               <span className="font-medium">Cadencia</span>
-              <select
+              <FormSelect
                 name="scheduleCadence"
                 value={scheduleCadence}
-                onChange={(event) => {
-                  const next = event.target.value as HabitCadence;
+                onValueChange={(v) => {
+                  const next = v as HabitCadence;
                   setScheduleCadence(next);
                   if (next === "monthly" && monthDays.length === 0) {
                     setMonthDays([1]);
                   }
                 }}
-                className="rounded border bg-background px-3 py-2 text-sm"
-              >
-                <option value="daily">Diaria</option>
-                <option value="weekly">Semanal</option>
-                <option value="monthly">Mensual</option>
-              </select>
+                className="data-[size=default]:h-9"
+                options={[
+                  { value: "daily", label: "Diaria" },
+                  { value: "weekly", label: "Semanal" },
+                  { value: "monthly", label: "Mensual" },
+                ]}
+              />
             </label>
           ) : null}
         </div>

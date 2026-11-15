@@ -86,7 +86,7 @@ export async function BodyWeightTrendChart({
   if (points.length === 0) {
     return (
       <div className="flex flex-col gap-4">
-        <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
+        <section className="rounded-card border border-border bg-card p-5 shadow-sm">
           <h2 className="mb-3 font-medium">{t("title")}</h2>
           <p className="text-sm text-muted-foreground">{t("noLogs")}</p>
         </section>

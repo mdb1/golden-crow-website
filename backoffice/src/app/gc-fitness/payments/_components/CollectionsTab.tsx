@@ -58,9 +58,9 @@ export function CollectionsTab({ rows, plans, collected, coachName, todayCivil }
   const visible = sortCollectionRows(filter === "all" ? rows : rows.filter((r) => r.status.state === filter));
 
   const counters: Array<{ state: BillingState; tone: string }> = [
-    { state: "overdue", tone: "text-red-700 dark:text-red-300" },
-    { state: "due_soon", tone: "text-amber-700 dark:text-amber-300" },
-    { state: "up_to_date", tone: "text-emerald-700 dark:text-emerald-300" },
+    { state: "overdue", tone: "text-status-overdue" },
+    { state: "due_soon", tone: "text-status-due" },
+    { state: "up_to_date", tone: "text-status-ok" },
     { state: "none", tone: "text-muted-foreground" },
   ];
 

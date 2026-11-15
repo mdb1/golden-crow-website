@@ -35,7 +35,9 @@ import { recordClientPayment } from "@/lib/gc-fitness/payments-actions";
 import { noteIfStaleDeployment } from "@/lib/gc-fitness/stale-deployment";
 import { cn } from "@/lib/utils";
 
-import { SELECT_CLASS, usePaymentLabels } from "./payment-labels";
+import { FormSelect } from "@/components/gc-fitness/form-select";
+
+import { usePaymentLabels } from "./payment-labels";
 
 interface Props {
   clientId: string;
@@ -216,18 +218,13 @@ export function RecordPaymentDialog({ clientId, clientName, billing, todayCivil,
           <div className="grid grid-cols-[1fr_6rem] gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="payment-covers">{t("covers.title")}</Label>
-              <select
+              <FormSelect
                 id="payment-covers"
-                className={SELECT_CLASS}
                 value={form.coversKind}
-                onChange={(e) => setForm({ ...form, coversKind: e.target.value as PaymentCoversKind })}
-              >
-                {PAYMENT_COVERS_KINDS.map((kind) => (
-                  <option key={kind} value={kind}>
-                    {coversLabelFor(kind)}
-                  </option>
-                ))}
-              </select>
+                onValueChange={(v) => setForm({ ...form, coversKind: v as PaymentCoversKind })}
+                className="data-[size=default]:h-9"
+                options={PAYMENT_COVERS_KINDS.map((kind) => ({ value: kind, label: coversLabelFor(kind) }))}
+              />
             </div>
             {form.coversKind === "months" || form.coversKind === "classes" ? (
               <div className="grid gap-1.5">

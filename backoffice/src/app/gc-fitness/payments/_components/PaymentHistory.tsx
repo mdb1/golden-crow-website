@@ -46,7 +46,9 @@ import {
 import { noteIfStaleDeployment } from "@/lib/gc-fitness/stale-deployment";
 import { cn } from "@/lib/utils";
 
-import { SELECT_CLASS, usePaymentLabels } from "./payment-labels";
+import { FormSelect } from "@/components/gc-fitness/form-select";
+
+import { usePaymentLabels } from "./payment-labels";
 import type { ClientOption } from "./types";
 
 interface Props {
@@ -188,34 +190,28 @@ export function PaymentHistory({ initialPage, clients, fixedClientId }: Props) {
           onChange={(e) => applyFilters({ ...filters, month: e.target.value })}
         />
         {fixedClientId ? null : (
-          <select
+          <FormSelect
             aria-label={t("history.allClients")}
-            className={cn(SELECT_CLASS, "w-56")}
+            className="w-56 data-[size=default]:h-9"
             value={filters.clientId}
-            onChange={(e) => applyFilters({ ...filters, clientId: e.target.value })}
-          >
-            <option value="">{t("history.allClients")}</option>
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+            onValueChange={(v) => applyFilters({ ...filters, clientId: v })}
+            options={[
+              { value: "", label: t("history.allClients") },
+              ...clients.map((c) => ({ value: c.id, label: c.name })),
+            ]}
+          />
         )}
-        <select
+        <FormSelect
           aria-label={t("history.allMethods")}
           data-testid="payments-method-filter"
-          className={cn(SELECT_CLASS, "w-48")}
+          className="w-48 data-[size=default]:h-9"
           value={filters.method}
-          onChange={(e) => applyFilters({ ...filters, method: e.target.value as PaymentMethod | "" })}
-        >
-          <option value="">{t("history.allMethods")}</option>
-          {PAYMENT_METHODS.map((m) => (
-            <option key={m} value={m}>
-              {labels.method(m)}
-            </option>
-          ))}
-        </select>
+          onValueChange={(v) => applyFilters({ ...filters, method: v as PaymentMethod | "" })}
+          options={[
+            { value: "", label: t("history.allMethods") },
+            ...PAYMENT_METHODS.map((m) => ({ value: m, label: labels.method(m) })),
+          ]}
+        />
         <Button variant="outline" className="ml-auto" onClick={exportCsv} disabled={exporting} data-testid="payments-export-csv">
           <Download className="size-4" />
           {t("exportCsv")}

@@ -172,7 +172,7 @@ export function PersonalRecordsClient({
               </div>
               <div className="shrink-0 text-right">
                 <p className="flex items-center justify-end gap-1 font-semibold">
-                  <Trophy className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                  <Trophy className="h-3.5 w-3.5 text-warning" />
                   {recordValue(r.current, r.metric)}
                 </p>
                 {r.metric === "reps" && r.current.estimatedOneRM > 0 ? (

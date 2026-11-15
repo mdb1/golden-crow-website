@@ -60,6 +60,7 @@ import { cn } from "@/lib/utils";
 import { RelativeTime } from "./RelativeTime";
 import { RosterBulkActions } from "./RosterBulkActions";
 import { RosterEmptyState } from "./RosterEmptyState";
+import { FormSelect } from "@/components/gc-fitness/form-select";
 
 export interface RosterTableProps {
   rows: ClientRosterRow[];
@@ -343,22 +344,17 @@ export function RosterTable({
           </Button>
         ) : null}
         <div className="flex shrink-0 items-center gap-1">
-          <select
+          <FormSelect
             aria-label={tSort("label")}
             value={sortKey}
-            onChange={(e) => {
-              const key = e.target.value as RosterSortKey;
+            onValueChange={(v) => {
+              const key = v as RosterSortKey;
               setSortKey(key);
               setSortDirection(DEFAULT_DIRECTION[key]);
             }}
-            className="h-11 rounded-full border border-input bg-background px-4 text-sm text-foreground"
-          >
-            {ROSTER_SORT_KEYS.map((key) => (
-              <option key={key} value={key}>
-                {sortLabel(key)}
-              </option>
-            ))}
-          </select>
+            className="w-auto rounded-full px-4 data-[size=default]:h-11"
+            options={ROSTER_SORT_KEYS.map((key) => ({ value: key, label: sortLabel(key) }))}
+          />
           <Button
             type="button"
             variant="outline"

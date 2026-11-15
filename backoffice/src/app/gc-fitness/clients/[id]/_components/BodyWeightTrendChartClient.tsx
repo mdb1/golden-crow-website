@@ -112,7 +112,7 @@ export function BodyWeightTrendChartClient({
     delta !== null ? `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}` : null;
 
   return (
-    <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
+    <section className="rounded-card border border-border bg-card p-5 shadow-sm">
       <div className="mb-2 flex items-center justify-between gap-2">
         <h2 className="min-w-0 truncate font-medium">{labels.title}</h2>
         <TrendRangeSelector value={range} onChange={setRange} labels={labels.ranges} />
@@ -131,8 +131,8 @@ export function BodyWeightTrendChartClient({
               <span
                 className={
                   (delta ?? 0) >= 0
-                    ? "ml-2 text-amber-600"
-                    : "ml-2 text-emerald-600"
+                    ? "ml-2 text-warning"
+                    : "ml-2 text-success"
                 }
               >
                 ({deltaStr} {unitLabel})

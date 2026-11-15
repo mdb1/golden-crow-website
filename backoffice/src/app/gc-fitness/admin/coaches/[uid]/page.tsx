@@ -1,3 +1,4 @@
+import { FormSelect } from "@/components/gc-fitness/form-select";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -210,22 +211,15 @@ export default async function CoachAdminDetailPage({
                             <AdminActionForm action={transferClientAction} className="flex flex-wrap items-center gap-1">
                               <input type="hidden" name="coachUid" value={detail.coach.uid} />
                               <input type="hidden" name="clientUid" value={client.uid} />
-                              <select
+                              <FormSelect
                                 name="newCoachUid"
                                 required
                                 defaultValue=""
                                 aria-label={t("linked.transferLabel", { name: client.displayName || client.email })}
-                                className="h-8 max-w-[12rem] rounded-md border bg-background px-2 text-xs"
-                              >
-                                <option value="" disabled>
-                                  {t("linked.transferTo")}
-                                </option>
-                                {otherCoaches.map((coach) => (
-                                  <option key={coach.uid} value={coach.uid}>
-                                    {coach.displayName || coach.email}
-                                  </option>
-                                ))}
-                              </select>
+                                placeholder={t("linked.transferTo")}
+                                className="w-auto max-w-[12rem] text-xs"
+                                options={otherCoaches.map((coach) => ({ value: coach.uid, label: coach.displayName || coach.email }))}
+                              />
                               <AdminSubmitButton
                                 idleLabel={t("linked.transfer")}
                                 pendingLabel={t("linked.transferring")}

@@ -45,6 +45,7 @@ import { CollectionsTab } from "../_components/CollectionsTab";
 import { PaymentHistory } from "../_components/PaymentHistory";
 import { RecordPaymentDialog } from "../_components/RecordPaymentDialog";
 import type { CollectionRow } from "../_components/types";
+import { chooseFormSelectValue } from "@/lib/test-utils/form-select";
 
 const monthly = {
   name: "Mensual online",
@@ -242,7 +243,7 @@ describe("PaymentHistory", () => {
   it("filtrar por medio vuelve a pedir la primera página con el filtro", async () => {
     listClientPayments.mockResolvedValueOnce({ payments: [], nextCursor: null });
     render(<PaymentHistory initialPage={{ payments: [p({})], nextCursor: "2026-11-01" }} clients={[]} fixedClientId="client-1" />);
-    await userEvent.selectOptions(screen.getByTestId("payments-method-filter"), "cash");
+    await chooseFormSelectValue(userEvent, screen.getByTestId("payments-method-filter"), "cash");
     await waitFor(() =>
       expect(listClientPayments).toHaveBeenCalledWith({ clientId: "client-1", month: null, method: "cash", cursor: null }),
     );

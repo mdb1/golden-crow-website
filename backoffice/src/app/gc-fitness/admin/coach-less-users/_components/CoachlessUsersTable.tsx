@@ -12,6 +12,7 @@
 // no photoURL (Apple private-relay signups) or when the image 404s — the raw
 // `<img>` this replaced rendered an empty grey circle in both cases (#636).
 
+import { FormSelect } from "@/components/gc-fitness/form-select";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -245,22 +246,15 @@ export function CoachlessUsersTable({
                         {coaches.length > 0 ? (
                           <AdminActionForm action={assignCoachAction} className="flex flex-wrap items-center justify-end gap-1">
                             <input type="hidden" name="uid" value={row.uid} />
-                            <select
+                            <FormSelect
                               name="newCoachUid"
                               required
                               defaultValue=""
                               aria-label={t("assignLabel", { name: label })}
-                              className="h-8 max-w-[11rem] rounded-md border bg-background px-2 text-xs"
-                            >
-                              <option value="" disabled>
-                                {t("assignPlaceholder")}
-                              </option>
-                              {coaches.map((coach) => (
-                                <option key={coach.uid} value={coach.uid}>
-                                  {coach.displayName || coach.email}
-                                </option>
-                              ))}
-                            </select>
+                              placeholder={t("assignPlaceholder")}
+                              className="w-auto max-w-[11rem] text-xs"
+                              options={coaches.map((coach) => ({ value: coach.uid, label: coach.displayName || coach.email }))}
+                            />
                             <AdminSubmitButton
                               idleLabel={t("assign")}
                               pendingLabel={t("assigning")}

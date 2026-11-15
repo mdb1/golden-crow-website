@@ -146,7 +146,7 @@ function SectionLabel({ children }: { children: ReactNode }) {
 
 function Section({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-[1.25rem] border bg-card shadow-sm">
+    <div className="overflow-hidden rounded-card border bg-card shadow-sm">
       {children}
     </div>
   );

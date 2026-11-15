@@ -455,7 +455,7 @@ export function HabitsLibraryClient({
 
       {/* Filters (search applies to both views; client filter only makes sense
           for assignments). Rounded search-row card matching the redesign. */}
-      <div className="flex flex-wrap items-center gap-3 rounded-[1.25rem] border border-border bg-card px-3 py-2.5 shadow-sm">
+      <div className="flex flex-wrap items-center gap-3 rounded-card border border-border bg-card px-3 py-2.5 shadow-sm">
         <SlidersHorizontal
           aria-hidden="true"
           className="h-4 w-4 shrink-0 text-muted-foreground"
@@ -480,7 +480,7 @@ export function HabitsLibraryClient({
             className={cn(
               "inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
               sortByAssignments
-                ? "bg-violet-100 text-violet-700 ring-1 ring-violet-300 dark:bg-violet-400/15 dark:text-violet-300"
+                ? "bg-highlight-soft text-highlight ring-1 ring-highlight/40"
                 : "bg-muted/70 text-muted-foreground hover:text-foreground",
             )}
           >
@@ -553,14 +553,14 @@ export function HabitsLibraryClient({
               className={cn(
                 "inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
                 favoritesOnly
-                  ? "bg-amber-100 text-amber-700 ring-1 ring-amber-300 dark:bg-amber-400/15 dark:text-amber-300"
+                  ? "bg-accent text-accent-foreground ring-1 ring-primary/40"
                   : "bg-muted/70 text-muted-foreground hover:text-foreground",
               )}
             >
               <Star
                 className={cn(
                   "h-4 w-4",
-                  favoritesOnly ? "fill-amber-400 text-amber-500" : "",
+                  favoritesOnly ? "fill-primary text-primary" : "",
                 )}
                 aria-hidden="true"
               />

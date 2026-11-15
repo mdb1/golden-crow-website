@@ -15,7 +15,7 @@ export default function SettingsLoading() {
       </div>
 
       {/* Profile card */}
-      <div className="flex flex-col gap-4 rounded-[1.25rem] border bg-card p-5 shadow-sm sm:flex-row sm:items-center sm:gap-5">
+      <div className="flex flex-col gap-4 rounded-card border bg-card p-5 shadow-sm sm:flex-row sm:items-center sm:gap-5">
         <Skeleton className="size-16 shrink-0 rounded-2xl" />
         <div className="flex-1 space-y-2">
           <Skeleton className="h-6 w-48" />
@@ -31,7 +31,7 @@ export default function SettingsLoading() {
       {Array.from({ length: 2 }).map((_, idx) => (
         <div
           key={idx}
-          className="flex flex-col rounded-[1.25rem] border bg-card p-5 shadow-sm"
+          className="flex flex-col rounded-card border bg-card p-5 shadow-sm"
         >
           <Skeleton className="mb-4 h-5 w-40" />
           <div className="flex flex-col divide-y divide-border">

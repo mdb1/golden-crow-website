@@ -33,7 +33,9 @@ import { savePaymentPlan, setPaymentPlanArchived } from "@/lib/gc-fitness/paymen
 import { parseMoneyInput, type PaymentPlan } from "@/lib/gc-fitness/payments-model";
 import { noteIfStaleDeployment } from "@/lib/gc-fitness/stale-deployment";
 
-import { SELECT_CLASS, usePaymentLabels } from "./payment-labels";
+import { FormSelect } from "@/components/gc-fitness/form-select";
+
+import { usePaymentLabels } from "./payment-labels";
 
 interface FormState {
   id: string | null;
@@ -125,34 +127,26 @@ function PlanFormDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="plan-kind">{t("plans.kindLabel")}</Label>
-              <select
+              <FormSelect
                 id="plan-kind"
-                className={SELECT_CLASS}
                 value={form.kind}
-                onChange={(e) => setForm({ ...form, kind: e.target.value as BillingPlanKind })}
-              >
-                {BILLING_PLAN_KINDS.map((kind) => (
-                  <option key={kind} value={kind}>
-                    {labels.kind(kind)}
-                  </option>
-                ))}
-              </select>
+                onValueChange={(v) => setForm({ ...form, kind: v as BillingPlanKind })}
+                className="data-[size=default]:h-9"
+                options={BILLING_PLAN_KINDS.map((kind) => ({ value: kind, label: labels.kind(kind) }))}
+              />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="plan-modality">{t("plans.modalityLabel")}</Label>
-              <select
+              <FormSelect
                 id="plan-modality"
-                className={SELECT_CLASS}
                 value={form.modality}
-                onChange={(e) => setForm({ ...form, modality: e.target.value as BillingModality | "" })}
-              >
-                <option value="">{labels.modality(null)}</option>
-                {BILLING_MODALITIES.map((modality) => (
-                  <option key={modality} value={modality}>
-                    {labels.modality(modality)}
-                  </option>
-                ))}
-              </select>
+                onValueChange={(v) => setForm({ ...form, modality: v as BillingModality | "" })}
+                className="data-[size=default]:h-9"
+                options={[
+                  { value: "", label: labels.modality(null) },
+                  ...BILLING_MODALITIES.map((modality) => ({ value: modality, label: labels.modality(modality) })),
+                ]}
+              />
             </div>
           </div>
           <div className="grid grid-cols-[1fr_6rem] gap-3">

@@ -307,10 +307,10 @@ function GoalChip({
     count === 0
       ? "border-border bg-muted/40 text-muted-foreground"
       : tone === "emerald"
-        ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-800 dark:text-emerald-300"
+        ? "border-success/40 bg-success/15 text-success"
         : tone === "amber"
-          ? "border-amber-500/40 bg-amber-500/15 text-amber-800 dark:text-amber-300"
-          : "border-sky-500/40 bg-sky-500/15 text-sky-800 dark:text-sky-300";
+          ? "border-warning/40 bg-warning/15 text-warning"
+          : "border-info/40 bg-info/15 text-info";
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${palette}`}

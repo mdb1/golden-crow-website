@@ -32,7 +32,9 @@ import {
 } from "@/lib/gc-fitness/payments-model";
 import { noteIfStaleDeployment } from "@/lib/gc-fitness/stale-deployment";
 
-import { SELECT_CLASS, usePaymentLabels } from "./payment-labels";
+import { FormSelect } from "@/components/gc-fitness/form-select";
+
+import { usePaymentLabels } from "./payment-labels";
 
 interface Props {
   clientId: string;
@@ -136,19 +138,19 @@ export function AssignPlanDialog({ clientId, clientName, billing, plans, todayCi
         <div className="grid gap-4">
           <div className="grid gap-1.5">
             <Label htmlFor="assign-plan">{t("plan")}</Label>
-            <select
+            <FormSelect
               id="assign-plan"
-              className={SELECT_CLASS}
               value={form.planId}
-              onChange={(e) => setForm({ ...form, planId: e.target.value })}
-            >
-              <option value="">{t("noPlanOption")}</option>
-              {selectable.map((plan) => (
-                <option key={plan.id} value={plan.id}>
-                  {plan.name} · {labels.kind(plan.kind)} · {labels.money(plan.amount, plan.currency)}
-                </option>
-              ))}
-            </select>
+              onValueChange={(v) => setForm({ ...form, planId: v })}
+              className="data-[size=default]:h-9"
+              options={[
+                { value: "", label: t("noPlanOption") },
+                ...selectable.map((plan) => ({
+                  value: plan.id,
+                  label: `${plan.name} · ${labels.kind(plan.kind)} · ${labels.money(plan.amount, plan.currency)}`,
+                })),
+              ]}
+            />
             {plans.length === 0 ? <p className="text-xs text-muted-foreground">{t("plans.empty")}</p> : null}
           </div>
 

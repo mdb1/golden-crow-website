@@ -314,7 +314,7 @@ export function QuickCreateExercise({
   return (
     <div
       className={cn(
-        "rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-foreground dark:border-amber-400/40 dark:bg-amber-400/10",
+        "rounded-md border border-warning/40 bg-warning/10 p-3 text-foreground",
         className,
       )}
     >

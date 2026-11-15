@@ -44,14 +44,14 @@ function prPreviousText(
 // Stable HSL palette — assigns each distinct exerciseId a recognisable
 // accent so the per-exercise blocks read at a glance.
 const EXERCISE_COLORS = [
-  { ring: "ring-amber-400/50", chip: "bg-amber-500/15 text-amber-700 dark:text-amber-300" },
-  { ring: "ring-sky-400/50", chip: "bg-sky-500/15 text-sky-700 dark:text-sky-300" },
-  { ring: "ring-emerald-400/50", chip: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" },
-  { ring: "ring-violet-400/50", chip: "bg-violet-500/15 text-violet-700 dark:text-violet-300" },
-  { ring: "ring-rose-400/50", chip: "bg-rose-500/15 text-rose-700 dark:text-rose-300" },
-  { ring: "ring-cyan-400/50", chip: "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300" },
-  { ring: "ring-orange-400/50", chip: "bg-orange-500/15 text-orange-700 dark:text-orange-300" },
-  { ring: "ring-indigo-400/50", chip: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300" },
+  { ring: "ring-category-1/50", chip: "bg-category-1/15 text-category-1" },
+  { ring: "ring-category-2/50", chip: "bg-category-2/15 text-category-2" },
+  { ring: "ring-category-3/50", chip: "bg-category-3/15 text-category-3" },
+  { ring: "ring-category-4/50", chip: "bg-category-4/15 text-category-4" },
+  { ring: "ring-category-5/50", chip: "bg-category-5/15 text-category-5" },
+  { ring: "ring-category-7/50", chip: "bg-category-7/15 text-category-7" },
+  { ring: "ring-category-6/50", chip: "bg-category-6/15 text-category-6" },
+  { ring: "ring-category-8/50", chip: "bg-category-8/15 text-category-8" },
 ];
 
 interface ExerciseGroup {
@@ -219,7 +219,7 @@ export function WorkoutLogDetailView({ detail }: { detail: WorkoutLogDetail }) {
                         <h3 className="text-sm font-semibold">{group.exerciseName}</h3>
                         {group.supersetGroup ? (
                           <span
-                            className="inline-flex items-center rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300"
+                            className="inline-flex items-center rounded-full border border-highlight/40 bg-highlight/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-highlight"
                             title="Superserie"
                           >
                             Superserie {group.supersetGroup}
@@ -227,7 +227,7 @@ export function WorkoutLogDetailView({ detail }: { detail: WorkoutLogDetail }) {
                         ) : null}
                         {group.hasPR ? (
                           <span
-                            className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300"
+                            className="inline-flex items-center gap-1 rounded-full bg-warning/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warning"
                             title={t("prBadge")}
                           >
                             <Trophy className="h-3 w-3" />
@@ -269,7 +269,7 @@ export function WorkoutLogDetailView({ detail }: { detail: WorkoutLogDetail }) {
                                 key={`${set.index}-${set.setLogId}`}
                                 className={
                                   set.isPR
-                                    ? "border-b bg-amber-100/40 last:border-b-0 dark:bg-amber-900/20"
+                                    ? "border-b bg-warning-soft last:border-b-0"
                                     : "border-b last:border-b-0"
                                 }
                               >
@@ -298,7 +298,7 @@ export function WorkoutLogDetailView({ detail }: { detail: WorkoutLogDetail }) {
                                         }
                                       >
                                         <Trophy
-                                          className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400"
+                                          className="h-3.5 w-3.5 text-warning"
                                           aria-label={t("prBadge")}
                                         />
                                       </span>
@@ -372,10 +372,10 @@ function RpeMeter({ value, label }: { value: number; label: string }) {
   // Color ramps from emerald (light effort) to amber (8-9) to rose (10).
   const tone =
     value <= 4
-      ? "bg-emerald-500"
+      ? "bg-success"
       : value <= 7
-        ? "bg-amber-500"
-        : "bg-rose-500";
+        ? "bg-warning"
+        : "bg-danger";
   const pct = Math.max(0, Math.min(100, value * 10));
   return (
     <div className="flex flex-col gap-2">

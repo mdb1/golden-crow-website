@@ -21,7 +21,7 @@ export function CorvoUsageChart({ points }: { points: UsageChartPoint[] }) {
   }));
 
   return (
-    <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-sm" data-testid="corvo-usage-chart">
+    <section className="rounded-card border border-border bg-card p-5 shadow-sm" data-testid="corvo-usage-chart">
       <div className="mb-3">
         <h2 className="font-medium">{t("title")}</h2>
         <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
