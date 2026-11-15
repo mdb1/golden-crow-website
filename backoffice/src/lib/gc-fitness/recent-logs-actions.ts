@@ -1284,7 +1284,7 @@ async function buildRecentLogs(params: {
         scheduledFor ? `Para ${formatCivilDateEsAr(scheduledFor)}` : null,
         plannedExercises > 0
           ? `${plannedExercises} ejercicio${plannedExercises === 1 ? "" : "s"}`
-          : "Entreno libre (lo arma mientras entrena)",
+          : "Entrenamiento libre (lo arma mientras entrena)",
       ]
         .filter(Boolean)
         .join(" · "),

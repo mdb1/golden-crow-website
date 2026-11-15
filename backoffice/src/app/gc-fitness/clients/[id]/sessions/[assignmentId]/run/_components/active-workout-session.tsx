@@ -267,7 +267,7 @@ export function ActiveWorkoutSession({
     return (
       <div className="gc-page mx-auto max-w-md py-16 text-center">
         <p className="text-sm text-destructive">
-          {live.errorMessage ?? "No se pudo iniciar la sesión."}
+          {live.errorMessage ?? "No se pudo iniciar el entrenamiento."}
         </p>
         <Button variant="outline" className="mt-4" onClick={() => router.back()}>
           Volver

@@ -265,7 +265,7 @@ export function SessionExerciseCard({
           <Button
             variant="ghost"
             size="icon"
-            title="Nota para este alumno"
+            title="Nota para este cliente"
             onClick={() => {
               setDraftNote(coachNote);
               setEditingNote((v) => !v);
@@ -302,7 +302,7 @@ export function SessionExerciseCard({
           <Textarea
             value={draftNote}
             onChange={(e) => setDraftNote(e.target.value)}
-            placeholder="Nota para este alumno en este ejercicio…"
+            placeholder="Nota para este cliente en este ejercicio…"
             rows={2}
             maxLength={1000}
           />

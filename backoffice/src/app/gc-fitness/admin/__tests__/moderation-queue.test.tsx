@@ -144,13 +144,13 @@ describe("ModerationQueue", () => {
       ],
       oldestOpenISO: "2026-09-18T11:00:00.000Z",
       reasons: ["harassment"],
-      preview: { title: "Semana sin excusas · @lucia", body: "5 entrenos en 7 días · 2 miembros", hidden: false, ownerSuspended: false, missing: false },
+      preview: { title: "Semana sin excusas · @lucia", body: "5 entrenamientos en 7 días · 2 miembros", hidden: false, ownerSuspended: false, missing: false },
     });
     render(<ModerationQueue groups={[g]} status="open" nowISO={NOW} />);
     const row = screen.getByTestId("moderation-group-challenge-ch-1");
     expect(within(row).getByText("Challenge")).toBeInTheDocument();
     expect(within(row).getByText("Semana sin excusas · @lucia")).toBeInTheDocument();
-    expect(within(row).getByText("5 entrenos en 7 días · 2 miembros")).toBeInTheDocument();
+    expect(within(row).getByText("5 entrenamientos en 7 días · 2 miembros")).toBeInTheDocument();
     expect(within(row).getByRole("button", { name: "Hide content" })).toBeInTheDocument();
     const forms = Array.from(row.querySelectorAll("form"));
     expect(forms).toHaveLength(3);

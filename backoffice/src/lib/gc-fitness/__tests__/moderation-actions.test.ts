@@ -257,7 +257,7 @@ describe("challenge target (#1189)", () => {
       targetOwnerUid: "u-creator",
       preview: {
         title: "Semana sin excusas · @lucia",
-        body: "5 entrenos en 7 días · 2 miembros",
+        body: "5 entrenamientos en 7 días · 2 miembros",
         hidden: false,
         missing: false,
       },

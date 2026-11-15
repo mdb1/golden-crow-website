@@ -102,7 +102,7 @@ describe("describeChallengeGoal — SV2-10 kinds (#1208)", () => {
       "Pecho: 12 series por semana",
     );
     expect(describeChallengeGoal({ kind: "volume", target: 20000, cadence: "total" })).toBe("20000 kg en total");
-    expect(describeChallengeGoal({ kind: "workouts", target: 3, cadence: "weekly" })).toBe("3 entrenos por semana");
+    expect(describeChallengeGoal({ kind: "workouts", target: 3, cadence: "weekly" })).toBe("3 entrenamientos por semana");
     expect(describeChallengeGoal({ kind: "exerciseVolume", target: 2500.5, exerciseName: bench })).toBe(
       "Press de banca: 2500,5 kg en total",
     );
@@ -154,7 +154,7 @@ describe("describeChallengeGoal — SV2-10 kinds (#1208)", () => {
     // Across a year boundary both years are shown.
     expect(
       describeChallengeGoal({ kind: "workouts", target: 10, startsAt: Date.UTC(2026, 11, 20), endsAt: Date.UTC(2027, 0, 10) }),
-    ).toBe("10 entrenos del 20 dic 2026 al 9 ene 2027");
+    ).toBe("10 entrenamientos del 20 dic 2026 al 9 ene 2027");
   });
 
   it("weekly with only durationDays reads as a number of weeks", () => {
@@ -186,8 +186,8 @@ describe("challenge target (#1189)", () => {
   });
 
   it("describeChallengeGoal keeps the SV2-9 shapes (durationDays, no cadence)", () => {
-    expect(describeChallengeGoal({ kind: "workouts", target: 12, durationDays: 30 })).toBe("12 entrenos en 30 días");
-    expect(describeChallengeGoal({ kind: "workouts", target: 1, durationDays: 1 })).toBe("1 entreno en 1 día");
+    expect(describeChallengeGoal({ kind: "workouts", target: 12, durationDays: 30 })).toBe("12 entrenamientos en 30 días");
+    expect(describeChallengeGoal({ kind: "workouts", target: 1, durationDays: 1 })).toBe("1 entrenamiento en 1 día");
     expect(describeChallengeGoal({ kind: "volume", target: 5000, durationDays: 7 })).toBe("5000 kg en 7 días");
     expect(describeChallengeGoal({ kind: "workouts" })).toBeNull();
   });
