@@ -15,6 +15,11 @@
 //     the first selected client. When multiple clients are selected, a
 //     small picker appears first.
 //
+// #507 — split by responsibility: the pure date/label helpers live in
+// `lib/gc-fitness/month-calendar-model.ts`; the day cells, chip pieces and
+// palette in `./month-calendar/`. This file keeps the state, the query, the
+// mutations and the layout.
+//
 // The page-level React Query cache key is
 // `["schedule-month", monthFirst, clientIds.sorted().joined(",")]`. Every
 // mutation invalidates it.
@@ -23,25 +28,16 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
-import {
-  ArrowRightLeft,
   Check as CheckIcon,
-  CheckCircle2,
   ChevronLeftIcon,
   ChevronRightIcon,
   Circle,
   Dumbbell,
-  PlusIcon,
   Search as SearchIcon,
-  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
-
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -50,7 +46,6 @@ import { PageHeader } from "@/components/gc-fitness/page-header";
 import { PillTabs } from "@/components/gc-fitness/pill-tabs";
 import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
 import { cn } from "@/lib/utils";
-
 import {
   listMonthForClients,
   moveAssignment,
@@ -58,28 +53,32 @@ import {
   type MonthHabitChip,
   type MonthWorkoutChip,
 } from "@/lib/gc-fitness/schedule-month-actions";
-
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-
 import { AssignTemplateModal } from "./assign-template-modal";
-import { ClientOwnedBadge, HabitChip, InheritedBadge } from "./habit-chip";
 import { MoveAssignmentDialog } from "./move-assignment-dialog";
 import { NewHabitDialog } from "./new-habit-dialog";
 import { WorkoutDetailDialog } from "./workout-detail-dialog";
 import { HabitDetailDialog } from "./habit-detail-dialog";
 import { BulkAssignHabitDialog } from "./bulk-assign-habit-dialog";
 
-interface ClientLite {
-  uid: string;
-  displayName: string;
-  email: string;
-  photoURL?: string | null;
-  birthDate?: string | null;
-}
+import {
+  addCivilDays,
+  ageOnCivilDate,
+  calendarCells,
+  calendarRange,
+  type CalendarView,
+  type ClientLite,
+  findWorkoutChip,
+  habitIdFromChip,
+  isBirthdayOn,
+  mondayIndex,
+  monthLabel,
+  shiftMonth,
+  shortDateLabel,
+  WEEKDAY_HEADERS,
+} from "@/lib/gc-fitness/month-calendar-model";
+import { paletteFor } from "./month-calendar/palette";
+import { DayCell } from "./month-calendar/day-cell";
+import { ClientDayCell } from "./month-calendar/client-day-cell";
 
 interface MonthCalendarProps {
   clients: ClientLite[];
@@ -92,147 +91,6 @@ interface MonthCalendarProps {
 
 /** #485: the chip search box appears once the roster stops fitting at a glance. */
 const CLIENT_SEARCH_MIN_CLIENTS = 8;
-
-const MONTH_LABELS_ES = [
-  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
-];
-
-const WEEKDAY_HEADERS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-
-// Distinct chip colors per client — assigned in touch/select order so the
-// surface starts neutral and only gains client color after the trainer
-// actively picks clients.
-const CLIENT_PALETTE = [
-  { chip: "bg-category-1/15 text-category-1 border-category-1/40", dot: "bg-category-1", text: "text-category-1" },
-  { chip: "bg-category-2/15 text-category-2 border-category-2/40", dot: "bg-category-2", text: "text-category-2" },
-  { chip: "bg-category-3/15 text-category-3 border-category-3/40", dot: "bg-category-3", text: "text-category-3" },
-  { chip: "bg-category-4/15 text-category-4 border-category-4/40", dot: "bg-category-4", text: "text-category-4" },
-  { chip: "bg-category-5/15 text-category-5 border-category-5/40", dot: "bg-category-5", text: "text-category-5" },
-  { chip: "bg-category-6/15 text-category-6 border-category-6/40", dot: "bg-category-6", text: "text-category-6" },
-  { chip: "bg-category-7/15 text-category-7 border-category-7/40", dot: "bg-category-7", text: "text-category-7" },
-  { chip: "bg-category-8/15 text-category-8 border-category-8/40", dot: "bg-category-8", text: "text-category-8" },
-];
-
-const NEUTRAL_CLIENT_PALETTE = {
-  chip: "bg-muted/40 text-foreground border-border/70",
-  dot: "bg-border",
-  text: "text-foreground",
-};
-
-function paletteFor(clientId: string, clientColorOrder: string[]) {
-  const idx = clientColorOrder.indexOf(clientId);
-  if (idx < 0) return NEUTRAL_CLIENT_PALETTE;
-  return CLIENT_PALETTE[idx % CLIENT_PALETTE.length];
-}
-
-// Status-first palette that overrides the per-client tint for terminal
-// states so trainers can scan the calendar for "what's still pending"
-// vs "what already happened". Client color is preserved only on
-// scheduled chips, where ownership ambiguity actually matters.
-const STATUS_PALETTE: Record<
-  MonthWorkoutChip["status"] | MonthHabitChip["status"],
-  string
-> = {
-  completed:
-    "border-success/50 bg-success/15 text-success",
-  done: "border-success/50 bg-success/15 text-success",
-  started: "",
-  missed:
-    "border-danger/40 bg-danger/10 text-danger",
-  scheduled: "",
-};
-
-// Cards are now grouped under a per-client colored header, so the chip itself
-// encodes STATUS ONLY (no client tint) — this removes the old ambiguity where
-// a green client tint looked identical to the green "completed" status.
-// Scheduled → neutral card surface; terminal states keep their status color.
-function workoutChipClass(status: MonthWorkoutChip["status"]): string {
-  if (status === "scheduled") return "border-border bg-card text-foreground";
-  return STATUS_PALETTE[status];
-}
-
-/** The calendar chip for an assignment id, wherever it sits in the payload. */
-function findWorkoutChip(
-  workoutsByDay: Record<string, MonthWorkoutChip[]>,
-  id: string,
-): MonthWorkoutChip | null {
-  for (const chips of Object.values(workoutsByDay)) {
-    const hit = chips.find((c) => c.id === id);
-    if (hit) return hit;
-  }
-  return null;
-}
-
-function addCivilDays(civil: string, days: number): string {
-  const [y, m, d] = civil.split("-").map(Number);
-  const shifted = new Date(Date.UTC(y, m - 1, d) + days * 86_400_000);
-  const ny = shifted.getUTCFullYear();
-  const nm = String(shifted.getUTCMonth() + 1).padStart(2, "0");
-  const nd = String(shifted.getUTCDate()).padStart(2, "0");
-  return `${ny}-${nm}-${nd}`;
-}
-
-function shiftMonth(monthFirst: string, delta: number): string {
-  const [y, m] = monthFirst.split("-").map(Number);
-  const total = (y * 12 + (m - 1)) + delta;
-  const ny = Math.floor(total / 12);
-  const nm = (total % 12) + 1;
-  return `${ny}-${String(nm).padStart(2, "0")}-01`;
-}
-
-/** Build the 6 × 7 grid (Mon-first). Pads with the prev/next month so the
- *  grid is always rectangular — the UI dims pad days. */
-function buildGrid(monthFirst: string): {
-  cells: { civil: string; inMonth: boolean }[];
-} {
-  const [y, m] = monthFirst.split("-").map(Number);
-  const firstWeekday = new Date(y, m - 1, 1).getDay(); // 0=Sun..6=Sat
-  // Mon-first → 0=Mon..6=Sun. Convert.
-  const monFirstOffset = firstWeekday === 0 ? 6 : firstWeekday - 1;
-  const start = addCivilDays(monthFirst, -monFirstOffset);
-  const cells: { civil: string; inMonth: boolean }[] = [];
-  for (let i = 0; i < 42; i += 1) {
-    const civil = addCivilDays(start, i);
-    cells.push({ civil, inMonth: civil.slice(0, 7) === monthFirst.slice(0, 7) });
-  }
-  return { cells };
-}
-
-function monthLabel(monthFirst: string): string {
-  const [y, m] = monthFirst.split("-").map(Number);
-  return `${MONTH_LABELS_ES[m - 1]} ${y}`;
-}
-
-type CalendarView = "month" | "week" | "3day";
-
-/** Monday-first index: 0=Mon … 6=Sun. */
-function mondayIndex(civil: string): number {
-  const [y, m, d] = civil.split("-").map(Number);
-  const gd = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); // 0=Sun..6=Sat
-  return gd === 0 ? 6 : gd - 1;
-}
-
-/** Monday that starts the week containing `civil`. */
-function startOfWeekMon(civil: string): string {
-  return addCivilDays(civil, -mondayIndex(civil));
-}
-
-/** "28 May" style short label for range headers. */
-function shortDateLabel(civil: string): string {
-  const [, m, d] = civil.split("-").map(Number);
-  return `${d} ${MONTH_LABELS_ES[m - 1].slice(0, 3)}`;
-}
-
-function clientInitials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((s) => s[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
 
 export function MonthCalendar({
   clients,
@@ -264,14 +122,7 @@ export function MonthCalendar({
 
   // Active window for week / 3-day views (null in month view, where the whole
   // month is fetched from monthFirst instead).
-  const range = useMemo(() => {
-    if (view === "week") {
-      const start = startOfWeekMon(anchor);
-      return { start, end: addCivilDays(start, 6) };
-    }
-    if (view === "3day") return { start: anchor, end: addCivilDays(anchor, 2) };
-    return null;
-  }, [view, anchor]);
+  const range = useMemo(() => calendarRange(view, anchor), [view, anchor]);
 
   const { data, isFetching } = useQuery({
     queryKey: [
@@ -498,12 +349,7 @@ export function MonthCalendar({
     });
   }
 
-  const cells: { civil: string; inMonth: boolean }[] = range
-    ? Array.from({ length: view === "week" ? 7 : 3 }, (_, i) => ({
-        civil: addCivilDays(range.start, i),
-        inMonth: true,
-      }))
-    : buildGrid(monthFirst).cells;
+  const cells = calendarCells(view, range, monthFirst);
   const gridColsClass = view === "3day" ? "grid-cols-3" : "grid-cols-7";
   // Week / 3-day cells are roomier (fewer rows on screen).
   const cellMinHClass = view === "month" ? "min-h-[120px]" : "min-h-[420px]";
@@ -556,7 +402,7 @@ export function MonthCalendar({
   }
 
   function openHabitDetail(h: MonthHabitChip) {
-    const habitId = h.id.slice(0, h.id.length - h.civilDate.length - 1);
+    const habitId = habitIdFromChip(h);
     const c = clients.find((x) => x.uid === h.clientId);
     setDetailHabit({
       habitId,
@@ -1249,656 +1095,6 @@ export function MonthCalendar({
   // The Day cell is split out so the markup above stays readable.
 }
 
-interface DayCellProps {
-  civil: string;
-  dayNumber: number;
-  inMonth: boolean;
-  isToday: boolean;
-  birthdayBadge: string;
-  birthdayNames: Array<{ name: string; age: number | null }>;
-  locale: string;
-  workouts: MonthWorkoutChip[];
-  habits: MonthHabitChip[];
-  clients: ClientLite[];
-  clientColorOrder: string[];
-  showWorkouts: boolean;
-  showHabits: boolean;
-  cellMinHClass: string;
-  isDragOver: boolean;
-  onDragOver: (e: React.DragEvent) => void;
-  onDragLeave: () => void;
-  onDrop: (e: React.DragEvent) => void;
-  onDragStartChip: (chip: MonthWorkoutChip) => void;
-  onDragEndChip: () => void;
-  onClickChip: (chip: MonthWorkoutChip) => void;
-  onClickHabit: (habit: MonthHabitChip) => void;
-  onClickAdd: (kind: "workout" | "habit") => void;
-}
-
-function DayCell({
-  civil,
-  dayNumber,
-  inMonth,
-  isToday,
-  birthdayBadge,
-  birthdayNames,
-  locale,
-  workouts,
-  habits,
-  clients,
-  clientColorOrder,
-  showWorkouts,
-  showHabits,
-  cellMinHClass,
-  isDragOver,
-  onDragOver,
-  onDragLeave,
-  onDrop,
-  onDragStartChip,
-  onDragEndChip,
-  onClickChip,
-  onClickHabit,
-  onClickAdd,
-}: DayCellProps) {
-  // Issue #449 — chip tooltip suffix for client self-assigned workouts.
-  const t = useTranslations("schedule.calendar");
-  return (
-    <div
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
-      className={cn(
-        "group relative flex flex-col rounded-2xl border bg-card p-2.5 transition-colors",
-        cellMinHClass,
-        !inMonth && "bg-muted/20 opacity-60",
-        // ring-inset so the today highlight draws INSIDE the rounded card —
-        // an outset ring-2 gets clipped/doubled by the column/scroll container
-        // (esp. in the tall week / 3-day columns on mobile).
-        isToday && "bg-primary/10 ring-2 ring-inset ring-primary/40",
-        isDragOver && "border-primary bg-primary/5",
-      )}
-    >
-      <div className="mb-1 flex items-center justify-between">
-        <span
-          className={cn(
-            "text-xs font-semibold",
-            isToday ? "text-primary" : "text-muted-foreground",
-          )}
-        >
-          {dayNumber}
-        </span>
-        <AddPopover
-          civil={civil}
-          onPick={onClickAdd}
-          showWorkouts={showWorkouts}
-          showHabits={showHabits}
-        />
-      </div>
-
-      {birthdayNames.length > 0 ? (
-        <div className="mb-2 flex flex-wrap gap-1">
-          {birthdayNames.map(({ name, age }) => (
-            <span
-              key={name}
-              className="inline-flex items-center rounded-full border border-highlight/30 bg-highlight/10 px-2 py-0.5 text-[10px] font-medium text-highlight"
-            >
-              🎂 {birthdayBadge}: {name}
-              {age != null ? ` · ${age} ${locale === "es" ? "años" : "years"}` : ""}
-            </span>
-          ))}
-        </div>
-      ) : null}
-
-      <div className="min-w-0 flex flex-1 flex-col gap-3.5">
-        {(() => {
-          // Group everything by client so each day reads as
-          // "‹client header› → their workouts + habits". The header carries
-          // the client color; the cards no longer repeat the name.
-          const groups = new Map<
-            string,
-            { workouts: MonthWorkoutChip[]; habits: MonthHabitChip[] }
-          >();
-          const ensure = (id: string) => {
-            let g = groups.get(id);
-            if (!g) {
-              g = { workouts: [], habits: [] };
-              groups.set(id, g);
-            }
-            return g;
-          };
-          for (const w of workouts) ensure(w.clientId).workouts.push(w);
-          for (const h of habits) ensure(h.clientId).habits.push(h);
-          const orderedIds = [
-            ...clients.map((c) => c.uid).filter((id) => groups.has(id)),
-            ...Array.from(groups.keys()).filter(
-              (id) => !clients.some((c) => c.uid === id),
-            ),
-          ];
-
-          return orderedIds.map((clientId, gi) => {
-            const group = groups.get(clientId)!;
-            const palette = paletteFor(clientId, clientColorOrder);
-            const client = clients.find((c) => c.uid === clientId);
-            return (
-              <div
-                key={clientId}
-                className={cn(
-                  "min-w-0 flex flex-col gap-1.5",
-                  gi > 0 && "border-t border-border/60 pt-3.5",
-                )}
-              >
-                <span
-                  className={cn(
-                    "mb-0.5 max-w-full truncate text-[11px] font-bold uppercase tracking-wider",
-                    palette.text,
-                  )}
-                >
-                  {client?.displayName ?? clientId}
-                </span>
-
-                {group.workouts.map((w) => {
-                  const movedFromLabel = w.originallyScheduledFor
-                    ? formatMovedFromLabel(w.originallyScheduledFor, w.scheduledFor)
-                    : null;
-                  return (
-                    <button
-                      key={w.id}
-                      type="button"
-                      // Issue #449 — self-assigned chips are NOT draggable:
-                      // dropping would hit moveAssignment's ownership throw
-                      // (the coach must not move a client's own workout).
-                      draggable={!w.selfAssigned && !w.inherited}
-                      onDragStart={(e) => {
-                        if (w.selfAssigned || w.inherited) return;
-                        e.dataTransfer.effectAllowed = "move";
-                        e.dataTransfer.setData("text/plain", w.id);
-                        onDragStartChip(w);
-                      }}
-                      onDragEnd={onDragEndChip}
-                      onClick={() => onClickChip(w)}
-                      className={cn(
-                        "group/chip relative flex w-full min-w-0 items-center gap-1.5 overflow-hidden rounded border px-1.5 py-1 pr-3 text-left text-[11px] leading-tight hover:brightness-95",
-                        workoutChipClass(w.status),
-                      )}
-                      title={[
-                        w.templateName,
-                        w.plannedExercises === 0 ? t("freeWorkoutHint") : null,
-                        workoutSummaryLabel(w.logged, t),
-                        movedFromLabel,
-                        w.selfAssigned ? t("clientCreatedBadge") : null,
-                        w.inherited ? t("inheritedBadge") : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" — ")}
-                    >
-                      <Dumbbell className="size-3 shrink-0 opacity-80" />
-                      <span className="min-w-0 flex-1 truncate font-medium">
-                        {w.templateName}
-                        {inlineWorkoutSummary(w, t) ? (
-                          <span className="font-normal opacity-70">
-                            {inlineWorkoutSummary(w, t)}
-                          </span>
-                        ) : null}
-                      </span>
-                      {w.selfAssigned ? <ClientOwnedBadge /> : null}
-                      {w.inherited ? <InheritedBadge /> : null}
-                      {movedFromLabel ? (
-                        <ArrowRightLeft
-                          className="size-3 shrink-0 opacity-70"
-                          aria-label={movedFromLabel}
-                        />
-                      ) : null}
-                      <StatusDogear status={w.status} />
-                    </button>
-                  );
-                })}
-
-                {group.habits.length > 0 ? (
-                  <div className="flex min-w-0 flex-wrap gap-1">
-                    {group.habits.map((h) => (
-                      <HabitChip
-                        key={h.id}
-                        habit={h}
-                        onClick={() => onClickHabit(h)}
-                        title={`${h.habitName} · ${h.status}`}
-                      />
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            );
-          });
-        })()}
-      </div>
-    </div>
-  );
-}
-
-interface ClientDayCellProps {
-  civil: string;
-  isToday: boolean;
-  birthdayBadge: string;
-  isBirthday: boolean;
-  birthdayAge: number | null;
-  locale: string;
-  workouts: MonthWorkoutChip[];
-  habits: MonthHabitChip[];
-  showWorkouts: boolean;
-  showHabits: boolean;
-  isDragOver: boolean;
-  onDragOver: (e: React.DragEvent) => void;
-  onDragLeave: () => void;
-  onDrop: (e: React.DragEvent) => void;
-  onDragStartChip: (chip: MonthWorkoutChip) => void;
-  onDragEndChip: () => void;
-  onClickChip: (chip: MonthWorkoutChip) => void;
-  onClickHabit: (habit: MonthHabitChip) => void;
-  onClickAdd: (kind: "workout" | "habit") => void;
-}
-
-/**
- * A single client × day cell for the week / 3-day "client rows" table layout
- * (the screenshot reference). Holds that client's workout chips + a habit
- * count chip, or a subtle dashed "+" add affordance when the day is empty.
- * Shares all the same interactions (drag-to-move, click-to-detail, add) as the
- * month grid's `DayCell`.
- */
-function ClientDayCell({
-  civil,
-  isToday,
-  birthdayBadge,
-  isBirthday,
-  birthdayAge,
-  locale,
-  workouts,
-  habits,
-  showWorkouts,
-  showHabits,
-  isDragOver,
-  onDragOver,
-  onDragLeave,
-  onDrop,
-  onDragStartChip,
-  onDragEndChip,
-  onClickChip,
-  onClickHabit,
-  onClickAdd,
-}: ClientDayCellProps) {
-  // Issue #449 — chip tooltip suffix for client self-assigned workouts.
-  const t = useTranslations("schedule.calendar");
-  const isEmpty = workouts.length === 0 && habits.length === 0;
-  return (
-    <td
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
-      className={cn(
-        "group/cell border-b border-l p-1.5 align-top transition-colors",
-        isToday && "bg-primary/[0.06]",
-        isDragOver && "bg-primary/10",
-      )}
-    >
-      <div className="flex min-h-[88px] min-w-0 flex-col gap-1.5">
-        {isBirthday ? (
-          <span className="inline-flex w-fit items-center rounded-full border border-highlight/30 bg-highlight/10 px-2 py-0.5 text-[10px] font-medium text-highlight">
-            🎂 {birthdayBadge}
-            {birthdayAge != null ? ` · ${birthdayAge} ${locale === "es" ? "años" : "years"}` : ""}
-          </span>
-        ) : null}
-        {workouts.map((w) => {
-          const movedFromLabel = w.originallyScheduledFor
-            ? formatMovedFromLabel(w.originallyScheduledFor, w.scheduledFor)
-            : null;
-          return (
-            <button
-              key={w.id}
-              type="button"
-              // Issue #449 — self-assigned chips are NOT draggable: dropping
-              // would hit moveAssignment's ownership throw (the coach must
-              // not move a client's own workout).
-              draggable={!w.selfAssigned && !w.inherited}
-              onDragStart={(e) => {
-                if (w.selfAssigned || w.inherited) return;
-                e.dataTransfer.effectAllowed = "move";
-                e.dataTransfer.setData("text/plain", w.id);
-                onDragStartChip(w);
-              }}
-              onDragEnd={onDragEndChip}
-              onClick={() => onClickChip(w)}
-              className={cn(
-                // Same chip styling as the month grid's DayCell so workouts
-                // read identically across all views (the trainer preferred the
-                // 30-day look): compact rectangle + status dog-ear.
-                "group/chip relative flex w-full min-w-0 items-center gap-1.5 overflow-hidden rounded border px-1.5 py-1 pr-3 text-left text-[11px] leading-tight hover:brightness-95",
-                workoutChipClass(w.status),
-              )}
-              title={[
-                w.templateName,
-                w.plannedExercises === 0 ? t("freeWorkoutHint") : null,
-                workoutSummaryLabel(w.logged, t),
-                movedFromLabel,
-                w.selfAssigned ? t("clientCreatedBadge") : null,
-                w.inherited ? t("inheritedBadge") : null,
-              ]
-                .filter(Boolean)
-                .join(" — ")}
-            >
-              <Dumbbell className="size-3 shrink-0 opacity-80" />
-              <span className="min-w-0 flex-1 truncate font-medium">
-                {w.templateName}
-                {inlineWorkoutSummary(w, t) ? (
-                  <span className="font-normal opacity-70">
-                    {inlineWorkoutSummary(w, t)}
-                  </span>
-                ) : null}
-              </span>
-              {w.selfAssigned ? <ClientOwnedBadge /> : null}
-              {w.inherited ? <InheritedBadge /> : null}
-              {movedFromLabel ? (
-                <ArrowRightLeft
-                  className="size-3 shrink-0 opacity-70"
-                  aria-label={movedFromLabel}
-                />
-              ) : null}
-              <StatusDogear status={w.status} />
-            </button>
-          );
-        })}
-
-        {/* Individual habit chips (one per habit) so the coach can see and open
-            each one. Same compact, wrapping "pill" treatment as the month
-            grid's DayCell — visually distinct from the rectangular workout
-            chips (the trainer preferred the 30-day look across all views). */}
-        {habits.length > 0 ? (
-          <div className="flex min-w-0 flex-wrap gap-1">
-            {habits.map((h) => (
-              <HabitChip
-                key={h.id}
-                habit={h}
-                onClick={() => onClickHabit(h)}
-                title={`${h.habitName} · ${h.status}`}
-              />
-            ))}
-          </div>
-        ) : null}
-
-        {/* The add affordance is ALWAYS present: a prominent dashed fill when
-            the cell is empty, and a slim "+" mini-row below the chips when it
-            already has content — so a day with a workout/habit can still take
-            another one (this was missing, the "+" only showed on empty cells). */}
-        <AddPopover
-          civil={civil}
-          onPick={onClickAdd}
-          showWorkouts={showWorkouts}
-          showHabits={showHabits}
-          variant={isEmpty ? "cell" : "row"}
-        />
-      </div>
-    </td>
-  );
-}
-
-/**
- * #785 — "4 ejercicios · 12 series · 38 min", from what was actually performed.
- *
- * The reported gap: a coach opens a client's calendar and sees two chips that
- * say **"Entreno libre"** and nothing else — "¿qué son esos libres?". They are
- * workouts the athlete started empty and built while training (#541), so their
- * NAME is a placeholder by construction and no amount of reading it will ever
- * answer the question. What was done is in the log, which the month query
- * already loads.
- *
- * Returns null when nothing was logged, so a scheduled-but-not-done chip is
- * unchanged.
- */
-function workoutSummaryLabel(
-  logged: MonthWorkoutChip["logged"],
-  t: ReturnType<typeof useTranslations>,
-): string | null {
-  if (!logged) return null;
-  if (logged.sets === 0) return t("loggedNothing");
-  return [
-    t("loggedExercises", { count: logged.exercises }),
-    t("loggedSets", { count: logged.sets }),
-    logged.durationMinutes !== null ? t("loggedMinutes", { count: logged.durationMinutes }) : null,
-    logged.volumeKg !== null ? t("loggedVolume", { count: logged.volumeKg }) : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-}
-
-/**
- * The compact suffix a FREE workout's chip carries inline (the month grid has
- * room for a few characters, not for the whole summary — that lives in the
- * tooltip). Only free workouts get it: a named routine already says what it is,
- * and repeating "· 4 ej" on every completed chip is noise.
- */
-function inlineWorkoutSummary(
-  w: MonthWorkoutChip,
-  t: ReturnType<typeof useTranslations>,
-): string | null {
-  if (w.plannedExercises > 0) return null;
-  if (!w.logged || w.logged.sets === 0) return null;
-  return ` · ${t("loggedExercises", { count: w.logged.exercises })}`;
-}
-
-/**
- * Build the "originalmente <día>, el cliente lo movió a <día>" hint
- * surfaced in the chip's tooltip + the `ArrowRightLeft` icon's aria
- * label. Both civil dates are parsed in UTC so the trainer's locale
- * doesn't shift the rendered weekday.
- */
-function formatMovedFromLabel(
-  originallyScheduledFor: string,
-  scheduledFor: string,
-): string | null {
-  const original = parseCivilDateInUtc(originallyScheduledFor);
-  const moved = parseCivilDateInUtc(scheduledFor);
-  if (!original || !moved) return null;
-  const fmt = new Intl.DateTimeFormat("es-AR", {
-    weekday: "long",
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  });
-  return `Originalmente ${fmt.format(original)}, el cliente lo movió a ${fmt.format(moved)}`;
-}
-
-function parseCivilDateInUtc(civilDate: string): Date | null {
-  const parts = civilDate.split("-");
-  if (parts.length !== 3) return null;
-  const [y, m, d] = parts.map(Number);
-  if (!y || !m || !d) return null;
-  return new Date(Date.UTC(y, m - 1, d));
-}
-
-function monthDay(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const parts = value.split("-");
-  if (parts.length !== 3) return null;
-  const [, month, day] = parts;
-  if (!month || !day) return null;
-  return `${month}-${day}`;
-}
-
-function isBirthdayOn(birthDate: string | null | undefined, civil: string): boolean {
-  return monthDay(birthDate) != null && monthDay(birthDate) === monthDay(civil);
-}
-
-function ageOnCivilDate(birthDate: string | null | undefined, civil: string): number | null {
-  if (!birthDate) return null;
-  const birth = parseCivilDateInUtc(birthDate);
-  const today = parseCivilDateInUtc(civil);
-  if (!birth || !today) return null;
-  let age = today.getUTCFullYear() - birth.getUTCFullYear();
-  const monthDelta = today.getUTCMonth() - birth.getUTCMonth();
-  const beforeBirthday =
-    monthDelta < 0 || (monthDelta === 0 && today.getUTCDate() < birth.getUTCDate());
-  if (beforeBirthday) age -= 1;
-  return age >= 0 ? age : null;
-}
-
-function StatusGlyph({ status }: { status: MonthWorkoutChip["status"] }) {
-  if (status === "completed") {
-    return <CheckCircle2 className="size-3 text-success" />;
-  }
-  if (status === "missed") {
-    return <XCircle className="size-3 text-danger" />;
-  }
-  return <Dumbbell className="size-3 opacity-70" />;
-}
-
-/**
- * Status indicator rendered as a "dogear" — a 12×12 folded-corner flag
- * pinned to the top-right of the chip. The triangle is a clip-path so
- * the colored fill matches the status tone while the chip's background
- * stays readable underneath.
- *
- * Visual reads at a glance:
- *   - emerald = completed
- *   - rose    = missed
- *   - amber   = scheduled (still pending)
- */
-function StatusDogear({ status }: { status: MonthWorkoutChip["status"] }) {
-  const tone =
-    status === "completed"
-      ? "bg-success"
-      : status === "missed"
-          ? "bg-danger"
-          : "bg-warning";
-  const titleLabel =
-    status === "completed"
-      ? "Completado"
-      : status === "missed"
-          ? "No realizado"
-          : "Programado";
-  return (
-    <span
-      aria-label={titleLabel}
-      title={titleLabel}
-      className={cn(
-        "pointer-events-none absolute right-0 top-0 size-3",
-        tone,
-      )}
-      style={{ clipPath: "polygon(100% 0, 100% 100%, 0 0)" }}
-    />
-  );
-}
-
-/**
- * Per-cell "+" popover. Click reveals two options (Workout / Habit) so
- * the trainer can add either kind of session from a single affordance.
- * Closes on selection — the parent fires the correct flow.
- */
-function AddPopover({
-  civil,
-  onPick,
-  showWorkouts,
-  showHabits,
-  variant = "icon",
-}: {
-  civil: string;
-  onPick: (kind: "workout" | "habit") => void;
-  showWorkouts: boolean;
-  showHabits: boolean;
-  /** "icon" = compact reveal-on-hover "+" (month grid header). "cell" = full
-   *  dashed add affordance filling an empty week/3-day cell. "row" = slim
-   *  always-visible "+" mini-row appended below existing chips so a week/3-day
-   *  cell that already has content can still take another workout/habit. */
-  variant?: "icon" | "cell" | "row";
-}) {
-  const t = useTranslations("schedule.calendar");
-  const [open, setOpen] = useState(false);
-  const enabled: Array<"workout" | "habit"> = [
-    ...(showWorkouts ? (["workout"] as const) : []),
-    ...(showHabits ? (["habit"] as const) : []),
-  ];
-
-  const iconTriggerClass = cn(
-    "rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus:opacity-100",
-    // Always visible on touch (no hover); reveal-on-hover only where hover exists.
-    open
-      ? "opacity-100"
-      : "opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100",
-  );
-  const cellTriggerClass =
-    "flex min-h-[40px] w-full flex-1 items-center justify-center rounded-xl border border-dashed border-foreground/20 text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/5 hover:text-primary";
-  const rowTriggerClass =
-    "flex h-6 w-full items-center justify-center rounded-md border border-dashed border-foreground/15 text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/5 hover:text-primary";
-  const triggerClass =
-    variant === "cell"
-      ? cellTriggerClass
-      : variant === "row"
-        ? rowTriggerClass
-        : iconTriggerClass;
-  const plusClass = variant === "cell" ? "size-4" : "size-3.5";
-
-  // Neither type shown → nothing to add.
-  if (enabled.length === 0) return null;
-
-  // Exactly one type shown → skip the menu, fire the add flow directly.
-  if (enabled.length === 1) {
-    const only = enabled[0];
-    return (
-      <button
-        type="button"
-        className={triggerClass}
-        aria-label={
-          only === "workout"
-            ? t("addWorkoutOnAria", { date: civil })
-            : t("addHabitOnAria", { date: civil })
-        }
-        onClick={() => onPick(only)}
-      >
-        <PlusIcon className={plusClass} />
-      </button>
-    );
-  }
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className={triggerClass}
-          aria-label={t("addOnAria", { date: civil })}
-        >
-          <PlusIcon className={plusClass} />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        side="bottom"
-        sideOffset={4}
-        className="w-44 p-1"
-      >
-        <button
-          type="button"
-          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
-          onClick={() => {
-            onPick("workout");
-            setOpen(false);
-          }}
-        >
-          <Dumbbell className="size-4 text-warning" />
-          {t("addMenuWorkout")}
-        </button>
-        <button
-          type="button"
-          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
-          onClick={() => {
-            onPick("habit");
-            setOpen(false);
-          }}
-        >
-          <Circle className="size-4 text-success" />
-          {t("addMenuHabit")}
-        </button>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
 function LegendItem({
   label,
   tone,
@@ -1928,4 +1124,3 @@ function LegendItem({
     </span>
   );
 }
-
