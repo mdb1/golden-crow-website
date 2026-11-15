@@ -15,7 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
-import { listRecentCoachActivity } from "@/lib/gc-fitness/admin-actions";
+import { listRecentCoachActivity, type CoachActivityRow } from "@/lib/gc-fitness/admin-actions";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
 // Tab title: "Corvo - <adminPanel>" (issue #170).
@@ -37,6 +37,29 @@ export default async function CoachActivityPage() {
   const rows = await listRecentCoachActivity(160);
   const t = await getTranslations("admin.coachActivity");
   const tc = await getTranslations("admin.common");
+  // #513 — the row's `summary` is an English sentence built in lib/; the page
+  // renders it from the row's kind + subject in the viewer's language instead.
+  const summaryFor = (row: CoachActivityRow): string => {
+    const name = row.subject ?? "";
+    switch (row.kind) {
+      case "habit_assigned":
+        return name ? t("summary.habitAssignedNamed", { name }) : t("summary.habitAssigned");
+      case "workout_template_created":
+        return name
+          ? t("summary.templateCreatedNamed", { name })
+          : t("summary.templateCreated");
+      case "workout_assigned":
+        return name
+          ? t("summary.workoutAssignedNamed", { name })
+          : t("summary.workoutAssigned");
+      case "client_pre_provisioned":
+        return t("summary.clientPreProvisioned");
+      case "client_first_login":
+        return t("summary.clientFirstLogin");
+      default:
+        return row.summary;
+    }
+  };
 
   return (
     <div className="gc-page flex flex-col gap-6">
@@ -92,7 +115,7 @@ export default async function CoachActivityPage() {
                         </Link>
                         <div className="text-xs text-muted-foreground">{row.coachEmail}</div>
                       </TableCell>
-                      <TableCell>{row.summary}</TableCell>
+                      <TableCell>{summaryFor(row)}</TableCell>
                       <TableCell>
                         {row.clientUid || row.clientEmail ? (
                           <div className="space-y-0.5">

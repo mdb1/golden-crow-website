@@ -82,7 +82,8 @@ describe("auth gate", () => {
       else signInAs("admin-1", roles);
       await expect(listMonthForClients({ ...RANGE, clientIds: ["c1"] })).rejects.toThrow("Forbidden");
       await expect(getAssignmentDetail("a-own")).rejects.toThrow("Forbidden");
-      await expect(moveAssignment({ id: "a-own", newScheduledFor: "2026-06-20", scope: "one" })).rejects.toThrow("Forbidden");
+      // #513 — returned, not thrown (a throw is redacted in production).
+      await expect(moveAssignment({ id: "a-own", newScheduledFor: "2026-06-20", scope: "one" })).resolves.toEqual({ ok: false, error: "Forbidden" });
     }
     expect(db.writes).toEqual([]);
     expect(db.reads).toEqual([]);
@@ -297,16 +298,16 @@ describe("moveAssignment", () => {
   });
 
   it("rejects a bad date before any read", async () => {
-    await expect(moveAssignment({ id: "a-own", newScheduledFor: "June 20", scope: "one" })).rejects.toThrow("Invalid civil date.");
+    await expect(moveAssignment({ id: "a-own", newScheduledFor: "June 20", scope: "one" })).resolves.toEqual({ ok: false, error: "Invalid civil date." });
     expect(db.reads).toEqual([]);
   });
 
   it("rejects another coach's / missing / dateless assignment and writes nothing", async () => {
-    await expect(moveAssignment({ id: "b-own", newScheduledFor: "2026-06-20", scope: "one" })).rejects.toThrow("Not your assignment.");
-    await expect(moveAssignment({ id: "s-foreign", newScheduledFor: "2026-06-20", scope: "all" })).rejects.toThrow("Not your assignment.");
-    await expect(moveAssignment({ id: "missing", newScheduledFor: "2026-06-20", scope: "one" })).rejects.toThrow("Not found");
+    await expect(moveAssignment({ id: "b-own", newScheduledFor: "2026-06-20", scope: "one" })).resolves.toEqual({ ok: false, error: "Not your assignment." });
+    await expect(moveAssignment({ id: "s-foreign", newScheduledFor: "2026-06-20", scope: "all" })).resolves.toEqual({ ok: false, error: "Not your assignment." });
+    await expect(moveAssignment({ id: "missing", newScheduledFor: "2026-06-20", scope: "one" })).resolves.toEqual({ ok: false, error: "Not found" });
     db.seed("workout_assignments/no-date", { trainerId: "coach-a", clientId: "c1" });
-    await expect(moveAssignment({ id: "no-date", newScheduledFor: "2026-06-20", scope: "one" })).rejects.toThrow("Origin date missing.");
+    await expect(moveAssignment({ id: "no-date", newScheduledFor: "2026-06-20", scope: "one" })).resolves.toEqual({ ok: false, error: "Origin date missing." });
     expect(db.writes).toEqual([]);
     expect(db.doc("workout_assignments/b-own")?.scheduledFor).toBe("2026-06-15");
   });

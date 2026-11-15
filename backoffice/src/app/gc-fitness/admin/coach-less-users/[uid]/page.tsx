@@ -16,7 +16,7 @@
 // action additionally refuses any target that isn't an active coach-less
 // client, so this URL can't be used to read a coached client's data.
 
-import { formatAppDevice } from "@/lib/gc-fitness/client-app-devices";
+import { appDeviceLabels, formatAppDevice } from "@/lib/gc-fitness/client-app-devices";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -178,6 +178,10 @@ export default async function CoachlessUserDetailPage({
   const tc = await getTranslations("admin.common");
   const tcl = await getTranslations("admin.coachless");
   const tcd = await getTranslations("admin.clientDetail");
+  const tDevice = await getTranslations("common.appDevice");
+  const deviceLabels = appDeviceLabels((key, values) =>
+    key === "unknownPlatform" ? tDevice("unknownPlatform") : tDevice("unknownVersion", values),
+  );
   const actionMessage = op && sp.ok === "1" ? tc("actionCompleted", { op }) : null;
   const ageLabel = (days: number): string => t("age", { days });
   const statusLabel = (status: string): string => {
@@ -388,7 +392,7 @@ export default async function CoachlessUserDetailPage({
                   <span className="flex flex-col gap-0.5">
                     {profile.devices.map((device, index) => (
                       <span key={`${device.platform}-${device.appVersion ?? "?"}-${index}`}>
-                        {formatAppDevice(device)}
+                        {formatAppDevice(device, deviceLabels)}
                         {device.registeredAtISO ? (
                           <span className="text-muted-foreground">
                             {" · "}

@@ -20,6 +20,7 @@
 
 import Link from "next/link";
 import {
+  appDeviceLabels,
   formatAppDevice,
   type ClientAppDevice,
 } from "@/lib/gc-fitness/client-app-devices";
@@ -75,6 +76,10 @@ export function ClientHeader({
   const t = useTranslations("clients.detail");
   const tNav = useTranslations("nav");
   const tCommon = useTranslations("common");
+  const tDevice = useTranslations("common.appDevice");
+  const deviceLabels = appDeviceLabels((key, values) =>
+    key === "unknownPlatform" ? tDevice("unknownPlatform") : tDevice("unknownVersion", values),
+  );
   const heightValue =
     typeof heightCm === "number" ? `${heightCm.toFixed(1)} cm` : tCommon("emDash");
   const weightValue =
@@ -133,7 +138,7 @@ export function ClientHeader({
                   key={`${device.platform}-${device.appVersion ?? "?"}-${index}`}
                   variant="outline"
                 >
-                  {formatAppDevice(device)}
+                  {formatAppDevice(device, deviceLabels)}
                 </Badge>
               ))}
             </div>

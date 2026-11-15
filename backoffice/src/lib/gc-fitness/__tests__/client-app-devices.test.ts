@@ -100,7 +100,7 @@ describe("projectAppDevices", () => {
       }),
     ]);
 
-    expect(rows.map(formatAppDevice)).toEqual(["iOS 1.2.1 (163)"]);
+    expect(rows.map((row) => formatAppDevice(row))).toEqual(["iOS 1.2.1 (163)"]);
   });
 
   it("keeps ANOTHER platform's unknown-version row", () => {
@@ -117,7 +117,7 @@ describe("projectAppDevices", () => {
       }),
     ]);
 
-    expect(rows.map(formatAppDevice)).toEqual([
+    expect(rows.map((row) => formatAppDevice(row))).toEqual([
       "iOS 1.2.1 (163)",
       "Android · versión desconocida",
     ]);
@@ -160,5 +160,27 @@ describe("formatAppDevice", () => {
         registeredAtISO: null,
       }),
     ).toBe("Android 1.2.9");
+  });
+});
+
+describe("formatAppDevice — translated labels (#513)", () => {
+  const english = {
+    unknownPlatform: "Unknown",
+    unknownVersion: (platform: string) => `${platform} · unknown version`,
+  };
+
+  it("uses the caller's words for an unknown version and platform", () => {
+    expect(
+      formatAppDevice({ platform: "android", appVersion: null, appBuild: null } as never, english),
+    ).toBe("Android · unknown version");
+    expect(
+      formatAppDevice({ platform: "unknown", appVersion: null, appBuild: null } as never, english),
+    ).toBe("Unknown · unknown version");
+  });
+
+  it("keeps brand names and versions untouched", () => {
+    expect(
+      formatAppDevice({ platform: "ios", appVersion: "2.3.0", appBuild: "301" } as never, english),
+    ).toBe("iOS 2.3.0 (301)");
   });
 });

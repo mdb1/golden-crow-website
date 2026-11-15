@@ -104,7 +104,7 @@ export default async function GCFitnessDashboardPage({
     customExerciseCount: 0,
   };
   const pendingChecklist = checklistResult ?? [];
-  const unassignedSoon = unassignedResult ?? [];
+  const unassignedSoon = unassignedResult ?? { rows: [], truncated: false, scanned: 0 };
 
   // Literal keys (the i18n-literal-keys gate checks them against the catalog).
   const lastActionLabels = {
@@ -160,7 +160,11 @@ export default async function GCFitnessDashboardPage({
   );
 
   const activeClientCount = activeClients.length;
-  const atRiskCount = staleRows.length;
+  // #513 — the tile links to `/clients?filter=attention`, so it counts EXACTLY
+  // what that filter shows: every roster row whose `needsAttention` fired for
+  // ANY of the six reasons of client-attention.ts (#499) — not only inactivity
+  // (that narrower list is the "Needs review" panel below, labelled as such).
+  const atRiskCount = roster.filter((client) => client.needsAttention).length;
   const attentionDays = ATTENTION_INACTIVITY_THRESHOLD_DAYS;
 
   // Headline adherence KPI: prefer this-week habit %, fall back to workout %.
@@ -224,7 +228,7 @@ export default async function GCFitnessDashboardPage({
           href="/gc-fitness/clients?filter=attention"
           icon={<AlertTriangle />}
           value={atRiskCount}
-          label={tDashboard("kpiNeedsReview")}
+          label={tDashboard("kpiNeedsAttention")}
           delta={atRiskCount > 0 ? `${atRiskCount}` : undefined}
           trend={atRiskCount > 0 ? "down" : "neutral"}
         />
@@ -234,7 +238,11 @@ export default async function GCFitnessDashboardPage({
       <ChecklistPending items={pendingChecklist} />
 
       {/* 260612-e9t (#245): clients with nothing assigned in the next 4 days */}
-      <UnassignedClientsCard rows={unassignedSoon} />
+      <UnassignedClientsCard
+        rows={unassignedSoon.rows}
+        truncated={unassignedSoon.truncated}
+        scanned={unassignedSoon.scanned}
+      />
 
       {/* Charts: workouts (gold bars) + habits (line) */}
       <div className="grid gap-4 xl:grid-cols-2">

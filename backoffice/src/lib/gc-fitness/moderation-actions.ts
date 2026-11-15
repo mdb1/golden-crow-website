@@ -34,6 +34,7 @@ import { redirect } from "next/navigation";
 
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 
+import { toActionFailure, type ActionResult } from "./action-result";
 import { getCurrentAdmin } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
 import {
@@ -385,7 +386,25 @@ async function runAction(
   formData: FormData,
   action: ModerationAction,
   mutate: (target: ActionTarget) => Promise<Record<string, unknown>>,
-): Promise<never> {
+): Promise<ActionResult> {
+  // #513 — a failure is RETURNED (action-result.ts): thrown, it reaches the
+  // browser as "Minified React error #441". The redirect stays OUTSIDE the
+  // try — `redirect()` works by throwing and must not be turned into a result.
+  try {
+    await runActionOrThrow(formData, action, mutate);
+  } catch (err) {
+    return toActionFailure(err);
+  }
+  revalidatePath(MODERATION_PATH);
+  revalidatePath("/gc-fitness/admin");
+  redirect(`${MODERATION_PATH}?op=${encodeURIComponent(action)}&ok=1`);
+}
+
+async function runActionOrThrow(
+  formData: FormData,
+  action: ModerationAction,
+  mutate: (target: ActionTarget) => Promise<Record<string, unknown>>,
+): Promise<void> {
   const admin = await getCurrentAdmin();
   const target = readTarget(formData);
   const kind = operationKindFor(action);
@@ -410,13 +429,10 @@ async function runAction(
     });
     throw err;
   }
-  revalidatePath(MODERATION_PATH);
-  revalidatePath("/gc-fitness/admin");
-  redirect(`${MODERATION_PATH}?op=${encodeURIComponent(action)}&ok=1`);
 }
 
 /** Ocultar contenido — the target stops being shown; the account stays. */
-export async function hideReportedContent(formData: FormData): Promise<never> {
+export async function hideReportedContent(formData: FormData): Promise<ActionResult> {
   return runAction(formData, "hide", async (target) => {
     await setHidden(target, true);
     return { action: "hide" };
@@ -424,7 +440,7 @@ export async function hideReportedContent(formData: FormData): Promise<never> {
 }
 
 /** Suspender autor — the owner's profile leaves search, feed and suggestions; their cards are flagged. */
-export async function suspendReportedAuthor(formData: FormData): Promise<never> {
+export async function suspendReportedAuthor(formData: FormData): Promise<ActionResult> {
   return runAction(formData, "suspend", async (target) => {
     await setSuspended(target.targetOwnerUid, true);
     return { action: "suspend", suspendedUid: target.targetOwnerUid };
@@ -432,38 +448,46 @@ export async function suspendReportedAuthor(formData: FormData): Promise<never> 
 }
 
 /** Descartar — nothing happens to the content; the reports close as dismissed. */
-export async function dismissReports(formData: FormData): Promise<never> {
+export async function dismissReports(formData: FormData): Promise<ActionResult> {
   return runAction(formData, "dismiss", async () => ({ action: "dismiss" }));
 }
 
 /** Reversal of Suspender. Reports are not reopened; the trail is the operation. */
-export async function unsuspendSocialAccount(formData: FormData): Promise<never> {
-  const admin = await getCurrentAdmin();
-  const uid = String(formData.get("uid") ?? "").trim();
-  await setSuspended(uid, false);
-  await writeOperation({
-    actorUid: admin.uid,
-    kind: operationKindFor("unsuspend"),
-    targetUid: uid,
-    status: "success",
-    summary: { action: "unsuspend" },
-  });
+export async function unsuspendSocialAccount(formData: FormData): Promise<ActionResult> {
+  try {
+    const admin = await getCurrentAdmin();
+    const uid = String(formData.get("uid") ?? "").trim();
+    await setSuspended(uid, false);
+    await writeOperation({
+      actorUid: admin.uid,
+      kind: operationKindFor("unsuspend"),
+      targetUid: uid,
+      status: "success",
+      summary: { action: "unsuspend" },
+    });
+  } catch (err) {
+    return toActionFailure(err);
+  }
   revalidatePath(MODERATION_PATH);
   redirect(`${MODERATION_PATH}?op=unsuspend&ok=1`);
 }
 
 /** Reversal of Ocultar. */
-export async function unhideReportedContent(formData: FormData): Promise<never> {
-  const admin = await getCurrentAdmin();
-  const target = readTarget(formData);
-  await setHidden(target, false);
-  await writeOperation({
-    actorUid: admin.uid,
-    kind: operationKindFor("unhide"),
-    targetUid: target.targetOwnerUid || target.targetId,
-    status: "success",
-    summary: { action: "unhide", targetType: target.targetType, targetId: target.targetId },
-  });
+export async function unhideReportedContent(formData: FormData): Promise<ActionResult> {
+  try {
+    const admin = await getCurrentAdmin();
+    const target = readTarget(formData);
+    await setHidden(target, false);
+    await writeOperation({
+      actorUid: admin.uid,
+      kind: operationKindFor("unhide"),
+      targetUid: target.targetOwnerUid || target.targetId,
+      status: "success",
+      summary: { action: "unhide", targetType: target.targetType, targetId: target.targetId },
+    });
+  } catch (err) {
+    return toActionFailure(err);
+  }
   revalidatePath(MODERATION_PATH);
   redirect(`${MODERATION_PATH}?op=unhide&ok=1`);
 }

@@ -199,7 +199,7 @@ async function switchToWeek() {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockMoveAssignment.mockResolvedValue({ movedCount: 1 });
+  mockMoveAssignment.mockResolvedValue({ ok: true, movedCount: 1 });
 });
 
 describe("MonthCalendar move — after the server answers", () => {
@@ -218,7 +218,7 @@ describe("MonthCalendar move — after the server answers", () => {
   });
 
   it("a series move reports the server's count", async () => {
-    mockMoveAssignment.mockResolvedValue({ movedCount: 5 });
+    mockMoveAssignment.mockResolvedValue({ ok: true, movedCount: 5 });
     renderCalendar([chip({ seriesId: "s-1", recurrenceKind: "weekly" })]);
 
     dragChipToDay("Push Day", 22);
@@ -235,7 +235,8 @@ describe("MonthCalendar move — after the server answers", () => {
   });
 
   it("a failed move shows the server's message and no success toast", async () => {
-    mockMoveAssignment.mockRejectedValue(new Error("Not your assignment."));
+    // #513 — the refusal is RETURNED (ActionResult), never thrown.
+    mockMoveAssignment.mockResolvedValue({ ok: false, error: "Not your assignment." });
     renderCalendar([chip()]);
 
     dragChipToDay("Push Day", 22);

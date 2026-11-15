@@ -6,10 +6,10 @@
 // whose hidden fields are the whole payload the Server Action reads: target
 // type + id + owner, and the ids of the open reports on screen (what the action
 // resolves). `window.confirm` gates Ocultar and Suspender — Descartar touches
-// nothing, so it does not ask.
+// nothing, so it does not ask. #513: every form goes through AdminActionForm,
+// because the actions RETURN their failure (ActionResult) instead of throwing.
 
-import { type FormEvent } from "react";
-
+import { AdminActionForm } from "@/app/gc-fitness/admin/_components/admin-action-form";
 import { AdminSubmitButton } from "@/app/gc-fitness/admin/_components/admin-submit-button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -37,12 +37,6 @@ const SLA_CLASS: Record<ReturnType<typeof slaState>, string> = {
   breached: "text-destructive font-semibold",
 };
 
-
-function confirmGate(message: string) {
-  return (event: FormEvent<HTMLFormElement>) => {
-    if (!window.confirm(message)) event.preventDefault();
-  };
-}
 
 export function ModerationQueue({
   groups,
@@ -186,10 +180,10 @@ export function ModerationQueue({
                       );
                       if (action === "hide") {
                         return (
-                          <form
+                          <AdminActionForm
                             key={action}
                             action={hideReportedContent}
-                            onSubmit={confirmGate(tm("confirm.hide"))}
+                            confirmMessage={tm("confirm.hide")}
                           >
                             {hidden}
                             <AdminSubmitButton
@@ -198,15 +192,15 @@ export function ModerationQueue({
                               disabled={preview?.hidden === true}
                               className="rounded-full border border-amber-600/50 px-3 py-1.5 text-sm text-amber-700"
                             />
-                          </form>
+                          </AdminActionForm>
                         );
                       }
                       if (action === "suspend") {
                         return (
-                          <form
+                          <AdminActionForm
                             key={action}
                             action={suspendReportedAuthor}
-                            onSubmit={confirmGate(tm("confirm.suspend"))}
+                            confirmMessage={tm("confirm.suspend")}
                           >
                             {hidden}
                             <AdminSubmitButton
@@ -215,24 +209,24 @@ export function ModerationQueue({
                               disabled={preview?.ownerSuspended === true || !group.targetOwnerUid}
                               className="rounded-full border border-destructive/60 px-3 py-1.5 text-sm text-destructive"
                             />
-                          </form>
+                          </AdminActionForm>
                         );
                       }
                       return (
-                        <form key={action} action={dismissReports}>
+                        <AdminActionForm key={action} action={dismissReports}>
                           {hidden}
                           <AdminSubmitButton
                             idleLabel={tm("actions.dismiss")}
                             pendingLabel={tm("actions.dismissing")}
                             className="rounded-full border border-input px-3 py-1.5 text-sm text-foreground"
                           />
-                        </form>
+                        </AdminActionForm>
                       );
                     })
                   : null}
 
                 {preview?.hidden && group.targetType !== "profile" ? (
-                  <form action={unhideReportedContent}>
+                  <AdminActionForm action={unhideReportedContent}>
                     <input type="hidden" name="targetType" value={group.targetType} />
                     <input type="hidden" name="targetId" value={group.targetId} />
                     <input type="hidden" name="targetOwnerUid" value={group.targetOwnerUid} />
@@ -241,17 +235,17 @@ export function ModerationQueue({
                       pendingLabel={tm("actions.unhiding")}
                       className="rounded-full border border-input px-3 py-1.5 text-sm text-foreground"
                     />
-                  </form>
+                  </AdminActionForm>
                 ) : null}
                 {preview?.ownerSuspended && group.targetOwnerUid ? (
-                  <form action={unsuspendSocialAccount}>
+                  <AdminActionForm action={unsuspendSocialAccount}>
                     <input type="hidden" name="uid" value={group.targetOwnerUid} />
                     <AdminSubmitButton
                       idleLabel={tm("actions.unsuspend")}
                       pendingLabel={tm("actions.unsuspending")}
                       className="rounded-full border border-input px-3 py-1.5 text-sm text-foreground"
                     />
-                  </form>
+                  </AdminActionForm>
                 ) : null}
               </div>
             </CardContent>

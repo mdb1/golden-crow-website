@@ -23,6 +23,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 
 import { getCurrentAdmin, getCurrentTrainer } from "./auth-helpers";
+import { toActionFailure, type ActionResult } from "./action-result";
 import { assignedBy } from "./assigned-by";
 import { assertOwnsAndCoaches, coachesClientNow, NOT_YOUR_CLIENT } from "./coach-ownership";
 import { adminCanViewClientUnderCoach } from "./coachless-user-model";
@@ -1152,6 +1153,21 @@ async function loadMonthForClients(
  * destroy logged work otherwise.
  */
 export async function moveAssignment(input: {
+  id: string;
+  newScheduledFor: string;
+  scope: "one" | "future" | "all";
+}): Promise<ActionResult<{ movedCount: number }>> {
+  // #513 — RETURN the failure (action-result.ts): a thrown "Not your
+  // assignment." reaches a production client as "Minified React error #441".
+  // Name and argument shape are unchanged on purpose (#382 deploy skew).
+  try {
+    return await moveAssignmentOrThrow(input);
+  } catch (err) {
+    return toActionFailure(err);
+  }
+}
+
+async function moveAssignmentOrThrow(input: {
   id: string;
   newScheduledFor: string;
   scope: "one" | "future" | "all";

@@ -448,11 +448,17 @@ export function MonthCalendar({
   >(null);
 
   const moveMutation = useMutation({
-    mutationFn: (input: {
+    mutationFn: async (input: {
       id: string;
       newScheduledFor: string;
       scope: "one" | "future" | "all";
-    }) => moveAssignment(input),
+    }) => {
+      // #513 — the action RETURNS its failure (a thrown one is redacted in
+      // production); re-raise it here so `onError` keeps owning the toast.
+      const result = await moveAssignment(input);
+      if (!result.ok) throw new Error(result.error);
+      return result;
+    },
     onSuccess: ({ movedCount }) => {
       toast.success(
         movedCount === 1

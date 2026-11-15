@@ -30,6 +30,7 @@ import type {
   FeedPerson,
 } from "@/lib/gc-fitness/activity-feed-actions";
 import type { FeedCategory } from "@/lib/gc-fitness/activity-feed-model";
+import { feedTitleKey } from "@/lib/gc-fitness/activity-feed-titles";
 import { cn } from "@/lib/utils";
 
 const CATEGORY_ICON: Record<FeedCategory, React.ComponentType<{ className?: string }>> = {
@@ -150,7 +151,12 @@ function lowerFirst(text: string): string {
 function FeedRow({ event, timeZone }: { event: ActivityFeedEvent; timeZone: string }) {
   const Icon = CATEGORY_ICON[event.category] ?? Activity;
   const t = useTranslations("admin.audit");
+  const tTitles = useTranslations("admin.audit.titles");
   const subject = event.subject?.trim();
+  // #513 — the title arrives as the model's Spanish sentence; known ones render
+  // in the viewer's language, unknown ones (a newer writer) verbatim.
+  const titleKey = feedTitleKey(event.title);
+  const title = titleKey ? tTitles(titleKey) : event.title;
 
   return (
     <li
@@ -173,7 +179,7 @@ function FeedRow({ event, timeZone }: { event: ActivityFeedEvent; timeZone: stri
         <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-sm">
           {event.actor ? <PersonLink person={event.actor} /> : null}
           <span className="text-muted-foreground">
-            {event.actor ? lowerFirst(event.title) : event.title}
+            {event.actor ? lowerFirst(title) : title}
           </span>
           {subject ? (
             event.href ? (

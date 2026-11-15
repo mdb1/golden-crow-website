@@ -14,6 +14,7 @@ import {
   UserRoundX,
 } from "lucide-react";
 
+import { AdminActionForm } from "@/app/gc-fitness/admin/_components/admin-action-form";
 import { Badge as UiBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -193,7 +194,8 @@ function DataHygieneRowCard({ row }: { row: DataHygieneRow }) {
         </p>
         <p className="text-[11px] text-muted-foreground">{t("updatedAt", { date: row.sortAtISO ?? "—" })}</p>
       </div>
-      <form action={purgeDataHygieneItem} className="flex shrink-0 flex-col gap-2 lg:items-end">
+      {/* #513 — the purge RETURNS its failure; AdminActionForm shows it. */}
+      <AdminActionForm action={purgeDataHygieneItem} className="flex shrink-0 flex-col gap-2 lg:items-end">
         <input type="hidden" name="kind" value={row.kind} />
         <input type="hidden" name="id" value={row.id} />
         {row.userId ? <input type="hidden" name="userId" value={row.userId} /> : null}
@@ -218,7 +220,7 @@ function DataHygieneRowCard({ row }: { row: DataHygieneRow }) {
         >
           {t("delete")}
         </button>
-      </form>
+      </AdminActionForm>
     </article>
   );
 }
