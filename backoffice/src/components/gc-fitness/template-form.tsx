@@ -161,19 +161,19 @@ const SUPERSET_ACCENTS: {
   pillActive: string;
 }[] = [
   {
-    card: "border-violet-500/40 bg-violet-500/5",
-    badge: "bg-violet-500/20 text-violet-700 dark:text-violet-100",
-    pillActive: "border-violet-400 bg-violet-400/15 text-violet-700 dark:text-violet-100",
+    card: "border-category-4/40 bg-category-4/5",
+    badge: "bg-category-4/20 text-category-4",
+    pillActive: "border-category-4 bg-category-4/15 text-category-4",
   },
   {
-    card: "border-sky-500/40 bg-sky-500/5",
-    badge: "bg-sky-500/20 text-sky-700 dark:text-sky-100",
-    pillActive: "border-sky-400 bg-sky-400/15 text-sky-700 dark:text-sky-100",
+    card: "border-category-2/40 bg-category-2/5",
+    badge: "bg-category-2/20 text-category-2",
+    pillActive: "border-category-2 bg-category-2/15 text-category-2",
   },
   {
-    card: "border-emerald-500/40 bg-emerald-500/5",
-    badge: "bg-emerald-500/20 text-emerald-700 dark:text-emerald-100",
-    pillActive: "border-emerald-400 bg-emerald-400/15 text-emerald-700 dark:text-emerald-100",
+    card: "border-category-3/40 bg-category-3/5",
+    badge: "bg-category-3/20 text-category-3",
+    pillActive: "border-category-3 bg-category-3/15 text-category-3",
   },
 ];
 
@@ -1311,7 +1311,7 @@ export function TemplateForm({
         noValidate
       >
         {draftRestored ? (
-          <div className="flex items-center justify-between gap-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-foreground dark:border-amber-400/40 dark:bg-amber-400/10">
+          <div className="flex items-center justify-between gap-3 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-foreground">
             {/* #1089 — this banner was hardcoded English in a bilingual
                 backoffice; the trainer who lost work is the same one reading
                 it in Spanish. */}
@@ -1412,7 +1412,7 @@ export function TemplateForm({
                 {step === 1 ? t("builderStepExercises") : t("builderStepDetails")}
               </h2>
               {step === 1 && fields.length > 0 && hasUnselectedExercises ? (
-                <p className="mt-1 text-xs text-amber-700">{t("builderSelectAllHint")}</p>
+                <p className="mt-1 text-xs text-warning">{t("builderSelectAllHint")}</p>
               ) : null}
             </div>
             <div className="flex items-center gap-2">
@@ -1428,7 +1428,7 @@ export function TemplateForm({
 
         {/* Exercises — wrapped in a section card to match the HabitForm
             schedule/reminder visual hierarchy. */}
-        <div className="flex flex-col gap-3 rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
+        <div className="flex flex-col gap-3 rounded-card border border-border bg-card p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <h2 className="font-heading text-base font-semibold tracking-tight">
               {t("exercises")}
@@ -2683,9 +2683,9 @@ export function TemplateForm({
                         lone-labelled) exercises only; superset members edit rest
                         at the group level above. */}
                     {isSupersetMember ? null : (
-                    <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
+                    <div className="rounded-lg border border-warning/40 bg-warning/5 p-3">
                       <div className="flex items-center gap-2">
-                        <FormLabel className="text-amber-700 dark:text-amber-100">
+                        <FormLabel className="text-warning">
                           {t("transitionRestSeconds")}
                         </FormLabel>
                         <InfoTooltip
@@ -2837,7 +2837,7 @@ export function TemplateForm({
           {quickCreated.length > 0 ? (
             <div className="mt-2 flex flex-col gap-2">
               {quickCreated.map((exercise) => (
-                <div key={exercise.id} className="flex items-center justify-between rounded-md border border-emerald-400/50 bg-emerald-50/60 px-3 py-2 text-sm">
+                <div key={exercise.id} className="flex items-center justify-between rounded-md border border-success/50 bg-success-soft px-3 py-2 text-sm">
                   <span className="truncate">
                     {t.rich("quickCreatedNotice", {
                       name: exercise.name,
@@ -2849,7 +2849,7 @@ export function TemplateForm({
                       href={`/gc-fitness/exercises/${exercise.id}/edit`}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-emerald-900 underline"
+                      className="inline-flex items-center gap-1 text-success underline"
                     >
                       {t("quickCreatedEdit")}
                       <ExternalLink className="h-3 w-3" />

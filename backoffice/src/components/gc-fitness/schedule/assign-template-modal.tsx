@@ -1157,12 +1157,12 @@ export function AssignTemplateModal({
                   key={`${exercise.exerciseId}-${exercise.index}`}
                   className={
                     isInSuperset
-                      ? "rounded-md border border-amber-500/40 bg-amber-50/40 p-3 dark:border-amber-400/40 dark:bg-amber-950/20"
+                      ? "rounded-md border border-warning/40 bg-warning-soft p-3"
                       : "rounded-md border border-border/60 bg-background/60 p-3"
                   }
                 >
                   {isSupersetStart ? (
-                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-warning">
                       {t("supersetLabel", { group })}
                     </p>
                   ) : null}
@@ -1170,7 +1170,7 @@ export function AssignTemplateModal({
                       rest + after-superset rest), write-through to all members. */}
                   {isSupersetStart ? (
                     <div className="mb-3 grid gap-2 sm:grid-cols-2">
-                      <label className="text-[11px] font-medium text-amber-800 dark:text-amber-200">
+                      <label className="text-[11px] font-medium text-warning">
                         <span className="block truncate">
                           {t("supersetGroupRoundRest")}
                         </span>
@@ -1188,7 +1188,7 @@ export function AssignTemplateModal({
                           {restMinutesHint(groupRoundRestValue)}
                         </span>
                       </label>
-                      <label className="text-[11px] font-medium text-amber-800 dark:text-amber-200">
+                      <label className="text-[11px] font-medium text-warning">
                         <span className="block truncate">
                           {t("supersetGroupAfterRest")}
                         </span>
@@ -1221,7 +1221,7 @@ export function AssignTemplateModal({
                       />
                       <p className="min-w-0 break-words text-sm font-medium">{exercise.exerciseName}</p>
                       {group ? (
-                        <span className="inline-flex h-5 items-center rounded-full bg-amber-500/20 px-2 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-400/20 dark:text-amber-200">
+                        <span className="inline-flex h-5 items-center rounded-full bg-warning/20 px-2 text-[10px] font-semibold uppercase tracking-wide text-warning">
                           {group}
                         </span>
                       ) : null}
@@ -1585,7 +1585,7 @@ export function AssignTemplateModal({
                       sees it after finishing this exercise. Superset members
                       edit the after-superset rest at the group level (D10). */}
                   {isInSuperset ? null : (
-                  <label className="mt-3 block rounded-md border border-amber-400/50 bg-amber-50/60 p-3 text-[11px] font-medium text-amber-800 shadow-sm dark:border-amber-300/35 dark:bg-amber-950/20 dark:text-amber-200">
+                  <label className="mt-3 block rounded-md border border-warning/50 bg-warning-soft p-3 text-[11px] font-medium text-warning shadow-sm">
                     <span className="block">{t("exerciseOverridesTransitionRest")}</span>
                     <input
                       type="text"
@@ -1602,9 +1602,9 @@ export function AssignTemplateModal({
                           },
                         }));
                       }}
-                      className="mt-1 h-9 w-full rounded-md border border-amber-300/70 bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50 dark:border-amber-300/40"
+                      className="mt-1 h-9 w-full rounded-md border border-warning/70 bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning/50"
                     />
-                    <span className="mt-1 block text-[10px] font-normal text-amber-700/80 dark:text-amber-200/80">
+                    <span className="mt-1 block text-[10px] font-normal text-warning/80">
                       {restMinutesHint(draft.transition_rest_seconds)}
                     </span>
                   </label>

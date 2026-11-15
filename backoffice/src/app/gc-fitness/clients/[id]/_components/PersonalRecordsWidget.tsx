@@ -14,7 +14,7 @@ export async function PersonalRecordsWidget({ clientId }: { clientId: string }) 
   return (
     <section
       id="personal-records"
-      className="rounded-[1.25rem] border border-border bg-card p-5 shadow-sm"
+      className="rounded-card border border-border bg-card p-5 shadow-sm"
     >
       <div className="mb-3">
         <h2 className="flex items-center gap-2 font-medium">

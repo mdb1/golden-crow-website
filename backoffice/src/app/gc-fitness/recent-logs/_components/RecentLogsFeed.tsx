@@ -387,7 +387,7 @@ function RecentLogItem({
           openProfile();
         }
       }}
-      className="group flex cursor-pointer flex-wrap items-start gap-x-3 gap-y-2 rounded-[1.25rem] border border-border bg-card px-4 py-3 transition-colors hover:border-primary/30 hover:bg-accent/40 sm:flex-nowrap"
+      className="group flex cursor-pointer flex-wrap items-start gap-x-3 gap-y-2 rounded-card border border-border bg-card px-4 py-3 transition-colors hover:border-primary/30 hover:bg-accent/40 sm:flex-nowrap"
     >
       <ClientAvatar name={row.clientName} photoURL={row.clientPhotoURL} size="md" />
       <div className="min-w-0 flex-1 basis-[calc(100%-3.5rem)] sm:basis-auto">

@@ -60,7 +60,7 @@ export function UnlinkClientButton({
   };
 
   return (
-    <section className="rounded-[1.25rem] border border-destructive/30 bg-card p-5 shadow-sm">
+    <section className="rounded-card border border-destructive/30 bg-card p-5 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h2 className="font-medium">{t("title")}</h2>

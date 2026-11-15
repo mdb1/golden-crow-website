@@ -22,7 +22,7 @@ export default function RecentLogsLoading() {
       </div>
 
       {/* Timeline rows */}
-      <div className="flex flex-col gap-3 rounded-[1.25rem] border bg-card p-4 shadow-sm">
+      <div className="flex flex-col gap-3 rounded-card border bg-card p-4 shadow-sm">
         {Array.from({ length: 8 }).map((_, idx) => (
           <div key={idx} className="flex items-center gap-3 py-2">
             <Skeleton className="size-10 shrink-0 rounded-full" />

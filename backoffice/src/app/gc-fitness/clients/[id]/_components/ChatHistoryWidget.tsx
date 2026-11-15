@@ -123,7 +123,7 @@ export async function ChatHistoryWidget({
   }
 
   return (
-    <section className="flex flex-col rounded-[1.25rem] border border-border bg-card p-4 shadow-sm sm:p-5">
+    <section className="flex flex-col rounded-card border border-border bg-card p-4 shadow-sm sm:p-5">
       <h2 className="mb-2.5 font-medium">{t("title")}</h2>
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("empty")}</p>
@@ -138,7 +138,7 @@ export async function ChatHistoryWidget({
                   className={
                     row.isTrainer
                       ? "ml-auto max-w-[88%] sm:max-w-[80%] rounded-2xl rounded-br-sm bg-primary px-3 py-1.5 text-sm text-primary-foreground"
-                      : "mr-auto max-w-[88%] sm:max-w-[80%] rounded-2xl rounded-bl-sm bg-emerald-50 px-3 py-1.5 text-sm text-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-50"
+                      : "mr-auto max-w-[88%] sm:max-w-[80%] rounded-2xl rounded-bl-sm bg-category-3/10 px-3 py-1.5 text-sm text-foreground"
                   }
                 >
                   <p className="whitespace-pre-wrap break-words">{row.body}</p>
@@ -147,7 +147,7 @@ export async function ChatHistoryWidget({
                       className={
                         row.isTrainer
                       ? "mt-1 text-[10px] text-primary-foreground/70"
-                          : "mt-1 text-[10px] text-emerald-900/70 dark:text-emerald-50/70"
+                          : "mt-1 text-[10px] text-muted-foreground"
                       }
                     >
                       {formatClientActivityTime(

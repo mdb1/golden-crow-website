@@ -16,6 +16,7 @@
 // action additionally refuses any target that isn't an active coach-less
 // client, so this URL can't be used to read a coached client's data.
 
+import { FormSelect } from "@/components/gc-fitness/form-select";
 import { appDeviceLabels, formatAppDevice } from "@/lib/gc-fitness/client-app-devices";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
@@ -427,22 +428,15 @@ export default async function CoachlessUserDetailPage({
             ) : (
               <AdminActionForm action={assignCoachAction} className="flex flex-wrap items-center gap-2">
                 <input type="hidden" name="uid" value={uid} />
-                <select
+                <FormSelect
                   name="newCoachUid"
                   required
                   defaultValue=""
                   aria-label={t("coach.assignLabel")}
-                  className="h-8 max-w-[16rem] rounded-md border bg-background px-2 text-xs"
-                >
-                  <option value="" disabled>
-                    {t("coach.choose")}
-                  </option>
-                  {coaches.map((coach) => (
-                    <option key={coach.uid} value={coach.uid}>
-                      {coach.displayName || coach.email}
-                    </option>
-                  ))}
-                </select>
+                  placeholder={t("coach.choose")}
+                  className="w-auto max-w-[16rem] text-xs"
+                  options={coaches.map((coach) => ({ value: coach.uid, label: coach.displayName || coach.email }))}
+                />
                 <AdminSubmitButton
                   idleLabel={t("coach.assign")}
                   pendingLabel={tcl("assigning")}

@@ -50,7 +50,7 @@ export async function UnassignedClientsCard({ rows, truncated = false, scanned =
       <CardContent>
         {rows.length === 0 ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <CheckCircle2 className="size-4 text-emerald-500" />
+            <CheckCircle2 className="size-4 text-success" />
             {truncated
               ? t("unassignedSoonEmptyTruncated", { count: scanned })
               : t("unassignedSoonEmpty")}

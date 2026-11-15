@@ -27,7 +27,7 @@ export function FormDraftRestoredNotice({
     <div
       role="status"
       data-testid="form-draft-restored"
-      className="flex flex-col gap-2 rounded-md border border-sky-500/40 bg-sky-500/10 p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+      className="flex flex-col gap-2 rounded-md border border-info/40 bg-info/10 p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
     >
       <p className="flex items-start gap-2">
         <History className="mt-0.5 size-4 shrink-0" aria-hidden="true" />

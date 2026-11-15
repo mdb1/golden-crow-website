@@ -47,15 +47,15 @@ const WEEKDAY_KEYS = [
 /** Workout chip colouring by status — same semantics as the coach calendar. */
 const WORKOUT_STATUS_CLASS: Record<string, string> = {
   completed:
-    "border-emerald-500/40 bg-emerald-500/15 text-emerald-800 dark:text-emerald-300",
-  started: "border-sky-500/40 bg-sky-500/15 text-sky-800 dark:text-sky-300",
-  missed: "border-rose-500/40 bg-rose-500/15 text-rose-800 dark:text-rose-300",
-  scheduled: "border-amber-500/40 bg-amber-500/15 text-amber-800 dark:text-amber-300",
+    "border-success/40 bg-success/15 text-success",
+  started: "border-info/40 bg-info/15 text-info",
+  missed: "border-danger/40 bg-danger/15 text-danger",
+  scheduled: "border-warning/40 bg-warning/15 text-warning",
 };
 
 const HABIT_STATUS_CLASS: Record<string, string> = {
-  done: "bg-emerald-500",
-  missed: "bg-rose-500",
+  done: "bg-success",
+  missed: "bg-danger",
   scheduled: "bg-muted-foreground/40",
 };
 
@@ -230,10 +230,10 @@ export function AdminReadOnlyCalendar({
       </div>
 
       <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-        <LegendDot className="bg-amber-500" label={t("legend.scheduled")} />
-        <LegendDot className="bg-sky-500" label={t("legend.started")} />
-        <LegendDot className="bg-emerald-500" label={t("legend.completed")} />
-        <LegendDot className="bg-rose-500" label={t("legend.missed")} />
+        <LegendDot className="bg-warning" label={t("legend.scheduled")} />
+        <LegendDot className="bg-info" label={t("legend.started")} />
+        <LegendDot className="bg-success" label={t("legend.completed")} />
+        <LegendDot className="bg-danger" label={t("legend.missed")} />
         <span className="inline-flex items-center gap-1">
           <User className="size-3" aria-hidden /> {t("legend.selfCreated")}
         </span>

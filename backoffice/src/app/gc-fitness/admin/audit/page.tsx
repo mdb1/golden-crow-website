@@ -11,6 +11,7 @@
 // translation lives in `activity-feed-model.ts` (pure) + `activity-feed-actions.ts`
 // (reader); this page is filters + layout.
 
+import { FormSelect } from "@/components/gc-fitness/form-select";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { redirect } from "next/navigation";
@@ -228,17 +229,12 @@ export default async function AuditPage({
 
             <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
               {t("filters.source")}
-              <select
+              <FormSelect
                 name="source"
                 defaultValue={source}
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-              >
-                {SOURCE_OPTIONS.map((value) => (
-                  <option key={value} value={value}>
-                    {sourceLabel(value)}
-                  </option>
-                ))}
-              </select>
+                className="font-normal data-[size=default]:h-9"
+                options={SOURCE_OPTIONS.map((value) => ({ value, label: sourceLabel(value) }))}
+              />
             </label>
 
             <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">

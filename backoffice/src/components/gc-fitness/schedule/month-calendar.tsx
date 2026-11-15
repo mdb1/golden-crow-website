@@ -104,14 +104,14 @@ const WEEKDAY_HEADERS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 // surface starts neutral and only gains client color after the trainer
 // actively picks clients.
 const CLIENT_PALETTE = [
-  { chip: "bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/40", dot: "bg-amber-500", text: "text-amber-700 dark:text-amber-300" },
-  { chip: "bg-sky-500/15 text-sky-800 dark:text-sky-300 border-sky-500/40", dot: "bg-sky-500", text: "text-sky-700 dark:text-sky-300" },
-  { chip: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-500/40", dot: "bg-emerald-500", text: "text-emerald-700 dark:text-emerald-300" },
-  { chip: "bg-violet-500/15 text-violet-800 dark:text-violet-300 border-violet-500/40", dot: "bg-violet-500", text: "text-violet-700 dark:text-violet-300" },
-  { chip: "bg-rose-500/15 text-rose-800 dark:text-rose-300 border-rose-500/40", dot: "bg-rose-500", text: "text-rose-700 dark:text-rose-300" },
-  { chip: "bg-orange-500/15 text-orange-800 dark:text-orange-300 border-orange-500/40", dot: "bg-orange-500", text: "text-orange-700 dark:text-orange-300" },
-  { chip: "bg-cyan-500/15 text-cyan-800 dark:text-cyan-300 border-cyan-500/40", dot: "bg-cyan-500", text: "text-cyan-700 dark:text-cyan-300" },
-  { chip: "bg-indigo-500/15 text-indigo-800 dark:text-indigo-300 border-indigo-500/40", dot: "bg-indigo-500", text: "text-indigo-700 dark:text-indigo-300" },
+  { chip: "bg-category-1/15 text-category-1 border-category-1/40", dot: "bg-category-1", text: "text-category-1" },
+  { chip: "bg-category-2/15 text-category-2 border-category-2/40", dot: "bg-category-2", text: "text-category-2" },
+  { chip: "bg-category-3/15 text-category-3 border-category-3/40", dot: "bg-category-3", text: "text-category-3" },
+  { chip: "bg-category-4/15 text-category-4 border-category-4/40", dot: "bg-category-4", text: "text-category-4" },
+  { chip: "bg-category-5/15 text-category-5 border-category-5/40", dot: "bg-category-5", text: "text-category-5" },
+  { chip: "bg-category-6/15 text-category-6 border-category-6/40", dot: "bg-category-6", text: "text-category-6" },
+  { chip: "bg-category-7/15 text-category-7 border-category-7/40", dot: "bg-category-7", text: "text-category-7" },
+  { chip: "bg-category-8/15 text-category-8 border-category-8/40", dot: "bg-category-8", text: "text-category-8" },
 ];
 
 const NEUTRAL_CLIENT_PALETTE = {
@@ -135,11 +135,11 @@ const STATUS_PALETTE: Record<
   string
 > = {
   completed:
-    "border-emerald-500/50 bg-emerald-500/15 text-emerald-900 dark:text-emerald-200",
-  done: "border-emerald-500/50 bg-emerald-500/15 text-emerald-900 dark:text-emerald-200",
+    "border-success/50 bg-success/15 text-success",
+  done: "border-success/50 bg-success/15 text-success",
   started: "",
   missed:
-    "border-rose-400/40 bg-rose-500/10 text-rose-900 dark:text-rose-200",
+    "border-danger/40 bg-danger/10 text-danger",
   scheduled: "",
 };
 
@@ -783,7 +783,7 @@ export function MonthCalendar({
               onChange={(e) => setShowWorkouts(e.target.checked)}
               className="size-4 rounded border accent-primary"
             />
-            <Dumbbell className="size-4 text-amber-600 dark:text-amber-400" />
+            <Dumbbell className="size-4 text-warning" />
             {t("workouts")}
           </label>
           <label className="inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-full px-3 text-sm">
@@ -793,7 +793,7 @@ export function MonthCalendar({
               onChange={(e) => setShowHabits(e.target.checked)}
               className="size-4 rounded border accent-primary"
             />
-            <Circle className="size-4 text-emerald-600 dark:text-emerald-400" />
+            <Circle className="size-4 text-success" />
             {t("habits")}
           </label>
         </div>
@@ -801,7 +801,7 @@ export function MonthCalendar({
 
       {/* ── Calendar surface ───────────────────────────────────────────── */}
       {selectedIds.size === 0 ? (
-        <div className="rounded-[1.25rem] border border-dashed p-10 text-center text-sm text-muted-foreground">
+        <div className="rounded-card border border-dashed p-10 text-center text-sm text-muted-foreground">
           {t("pickClientsPrompt")}
         </div>
       ) : (
@@ -815,7 +815,7 @@ export function MonthCalendar({
               stays fully visible + interactive (placeholderData keeps the prior
               data), so this never blocks. */}
           {isFetching ? (
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-30 h-1 overflow-hidden rounded-t-[1.25rem]">
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-30 h-1 overflow-hidden rounded-t-card">
               <div className="gc-loading-bar h-full w-full" />
             </div>
           ) : null}
@@ -1035,7 +1035,7 @@ export function MonthCalendar({
       )}
 
       {/* ── Glossary footer (status colors at a glance) ───────────────── */}
-      <section className="rounded-[1.25rem] border bg-card/95 p-3 text-xs shadow-sm">
+      <section className="rounded-card border bg-card/95 p-3 text-xs shadow-sm">
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           Referencia de colores
         </p>
@@ -1047,11 +1047,11 @@ export function MonthCalendar({
           />
           <LegendItem
             label="Completado"
-            tone="border-emerald-500/50 bg-emerald-500/15 text-emerald-900 dark:text-emerald-200"
+            tone="border-success/50 bg-success/15 text-success"
           />
           <LegendItem
             label="No realizado"
-            tone="border-rose-400/40 bg-rose-500/10 text-rose-900 dark:text-rose-200"
+            tone="border-danger/40 bg-danger/10 text-danger"
           />
           <LegendItem
             label="Hoy"
@@ -1068,7 +1068,7 @@ export function MonthCalendar({
           onClick={() => setPickClientForDate(null)}
         >
           <div
-            className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[1.25rem] border bg-background p-4 shadow-2xl"
+            className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-card border bg-background p-4 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <p className="mb-2 text-sm font-medium">
@@ -1237,7 +1237,7 @@ export function MonthCalendar({
       />
 
       {clients.length === 0 ? (
-        <p className="rounded-[1.25rem] border border-dashed p-6 text-center text-sm text-muted-foreground">
+        <p className="rounded-card border border-dashed p-6 text-center text-sm text-muted-foreground">
           No tenés clientes activos todavía.
         </p>
       ) : null}
@@ -1340,7 +1340,7 @@ function DayCell({
           {birthdayNames.map(({ name, age }) => (
             <span
               key={name}
-              className="inline-flex items-center rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] font-medium text-violet-900 dark:text-violet-200"
+              className="inline-flex items-center rounded-full border border-highlight/30 bg-highlight/10 px-2 py-0.5 text-[10px] font-medium text-highlight"
             >
               🎂 {birthdayBadge}: {name}
               {age != null ? ` · ${age} ${locale === "es" ? "años" : "years"}` : ""}
@@ -1540,7 +1540,7 @@ function ClientDayCell({
     >
       <div className="flex min-h-[88px] min-w-0 flex-col gap-1.5">
         {isBirthday ? (
-          <span className="inline-flex w-fit items-center rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] font-medium text-violet-900 dark:text-violet-200">
+          <span className="inline-flex w-fit items-center rounded-full border border-highlight/30 bg-highlight/10 px-2 py-0.5 text-[10px] font-medium text-highlight">
             🎂 {birthdayBadge}
             {birthdayAge != null ? ` · ${birthdayAge} ${locale === "es" ? "años" : "years"}` : ""}
           </span>
@@ -1740,10 +1740,10 @@ function ageOnCivilDate(birthDate: string | null | undefined, civil: string): nu
 
 function StatusGlyph({ status }: { status: MonthWorkoutChip["status"] }) {
   if (status === "completed") {
-    return <CheckCircle2 className="size-3 text-emerald-600 dark:text-emerald-400" />;
+    return <CheckCircle2 className="size-3 text-success" />;
   }
   if (status === "missed") {
-    return <XCircle className="size-3 text-rose-600 dark:text-rose-400" />;
+    return <XCircle className="size-3 text-danger" />;
   }
   return <Dumbbell className="size-3 opacity-70" />;
 }
@@ -1762,10 +1762,10 @@ function StatusGlyph({ status }: { status: MonthWorkoutChip["status"] }) {
 function StatusDogear({ status }: { status: MonthWorkoutChip["status"] }) {
   const tone =
     status === "completed"
-      ? "bg-emerald-500"
+      ? "bg-success"
       : status === "missed"
-          ? "bg-rose-500"
-          : "bg-amber-500";
+          ? "bg-danger"
+          : "bg-warning";
   const titleLabel =
     status === "completed"
       ? "Completado"
@@ -1880,7 +1880,7 @@ function AddPopover({
             setOpen(false);
           }}
         >
-          <Dumbbell className="size-4 text-amber-600 dark:text-amber-400" />
+          <Dumbbell className="size-4 text-warning" />
           {t("addMenuWorkout")}
         </button>
         <button
@@ -1891,7 +1891,7 @@ function AddPopover({
             setOpen(false);
           }}
         >
-          <Circle className="size-4 text-emerald-600 dark:text-emerald-400" />
+          <Circle className="size-4 text-success" />
           {t("addMenuHabit")}
         </button>
       </PopoverContent>
@@ -1916,7 +1916,7 @@ function LegendItem({
         className={cn(
           "inline-flex h-4 w-7 items-center justify-center rounded border text-[9px] font-semibold",
           tone ??
-            "border-amber-500 bg-amber-50 text-amber-900 dark:border-amber-400 dark:bg-amber-950/40 dark:text-amber-200",
+            "border-warning bg-warning-soft text-warning",
         )}
       >
         {sample ?? ""}

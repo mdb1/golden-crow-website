@@ -341,7 +341,7 @@ export function WorkoutGeneratorWizard({ clients, trainerTimezone }: Props) {
     return (
       <div className="flex flex-col gap-6">
         <div className="flex flex-col items-center gap-2 rounded-2xl border bg-card p-6 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-success/15 text-success">
             <Check className="h-6 w-6" />
           </div>
           <h2 className="font-heading text-xl font-semibold">{s.successTitle}</h2>
@@ -397,7 +397,7 @@ export function WorkoutGeneratorWizard({ clients, trainerTimezone }: Props) {
         </div>
 
         {poolWarning ? (
-          <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
+          <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning">
             {poolWarning}
           </p>
         ) : null}

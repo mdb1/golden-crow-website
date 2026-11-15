@@ -273,10 +273,10 @@ export function TopPerformers({ performers, emptyLabel }: TopPerformersProps) {
               className={cn(
                 "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
                 idx === 0
-                  ? "bg-amber-500/20 text-amber-400"
+                  ? "bg-accent text-accent-foreground"
                   : idx === 1
-                    ? "bg-slate-400/15 text-slate-300"
-                    : "bg-orange-700/15 text-orange-400",
+                    ? "bg-muted text-muted-foreground"
+                    : "bg-category-6/15 text-category-6",
               )}
             >
               {idx + 1}

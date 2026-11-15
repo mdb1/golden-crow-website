@@ -13,16 +13,16 @@ function habitChipClass(status: MonthHabitChip["status"]): string {
   if (status === "scheduled")
     return "border-border bg-card text-muted-foreground";
   if (status === "done")
-    return "border-emerald-500/50 bg-emerald-500/15 text-emerald-900 dark:text-emerald-200";
-  return "border-rose-400/40 bg-rose-500/10 text-rose-900 dark:text-rose-200";
+    return "border-success/50 bg-success/15 text-success";
+  return "border-danger/40 bg-danger/10 text-danger";
 }
 
 function HabitStatusGlyph({ status }: { status: MonthHabitChip["status"] }) {
   if (status === "done") {
-    return <CheckCircle2 className="size-2.5 text-emerald-600 dark:text-emerald-400" />;
+    return <CheckCircle2 className="size-2.5 text-success" />;
   }
   if (status === "missed") {
-    return <XCircle className="size-2.5 text-rose-600 dark:text-rose-400" />;
+    return <XCircle className="size-2.5 text-danger" />;
   }
   return <Circle className="size-2.5 opacity-60" />;
 }

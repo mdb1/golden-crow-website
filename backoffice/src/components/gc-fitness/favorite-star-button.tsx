@@ -57,7 +57,7 @@ export function FavoriteStarButton({
         style={{ width: size, height: size }}
         className={cn(
           active
-            ? "fill-amber-400 text-amber-400"
+            ? "fill-primary text-primary"
             : "text-muted-foreground/60 hover:text-muted-foreground",
         )}
         aria-hidden="true"

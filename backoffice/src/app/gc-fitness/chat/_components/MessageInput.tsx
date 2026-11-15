@@ -596,7 +596,7 @@ export function MessageInput({
         </button>
       </div>
       {disabled ? (
-        <p className="text-xs text-amber-700" role="status">
+        <p className="text-xs text-warning" role="status">
           {t("pendingClientBlocked")}
         </p>
       ) : null}

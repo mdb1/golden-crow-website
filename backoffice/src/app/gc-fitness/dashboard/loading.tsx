@@ -24,7 +24,7 @@ export default function DashboardLoading() {
         {Array.from({ length: 4 }).map((_, idx) => (
           <div
             key={idx}
-            className="flex flex-col gap-3 rounded-[1.25rem] border bg-card p-5 shadow-sm"
+            className="flex flex-col gap-3 rounded-card border bg-card p-5 shadow-sm"
           >
             <div className="flex items-start justify-between">
               <Skeleton className="size-10 rounded-xl" />
@@ -43,7 +43,7 @@ export default function DashboardLoading() {
         {Array.from({ length: 2 }).map((_, idx) => (
           <div
             key={idx}
-            className="flex flex-col gap-4 rounded-[1.25rem] border bg-card p-5 shadow-sm"
+            className="flex flex-col gap-4 rounded-card border bg-card p-5 shadow-sm"
           >
             <Skeleton className="h-6 w-40" />
             <Skeleton className="h-48 w-full rounded-xl" />
@@ -52,7 +52,7 @@ export default function DashboardLoading() {
       </div>
 
       {/* Recent-activity list card */}
-      <div className="flex flex-col gap-4 rounded-[1.25rem] border bg-card p-5 shadow-sm">
+      <div className="flex flex-col gap-4 rounded-card border bg-card p-5 shadow-sm">
         <div className="flex items-start justify-between gap-3">
           <Skeleton className="h-6 w-48" />
           <Skeleton className="h-8 w-24 rounded-full" />

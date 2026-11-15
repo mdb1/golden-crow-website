@@ -301,13 +301,13 @@ export function ActiveWorkoutSession({
               onClick={timer.sheetOpen ? timer.minimize : timer.expand}
               className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
                 timer.isPaused
-                  ? "border-slate-400/40 bg-slate-500/10 text-slate-700 hover:bg-slate-500/15 dark:text-slate-300"
-                  : "border-amber-400/40 bg-amber-500/10 text-amber-700 hover:bg-amber-500/15 dark:text-amber-300"
+                  ? "border-muted-foreground/40 bg-muted-foreground/10 text-muted-foreground hover:bg-muted-foreground/15"
+                  : "border-warning/40 bg-warning/10 text-warning hover:bg-warning/15"
               }`}
             >
               <span
                 className={`h-1.5 w-1.5 rounded-full ${
-                  timer.isPaused ? "bg-slate-500" : "bg-amber-500"
+                  timer.isPaused ? "bg-muted-foreground" : "bg-warning"
                 }`}
               />
               <Timer className="h-3.5 w-3.5" />
@@ -330,22 +330,22 @@ export function ActiveWorkoutSession({
           {live.doneCount} / {live.totalPlanned} series completadas
         </p>
         {timer.active ? (
-          <div className="sticky top-16 z-20 mt-3 overflow-hidden rounded-2xl border border-amber-400/60 bg-gradient-to-r from-amber-500/18 via-amber-400/10 to-background px-3 py-3 shadow-lg ring-1 ring-amber-400/20 backdrop-blur">
+          <div className="sticky top-16 z-20 mt-3 overflow-hidden rounded-2xl border border-warning/60 bg-gradient-to-r from-warning/18 via-warning/10 to-background px-3 py-3 shadow-lg ring-1 ring-warning/20 backdrop-blur">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Timer
                   className={`h-4 w-4 ${
                     timer.isPaused
-                      ? "text-slate-500 dark:text-slate-300"
-                      : "text-amber-600 dark:text-amber-300"
+                      ? "text-muted-foreground"
+                      : "text-warning"
                   }`}
                 />
                 <div>
                   <p
                     className={`text-sm font-semibold ${
                       timer.isPaused
-                        ? "text-slate-700 dark:text-slate-300"
-                        : "text-amber-700 dark:text-amber-300"
+                        ? "text-muted-foreground"
+                        : "text-warning"
                     }`}
                   >
                     Descanso en curso
@@ -360,8 +360,8 @@ export function ActiveWorkoutSession({
                 onClick={timer.sheetOpen ? timer.minimize : timer.expand}
                 className={`rounded-full border bg-background/85 px-3 py-1.5 text-xs font-medium shadow-sm transition-colors hover:bg-background ${
                   timer.isPaused
-                    ? "border-slate-500/30 text-slate-700 dark:text-slate-300"
-                    : "border-amber-500/30 text-amber-700 dark:text-amber-300"
+                    ? "border-muted-foreground/30 text-muted-foreground"
+                    : "border-warning/30 text-warning"
                 }`}
               >
                 {timer.sheetOpen ? "Minimizar" : "Abrir"}
@@ -371,8 +371,8 @@ export function ActiveWorkoutSession({
               <div
                 className={`font-mono text-4xl font-semibold tabular-nums ${
                   timer.isPaused
-                    ? "text-slate-700 dark:text-slate-300"
-                    : "text-amber-700 dark:text-amber-300"
+                    ? "text-muted-foreground"
+                    : "text-warning"
                 }`}
               >
                 {Math.floor(timer.remainingSeconds / 60)}:
@@ -382,8 +382,8 @@ export function ActiveWorkoutSession({
                 <span
                   className={`rounded-full px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide ${
                     timer.isPaused
-                      ? "bg-slate-500/15 text-slate-700 dark:text-slate-300"
-                      : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                      ? "bg-muted-foreground/15 text-muted-foreground"
+                      : "bg-warning/15 text-warning"
                   }`}
                 >
                   {timer.isPaused ? "Pausado" : "Corriendo"}
@@ -402,14 +402,14 @@ export function ActiveWorkoutSession({
 
         {/* Meeting link / reunion (#6) */}
         {session.meetingNotes ? (
-          <div className="mt-3 flex items-start gap-2 rounded-xl border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-sm">
-            <Video className="mt-0.5 h-4 w-4 shrink-0 text-sky-500" />
+          <div className="mt-3 flex items-start gap-2 rounded-xl border border-info/30 bg-info/10 px-3 py-2 text-sm">
+            <Video className="mt-0.5 h-4 w-4 shrink-0 text-info" />
             {isUrl(session.meetingNotes) ? (
               <a
                 href={session.meetingNotes}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="break-all font-medium text-sky-600 underline"
+                className="break-all font-medium text-info underline"
               >
                 {session.meetingNotes}
               </a>
@@ -427,10 +427,10 @@ export function ActiveWorkoutSession({
             return (
               <div
                 key={`ss-${bi}`}
-                className="space-y-3 rounded-3xl border border-violet-500/30 bg-violet-500/5 p-3"
+                className="space-y-3 rounded-3xl border border-highlight/30 bg-highlight/5 p-3"
               >
                 <div className="flex items-center justify-between px-1">
-                  <span className="rounded-full bg-violet-500/20 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-violet-600">
+                  <span className="rounded-full bg-highlight/20 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-highlight">
                     Superserie {block.groupLabel}
                   </span>
                   <span className="text-xs text-muted-foreground">

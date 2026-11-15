@@ -94,7 +94,7 @@ export function ChecklistClientPicker({
           </Button>
         </div>
       </div>
-      <div className="max-h-56 overflow-y-auto rounded-[1.25rem] border border-border bg-card p-3">
+      <div className="max-h-56 overflow-y-auto rounded-card border border-border bg-card p-3">
         {clients.length === 0 ? (
           <p className="px-3 py-2 text-sm text-muted-foreground">
             No hay clientes.

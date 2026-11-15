@@ -484,13 +484,13 @@ function itemIcon(item: PeekItem) {
 
 function itemClassName(item: PeekItem): string {
   if (item.status === "completed") {
-    return "border-emerald-500/40 bg-emerald-500/10 text-emerald-900 dark:text-emerald-200";
+    return "border-success/40 bg-success/10 text-success";
   }
   if (item.status === "missed") {
-    return "border-rose-400/40 bg-rose-500/10 text-rose-900 dark:text-rose-200";
+    return "border-danger/40 bg-danger/10 text-danger";
   }
   if (item.status === "started") {
-    return "border-sky-500/40 bg-sky-500/10 text-sky-900 dark:text-sky-200";
+    return "border-info/40 bg-info/10 text-info";
   }
   return "border-border bg-muted/40 text-foreground";
 }

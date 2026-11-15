@@ -107,7 +107,7 @@ export function CoachProfileForm({
   }
 
   return (
-    <section className="rounded-[1.25rem] border bg-card p-5 shadow-sm">
+    <section className="rounded-card border bg-card p-5 shadow-sm">
       <div className="mb-4 flex flex-col gap-1">
         <h2 className="font-heading text-lg font-semibold text-foreground">
           {t("title")}

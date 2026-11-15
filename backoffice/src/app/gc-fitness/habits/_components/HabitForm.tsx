@@ -621,7 +621,7 @@ export function HabitForm({
         </div>
 
         {/* Reminder block */}
-        <div className="flex flex-col gap-3 rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
+        <div className="flex flex-col gap-3 rounded-card border border-border bg-card p-5 shadow-sm">
           <h2 className="font-heading text-base font-semibold tracking-tight">
             {t("scheduleHeading")}
           </h2>
@@ -915,7 +915,7 @@ export function HabitForm({
           ) : null}
         </div>
 
-        <div className="flex flex-col gap-3 rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
+        <div className="flex flex-col gap-3 rounded-card border border-border bg-card p-5 shadow-sm">
           <Controller
             control={form.control}
             name="reminderEnabled"

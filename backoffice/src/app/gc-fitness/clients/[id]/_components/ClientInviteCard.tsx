@@ -87,7 +87,7 @@ export function ClientInviteCard({
           : { Icon: MailWarning, tone: "text-muted-foreground", headline: t("statusUnknown") };
 
   return (
-    <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
+    <section className="rounded-card border border-border bg-card p-5 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
           <Icon className={`mt-0.5 size-5 shrink-0 ${tone}`} aria-hidden />

@@ -129,7 +129,7 @@ export async function PendingClientPreload({
   return (
     <div className="flex flex-col gap-6">
       {/* ── Workouts section ──────────────────────────────────────────── */}
-      <section className="rounded-[1.25rem] border border-border bg-card p-6 shadow-sm">
+      <section className="rounded-card border border-border bg-card p-6 shadow-sm">
         <h2 className="mb-3 text-base font-semibold">Pre-cargar entrenamientos</h2>
 
         {pendingWorkouts.length > 0 ? (
@@ -182,7 +182,7 @@ export async function PendingClientPreload({
       </section>
 
       {/* ── Habits section ────────────────────────────────────────────── */}
-      <section className="rounded-[1.25rem] border border-border bg-card p-6 shadow-sm">
+      <section className="rounded-card border border-border bg-card p-6 shadow-sm">
         <h2 className="mb-3 text-base font-semibold">Pre-cargar hábitos</h2>
 
         {pendingHabits.length > 0 ? (

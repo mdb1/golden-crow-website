@@ -33,7 +33,7 @@ import {
 
 const SLA_CLASS: Record<ReturnType<typeof slaState>, string> = {
   fresh: "text-muted-foreground",
-  "due-soon": "text-amber-600 font-medium",
+  "due-soon": "text-status-due font-medium",
   breached: "text-destructive font-semibold",
 };
 
@@ -116,7 +116,7 @@ export function ModerationQueue({
                       {tm("reportCount", { count: group.reports.length })}
                     </span>
                     {preview?.hidden ? (
-                      <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-700">{tm("badges.hidden")}</span>
+                      <span className="rounded-full bg-warning/15 px-2 py-0.5 text-warning">{tm("badges.hidden")}</span>
                     ) : null}
                     {preview?.ownerSuspended ? (
                       <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-destructive">{tm("badges.suspended")}</span>
@@ -190,7 +190,7 @@ export function ModerationQueue({
                               idleLabel={tm("actions.hide")}
                               pendingLabel={tm("actions.hiding")}
                               disabled={preview?.hidden === true}
-                              className="rounded-full border border-amber-600/50 px-3 py-1.5 text-sm text-amber-700"
+                              className="rounded-full border border-warning/50 px-3 py-1.5 text-sm text-warning"
                             />
                           </AdminActionForm>
                         );

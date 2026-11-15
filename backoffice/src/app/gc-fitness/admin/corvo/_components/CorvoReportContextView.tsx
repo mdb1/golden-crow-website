@@ -23,7 +23,7 @@ export function CorvoReportContextView({ context }: { context: CorvoReportContex
   const { report } = context;
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm" data-testid="corvo-context-report">
+      <div className="rounded-2xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm" data-testid="corvo-context-report">
         <p className="font-semibold">
           {tReason(report.reason)} · {t("reportedBy", { user: report.email ?? report.uid })}
         </p>
@@ -49,14 +49,14 @@ export function CorvoReportContextView({ context }: { context: CorvoReportContex
               className={cn(
                 "max-w-[85%] rounded-2xl border px-4 py-3 text-sm",
                 m.role === "user" ? "self-end bg-muted/50" : "self-start bg-card",
-                m.isReported && "border-2 border-amber-500",
+                m.isReported && "border-2 border-warning",
               )}
             >
               <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
                 <span className="font-semibold text-foreground">{t(m.role)}</span>
                 {m.createdAtISO ? <span>{m.createdAtISO.slice(0, 16).replace("T", " ")}</span> : null}
                 {m.isReported ? (
-                  <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-700 dark:text-amber-300">
+                  <span className="rounded-full bg-warning/15 px-2 py-0.5 text-warning">
                     {t("reportedBadge")}
                   </span>
                 ) : null}

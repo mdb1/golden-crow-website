@@ -260,7 +260,7 @@ export default async function AdminPage({
         </CardContent>
       </Card>
 
-      <Card className={openReportsCount > 0 ? "border-amber-500/50" : undefined}>
+      <Card className={openReportsCount > 0 ? "border-warning/50" : undefined}>
         <CardHeader>
           <CardTitle className="text-xl">{t("moderation.title")}</CardTitle>
           <CardDescription>

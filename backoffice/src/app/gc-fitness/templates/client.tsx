@@ -452,7 +452,7 @@ export function TemplatesLibraryClient({
         <>
       {/* Search row — rounded input with leading icon + filter affordance +
           Todos / Creados por mí pill toggle. */}
-      <div className="flex flex-wrap items-center gap-3 rounded-[1.25rem] border border-border bg-card px-3 py-2.5 shadow-sm">
+      <div className="flex flex-wrap items-center gap-3 rounded-card border border-border bg-card px-3 py-2.5 shadow-sm">
         <SlidersHorizontal
           aria-hidden="true"
           className="h-4 w-4 shrink-0 text-muted-foreground"
@@ -506,14 +506,14 @@ export function TemplatesLibraryClient({
           className={cn(
             "inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
             favoritesOnly
-              ? "bg-amber-100 text-amber-700 ring-1 ring-amber-300 dark:bg-amber-400/15 dark:text-amber-300"
+              ? "bg-accent text-accent-foreground ring-1 ring-primary/40"
               : "bg-muted/70 text-muted-foreground hover:text-foreground",
           )}
         >
           <Star
             className={cn(
               "h-4 w-4",
-              favoritesOnly ? "fill-amber-400 text-amber-500" : "",
+              favoritesOnly ? "fill-primary text-primary" : "",
             )}
             aria-hidden="true"
           />
@@ -526,7 +526,7 @@ export function TemplatesLibraryClient({
           className={cn(
             "inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
             sortByAssignments
-              ? "bg-violet-100 text-violet-700 ring-1 ring-violet-300 dark:bg-violet-400/15 dark:text-violet-300"
+              ? "bg-highlight-soft text-highlight ring-1 ring-highlight/40"
               : "bg-muted/70 text-muted-foreground hover:text-foreground",
           )}
         >
@@ -604,9 +604,9 @@ export function TemplatesLibraryClient({
                       }
                     }}
                     className={cn(
-                      "flex cursor-pointer items-center gap-3 px-4 py-3.5 transition-colors first:rounded-t-[1.25rem] last:rounded-b-[1.25rem] hover:bg-muted/50 sm:px-5",
+                      "flex cursor-pointer items-center gap-3 px-4 py-3.5 transition-colors first:rounded-t-card last:rounded-b-card hover:bg-muted/50 sm:px-5",
                       (row.__isDraft || row.__hasPendingDraft) &&
-                        "bg-amber-500/[0.06] hover:bg-amber-500/[0.1] dark:bg-amber-400/[0.06] dark:hover:bg-amber-400/[0.1]",
+                        "bg-warning/[0.06] hover:bg-warning/[0.1]",
                     )}
                   >
                     {row.__isDraft ? (
@@ -616,7 +616,7 @@ export function TemplatesLibraryClient({
                             aria-label={columnsT("draftBadgeTooltip")}
                             className="inline-flex shrink-0"
                           >
-                            <AlertCircle className="h-4 w-4 text-amber-500" />
+                            <AlertCircle className="h-4 w-4 text-warning" />
                           </span>
                         </TooltipTrigger>
                         <TooltipContent>

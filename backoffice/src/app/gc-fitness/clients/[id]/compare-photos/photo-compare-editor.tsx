@@ -5,6 +5,7 @@ import { useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useLocale } from "next-intl";
 import { GOLDENCROW_LOGO_DATA_URI } from "@/components/gc-fitness/goldencrow-logo-data";
+import { FormSelect } from "@/components/gc-fitness/form-select";
 import type { ProgressPhotoRow } from "@/lib/gc-fitness/progress-photo-actions";
 import {
   formatClientActivityFullDate,
@@ -139,51 +140,54 @@ export function ProgressPhotoCompareEditor({
   }
 
   return (
-    <section className="rounded-[1.25rem] border bg-card p-4 shadow-sm">
+    <section className="rounded-card border bg-card p-4 shadow-sm">
       <div className="mb-3 flex flex-wrap gap-2">
-        <select
-          className="h-10 rounded-md border px-2"
+        <FormSelect
+          aria-label="Angle"
+          className="w-auto data-[size=default]:h-10"
           value={angle}
-          onChange={(e) => {
-            const nextAngle = e.target.value as Angle;
+          options={[
+            { value: "front", label: "Front" },
+            { value: "side", label: "Side" },
+            { value: "back", label: "Back" },
+          ]}
+          onValueChange={(v) => {
+            const nextAngle = v as Angle;
             const defaults = defaultsForAngle(nextAngle);
             setAngle(nextAngle);
             setBeforeId(defaults.before);
             setAfterId(defaults.after);
           }}
-        >
-          <option value="front">Front</option><option value="side">Side</option><option value="back">Back</option>
-        </select>
-        <select className="h-10 rounded-md border px-2" value={beforeId} onChange={(e) => selectBefore(e.target.value)}>
-          <option value="">Before</option>
-          {angled.map((p) => (
-            <option
-              key={p.id}
-              value={p.id}
-              // #308 — offered only when something is strictly later than it.
-              // Subsumes "the newest is never a before" (#435 rule 3) and also
-              // rules out a second photo taken on that same newest day.
-              disabled={newestStrictlyAfter(p, angled, timezone) === undefined}
-            >
-              {photoDisplayDate(p, timezone, locale)}
-            </option>
-          ))}
-        </select>
-        <select className="h-10 rounded-md border px-2" value={afterId} onChange={(e) => setAfterId(e.target.value)}>
-          <option value="">After</option>
-          {angled.map((p) => {
+        />
+        <FormSelect
+          aria-label="Before"
+          placeholder="Before"
+          className="w-auto data-[size=default]:h-10"
+          value={beforeId}
+          onValueChange={selectBefore}
+          options={[{ value: "", label: "Before" }, ...angled.map((p) => ({
+            value: p.id,
+            label: photoDisplayDate(p, timezone, locale),
+            // #308 — offered only when something is strictly later than it.
+            // Subsumes "the newest is never a before" (#435 rule 3) and also
+            // rules out a second photo taken on that same newest day.
+            disabled: newestStrictlyAfter(p, angled, timezone) === undefined,
+          }))]}
+        />
+        <FormSelect
+          aria-label="After"
+          placeholder="After"
+          className="w-auto data-[size=default]:h-10"
+          value={afterId}
+          onValueChange={setAfterId}
+          options={[{ value: "", label: "After" }, ...angled.map((p) => {
             const elapsed = beforeYMD ? elapsedFromBefore(beforeYMD, p, timezone) : null;
-            const disabled = p.id === oldestId || elapsed === null;
             const label = elapsed
               ? `${photoDisplayDate(p, timezone, locale)} (${formatElapsed(elapsed, locale)})`
               : photoDisplayDate(p, timezone, locale);
-            return (
-              <option key={p.id} value={p.id} disabled={disabled}>
-                {label}
-              </option>
-            );
-          })}
-        </select>
+            return { value: p.id, label, disabled: p.id === oldestId || elapsed === null };
+          })]}
+        />
       </div>
       {before?.url && after?.url ? (
         <div className="space-y-4">
