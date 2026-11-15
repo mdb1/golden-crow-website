@@ -776,7 +776,7 @@ describe("publisher app config contract", () => {
     });
     expect(published).toMatchObject({
       id: testing.id, status: "active_waiting_for_payment", appProviderIdentifier: testing.appProviderIdentifier,
-      runtimeRevision: testing.runtimeRevision + 1, termsVersion: "2026-10-31",
+      runtimeRevision: testing.runtimeRevision + 1, termsVersion: "2026-11-01",
       termsAcceptedAt: expect.any(String), termsAcceptedByUserId: publisherContext.uid, updatedByUserId: publisherContext.uid,
     });
     expect(collectionStore("app_configs").get(testing.id)).toMatchObject({
@@ -820,7 +820,7 @@ describe("publisher app config contract", () => {
     expect(published).toMatchObject({
       id: testing.id, status: "active_waiting_for_payment", appProviderIdentifier: testing.appProviderIdentifier,
       runtimeRevision: testing.runtimeRevision + 1, colors: testing.colors,
-      termsVersion: "2026-10-31", termsAcceptedByUserId: publisherContext.uid, updatedByUserId: publisherContext.uid,
+      termsVersion: "2026-11-01", termsAcceptedByUserId: publisherContext.uid, updatedByUserId: publisherContext.uid,
       termsAcceptedAt: expect.any(String),
     });
     expect(published.termsAcceptedAt).toBe(published.updatedAt);
@@ -850,7 +850,7 @@ describe("publisher app config contract", () => {
     expect(identifierReplay.json()).toEqual(signed.json());
     const edited = await fastify.inject({ method: "PUT", url: "/publisher-app/config", payload: { ...validBody, profileEnabled: true } });
     expect(edited.statusCode).toBe(200);
-    expect(edited.json().config).toMatchObject({ status: "active_waiting_for_payment", termsAcceptedAt: published.termsAcceptedAt, termsAcceptedByUserId: publisherContext.uid, termsVersion: "2026-10-31" });
+    expect(edited.json().config).toMatchObject({ status: "active_waiting_for_payment", termsAcceptedAt: published.termsAcceptedAt, termsAcceptedByUserId: publisherContext.uid, termsVersion: "2026-11-01" });
   });
 
   it("records the actual GOD MODE operator when signing for the selected organization", async () => {
@@ -934,7 +934,7 @@ describe("publisher app config contract", () => {
       collectionStore("app_configs").set(testing.id, {
         ...collectionStore("app_configs").get(testing.id),
         status: "active_waiting_for_payment", runtimeRevision: 2,
-        termsAcceptedAt: new Date(FIXED_TIME + 10_000), termsAcceptedByUserId: "concurrent-signing-user", termsVersion: "2026-10-31",
+        termsAcceptedAt: new Date(FIXED_TIME + 10_000), termsAcceptedByUserId: "concurrent-signing-user", termsVersion: "2026-11-01",
       });
       return runNormally(operation);
     });
@@ -946,7 +946,7 @@ describe("publisher app config contract", () => {
     const saved = await fastify.inject({ method: "PUT", url: surface === "god" ? `/admin/publisher-app-configs/${testing.id}` : "/publisher-app/config", payload });
     expect(saved.statusCode).toBe(surface === "god" ? 409 : 200);
     expect(collectionStore("app_configs").get(testing.id)).toMatchObject({
-      status: "active_waiting_for_payment", termsAcceptedByUserId: "concurrent-signing-user", termsVersion: "2026-10-31",
+      status: "active_waiting_for_payment", termsAcceptedByUserId: "concurrent-signing-user", termsVersion: "2026-11-01",
       runtimeRevision: surface === "god" ? 2 : 3,
     });
     if (surface === "publisher") expect(saved.json().config.status).toBe("active_waiting_for_payment");
