@@ -3,12 +3,10 @@
 // `select.querySelector('option[value=…]')`, which only worked on the native
 // `<select>`s the portal used to have.
 import { screen, within } from "@testing-library/react";
+import type { UserEvent } from "@testing-library/user-event";
 
-/** `userEvent.setup()` or the `userEvent` default export — both fit. */
-type User = {
-  click(element: Element): Promise<void>;
-  keyboard(text: string): Promise<void>;
-};
+/** A `userEvent.setup()` instance. */
+type User = Pick<UserEvent, "click" | "keyboard">;
 
 /** Opens `trigger`'s listbox and returns it. */
 export async function openFormSelect(user: User, trigger: HTMLElement): Promise<HTMLElement> {
