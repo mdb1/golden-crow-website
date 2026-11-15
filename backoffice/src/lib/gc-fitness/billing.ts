@@ -186,6 +186,75 @@ export function consumeClass(billing: Pick<BillingLike, "classesRemaining">): nu
   return Math.max(0, (billing.classesRemaining ?? 0) - 1);
 }
 
+/** gc-fitness #1659 — los cuatro campos de `client_billing` que mueve registrar / anular. */
+export interface BillingPaymentEffect {
+  nextDueCivil: string | null;
+  classesRemaining: number | null;
+  lastPaymentCivil: string | null;
+  lastPaymentAmount: number | null;
+}
+
+/** Un billing con su último pago (lo que leen `recordEffect` / `voidEffect`). */
+export type BillingWithLastPayment = BillingLike & {
+  lastPaymentCivil: string | null;
+  lastPaymentAmount: number | null;
+};
+
+function hasPlan(billing: Pick<BillingLike, "planId" | "plan">): boolean {
+  return billing.planId != null || billing.plan != null;
+}
+
+/**
+ * gc-fitness #1659 — lo que registrar un pago le hace al billing, la MISMA regla en la web y
+ * las dos apps (iOS `Billing.recordEffect`, Android `Billing.recordEffect`; tabla de casos
+ * compartida):
+ *   - sin billing ⇒ se crea uno sin plan: sin vencimiento ni saldo, sólo el último pago;
+ *   - billing SIN plan ⇒ vencimiento y saldo quedan como están;
+ *   - con plan ⇒ `applyPayment`;
+ *   - el último pago pasa a ser éste salvo que ya haya uno con fecha POSTERIOR (un pago
+ *     cargado con fecha vieja no pisa el más nuevo; a igual fecha gana el nuevo).
+ */
+export function recordEffect(
+  billing: BillingWithLastPayment | null,
+  covers: PaymentCovers,
+  paidCivil: string,
+  amount: number,
+): BillingPaymentEffect {
+  if (!billing) {
+    return { nextDueCivil: null, classesRemaining: null, lastPaymentCivil: paidCivil, lastPaymentAmount: amount };
+  }
+  const schedule = hasPlan(billing)
+    ? applyPayment(billing, covers, paidCivil)
+    : { nextDueCivil: billing.nextDueCivil, classesRemaining: billing.classesRemaining };
+  const isNewest = (billing.lastPaymentCivil ?? "") <= paidCivil;
+  return {
+    ...schedule,
+    lastPaymentCivil: isNewest ? paidCivil : billing.lastPaymentCivil,
+    lastPaymentAmount: isNewest ? amount : billing.lastPaymentAmount,
+  };
+}
+
+/**
+ * gc-fitness #1659 — lo que anular el ÚLTIMO pago vigente le hace al billing (si no era el
+ * último, el billing no se revierte). Con plan ⇒ `revertPayment`; sin plan, vencimiento y
+ * saldo quedan como están. El último pago pasa a ser `previous` (el vigente anterior) o ninguno.
+ */
+export function voidEffect(
+  billing: BillingLike,
+  covers: PaymentCovers | null,
+  previous: { paidCivil: string; amount: number } | null,
+): BillingPaymentEffect {
+  const schedule =
+    hasPlan(billing) && covers
+      ? revertPayment(billing, covers)
+      : { nextDueCivil: billing.nextDueCivil, classesRemaining: billing.classesRemaining };
+  return {
+    ...schedule,
+    lastPaymentCivil: previous ? previous.paidCivil : null,
+    lastPaymentAmount: previous ? previous.amount : null,
+  };
+}
+
 /**
  * Qué cubre por defecto un pago según el tipo de plan (el prellenado de «Registrar
  * pago»): mensual ⇒ 1 mes; pack ⇒ N meses; clases ⇒ classCount.
