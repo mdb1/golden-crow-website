@@ -251,7 +251,7 @@ async function settle() {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockMoveAssignment.mockResolvedValue({ movedCount: 1 });
+  mockMoveAssignment.mockResolvedValue({ ok: true, movedCount: 1 });
 });
 
 describe("MonthCalendar — dragging a ONE-OFF workout writes straight away", () => {

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { gcFitnessFirestore, gcFitnessStorage } from "@/lib/firebase/gc-fitness-admin";
 
+import { toActionFailure, type ActionResult } from "./action-result";
 import { getCurrentAdmin } from "./auth-helpers";
 import { FirestoreCollections } from "./collections";
 import { STANDARD_EXERCISES_CACHE_TAG } from "./exercise-row";
@@ -609,7 +610,21 @@ export async function listDataHygienePage(
   };
 }
 
-export async function purgeDataHygieneItem(formData: FormData): Promise<void> {
+export async function purgeDataHygieneItem(formData: FormData): Promise<ActionResult> {
+  // #513 — a failure is RETURNED (action-result.ts); the redirect stays
+  // outside the try because `redirect()` works by throwing.
+  let kind: string;
+  try {
+    kind = await purgeDataHygieneItemOrThrow(formData);
+  } catch (err) {
+    return toActionFailure(err);
+  }
+  revalidatePath("/gc-fitness/admin/hygiene");
+  redirect(`/gc-fitness/admin/hygiene?op=${encodeURIComponent(kind)}&ok=1`);
+}
+
+/** Runs the purge and returns the purged `kind` (for the `?op=` banner). */
+async function purgeDataHygieneItemOrThrow(formData: FormData): Promise<string> {
   await getCurrentAdmin();
 
   const kind = String(formData.get("kind") ?? "");
@@ -687,7 +702,5 @@ export async function purgeDataHygieneItem(formData: FormData): Promise<void> {
     default:
       throw new Error(`Unsupported purge kind: ${redirectKind}`);
   }
-
-  revalidatePath("/gc-fitness/admin/hygiene");
-  redirect(`/gc-fitness/admin/hygiene?op=${encodeURIComponent(kind)}&ok=1`);
+  return kind;
 }

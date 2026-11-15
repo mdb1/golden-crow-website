@@ -61,30 +61,32 @@ beforeEach(() => {
 describe("updateAppVersionConfig", () => {
   it("rejects when the caller is not an admin (Forbidden)", async () => {
     mockedGetCurrentAdmin.mockRejectedValueOnce(new Error("Forbidden"));
-    await expect(updateAppVersionConfig(validInput())).rejects.toThrow(
-      "Forbidden",
-    );
+    // #513 — RETURNED (ActionResult), not thrown.
+    await expect(updateAppVersionConfig(validInput())).resolves.toEqual({
+      ok: false,
+      error: "Forbidden",
+    });
     expect(mockSet).not.toHaveBeenCalled();
   });
 
   it("rejects a negative minBuild before any write", async () => {
     const bad = validInput();
     bad.ios.minBuild = -1;
-    await expect(updateAppVersionConfig(bad)).rejects.toThrow();
+    await expect(updateAppVersionConfig(bad)).resolves.toMatchObject({ ok: false });
     expect(mockSet).not.toHaveBeenCalled();
   });
 
   it("rejects a malformed latestVersion before any write", async () => {
     const bad = validInput();
     bad.ios.latestVersion = "not-a-version";
-    await expect(updateAppVersionConfig(bad)).rejects.toThrow();
+    await expect(updateAppVersionConfig(bad)).resolves.toMatchObject({ ok: false });
     expect(mockSet).not.toHaveBeenCalled();
   });
 
   it("rejects a non-http storeUrl before any write", async () => {
     const bad = validInput();
     bad.ios.storeUrl = "javascript:alert(1)";
-    await expect(updateAppVersionConfig(bad)).rejects.toThrow();
+    await expect(updateAppVersionConfig(bad)).resolves.toMatchObject({ ok: false });
     expect(mockSet).not.toHaveBeenCalled();
   });
 

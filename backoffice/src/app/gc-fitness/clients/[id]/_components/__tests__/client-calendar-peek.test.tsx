@@ -110,6 +110,7 @@ jest.mock("@/components/gc-fitness/schedule/workout-detail-dialog", () => ({
     assignmentId: string;
     onDeleted: () => void;
     onOpenChange: (open: boolean) => void;
+    onMoveTo?: (newDate: string) => void;
   }) => {
     mockDetailDialogProps(props);
     return (
@@ -118,6 +119,11 @@ jest.mock("@/components/gc-fitness/schedule/workout-detail-dialog", () => ({
         <button type="button" onClick={() => props.onDeleted()}>
           detail-deleted
         </button>
+        {props.onMoveTo ? (
+          <button type="button" onClick={() => props.onMoveTo?.("2026-09-12")}>
+            detail-move-to-12
+          </button>
+        ) : null}
       </div>
     );
   },
@@ -251,7 +257,7 @@ async function settle() {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockMoveAssignment.mockResolvedValue({ movedCount: 1 });
+  mockMoveAssignment.mockResolvedValue({ ok: true, movedCount: 1 });
   mockGetClientCalendarPeek.mockResolvedValue(payload([]));
 });
 
@@ -378,7 +384,7 @@ describe("ClientCalendarPeek — what happens after the move", () => {
   });
 
   it("counts the moved occurrences in the toast for a series", async () => {
-    mockMoveAssignment.mockResolvedValue({ movedCount: 4 });
+    mockMoveAssignment.mockResolvedValue({ ok: true, movedCount: 4 });
     const { user } = renderPeek(
       payload([chip({ seriesId: "series-1", recurrenceKind: "weekly" })]),
     );
@@ -392,7 +398,8 @@ describe("ClientCalendarPeek — what happens after the move", () => {
   });
 
   it("surfaces the server's refusal and does NOT re-fetch", async () => {
-    mockMoveAssignment.mockRejectedValue(new Error("Forbidden"));
+    // #513 — the refusal is RETURNED (ActionResult), never thrown.
+    mockMoveAssignment.mockResolvedValue({ ok: false, error: "Forbidden" });
     renderPeek(payload([chip()]));
 
     dragRowToDay("Push Day", 12);
@@ -517,6 +524,46 @@ describe("ClientCalendarPeek — opening a workout", () => {
       }),
     );
     expect(screen.queryByTestId("detail-dialog")).not.toBeInTheDocument();
+  });
+
+  // #513 — "Mover a fecha…" (keyboard/touch) runs the SAME move path as a drop.
+  it("'Mover a fecha…' moves a one-off with scope 'one' and closes the dialog", async () => {
+    const { user } = renderPeek(payload([chip()]));
+
+    await user.click(workoutRow("Push Day"));
+    await user.click(await screen.findByText("detail-move-to-12"));
+
+    await waitFor(() =>
+      expect(mockMoveAssignment).toHaveBeenCalledWith({
+        id: "assign-1",
+        newScheduledFor: TARGET_DAY,
+        scope: "one",
+      }),
+    );
+    expect(screen.queryByTestId("detail-dialog")).not.toBeInTheDocument();
+    await waitFor(() => expect(mockToastSuccess).toHaveBeenCalledWith("Workout movido"));
+  });
+
+  it("'Mover a fecha…' on a recurring workout asks for the scope first", async () => {
+    const { user } = renderPeek(
+      payload([chip({ seriesId: "s-1", recurrenceKind: "weekly" })]),
+    );
+
+    await user.click(workoutRow("Push Day"));
+    await user.click(await screen.findByText("detail-move-to-12"));
+
+    expect(await screen.findByTestId("move-dialog-date")).toHaveTextContent(/^2026-09-12$/);
+    await settle();
+    expect(mockMoveAssignment).not.toHaveBeenCalled();
+
+    await user.click(screen.getByText("scope-all"));
+    await waitFor(() =>
+      expect(mockMoveAssignment).toHaveBeenCalledWith({
+        id: "assign-1",
+        newScheduledFor: TARGET_DAY,
+        scope: "all",
+      }),
+    );
   });
 });
 

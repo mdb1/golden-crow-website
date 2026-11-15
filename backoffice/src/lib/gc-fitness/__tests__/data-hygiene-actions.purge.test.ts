@@ -105,7 +105,8 @@ function expectRedirectFor(kind: string) {
 describe("purgeDataHygieneItem — gate + validation", () => {
   it("rejects a non-admin (Forbidden) before reading the form or writing", async () => {
     mockGetCurrentAdmin.mockRejectedValueOnce(new Error("Forbidden"));
-    await expect(purgeDataHygieneItem(form({ kind: "log", id: "log:l1" }))).rejects.toThrow("Forbidden");
+    // #513 — returned as ActionResult, not thrown.
+    await expect(purgeDataHygieneItem(form({ kind: "log", id: "log:l1" }))).resolves.toEqual({ ok: false, error: "Forbidden" });
     expectNothingHappened();
   });
 
@@ -114,14 +115,15 @@ describe("purgeDataHygieneItem — gate + validation", () => {
     ["missing id", { kind: "log" }],
     ["empty both", {}],
   ])("rejects %s", async (_l, fields) => {
-    await expect(purgeDataHygieneItem(form(fields))).rejects.toThrow("Missing purge target.");
+    await expect(purgeDataHygieneItem(form(fields))).resolves.toEqual({ ok: false, error: "Missing purge target." });
     expectNothingHappened();
   });
 
   it("rejects an unsupported kind", async () => {
-    await expect(purgeDataHygieneItem(form({ kind: "users", id: "u1" }))).rejects.toThrow(
-      "Unsupported purge kind: users",
-    );
+    await expect(purgeDataHygieneItem(form({ kind: "users", id: "u1" }))).resolves.toEqual({
+      ok: false,
+      error: "Unsupported purge kind: users",
+    });
     expectNothingHappened();
   });
 });
@@ -153,11 +155,12 @@ describe("purgeDataHygieneItem — per kind", () => {
     expectRedirectFor("user");
   });
 
-  it("user: a failing cascade propagates and skips the redirect", async () => {
+  it("user: a failing cascade is returned and skips the redirect", async () => {
     mockDeleteClientCascade.mockRejectedValueOnce(new Error("cascade failed"));
-    await expect(purgeDataHygieneItem(form({ kind: "user", id: "client-A1" }))).rejects.toThrow(
-      "cascade failed",
-    );
+    await expect(purgeDataHygieneItem(form({ kind: "user", id: "client-A1" }))).resolves.toEqual({
+      ok: false,
+      error: "cascade failed",
+    });
     expect(mockRedirect).not.toHaveBeenCalled();
   });
 

@@ -169,8 +169,23 @@ const GATED: Array<[string, () => Promise<unknown>]> = [
   ["unlinkClientFromCoach", () => unlinkClientFromCoach({ coachUid: COACH_A, clientUid: CLIENT_A })],
   ["removePendingClientForCoach", () => removePendingClientForCoach({ coachUid: COACH_A, email: "pending@x.com" })],
   ["getAppVersionConfig", () => getAppVersionConfig()],
+  // #513 — updateAppVersionConfig RETURNS its refusal (ActionResult): it is
+  // pinned in the RETURNED_GATED block below instead.
+];
+
+const RETURNED_GATED: Array<[string, () => Promise<unknown>]> = [
   ["updateAppVersionConfig", () => updateAppVersionConfig({ ios: { minBuild: 1, latestVersion: "", storeUrl: "" }, android: { minBuild: 1, latestVersion: "", storeUrl: "" } })],
 ];
+
+describe.each(RETURNED_GATED)("%s — admin gate (returned)", (_name, call) => {
+  it("returns Forbidden to a non-admin and mutates nothing", async () => {
+    mockGetCurrentAdmin.mockRejectedValueOnce(new Error("Forbidden"));
+    await expect(call()).resolves.toEqual({ ok: false, error: "Forbidden" });
+    expectNoMutation();
+    expect(mockAuth.getUser).not.toHaveBeenCalled();
+    expect(mockAuth.getUserByEmail).not.toHaveBeenCalled();
+  });
+});
 
 describe.each(GATED)("%s — admin gate", (_name, call) => {
   it("rejects a non-admin with Forbidden and mutates nothing", async () => {

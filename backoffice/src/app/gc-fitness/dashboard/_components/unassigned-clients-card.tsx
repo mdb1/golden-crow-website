@@ -15,6 +15,10 @@ import type { UnassignedClientRow } from "@/lib/gc-fitness/coach-attention-actio
 
 interface Props {
   rows: UnassignedClientRow[];
+  /** #513 — the coach has more active clients than were checked. */
+  truncated?: boolean;
+  /** How many active clients were checked (shown when `truncated`). */
+  scanned?: number;
 }
 
 /**
@@ -24,7 +28,7 @@ interface Props {
  * trainer can assign immediately. Renders an "all caught up" empty state when
  * everyone is covered. Server component (read-only).
  */
-export async function UnassignedClientsCard({ rows }: Props) {
+export async function UnassignedClientsCard({ rows, truncated = false, scanned = 0 }: Props) {
   const t = await getTranslations("dashboard");
 
   return (
@@ -35,12 +39,21 @@ export async function UnassignedClientsCard({ rows }: Props) {
           {t("unassignedSoonTitle")}
         </CardTitle>
         <CardDescription>{t("unassignedSoonSubtitle")}</CardDescription>
+        {truncated ? (
+          // #513 — say the list is partial instead of silently dropping the
+          // clients past the cap (same wording idea as the apps, #1588).
+          <p className="text-xs text-muted-foreground" data-testid="unassigned-soon-truncated">
+            {t("unassignedSoonTruncated", { count: scanned })}
+          </p>
+        ) : null}
       </CardHeader>
       <CardContent>
         {rows.length === 0 ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <CheckCircle2 className="size-4 text-emerald-500" />
-            {t("unassignedSoonEmpty")}
+            {truncated
+              ? t("unassignedSoonEmptyTruncated", { count: scanned })
+              : t("unassignedSoonEmpty")}
           </div>
         ) : (
           <ul className="flex flex-col gap-1.5">

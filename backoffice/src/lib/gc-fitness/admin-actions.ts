@@ -10,6 +10,7 @@ import {
   revokeSessionsIfBackofficeRoleLost,
 } from "@/lib/gc-fitness/session-revocation";
 import { emailMatchesQuery, normalizeSearchQuery } from "@/lib/gc-fitness/admin-user-search";
+import { toActionFailure, type ActionResult } from "@/lib/gc-fitness/action-result";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { planChatCoachRepoint } from "@/lib/gc-fitness/chat-coach-repoint";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
@@ -92,7 +93,11 @@ export interface CoachActivityRow {
   clientUid: string | null;
   clientEmail: string | null;
   occurredAtISO: string | null;
+  /** English fallback sentence (CSV/logs). The page renders `kind` + `subject`
+   *  through next-intl instead (#513). */
   summary: string;
+  /** The entity name the summary mentions (habit / template), when known. */
+  subject: string | null;
   recurrenceLabel: string | null;
   occurrences: number | null;
   recurrenceSeriesId: string | null;
@@ -555,6 +560,7 @@ export async function listRecentCoachActivity(limit = 80): Promise<CoachActivity
       clientEmail: pendingEmail ?? (clientUid ? (clientEmailByUid.get(clientUid) ?? null) : null),
       occurredAtISO: toIsoMaybe(data.createdAt),
       summary: `Assigned habit${habitName ? `: ${habitName}` : ""}`,
+      subject: habitName || null,
       recurrenceLabel: null,
       occurrences: null,
       recurrenceSeriesId: null,
@@ -589,6 +595,7 @@ export async function listRecentCoachActivity(limit = 80): Promise<CoachActivity
       clientEmail: null,
       occurredAtISO: toIsoMaybe(data.createdAt),
       summary: `Created workout template${templateName ? `: ${templateName}` : ""}`,
+      subject: templateName || null,
       recurrenceLabel: null,
       occurrences: null,
       recurrenceSeriesId: null,
@@ -632,6 +639,7 @@ export async function listRecentCoachActivity(limit = 80): Promise<CoachActivity
       clientEmail: pendingEmail ?? (clientUid ? (clientEmailByUid.get(clientUid) ?? null) : null),
       occurredAtISO: toIsoMaybe(data.createdAt),
       summary: `Assigned workout${templateName ? `: ${templateName}` : ""}`,
+      subject: templateName || null,
       recurrenceLabel: recurrenceLabelFromRaw(data.recurrence),
       occurrences: 1,
       recurrenceSeriesId: typeof data.seriesId === "string" ? data.seriesId : null,
@@ -693,6 +701,7 @@ export async function listRecentCoachActivity(limit = 80): Promise<CoachActivity
       clientEmail: (data.email ?? doc.id) as string,
       occurredAtISO: toIsoMaybe(data.createdAt),
       summary: "Pre-provisioned pending client",
+      subject: null,
       recurrenceLabel: null,
       occurrences: null,
       recurrenceSeriesId: null,
@@ -722,6 +731,7 @@ export async function listRecentCoachActivity(limit = 80): Promise<CoachActivity
       clientEmail: data.email ?? null,
       occurredAtISO: toIsoMaybe(data.createdAt),
       summary: "Client completed first login",
+      subject: null,
       recurrenceLabel: null,
       occurrences: null,
       recurrenceSeriesId: null,
@@ -1953,6 +1963,18 @@ export async function getAppVersionConfig(): Promise<AppVersionConfig> {
  * acting admin email + server timestamp for the audit trail.
  */
 export async function updateAppVersionConfig(
+  input: unknown,
+): Promise<ActionResult> {
+  // #513 — RETURN the failure (action-result.ts): a thrown Zod error reaches
+  // a production browser as "Minified React error #441".
+  try {
+    return await updateAppVersionConfigOrThrow(input);
+  } catch (err) {
+    return toActionFailure(err);
+  }
+}
+
+async function updateAppVersionConfigOrThrow(
   input: unknown,
 ): Promise<{ ok: true }> {
   const admin = await getCurrentAdmin();

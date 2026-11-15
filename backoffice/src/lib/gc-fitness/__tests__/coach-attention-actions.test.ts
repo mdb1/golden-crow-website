@@ -68,6 +68,9 @@ interface DbOpts {
   flags?: { windowedAttempted: boolean; fallbackUsed: boolean };
 }
 
+/** clientIds whose habits were read, in order (reset per test). */
+let habitReads: string[] = [];
+
 function makeDb(opts: DbOpts) {
   function makeQuery(coll: string): Record<string, unknown> {
     const wheres: Array<{ field: string; value: unknown }> = [];
@@ -104,6 +107,7 @@ function makeDb(opts: DbOpts) {
           );
         }
         if (coll === FirestoreCollections.habits) {
+          habitReads.push(String(wheres.find((w) => w.field === "clientId")?.value));
           const clientId = wheres.find((w) => w.field === "clientId")
             ?.value as string;
           const habits = opts.habitsByClient[clientId] ?? [];
@@ -123,6 +127,7 @@ describe("listClientsWithNothingAssignedSoon (#245)", () => {
   let errSpy: jest.SpyInstance;
   beforeEach(() => {
     jest.clearAllMocks();
+    habitReads = [];
     errSpy = jest.spyOn(console, "error").mockImplementation(() => {});
   });
   afterEach(() => errSpy.mockRestore());
@@ -134,7 +139,7 @@ describe("listClientsWithNothingAssignedSoon (#245)", () => {
       habitsByClient: {},
     });
 
-    const rows = await listClientsWithNothingAssignedSoon();
+    const { rows } = await listClientsWithNothingAssignedSoon();
     const uids = rows.map((r) => r.uid);
     expect(uids).not.toContain("c1"); // covered by workout
     expect(uids).toContain("c2"); // nothing assigned
@@ -156,7 +161,7 @@ describe("listClientsWithNothingAssignedSoon (#245)", () => {
       },
     });
 
-    const rows = await listClientsWithNothingAssignedSoon();
+    const { rows } = await listClientsWithNothingAssignedSoon();
     const uids = rows.map((r) => r.uid);
     expect(uids).not.toContain("c1"); // covered by habit
     expect(uids).toContain("c2");
@@ -166,7 +171,7 @@ describe("listClientsWithNothingAssignedSoon (#245)", () => {
     mockListClients.mockResolvedValue([client("c1")]);
     mockState.db = makeDb({ assignments: [], habitsByClient: {} });
 
-    const rows = await listClientsWithNothingAssignedSoon();
+    const { rows } = await listClientsWithNothingAssignedSoon();
     expect(rows.map((r) => r.uid)).toEqual(["c1"]);
   });
 
@@ -187,7 +192,7 @@ describe("listClientsWithNothingAssignedSoon (#245)", () => {
       },
     });
 
-    const rows = await listClientsWithNothingAssignedSoon();
+    const { rows } = await listClientsWithNothingAssignedSoon();
     expect(rows.map((r) => r.uid)).toContain("c1");
   });
 
@@ -198,7 +203,7 @@ describe("listClientsWithNothingAssignedSoon (#245)", () => {
       habitsByClient: {},
     });
 
-    const rows = await listClientsWithNothingAssignedSoon();
+    const { rows } = await listClientsWithNothingAssignedSoon();
     // The far-future assignment does NOT cover the client → still surfaced.
     expect(rows.map((r) => r.uid)).toContain("c1");
   });
@@ -219,7 +224,7 @@ describe("listClientsWithNothingAssignedSoon (#245)", () => {
       },
     });
 
-    const rows = await listClientsWithNothingAssignedSoon();
+    const { rows } = await listClientsWithNothingAssignedSoon();
     expect(rows.map((r) => r.uid)).toContain("c1");
   });
 
@@ -238,7 +243,7 @@ describe("listClientsWithNothingAssignedSoon (#245)", () => {
       flags,
     });
 
-    const rows = await listClientsWithNothingAssignedSoon();
+    const { rows } = await listClientsWithNothingAssignedSoon();
     expect(flags.windowedAttempted).toBe(true);
     expect(flags.fallbackUsed).toBe(true);
     const uids = rows.map((r) => r.uid);
@@ -251,9 +256,70 @@ describe("listClientsWithNothingAssignedSoon (#245)", () => {
     mockListClients.mockResolvedValue([pending, client("c1")]);
     mockState.db = makeDb({ assignments: [], habitsByClient: {} });
 
-    const rows = await listClientsWithNothingAssignedSoon();
+    const { rows } = await listClientsWithNothingAssignedSoon();
     const uids = rows.map((r) => r.uid);
     expect(uids).not.toContain("cp");
     expect(uids).toContain("c1");
+  });
+
+  // #513 — the cap was 50 and cut SILENTLY; now 150 (the mobile callable's
+  // ATTENTION_MAX_CLIENTS, #1588) and the cut is reported.
+  it("checks up to 150 active clients and says nothing was cut", async () => {
+    const roster = Array.from({ length: 150 }, (_, i) => client(`c${String(i).padStart(3, "0")}`));
+    mockListClients.mockResolvedValue(roster);
+    mockState.db = makeDb({ assignments: [], habitsByClient: {} });
+
+    const result = await listClientsWithNothingAssignedSoon();
+    expect(result.truncated).toBe(false);
+    expect(result.scanned).toBe(150);
+    expect(result.rows).toHaveLength(150);
+    // The 51st..150th client used to vanish from the card.
+    expect(result.rows.map((r) => r.uid)).toContain("c149");
+  });
+
+  it("reports `truncated` past 150 active clients (pending ones don't count)", async () => {
+    const roster = [
+      ...Array.from({ length: 151 }, (_, i) => client(`c${String(i).padStart(3, "0")}`)),
+      { ...client("cp"), pendingProvisioning: true },
+    ];
+    mockListClients.mockResolvedValue(roster);
+    mockState.db = makeDb({ assignments: [], habitsByClient: {} });
+
+    const result = await listClientsWithNothingAssignedSoon();
+    expect(result.truncated).toBe(true);
+    expect(result.scanned).toBe(150);
+    expect(result.rows.map((r) => r.uid)).not.toContain("c150");
+  });
+
+  it("150 active clients exactly is NOT truncated even with pending invites on top", async () => {
+    const roster = [
+      ...Array.from({ length: 150 }, (_, i) => client(`c${i}`)),
+      { ...client("cp1"), pendingProvisioning: true },
+    ];
+    mockListClients.mockResolvedValue(roster);
+    mockState.db = makeDb({ assignments: [], habitsByClient: {} });
+
+    expect((await listClientsWithNothingAssignedSoon()).truncated).toBe(false);
+  });
+
+  it("reads habits only for the clients no workout already covers", async () => {
+    mockListClients.mockResolvedValue([client("c1"), client("c2")]);
+    mockState.db = makeDb({
+      assignments: [{ clientId: "c1", scheduledFor: IN_WINDOW }],
+      habitsByClient: {},
+    });
+
+    await listClientsWithNothingAssignedSoon();
+    expect(habitReads).toEqual(["c2"]);
+  });
+
+  it("an empty roster is an empty, untruncated answer", async () => {
+    mockListClients.mockResolvedValue([]);
+    mockState.db = makeDb({ assignments: [], habitsByClient: {} });
+    await expect(listClientsWithNothingAssignedSoon()).resolves.toEqual({
+      rows: [],
+      truncated: false,
+      scanned: 0,
+    });
   });
 });

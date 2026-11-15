@@ -109,14 +109,16 @@ beforeEach(() => {
   store.set("social_profiles/u-owner", { suspended: false });
 });
 
+// #513 — failures are RETURNED as ActionResult (a thrown error is redacted in
+// production as "Minified React error #441"); only redirect() still throws.
 describe("the admin gate", () => {
   it("every verb refuses a non-admin before touching anything", async () => {
     mockedGetCurrentAdmin.mockRejectedValue(new Error("Forbidden"));
     const fd = form({ targetType: "routine", targetId: "tpl-1", targetOwnerUid: "u-owner", reportIds: "r-open" });
-    await expect(hideReportedContent(fd)).rejects.toThrow("Forbidden");
-    await expect(suspendReportedAuthor(fd)).rejects.toThrow("Forbidden");
-    await expect(dismissReports(fd)).rejects.toThrow("Forbidden");
-    await expect(unsuspendSocialAccount(form({ uid: "u-owner" }))).rejects.toThrow("Forbidden");
+    await expect(hideReportedContent(fd)).resolves.toEqual({ ok: false, error: "Forbidden" });
+    await expect(suspendReportedAuthor(fd)).resolves.toEqual({ ok: false, error: "Forbidden" });
+    await expect(dismissReports(fd)).resolves.toEqual({ ok: false, error: "Forbidden" });
+    await expect(unsuspendSocialAccount(form({ uid: "u-owner" }))).resolves.toEqual({ ok: false, error: "Forbidden" });
     expect(writes).toHaveLength(0);
     expect(added).toHaveLength(0);
   });
@@ -155,7 +157,7 @@ describe("hideReportedContent", () => {
   it("a profile cannot be hidden — it is suspended — and the failure is logged", async () => {
     await expect(
       hideReportedContent(form({ targetType: "profile", targetId: "u-owner", targetOwnerUid: "u-owner", reportIds: "r-open" })),
-    ).rejects.toThrow("suspended");
+    ).resolves.toMatchObject({ ok: false, error: expect.stringContaining("suspended") });
     expect(added[0]).toMatchObject({ data: { kind: "moderation_hide", status: "failed" } });
     expect(batchCommitted).toBe(0);
   });
@@ -172,7 +174,7 @@ describe("suspendReportedAuthor", () => {
   it("refuses without an owner uid rather than suspending nobody", async () => {
     await expect(
       suspendReportedAuthor(form({ targetType: "routine", targetId: "tpl-1", targetOwnerUid: "", reportIds: "r-open" })),
-    ).rejects.toThrow("owner");
+    ).resolves.toMatchObject({ ok: false, error: expect.stringContaining("owner") });
     expect(store.get("social_reports/r-open")?.status).toBe("open");
   });
 });

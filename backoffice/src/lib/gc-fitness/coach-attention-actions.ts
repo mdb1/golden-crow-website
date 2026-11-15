@@ -9,11 +9,16 @@
 //
 // BOUNDED READS (Firestore cost is an active concern — see STATE.md "Firestore
 // cost reduction"). This mirrors `getCoachPulse`'s read budget EXACTLY:
-//   - listClients() then .filter(!pendingProvisioning).slice(0, 50)
+//   - listClients() then .filter(!pendingProvisioning).slice(0, 150) — #513:
+//     was 50 and cut SILENTLY; now the same 150 as the mobile callable
+//     (`coachAttention.ts` ATTENTION_MAX_CLIENTS, #1588) and a bigger roster
+//     comes back `truncated` so the card can say "first 150 checked".
 //   - WORKOUTS: ONE windowed trainerId query (with the proven trainerId-only
 //     limit(600) fallback on index error) — NEVER a per-client assignment
 //     fan-out.
-//   - HABITS: per-client capped reads (.where(clientId).limit(50)); a habit
+//   - HABITS: per-client capped reads (.where(clientId).limit(50)), only for
+//     the clients no workout already covers, in waves of HABITS_FANOUT_BATCH
+//     (#513 — 150 parallel queries would be a burst; #484 does the same); a habit
 //     "covers" a client when isHabitScheduledOn() is true on ANY of the 4
 //     window dates (honors startsOn/endsOn/skippedDates/cadence).
 // The whole thing is defensive: a single failing query degrades to partial /
@@ -27,18 +32,34 @@ import { civilDateFormat, civilDateToday } from "./civil-date";
 import { assignedBy } from "./assigned-by";
 import { FirestoreCollections } from "./collections";
 import { listClients } from "./client-roster";
+import { mapInBatches } from "./map-in-batches";
 import { isHabitScheduledOn } from "./habit-schedule";
 import { getTrainerTimezone } from "./trainer-timezone";
 
 /** Number of days ahead (today inclusive) the urgency window spans. */
 const WINDOW_DAYS = 4;
-/** Cap on clients scanned + returned (mirrors getCoachPulse's 50). */
-const MAX_CLIENTS = 50;
+/**
+ * Cap on clients scanned. #513 — twin of the callable's ATTENTION_MAX_CLIENTS
+ * (gc-fitness `functions/src/coach/coachAttention.ts`, #1588): 150, and a
+ * bigger roster is reported as `truncated` instead of silently cut.
+ */
+const MAX_CLIENTS = 150;
+/** Concurrent per-client habit reads (same wave size as the roster's fan-out). */
+const HABITS_FANOUT_BATCH = 25;
 
 export interface UnassignedClientRow {
   uid: string;
   displayName: string;
   photoURL: string | null;
+}
+
+export interface UnassignedClientsResult {
+  rows: UnassignedClientRow[];
+  /** True when the coach has more than MAX_CLIENTS active clients: only the
+   *  first `scanned` were checked. */
+  truncated: boolean;
+  /** How many active clients were checked. */
+  scanned: number;
 }
 
 /**
@@ -57,17 +78,15 @@ function buildWindowDays(timezone: string): string[] {
   return days;
 }
 
-export async function listClientsWithNothingAssignedSoon(): Promise<
-  UnassignedClientRow[]
-> {
+export async function listClientsWithNothingAssignedSoon(): Promise<UnassignedClientsResult> {
   const trainer = await getCurrentTrainer();
   const db = gcFitnessFirestore();
 
   const clients = await listClients();
-  const activeClients = clients
-    .filter((c) => !c.pendingProvisioning)
-    .slice(0, MAX_CLIENTS);
-  if (activeClients.length === 0) return [];
+  const allActive = clients.filter((c) => !c.pendingProvisioning);
+  const activeClients = allActive.slice(0, MAX_CLIENTS);
+  const truncated = allActive.length > MAX_CLIENTS;
+  if (activeClients.length === 0) return { rows: [], truncated: false, scanned: 0 };
 
   const trainerTz = await getTrainerTimezone();
   const windowDays = buildWindowDays(trainerTz);
@@ -100,20 +119,7 @@ export async function listClientsWithNothingAssignedSoon(): Promise<
         .catch(logError("workout_assignments")),
     );
 
-  // ── HABITS: per-client capped reads. ─────────────────────────────────────
-  const habitsPromises = activeClients.map((client) =>
-    db
-      .collection(FirestoreCollections.habits)
-      .where("clientId", "==", client.uid)
-      .limit(50)
-      .get()
-      .catch(logError(`habits clientId=${client.uid}`)),
-  );
-
-  const [assignmentsSnap, habitsSnaps] = await Promise.all([
-    assignmentsPromise,
-    Promise.all(habitsPromises),
-  ]);
+  const assignmentsSnap = await assignmentsPromise;
 
   // Clients with ≥1 workout assignment landing in [windowStart, windowEnd].
   // The in-memory window filter is a no-op for the indexed query (already
@@ -129,13 +135,25 @@ export async function listClientsWithNothingAssignedSoon(): Promise<
     coveredByWorkout.add(clientId);
   }
 
+  // ── HABITS: per-client capped reads, only for the clients no workout
+  // already covers (a habit can't uncover them), in bounded waves. ─────────
+  const needHabitCheck = activeClients.filter((c) => !coveredByWorkout.has(c.uid));
+  const habitsSnaps = await mapInBatches(needHabitCheck, HABITS_FANOUT_BATCH, (client) =>
+    db
+      .collection(FirestoreCollections.habits)
+      .where("clientId", "==", client.uid)
+      .limit(50)
+      .get()
+      .catch(logError(`habits clientId=${client.uid}`)),
+  );
+
   // Clients with ≥1 habit active on ANY of the window dates. Soft-deleted
   // habits never count (the predicate ignores `deleted`, so guard here —
   // mirrors coach-pulse's habitScheduledOn wrapper).
   const coveredByHabit = new Set<string>();
   habitsSnaps.forEach((snap, idx) => {
     if (!snap) return;
-    const client = activeClients[idx]!;
+    const client = needHabitCheck[idx]!;
     for (const doc of snap.docs) {
       const habit = doc.data() as Record<string, unknown>;
       if (habit.deleted === true) continue;
@@ -162,5 +180,5 @@ export async function listClientsWithNothingAssignedSoon(): Promise<
       photoURL: c.photoURL,
     }));
 
-  return rows.slice(0, MAX_CLIENTS);
+  return { rows, truncated, scanned: activeClients.length };
 }

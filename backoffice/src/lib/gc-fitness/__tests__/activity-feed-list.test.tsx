@@ -93,12 +93,24 @@ describe("ActivityFeedList", () => {
       "href",
       "/gc-fitness/admin/coach-less-users/solo1",
     );
-    expect(screen.getByText("terminó un workout")).toBeInTheDocument();
+    // #513 — the model's Spanish title renders in the viewer's language (the
+    // test harness runs next-intl in English).
+    expect(screen.getByText("finished a workout")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Full Body A" })).toHaveAttribute(
       "href",
       "/gc-fitness/admin/coaches/solo1/clients/solo1/workouts/log-1",
     );
     expect(screen.getByText("20:37")).toBeInTheDocument();
+  });
+
+  it("renders an UNKNOWN title verbatim (a newer writer's sentence)", () => {
+    render(
+      <ActivityFeedList
+        events={[event({ id: "e1", actor: null, title: "Algo nuevo que nadie mapeó" })]}
+        today="2026-07-31"
+      />,
+    );
+    expect(screen.getByText("Algo nuevo que nadie mapeó")).toBeInTheDocument();
   });
 
   it("still offers a link when the event has no name to show", () => {

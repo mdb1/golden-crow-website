@@ -145,7 +145,12 @@ export function AppVersionForm({ initialConfig, timezone }: AppVersionFormProps)
   const submit = form.handleSubmit((values) => {
     startTransition(async () => {
       try {
-        await updateAppVersionConfig(values);
+        // #513 — the action RETURNS its failure (validation, auth).
+        const result = await updateAppVersionConfig(values);
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
         toast.success(t("saved"));
         router.refresh();
       } catch (err) {

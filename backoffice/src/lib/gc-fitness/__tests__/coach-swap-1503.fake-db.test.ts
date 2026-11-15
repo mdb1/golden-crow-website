@@ -126,7 +126,7 @@ describe("#1503 — OLD on a client who moved to NEW: refused, nothing written",
   });
 
   it("moveAssignment (month calendar)", async () => {
-    await expect(moveAssignment({ id: "a-left", newScheduledFor: "2026-06-22", scope: "one" })).rejects.toThrow("Not your client.");
+    await expect(moveAssignment({ id: "a-left", newScheduledFor: "2026-06-22", scope: "one" })).resolves.toEqual({ ok: false, error: "Not your client." });
     expect(writesTo("a-left")).toEqual([]);
   });
 
