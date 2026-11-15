@@ -973,6 +973,40 @@
       "titleOne": "1 cliente nuevo se registró sin coach y quedó asignado a vos",
       "titleOther": "{count} clientes nuevos se registraron sin coach y quedaron asignados a vos",
       "body": "Están marcados con <badge>NEW</badge> abajo. Revisalos y, si corresponden a otro coach, transferilos desde el panel de admin."
+    },
+    "bulk": {
+      "selectAll": "Seleccionar todos",
+      "selectClientAria": "Seleccionar a {name}",
+      "selectedCount": "{count, plural, one {# seleccionado} other {# seleccionados}}",
+      "toolbarLabel": "Acciones en lote",
+      "sendMessage": "Mandar mensaje",
+      "assignWorkout": "Asignar rutina",
+      "clear": "Limpiar",
+      "dialog": {
+        "title": "Mensaje a {count, plural, one {# cliente} other {# clientes}}",
+        "description": "Cada cliente lo recibe en su chat con vos, como un mensaje normal.",
+        "recipientsLabel": "Para",
+        "recipientsMore": "y {count} más",
+        "messageLabel": "Mensaje",
+        "placeholder": "Escribí tu mensaje…",
+        "counter": "{used}/{max}",
+        "send": "Enviar",
+        "sending": "Enviando…",
+        "cancel": "Cancelar",
+        "tooMany": "Podés mandar un mensaje a {max} clientes como máximo. Seleccionaste {count}.",
+        "tooLong": "El mensaje puede tener hasta {max} caracteres."
+      },
+      "toast": {
+        "sent": "Mensaje enviado a {count, plural, one {# cliente} other {# clientes}}",
+        "skipped": "{count, plural, one {# ya no es tu cliente y no lo recibió.} other {# ya no son tus clientes y no lo recibieron.}}"
+      },
+      "errors": {
+        "daily_cap": "Llegaste al tope de 10 envíos masivos en 24 h. Probá más tarde.",
+        "forbidden": "No podés mandarles mensajes a estos clientes.",
+        "text": "El mensaje tiene que tener entre 1 y 1000 caracteres.",
+        "recipients": "Elegí entre 1 y 200 clientes.",
+        "generic": "No se pudo mandar el mensaje. Probá de nuevo."
+      }
     }
   },
   "templates": {
