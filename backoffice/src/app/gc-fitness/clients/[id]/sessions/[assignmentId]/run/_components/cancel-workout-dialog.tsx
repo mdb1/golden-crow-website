@@ -37,7 +37,7 @@ export function CancelWorkoutDialog({
           <AlertDialogTitle>¿Cancelar entrenamiento?</AlertDialogTitle>
           <AlertDialogDescription>
             Esto dejará la asignación como programada otra vez y cerrará la
-            sesión activa sin marcarla como finalizada.
+            entrenamiento activo sin marcarlo como finalizado.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

@@ -306,7 +306,7 @@ export function describeChallengeGoal(data: Record<string, unknown>): string | n
   let goal: string;
   switch (kind as ChallengeKind) {
     case "workouts":
-      goal = `${n} ${plural(target, "entreno", "entrenos")}`;
+      goal = `${n} ${plural(target, "entrenamiento", "entrenamientos")}`;
       break;
     case "volume":
       goal = `${n} kg`;

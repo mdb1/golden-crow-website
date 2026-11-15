@@ -772,7 +772,7 @@ function buildCompareDownloadName({
   timezone: string;
   locale: string;
 }): string {
-  const clientSlug = slugifyFilePart(clientName, "alumno");
+  const clientSlug = slugifyFilePart(clientName, "cliente");
   const beforeLabel = photoExportDate(before, timezone, locale);
   const afterLabel = photoExportDate(after, timezone, locale);
   return `${variant}-${clientSlug}-${angle}-${beforeLabel}-vs${afterLabel}.jpg`;

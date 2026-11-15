@@ -57,11 +57,11 @@
     "settings": "Settings",
     "wiki": "Wiki",
     "clientsSection": "Clients",
-    "clientsSectionDescription": "Trainer roster + per-client deep view.",
+    "clientsSectionDescription": "Coach roster + per-client deep view.",
     "contentSection": "Content",
     "contentSectionDescription": "Workout templates, habits, exercise library.",
     "engagementSection": "Engagement",
-    "engagementSectionDescription": "Chat inbox + trainer settings.",
+    "engagementSectionDescription": "Chat inbox + coach settings.",
     "adminSection": "Admin",
     "adminSectionDescription": "Platform administration and access control.",
     "clientsDescription": "Roster with last activity, compliance, unread chat.",
@@ -71,8 +71,8 @@
     "workoutsDescription": "Workout-template authoring + assignments.",
     "habitsDescription": "Habit CRUD + per-client assignment.",
     "exercisesDescription": "Exercise library + GIF management.",
-    "chatDescription": "Trainer inbox + per-client message threads.",
-    "settingsDescription": "Quick-reply templates + trainer preferences.",
+    "chatDescription": "Coach inbox + per-client message threads.",
+    "settingsDescription": "Quick-reply templates + coach preferences.",
     "adminDescription": "Coach/admin access and operator controls.",
     "nutrition": "Nutrition",
     "challenges": "Challenges",
@@ -81,10 +81,10 @@
   "shell": {
     "eyebrow": "Golden Crow",
     "appName": "Corvo",
-    "tagline": "Trainer coaching console.",
-    "footerBlurb": "Manage clients, programming, assignments, habits, and chat from one trainer workspace.",
+    "tagline": "Coach console.",
+    "footerBlurb": "Manage clients, programming, assignments, habits, and chat from one coach workspace.",
     "headerEyebrow": "Corvo",
-    "headerTitle": "Trainer Backoffice",
+    "headerTitle": "Coach Backoffice",
     "languagePicker": {
       "label": "Language",
       "auto": "Auto (system)",
@@ -302,13 +302,13 @@
       "exerciseSearchEmpty": "No exercise matches that search.",
       "setHistory": {
         "title": "Logged sets",
-        "subtitle": "{count, plural, one {# session recorded} other {# sessions recorded}}, newest first. Not affected by the range selector above.",
+        "subtitle": "{count, plural, one {# workout recorded} other {# workouts recorded}}, newest first. Not affected by the range selector above.",
         "lineWeighted": "{reps} reps × {weight} kg",
         "lineReps": "{reps} reps",
         "lineTime": "{seconds} s",
         "loadMore": "See more ({remaining})",
         "prLabel": "Personal record",
-        "truncated": "Showing the {count} most recent sessions for this exercise."
+        "truncated": "Showing the {count} most recent workouts for this exercise."
       },
       "muscleGroupLabel": "Muscle group",
       "muscleGroupAll": "All",
@@ -318,7 +318,7 @@
       "weightUnit": "kg",
       "volumeUnit": "kg",
       "latestPrefix": "Latest:",
-      "sessionCount": "{count, plural, one {# session} other {# sessions}}",
+      "sessionCount": "{count, plural, one {# workout} other {# workouts}}",
       "emptyNoExercises": "This client hasn't logged any weighted exercise yet.",
       "emptyNoData": "No data for this exercise in the selected range.",
       "tooltipTopSet": "Top set",
@@ -1064,19 +1064,19 @@
       "title": "Edit template",
       "subtitlePrefix": "Changes save when you click ",
       "subtitleCta": "Save",
-      "subtitleSuffix": ". If this template is already scheduled, you'll be asked whether to push the update to those sessions.",
+      "subtitleSuffix": ". If this template is already scheduled, you'll be asked whether to push the update to those workouts.",
       "propagateDialog": {
         "title": "Apply changes to existing schedules?",
-        "summary": "The template was saved. It's currently scheduled for {sessions, plural, one {<strong># upcoming session</strong>} other {<strong># upcoming sessions</strong>}} across {clients, plural, one {<strong># client</strong>} other {<strong># clients</strong>}}.",
-        "explainer": "Notes and structure (sets, reps, rest, order) always update on those days. Completed and in-progress sessions are never modified.",
-        "clientLine": "{name} — {sessions, plural, one {# session} other {# sessions}} (next {next})",
+        "summary": "The template was saved. It's currently scheduled for {sessions, plural, one {<strong># upcoming workout</strong>} other {<strong># upcoming workouts</strong>}} across {clients, plural, one {<strong># client</strong>} other {<strong># clients</strong>}}.",
+        "explainer": "Notes and structure (sets, reps, rest, order) always update on those days. Completed and in-progress workouts are never modified.",
+        "clientLine": "{name} — {sessions, plural, one {# workout} other {# workouts}} (next {next})",
         "pushWeightsLabel": "Also update clients' weights",
         "pushWeightsHelp": "Off: each client keeps their current weights. On: clients see the new plan weights once, then their own again.",
         "keepCta": "Keep existing schedules",
-        "updateCta": "{count, plural, one {Update # scheduled session} other {Update # scheduled sessions}}",
+        "updateCta": "{count, plural, one {Update # scheduled workout} other {Update # scheduled workouts}}",
         "updating": "Updating…",
-        "updatedToast": "{count, plural, one {Updated # scheduled session.} other {Updated # scheduled sessions.}}",
-        "updateFailedToast": "Could not update scheduled sessions."
+        "updatedToast": "{count, plural, one {Updated # scheduled workout.} other {Updated # scheduled workouts.}}",
+        "updateFailedToast": "Could not update scheduled workouts."
       }
     },
     "list": {
@@ -1108,7 +1108,7 @@
       "tabAssignments": "Assignments",
       "assignmentsEmpty": "No upcoming assignments.",
       "assignmentsClientCount": "{count, plural, one {# client} other {# clients}}",
-      "assignmentsSessions": "{count, plural, one {# session} other {# sessions}}",
+      "assignmentsSessions": "{count, plural, one {# workout} other {# workouts}}",
       "assignmentsNext": "Next: {date}",
       "sortMostAssigned": "Most assignments"
     },
@@ -1128,7 +1128,7 @@
       "descriptionPlaceholderEs": "Pecho, hombros, tríceps.",
       "tag": "Tag",
       "tagPlaceholder": "e.g. Push, Upper, Rehab",
-      "tagHint": "Trainers can type any tag or pick one of the suggestions.",
+      "tagHint": "Coaches can type any tag or pick one of the suggestions.",
       "tagOptions": {
         "push": "Push",
         "pull": "Pull",
@@ -1318,7 +1318,7 @@
       "deleteFailedToast": "Couldn't delete.",
       "hideGlobalCta": "Hide from my library",
       "hideGlobalConfirmTitle": "Hide this global habit?",
-      "hideGlobalConfirmBody": "It will be hidden from your library only. It doesn't affect other trainers or existing assignments. You can restore it anytime from “Show hidden”.",
+      "hideGlobalConfirmBody": "It will be hidden from your library only. It doesn't affect other coaches or existing assignments. You can restore it anytime from “Show hidden”.",
       "hideGlobalConfirm": "Hide",
       "hiddenGlobalToast": "Habit hidden from your library.",
       "hideGlobalFailedToast": "Couldn't hide.",
@@ -1687,7 +1687,7 @@
       "bodyweightFactorWhatIsThis": "What is this?",
       "bodyweightFactorHint": "Estimated. Suggested for the primary muscle: {pct}%. 0% = adds no volume.",
       "bodyweightFactorUseSuggested": "Use suggested ({pct}%)",
-      "bodyweightFactorExplainer": "For body-weight exercises, volume counts only the share of body weight actually moved: a push-up loads ~65%, a pull-up ~95%, an air squat ~90%, a crunch ~30%. The suggestion comes from the primary muscle group, based on published biomechanics measurements; adjust it if this exercise loads more or less. Use 0% for movements that should not add volume (planks, isometrics, burpees). It is an estimate: a session's volume uses the client's logged body weight times this percentage.",
+      "bodyweightFactorExplainer": "For body-weight exercises, volume counts only the share of body weight actually moved: a push-up loads ~65%, a pull-up ~95%, an air squat ~90%, a crunch ~30%. The suggestion comes from the primary muscle group, based on published biomechanics measurements; adjust it if this exercise loads more or less. Use 0% for movements that should not add volume (planks, isometrics, burpees). It is an estimate: a workout's volume uses the client's logged body weight times this percentage.",
       "thumbnailLabel": "Image",
       "thumbnailPlaceholder": "https://…/image.jpg",
       "thumbnailCreateDeferHint": "Save the exercise first to enable image upload.",
@@ -1906,7 +1906,7 @@
   },
   "settings": {
     "title": "Settings",
-    "subtitle": "Manage your trainer preferences. Changes apply only to your account.",
+    "subtitle": "Manage your coach preferences. Changes apply only to your account.",
     "verifiedBadge": "Verified",
     "preferencesGroup": "Preferences",
     "chatGroup": "Chat",
@@ -2152,7 +2152,7 @@
       "dayLabel": "Day",
       "scheduledFor": "Scheduled for {date}",
       "timeLabel": "Time",
-      "timeHint": "Optional for live or virtual sessions. If you set a time, the client gets a reminder push before the session (if notifications are on).",
+      "timeHint": "Optional for live or virtual workouts. If you set a time, the client gets a reminder push before the workout (if notifications are on).",
       "meetingNotesLabel": "Meeting notes",
       "meetingNotesPlaceholder": "Zoom / Meet link, instructions, prep notes...",
       "exerciseOverridesTitle": "Per-client workout overrides",
@@ -2448,7 +2448,7 @@
   },
   "login": {
     "eyebrow": "Corvo",
-    "title": "Trainer sign-in",
+    "title": "Coach sign-in",
     "subtitle": "Sign in with your authorized Google account.",
     "googleCta": "Sign in with Google",
     "signingIn": "Signing in…",
@@ -2982,7 +2982,7 @@
     },
     "home": {
       "title": "Admin Console",
-      "subtitle": "Corvo operator tools. Multi-role is enabled: a user can be trainer and admin at the same time.",
+      "subtitle": "Corvo operator tools. Multi-role is enabled: a user can be coach and admin at the same time.",
       "coachless": {
         "title": "Coach-less users (god mode)",
         "description": "Self-serve clients with no coach: subscription status, per-user content stats (routines, habits, photos, logs), grant/revoke premium, and full cascade delete.",
@@ -3002,14 +3002,14 @@
       },
       "promote": {
         "title": "Promote existing user to admin",
-        "description": "Keeps trainer role and adds admin role (trainer + admin) in custom claims.",
+        "description": "Keeps the coach role and adds admin (coach + admin) in custom claims.",
         "emailLabel": "User email",
         "submit": "Promote user",
         "pending": "Promoting..."
       },
       "allowlist": {
         "title": "Coach allowlist",
-        "description": "Pending allowlist emails (already-trainer emails are hidden).",
+        "description": "Pending allowlist emails (already-coach emails are hidden).",
         "enabled": "Enabled",
         "updatedAt": "Updated at (UTC)",
         "empty": "No allowlist entries yet."
@@ -3367,7 +3367,7 @@
       "subtitle": "Inspect orphaned users, chats, images, workouts and other suspicious records before they pile up.",
       "aboutTitle": "What this page does",
       "aboutDescription": "The scan is intentionally conservative: it only shows records that look orphaned or structurally odd in the current sample window.",
-      "aboutBody": "Deletions are explicit, destructive and require a browser confirmation. For users, the action reuses the existing trainer/client cascade logic when possible.",
+      "aboutBody": "Deletions are explicit, destructive and require a browser confirmation. For users, the action reuses the existing coach/client cascade logic when possible.",
       "kinds": {
         "user": "User",
         "chat": "Chat",

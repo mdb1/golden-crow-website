@@ -572,7 +572,7 @@ function DetailBody({ data }: { data: AssignmentDetail }) {
       {data.meetingNotes ? (
         <section className="rounded-lg border bg-background p-3 text-sm">
           <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Notas de sesión
+            Notas del entrenamiento
           </p>
           <p className="whitespace-pre-wrap">{data.meetingNotes}</p>
         </section>

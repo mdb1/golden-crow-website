@@ -582,7 +582,7 @@ export function WorkoutAssignmentEditDialog({
             <Info className="mt-0.5 h-4 w-4 shrink-0" />
             <span>
               Si cambiás los <strong className="font-medium text-foreground">pesos</strong>, el
-              alumno verá los nuevos la próxima vez que haga esta rutina y después
+              cliente verá los nuevos la próxima vez que haga esta rutina y después
               vuelve a usar los suyos. Cambiar solo notas o descanso{" "}
               <strong className="font-medium text-foreground">no toca</strong> los pesos
               que ya viene usando.

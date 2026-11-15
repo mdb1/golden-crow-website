@@ -191,7 +191,7 @@ export function PendingWorkoutAssignForm({
           <input
             type="text"
             name="meetingNotes"
-            placeholder="Link o detalle de sesión"
+            placeholder="Link o detalle del entrenamiento"
             className="rounded border bg-background px-3 py-2 text-sm"
           />
         </label>

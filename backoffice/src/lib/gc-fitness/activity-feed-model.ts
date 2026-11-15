@@ -719,7 +719,7 @@ export function classifyAuditRecord(
           meta: [
             byCoachEdit
               ? "nueva prescripción del coach"
-              : "pesos y repes registrados en el entreno",
+              : "pesos y repes registrados en el entrenamiento",
             ...occurrences,
           ],
           target: record.clientId ? { kind: "user", uid: record.clientId } : null,

@@ -470,7 +470,7 @@ function buildDownloadStem(
   dateValue: string | null | undefined,
   timezone: string,
 ): string {
-  const clientSlug = slugifyFilePart(clientName ?? "", "alumno");
+  const clientSlug = slugifyFilePart(clientName ?? "", "cliente");
   const dateSlug = formatDownloadDateSlug(dateValue, timezone);
   return `workout-${clientSlug}-${dateSlug}`;
 }
