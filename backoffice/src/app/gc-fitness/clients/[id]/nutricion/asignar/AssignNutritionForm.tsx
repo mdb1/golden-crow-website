@@ -15,6 +15,11 @@
 // the meals/options tree is two levels of dynamic arrays, and a plain controlled tree plus
 // one `safeParse` on submit is far easier to keep honest than nested field arrays.
 //
+// #507 — split by responsibility: the pure draft model + payload live in
+// `nutrition-form-model.ts`, one meal's editor in `meal-draft-editor.tsx`, and the
+// small presentational pieces in `nutrition-form-parts.tsx`. This file keeps the state,
+// the draft autosave, the overlap preview and the save fork.
+//
 // ── THE SAME FORM ALSO EDITS AN EXISTING PHASE (#949) ────────────────────────────────
 //
 // A coach who wants to change what a client eats from Wednesday on has two different
@@ -39,7 +44,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
@@ -59,15 +63,7 @@ import {
   previewNutritionAssign,
   updateNutritionPlan,
 } from "@/lib/gc-fitness/nutrition-actions";
-import { templateDeviations } from "@/lib/gc-fitness/nutrition-library-model";
 import type { NutritionTemplateRow } from "@/lib/gc-fitness/nutrition-library-model";
-import {
-  estimateKcalFromMacros,
-  macroKcalMismatch,
-  rollupDeltaIsWorthShowing,
-  rollupMealMacros,
-} from "@/lib/gc-fitness/nutrition-macro-math";
-import type { MacroRollupLine } from "@/lib/gc-fitness/nutrition-macro-math";
 import { nutritionPlanFormSchema } from "@/lib/gc-fitness/nutrition-plan-form";
 import {
   clearNutritionPlanDraft,
@@ -80,161 +76,35 @@ import {
   reloadOntoCurrentDeployment,
   reportStaleDeployment,
 } from "@/lib/gc-fitness/stale-deployment";
-import type {
-  NutritionOverlapNotice,
-  NutritionPhaseState,
-} from "@/lib/gc-fitness/nutrition-plan-form";
+import type { NutritionOverlapNotice } from "@/lib/gc-fitness/nutrition-plan-form";
+
+import { MealDraftEditor } from "./meal-draft-editor";
 import {
-  NUTRITION_MEAL_MOMENTS,
-  type NutritionMealMoment,
-  type NutritionPlan,
-} from "@/lib/gc-fitness/nutrition-schema";
-import { parseDecimalInput } from "@/lib/gc-fitness/decimal-input";
+  buildNutritionPayload,
+  canSplitPhase,
+  draftMealsFromPlan,
+  draftMealsFromTemplate,
+  emptyMeal,
+  initialName,
+  macroText,
+  nutritionFormDeviations,
+  rekeyDraftMeals,
+  type DraftMeal,
+  type EditScope,
+  type FormSnapshot,
+  type NutritionEditContext,
+} from "./nutrition-form-model";
+import {
+  MacroInput,
+  MacroKcalHint,
+  MealRollupPanel,
+  OverlapNotice,
+  ScopeOption,
+} from "./nutrition-form-parts";
 
-interface DraftOption {
-  key: string;
-  /**
-   * Set only when the option came from an existing phase. It is kept so a later edit
-   * rewrites the same option instead of minting a new id for text the client already read.
-   */
-  id?: string;
-  text: string;
-  textEn: string;
-  kcal: string;
-}
-
-interface DraftMeal {
-  key: string;
-  /** Set only when the row came from a library meal — provenance, and the daily-log key. */
-  mealId?: string;
-  name: string;
-  nameEn: string;
-  moment: NutritionMealMoment;
-  kcal: string;
-  proteinG: string;
-  carbsG: string;
-  fatG: string;
-  options: DraftOption[];
-}
-
-/**
- * Everything the coach can type, as one serializable value — what the draft stores.
- * `showTranslation` and `overlap` are view state and are rebuilt on their own.
- */
-interface FormSnapshot {
-  scope: EditScope;
-  name: string;
-  nameEn: string;
-  startsOn: string;
-  openEnded: boolean;
-  endsOn: string;
-  kcal: string;
-  proteinG: string;
-  carbsG: string;
-  fatG: string;
-  meals: DraftMeal[];
-  sourceTemplate: NutritionTemplateRow | null;
-}
+export type { NutritionEditContext } from "./nutrition-form-model";
 
 const DRAFT_DEBOUNCE_MS = 500;
-
-let seq = 0;
-function nextKey(prefix: string): string {
-  seq += 1;
-  return `${prefix}-${seq}`;
-}
-
-function emptyMeal(moment: NutritionMealMoment): DraftMeal {
-  return {
-    key: nextKey("meal"),
-    name: "",
-    nameEn: "",
-    moment,
-    kcal: "",
-    proteinG: "",
-    carbsG: "",
-    fatG: "",
-    options: [],
-  };
-}
-
-/**
- * The English slot: what was typed in English, or the Spanish text when there is none.
- *
- * Reads the English field even while its pane is collapsed, because a draft prefilled from
- * a library template already HAS an English name — discarding it on save would flatten
- * every template's translation the first time it is assigned.
- */
-function englishOr(english: string, fallback: string): string {
-  const typed = english.trim();
-  return typed === "" ? fallback.trim() : typed;
-}
-
-/** Blank → `null`, so an unset macro stays unset instead of becoming a zero target. */
-/** Same parser as the library dialog's — "12,5" is 12.5 here too (#451). */
-function numberOrNull(raw: string): number | null {
-  if (raw.trim() === "") return null;
-  const value = parseDecimalInput(raw);
-  return Number.isFinite(value) ? value : null;
-}
-
-/** Wire macro → field text. A missing macro becomes "", never "0" — see `MacroFields`. */
-function macroText(value: number | null | undefined): string {
-  return value == null ? "" : String(value);
-}
-
-function initialName(editing: NutritionEditContext | null, locale: "es" | "en"): string {
-  if (!editing) return "";
-  const { name } = editing.plan;
-  return locale === "es" ? name.es || name.en : name.en || name.es;
-}
-
-/**
- * The phase's meals as editable drafts.
- *
- * `mealId` and the option ids SURVIVE. The daily log keys its `meals` map by `mealId`, so
- * minting fresh ones would orphan every mark the client has already made: the meal would
- * look unmarked and the adherence for those days would drop without anything failing.
- */
-function draftMealsFromPlan(plan: NutritionPlan): DraftMeal[] {
-  const meals = [...plan.meals]
-    .sort((a, b) => a.order - b.order)
-    .map((meal) => ({
-      key: nextKey("meal"),
-      mealId: meal.mealId,
-      name: meal.name.es || meal.name.en,
-      nameEn: meal.name.en || meal.name.es,
-      moment: meal.moment,
-      kcal: macroText(meal.targets?.kcal),
-      proteinG: macroText(meal.targets?.proteinG),
-      carbsG: macroText(meal.targets?.carbsG),
-      fatG: macroText(meal.targets?.fatG),
-      options: (meal.options ?? []).map((option) => ({
-        key: nextKey("option"),
-        id: option.id,
-        text: option.text.es || option.text.en,
-        textEn: option.text.en || option.text.es,
-        kcal: macroText(option.targets?.kcal),
-      })),
-    }));
-  return meals.length > 0 ? meals : [emptyMeal("breakfast")];
-}
-
-/**
- * What the form needs to know when it opens on an EXISTING phase (#949).
- *
- * `todayCivil` is the client's today, not the coach's: the cutoff the coach picks is a day
- * in the life of whoever is eating.
- */
-export interface NutritionEditContext {
-  planId: string;
-  plan: NutritionPlan;
-  state: NutritionPhaseState;
-  todayCivil: string;
-}
-
-/** Which write an edit turns into. See the file header for why these are two writes. */
-type EditScope = "fromDate" | "whole";
 
 export function AssignNutritionForm({
   clientId,
@@ -256,15 +126,8 @@ export function AssignNutritionForm({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
-  /**
-   * "De un día en adelante" is only on the table for a phase that is RUNNING and that
-   * started before today. A scheduled phase has no past to preserve, and a phase that
-   * started today would be trimmed to yesterday — i.e. to nothing.
-   */
-  const canSplit =
-    editing !== null &&
-    editing.state === "current" &&
-    editing.plan.startsOn < editing.todayCivil;
+  // "De un día en adelante" only for a running phase that started before today.
+  const canSplit = canSplitPhase(editing);
 
   const [scope, setScope] = useState<EditScope>(canSplit ? "fromDate" : "whole");
 
@@ -349,11 +212,7 @@ export function AssignNutritionForm({
       // A split is only offered for a running phase that started before today; a draft
       // from yesterday must not resurrect an option the screen no longer shows.
       scope: canSplit ? stored.scope : "whole",
-      meals: stored.meals.map((meal) => ({
-        ...meal,
-        key: nextKey("meal"),
-        options: (meal.options ?? []).map((option) => ({ ...option, key: nextKey("option") })),
-      })),
+      meals: rekeyDraftMeals(stored.meals),
     });
     setDraftRestored(true);
     // Mount-only: a later prop refresh must not overwrite what the coach is typing.
@@ -428,29 +287,7 @@ export function AssignNutritionForm({
     setProteinG(template.targets?.proteinG == null ? "" : String(template.targets.proteinG));
     setCarbsG(template.targets?.carbsG == null ? "" : String(template.targets.carbsG));
     setFatG(template.targets?.fatG == null ? "" : String(template.targets.fatG));
-    setMeals(
-      [...template.meals]
-        .sort((a, b) => a.order - b.order)
-        .map((meal) => ({
-          key: nextKey("meal"),
-          // The `mealId` SURVIVES into the assigned plan: it is the key the daily log's
-          // `meals` map uses, and the FK the usage pill counts by.
-          mealId: meal.mealId,
-          name: meal.name.es || meal.name.en,
-          nameEn: meal.name.en || meal.name.es,
-          moment: meal.moment,
-          kcal: meal.targets?.kcal == null ? "" : String(meal.targets.kcal),
-          proteinG: meal.targets?.proteinG == null ? "" : String(meal.targets.proteinG),
-          carbsG: meal.targets?.carbsG == null ? "" : String(meal.targets.carbsG),
-          fatG: meal.targets?.fatG == null ? "" : String(meal.targets.fatG),
-          options: (meal.options ?? []).map((option) => ({
-            key: nextKey("option"),
-            text: option.text.es || option.text.en,
-            textEn: option.text.en || option.text.es,
-            kcal: option.targets?.kcal == null ? "" : String(option.targets.kcal),
-          })),
-        })),
-    );
+    setMeals(draftMealsFromTemplate(template));
   }, []);
 
   /**
@@ -459,43 +296,10 @@ export function AssignNutritionForm({
    * A diff, not a dirty flag: typing a value and then typing the original back is not a
    * modification, and a flag would keep claiming it was. Empty while no template is in play.
    */
-  const deviations = useMemo(() => {
-    if (!sourceTemplate) return [];
-    return templateDeviations(
-      {
-        targets: sourceTemplate.targets ?? {},
-        meals: [...sourceTemplate.meals]
-          .sort((a, b) => a.order - b.order)
-          .map((meal) => ({
-            name: meal.name,
-            moment: meal.moment,
-            targets: meal.targets ?? {},
-            options: meal.options ?? [],
-          })),
-      },
-      {
-        targets: {
-          kcal: numberOrNull(kcal),
-          proteinG: numberOrNull(proteinG),
-          carbsG: numberOrNull(carbsG),
-          fatG: numberOrNull(fatG),
-        },
-        meals: meals.map((meal) => ({
-          name: { es: meal.name.trim(), en: englishOr(meal.nameEn, meal.name) },
-          moment: meal.moment,
-          targets: {
-            kcal: numberOrNull(meal.kcal),
-            proteinG: numberOrNull(meal.proteinG),
-            carbsG: numberOrNull(meal.carbsG),
-            fatG: numberOrNull(meal.fatG),
-          },
-          options: meal.options.map((option) => ({
-            text: { es: option.text.trim(), en: englishOr(option.textEn, option.text) },
-          })),
-        })),
-      },
-    );
-  }, [sourceTemplate, kcal, proteinG, carbsG, fatG, meals]);
+  const deviations = useMemo(
+    () => nutritionFormDeviations(sourceTemplate, { kcal, proteinG, carbsG, fatG, meals }),
+    [sourceTemplate, kcal, proteinG, carbsG, fatG, meals],
+  );
 
   const dailyDeviated = deviations.some((d) => d.scope === "daily");
   const deviatedMealIndexes = new Set(
@@ -530,44 +334,19 @@ export function AssignNutritionForm({
   }, [clientId, startsOn, effectiveEndsOn, editing, scope]);
 
   const buildPayload = useCallback(() => {
-    return {
+    return buildNutritionPayload({
       clientId,
-      // Provenance. The library's "asignada N veces" pill counts exactly this field, and it
-      // is what lets a later audit answer "which template did this plan come from".
-      templateId: sourceTemplate?.id ?? null,
-      // The schema requires BOTH slots, and "no translation" must not mean "blank in
-      // English" — so the Spanish text fills in when there is no English one.
-      //
-      // ⚠️ It reads `nameEn` regardless of whether the pane is OPEN (#918). A plan
-      // prefilled from a template already carries the template's English name, and gating
-      // on the toggle would overwrite it with the Spanish text the moment the coach saved
-      // without expanding a pane they had no reason to expand.
-      name: { es: name.trim(), en: englishOr(nameEn, name) },
+      sourceTemplate,
+      name,
+      nameEn,
       startsOn,
-      endsOn: effectiveEndsOn,
-      targets: {
-        kcal: numberOrNull(kcal),
-        proteinG: numberOrNull(proteinG),
-        carbsG: numberOrNull(carbsG),
-        fatG: numberOrNull(fatG),
-      },
-      meals: meals.map((meal) => ({
-        ...(meal.mealId ? { mealId: meal.mealId } : {}),
-        name: { es: meal.name.trim(), en: englishOr(meal.nameEn, meal.name) },
-        moment: meal.moment,
-        targets: {
-          kcal: numberOrNull(meal.kcal),
-          proteinG: numberOrNull(meal.proteinG),
-          carbsG: numberOrNull(meal.carbsG),
-          fatG: numberOrNull(meal.fatG),
-        },
-        options: meal.options.map((option) => ({
-          ...(option.id ? { id: option.id } : {}),
-          text: { es: option.text.trim(), en: englishOr(option.textEn, option.text) },
-          targets: { kcal: numberOrNull(option.kcal) },
-        })),
-      })),
-    };
+      effectiveEndsOn,
+      kcal,
+      proteinG,
+      carbsG,
+      fatG,
+      meals,
+    });
   }, [
     clientId,
     sourceTemplate,
@@ -874,187 +653,18 @@ export function AssignNutritionForm({
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {meals.map((meal, mealIndex) => (
-            <div key={meal.key} className="flex flex-col gap-3 rounded-lg border p-3">
-              {deviatedMealIndexes.has(mealIndex) ? (
-                <span
-                  className="self-start rounded-full bg-warning-soft px-2 py-0.5 text-xs font-medium text-warning"
-                  data-testid={`nutrition-deviation-meal-${mealIndex}`}
-                >
-                  {t("retouched")}
-                </span>
-              ) : null}
-              <div className="flex flex-wrap items-end gap-3">
-                <div className="flex min-w-[10rem] flex-1 flex-col gap-1.5">
-                  <Label htmlFor={`meal-name-${meal.key}`}>{t("mealName")}</Label>
-                  <Input
-                    id={`meal-name-${meal.key}`}
-                    value={meal.name}
-                    onChange={(event) => patchMeal(meal.key, { name: event.target.value })}
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor={`meal-moment-${meal.key}`}>{t("mealMoment")}</Label>
-                  <Select
-                    value={meal.moment}
-                    onValueChange={(value) =>
-                      patchMeal(meal.key, { moment: value as NutritionMealMoment })
-                    }
-                  >
-                    <SelectTrigger id={`meal-moment-${meal.key}`} className="w-36">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {NUTRITION_MEAL_MOMENTS.map((moment) => (
-                        <SelectItem key={moment} value={moment}>
-                          {t(momentKey(moment))}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {meals.length > 1 ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={t("removeMeal")}
-                    onClick={() =>
-                      setMeals((current) => current.filter((item) => item.key !== meal.key))
-                    }
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                ) : null}
-              </div>
-
-              {showTranslation ? (
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor={`meal-name-en-${meal.key}`}>
-                    {t("mealName")} {t("englishSuffix")}
-                  </Label>
-                  <Input
-                    id={`meal-name-en-${meal.key}`}
-                    value={meal.nameEn}
-                    onChange={(event) => patchMeal(meal.key, { nameEn: event.target.value })}
-                  />
-                </div>
-              ) : null}
-
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <MacroInput
-                  label={t("kcal")}
-                  value={meal.kcal}
-                  onChange={(value) => patchMeal(meal.key, { kcal: value })}
-                  id={`meal-kcal-${meal.key}`}
-                />
-                <MacroInput
-                  label={t("protein")}
-                  unit={t("gramsSuffix")}
-                  value={meal.proteinG}
-                  onChange={(value) => patchMeal(meal.key, { proteinG: value })}
-                  id={`meal-protein-${meal.key}`}
-                />
-                <MacroInput
-                  label={t("carbs")}
-                  unit={t("gramsSuffix")}
-                  value={meal.carbsG}
-                  onChange={(value) => patchMeal(meal.key, { carbsG: value })}
-                  id={`meal-carbs-${meal.key}`}
-                />
-                <MacroInput
-                  label={t("fat")}
-                  unit={t("gramsSuffix")}
-                  value={meal.fatG}
-                  onChange={(value) => patchMeal(meal.key, { fatG: value })}
-                  id={`meal-fat-${meal.key}`}
-                />
-              </div>
-              <MacroKcalHint
-                kcal={meal.kcal}
-                proteinG={meal.proteinG}
-                carbsG={meal.carbsG}
-                fatG={meal.fatG}
-                testId={`meal-kcal-hint-${meal.key}`}
-              />
-
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <Label>{t("mealOptions")}</Label>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    data-testid={`add-option-${meal.key}`}
-                    onClick={() =>
-                      patchMeal(meal.key, {
-                        options: [
-                          ...meal.options,
-                          { key: nextKey("opt"), text: "", textEn: "", kcal: "" },
-                        ],
-                      })
-                    }
-                  >
-                    {t("addOption")}
-                  </Button>
-                </div>
-                {meal.options.map((option, index) => (
-                  <div key={option.key} className="flex flex-wrap items-end gap-2">
-                    <span className="text-muted-foreground w-5 pb-2 text-xs font-semibold">
-                      {/* A / B / C is DERIVED from order, never stored — reordering must
-                          not mean rewriting every label. */}
-                      {String.fromCharCode(65 + index)}
-                    </span>
-                    <div className="flex min-w-[12rem] flex-1 flex-col gap-1.5">
-                      <Label htmlFor={`option-${option.key}`} className="sr-only">
-                        {t("optionText")}
-                      </Label>
-                      <Input
-                        id={`option-${option.key}`}
-                        placeholder={t("optionText")}
-                        value={option.text}
-                        onChange={(event) =>
-                          patchMeal(meal.key, {
-                            options: meal.options.map((item) =>
-                              item.key === option.key
-                                ? { ...item, text: event.target.value }
-                                : item,
-                            ),
-                          })
-                        }
-                      />
-                    </div>
-                    <Input
-                      className="w-24"
-                      inputMode="numeric"
-                      placeholder="kcal"
-                      value={option.kcal}
-                      onChange={(event) =>
-                        patchMeal(meal.key, {
-                          options: meal.options.map((item) =>
-                            item.key === option.key
-                              ? { ...item, kcal: event.target.value }
-                              : item,
-                          ),
-                        })
-                      }
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={t("removeOption")}
-                      onClick={() =>
-                        patchMeal(meal.key, {
-                          options: meal.options.filter((item) => item.key !== option.key),
-                        })
-                      }
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <MealDraftEditor
+              key={meal.key}
+              meal={meal}
+              mealIndex={mealIndex}
+              deviated={deviatedMealIndexes.has(mealIndex)}
+              canRemove={meals.length > 1}
+              showTranslation={showTranslation}
+              onPatch={(patch) => patchMeal(meal.key, patch)}
+              onRemove={() =>
+                setMeals((current) => current.filter((item) => item.key !== meal.key))
+              }
+            />
           ))}
           <MealRollupPanel
             meals={meals}
@@ -1084,312 +694,6 @@ export function AssignNutritionForm({
           {pending ? t("saving") : editing ? t("editSave") : t("save")}
         </Button>
       </div>
-    </div>
-  );
-}
-
-function momentKey(moment: NutritionMealMoment) {
-  switch (moment) {
-    case "breakfast":
-      return "momentBreakfast" as const;
-    case "lunch":
-      return "momentLunch" as const;
-    case "snack":
-      return "momentSnack" as const;
-    case "dinner":
-      return "momentDinner" as const;
-    default:
-      return "momentOther" as const;
-  }
-}
-
-/**
- * One macro box.
- *
- * `unit` is the point of #949: four identical boxes labelled Calorías / Proteína / Carbos
- * / Grasas do not say whether the last three want grams or percentages, and a coach who
- * guesses percentages writes a plan asking for 40 g of carbs.
- */
-function MacroInput({
-  label,
-  unit,
-  value,
-  onChange,
-  id,
-}: {
-  label: string;
-  unit?: string;
-  value: string;
-  onChange: (value: string) => void;
-  id: string;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={id} className="text-xs">
-        {label}
-        {unit ? <span className="text-muted-foreground ml-1 font-normal">{unit}</span> : null}
-      </Label>
-      <Input
-        id={id}
-        inputMode="numeric"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </div>
-  );
-}
-
-/**
- * #961 — ¿lo que repartí entre las comidas llega al día?
- *
- * Es la pregunta que el coach hace en voz alta mientras carga el plan, y hasta ahora la
- * pantalla no la contestaba: el aviso de #949 compara CADA comida contra su propia línea de
- * calorías, así que cuatro comidas internamente coherentes podían sumar 1.760 de un objetivo
- * de 2.000 sin que nada lo dijera. Ochocientas calorías se van así, y el síntoma aparece
- * semanas después como "el cliente no baja".
- *
- * Va abajo de las comidas y no arriba con los objetivos a propósito: es el resultado de lo que
- * acabás de repartir, y leerlo antes de repartir no significa nada.
- *
- * ⚠️ Misma disciplina que el resto del editor: **no bloquea el guardado ni reescribe nada**.
- * Un coach puede repartir a propósito menos de lo que pide el día.
- *
- * ⚠️ Y cuando a alguna comida le falta el macro, se muestra el total pero NO la diferencia:
- * "faltan 69 g de proteína" porque tres comidas no la tienen cargada es un número falso que
- * manda a corregir un plan que está bien. Ver `rollupMealMacros`.
- */
-function MealRollupPanel({
-  meals,
-  targets,
-}: {
-  meals: DraftMeal[];
-  targets: { kcal: string; proteinG: string; carbsG: string; fatG: string };
-}) {
-  const t = useTranslations("clients.detail.nutrition");
-  const rollup = rollupMealMacros(
-    meals.map((meal) => ({
-      kcal: numberOrNull(meal.kcal),
-      proteinG: numberOrNull(meal.proteinG),
-      carbsG: numberOrNull(meal.carbsG),
-      fatG: numberOrNull(meal.fatG),
-    })),
-    {
-      kcal: numberOrNull(targets.kcal),
-      proteinG: numberOrNull(targets.proteinG),
-      carbsG: numberOrNull(targets.carbsG),
-      fatG: numberOrNull(targets.fatG),
-    },
-  );
-
-  if (meals.length === 0) return null;
-
-  const lines: Array<{
-    key: string;
-    label: string;
-    unit: string;
-    metric: "kcal" | "grams";
-    line: MacroRollupLine;
-  }> = [
-    { key: "kcal", label: t("kcal"), unit: "", metric: "kcal", line: rollup.kcal },
-    { key: "protein", label: t("protein"), unit: " g", metric: "grams", line: rollup.proteinG },
-    { key: "carbs", label: t("carbs"), unit: " g", metric: "grams", line: rollup.carbsG },
-    { key: "fat", label: t("fat"), unit: " g", metric: "grams", line: rollup.fatG },
-  ];
-
-  return (
-    <div className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-3" data-testid="nutrition-meal-rollup">
-      <div>
-        <p className="text-sm font-medium">{t("rollupTitle")}</p>
-        <p className="text-muted-foreground text-xs">{t("rollupHelp")}</p>
-      </div>
-      {rollup.isEmpty ? (
-        <p className="text-muted-foreground text-xs" data-testid="nutrition-meal-rollup-empty">
-          {t("rollupEmpty")}
-        </p>
-      ) : (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {lines.map(({ key, label, unit, metric, line }) => (
-            <div
-              key={key}
-              className="flex flex-col gap-0.5 rounded-md border bg-background p-2"
-              data-testid={`nutrition-meal-rollup-${key}`}
-            >
-              <span className="text-muted-foreground text-[11px] uppercase tracking-wide">
-                {label}
-              </span>
-              <span className="text-base font-semibold tabular-nums">
-                {line.total}
-                {unit}
-              </span>
-              <span className="text-muted-foreground text-[11px] tabular-nums">
-                {line.target === null
-                  ? t("rollupNoTarget")
-                  : t("rollupOfTarget", { target: `${line.target}${unit}` })}
-              </span>
-              <MealRollupDelta line={line} metric={metric} unit={unit} />
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * La única línea que puede MENTIR, así que es la que más se calla.
- *
- * Tres estados y ninguno es "0": "faltan X", "X de más", y "cierra" cuando la diferencia
- * está adentro de la tolerancia. Cuando el total está incompleto no se dice nada del
- * objetivo — se dice CUÁNTAS comidas faltan cargar, que es lo accionable.
- */
-function MealRollupDelta({
-  line,
-  metric,
-  unit,
-}: {
-  line: MacroRollupLine;
-  metric: "kcal" | "grams";
-  unit: string;
-}) {
-  const t = useTranslations("clients.detail.nutrition");
-
-  if (line.mealsMissing > 0) {
-    return (
-      <span className="text-muted-foreground text-[11px]">
-        {t("rollupPartial", {
-          missing: line.mealsMissing,
-          total: line.mealsCounted + line.mealsMissing,
-        })}
-      </span>
-    );
-  }
-  if (line.delta === null) return null;
-  if (!rollupDeltaIsWorthShowing(line, metric)) {
-    return <span className="text-[11px] font-medium text-success">{t("rollupOnTarget")}</span>;
-  }
-  return (
-    <span className="text-chart-4 text-[11px] font-medium tabular-nums">
-      {line.delta > 0
-        ? t("rollupOver", { diff: `${line.delta}${unit}` })
-        : t("rollupUnder", { diff: `${Math.abs(line.delta)}${unit}` })}
-    </span>
-  );
-}
-
-/**
- * "Los macros suman ≈1930 kcal" — and, when it disagrees with the typed calorie line by
- * more than the tolerance, by how much (#949).
- *
- * It never rewrites the coach's `kcal` field and never blocks the save. The 4/4/9 factors
- * are a convention, and a coach may legitimately prescribe a mismatch; what they should
- * not do is ship one they did not notice.
- */
-function MacroKcalHint({
-  kcal,
-  proteinG,
-  carbsG,
-  fatG,
-  testId,
-}: {
-  kcal: string;
-  proteinG: string;
-  carbsG: string;
-  fatG: string;
-  testId: string;
-}) {
-  const t = useTranslations("clients.detail.nutrition");
-  const estimate = estimateKcalFromMacros({
-    proteinG: numberOrNull(proteinG),
-    carbsG: numberOrNull(carbsG),
-    fatG: numberOrNull(fatG),
-  });
-  if (!estimate) return null;
-  const mismatch = macroKcalMismatch(numberOrNull(kcal), estimate);
-
-  return (
-    <p className="text-muted-foreground text-xs" data-testid={testId}>
-      {estimate.isPartial
-        ? t("macroKcalEstimatePartial", { kcal: estimate.kcal })
-        : t("macroKcalEstimate", { kcal: estimate.kcal })}
-      {mismatch !== null ? (
-        <span className="text-chart-4 ml-1 font-medium" data-testid={`${testId}-mismatch`}>
-          {mismatch > 0
-            ? t("macroKcalOver", { diff: mismatch })
-            : t("macroKcalUnder", { diff: Math.abs(mismatch) })}
-        </span>
-      ) : null}
-    </p>
-  );
-}
-
-/** One radio in the edit-scope card. A plain input — this is two choices, not a form. */
-function ScopeOption({
-  checked,
-  onSelect,
-  label,
-  help,
-  testId,
-}: {
-  checked: boolean;
-  onSelect: () => void;
-  label: string;
-  help: string;
-  testId: string;
-}) {
-  return (
-    <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border p-3">
-      <input
-        type="radio"
-        name="nutrition-edit-scope"
-        className="mt-0.5"
-        checked={checked}
-        onChange={onSelect}
-        data-testid={testId}
-      />
-      <span className="flex flex-col gap-0.5">
-        <span className="text-sm font-medium">{label}</span>
-        <span className="text-muted-foreground text-xs">{help}</span>
-      </span>
-    </label>
-  );
-}
-
-/**
- * What this assign will do to the phases that already exist.
- *
- * Rendered even when there is nothing to do ("no se solapa con ninguna fase"), because the
- * absence of a warning is ambiguous: it reads the same as a warning that failed to load.
- */
-function OverlapNotice({ notices }: { notices: NutritionOverlapNotice[] | null }) {
-  const t = useTranslations("clients.detail.nutrition");
-  if (notices === null) return null;
-
-  if (notices.length === 0) {
-    return (
-      <p className="text-muted-foreground text-xs" data-testid="nutrition-overlap-none">
-        {t("overlapNone")}
-      </p>
-    );
-  }
-
-  return (
-    <div
-      className="rounded-lg border border-warning/40 bg-warning/10 p-3"
-      data-testid="nutrition-overlap-notice"
-    >
-      <p className="text-sm font-medium">{t("overlapTitle")}</p>
-      <ul className="mt-1 flex flex-col gap-0.5 text-sm">
-        {notices.map((notice) => (
-          <li key={notice.planId}>
-            {notice.kind === "trim"
-              ? t("overlapTrim", { name: notice.planName, date: notice.date ?? "" })
-              : notice.kind === "deferStart"
-                ? t("overlapDefer", { name: notice.planName, date: notice.date ?? "" })
-                : t("overlapSupersede", { name: notice.planName })}
-          </li>
-        ))}
-      </ul>
-      <p className="text-muted-foreground mt-1 text-xs">{t("overlapWhy")}</p>
     </div>
   );
 }
