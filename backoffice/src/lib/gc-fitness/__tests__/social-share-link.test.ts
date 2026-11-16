@@ -18,7 +18,11 @@ import { GET as assetLinks } from "@/app/.well-known/assetlinks.json/route";
 import {
   APPLE_TEAM_ID,
   APP_BUNDLE_ID,
+  PLAY_STORE_URL,
   SOCIAL_LINK_HOST,
+  coachInviteAppSchemeUrl,
+  coachInviteUrl,
+  playStoreUrlWithReferrer,
   profileAppSchemeUrl,
   profileShareUrl,
   routineAppSchemeUrl,
@@ -33,6 +37,29 @@ describe("social share link", () => {
     expect(routineAppSchemeUrl("tpl-123")).toBe("gcfitness://routine/tpl-123");
     // #1184 — la cabeza `profile` es la que rutean `DeepLinkRouting.swift` / `.kt`.
     expect(profileAppSchemeUrl("uid-9")).toBe("gcfitness://profile/uid-9");
+  });
+
+  it("#1631 — el link de invitación de coach es el de los twins", () => {
+    expect(coachInviteUrl("abc234xyz9")).toBe("https://fit.goldencrowvs.com/f/c/abc234xyz9");
+    expect(coachInviteAppSchemeUrl("abc234xyz9")).toBe("gcfitness://invite/abc234xyz9");
+    expect(coachInviteUrl("")).toBeNull();
+    expect(coachInviteAppSchemeUrl("")).toBeNull();
+  });
+
+  it("#1643 — la URL de Play lleva el link en `referrer`, con las dos capas de codificación", () => {
+    const web = "https://fit.goldencrowvs.com/f/c/abc234xyz9";
+    const url = playStoreUrlWithReferrer(web);
+    expect(url).toBe(
+      "https://play.google.com/store/apps/details?id=com.goldencrow.fitness" +
+        "&referrer=gcf_link%3Dhttps%253A%252F%252Ffit.goldencrowvs.com%252Ff%252Fc%252Fabc234xyz9",
+    );
+    // Lo que Play le entrega a la app es el valor decodificado UNA vez; la app
+    // decodifica `gcf_link` y tiene que volver exactamente al link.
+    const referrer = new URL(url).searchParams.get("referrer");
+    expect(referrer).toBe(`gcf_link=${encodeURIComponent(web)}`);
+    const pair = referrer!.split("&").find((p) => p.startsWith("gcf_link="))!;
+    expect(decodeURIComponent(pair.slice("gcf_link=".length))).toBe(web);
+    expect(playStoreUrlWithReferrer(null)).toBe(PLAY_STORE_URL);
   });
 
   it("un id vacío no produce link", () => {
