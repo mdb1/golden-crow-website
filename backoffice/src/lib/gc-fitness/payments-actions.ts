@@ -9,8 +9,8 @@
 //     (`users/{clientId}.coachId == uid`). Lo ya creado queda del coach que lo cargó
 //     aunque el alumno se vaya (decisión del dueño): anular un pago viejo sólo pide que
 //     el pago sea suyo.
-//   - Registrar = UNA transacción (billing leído + pago + billing, #487); anular = UN
-//     batch (pago + billing), como lo hacen las apps.
+//   - Registrar = UNA transacción (billing leído + pago + billing, #487); anular = UNA
+//     transacción también (gc-fitness #1659), como lo hacen ahora las apps.
 //   - El Admin SDK tira con `undefined`: todo opcional se escribe como `null`.
 //
 // "use server" ⇒ sólo se exportan funciones async (#785). Los esquemas, decoders y el
@@ -24,9 +24,9 @@ import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { toActionFailure, type ActionResult } from "./action-result";
 import { getCurrentTrainer } from "./auth-helpers";
 import {
-  applyPayment,
   consumeClass,
-  revertPayment,
+  recordEffect,
+  voidEffect,
   type BillingLike,
 } from "./billing";
 import { civilDateToday } from "./civil-date";
@@ -310,8 +310,8 @@ export async function consumeClientClass(input: {
 // ── Pagos ────────────────────────────────────────────────────────────────────────
 
 /**
- * Registra un pago: UN batch con el pago nuevo + el billing movido por
- * `Billing.applyPayment` + `lastPayment*`. Sin billing previo (alumno sin plan) se crea
+ * Registra un pago: UNA transacción con el pago nuevo + el billing movido por
+ * `recordEffect` (gemelo de las apps, gc-fitness #1659). Sin billing previo (alumno sin plan) se crea
  * uno sin plan que sólo guarda el último pago.
  */
 export async function recordClientPayment(input: unknown): Promise<ActionResult<{ id: string }>> {
@@ -367,18 +367,15 @@ export async function recordClientPayment(input: unknown): Promise<ActionResult<
         voidReason: null,
       });
       if (billing) {
-        // Sin plan no hay vencimiento que correr: sólo se guarda el último pago.
-        const hasPlan = billing.planId != null || billing.plan != null;
-        const due = hasPlan
-          ? applyPayment(toBillingLike(billing), parsed.covers, parsed.paidCivil)
-          : { nextDueCivil: billing.nextDueCivil, classesRemaining: billing.classesRemaining };
-        tx.update(billingRef, {
-          nextDueCivil: due.nextDueCivil,
-          classesRemaining: due.classesRemaining,
-          lastPaymentCivil: parsed.paidCivil,
-          lastPaymentAmount: parsed.amount,
-          updatedAt: now,
-        });
+        // gc-fitness #1659: el gemelo de las apps. Sin plan no corre el vencimiento; un pago
+        // con fecha vieja no pisa un «último pago» más nuevo.
+        const effect = recordEffect(
+          { ...toBillingLike(billing), lastPaymentCivil: billing.lastPaymentCivil, lastPaymentAmount: billing.lastPaymentAmount },
+          parsed.covers,
+          parsed.paidCivil,
+          parsed.amount,
+        );
+        tx.update(billingRef, { ...effect, updatedAt: now });
       } else {
         tx.set(billingRef, {
           coachId: trainer.uid,
@@ -421,7 +418,7 @@ async function nonVoidedPaymentsOf(
 
 /**
  * Anula un pago (no se borra: queda en el historial). Si era el ÚLTIMO pago no anulado
- * del alumno, el mismo batch revierte su efecto en el billing (`Billing.revertPayment`)
+ * del alumno, la misma transacción revierte su efecto en el billing (`voidEffect`)
  * y `lastPayment*` pasa al pago anterior; si no, sólo se marca el pago y el coach
  * corrige el vencimiento a mano.
  */
@@ -433,41 +430,39 @@ export async function voidClientPayment(
     const parsed = voidPaymentInputSchema.parse(input);
     const db = gcFitnessFirestore();
     const paymentRef = db.collection(FirestoreCollections.clientPayments).doc(parsed.paymentId);
-    const paymentSnap = await paymentRef.get();
-    if (!paymentSnap.exists || paymentSnap.get("coachId") !== trainer.uid) {
-      throw new Error("Forbidden");
-    }
-    const payment = decodePayment(paymentSnap.id, paymentSnap.data() as Raw);
-    if (payment.voidedAt) throw new Error("This payment is already voided.");
-
-    const live = await nonVoidedPaymentsOf(db, trainer.uid, payment.clientId);
-    const isLast = live.length > 0 && live[0]!.id === payment.id;
-
-    const batch = db.batch();
-    const now = FieldValue.serverTimestamp();
-    batch.update(paymentRef, { voidedAt: now, voidReason: parsed.reason });
-
-    let revertedBilling = false;
-    if (isLast) {
+    // gc-fitness #1659: read → decide → write in ONE transaction (it was a read then a batch,
+    // so a payment recorded meanwhile from an app was reverted against a stale billing). The
+    // billing doc is read in the transaction FIRST: every payments mutation (record, void,
+    // consume — web and apps) writes it, so it serializes this void against all of them, and
+    // the payments list is read after it. A void that is not the latest still bumps
+    // `updatedAt`, which is the version the apps' transactions compare.
+    const revertedBilling = await db.runTransaction(async (tx) => {
+      const paymentSnap = await tx.get(paymentRef);
+      if (!paymentSnap.exists || paymentSnap.get("coachId") !== trainer.uid) {
+        throw new Error("Forbidden");
+      }
+      const payment = decodePayment(paymentSnap.id, paymentSnap.data() as Raw);
+      if (payment.voidedAt) throw new Error("This payment is already voided.");
       const billingRef = db
         .collection(FirestoreCollections.clientBilling)
         .doc(billingDocId(trainer.uid, payment.clientId));
-      const billingSnap = await billingRef.get();
-      if (billingSnap.exists && billingSnap.get("coachId") === trainer.uid) {
-        const billing = decodeBilling(billingSnap.data() as Raw);
-        const due = revertPayment(toBillingLike(billing), payment.covers);
-        const previous = live[1] ?? null;
-        batch.update(billingRef, {
-          nextDueCivil: due.nextDueCivil,
-          classesRemaining: due.classesRemaining,
-          lastPaymentCivil: previous ? previous.paidCivil : null,
-          lastPaymentAmount: previous ? previous.amount : null,
-          updatedAt: now,
-        });
-        revertedBilling = true;
+      const billingSnap = await tx.get(billingRef);
+
+      const live = await nonVoidedPaymentsOf(db, trainer.uid, payment.clientId);
+      const isLast = live.length > 0 && live[0]!.id === payment.id;
+
+      const now = FieldValue.serverTimestamp();
+      tx.update(paymentRef, { voidedAt: now, voidReason: parsed.reason });
+      if (!billingSnap.exists || billingSnap.get("coachId") !== trainer.uid) return false;
+      if (!isLast) {
+        tx.update(billingRef, { updatedAt: now });
+        return false;
       }
-    }
-    await batch.commit();
+      const billing = decodeBilling(billingSnap.data() as Raw);
+      const previous = live[1] ?? null;
+      tx.update(billingRef, { ...voidEffect(toBillingLike(billing), payment.covers, previous), updatedAt: now });
+      return true;
+    });
     return { ok: true, revertedBilling };
   } catch (err) {
     return toActionFailure(err);

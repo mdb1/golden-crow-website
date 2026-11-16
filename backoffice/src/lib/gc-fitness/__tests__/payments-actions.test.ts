@@ -412,6 +412,16 @@ describe("recordClientPayment", () => {
     expect(fake.doc(`client_payments/${COACH}_${key}`)).not.toHaveProperty("requestId");
   });
 
+  it("gc-fitness #1659: un pago con fecha vieja corre el vencimiento pero no pisa el último pago", async () => {
+    fake.seed({ [BILLING]: { ...fake.doc(BILLING), lastPaymentCivil: "2026-11-05", lastPaymentAmount: 30000 } });
+    await recordClientPayment(input({ paidCivil: "2026-10-01", amount: 20000 }));
+    expect(fake.doc(BILLING)).toMatchObject({
+      nextDueCivil: "2026-12-10",
+      lastPaymentCivil: "2026-11-05",
+      lastPaymentAmount: 30000,
+    });
+  });
+
   it("#487: un requestId mal formado se rechaza sin escribir", async () => {
     await expect(recordClientPayment(input({ requestId: "../x" }))).resolves.toMatchObject({ ok: false });
     expect(fake.db.writes).toEqual([]);
@@ -466,14 +476,45 @@ describe("voidClientPayment", () => {
     expect(fake.db.writes.some((w) => w.op === "delete")).toBe(false);
   });
 
-  it("anular uno que NO es el último sólo marca el pago", async () => {
+  it("anular uno que NO es el último marca el pago y sólo avanza la versión del billing", async () => {
     await expect(voidClientPayment({ paymentId: "p-old" })).resolves.toEqual({
       ok: true,
       revertedBilling: false,
     });
-    expect(fake.db.writes.map((w) => w.path)).toEqual(["client_payments/p-old"]);
+    // gc-fitness #1659: el billing recibe SÓLO `updatedAt` — la versión que comparan las
+    // transacciones de las apps para saber que la lista de pagos cambió.
+    expect(fake.db.writes.map((w) => w.path)).toEqual(["client_payments/p-old", BILLING]);
     expect(fake.doc("client_payments/p-old")).toMatchObject({ voidReason: null });
-    expect(fake.doc(BILLING)).toMatchObject({ nextDueCivil: "2026-12-10" });
+    expect(fake.doc(BILLING)).toMatchObject({
+      nextDueCivil: "2026-12-10",
+      lastPaymentCivil: "2026-11-11",
+      updatedAt: SERVER_TIMESTAMP,
+    });
+  });
+
+  it("gc-fitness #1659: anular el último mientras entra un pago nuevo no revierte contra un billing viejo", async () => {
+    // Antes: leía billing + lista y escribía en un batch — un pago registrado en el medio
+    // (otra pestaña, una app) quedaba pisado por el revert calculado sobre el billing viejo.
+    const [voided, recorded] = await Promise.all([
+      voidClientPayment({ paymentId: "p-last" }),
+      recordClientPayment({
+        clientId: "client-1",
+        amount: 25000,
+        paidCivil: "2026-11-15",
+        method: "transfer",
+        covers: { kind: "months", months: 1 },
+      }),
+    ]);
+    expect(voided.ok && recorded.ok).toBe(true);
+    // Cualquier orden da lo mismo que aplicarlas en serie.
+    const b = fake.doc(BILLING) as Record<string, unknown>;
+    if (voided.ok && voided.revertedBilling) {
+      // el void entró primero: revirtió p-last (12-10 → 11-10) y el pago corrió un mes
+      expect(b).toMatchObject({ nextDueCivil: "2026-12-10", lastPaymentCivil: "2026-11-15" });
+    } else {
+      // el pago entró primero: p-last ya no era el último y el void no revierte
+      expect(b).toMatchObject({ nextDueCivil: "2027-01-10", lastPaymentCivil: "2026-11-15" });
+    }
   });
 
   it("no anula un pago de otro coach ni uno ya anulado", async () => {
