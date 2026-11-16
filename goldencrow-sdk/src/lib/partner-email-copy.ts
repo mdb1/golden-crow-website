@@ -38,7 +38,7 @@ export const PARTNER_EMAIL_COPY: Record<
           "Sumarte es gratis. También te preparamos una demo gratuita de tu propia app.",
           "Dejanos los datos de {companyName} y empecemos.",
         ],
-        ctaLabel: "¡Quiero mi demo gratuita!",
+        ctaLabel: "¡Quiero darme de alta en la plataforma!",
         closing: "¡Te esperamos!",
       },
       en: {
@@ -161,7 +161,7 @@ export const PARTNER_EMAIL_COPY: Record<
           "Compartí tus novedades, difundí tus eventos y conectá con la comunidad.",
           "Sumarte es gratis. También te preparamos una demo gratuita para que puedas visualizar como sería tu propia app.",
         ],
-        ctaLabel: "¡Quiero mi demo gratuita!",
+        ctaLabel: "¡Quiero darme de alta en la plataforma!",
         closing: "¡Te esperamos!",
       },
       en: {
