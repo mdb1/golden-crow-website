@@ -62,8 +62,10 @@ import {
 } from "@/lib/gc-fitness/activity-feed-model";
 import {
   findRecurrenceEdits,
+  groupAuditBursts,
   groupRecurringAuditEntries,
 } from "@/lib/gc-fitness/audit-grouping";
+import { BURST_GAP_MS, burstKeyFor, collapseByGap } from "@/lib/gc-fitness/activity-feed-model-ext";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { COACH_ACTIVITY_COLLECTION } from "@/lib/gc-fitness/coach-activity-log";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
@@ -113,11 +115,18 @@ export interface ActivityFeedEvent {
    * doc is gone), so a rendered event never carries one.
    */
   subjectRef?: FeedSubjectRef | null;
+  /** #529 — several docs to name (a burst of habit ticks): the names are joined. */
+  subjectRefs?: FeedSubjectRef[];
   meta: string[];
   /** Extra facts folded in from absorbed rows ("actualizó la rutina (3 …)"). */
   notes?: string[];
   actor: FeedPerson | null;
   client: FeedPerson | null;
+  /**
+   * #529 — the coach whose roster this happened in (the client's coach, or the actor when
+   * the actor IS a coach). Drives the «por coach» filter and the row's "· coach X" chip.
+   */
+  coach?: FeedPerson | null;
   /** Primary tap target. */
   href: string | null;
   occurrenceCount?: number;
@@ -146,6 +155,8 @@ export interface ActivityFeedFilters {
   categories?: FeedCategory[];
   actorQuery?: string | null;
   clientQuery?: string | null;
+  /** #529 — matches the coach (name / email / uid) whose roster the event belongs to. */
+  coachQuery?: string | null;
   fromISO?: string | null;
   toISO?: string | null;
   /** Include mechanical writes (`updatedAt` touches, per-set log writes). */
@@ -202,7 +213,50 @@ const AUDITED_COLLECTIONS = [
   "workout_logs",
   "users",
   "workout_assignments",
+  "nutrition_plans",
 ] as const;
+/**
+ * golden-crow-website#529 — the ~30 collections the capture watches since 2.3.0, in a few
+ * BUCKETS rather than one window each: a per-collection window costs at least one read per
+ * page load even when empty, and thirty of them would multiply the page's read bill for
+ * collections that mostly see a write a day. One `collection in [...]` query per bucket uses
+ * the same `(collection ASC, occurredAt DESC)` index as the windows above (`in` ≤ 30 values),
+ * so a quiet bucket — billing, say — cannot be starved out of the page by chat or Corvo.
+ */
+const AUDITED_BUCKETS: ReadonlyArray<{ label: string; collections: readonly string[] }> = [
+  {
+    label: "coaching",
+    collections: [
+      "workout_templates", "habit_templates", "nutrition_templates", "nutrition_meals",
+      "client_goals", "client_notes", "client_exercise_notes", "coach_checklist",
+      "coach_broadcasts", "progress_photos", "body_weight_logs",
+    ],
+  },
+  {
+    label: "billing+accounts",
+    collections: [
+      "coach_payment_plans", "client_billing", "client_payments",
+      "user_mirror", "coach_allowlist", "app_config",
+    ],
+  },
+  {
+    label: "social",
+    collections: [
+      "social_profiles", "social_follows", "social_follow_requests", "social_blocks",
+      "social_activity", "activity_kudos", "public_routines", "routine_comments",
+      "routine_likes", "social_challenges", "social_reports",
+    ],
+  },
+  {
+    label: "chat+corvo",
+    collections: [
+      "chat_messages", "dm_threads", "dm_messages",
+      "ai_coach", "ai_coach_turns", "ai_coach_proposals", "ai_coach_reports",
+    ],
+  },
+];
+/** Habit ticks closer than this to the previous one of the same person collapse into one row. */
+const HABIT_BURST_GAP_MS = 60 * 60 * 1000;
 const DEFAULT_LIMIT = 150;
 const MAX_LIMIT = 400;
 /**
@@ -242,6 +296,14 @@ function snapshotRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
 }
 
+function stringRecord(value: unknown): Record<string, string> | null {
+  const record = snapshotRecord(value);
+  if (!record) return null;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(record)) if (typeof v === "string") out[k] = v;
+  return Object.keys(out).length > 0 ? out : null;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Source fetchers (each fail-soft — one dead collection never blanks the feed)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -256,12 +318,15 @@ async function rangedQuery(
   options: {
     limit?: number;
     equals?: { field: string; value: unknown };
+    /** #529 — `field in values` (≤ 30), for the bucketed audit windows. */
+    within?: { field: string; values: readonly string[] };
     /** #503 — records how far back this window reached when it came back full. */
     horizon?: WindowHorizon;
   } = {},
 ): Promise<FirebaseFirestore.QuerySnapshot | null> {
   let q = db.collection(collection).orderBy(timeField, "desc") as FirebaseFirestore.Query;
   if (options.equals) q = q.where(options.equals.field, "==", options.equals.value);
+  if (options.within) q = q.where(options.within.field, "in", [...options.within.values]);
   if (from) q = q.where(timeField, ">=", Timestamp.fromDate(from));
   if (to) q = q.where(timeField, "<=", Timestamp.fromDate(to));
   const limit = options.limit ?? PER_SOURCE_CAP;
@@ -295,6 +360,13 @@ async function fetchAuditRecords(
       rangedQuery(db, FirestoreCollections.auditLog, "occurredAt", from, to, `audit_log/${name}`, {
         limit: PER_COLLECTION_CAP,
         equals: { field: "collection", value: name },
+        horizon,
+      }),
+    ),
+    ...AUDITED_BUCKETS.map((bucket) =>
+      rangedQuery(db, FirestoreCollections.auditLog, "occurredAt", from, to, `audit_log/${bucket.label}`, {
+        limit: PER_COLLECTION_CAP,
+        within: { field: "collection", values: bucket.collections },
         horizon,
       }),
     ),
@@ -339,6 +411,9 @@ async function fetchAuditRecords(
       coachId: typeof d.coachId === "string" ? d.coachId : null,
       clientId: typeof d.clientId === "string" ? d.clientId : null,
       occurredAtISO: toIso(d.occurredAt) ?? toIso(d.eventTime),
+      // #529 — the capture's derived facts and path wildcards (chat id, Corvo uid).
+      summary: snapshotRecord(d.summary),
+      params: stringRecord(d.params),
     } satisfies AuditRecord;
     })
     .sort((a, b) => (b.occurredAtISO ?? "").localeCompare(a.occurredAtISO ?? ""));
@@ -791,6 +866,21 @@ function person(
   };
 }
 
+/**
+ * #529 — the coach a row belongs to: the actor when the actor IS a coach, else the coach of
+ * the client the row is about, else the coach of the (client) actor. A coach-less user has
+ * none — the row is not in anybody's roster.
+ */
+function coachOf(event: ActivityFeedEvent, users: Map<string, ResolvedUser>): FeedPerson | null {
+  if (event.actor?.uid && users.get(event.actor.uid)?.role === "trainer") return event.actor;
+  for (const uid of [event.clientUid, event.actor?.uid]) {
+    if (!uid) continue;
+    const coachId = users.get(uid)?.coachId;
+    if (coachId && coachId !== uid) return person(coachId, "coach", users);
+  }
+  return null;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // coach_activity / admin_operations copy
 // ─────────────────────────────────────────────────────────────────────────────
@@ -979,7 +1069,8 @@ async function collectFeed(
     ]);
 
   // Collapse recurring-series writes (one coach edit → one doc per occurrence).
-  const auditGroups = groupRecurringAuditEntries(auditRaw);
+  // #529 — then collapse bursts (a Corvo conversation, a chat sitting, a run of kudos).
+  const auditGroups = groupAuditBursts(groupRecurringAuditEntries(auditRaw), burstKeyFor, BURST_GAP_MS);
 
   // #697 — a recurrence change arrives as "delete the future occurrences" plus
   // "write the new ones". Pair the halves so the row says what was actually done
@@ -1002,6 +1093,7 @@ async function collectFeed(
         event: classifyAuditRecord(group.head, {
           count: group.count,
           dates: group.dates,
+          members: group.members,
           recurrenceEdit:
             deleteIndex === undefined ? null : { previousRecurrence: previous ?? null },
         }),
@@ -1010,9 +1102,9 @@ async function collectFeed(
 
   // ── identities ──
   const uids = new Set<string>();
-  for (const { group } of classified) {
+  for (const { group, event } of classified) {
     const h = group.head;
-    for (const uid of [h.actorUid, h.trainerId, h.coachId, h.clientId]) {
+    for (const uid of [h.actorUid, h.trainerId, h.coachId, h.clientId, event.actorUid, event.counterpartUid]) {
       if (uid) uids.add(uid);
     }
     if (h.collection === "users") uids.add(h.docId);
@@ -1039,6 +1131,16 @@ async function collectFeed(
   // are NOT: they are hydrated later, once filtering has cut the list down, so a
   // narrow filter costs a handful of point reads instead of a hundred.
   const users = await resolveUsers(db, uids);
+  // #529 — the «por coach» filter and the row's coach chip need the COACHES of the people
+  // above too; most are already in the map (they act in the feed), the rest is one point
+  // read per coach — admin-scale, tens.
+  const missingCoaches = new Set<string>();
+  for (const user of users.values()) {
+    if (user.coachId && !users.has(user.coachId)) missingCoaches.add(user.coachId);
+  }
+  if (missingCoaches.size > 0) {
+    for (const [uid, user] of await resolveUsers(db, missingCoaches)) users.set(uid, user);
+  }
 
   const events: ActivityFeedEvent[] = [];
   // #748 — the tokens each row can be recognised by across sources. Kept beside
@@ -1055,8 +1157,12 @@ async function collectFeed(
     // workout" about her client's session. An unattributable write renders with
     // no name at all.
     const actorUid = event.actorUid;
+    // #529 — an event between two people names the OTHER one explicitly (the followee, the
+    // client a coach wrote to); everything else keeps the doc's owner as before.
     const clientUid =
-      head.clientId ?? (head.collection === "users" ? head.docId : null);
+      event.counterpartUid ??
+      head.clientId ??
+      (head.collection === "users" ? head.docId : null);
     entityKeys.set(head.id, coachActivityKeysFor(head));
     events.push({
       id: head.id,
@@ -1155,7 +1261,28 @@ async function collectFeed(
     });
   }
 
-  for (const h of habitCheckInRaw) {
+  // #529 — «Cami marcó 3 hábitos»: ticks of the same person within an hour collapse into one
+  // row (ticks and unticks separately). The habits' names are hydrated after filtering.
+  const habitBursts = collapseByGap(
+    habitCheckInRaw,
+    (h) => (h.clientId ? `${h.clientId}|${h.unticked ? "un" : "tick"}` : null),
+    (h) => h.occurredAtISO,
+    HABIT_BURST_GAP_MS,
+  );
+  for (const burst of habitBursts) {
+    const h = burst[0];
+    const many = burst.length > 1;
+    const habitIds = [...new Set(burst.map((b) => b.habitId).filter((id): id is string => !!id))];
+    // Only when the tick is NOT for the day it was written: a back-dated
+    // check-in is the interesting case, and on the normal one the civil date
+    // just repeats the day header the row already sits under.
+    const backDated = [
+      ...new Set(
+        burst
+          .filter((b) => b.civilDate && b.civilDate !== (b.occurredAtISO ?? "").slice(0, 10))
+          .map((b) => b.civilDate as string),
+      ),
+    ].sort();
     events.push({
       id: h.id,
       source: "habit_logs",
@@ -1163,22 +1290,23 @@ async function collectFeed(
       significance: "key",
       action: h.unticked ? "update" : "create",
       occurredAtISO: h.occurredAtISO,
-      title: h.unticked ? "Desmarcó un hábito" : "Marcó un hábito",
+      title: many
+        ? h.unticked ? "Desmarcó hábitos" : "Marcó hábitos"
+        : h.unticked ? "Desmarcó un hábito" : "Marcó un hábito",
       subject: null,
       // The tick doc carries only the habit id, so the name is a point read —
       // the same bounded, post-filter hydration the elided `templateSnapshot`
       // rows use. A habit that was hard-deleted since simply renders unnamed.
-      subjectRef: h.habitId ? { collection: "habits", id: h.habitId } : null,
-      // Only when the tick is NOT for the day it was written: a back-dated
-      // check-in is the interesting case, and on the normal one the civil date
-      // just repeats the day header the row already sits under.
-      meta:
-        h.civilDate && h.civilDate !== (h.occurredAtISO ?? "").slice(0, 10)
-          ? [`día ${h.civilDate}`]
-          : [],
+      subjectRef: !many && h.habitId ? { collection: "habits", id: h.habitId } : null,
+      subjectRefs: many ? habitIds.map((id) => ({ collection: "habits" as const, id })) : undefined,
+      meta: [
+        ...(many ? [`${burst.length} hábitos`] : []),
+        ...backDated.map((d) => `día ${d}`),
+      ],
       actor: person(h.clientId, "client", users),
       client: null,
       href: h.clientId ? userHref(h.clientId, users) : null,
+      occurrenceCount: many ? burst.length : undefined,
       // An untick is the client changing their mind, not data being removed —
       // keeping it out of the Eliminaciones tab, which is about bajas.
       isDeletion: false,
@@ -1230,7 +1358,10 @@ async function collectFeed(
     })),
   );
 
-  return mergeWorkoutWriteBacks(events.filter((e) => !duplicates.has(e.id)));
+  // #529 — whose roster each row belongs to (the «por coach» filter + the row's coach chip).
+  const withCoach = events.map((e) => ({ ...e, coach: coachOf(e, users) }));
+
+  return mergeWorkoutWriteBacks(withCoach.filter((e) => !duplicates.has(e.id)));
 }
 
 function applyFilters(
@@ -1244,8 +1375,13 @@ function applyFilters(
     filters.categories && filters.categories.length > 0 ? new Set(filters.categories) : null;
   const actorQuery = (filters.actorQuery ?? "").trim().toLowerCase();
   const clientQuery = (filters.clientQuery ?? "").trim().toLowerCase();
+  const coachQuery = (filters.coachQuery ?? "").trim().toLowerCase();
 
   return events.filter((e) => {
+    if (coachQuery) {
+      const hay = `${e.coach?.uid ?? ""} ${e.coach?.name ?? ""} ${e.coach?.email ?? ""}`.toLowerCase();
+      if (!hay.includes(coachQuery)) return false;
+    }
     if (!filters.includeLowSignal && e.significance === "low") return false;
     if (filters.deletionsOnly && !e.isDeletion) return false;
     if (source && e.source !== source) return false;
@@ -1335,15 +1471,23 @@ export async function listActivityFeedPage(
   // habit whose only changed field was its schedule, an assignment's template.
   const names = await resolveEntityNames(
     gcFitnessFirestore(),
-    page.map((e) => e.subjectRef).filter((r): r is FeedSubjectRef => !!r),
+    page
+      .flatMap((e) => [e.subjectRef, ...(e.subjectRefs ?? [])])
+      .filter((r): r is FeedSubjectRef => !!r),
   );
   const events = page.map((event) => {
-    if (!event.subjectRef) return event;
-    const { subjectRef, ...rest } = event;
+    if (!event.subjectRef && !event.subjectRefs) return event;
+    const { subjectRef, subjectRefs, ...rest } = event;
+    // #529 — a burst names every doc it covers: «Marcó hábitos · Agua, Dormir 8 h».
+    const many = (subjectRefs ?? [])
+      .map((r) => names.get(`${r.collection}:${r.id}`))
+      .filter((n): n is string => !!n);
     return {
       ...rest,
       subject:
-        event.subject ?? names.get(`${subjectRef.collection}:${subjectRef.id}`) ?? null,
+        event.subject ??
+        (subjectRef ? names.get(`${subjectRef.collection}:${subjectRef.id}`) : null) ??
+        (many.length > 0 ? many.join(", ") : null),
     };
   });
   return { events, nextCursor: nextCursor ? encodeFeedCursor(nextCursor) : null };

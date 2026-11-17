@@ -701,3 +701,99 @@ describe("#503 — cursor paging", () => {
     ]);
   });
 });
+
+// golden-crow-website#529 — the collections captured since 2.3.0, end to end through the
+// reader: bucketed audit windows, bursts, the counterpart chip, the coach column + filter.
+describe("#529 — everything new in the audit", () => {
+  const minute = (m: number) => ts(new Date(Date.UTC(2026, 10, 17, 12, m)).toISOString());
+
+  beforeEach(() => {
+    docsByCollection.habits = new Map<string, Record<string, unknown>>([
+      ["hab-1", { name: { es: "Tomar agua", en: "Water" } }],
+      ["hab-2", { name: { es: "Dormir 8 h", en: "Sleep" } }],
+      ["hab-3", { name: { es: "Caminar", en: "Walk" } }],
+    ]);
+    queryGet.audit_log = async () => ({
+      docs: [
+        doc("turn-2", { collection: "ai_coach_turns", docId: "m2", op: "create", changedFields: [], actorUid: "client1", clientId: "client1", summary: { outcome: "done", toolNames: ["get_routines"], proposalsCreated: 0 }, occurredAt: minute(30) }),
+        doc("turn-1", { collection: "ai_coach_turns", docId: "m1", op: "create", changedFields: [], actorUid: "client1", clientId: "client1", summary: { outcome: "done", toolNames: ["get_recent_workouts"], proposalsCreated: 1 }, occurredAt: minute(25) }),
+        doc("pay-1", { collection: "client_payments", docId: "p1", op: "create", changedFields: ["amount"], actorUid: "coach1", coachId: "coach1", clientId: "client1", after: { amount: 135000, currency: "ARS", method: "cash" }, occurredAt: minute(20) }),
+        doc("follow-1", { collection: "social_follows", docId: "solo1_client1", op: "create", changedFields: ["followerUid"], actorUid: "solo1", after: { followerUid: "solo1", followeeUid: "client1", followeeHandle: "c1" }, occurredAt: minute(15) }),
+      ],
+    });
+    queryGet.habit_logs = async () => ({
+      docs: [
+        doc("hab-1_d", { habitId: "hab-1", clientId: "client1", civilDate: "2026-11-17", value: true, createdAt: minute(12) }),
+        doc("hab-2_d", { habitId: "hab-2", clientId: "client1", civilDate: "2026-11-17", value: true, createdAt: minute(11) }),
+        doc("hab-3_d", { habitId: "hab-3", clientId: "client1", civilDate: "2026-11-17", value: true, createdAt: minute(10) }),
+      ],
+    });
+  });
+
+  it("asks audit_log for the new collections in a few `in` buckets, not one window each", async () => {
+    const ins: unknown[][] = [];
+    const base = mockCollection.getMockImplementation()!;
+    mockCollection.mockImplementation((name: string) => {
+      const builder = base(name) as Record<string, unknown>;
+      const where = builder.where as (...a: unknown[]) => unknown;
+      builder.where = (...args: unknown[]) => {
+        if (name === "audit_log" && args[1] === "in") ins.push(args);
+        return where(...args);
+      };
+      return builder;
+    });
+    await listActivityFeed();
+    expect(ins.length).toBe(4);
+    const all = ins.flatMap((a) => a[2] as string[]);
+    for (const c of ["client_payments", "social_challenges", "ai_coach_turns", "chat_messages", "nutrition_templates"]) {
+      expect(all).toContain(c);
+    }
+    for (const a of ins) expect((a[2] as string[]).length).toBeLessThanOrEqual(30);
+  });
+
+  it("renders the human sentences, collapsing the Corvo sitting and the habit burst", async () => {
+    const events = await listActivityFeed();
+    const corvo = events.find((e) => e.kind === "ai_coach_turns.create")!;
+    expect(corvo.title).toBe("Habló con Corvo");
+    expect(corvo.actor?.name).toBe("Client One");
+    expect(corvo.meta).toEqual(["2 mensajes", "usó: progreso, rutinas", "1 propuesta"]);
+    expect(corvo.occurrenceCount).toBe(2);
+
+    const pay = events.find((e) => e.kind === "client_payments.create")!;
+    expect(pay.title).toBe("Registró un pago");
+    expect(pay.actor?.name).toBe("Coach One");
+    expect(pay.subject).toBe("$ 135.000");
+    expect(pay.client?.name).toBe("Client One");
+
+    const follow = events.find((e) => e.kind === "social_follows.create")!;
+    expect(follow.actor?.name).toBe("Solo User");
+    // The counterpart (the followee) is the chip, not the doc's (absent) clientId.
+    expect(follow.client?.uid).toBe("client1");
+
+    const habits = events.find((e) => e.source === "habit_logs")!;
+    expect(habits.title).toBe("Marcó hábitos");
+    expect(habits.subject).toBe("Tomar agua, Dormir 8 h, Caminar");
+    expect(habits.meta).toEqual(["3 hábitos"]);
+    expect(events.filter((e) => e.source === "habit_logs")).toHaveLength(1);
+  });
+
+  it("puts the client's coach on every row of their roster and filters by it", async () => {
+    const events = await listActivityFeed();
+    const corvo = events.find((e) => e.kind === "ai_coach_turns.create")!;
+    expect(corvo.coach?.uid).toBe("coach1");
+    // The coach acting is their own coach column.
+    expect(events.find((e) => e.kind === "client_payments.create")!.coach?.uid).toBe("coach1");
+
+    const coachOne = await listActivityFeed({ coachQuery: "coach one" });
+    expect(coachOne.length).toBeGreaterThan(0);
+    expect(coachOne.every((e) => e.coach?.uid === "coach1")).toBe(true);
+    expect(await listActivityFeed({ coachQuery: "nobody" })).toEqual([]);
+  });
+
+  it("filters by the new categories", async () => {
+    const billing = await listActivityFeed({ categories: ["billing"] });
+    expect(billing.map((e) => e.title)).toEqual(["Registró un pago"]);
+    const social = await listActivityFeed({ categories: ["corvo", "social"] });
+    expect(social.map((e) => e.title).sort()).toEqual(["Empezó a seguir a alguien", "Habló con Corvo"]);
+  });
+});

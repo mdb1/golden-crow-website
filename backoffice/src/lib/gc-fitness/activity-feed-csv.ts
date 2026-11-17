@@ -21,6 +21,9 @@ export const ACTIVITY_CSV_HEADERS = [
   "client_name",
   "client_email",
   "client_uid",
+  // #529 — whose roster the row belongs to.
+  "coach_name",
+  "coach_uid",
   "details",
   "source",
   "kind",
@@ -63,6 +66,8 @@ export function buildActivityFeedCsv(events: ActivityFeedEvent[], timeZone: stri
         e.client?.name,
         e.client?.email,
         e.client?.uid ?? e.clientUid,
+        e.coach?.name,
+        e.coach?.uid,
         details.join(" · "),
         e.source,
         e.kind,

@@ -24,6 +24,13 @@ export const AUDIT_CATEGORY_OPTIONS: FeedCategory[] = [
   "photo",
   "account",
   "coach",
+  // #529 — the collections captured since 2.3.0.
+  "billing",
+  "progress",
+  "chat",
+  "social",
+  "challenge",
+  "corvo",
   "admin",
 ];
 
@@ -56,6 +63,8 @@ export interface AuditFeedParams {
   allCategoriesSelected: boolean;
   actorQuery: string;
   clientQuery: string;
+  /** #529 — «por coach». */
+  coachQuery: string;
   fromISO: string;
   toISO: string;
   includeLowSignal: boolean;
@@ -83,6 +92,7 @@ export function parseAuditFeedParams(sp: Params): AuditFeedParams {
       selectedCategories.length === AUDIT_CATEGORY_OPTIONS.length,
     actorQuery: str(sp.actor).trim(),
     clientQuery: str(sp.client).trim(),
+    coachQuery: str(sp.coach).trim(),
     fromISO: str(sp.from).trim(),
     toISO: str(sp.to).trim(),
     includeLowSignal: str(sp.raw) === "1",
@@ -100,6 +110,7 @@ export function auditFeedFilters(p: AuditFeedParams, timeZone: string): Activity
     categories: p.allCategoriesSelected ? [] : p.selectedCategories,
     actorQuery: p.actorQuery,
     clientQuery: p.clientQuery,
+    coachQuery: p.coachQuery,
     fromISO: p.fromISO,
     toISO: p.toISO,
     includeLowSignal: p.includeLowSignal,
@@ -121,6 +132,7 @@ export function auditFeedQuery(
   }
   if (p.actorQuery) params.set("actor", p.actorQuery);
   if (p.clientQuery) params.set("client", p.clientQuery);
+  if (p.coachQuery) params.set("coach", p.coachQuery);
   if (p.fromISO) params.set("from", p.fromISO);
   if (p.toISO) params.set("to", p.toISO);
   if (p.includeLowSignal) params.set("raw", "1");
