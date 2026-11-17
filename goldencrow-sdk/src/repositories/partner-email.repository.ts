@@ -75,6 +75,7 @@ export const PartnerEmailHistoryQuerySchema = z
   .object({
     cursor: z.string().min(1).max(1024).optional(),
     limit: z.coerce.number().int().min(1).max(20).default(20),
+    partnerId: PartnerIdSchema.optional(),
   })
   .strict();
 const HistoryCursorSchema = z
@@ -241,8 +242,14 @@ export async function listPartnerEmailHistory(
   requireGodMode(context);
   const options = PartnerEmailHistoryQuerySchema.parse(rawOptions);
   const cursor = decodeHistoryCursor(options.cursor);
-  let query = adminDbFor("mydnamap")
-    .collection(PARTNER_EMAIL_SENDS_COLLECTION)
+  let collection: FirebaseFirestore.Query = adminDbFor("mydnamap")
+    .collection(PARTNER_EMAIL_SENDS_COLLECTION);
+  if (options.partnerId) {
+    collection = collection
+      .where("partnerId", "==", options.partnerId)
+      .where("status", "==", "sent");
+  }
+  let query = collection
     .orderBy("updatedAt", "desc")
     .orderBy(FieldPath.documentId(), "desc")
     .select(...HISTORY_SUMMARY_FIELDS);

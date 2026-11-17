@@ -3528,10 +3528,40 @@ function buildTemplateListQuery(options: {
       400,
     );
   }
-  const cursorField: PartnershipCrmCursorField = "updatedAt";
-  const query = collection
-    .orderBy("updatedAt", "desc")
-    .orderBy(FieldPath.documentId(), "desc");
+  const categoryKeys = crmCategoryKeys(
+    category,
+    normalizeTemplateAudience(audience),
+  );
+  let cursorField: PartnershipCrmCursorField = "updatedAt";
+  let query: Query;
+  if (category && !categoryKeys.length) {
+    throw new AdminRepositoryError("CRM template category filter is invalid.", 400);
+  }
+  if (categoryKeys.length === 1) {
+    query = collection
+      .where("category", "==", categoryKeys[0])
+      .orderBy("updatedAt", "desc")
+      .orderBy(FieldPath.documentId(), "desc");
+  } else if (categoryKeys.length > 1 && categoryKeys.length <= 30) {
+    query = collection
+      .where("category", "in", categoryKeys)
+      .orderBy("updatedAt", "desc")
+      .orderBy(FieldPath.documentId(), "desc");
+  } else if (categoryKeys.length > 30) {
+    // Keep larger category selections paginated without exceeding Firestore's
+    // disjunction limit. Residual filtering removes categories in the range.
+    const sortedKeys = [...categoryKeys].sort();
+    cursorField = "category";
+    query = collection
+      .where("category", ">=", sortedKeys[0])
+      .where("category", "<=", sortedKeys[sortedKeys.length - 1])
+      .orderBy("category", "asc")
+      .orderBy(FieldPath.documentId(), "asc");
+  } else {
+    query = collection
+      .orderBy("updatedAt", "desc")
+      .orderBy(FieldPath.documentId(), "desc");
+  }
 
   return {
     baseQuery: query,

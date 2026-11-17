@@ -4,6 +4,14 @@ export const PARTNERS_API_ROUTE = "/admin/connected-partners";
 export const PARTNERS_ROUTE = "/god-mode/partners";
 export const PARTNERS_QUERY_KEY = ["connected-partners"] as const;
 export const PARTNER_PAGE_SIZE = 20;
+export const PARTNER_BOARD_STAGES = [
+  { key: "noOrganization", label: "No organization yet" },
+  { key: "organizationWithoutApp", label: "Without app" },
+  { key: "freeApp", label: "With free app" },
+  { key: "contract", label: "With contract" },
+  { key: "other", label: "Other app statuses or missing links" },
+] as const;
+export type PartnerBoardStage = (typeof PARTNER_BOARD_STAGES)[number]["key"];
 
 export type PartnerInput = {
   companyName: string;
@@ -30,6 +38,7 @@ export type PartnerAppSnapshot = {
 };
 export type Partner = PartnerInput & {
   id: string;
+  boardStage?: PartnerBoardStage | null;
   linkedOrganizationSnapshot: PartnerOrganizationSnapshot | null;
   linkedIndividualPublisherSnapshot: PartnerIndividualPublisherSnapshot | null;
   linkedAppSnapshot: PartnerAppSnapshot | null;
@@ -87,14 +96,26 @@ export function partnerSection(partner: Partner): PartnerSection {
   if (!partner.linkedAppId)
     return organizationId ? "organizationWithoutApp" : "individualWithoutApp";
   const app = partner.linkedApp;
-  if (!app || app.id !== partner.linkedAppId)
-    return "other";
-  const ownerId = app.publisherKind === "organization" ? organizationId : individualId;
-  if (!ownerId || app.publisherId !== ownerId)
-    return "other";
+  if (!app || app.id !== partner.linkedAppId) return "other";
+  const ownerId =
+    app.publisherKind === "organization" ? organizationId : individualId;
+  if (!ownerId || app.publisherId !== ownerId) return "other";
   if (app.status === "active_for_testing")
     return organizationId ? "freeApp" : "individualFreeApp";
   if (app.status === "active" || app.status.startsWith("active_"))
     return organizationId ? "contract" : "individualContract";
   return "other";
+}
+
+export function partnerBoardStage(partner: Partner): PartnerBoardStage {
+  if (
+    partner.boardStage &&
+    PARTNER_BOARD_STAGES.some((stage) => stage.key === partner.boardStage)
+  )
+    return partner.boardStage;
+  const section = partnerSection(partner);
+  if (section === "individualWithoutApp") return "organizationWithoutApp";
+  if (section === "individualFreeApp") return "freeApp";
+  if (section === "individualContract") return "contract";
+  return section;
 }

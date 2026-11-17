@@ -21,6 +21,7 @@ const mockQueries: Array<{
   fields?: string[];
   cursor?: unknown[];
   orders: Array<[string, string]>;
+  filters: Array<[string, unknown]>;
 }> = [];
 const mockPublisherUser = jest.fn();
 const mockPublisherCustomToken = jest.fn();
@@ -48,28 +49,32 @@ function query(
   cursor?: unknown[],
   limit?: number,
   orders: Array<[string, string]> = [],
+  filters: Array<[string, unknown]> = [],
 ) {
   return {
+    where: (field: string, _operator: string, value: unknown) =>
+      query(collection, fields, cursor, limit, orders, [...filters, [field, value]]),
     doc: (id: string) => reference(collection, id),
     orderBy: (field: unknown, direction: string) =>
       query(collection, fields, cursor, limit, [
         ...orders,
         [typeof field === "string" ? field : "__name__", direction],
-      ]),
+      ], filters),
     select: (...nextFields: string[]) =>
-      query(collection, nextFields, cursor, limit, orders),
+      query(collection, nextFields, cursor, limit, orders, filters),
     startAfter: (...values: unknown[]) =>
-      query(collection, fields, values, limit, orders),
+      query(collection, fields, values, limit, orders, filters),
     limit: (nextLimit: number) =>
-      query(collection, fields, cursor, nextLimit, orders),
+      query(collection, fields, cursor, nextLimit, orders, filters),
     get: async () => {
-      mockQueries.push({ collection, fields, cursor, limit, orders });
+      mockQueries.push({ collection, fields, cursor, limit, orders, filters });
       const items = [...mockDocs]
         .filter(([path]) => path.startsWith(`${collection}/`))
         .map(([path, data]) => ({
           id: path.slice(collection.length + 1),
           data,
         }))
+        .filter(({ data }) => filters.every(([field, value]) => data[field] === value))
         .sort(
           (a, b) =>
             String(b.data.updatedAt).localeCompare(String(a.data.updatedAt)) ||
@@ -1120,6 +1125,32 @@ it("paginates 20 projected history summaries and resumes equal-time rows even af
   expect(sendGmailMessage).not.toHaveBeenCalled();
 });
 
+it("paginates only confirmed sends for the selected partner from the same projected registry", async () => {
+  const ids = Array.from({ length: 25 }, (_, index) => seedHistory(index + 1));
+  const other = seedHistory(26);
+  mockDocs.get(`${PARTNER_EMAIL_SENDS_COLLECTION}/${other}`)!.partnerId = "partner_other";
+  seedHistory(27, "failed");
+  seedHistory(28, "unknown");
+  seedHistory(29, "sending");
+  const first = await listPartnerEmailHistory(context, { partnerId });
+  expect(first.emails.map(email => email.requestId)).toEqual(ids.slice(5).reverse());
+  expect(JSON.stringify(first)).not.toContain("Historical body");
+  const second = await listPartnerEmailHistory(context, { partnerId, cursor: first.nextCursor! });
+  expect(second.emails.map(email => email.requestId)).toEqual(ids.slice(0, 5).reverse());
+  expect(second.nextCursor).toBeNull();
+  for (const query of mockQueries) {
+    expect(query.filters).toEqual([["partnerId", partnerId], ["status", "sent"]]);
+    expect(query.limit).toBe(21);
+    expect(query.fields).not.toContain("historySnapshot.messageText");
+  }
+  const app = await server();
+  try {
+    const response = await app.inject({ method: "GET", url: `/admin/connected-partners/sent-email-log?partnerId=${partnerId}` });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().emails.map((email: { requestId: string }) => email.requestId)).toEqual(first.emails.map(email => email.requestId));
+  } finally { await app.close(); }
+});
+
 it.each(["sent", "sending", "unknown", "failed"] as const)(
   "shows historical %s commands honestly without inventing an old sender or message",
   async (status) => {
@@ -1214,6 +1245,8 @@ it("protects history routes and bounds cursors, limits and detail IDs", async ()
       "cursor=pel1.abc!",
       "limit=2.5",
       "page=2",
+      "partnerId=",
+      "partnerId=invalid%2Fid",
     ]) {
       expect(
         (

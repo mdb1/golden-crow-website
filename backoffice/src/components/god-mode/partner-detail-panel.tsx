@@ -8,7 +8,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Building2,
   CircleUserRound,
@@ -24,6 +24,8 @@ import { useAppLanguage } from "@/components/app-language-provider";
 import { Button } from "@/components/ui/button";
 import { partnerAppStatusLabel } from "@/components/god-mode/partner-editor-dialog";
 import { PartnerEmailPreviewDialog } from "@/components/god-mode/partner-email-preview-dialog";
+import { PartnerContactHistory } from "@/components/god-mode/partner-contact-history";
+import { PARTNER_EMAIL_HISTORY_QUERY_KEY } from "@/lib/partner-email";
 import {
   PARTNERS_API_ROUTE,
   PARTNERS_QUERY_KEY,
@@ -393,6 +395,7 @@ export function PartnerDetailPanel({
 }) {
   const t = useText();
   const headingId = useId();
+  const queryClient = useQueryClient();
   const panelRef = useRef<HTMLElement>(null);
   const [emailPreviewOpen, setEmailPreviewOpen] = useState(false);
   const query = useQuery({
@@ -428,7 +431,7 @@ export function PartnerDetailPanel({
         aria-busy={query.isFetching}
         className="min-w-0 scroll-mt-24 space-y-4 rounded-2xl border border-violet-200/70 bg-muted/10 outline-none xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain dark:border-violet-400/20"
         onKeyDown={(event) => {
-          if (event.key === "Escape") {
+          if (event.key === "Escape" && event.currentTarget.contains(event.target as Node)) {
             event.preventDefault();
             onClose();
           }
@@ -529,6 +532,7 @@ export function PartnerDetailPanel({
                 <Mail className="size-6" />
                 {t("Send an email")}
               </Button>
+              <PartnerContactHistory key={partnerId} partnerId={partnerId} />
             </div>
           )}
         </div>
@@ -536,6 +540,9 @@ export function PartnerDetailPanel({
       {emailPreviewOpen && (
         <PartnerEmailPreviewDialog
           partnerId={partnerId}
+          onSent={() => void queryClient.invalidateQueries({
+            queryKey: [...PARTNER_EMAIL_HISTORY_QUERY_KEY, "contact", partnerId],
+          })}
           onClose={() => setEmailPreviewOpen(false)}
         />
       )}

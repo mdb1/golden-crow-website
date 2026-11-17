@@ -5,6 +5,7 @@ import {
   CONNECTED_PARTNERS_COLLECTION,
   PartnerIdSchema,
   PartnerInputSchema,
+  PartnerBoardStageSchema,
   PartnerLinkIdSchema,
   PartnerSectionSchema,
   PartnerSectionCursorSchema,
@@ -19,6 +20,7 @@ import {
   type StoredPartner,
   type Partner,
   type PartnerInput,
+  type PartnerBoardStage,
   type PartnersPage,
   type PartnerSection,
   type PartnerSectionPage,
@@ -134,7 +136,14 @@ async function toPartner(
   data: unknown,
   reader: PartnerLinkReader,
 ): Promise<Partner> {
-  const stored = StoredPartnerSchema.parse(data);
+  let normalizedData = data;
+  if (data && typeof data === "object" && "boardStage" in data) {
+    if (!PartnerBoardStageSchema.nullable().safeParse(data.boardStage).success) {
+      const { boardStage: _invalidStage, ...rest } = data;
+      normalizedData = rest;
+    }
+  }
+  const stored = StoredPartnerSchema.parse(normalizedData);
   const [linkedOrganization, linkedIndividualPublisher, app] =
     await Promise.all([
       stored.linkedOrganizationId
@@ -372,7 +381,30 @@ export async function updatePartner(
     }
     throw error;
   }
-  return preparedResponse(id, data);
+  return getPartner(context, id);
+}
+
+export async function updatePartnerBoardStage(
+  context: AdminContext,
+  id: string,
+  boardStage: PartnerBoardStage,
+): Promise<Partner> {
+  const ref = collection(context).doc(validId(id));
+  const parsed = PartnerBoardStageSchema.safeParse(boardStage);
+  if (!parsed.success) {
+    throw new AdminRepositoryError("Invalid partner board stage", 400);
+  }
+  // A board move changes only workflow progress. Publisher links and app
+  // contracts remain authoritative and are never rewritten by this action.
+  try {
+    await ref.update({ boardStage: parsed.data });
+  } catch (error) {
+    if ((error as { code?: number }).code === 5) {
+      throw new AdminRepositoryError("Partner not found", 404);
+    }
+    throw error;
+  }
+  return getPartner(context, id);
 }
 
 function appOption(app: PartnerAppSnapshot): PartnerLinkOption {

@@ -86,6 +86,10 @@ function mockPartners({
   detail?: Partner;
 } = {}) {
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
+    if (String(path).startsWith(`${PARTNERS_API_ROUTE}/sent-email-log`))
+      return { emails: [], nextCursor: null } as never;
     if (String(path) === `${PARTNERS_API_ROUTE}/${partner.id}`)
       return { partner: detail } as never;
     if (String(path) === `${PARTNERS_API_ROUTE}/${beta.id}`)
@@ -156,6 +160,9 @@ it("opens a grid cell's full detail using its record endpoint", async () => {
   fireEvent.click(screen.getByText(partner.email));
   const panel = details();
   expect(await panel.findByText(fullNotes)).toBeVisible();
+  const sendEmail = panel.getByRole("button", { name: "Send an email" });
+  const history = panel.getByRole("region", { name: "Contact history" });
+  expect(sendEmail.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   for (const value of [
     partner.id,
     partner.firstName,
@@ -204,6 +211,8 @@ it("opens with the keyboard and returns focus to its title button when closed", 
 it("opens the email preview from the detail panel without sending and keeps the panel when dismissed", async () => {
   const user = userEvent.setup();
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     if (String(path).includes("/email-preview"))
       return {
         partnerId: partner.id,
@@ -338,6 +347,8 @@ it("closes details when changing page, changing section, or collapsing the secti
     companyName: index === 0 ? partner.companyName : `Partner ${index}`,
   }));
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     if (String(path) === `${PARTNERS_API_ROUTE}/${partner.id}`)
       return { partner: fullPartner } as never;
     if (String(path) === `${PARTNERS_API_ROUTE}/${beta.id}`)
@@ -388,6 +399,8 @@ it("shows a loading state and lets a failed detail request be retried", async ()
   });
   let detailRequests = 0;
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     if (String(path) === `${PARTNERS_API_ROUTE}/${partner.id}`) {
       detailRequests++;
       if (detailRequests === 1) return pendingDetail;
@@ -478,6 +491,8 @@ it("refreshes an open detail together with its section after an external change"
   let listReads = 0;
   let detailReads = 0;
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     if (String(path) === `${PARTNERS_API_ROUTE}/${partner.id}`) {
       detailReads++;
       return { partner: latest } as never;
@@ -524,6 +539,8 @@ it("refreshes the open detail after editing and saving its partner", async () =>
   let latest = fullPartner;
   const savedNotes = "Notes changed and saved from the partner editor";
   jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     if (String(path) === `${PARTNERS_API_ROUTE}/${partner.id}`) {
       if (init?.method === "PUT") {
         latest = { ...latest, ...JSON.parse(String(init.body)) };
