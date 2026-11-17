@@ -73,6 +73,7 @@ export default async function AdminPage({
   const allowlistRows = await listCoachAllowlist();
   const openReportsCount = await countOpenReports().catch(() => 0);
   const tCorvo = await getTranslations("corvoAdmin");
+  const tUsage = await getTranslations("usageAdmin");
   const t = await getTranslations("admin.home");
   const tc = await getTranslations("admin.common");
   const actionMessage = op && ok === "1" ? tc("actionCompleted", { op }) : null;
@@ -270,6 +271,19 @@ export default async function AdminPage({
         <CardContent>
           <Button asChild variant="outline" className="rounded-full">
             <Link href="/gc-fitness/admin/moderation">{t("moderation.open")}</Link>
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* golden-crow-website#530 — product usage per feature (usage_daily rollup). */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl">{tUsage("cardTitle")}</CardTitle>
+          <CardDescription>{tUsage("cardDescription")}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="outline" className="rounded-full">
+            <Link href="/gc-fitness/admin/usage">{tUsage("openCard")}</Link>
           </Button>
         </CardContent>
       </Card>

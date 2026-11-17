@@ -997,6 +997,11 @@
       "params": "arg"
     },
     {
+      "file": "src/lib/gc-fitness/usage-actions.ts",
+      "export": "loadUsageDashboard",
+      "params": "arg"
+    },
+    {
       "file": "src/lib/gc-fitness/user-actions.ts",
       "export": "getCurrentTrainerProfile",
       "params": ""

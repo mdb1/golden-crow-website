@@ -572,6 +572,51 @@
     color: var(--foreground);
   }
 
+  /* golden-crow-website#530 — data-viz tokens of /gc-fitness/admin/usage. The 8-slot
+     categorical order + steps are the dataviz reference palette, VALIDATED (adjacent CVD
+     ΔE ≥ 8.4, normal-vision ≥ 19.3) against this app's cards: dark #181b22 (all ≥ 3:1) and
+     light #ffffff (slots 3/4/5 < 3:1 → every chart ships a legend + a table view). Dark
+     default (the base tokens are dark); light under html[data-theme="light"]. The `--viz-seq-*`
+     ramp is the retention heatmap: one hue (blue), near-zero recedes to the surface. */
+  .usage-viz {
+    --viz-surface: var(--card);
+    --viz-1: #3987e5;
+    --viz-2: #d95926;
+    --viz-3: #199e70;
+    --viz-4: #c98500;
+    --viz-5: #d55181;
+    --viz-6: #008300;
+    --viz-7: #9085e9;
+    --viz-8: #e66767;
+    --viz-grid: rgba(255, 255, 255, 0.08);
+    --viz-seq-0: transparent;
+    --viz-seq-1: #104281;
+    --viz-seq-2: #184f95;
+    --viz-seq-3: #256abf;
+    --viz-seq-4: #3987e5;
+    --viz-seq-5: #6da7ec;
+    --viz-seq-ink-low: #f4f7fb;
+    --viz-seq-ink-high: #061018;
+  }
+  html[data-theme="light"] .usage-viz {
+    --viz-1: #2a78d6;
+    --viz-2: #eb6834;
+    --viz-3: #1baf7a;
+    --viz-4: #eda100;
+    --viz-5: #e87ba4;
+    --viz-6: #008300;
+    --viz-7: #6250d6;
+    --viz-8: #e34948;
+    --viz-grid: rgba(15, 23, 40, 0.08);
+    --viz-seq-1: #cde2fb;
+    --viz-seq-2: #9ec5f4;
+    --viz-seq-3: #6da7ec;
+    --viz-seq-4: #2a78d6;
+    --viz-seq-5: #184f95;
+    --viz-seq-ink-low: #1b2336;
+    --viz-seq-ink-high: #ffffff;
+  }
+
   .glass-panel {
     background:
       linear-gradient(180deg, rgba(20, 24, 32, 0.96) 0%, rgba(14, 17, 24, 0.94) 100%);

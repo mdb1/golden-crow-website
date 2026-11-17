@@ -3682,5 +3682,146 @@
     "groupTemplates": "Entrenamientos",
     "groupExercises": "Ejercicios",
     "chatWith": "Chat con {name}"
+  },
+  "usageAdmin": {
+    "title": "Uso del producto",
+    "subtitle": "Cómo se usa cada feature, quién está activo y qué se le pide a Corvo — para decidir qué mejorar. Rollup diario, días de Buenos Aires.",
+    "back": "Volver a admin",
+    "rangeLabel": "Período",
+    "rangeDays": "{days} días",
+    "dataThrough": "Datos hasta el {day} · {days} de {range} días tienen rollup.",
+    "loadError": "No se pudieron cargar los datos de uso: {error}",
+    "noData": "Todavía no hay rollup en este período. El job diario escribe el día anterior a las 03:30 (Buenos Aires); los días pasados salen del backfill (npm run backfill:usage en gc-fitness/functions).",
+    "footnote": "Los conteos salen de las colecciones de origen una vez por día (usage_daily). Adopción = parte de los días activos del público que usaron la feature. Los temas de Corvo se clasifican sin IA (herramientas que usó Corvo + palabras clave); no se guarda texto de los mensajes, y una frase sólo aparece si la escribieron al menos 2 personas distintas ese día.",
+    "cardTitle": "Uso del producto",
+    "cardDescription": "Activos diarios/semanales por segmento, uso de cada feature en el tiempo, ranking de adopción, qué se le pide a Corvo y retención por semana de alta.",
+    "openCard": "Abrir panel de uso",
+    "kpi": {
+      "dau": "Activos diarios (prom.)",
+      "wau": "Activos semanales",
+      "mauDetail": "{mau} en los últimos 28 días",
+      "signups": "Altas",
+      "workouts": "Entrenamientos registrados",
+      "corvoMessages": "Mensajes a Corvo",
+      "corvoDetail": "{userDays} usuarios-día · {cost} estimado",
+      "acceptance": "Propuestas de Corvo aceptadas",
+      "premium": "Compras de Premium",
+      "reports": "Respuestas de Corvo reportadas",
+      "vsPrevious": "{delta} vs. período anterior",
+      "noPrevious": "Sin período anterior para comparar"
+    },
+    "charts": {
+      "activity": {
+        "title": "Usuarios activos",
+        "subtitle": "Usuarios distintos con cualquier actividad: por día, últimos 7 días y últimos 28 días.",
+        "empty": "No hubo actividad en este período.",
+        "table": "Ver como tabla",
+        "day": "Día",
+        "dau": "Diarios",
+        "wau": "7 días",
+        "mau": "28 días",
+        "coached": "Con coach",
+        "coachless": "Sin coach",
+        "guest": "Invitados",
+        "coach": "Coaches"
+      },
+      "segments": {
+        "title": "Activos diarios por segmento",
+        "subtitle": "Clientes con coach, sin coach, invitados y coaches."
+      },
+      "families": {
+        "title": "Uso por feature en el tiempo",
+        "subtitle": "Eventos por día (entrenamientos, marcas, comidas, mensajes, follows, cobros…), agrupados por área.",
+        "empty": "No hubo uso de features en este período.",
+        "table": "Ver como tabla",
+        "day": "Día"
+      },
+      "corvo": {
+        "title": "Mensajes a Corvo por día",
+        "subtitle": "Mensajes que la gente le mandó al coach con IA.",
+        "empty": "Nadie le escribió a Corvo en este período.",
+        "table": "Ver como tabla",
+        "day": "Día",
+        "messages": "Mensajes",
+        "users": "Personas"
+      }
+    },
+    "families": {
+      "training": "Entrenamiento",
+      "habits": "Hábitos",
+      "nutrition": "Nutrición",
+      "corvo": "Corvo",
+      "chat": "Chat con coach",
+      "social": "Social",
+      "photos": "Fotos de progreso",
+      "coaching": "Herramientas del coach"
+    },
+    "features": {
+      "workouts_logged": "Entrenamientos registrados",
+      "self_routines_created": "Rutinas propias creadas",
+      "habits_checked": "Hábitos marcados",
+      "meals_marked": "Comidas marcadas",
+      "self_nutrition_plans": "Planes de nutrición propios",
+      "progress_photos": "Fotos de progreso",
+      "chat_client": "Chat con el coach",
+      "corvo": "Corvo (coach IA)",
+      "social_follows": "Follows",
+      "social_posts": "Posts en el feed",
+      "social_kudos": "Kudos",
+      "social_comments": "Comentarios en rutinas",
+      "social_dms": "Mensajes directos",
+      "challenge_joins": "Uniones a desafíos",
+      "coach_routines_created": "Rutinas creadas por coaches",
+      "coach_nutrition_plans": "Planes de nutrición de coaches",
+      "chat_coach": "Respuestas del coach en el chat",
+      "payments_recorded": "Pagos registrados",
+      "plans_assigned": "Planes de cobro asignados",
+      "invites": "Invitaciones a clientes",
+      "coach_actions": "Acciones del coach (asignaciones, ediciones)"
+    },
+    "audience": {
+      "client": "clientes",
+      "coach": "coaches"
+    },
+    "adoption": {
+      "title": "Adopción de features",
+      "subtitle": "Parte de los días activos del público que incluyeron la feature (clientes para las features de cliente, coaches para sus herramientas). Eventos entre paréntesis.",
+      "empty": "No se usó ninguna feature en este período."
+    },
+    "corvo": {
+      "title": "Corvo — qué se le pide",
+      "subtitle": "Temas de los mensajes, propuestas aceptadas y las frases que más se repiten.",
+      "empty": "Nadie le escribió a Corvo en este período.",
+      "topicsTitle": "Temas",
+      "topicsHint": "Un mensaje puede tocar varios temas; el % es sobre todos los mensajes.",
+      "proposalsTitle": "Propuestas aceptadas",
+      "proposalsDetail": "{applied} de {resolved} resueltas · {dismissed} descartadas · {expired} vencidas · {pending} pendientes · {created} creadas",
+      "ngramsTitle": "Lo más pedido",
+      "ngramsHint": "Palabras y pares de palabras que escribieron 2 o más personas el mismo día.",
+      "ngramsEmpty": "Todavía no hay frases repetidas suficientes.",
+      "ngramCount": "{users} personas"
+    },
+    "topics": {
+      "routines": "Rutinas y entrenamiento",
+      "schedule": "Agenda",
+      "technique": "Técnica y dolor",
+      "progress": "Progreso y récords",
+      "nutrition": "Nutrición",
+      "habits": "Hábitos",
+      "motivation": "Motivación",
+      "social": "Social",
+      "app_help": "Ayuda con la app",
+      "other": "Otros"
+    },
+    "retention": {
+      "title": "Retención por semana de alta",
+      "subtitle": "Clientes (sin invitados) que se dieron de alta cada semana y estuvieron activos en cada semana siguiente. Al {asOf}.",
+      "subtitleEmpty": "Clientes (sin invitados) que se dieron de alta cada semana y estuvieron activos en cada semana siguiente.",
+      "empty": "Todavía no hay cohortes de alta en las últimas 8 semanas.",
+      "cohort": "Semana de alta",
+      "size": "Altas",
+      "week": "S{k}",
+      "cellTitle": "{active} de {size}"
+    }
   }
 }
