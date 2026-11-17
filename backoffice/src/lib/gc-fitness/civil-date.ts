@@ -113,12 +113,9 @@ export function formatCivilDateLabel(
  * `"2026-02-29"`.
  */
 export function civilDateAddDays(civilDate: string, days: number): string | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(civilDate);
-  if (!match) return null;
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const ymd = parseCivilYMD(civilDate);
+  if (!ymd) return null;
+  const { year, month, day } = ymd;
 
   const anchor = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
   if (Number.isNaN(anchor.getTime())) return null;
@@ -167,6 +164,12 @@ export interface CivilYMD {
  * Splits a `"YYYY-MM-DD"` civil string into its calendar components, or returns
  * `null` if the string is not a well-formed civil date. Used by the photo
  * comparator to feed `photoCompareElapsed`.
+ *
+ * gc-fitness #1644 — "well-formed" includes "the day exists": `2026-02-30`,
+ * `2026-02-29` and `2026-04-31` are `null`, as in the Kotlin twin
+ * (`LocalDate.parse`). Only `day > 31` used to be rejected, so `civilDateAddDays`
+ * ROLLED `2026-02-30` into March and `civilDaysBetween` measured from a day that
+ * does not exist. Pinned by `__tests__/twin-vectors/civil-date-vectors.json`.
  */
 export function parseCivilYMD(civil: string): CivilYMD | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(civil);
@@ -174,8 +177,14 @@ export function parseCivilYMD(civil: string): CivilYMD | null {
   const year = Number.parseInt(match[1]!, 10);
   const month = Number.parseInt(match[2]!, 10);
   const day = Number.parseInt(match[3]!, 10);
-  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  if (month < 1 || month > 12 || day < 1 || day > daysInCivilMonth(year, month)) return null;
   return { year, month, day };
+}
+
+/** Days in `month` (1…12) of the proleptic Gregorian `year`. */
+function daysInCivilMonth(year: number, month: number): number {
+  if (month === 2) return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 29 : 28;
+  return month === 4 || month === 6 || month === 9 || month === 11 ? 30 : 31;
 }
 
 /**

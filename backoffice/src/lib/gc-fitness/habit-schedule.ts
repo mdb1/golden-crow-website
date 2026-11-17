@@ -166,9 +166,17 @@ export function isHabitScheduledOn(
     const weekdays = Array.isArray(habit.scheduleWeekdays)
       ? (habit.scheduleWeekdays as number[])
       : [];
-    if (weekdays.length === 0) return false;
 
     const isoWeekday = apple === 1 ? 7 : apple - 1; // Mon=1..Sun=7
+
+    // gc-fitness #1644 — an EMPTY weekly list falls on `startsOn`'s weekday (none
+    // without a start), exactly like iOS `isActive` and Android. This used to be
+    // `false` for every day: the trainer's denominator dropped a habit the client
+    // still saw. Pinned by `__tests__/twin-vectors/habit-schedule-vectors.json`.
+    if (weekdays.length === 0) {
+      const startsApple = startsOn ? appleWeekday(startsOn) : null;
+      return startsApple !== null && startsApple === apple;
+    }
 
     // gc-fitness#1343 — an explicit marker wins: an ISO doc is read as ISO,
     // full stop. The `startsOn` heuristic below exists only for docs written
@@ -209,12 +217,17 @@ export function isHabitScheduledOn(
     return isoMatch;
   }
 
-  // monthly
+  // monthly — gc-fitness #1644: with no days stored, `startsOn`'s day of the month,
+  // and only without a start the 1st (iOS `isActive` / Android order). It used to
+  // jump straight to [1].
+  const startsOnDay = startsOn ? new Date(`${startsOn}T12:00:00Z`).getUTCDate() : Number.NaN;
   const monthDays = Array.isArray(habit.scheduleMonthDays)
     ? (habit.scheduleMonthDays as number[])
     : typeof habit.scheduleDayOfMonth === "number"
       ? [habit.scheduleDayOfMonth]
-      : [1];
+      : Number.isNaN(startsOnDay)
+        ? [1]
+        : [startsOnDay];
   const dayOfMonth = new Date(`${civilDate}T12:00:00Z`).getUTCDate();
   return monthDays.includes(dayOfMonth);
 }

@@ -2,7 +2,7 @@
 // desafíos que crea el coach: validación del formulario, el doc exacto del wire y la
 // tabla de posiciones (twin de `rankChallengeStandings` contra el vector compartido).
 
-import vector from "./fixtures/challenge_standings_vector.json";
+import vector from "./twin-vectors/challenge_standings_vector.json";
 import {
   buildCoachChallengeDoc,
   coachChallengeMemberUids,
