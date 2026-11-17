@@ -1,0 +1,411 @@
+{
+  "_comment": "#1644 — THE civil-date case table. A civil date is EXACTLY `YYYY-MM-DD` (4-2-2 digits) AND a real calendar day; anything else is malformed and `addDays` / `daysBetween` return null. ONE file, read by Swift `CivilDate` (CivilDateVectorTests), Kotlin `CivilDate` (CivilDateVectorTest), functions (civilDateVectors.test.ts: photoCheckinPolicy.addCivilDays/civilDaysBetween and selfSchedule.addCivil on every case; the throw/no-null helpers — recurrenceExpansion.addCivilDays, billing.daysBetween — on the valid ones) and the backoffice civil-date.ts (pinned copy, drift-checked by scripts/check-twin-vectors.py). `format` turns an instant (ISO-8601, UTC) into the civil day in an IANA zone; unknown zones fall back to the host zone and are deliberately NOT in the table.",
+  "addDays": [
+    {
+      "name": "cruza fin de mes",
+      "civil": "2026-08-31",
+      "days": 1,
+      "expected": "2026-09-01"
+    },
+    {
+      "name": "febrero 2026 tiene 28 días",
+      "civil": "2026-03-01",
+      "days": -1,
+      "expected": "2026-02-28"
+    },
+    {
+      "name": "cruza el año hacia atrás",
+      "civil": "2026-01-01",
+      "days": -1,
+      "expected": "2025-12-31"
+    },
+    {
+      "name": "cruza el año hacia adelante",
+      "civil": "2026-12-31",
+      "days": 1,
+      "expected": "2027-01-01"
+    },
+    {
+      "name": "bisiesto: 1 mar 2024 - 1",
+      "civil": "2024-03-01",
+      "days": -1,
+      "expected": "2024-02-29"
+    },
+    {
+      "name": "bisiesto: 28 feb 2028 + 1",
+      "civil": "2028-02-28",
+      "days": 1,
+      "expected": "2028-02-29"
+    },
+    {
+      "name": "29 feb + 365 no es bisiesto",
+      "civil": "2028-02-29",
+      "days": 365,
+      "expected": "2029-02-28"
+    },
+    {
+      "name": "cero días",
+      "civil": "2026-05-17",
+      "days": 0,
+      "expected": "2026-05-17"
+    },
+    {
+      "name": "ventana de 28 días",
+      "civil": "2026-10-08",
+      "days": -27,
+      "expected": "2026-09-11"
+    },
+    {
+      "name": "un año entero hacia atrás",
+      "civil": "2026-11-17",
+      "days": -365,
+      "expected": "2025-11-17"
+    },
+    {
+      "name": "cruza un cambio de hora (NY)",
+      "civil": "2026-03-07",
+      "days": 2,
+      "expected": "2026-03-09"
+    },
+    {
+      "name": "cruza un cambio de hora (Madrid)",
+      "civil": "2026-10-24",
+      "days": 3,
+      "expected": "2026-10-27"
+    },
+    {
+      "name": "90 días (horizonte de rutinas)",
+      "civil": "2026-11-17",
+      "days": 90,
+      "expected": "2027-02-15"
+    },
+    {
+      "name": "1900 no es bisiesto",
+      "civil": "1900-02-28",
+      "days": 1,
+      "expected": "1900-03-01"
+    },
+    {
+      "name": "2000 sí es bisiesto",
+      "civil": "2000-02-28",
+      "days": 1,
+      "expected": "2000-02-29"
+    },
+    {
+      "name": "malformado: mes sin cero",
+      "civil": "2026-8-1",
+      "days": 1,
+      "expected": null
+    },
+    {
+      "name": "malformado: sin guiones",
+      "civil": "20260801",
+      "days": 1,
+      "expected": null
+    },
+    {
+      "name": "malformado: vacío",
+      "civil": "",
+      "days": 1,
+      "expected": null
+    },
+    {
+      "name": "malformado: mes 13",
+      "civil": "2026-13-01",
+      "days": 1,
+      "expected": null
+    },
+    {
+      "name": "malformado: mes 00",
+      "civil": "2026-00-10",
+      "days": 1,
+      "expected": null
+    },
+    {
+      "name": "malformado: día 00",
+      "civil": "2026-01-00",
+      "days": 1,
+      "expected": null
+    },
+    {
+      "name": "malformado: 30 de febrero",
+      "civil": "2026-02-30",
+      "days": 1,
+      "expected": null
+    },
+    {
+      "name": "malformado: 29 de febrero de un año no bisiesto",
+      "civil": "2026-02-29",
+      "days": 1,
+      "expected": null
+    },
+    {
+      "name": "malformado: 31 de abril",
+      "civil": "2026-04-31",
+      "days": 1,
+      "expected": null
+    },
+    {
+      "name": "malformado: letras",
+      "civil": "abcd-ef-gh",
+      "days": 1,
+      "expected": null
+    },
+    {
+      "name": "malformado: con hora",
+      "civil": "2026-08-01T00:00:00Z",
+      "days": 1,
+      "expected": null
+    },
+    {
+      "name": "malformado: espacio al final",
+      "civil": "2026-08-01 ",
+      "days": 1,
+      "expected": null
+    }
+  ],
+  "daysBetween": [
+    {
+      "name": "mismo día",
+      "from": "2026-11-11",
+      "to": "2026-11-11",
+      "expected": 0
+    },
+    {
+      "name": "cinco días adelante",
+      "from": "2026-11-11",
+      "to": "2026-11-16",
+      "expected": 5
+    },
+    {
+      "name": "cuatro días atrás (negativo)",
+      "from": "2026-11-11",
+      "to": "2026-11-07",
+      "expected": -4
+    },
+    {
+      "name": "cruza el año",
+      "from": "2025-12-31",
+      "to": "2026-01-02",
+      "expected": 2
+    },
+    {
+      "name": "cruza un bisiesto",
+      "from": "2028-02-01",
+      "to": "2028-03-01",
+      "expected": 29
+    },
+    {
+      "name": "febrero no bisiesto",
+      "from": "2026-02-01",
+      "to": "2026-03-01",
+      "expected": 28
+    },
+    {
+      "name": "cruza el cambio de hora de NY",
+      "from": "2026-03-07",
+      "to": "2026-03-09",
+      "expected": 2
+    },
+    {
+      "name": "cruza el cambio de hora de Madrid",
+      "from": "2026-10-24",
+      "to": "2026-10-27",
+      "expected": 3
+    },
+    {
+      "name": "un año",
+      "from": "2026-01-01",
+      "to": "2027-01-01",
+      "expected": 365
+    },
+    {
+      "name": "año bisiesto entero",
+      "from": "2028-01-01",
+      "to": "2029-01-01",
+      "expected": 366
+    },
+    {
+      "name": "malformado (desde): mes sin cero",
+      "from": "2026-8-1",
+      "to": "2026-11-11",
+      "expected": null
+    },
+    {
+      "name": "malformado (desde): sin guiones",
+      "from": "20260801",
+      "to": "2026-11-11",
+      "expected": null
+    },
+    {
+      "name": "malformado (desde): vacío",
+      "from": "",
+      "to": "2026-11-11",
+      "expected": null
+    },
+    {
+      "name": "malformado (desde): mes 13",
+      "from": "2026-13-01",
+      "to": "2026-11-11",
+      "expected": null
+    },
+    {
+      "name": "malformado (desde): mes 00",
+      "from": "2026-00-10",
+      "to": "2026-11-11",
+      "expected": null
+    },
+    {
+      "name": "malformado (desde): día 00",
+      "from": "2026-01-00",
+      "to": "2026-11-11",
+      "expected": null
+    },
+    {
+      "name": "malformado (desde): 30 de febrero",
+      "from": "2026-02-30",
+      "to": "2026-11-11",
+      "expected": null
+    },
+    {
+      "name": "malformado (desde): 29 de febrero de un año no bisiesto",
+      "from": "2026-02-29",
+      "to": "2026-11-11",
+      "expected": null
+    },
+    {
+      "name": "malformado (desde): 31 de abril",
+      "from": "2026-04-31",
+      "to": "2026-11-11",
+      "expected": null
+    },
+    {
+      "name": "malformado (desde): letras",
+      "from": "abcd-ef-gh",
+      "to": "2026-11-11",
+      "expected": null
+    },
+    {
+      "name": "malformado (desde): con hora",
+      "from": "2026-08-01T00:00:00Z",
+      "to": "2026-11-11",
+      "expected": null
+    },
+    {
+      "name": "malformado (desde): espacio al final",
+      "from": "2026-08-01 ",
+      "to": "2026-11-11",
+      "expected": null
+    },
+    {
+      "name": "malformado (hasta): mes sin cero",
+      "from": "2026-11-11",
+      "to": "2026-8-1",
+      "expected": null
+    },
+    {
+      "name": "malformado (hasta): sin guiones",
+      "from": "2026-11-11",
+      "to": "20260801",
+      "expected": null
+    },
+    {
+      "name": "malformado (hasta): vacío",
+      "from": "2026-11-11",
+      "to": "",
+      "expected": null
+    },
+    {
+      "name": "malformado (hasta): mes 13",
+      "from": "2026-11-11",
+      "to": "2026-13-01",
+      "expected": null
+    }
+  ],
+  "format": [
+    {
+      "name": "Buenos Aires un segundo antes de medianoche",
+      "instant": "2026-11-17T02:59:59Z",
+      "timezone": "America/Argentina/Buenos_Aires",
+      "expected": "2026-11-16"
+    },
+    {
+      "name": "Buenos Aires a medianoche",
+      "instant": "2026-11-17T03:00:00Z",
+      "timezone": "America/Argentina/Buenos_Aires",
+      "expected": "2026-11-17"
+    },
+    {
+      "name": "Nueva York antes del cambio de hora de marzo",
+      "instant": "2026-03-08T04:59:59Z",
+      "timezone": "America/New_York",
+      "expected": "2026-03-07"
+    },
+    {
+      "name": "Nueva York después del cambio de hora de marzo",
+      "instant": "2026-03-08T07:30:00Z",
+      "timezone": "America/New_York",
+      "expected": "2026-03-08"
+    },
+    {
+      "name": "Nueva York último segundo de octubre (EDT)",
+      "instant": "2026-11-01T03:59:59Z",
+      "timezone": "America/New_York",
+      "expected": "2026-10-31"
+    },
+    {
+      "name": "Nueva York medianoche del día del cambio de noviembre",
+      "instant": "2026-11-01T04:00:00Z",
+      "timezone": "America/New_York",
+      "expected": "2026-11-01"
+    },
+    {
+      "name": "Kiritimati +14 ya es mañana",
+      "instant": "2026-01-01T10:00:00Z",
+      "timezone": "Pacific/Kiritimati",
+      "expected": "2026-01-02"
+    },
+    {
+      "name": "Pago Pago -11 todavía es ayer",
+      "instant": "2026-01-01T10:59:59Z",
+      "timezone": "Pacific/Pago_Pago",
+      "expected": "2025-12-31"
+    },
+    {
+      "name": "UTC",
+      "instant": "2026-06-15T12:00:00Z",
+      "timezone": "UTC",
+      "expected": "2026-06-15"
+    },
+    {
+      "name": "Madrid cruza medianoche la noche del cambio de hora",
+      "instant": "2026-03-28T23:30:00Z",
+      "timezone": "Europe/Madrid",
+      "expected": "2026-03-29"
+    },
+    {
+      "name": "Kolkata +5:30 medianoche",
+      "instant": "2026-05-31T18:30:00Z",
+      "timezone": "Asia/Kolkata",
+      "expected": "2026-06-01"
+    },
+    {
+      "name": "Kolkata +5:30 un segundo antes",
+      "instant": "2026-05-31T18:29:59Z",
+      "timezone": "Asia/Kolkata",
+      "expected": "2026-05-31"
+    },
+    {
+      "name": "Lord Howe con horario de verano de media hora",
+      "instant": "2026-10-04T13:15:00Z",
+      "timezone": "Australia/Lord_Howe",
+      "expected": "2026-10-05"
+    },
+    {
+      "name": "Ciudad de México sin horario de verano",
+      "instant": "2026-04-05T05:59:59Z",
+      "timezone": "America/Mexico_City",
+      "expected": "2026-04-04"
+    }
+  ]
+}

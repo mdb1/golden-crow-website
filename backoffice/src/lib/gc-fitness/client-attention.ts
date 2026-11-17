@@ -15,7 +15,7 @@
 // ⚠️ TWIN: the mobile apps get the same reasons from the callable
 // `functions/src/coach/coachAttention.ts` (gc-fitness). The ids, thresholds and
 // rank below are the SHARED TABLE — a change here goes there too. The case
-// table both sides should pass lives in `__fixtures__/client-attention-cases.json`
+// table both sides should pass lives in `__tests__/twin-vectors/client-attention-cases.json` (pinned copy, #1644)
 // (pure input → expected reasons, no Firestore), so the callable can copy it
 // verbatim into its own test.
 //

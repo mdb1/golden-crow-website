@@ -1,0 +1,1758 @@
+{
+  "_comment": "#1644 — THE billing case table (gc-fitness #1540 / #1659). ONE file, read by every twin: Swift GCFitnessCore `Billing` (BillingVectorTests), Kotlin android/core `Billing` (BillingVectorTest), functions/src/billing/billing.ts (billingVectors.test.ts: addMonths/status/applyPayment/revertPayment/consumeClass — the server has no defaultCovers/recordEffect/voidEffect) and the backoffice billing.ts (pinned copy, drift-checked by scripts/check-twin-vectors.py). Civil dates are strings; `today`/`paidCivil` come from the case. `billing` objects carry every client_billing field the pure functions read (null = absent).",
+  "addMonths": [
+    {
+      "name": "mensual 10 nov + 1",
+      "civil": "2026-11-10",
+      "months": 1,
+      "expected": "2026-12-10"
+    },
+    {
+      "name": "fin de mes: 31 ene + 1 = 28 feb",
+      "civil": "2026-01-31",
+      "months": 1,
+      "expected": "2026-02-28"
+    },
+    {
+      "name": "bisiesto: 29 feb 2028 + 12 = 28 feb 2029",
+      "civil": "2028-02-29",
+      "months": 12,
+      "expected": "2029-02-28"
+    },
+    {
+      "name": "a un bisiesto: 31 ene 2028 + 1 = 29 feb",
+      "civil": "2028-01-31",
+      "months": 1,
+      "expected": "2028-02-29"
+    },
+    {
+      "name": "pack 3 meses desde el 30 nov",
+      "civil": "2026-11-30",
+      "months": 3,
+      "expected": "2027-02-28"
+    },
+    {
+      "name": "negativo cruza el año: 31 ene 2027 - 2",
+      "civil": "2027-01-31",
+      "months": -2,
+      "expected": "2026-11-30"
+    },
+    {
+      "name": "negativo cruza el año: 15 ene - 1",
+      "civil": "2026-01-15",
+      "months": -1,
+      "expected": "2025-12-15"
+    },
+    {
+      "name": "negativo a fin de febrero: 31 mar - 1",
+      "civil": "2026-03-31",
+      "months": -1,
+      "expected": "2026-02-28"
+    },
+    {
+      "name": "cero meses no cambia",
+      "civil": "2026-05-17",
+      "months": 0,
+      "expected": "2026-05-17"
+    },
+    {
+      "name": "doce meses negativos",
+      "civil": "2026-12-31",
+      "months": -12,
+      "expected": "2025-12-31"
+    }
+  ],
+  "status": [
+    {
+      "name": "sin billing → none, 0",
+      "billing": null,
+      "today": "2026-11-11",
+      "expected": {
+        "state": "none",
+        "days": 0
+      }
+    },
+    {
+      "name": "vence en 5, aviso 3 → up_to_date, 5",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "monthly",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 1,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2026-11-16",
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "today": "2026-11-11",
+      "expected": {
+        "state": "up_to_date",
+        "days": 5
+      }
+    },
+    {
+      "name": "vence en 3 → due_soon, 3",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "monthly",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 1,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2026-11-14",
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "today": "2026-11-11",
+      "expected": {
+        "state": "due_soon",
+        "days": 3
+      }
+    },
+    {
+      "name": "vence hoy → due_soon, 0",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "monthly",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 1,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2026-11-11",
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "today": "2026-11-11",
+      "expected": {
+        "state": "due_soon",
+        "days": 0
+      }
+    },
+    {
+      "name": "vencido 4 → overdue, 4",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "monthly",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 1,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2026-11-07",
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "today": "2026-11-11",
+      "expected": {
+        "state": "overdue",
+        "days": 4
+      }
+    },
+    {
+      "name": "vencido cruzando el año",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "monthly",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 1,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2025-12-31",
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "today": "2026-01-02",
+      "expected": {
+        "state": "overdue",
+        "days": 2
+      }
+    },
+    {
+      "name": "pack clases 0 → overdue, 0",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Pack 8 clases",
+          "kind": "class_pack",
+          "modality": "online",
+          "amount": 40000,
+          "currency": "ARS",
+          "periodMonths": null,
+          "classCount": 8,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": null,
+        "classesRemaining": 0,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "today": "2026-11-11",
+      "expected": {
+        "state": "overdue",
+        "days": 0
+      }
+    },
+    {
+      "name": "pack clases 2 → up_to_date, 2",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Pack 8 clases",
+          "kind": "class_pack",
+          "modality": "online",
+          "amount": 40000,
+          "currency": "ARS",
+          "periodMonths": null,
+          "classCount": 8,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": null,
+        "classesRemaining": 2,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "today": "2026-11-11",
+      "expected": {
+        "state": "up_to_date",
+        "days": 2
+      }
+    },
+    {
+      "name": "pack sin saldo cargado → overdue, 0",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Pack 8 clases",
+          "kind": "class_pack",
+          "modality": "online",
+          "amount": 40000,
+          "currency": "ARS",
+          "periodMonths": null,
+          "classCount": 8,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": null,
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "today": "2026-11-11",
+      "expected": {
+        "state": "overdue",
+        "days": 0
+      }
+    },
+    {
+      "name": "por clase con 1 → up_to_date, 1",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Pack 8 clases",
+          "kind": "per_class",
+          "modality": "online",
+          "amount": 40000,
+          "currency": "ARS",
+          "periodMonths": null,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": null,
+        "classesRemaining": 1,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "today": "2026-11-11",
+      "expected": {
+        "state": "up_to_date",
+        "days": 1
+      }
+    },
+    {
+      "name": "pack ignora el vencimiento",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Pack 8 clases",
+          "kind": "class_pack",
+          "modality": "online",
+          "amount": 40000,
+          "currency": "ARS",
+          "periodMonths": null,
+          "classCount": 8,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2026-01-01",
+        "classesRemaining": 3,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "today": "2026-11-11",
+      "expected": {
+        "state": "up_to_date",
+        "days": 3
+      }
+    },
+    {
+      "name": "planId y plan nulos → none aunque haya vencimiento",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": null,
+        "plan": null,
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2026-11-01",
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "today": "2026-11-11",
+      "expected": {
+        "state": "none",
+        "days": 0
+      }
+    },
+    {
+      "name": "planId sin snapshot sigue el vencimiento",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": null,
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2026-11-01",
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "today": "2026-11-11",
+      "expected": {
+        "state": "overdue",
+        "days": 10
+      }
+    },
+    {
+      "name": "plan sin vencimiento → up_to_date, 0",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "per_routine",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": null,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": null,
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "today": "2026-11-11",
+      "expected": {
+        "state": "up_to_date",
+        "days": 0
+      }
+    },
+    {
+      "name": "mensual sin vencimiento → up_to_date, 0",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "monthly",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 1,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": null,
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "today": "2026-11-11",
+      "expected": {
+        "state": "up_to_date",
+        "days": 0
+      }
+    },
+    {
+      "name": "aviso 0: vence mañana → up_to_date, 1",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "monthly",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 1,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2026-11-12",
+        "classesRemaining": null,
+        "reminderDaysBefore": 0,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "today": "2026-11-11",
+      "expected": {
+        "state": "up_to_date",
+        "days": 1
+      }
+    },
+    {
+      "name": "aviso 0: vence hoy → due_soon, 0",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "monthly",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 1,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2026-11-11",
+        "classesRemaining": null,
+        "reminderDaysBefore": 0,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "today": "2026-11-11",
+      "expected": {
+        "state": "due_soon",
+        "days": 0
+      }
+    },
+    {
+      "name": "aviso 7: vence en 7 → due_soon, 7",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "monthly",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 1,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2026-11-18",
+        "classesRemaining": null,
+        "reminderDaysBefore": 7,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "today": "2026-11-11",
+      "expected": {
+        "state": "due_soon",
+        "days": 7
+      }
+    }
+  ],
+  "applyPayment": [
+    {
+      "name": "mensual paga 1 → next 2026-12-10",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "monthly",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 1,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2026-11-10",
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "covers": {
+        "kind": "months",
+        "months": 1,
+        "classes": null
+      },
+      "paidCivil": "2026-11-11",
+      "expected": {
+        "nextDueCivil": "2026-12-10",
+        "classesRemaining": null
+      }
+    },
+    {
+      "name": "pack 3 meses → next 2027-02-28",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "monthly",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 1,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2026-11-30",
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "covers": {
+        "kind": "months",
+        "months": 3,
+        "classes": null
+      },
+      "paidCivil": "2026-11-11",
+      "expected": {
+        "nextDueCivil": "2027-02-28",
+        "classesRemaining": null
+      }
+    },
+    {
+      "name": "sin next, con start → next 2026-12-01",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "monthly",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 1,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": "2026-11-01",
+        "nextDueCivil": null,
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "covers": {
+        "kind": "months",
+        "months": 1,
+        "classes": null
+      },
+      "paidCivil": "2026-11-11",
+      "expected": {
+        "nextDueCivil": "2026-12-01",
+        "classesRemaining": null
+      }
+    },
+    {
+      "name": "sin next ni start: corre desde la fecha del pago",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "monthly",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 1,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": null,
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "covers": {
+        "kind": "months",
+        "months": 1,
+        "classes": null
+      },
+      "paidCivil": "2026-11-11",
+      "expected": {
+        "nextDueCivil": "2026-12-11",
+        "classesRemaining": null
+      }
+    },
+    {
+      "name": "pagar adelantado corre desde el vencimiento vigente",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "monthly",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 1,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": "2026-01-10",
+        "nextDueCivil": "2027-01-10",
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "covers": {
+        "kind": "months",
+        "months": 1,
+        "classes": null
+      },
+      "paidCivil": "2026-11-11",
+      "expected": {
+        "nextDueCivil": "2027-02-10",
+        "classesRemaining": null
+      }
+    },
+    {
+      "name": "months nulo usa el periodo del plan",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "months_pack",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 3,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2026-11-10",
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "covers": {
+        "kind": "months",
+        "months": null,
+        "classes": null
+      },
+      "paidCivil": "2026-11-11",
+      "expected": {
+        "nextDueCivil": "2027-02-10",
+        "classesRemaining": null
+      }
+    },
+    {
+      "name": "months nulo y plan sin periodo → 1 mes",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "custom",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": null,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2026-11-10",
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "covers": {
+        "kind": "months",
+        "months": null,
+        "classes": null
+      },
+      "paidCivil": "2026-11-11",
+      "expected": {
+        "nextDueCivil": "2026-12-10",
+        "classesRemaining": null
+      }
+    },
+    {
+      "name": "clases → remaining 1 + 8 = 9",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Pack 8 clases",
+          "kind": "class_pack",
+          "modality": "online",
+          "amount": 40000,
+          "currency": "ARS",
+          "periodMonths": null,
+          "classCount": 8,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": null,
+        "classesRemaining": 1,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "covers": {
+        "kind": "classes",
+        "months": null,
+        "classes": 8
+      },
+      "paidCivil": "2026-11-11",
+      "expected": {
+        "nextDueCivil": null,
+        "classesRemaining": 9
+      }
+    },
+    {
+      "name": "classes nulo usa classCount",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Pack 8 clases",
+          "kind": "class_pack",
+          "modality": "online",
+          "amount": 40000,
+          "currency": "ARS",
+          "periodMonths": null,
+          "classCount": 10,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": null,
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "covers": {
+        "kind": "classes",
+        "months": null,
+        "classes": null
+      },
+      "paidCivil": "2026-11-11",
+      "expected": {
+        "nextDueCivil": null,
+        "classesRemaining": 10
+      }
+    },
+    {
+      "name": "routine no cambia nada",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "monthly",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 1,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2026-11-10",
+        "classesRemaining": 2,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "covers": {
+        "kind": "routine",
+        "months": null,
+        "classes": null
+      },
+      "paidCivil": "2026-11-11",
+      "expected": {
+        "nextDueCivil": "2026-11-10",
+        "classesRemaining": 2
+      }
+    },
+    {
+      "name": "other no cambia nada",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "monthly",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 1,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2026-11-10",
+        "classesRemaining": 2,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "covers": {
+        "kind": "other",
+        "months": null,
+        "classes": null
+      },
+      "paidCivil": "2026-11-11",
+      "expected": {
+        "nextDueCivil": "2026-11-10",
+        "classesRemaining": 2
+      }
+    }
+  ],
+  "revertPayment": [
+    {
+      "name": "revert → next 2026-11-10",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "monthly",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 1,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2026-12-10",
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "covers": {
+        "kind": "months",
+        "months": 1,
+        "classes": null
+      },
+      "expected": {
+        "nextDueCivil": "2026-11-10",
+        "classesRemaining": null
+      }
+    },
+    {
+      "name": "revert de un pack de 3 meses vuelve a fin de mes",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "monthly",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 1,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2027-02-28",
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "covers": {
+        "kind": "months",
+        "months": 3,
+        "classes": null
+      },
+      "expected": {
+        "nextDueCivil": "2026-11-28",
+        "classesRemaining": null
+      }
+    },
+    {
+      "name": "revert sin vencimiento no inventa uno",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "monthly",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 1,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": null,
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "covers": {
+        "kind": "months",
+        "months": 1,
+        "classes": null
+      },
+      "expected": {
+        "nextDueCivil": null,
+        "classesRemaining": null
+      }
+    },
+    {
+      "name": "revert months nulo usa el periodo del plan",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "months_pack",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 3,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2027-02-10",
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "covers": {
+        "kind": "months",
+        "months": null,
+        "classes": null
+      },
+      "expected": {
+        "nextDueCivil": "2026-11-10",
+        "classesRemaining": null
+      }
+    },
+    {
+      "name": "revert de clases no baja de cero",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Pack 8 clases",
+          "kind": "class_pack",
+          "modality": "online",
+          "amount": 40000,
+          "currency": "ARS",
+          "periodMonths": null,
+          "classCount": 8,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": null,
+        "classesRemaining": 3,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "covers": {
+        "kind": "classes",
+        "months": null,
+        "classes": 8
+      },
+      "expected": {
+        "nextDueCivil": null,
+        "classesRemaining": 0
+      }
+    },
+    {
+      "name": "revert de clases descuenta",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Pack 8 clases",
+          "kind": "class_pack",
+          "modality": "online",
+          "amount": 40000,
+          "currency": "ARS",
+          "periodMonths": null,
+          "classCount": 8,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": null,
+        "classesRemaining": 9,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "covers": {
+        "kind": "classes",
+        "months": null,
+        "classes": 8
+      },
+      "expected": {
+        "nextDueCivil": null,
+        "classesRemaining": 1
+      }
+    },
+    {
+      "name": "revert other no cambia nada",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "plan-1",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "monthly",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 1,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2026-11-10",
+        "classesRemaining": 2,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "covers": {
+        "kind": "other",
+        "months": null,
+        "classes": null
+      },
+      "expected": {
+        "nextDueCivil": "2026-11-10",
+        "classesRemaining": 2
+      }
+    }
+  ],
+  "consumeClass": [
+    {
+      "name": "consumir 0 → 0",
+      "classesRemaining": 0,
+      "expected": 0
+    },
+    {
+      "name": "consumir 5 → 4",
+      "classesRemaining": 5,
+      "expected": 4
+    },
+    {
+      "name": "consumir sin saldo → 0",
+      "classesRemaining": null,
+      "expected": 0
+    }
+  ],
+  "defaultCovers": [
+    {
+      "name": "mensual → 1 mes",
+      "plan": {
+        "name": "Mensual online",
+        "kind": "monthly",
+        "modality": "online",
+        "amount": 25000,
+        "currency": "ARS",
+        "periodMonths": 1,
+        "classCount": null,
+        "description": null
+      },
+      "expected": {
+        "kind": "months",
+        "months": 1,
+        "classes": null
+      }
+    },
+    {
+      "name": "pack de 6 meses → 6 meses",
+      "plan": {
+        "name": "Mensual online",
+        "kind": "months_pack",
+        "modality": "online",
+        "amount": 25000,
+        "currency": "ARS",
+        "periodMonths": 6,
+        "classCount": null,
+        "description": null
+      },
+      "expected": {
+        "kind": "months",
+        "months": 6,
+        "classes": null
+      }
+    },
+    {
+      "name": "pack de clases → classCount",
+      "plan": {
+        "name": "Pack 8 clases",
+        "kind": "class_pack",
+        "modality": "online",
+        "amount": 40000,
+        "currency": "ARS",
+        "periodMonths": null,
+        "classCount": 8,
+        "description": null
+      },
+      "expected": {
+        "kind": "classes",
+        "months": null,
+        "classes": 8
+      }
+    },
+    {
+      "name": "por clase → 1 clase",
+      "plan": {
+        "name": "Pack 8 clases",
+        "kind": "per_class",
+        "modality": "online",
+        "amount": 40000,
+        "currency": "ARS",
+        "periodMonths": null,
+        "classCount": null,
+        "description": null
+      },
+      "expected": {
+        "kind": "classes",
+        "months": null,
+        "classes": 1
+      }
+    },
+    {
+      "name": "por rutina → routine",
+      "plan": {
+        "name": "Mensual online",
+        "kind": "per_routine",
+        "modality": "online",
+        "amount": 25000,
+        "currency": "ARS",
+        "periodMonths": null,
+        "classCount": null,
+        "description": null
+      },
+      "expected": {
+        "kind": "routine",
+        "months": null,
+        "classes": null
+      }
+    },
+    {
+      "name": "custom con periodo → meses",
+      "plan": {
+        "name": "Mensual online",
+        "kind": "custom",
+        "modality": "online",
+        "amount": 25000,
+        "currency": "ARS",
+        "periodMonths": 2,
+        "classCount": null,
+        "description": null
+      },
+      "expected": {
+        "kind": "months",
+        "months": 2,
+        "classes": null
+      }
+    },
+    {
+      "name": "custom sin periodo → other",
+      "plan": {
+        "name": "Mensual online",
+        "kind": "custom",
+        "modality": "online",
+        "amount": 25000,
+        "currency": "ARS",
+        "periodMonths": null,
+        "classCount": null,
+        "description": null
+      },
+      "expected": {
+        "kind": "other",
+        "months": null,
+        "classes": null
+      }
+    },
+    {
+      "name": "sin plan → other",
+      "plan": null,
+      "expected": {
+        "kind": "other",
+        "months": null,
+        "classes": null
+      }
+    }
+  ],
+  "recordEffect": [
+    {
+      "name": "sin billing crea uno sin plan",
+      "billing": null,
+      "covers": {
+        "kind": "months",
+        "months": 1,
+        "classes": null
+      },
+      "paidCivil": "2026-11-11",
+      "amount": 100,
+      "expected": {
+        "nextDueCivil": null,
+        "classesRemaining": null,
+        "lastPaymentCivil": "2026-11-11",
+        "lastPaymentAmount": 100
+      }
+    },
+    {
+      "name": "sin plan no corre el vencimiento",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": null,
+        "plan": null,
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": null,
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": "2026-10-01",
+        "lastPaymentAmount": 50
+      },
+      "covers": {
+        "kind": "months",
+        "months": 1,
+        "classes": null
+      },
+      "paidCivil": "2026-11-11",
+      "amount": 100,
+      "expected": {
+        "nextDueCivil": null,
+        "classesRemaining": null,
+        "lastPaymentCivil": "2026-11-11",
+        "lastPaymentAmount": 100
+      }
+    },
+    {
+      "name": "sin plan no suma clases",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": null,
+        "plan": null,
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": null,
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "covers": {
+        "kind": "classes",
+        "months": null,
+        "classes": 8
+      },
+      "paidCivil": "2026-11-11",
+      "amount": 100,
+      "expected": {
+        "nextDueCivil": null,
+        "classesRemaining": null,
+        "lastPaymentCivil": "2026-11-11",
+        "lastPaymentAmount": 100
+      }
+    },
+    {
+      "name": "con plan mensual corre un mes",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "p",
+        "plan": {
+          "name": "Mensual",
+          "kind": "monthly",
+          "modality": null,
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 1,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2026-11-10",
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "covers": {
+        "kind": "months",
+        "months": 1,
+        "classes": null
+      },
+      "paidCivil": "2026-11-11",
+      "amount": 25000,
+      "expected": {
+        "nextDueCivil": "2026-12-10",
+        "classesRemaining": null,
+        "lastPaymentCivil": "2026-11-11",
+        "lastPaymentAmount": 25000
+      }
+    },
+    {
+      "name": "con pack suma clases",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "p",
+        "plan": {
+          "name": "Pack 8 clases",
+          "kind": "class_pack",
+          "modality": "online",
+          "amount": 40000,
+          "currency": "ARS",
+          "periodMonths": null,
+          "classCount": 8,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": null,
+        "classesRemaining": 1,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "covers": {
+        "kind": "classes",
+        "months": null,
+        "classes": 8
+      },
+      "paidCivil": "2026-11-11",
+      "amount": 40000,
+      "expected": {
+        "nextDueCivil": null,
+        "classesRemaining": 9,
+        "lastPaymentCivil": "2026-11-11",
+        "lastPaymentAmount": 40000
+      }
+    },
+    {
+      "name": "pago con fecha vieja no pisa el último",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "p",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "monthly",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 1,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2026-11-10",
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": "2026-11-05",
+        "lastPaymentAmount": 200
+      },
+      "covers": {
+        "kind": "months",
+        "months": 1,
+        "classes": null
+      },
+      "paidCivil": "2026-10-01",
+      "amount": 100,
+      "expected": {
+        "nextDueCivil": "2026-12-10",
+        "classesRemaining": null,
+        "lastPaymentCivil": "2026-11-05",
+        "lastPaymentAmount": 200
+      }
+    },
+    {
+      "name": "misma fecha gana el nuevo",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "p",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "monthly",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 1,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2026-11-10",
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": "2026-11-11",
+        "lastPaymentAmount": 200
+      },
+      "covers": {
+        "kind": "months",
+        "months": 1,
+        "classes": null
+      },
+      "paidCivil": "2026-11-11",
+      "amount": 100,
+      "expected": {
+        "nextDueCivil": "2026-12-10",
+        "classesRemaining": null,
+        "lastPaymentCivil": "2026-11-11",
+        "lastPaymentAmount": 100
+      }
+    }
+  ],
+  "voidEffect": [
+    {
+      "name": "anular el último revierte y pasa al anterior",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "p",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "monthly",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 1,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2026-12-10",
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "covers": {
+        "kind": "months",
+        "months": 1,
+        "classes": null
+      },
+      "previous": {
+        "paidCivil": "2026-10-10",
+        "amount": 90
+      },
+      "expected": {
+        "nextDueCivil": "2026-11-10",
+        "classesRemaining": null,
+        "lastPaymentCivil": "2026-10-10",
+        "lastPaymentAmount": 90
+      }
+    },
+    {
+      "name": "anular el único deja sin último pago",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "p",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "monthly",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 1,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2026-12-10",
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "covers": {
+        "kind": "months",
+        "months": 1,
+        "classes": null
+      },
+      "previous": null,
+      "expected": {
+        "nextDueCivil": "2026-11-10",
+        "classesRemaining": null,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      }
+    },
+    {
+      "name": "anular sin plan no toca el saldo",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": null,
+        "plan": null,
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": null,
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "covers": {
+        "kind": "classes",
+        "months": null,
+        "classes": 8
+      },
+      "previous": {
+        "paidCivil": "2026-10-10",
+        "amount": 90
+      },
+      "expected": {
+        "nextDueCivil": null,
+        "classesRemaining": null,
+        "lastPaymentCivil": "2026-10-10",
+        "lastPaymentAmount": 90
+      }
+    },
+    {
+      "name": "anular clases no baja de cero",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "p",
+        "plan": {
+          "name": "Pack 8 clases",
+          "kind": "class_pack",
+          "modality": "online",
+          "amount": 40000,
+          "currency": "ARS",
+          "periodMonths": null,
+          "classCount": 8,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": null,
+        "classesRemaining": 3,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "covers": {
+        "kind": "classes",
+        "months": null,
+        "classes": 8
+      },
+      "previous": null,
+      "expected": {
+        "nextDueCivil": null,
+        "classesRemaining": 0,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      }
+    },
+    {
+      "name": "anular un pago sin covers no revierte",
+      "billing": {
+        "coachId": "coach",
+        "clientId": "client",
+        "planId": "p",
+        "plan": {
+          "name": "Mensual online",
+          "kind": "monthly",
+          "modality": "online",
+          "amount": 25000,
+          "currency": "ARS",
+          "periodMonths": 1,
+          "classCount": null,
+          "description": null
+        },
+        "amount": null,
+        "startCivil": null,
+        "nextDueCivil": "2026-12-10",
+        "classesRemaining": null,
+        "reminderDaysBefore": 3,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      },
+      "covers": null,
+      "previous": null,
+      "expected": {
+        "nextDueCivil": "2026-12-10",
+        "classesRemaining": null,
+        "lastPaymentCivil": null,
+        "lastPaymentAmount": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "_comment": "#1644 — PINNED copies of gc-fitness twin vectors. Do NOT edit by hand: change the canonical file in gc-fitness (twin-vectors/ or .planning/…) and run `scripts/check-twin-vectors.py --sync --website <this checkout>` there. twin-vectors.test.ts checks every copy against these hashes.",
+  "files": {
+    "assigned-by.json": "a54157c792966da8a4b05c28d97b3928d7f9298a765c123177f9c4dc02868e53",
+    "billing-vectors.json": "06f8394f64a9ffdcb914ea76a33c33efbdc52efc2f8ec688b3eb00013dab4a69",
+    "challenge_standings_vector.json": "803a03489afc5f568570166458f34907e7609811bf1078c97213614ddc209eb7",
+    "civil-date-vectors.json": "459e5f39f742cda4b83ed4e767475dd4725b2ae43ab826ec1deeb8c0aa2abac1",
+    "client-attention-cases.json": "a7edca33bb74b0f70fc4196f3fb8529a6f4d4976b54dd72e32583ce22e1abbbb",
+    "habit-compliance.json": "c604d754b3caedb2073baebe8a16312cea568f69141fd5935116dbb3e6f431b0",
+    "habit-schedule-vectors.json": "fdca6eb0e210716787374ec69b7fcf32d537b38f013ca9b490f97d6ba14c4cd2",
+    "nutrition-ai-vectors.json": "220a56b4654f04ef2c6e4691092b973e4ce12204ee83fab1589ab686fa3eac70",
+    "nutrition-coach.json": "23fc885e6a8030801343875e63afa02f25d23e818f3facb7f8994a5ec1c7ebf8",
+    "nutrition-plan-resolution-vectors.json": "285d5ef19d33294bdc51c49368cd5bc7b3a5cd98c64bc274f291c00cad773868",
+    "recurrence-expansion.json": "eb7f3d00e87ad12bbefad9af236a1e6fcca9b1c5290554c801d67c3bc521c75d"
+  }
+}

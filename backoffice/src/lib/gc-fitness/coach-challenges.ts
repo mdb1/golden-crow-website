@@ -13,7 +13,7 @@
 // TWIN: `rankCoachChallengeStandings` es un port 1:1 de `rankChallengeStandings`
 // (functions) — mismo vector compartido
 // (`gc-fitness/.planning/features/social-v2/fixtures/challenge_standings_vector.json`, copiado
-// en `__tests__/fixtures/`). Si cambia allá, cambia acá.
+// en `__tests__/twin-vectors/`, con chequeo de drift — #1644). Si cambia allá, cambia acá.
 
 import { civilDateAddDays, civilDateFormat, civilDateToday, civilDaysBetween } from "./civil-date";
 import { zonedWallClockInstant } from "./zoned-instant";
