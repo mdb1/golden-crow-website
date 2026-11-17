@@ -4,6 +4,8 @@ import {
   HABIT_WEEKDAY_FORMAT_ISO,
   effectiveIsoWeekdays,
   effectiveIsoWeekdaysOf,
+  isHabitArchived,
+  isHabitArchivedOn,
   isHabitScheduledOn,
   isIsoWeekdayFormat,
 } from "../habit-schedule";
@@ -186,6 +188,40 @@ describe("#1343 — weekdayFormat marker (twin vectors)", () => {
     for (const d of ["2026-10-13", "2026-10-15", "2026-10-18"]) {
       expect(isHabitScheduledOn(legacy, d)).toBe(false);
       expect(isHabitScheduledOn(resaved, d)).toBe(false);
+    }
+  });
+});
+
+/**
+ * gc-fitness#1622 — archive ("pausar"). Same cases as the Swift/Kotlin
+ * `HabitArchiveTests` and the functions `habitArchivedOn` suite.
+ */
+describe("isHabitArchivedOn / isHabitScheduledOn — #1622 archive", () => {
+  const daily = { scheduleType: "recurring", scheduleCadence: "daily", startsOn: "2026-10-01" };
+
+  it("an open archive covers the archive day and every day after, never the days before", () => {
+    const h = { ...daily, archivedOn: "2026-10-10" };
+    expect(isHabitArchived(h)).toBe(true);
+    expect(isHabitArchivedOn(h, "2026-10-09")).toBe(false);
+    expect(isHabitArchivedOn(h, "2026-10-10")).toBe(true);
+    expect(isHabitArchivedOn(h, "2027-01-01")).toBe(true);
+    expect(isHabitScheduledOn(h, "2026-10-09")).toBe(true);
+    expect(isHabitScheduledOn(h, "2026-10-10")).toBe(false);
+  });
+
+  it("a closed period is inclusive on both ends; an empty archivedOn is live", () => {
+    const h = { ...daily, archivedOn: "", archivedPeriods: ["2026-10-03/2026-10-05"] };
+    expect(isHabitArchived(h)).toBe(false);
+    expect(isHabitScheduledOn(h, "2026-10-02")).toBe(true);
+    expect(isHabitScheduledOn(h, "2026-10-03")).toBe(false);
+    expect(isHabitScheduledOn(h, "2026-10-05")).toBe(false);
+    expect(isHabitScheduledOn(h, "2026-10-06")).toBe(true);
+  });
+
+  it("malformed periods never archive a day", () => {
+    const h = { ...daily, archivedPeriods: ["2026-10-03", "2026-10-07/2026-10-02", "bad/period", "/", "", 7] };
+    for (const d of ["2026-10-02", "2026-10-03", "2026-10-05", "2026-10-07"]) {
+      expect(isHabitArchivedOn(h, d)).toBe(false);
     }
   });
 });

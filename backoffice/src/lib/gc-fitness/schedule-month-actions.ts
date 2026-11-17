@@ -41,7 +41,7 @@ import type { HabitType } from "./habit-schema";
 // quick-260714-m57 (#403) — effective set type for warmup exclusion (a
 // set_type-only warmup must be skipped like an is_warmup one).
 import { effectiveSetType } from "./set-type";
-import { effectiveIsoWeekdays } from "./habit-schedule";
+import { isHabitArchivedOn, effectiveIsoWeekdays } from "./habit-schedule";
 import { chunkList, mapInBatches } from "./map-in-batches";
 
 const ASSIGNMENTS = FirestoreCollections.workoutAssignments;
@@ -336,7 +336,8 @@ function habitScheduledDays(
       if (set.has(day)) out.push(d);
     }
   }
-  return skipped ? out.filter((d) => !skipped.has(d)) : out;
+  // gc-fitness#1622 — archived days are not occurrences (the apps' isActive).
+  return out.filter((d) => !skipped?.has(d) && !isHabitArchivedOn(habit, d));
 }
 
 export interface AssignmentExercise {
