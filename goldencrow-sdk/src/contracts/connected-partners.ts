@@ -2,6 +2,18 @@ import { z } from "zod";
 import { PUBLISHER_APP_STATUSES } from "../lib/publisher-app-status.js";
 
 export const CONNECTED_PARTNERS_COLLECTION = "connected-partners";
+export const PARTNER_BOARD_STAGES = [
+  "noOrganization",
+  "organizationWithoutApp",
+  "freeApp",
+  "contract",
+  "other",
+] as const;
+export const PartnerBoardStageSchema = z.enum(PARTNER_BOARD_STAGES);
+export type PartnerBoardStage = z.infer<typeof PartnerBoardStageSchema>;
+export const PartnerBoardStageInputSchema = z
+  .object({ boardStage: PartnerBoardStageSchema })
+  .strict();
 
 export const PartnerIdSchema = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 export const PartnerLinkIdSchema = z
@@ -60,6 +72,7 @@ export const PartnerInputSchema = z
 
 export type PartnerInput = z.infer<typeof PartnerInputSchema>;
 export const StoredPartnerSchema = PartnerInputSchema.extend({
+  boardStage: PartnerBoardStageSchema.nullable().optional(),
   linkedOrganizationSnapshot: PartnerOrganizationSnapshotSchema.nullable().default(null),
   linkedIndividualPublisherSnapshot: PartnerIndividualPublisherSnapshotSchema.nullable().default(null),
   linkedAppSnapshot: PartnerAppSnapshotSchema.nullable().default(null),

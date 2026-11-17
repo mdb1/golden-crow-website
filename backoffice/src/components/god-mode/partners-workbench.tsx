@@ -10,6 +10,7 @@ import {
   Building2,
   FileUp,
   Grid2X2,
+  Columns3,
   Loader2,
   Mail,
   Pencil,
@@ -63,6 +64,7 @@ import {
   PartnerCsvImportDialog,
   PartnerCsvImportRulesDialog,
 } from "@/components/god-mode/partner-csv-import-dialog";
+import { PartnersBoard } from "@/components/god-mode/partner-board";
 import { PartnerEmailHistoryDialog } from "@/components/god-mode/partner-email-history-dialog";
 
 function useText() {
@@ -257,7 +259,7 @@ function PartnerCard({
   );
 }
 
-type PartnerView = "grid" | "table";
+type PartnerView = "grid" | "table" | "board";
 type PageHistory = { index: number; cursors: Array<string | null> };
 const VIEW_STORAGE_KEY = "golden-crow-partners-view";
 const ALL_SECTIONS = [
@@ -615,14 +617,18 @@ export function PartnersBrowser({
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(VIEW_STORAGE_KEY);
-      if (stored === "grid" || stored === "table") setView(stored);
+      if (stored === "grid" || stored === "table" || stored === "board") setView(stored);
     } catch {
       /* View preference is optional when browser storage is unavailable. */
     }
   }, []);
   function changeView(next: string) {
-    if (next !== "grid" && next !== "table") return;
+    if (next !== "grid" && next !== "table" && next !== "board") return;
     setView(next);
+    if (next === "board" || view === "board") {
+      setSelected(new Set());
+      setDetail(null);
+    }
     try {
       window.localStorage.setItem(VIEW_STORAGE_KEY, next);
     } catch {
@@ -642,7 +648,7 @@ export function PartnersBrowser({
   ] as const;
   const query = useQuery({
     queryKey,
-    enabled: Boolean(activeSection),
+    enabled: Boolean(activeSection) && view !== "board",
     staleTime: Infinity,
     refetchOnWindowFocus: false,
     queryFn: ({ signal }) =>
@@ -651,13 +657,14 @@ export function PartnersBrowser({
   const partners = activeSection ? (query.data?.items ?? []) : [];
   useEffect(() => {
     if (
+      view !== "board" &&
       detail &&
       query.isSuccess &&
       !query.isFetching &&
       !query.data.items.some((partner) => partner.id === detail.id)
     )
       setDetail(null);
-  }, [detail, query.data, query.isSuccess, query.isFetching]);
+  }, [detail, query.data, query.isSuccess, query.isFetching, view]);
   function openDetails(partner: Partner, trigger: HTMLElement) {
     setDetail({ id: partner.id, companyName: partner.companyName });
     window.requestAnimationFrame(() => {
@@ -850,6 +857,15 @@ export function PartnersBrowser({
                 <Table2 className="size-4" />
                 {t("Table")}
               </TabsTrigger>
+              <TabsTrigger
+                id={`${viewId}-board-tab`}
+                aria-controls={`${viewId}-view-panel`}
+                value="board"
+                className="gap-1.5 rounded-lg px-3 py-2"
+              >
+                <Columns3 className="size-4" />
+                Board
+              </TabsTrigger>
             </TabsList>
           </Tabs>
           <Button
@@ -918,6 +934,13 @@ export function PartnersBrowser({
           role="tabpanel"
           aria-labelledby={`${viewId}-${view}-tab`}
         >
+          {view === "board" ? (
+            <PartnersBoard
+              onView={openDetails}
+              detailId={detail?.id}
+              panelId={detailPanelId}
+            />
+          ) : (
           <Accordion
             type="single"
             collapsible
@@ -1089,6 +1112,7 @@ export function PartnersBrowser({
               </AccordionItem>
             ))}
           </Accordion>
+          )}
         </div>
       </PartnersSplitPane>
       <AlertDialog

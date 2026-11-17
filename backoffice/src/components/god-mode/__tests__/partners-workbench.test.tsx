@@ -1,5 +1,6 @@
 /** @jest-environment jsdom */
 import "@testing-library/jest-dom";
+import userEvent from "@testing-library/user-event";
 import {
   act,
   fireEvent,
@@ -195,7 +196,7 @@ function contacts(prefix: string, count = 20) {
 function openSection(name = "No organization yet") {
   fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${name}`) }));
 }
-function clickView(name: "Grid" | "Table") {
+function clickView(name: "Grid" | "Table" | "Board") {
   fireEvent.mouseDown(screen.getByRole("tab", { name }));
 }
 function pager() {
@@ -206,6 +207,54 @@ function expectHiddenText(text: string) {
   if (element) expect(element).not.toBeVisible();
   else expect(element).not.toBeInTheDocument();
 }
+
+it("adds Board next to Grid and Table, loads it deliberately, and remembers the selected view", async () => {
+  jest.mocked(sdkFetch).mockResolvedValue(page([contact]));
+  const first = renderWorkbench();
+  expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Grid", "Table", "Board"]);
+  expect(sdkFetch).not.toHaveBeenCalled();
+  clickView("Board");
+  await screen.findByRole("button", { name: "View partner details: Acme" });
+  expect(screen.getByRole("tab", { name: "Board" })).toHaveAttribute("aria-selected", "true");
+  expect(window.localStorage.getItem("golden-crow-partners-view")).toBe("board");
+  expect(jest.mocked(sdkFetch).mock.calls.filter(([path]) => String(path).includes("section="))).toHaveLength(0);
+  first.unmount();
+  renderWorkbench();
+  expect(await screen.findByRole("region", { name: "Partners board" })).toBeVisible();
+  expect(screen.getByRole("tab", { name: "Board" })).toHaveAttribute("aria-selected", "true");
+});
+
+it("opens the right detail panel from a Board ticket and keeps it open after moving the ticket", async () => {
+  const user = userEvent.setup();
+  let saved = contact;
+  jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+    if (init?.method === "PATCH") {
+      saved = { ...contact, boardStage: "contract" };
+      return { partner: saved } as never;
+    }
+    if (String(path).includes("/sent-email-log?")) return { emails: [], nextCursor: null } as never;
+    if (path === `${PARTNERS_API_ROUTE}/${contact.id}`) return { partner: saved } as never;
+    return page([saved]) as never;
+  });
+  renderWorkbench();
+  clickView("Board");
+  const ticket = await screen.findByRole("button", { name: "View partner details: Acme" });
+  expect(screen.getByRole("region", { name: "Partners board" })).not.toHaveAttribute("tabindex");
+  await user.click(ticket);
+  const detail = await screen.findByRole("complementary", { name: "Partner details" });
+  expect(await within(detail).findByText(contact.email)).toBeVisible();
+  expect(ticket).toHaveAttribute("aria-expanded", "true");
+  expect(screen.getByRole("region", { name: "Partners board" })).toHaveAttribute("tabindex", "0");
+  await user.click(screen.getByRole("button", { name: "Move partner: Acme" }));
+  await user.click(await screen.findByRole("menuitem", { name: "With contract" }));
+  await waitFor(() => expect(within(screen.getByRole("region", { name: "With contract" })).getByRole("button", {
+    name: "View partner details: Acme",
+  })).toHaveAttribute("aria-expanded", "true"));
+  expect(screen.getByRole("complementary", { name: "Partner details" })).toBeVisible();
+  await user.click(within(detail).getByRole("button", { name: "Hide details" }));
+  expect(screen.queryByRole("complementary", { name: "Partner details" })).not.toBeInTheDocument();
+  expect(screen.getByRole("region", { name: "Partners board" })).not.toHaveAttribute("tabindex");
+});
 
 it("keeps all section contents collapsed and does not fetch partners until a section opens", async () => {
   jest.mocked(sdkFetch).mockResolvedValue(page([]));
