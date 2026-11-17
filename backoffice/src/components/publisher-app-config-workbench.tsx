@@ -147,7 +147,7 @@ type PaletteOverrideCalculation =
   | { status: "error"; paletteName: string; message: string };
 
 const PUBLISHER_APP_TERMS_PDF_PATH =
-  "/PocketGenesSDK_Terminos_y_Condiciones.pdf";
+  "/PocketGenesSDK_Terminos_y_Condiciones_Argentina.pdf";
 
 const PUBLISHER_APP_MANAGED_SERVICE_BENEFITS = [
   "Continued licensing of PocketGenesSDK.",
@@ -1011,10 +1011,10 @@ export function PublisherAppReviewDocument({
                     </span>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-black">
-                        PocketGenesSDK_Terminos_y_Condiciones.pdf
+                        PocketGenesSDK_Terminos_y_Condiciones_Argentina.pdf
                       </p>
                       <p className="mt-0.5 text-xs text-black/55">
-                        Documento contractual · PDF · 25 páginas
+                        Documento contractual · PDF · 24 páginas
                       </p>
                     </div>
                   </div>
@@ -1046,7 +1046,7 @@ export function PublisherAppReviewDocument({
         </div>
 
         <footer className="mt-10 border-t border-black/20 pt-5 text-xs leading-5 text-black/55">
-          Versión de condiciones: 31 de octubre de 2026 · La aceptación será
+          Versión de condiciones: 1 de noviembre de 2026 · La aceptación será
           registrada junto con la solicitud de publicación.
         </footer>
       </article>

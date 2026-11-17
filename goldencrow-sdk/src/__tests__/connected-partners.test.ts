@@ -5,6 +5,7 @@ import {
 } from "fastify-type-provider-zod";
 import {
   PartnerInputSchema,
+  PARTNER_BOARD_STAGES,
   PARTNER_SECTION_KEYS,
   type PartnerInput,
   type PartnerSection,
@@ -19,6 +20,7 @@ const mockDirectReads: string[] = [];
 const mockCollections: string[] = [];
 let mockNextId = 1;
 let mockCommitError: Error | null = null;
+let mockBeforeDocumentUpdate: (() => void) | null = null;
 
 function mockCollectionDocs(name: string) {
   if (name === "connected-partners") return mockDocs;
@@ -40,9 +42,12 @@ function mockDoc(name: string, id = `partner${mockNextId++}`) {
       docs.set(id, data);
     },
     update: async (data: StoredData) => {
+      const beforeUpdate = mockBeforeDocumentUpdate;
+      mockBeforeDocumentUpdate = null;
+      beforeUpdate?.();
       if (!docs.has(id))
         throw Object.assign(new Error("Missing"), { code: 5 });
-      docs.set(id, data);
+      docs.set(id, { ...docs.get(id), ...data });
     },
   };
 }
@@ -96,6 +101,7 @@ import {
   listPartnersBySection,
   listPartnerLinkOptions,
   updatePartner,
+  updatePartnerBoardStage,
 } from "../repositories/connected-partners.repository.js";
 import { connectedPartnersRoutes } from "../routes/connected-partners.routes.js";
 import { partnerSection } from "../lib/partner-section.js";
@@ -144,6 +150,7 @@ beforeEach(() => {
   mockCollections.length = 0;
   mockNextId = 1;
   mockCommitError = null;
+  mockBeforeDocumentUpdate = null;
 });
 
 it("stores contact fields with null optional links and clears optional values on edit", async () => {
@@ -173,6 +180,79 @@ it("stores contact fields with null optional links and clears optional values on
   await expect(updatePartner(context, "missing", input)).rejects.toMatchObject({
     statusCode: 404,
   });
+});
+
+it("persists board moves independently of live publisher links and app contract status", async () => {
+  const organization = seedOrganization();
+  const app = seedApp({ status: "active" });
+  const created = await createPartner(context, { ...input, linkedAppId: app.id });
+  const original = mockDocs.get(created.id);
+  const originalApp = { ...mockCollectionDocs("app_configs").get(app.id) };
+
+  // A contact edit made after the Board page loaded must survive the move.
+  mockBeforeDocumentUpdate = () => mockDocs.set(created.id, {
+    ...mockDocs.get(created.id), notes: "Fresh contact notes", phoneNumber: "Updated phone",
+  });
+  const moved = await updatePartnerBoardStage(context, created.id, "noOrganization");
+  expect(moved).toMatchObject({ boardStage: "noOrganization", notes: "Fresh contact notes", phoneNumber: "Updated phone" });
+  expect(moved.linkedOrganization).toEqual(organization);
+  expect(moved.linkedApp).toEqual(app);
+  expect(partnerSection(moved)).toBe("contract");
+  expect(mockDocs.get(created.id)).toEqual({ ...original, notes: "Fresh contact notes", phoneNumber: "Updated phone", boardStage: "noOrganization" });
+  expect(mockCollectionDocs("app_configs").get(app.id)).toEqual(originalApp);
+  expect(mockCollectionDocs("feed_organizations").get(organization.id)).toEqual({ name: organization.name });
+  expect((await listPartners(context)).items[0]?.boardStage).toBe("noOrganization");
+
+  // A later ordinary contact save patches contact fields without losing a
+  // Board move made concurrently while its link validation was running.
+  mockBeforeDocumentUpdate = () => mockDocs.set(created.id, {
+    ...mockDocs.get(created.id), boardStage: "freeApp",
+  });
+  const edited = await updatePartner(context, created.id, { ...input, notes: "Edited again", linkedAppId: app.id });
+  expect(edited.boardStage).toBe("freeApp");
+  expect(mockDocs.get(created.id)?.boardStage).toBe("freeApp");
+});
+
+it("returns not-found for missing or concurrently deleted Board contacts without recreating them", async () => {
+  await expect(updatePartnerBoardStage(context, "missing", "freeApp")).rejects.toMatchObject({ statusCode: 404 });
+  const created = await createPartner(context, input);
+  mockBeforeDocumentUpdate = () => { mockDocs.delete(created.id); };
+  await expect(updatePartnerBoardStage(context, created.id, "contract")).rejects.toMatchObject({ statusCode: 404 });
+  expect(mockDocs.has(created.id)).toBe(false);
+  expect(mockDocs.has("missing")).toBe(false);
+});
+
+it("only exposes valid saved Board stages and leaves legacy contacts without an override", async () => {
+  mockDocs.set("legacy", { ...input });
+  mockDocs.set("invalid", { ...input, boardStage: "made-up-stage" });
+  mockDocs.set("unset", { ...input, boardStage: null });
+  expect(await getPartner(context, "legacy")).not.toHaveProperty("boardStage");
+  expect(await getPartner(context, "invalid")).not.toHaveProperty("boardStage");
+  expect((await getPartner(context, "unset")).boardStage).toBeNull();
+  await expect(updatePartnerBoardStage(context, "legacy", "made-up-stage" as never)).rejects.toMatchObject({ statusCode: 400 });
+  expect(mockDocs.get("legacy")).toEqual(input);
+});
+
+it("validates the dedicated Board endpoint and returns the persisted hydrated contact", async () => {
+  const created = await createPartner(context, input);
+  const app = await server();
+  try {
+    for (const boardStage of PARTNER_BOARD_STAGES) {
+      const response = await app.inject({ method: "PATCH", url: `/admin/connected-partners/${created.id}/board-stage`, payload: { boardStage } });
+      expect(response.statusCode).toBe(200);
+      expect(response.json().partner).toEqual({ ...input, ...emptySnapshots, ...emptyLiveLinks, id: created.id, boardStage });
+    }
+    for (const payload of [{}, { boardStage: null }, { boardStage: "individualContract" }, { board_stage: "contract" }, { boardStage: "contract", linkedAppId: "spoofed" }, { boardStage: "contract", notes: "Overwritten" }]) {
+      const response = await app.inject({ method: "PATCH", url: `/admin/connected-partners/${created.id}/board-stage`, payload });
+      expect(response.statusCode).toBe(400);
+      expect(mockDocs.get(created.id)?.boardStage).toBe("other");
+      expect(mockDocs.get(created.id)?.notes).toBeNull();
+    }
+    const missing = await app.inject({ method: "PATCH", url: "/admin/connected-partners/missing/board-stage", payload: { boardStage: "contract" } });
+    expect(missing.statusCode).toBe(404);
+  } finally {
+    await app.close();
+  }
 });
 
 it("bounds every list read and pages after the last returned ID even if it was deleted", async () => {
@@ -216,6 +296,7 @@ it("rejects unauthorized repository access before touching Firestore", async () 
     () => getPartner(regular, "one"),
     () => createPartner(regular, input),
     () => updatePartner(regular, "one", input),
+    () => updatePartnerBoardStage(regular, "one", "contract"),
     () => deletePartners(regular, ["one"]),
     () => listPartnerLinkOptions(regular, { kind: "organization" }),
   ])
@@ -228,6 +309,8 @@ it("normalizes omitted nullable fields and rejects aliases, unrelated fields, ba
   expect(PartnerInputSchema.parse(required)).toEqual(input);
   for (const extra of [
     { company_name: "Wrong" },
+    { board_stage: "contract" },
+    { boardStage: "contract" },
     { crmId: "linked" },
     { publisherId: "linked" },
     { meetingDate: "2026-02-30" },
@@ -333,6 +416,11 @@ it.each([401, 403])("gates every endpoint for status %s", async (status) => {
         method: "PUT" as const,
         url: "/admin/connected-partners/one",
         payload: input,
+      },
+      {
+        method: "PATCH" as const,
+        url: "/admin/connected-partners/one/board-stage",
+        payload: { boardStage: "contract" },
       },
       {
         method: "POST" as const,

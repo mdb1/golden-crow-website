@@ -5,6 +5,7 @@ import { PartnerEmailBannerInputSchema } from "../lib/partner-email-banner.js";
 import {
   PartnerIdSchema,
   PartnerInputSchema,
+  PartnerBoardStageInputSchema,
   PartnerLinkIdSchema,
   PartnerSectionSchema,
   PartnerSectionCursorSchema,
@@ -24,6 +25,7 @@ import {
   listPartnersBySection,
   listPartnerLinkOptions,
   updatePartner,
+  updatePartnerBoardStage,
 } from "../repositories/connected-partners.repository.js";
 
 import {
@@ -254,6 +256,20 @@ export async function connectedPartnersRoutes(
         request.adminContext!,
         request.params.partnerId,
         request.body,
+      ),
+    }),
+  );
+
+  f.patch(
+    `${ROUTE}/:partnerId/board-stage`,
+    {
+      schema: { params: ParamsSchema, body: PartnerBoardStageInputSchema },
+    },
+    async (request) => ({
+      partner: await updatePartnerBoardStage(
+        request.adminContext!,
+        request.params.partnerId,
+        request.body.boardStage,
       ),
     }),
   );

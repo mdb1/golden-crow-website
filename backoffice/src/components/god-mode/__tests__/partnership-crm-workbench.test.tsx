@@ -3696,7 +3696,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       ).toBe("Recommended Delete Me Genomics");
     });
     expect(sdkFetch).toHaveBeenCalledWith(
-      "/admin/partnership-crm/email-templates?status=active&audience=organizations&limit=5",
+      "/admin/partnership-crm/email-templates?status=active&audience=organizations&limit=5&category=org_genomics_laboratories",
       expect.objectContaining({ headers: expect.any(Headers) }),
     );
 
@@ -3728,6 +3728,108 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(within(dialog).getByLabelText("Message").textContent).toBe(
       "Other category body for Ada",
     );
+  });
+
+  it("loads the matching category template body automatically before browsing other templates", async () => {
+    const user = userEvent.setup();
+    let releaseDetail: (() => void) | undefined;
+    const detailReady = new Promise<void>((resolve) => { releaseDetail = resolve; });
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const url = String(path);
+      if (url === "/admin/partnership-crm/email-templates/tpl-recommended") {
+        await detailReady;
+        return { template: recommendedEmailTemplate };
+      }
+      if (url.startsWith("/admin/partnership-crm/email-templates?")) {
+        return {
+          templates: url.includes("category=")
+            ? [{ ...recommendedEmailTemplate, body: "", notes: "" }]
+            : [otherCategoryEmailTemplate],
+          nextCursor: undefined,
+        };
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+    renderWorkbench();
+    await user.click(await screen.findByText("Delete Me Genomics"));
+    await user.click(screen.getByRole("button", { name: "Send Email" }));
+    const dialog = await screen.findByRole("dialog", { name: "Send CRM email" });
+    expect(await within(dialog).findByText("Loading selected template...")).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Preview email" })).toHaveProperty("disabled", true);
+    await act(async () => { releaseDetail?.(); });
+    await waitFor(() => {
+      expect((within(dialog).getByLabelText("Subject") as HTMLInputElement).value)
+        .toBe("Recommended Delete Me Genomics");
+    });
+    expect(within(dialog).getByLabelText("Message").textContent).toBe("Recommended body for Ada");
+    expect(within(dialog).getByRole("combobox").textContent).toContain("Recommended lab");
+    expect(jest.mocked(sdkFetch).mock.calls.filter(([path]) =>
+      String(path).startsWith("/admin/partnership-crm/email-templates?"),
+    )).toHaveLength(1);
+    await user.click(within(dialog).getByRole("button", { name: "Load more templates" }));
+    await waitFor(() => expect(sdkFetch).toHaveBeenCalledWith(
+      "/admin/partnership-crm/email-templates?status=active&audience=organizations&limit=5",
+      expect.objectContaining({ headers: expect.any(Headers) }),
+    ));
+    expect((within(dialog).getByLabelText("Subject") as HTMLInputElement).value)
+      .toBe("Recommended Delete Me Genomics");
+    await user.click(within(dialog).getByRole("combobox"));
+    expect(await screen.findByRole("option", { name: "Other category" })).toBeTruthy();
+    expect(screen.getByText("Recommended templates")).toBeTruthy();
+    expect(screen.getByText("Other templates")).toBeTruthy();
+  });
+
+  it("keeps user edits when an automatically selected template finishes loading", async () => {
+    const user = userEvent.setup();
+    let releaseDetail: (() => void) | undefined;
+    const detailReady = new Promise<void>((resolve) => { releaseDetail = resolve; });
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const url = String(path);
+      if (url === "/admin/partnership-crm/email-templates/tpl-recommended") {
+        await detailReady;
+        return { template: recommendedEmailTemplate };
+      }
+      if (url.startsWith("/admin/partnership-crm/email-templates?")) {
+        return { templates: [{ ...recommendedEmailTemplate, body: "" }], nextCursor: undefined };
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+    renderWorkbench();
+    await user.click(await screen.findByText("Delete Me Genomics"));
+    await user.click(screen.getByRole("button", { name: "Send Email" }));
+    const dialog = await screen.findByRole("dialog", { name: "Send CRM email" });
+    await within(dialog).findByText("Loading selected template...");
+    await user.type(within(dialog).getByLabelText("Subject"), "My own subject");
+    await act(async () => { releaseDetail?.(); });
+    await waitFor(() => expect(within(dialog).queryByText("Loading selected template...")).toBeNull());
+    expect((within(dialog).getByLabelText("Subject") as HTMLInputElement).value).toBe("My own subject");
+    expect(within(dialog).getByLabelText("Message").textContent).toBe("");
+  });
+
+  it("searches empty category pages and falls back to the general list only when no match exists", async () => {
+    const user = userEvent.setup();
+    const paths: string[] = [];
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const url = String(path);
+      if (url.startsWith("/admin/partnership-crm/email-templates?")) {
+        paths.push(url);
+        if (url.includes("category=")) {
+          return { templates: [], nextCursor: url.includes("cursor=") ? undefined : "category-page-2" };
+        }
+        return { templates: [otherCategoryEmailTemplate], nextCursor: undefined };
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+    renderWorkbench();
+    await user.click(await screen.findByText("Delete Me Genomics"));
+    await user.click(screen.getByRole("button", { name: "Send Email" }));
+    const dialog = await screen.findByRole("dialog", { name: "Send CRM email" });
+    await waitFor(() => expect((within(dialog).getByLabelText("Subject") as HTMLInputElement).value)
+      .toBe("Other category Delete Me Genomics"));
+    expect(paths).toHaveLength(3);
+    expect(paths[0]).toContain("category=org_genomics_laboratories");
+    expect(paths[1]).toContain("cursor=category-page-2");
+    expect(paths[2]).not.toContain("category=");
   });
 
   it("shows professional editor fit lowercased without quotes or italics in CRM email", async () => {
@@ -6145,7 +6247,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
 
     await user.click(screen.getByRole("button", { name: "Import CSV" }));
     const dialog = await screen.findByRole("dialog");
-    const csv = crmCsv(3);
+    const csv = crmCsv(8);
     const file = new File([csv], "automatic-crm-import.csv", {
       type: "text/csv",
     });
@@ -6162,12 +6264,12 @@ describe("PartnershipCrmWorkbench import flow", () => {
       }),
     );
     await waitFor(() => {
-      expect(within(dialog).getByText("Row 1 of 3")).toBeTruthy();
+      expect(within(dialog).getByText("Row 1 of 8")).toBeTruthy();
     });
 
     await user.click(
       within(dialog).getByRole("button", {
-        name: "Process next 5",
+        name: "Import remaining in sequence",
       }),
     );
     await firstImportStarted;
@@ -6181,14 +6283,14 @@ describe("PartnershipCrmWorkbench import flow", () => {
     await waitFor(() => {
       expect(
         within(dialog).getByRole("button", {
-          name: "Process next 5",
+          name: "Import remaining in sequence",
         }),
       ).toBeTruthy();
     });
 
     releaseFirstImport?.();
     await waitFor(() => {
-      expect(within(dialog).getByText("Row 2 of 3")).toBeTruthy();
+      expect(within(dialog).getByText("Row 2 of 8")).toBeTruthy();
     });
     expect(crmImportCalls()).toHaveLength(1);
     expect(crmImportSession()).toEqual(
@@ -6201,21 +6303,21 @@ describe("PartnershipCrmWorkbench import flow", () => {
 
     await user.click(
       within(dialog).getByRole("button", {
-        name: "Process next 5",
+        name: "Import remaining in sequence",
       }),
     );
 
     await waitFor(() => {
       expect(within(dialog).getByText("CRM import finished")).toBeTruthy();
     });
-    expect(crmPreviewCalls()).toHaveLength(3);
-    expect(crmImportCalls()).toHaveLength(3);
+    expect(crmPreviewCalls()).toHaveLength(8);
+    expect(crmImportCalls()).toHaveLength(8);
     expect(crmImportSession()).toEqual(
       expect.objectContaining({
         mode: "interactive",
-        nextImportIndex: 3,
+        nextImportIndex: 8,
         status: "completed",
-        importSummary: expect.objectContaining({ created: 3 }),
+        importSummary: expect.objectContaining({ created: 8 }),
       }),
     );
   });
@@ -6352,7 +6454,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
 
     await user.click(
       within(dialog).getByRole("button", {
-        name: "Process next 5",
+        name: "Import remaining in sequence",
       }),
     );
 
@@ -6535,12 +6637,6 @@ describe("PartnershipCrmWorkbench import flow", () => {
       `${crmImportSession().id}:row-1`,
     );
 
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Retry verification",
-        hidden: true,
-      }),
-    );
     await waitFor(() => {
       expect(
         within(dialog).getByRole("button", { name: "Add" }),
@@ -6559,131 +6655,81 @@ describe("PartnershipCrmWorkbench import flow", () => {
     );
   });
 
-  it("reports the next sequential import row as definitely not sent after fail-closed usage", async () => {
-    const user = userEvent.setup();
-    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
-      const stringPath = String(path);
-      if (stringPath === "/admin/partnership-crm/import-preview") {
-        const body = JSON.parse(String(init?.body)) as {
-          organizations: Array<{
-            rowId: string;
-            name?: string;
-            category?: string;
-            website?: string;
-            country?: string;
-            contactName?: string;
-            contactEmail?: string;
-            notes?: string;
-          }>;
-        };
-        return {
-          rows: body.organizations.map((row) => ({
-            rowId: row.rowId,
-            organization: {
-              name: row.name ?? "",
-              category: row.category ?? "",
-              website: row.website ?? "",
-              country: row.country ?? "",
-              status: "new",
-              contactName: row.contactName ?? "",
-              contactEmail: row.contactEmail ?? "",
-              contactLinkedIn: "",
-              lastContactAt: null,
-              notes: row.notes ?? "",
-            },
-            valid: true,
-            errors: [],
-            missingEmail: false,
-            duplicateCandidates: [],
-          })),
-          summary: {
-            total: body.organizations.length,
-            valid: body.organizations.length,
-            invalid: 0,
-            missingEmail: 0,
-            duplicates: 0,
-          },
-          usage: {
-            surface: "crm",
-            used: 2,
-            limit: 100,
-            percentage: 2,
-            remaining: 98,
-            resetAt: "2026-10-16T07:00:00.000Z",
-            locked: false,
-          },
-        };
+  it.each(["organizations", "professionals"] as const)(
+    "imports the entire %s CSV without usage responses when the daily budget is exhausted",
+    async (targetKind) => {
+      const user = userEvent.setup();
+      const basePath = targetKind === "professionals"
+        ? "/admin/partnership-crm/professionals"
+        : "/admin/partnership-crm";
+      jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+        if (path === "/admin/partnership-crm/daily-usage/page-load") {
+          return {
+            usage: { surface: "crm", used: 100, limit: 100, percentage: 100,
+              remaining: 0, resetAt: "2026-10-16T07:00:00.000Z", locked: true },
+          };
+        }
+        const body = init?.body ? JSON.parse(String(init.body)) : {};
+        const rows = body[targetKind] ?? [];
+        if (path === `${basePath}/import-preview`) {
+          return {
+            rows: rows.map((row: { rowId: string; name: string }) => ({
+              rowId: row.rowId,
+              [targetKind === "professionals" ? "professional" : "organization"]: {
+                ...(targetKind === "professionals" ? professional : organization),
+                ...row, status: "new",
+              },
+              valid: true, errors: [], missingEmail: false, duplicateCandidates: [],
+            })),
+            summary: { total: 1, valid: 1, invalid: 0, missingEmail: 0, duplicates: 0 },
+          };
+        }
+        if (path === `${basePath}/import`) {
+          return {
+            results: rows.map((row: { rowId: string }) => ({ rowId: row.rowId, action: "created" })),
+            summary: { total: 1, created: 1, updated: 0, skipped: 0, invalid: 0 },
+          };
+        }
+        throw new Error(`Unexpected request: ${path}`);
+      });
+
+      renderWorkbench("en", {
+        autoLoad: false, authoritativeUsageMock: true, injectActionUsage: false,
+      });
+      await screen.findByText("Daily limit reached");
+      expect(screen.getByTestId("crm-explicit-load")).toBeDisabled();
+      await user.click(screen.getByRole("button", { name: "Import CSV" }));
+      const dialog = await screen.findByRole("dialog");
+      if (targetKind === "professionals") {
+        await user.click(within(dialog).getByRole("tab", { name: "Professionals" }));
       }
-      if (stringPath === "/admin/partnership-crm/import") {
-        const body = JSON.parse(String(init?.body)) as {
-          organizations: Array<{ rowId: string }>;
-        };
-        return {
-          results: body.organizations.map((row) => ({
-            rowId: row.rowId,
-            action: "created",
-            organizationId: `imported-${row.rowId}`,
-          })),
-          summary: {
-            total: 1,
-            created: 1,
-            updated: 0,
-            skipped: 0,
-            invalid: 0,
-          },
-          // Deliberately omit authoritative usage. crmFetch must fail closed
-          // before the second row can make a request.
-        };
+      const csv = crmCsv(8);
+      const file = new File([csv], "unlimited-crm-import.csv", { type: "text/csv" });
+      Object.defineProperty(file, "text", { value: async () => csv });
+      await user.upload(within(dialog).getByLabelText("CSV file"), file);
+      await user.click(await within(dialog).findByRole("button", { name: "Import all" }));
+      await within(dialog).findByText("CRM import finished");
+
+      for (const endpoint of ["import-preview", "import"]) {
+        const calls = jest.mocked(sdkFetch).mock.calls.filter(([path]) => path === `${basePath}/${endpoint}`);
+        expect(calls).toHaveLength(8);
+        calls.forEach(([, init], index) => {
+          const rows = JSON.parse(String(init?.body))[targetKind];
+          expect(rows).toHaveLength(1);
+          expect(rows[0].rowId).toBe(`row-${index + 1}`);
+          expect(new Headers(init?.headers).has("x-crm-usage-event-id")).toBe(false);
+        });
       }
-      return { organizations: [], nextCursor: undefined };
-    });
-
-    renderWorkbench("en", {
-      autoLoad: false,
-      injectActionUsage: false,
-    });
-    await user.click(screen.getByRole("button", { name: "Import CSV" }));
-    const dialog = await screen.findByRole("dialog");
-    const csv = crmCsv(2);
-    const file = new File([csv], "usage-boundary-import.csv", {
-      type: "text/csv",
-    });
-    Object.defineProperty(file, "text", { value: async () => csv });
-    await user.upload(within(dialog).getByLabelText("CSV file"), file);
-    await waitFor(() => {
-      expect(within(dialog).getByText("CSV loaded")).toBeTruthy();
-    });
-
-    await user.click(
-      within(dialog).getByRole("button", { name: "Process next 5" }),
-    );
-
-    expect(
-      await within(dialog).findByText(
-        "Row 2 of 2 was not sent. Completed rows and the saved checkpoint were kept. Verify CRM usage or wait for the daily reset, then resume this row.",
-      ),
-    ).toBeTruthy();
-    expect(crmImportCalls()).toHaveLength(1);
-    expect(crmImportSession()).toEqual(
-      expect.objectContaining({
-        status: "paused",
-        nextImportIndex: 1,
-        results: [expect.objectContaining({ rowId: "row-1" })],
-        lastErrorDetail: expect.objectContaining({
-          rowNumber: 2,
-          requestNotSent: true,
-        }),
-      }),
-    );
-    expect(within(dialog).queryByText(/Fix the CSV row/)).toBeNull();
-
-    await user.click(within(dialog).getByRole("button", { name: "Show log" }));
-    const logText = dialog.querySelector("pre")?.textContent ?? "";
-    expect(logText).toContain("Request status: Not sent");
-    expect(logText).toContain("Next step");
-    expect(logText).not.toContain("What to fix");
-    expect(logText).not.toContain("Backend response details");
-  });
+      const key = targetKind === "professionals"
+        ? "golden-crow:partnership-crm-professional-import-session:v1"
+        : "golden-crow:partnership-crm-import-session:v1";
+      expect(JSON.parse(window.localStorage.getItem(key) ?? "{}")).toEqual(
+        expect.objectContaining({ status: "completed", nextImportIndex: 8,
+          importSummary: expect.objectContaining({ created: 8 }) }),
+      );
+      expect(screen.getByTestId("crm-explicit-load")).toBeDisabled();
+    },
+  );
 
   it("imports all rows sequentially while accepting every valid row", async () => {
     const user = userEvent.setup();
@@ -6691,7 +6737,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
 
     await user.click(screen.getByRole("button", { name: "Import CSV" }));
     const dialog = await screen.findByRole("dialog");
-    const csv = crmCsv(4);
+    const csv = crmCsv(8);
     const file = new File([csv], "all-crm-import.csv", { type: "text/csv" });
     Object.defineProperty(file, "text", { value: async () => csv });
 
@@ -6701,7 +6747,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
     });
 
     await user.click(
-      within(dialog).getByRole("button", { name: "Process next 5" }),
+      within(dialog).getByRole("button", { name: "Import all" }),
     );
 
     await waitFor(() => {
@@ -6710,7 +6756,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
     expect(within(dialog).queryByLabelText("CSV file")).toBeNull();
     expect(within(dialog).getByRole("button", { name: "Done" })).toBeTruthy();
 
-    expect(crmPreviewCalls()).toHaveLength(4);
+    expect(crmPreviewCalls()).toHaveLength(8);
     expect(
       crmPreviewCalls().map(([, init]) => {
         const body = JSON.parse(String(init?.body)) as {
@@ -6718,8 +6764,8 @@ describe("PartnershipCrmWorkbench import flow", () => {
         };
         return body.organizations.map((row) => row.rowId);
       }),
-    ).toEqual([["row-1"], ["row-2"], ["row-3"], ["row-4"]]);
-    expect(crmImportCalls()).toHaveLength(4);
+    ).toEqual(Array.from({ length: 8 }, (_, index) => [`row-${index + 1}`]));
+    expect(crmImportCalls()).toHaveLength(8);
     expect(
       crmImportCalls().map(([, init]) => {
         const body = JSON.parse(String(init?.body)) as {
@@ -6727,19 +6773,16 @@ describe("PartnershipCrmWorkbench import flow", () => {
         };
         return body.organizations;
       }),
-    ).toEqual([
-      [expect.objectContaining({ rowId: "row-1", duplicateAction: "import" })],
-      [expect.objectContaining({ rowId: "row-2", duplicateAction: "import" })],
-      [expect.objectContaining({ rowId: "row-3", duplicateAction: "import" })],
-      [expect.objectContaining({ rowId: "row-4", duplicateAction: "import" })],
-    ]);
+    ).toEqual(Array.from({ length: 8 }, (_, index) => [
+      expect.objectContaining({ rowId: `row-${index + 1}`, duplicateAction: "import" }),
+    ]));
     expect(crmImportSession()).toEqual(
       expect.objectContaining({
         mode: "all",
-        previewedRows: 4,
-        nextImportIndex: 4,
+        previewedRows: 8,
+        nextImportIndex: 8,
         status: "completed",
-        importSummary: expect.objectContaining({ created: 4 }),
+        importSummary: expect.objectContaining({ created: 8 }),
       }),
     );
   });

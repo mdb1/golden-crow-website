@@ -45,9 +45,11 @@ type SendOperation = PartnerEmailSendInput & { partnerId: string };
 export function PartnerEmailPreviewDialog({
   partnerId,
   onClose,
+  onSent,
 }: {
   partnerId: string;
   onClose: () => void;
+  onSent?: () => void;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
@@ -181,6 +183,7 @@ export function PartnerEmailPreviewDialog({
       );
       if (token !== generation.current) return;
       setOutcome(response);
+      if (response.status === "sent") onSent?.();
       setUnconfirmed(
         response.status === "sending" || response.status === "unknown",
       );
