@@ -128,6 +128,41 @@ function appleWeekday(civilDate: string): number | null {
   return date.getUTCDay() + 1; // getUTCDay: Sun=0..Sat=6 → Sun=1..Sat=7
 }
 
+/**
+ * gc-fitness#1622 — archive ("pausar sin perder la historia"). Wire (both
+ * optional, absent on older docs):
+ *   - `archivedOn: "YYYY-MM-DD"` — archived FROM this civil day (inclusive)
+ *     until restored; present ⇔ archived right now.
+ *   - `archivedPeriods: ["YYYY-MM-DD/YYYY-MM-DD", …]` — closed past periods,
+ *     inclusive on both ends.
+ * An archived day is NOT a scheduled day, so it leaves every denominator
+ * built on `isHabitScheduledOn` (compliance, "X/Y hoy", attention) while the
+ * days before it — and every log — stay untouched. Malformed entries never
+ * archive a day. Twins: iOS/Android `HabitArchive.isArchived(habit, on:)`,
+ * functions `habitArchivedOn` (sendHabitReminders.ts).
+ */
+export function isHabitArchivedOn(habit: HabitLike, civilDate: string): boolean {
+  const archivedOn = habit.archivedOn;
+  if (typeof archivedOn === "string" && archivedOn.length > 0 && civilDate >= archivedOn) {
+    return true;
+  }
+  if (!Array.isArray(habit.archivedPeriods)) return false;
+  for (const raw of habit.archivedPeriods as unknown[]) {
+    if (typeof raw !== "string") continue;
+    const parts = raw.split("/");
+    if (parts.length !== 2) continue;
+    const [from, to] = parts;
+    if (from.length !== 10 || to.length !== 10 || from > to) continue;
+    if (civilDate >= from && civilDate <= to) return true;
+  }
+  return false;
+}
+
+/** gc-fitness#1622 — archived right now (an open period). */
+export function isHabitArchived(habit: HabitLike): boolean {
+  return typeof habit.archivedOn === "string" && habit.archivedOn.length > 0;
+}
+
 export function isHabitScheduledOn(
   habit: HabitLike,
   civilDate: string,
@@ -146,6 +181,9 @@ export function isHabitScheduledOn(
   ) {
     return false;
   }
+
+  // gc-fitness#1622 — an archived ("paused") day is not a scheduled day.
+  if (isHabitArchivedOn(habit, civilDate)) return false;
 
   const scheduleType =
     habit.scheduleType === "one-time" ? "one-time" : "recurring";

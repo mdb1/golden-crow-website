@@ -255,6 +255,12 @@ export interface HabitRow {
    * (month calendar, coach pulse) skip these days.
    */
   skippedDates?: string[];
+  /**
+   * gc-fitness#1622 — archive state, projected verbatim so any reader that
+   * re-runs `isHabitScheduledOn` on the row honors it (see habit-schedule.ts).
+   */
+  archivedOn?: string;
+  archivedPeriods?: string[];
   seedSource?: string;
   deleted: boolean;
   createdAt: string | null;
@@ -464,6 +470,15 @@ function projectHabitRow(
     reminderEditedAt: toIso(data.reminderUpdatedAt),
     skippedDates: Array.isArray(data.skippedDates)
       ? (data.skippedDates as unknown[]).filter(
+          (d): d is string => typeof d === "string",
+        )
+      : undefined,
+    archivedOn:
+      typeof data.archivedOn === "string" && data.archivedOn.length > 0
+        ? data.archivedOn
+        : undefined,
+    archivedPeriods: Array.isArray(data.archivedPeriods)
+      ? (data.archivedPeriods as unknown[]).filter(
           (d): d is string => typeof d === "string",
         )
       : undefined,

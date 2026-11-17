@@ -207,3 +207,24 @@ describe("habit-compliance — computeAdherence", () => {
     expect(completed).toEqual(["2026-05-09"]);
   });
 });
+
+// gc-fitness#1622 — the shared vector "#1622 archived open period" (habit-stats-vectors.json in
+// gc-fitness): archived days leave the scheduled-day denominator → 5/16 = 31%.
+describe("habit-compliance — computeAdherence × #1622 archive", () => {
+  it("archived days (archivedOn on) are not scheduled days", () => {
+    const habit = {
+      scheduleType: "recurring",
+      scheduleCadence: "daily",
+      startsOn: "2026-09-20",
+      archivedOn: "2026-10-06",
+    };
+    const logs = ["2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04", "2026-10-05"].map((date) =>
+      binaryLog({ date, value: true }),
+    );
+    const result = computeAdherence(habit, logs, 28, "2026-10-08");
+    expect(result.scheduledDays).toBe(16); // 09-20..10-05
+    expect(result.completedScheduled).toBe(5);
+    expect(Math.round(result.ratio * 100)).toBe(31);
+  });
+});
+
