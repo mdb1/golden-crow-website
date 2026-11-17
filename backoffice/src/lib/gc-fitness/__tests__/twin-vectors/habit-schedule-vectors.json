@@ -1001,6 +1001,106 @@
           "expected": false
         }
       ]
+    },
+    {
+      "name": "#1622 archivado: desde archivedOn (inclusive) no toca; antes sí",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "daily",
+        "scheduleWeekdays": null,
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": "2026-10-01",
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": null,
+        "archivedOn": "2026-10-10",
+        "archivedPeriods": null
+      },
+      "checks": [
+        {
+          "date": "2026-10-09",
+          "expected": true
+        },
+        {
+          "date": "2026-10-10",
+          "expected": false
+        },
+        {
+          "date": "2027-01-01",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "name": "#1622 restaurado: el período cerrado no toca (ambos extremos), el resto sí",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "daily",
+        "scheduleWeekdays": null,
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": "2026-10-01",
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": null,
+        "archivedOn": null,
+        "archivedPeriods": [
+          "2026-10-03/2026-10-05"
+        ]
+      },
+      "checks": [
+        {
+          "date": "2026-10-02",
+          "expected": true
+        },
+        {
+          "date": "2026-10-03",
+          "expected": false
+        },
+        {
+          "date": "2026-10-05",
+          "expected": false
+        },
+        {
+          "date": "2026-10-06",
+          "expected": true
+        }
+      ]
+    },
+    {
+      "name": "#1622 períodos mal formados y archivedOn vacío no archivan nada",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "daily",
+        "scheduleWeekdays": null,
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": "2026-10-01",
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": null,
+        "archivedOn": "",
+        "archivedPeriods": [
+          "2026-10-03",
+          "2026-10-07/2026-10-02",
+          "bad/period"
+        ]
+      },
+      "checks": [
+        {
+          "date": "2026-10-03",
+          "expected": true
+        },
+        {
+          "date": "2026-10-05",
+          "expected": true
+        },
+        {
+          "date": "2026-10-07",
+          "expected": true
+        }
+      ]
     }
   ]
 }
