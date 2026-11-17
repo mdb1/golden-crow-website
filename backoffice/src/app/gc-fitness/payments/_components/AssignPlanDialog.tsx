@@ -69,12 +69,16 @@ export function AssignPlanDialog({ clientId, clientName, billing, plans, todayCi
   const periodic = planIsPeriodic(selected);
   const classBased = planHasClassBalance(selected);
 
-  function handleOpenChange(next: boolean) {
-    if (next) {
+  // Rearmar el formulario en CADA apertura. El padre lo abre con `open`, así que Radix nunca
+  // llama `onOpenChange(true)`: resetear ahí dejaba los datos de cuando cargó la página (tras
+  // «Registrar pago», «Cambiar plan» traía el vencimiento VIEJO y al guardar lo volvía a escribir).
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
       setForm(initialState(billing, todayCivil));
       setError(null);
     }
-    onOpenChange(next);
   }
 
   function submit() {
@@ -126,7 +130,7 @@ export function AssignPlanDialog({ clientId, clientName, billing, plans, todayCi
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg" data-testid="assign-plan-dialog">
         <DialogHeader>
           <DialogTitle>{billing?.planId ? t("changePlan") : t("assignPlan")}</DialogTitle>
