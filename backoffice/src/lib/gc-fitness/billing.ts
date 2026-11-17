@@ -4,8 +4,9 @@
 //   gc-fitness/iOS/Packages/GCFitnessCore/…/Billing.swift
 //   gc-fitness/android/core/…/Billing.kt
 //   gc-fitness/functions/src/billing/billing.ts
-// Los cuatro lados implementan la MISMA semántica (spec común de #1540) y tienen la
-// misma tabla de casos en sus tests. Un cambio acá sin el cambio allá hace que el
+// Los cuatro lados implementan la MISMA semántica (spec común de #1540) y corren la MISMA
+// tabla de casos: `__tests__/twin-vectors/billing-vectors.json`, copia fijada del archivo único de
+// gc-fitness `twin-vectors/` (#1644; drift: `scripts/check-twin-vectors.py` allá). Un cambio acá sin el cambio allá hace que el
 // backoffice diga «Vencido» y el teléfono del coach «Al día» para el mismo alumno.
 //
 // Todo es puro: fechas como strings civiles `YYYY-MM-DD`, sin `Date` del host ni zona

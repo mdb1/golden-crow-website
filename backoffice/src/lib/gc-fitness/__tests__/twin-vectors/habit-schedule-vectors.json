@@ -1,0 +1,1006 @@
+{
+  "_comment": "#1644 — THE habit-schedule case table: `HabitSchedule.isActive` (iOS = source of truth, #1343 marker included). Each case is a habits doc (null = field absent) and the civil dates it is / is not scheduled on; `isoWeekdays` is `HabitSchedule.isoWeekdays` / backoffice `effectiveIsoWeekdays` for weekly docs. ONE file, read by Swift (HabitScheduleVectorTests), Kotlin (HabitScheduleVectorTest), the backoffice habit-schedule.ts (pinned copy, drift-checked by scripts/check-twin-vectors.py) and functions habitStats.isScheduledOn. Cases with `serverDiverges` are shapes no writer produces today where the functions predicate (shared with sendHabitReminders) still answers differently — documented in functions/src/habits/habitStats.ts and skipped there on purpose; every other twin must pass them. Client-owned frequency habits are out of scope.",
+  "cases": [
+    {
+      "name": "semanal ISO: viernes=5 cae el viernes",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "weekly",
+        "scheduleWeekdays": [
+          5
+        ],
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": null,
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": null
+      },
+      "checks": [
+        {
+          "date": "2026-05-29",
+          "expected": true
+        },
+        {
+          "date": "2026-05-30",
+          "expected": false
+        },
+        {
+          "date": "2026-05-28",
+          "expected": false
+        }
+      ],
+      "isoWeekdays": [
+        5
+      ]
+    },
+    {
+      "name": "semanal ISO: sábado=6 no cuenta el viernes (el sobreconteo)",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "weekly",
+        "scheduleWeekdays": [
+          6
+        ],
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": null,
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": null
+      },
+      "checks": [
+        {
+          "date": "2026-05-30",
+          "expected": true
+        },
+        {
+          "date": "2026-05-29",
+          "expected": false
+        }
+      ],
+      "isoWeekdays": [
+        6
+      ]
+    },
+    {
+      "name": "semanal ISO: lunes=1 no cae el domingo; 7 sí",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "weekly",
+        "scheduleWeekdays": [
+          1,
+          7
+        ],
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": null,
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": null
+      },
+      "checks": [
+        {
+          "date": "2026-05-31",
+          "expected": true
+        },
+        {
+          "date": "2026-06-01",
+          "expected": true
+        },
+        {
+          "date": "2026-05-30",
+          "expected": false
+        }
+      ],
+      "isoWeekdays": [
+        1,
+        7
+      ]
+    },
+    {
+      "name": "semanal con lista vacía y sin inicio nunca cae",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "weekly",
+        "scheduleWeekdays": [],
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": null,
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": null
+      },
+      "checks": [
+        {
+          "date": "2026-05-29",
+          "expected": false
+        },
+        {
+          "date": "2026-05-31",
+          "expected": false
+        }
+      ],
+      "isoWeekdays": []
+    },
+    {
+      "name": "legado Sun-first: [1] arrancando un domingo es domingo",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "weekly",
+        "scheduleWeekdays": [
+          1
+        ],
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": "2026-05-31",
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": null
+      },
+      "checks": [
+        {
+          "date": "2026-05-31",
+          "expected": true
+        },
+        {
+          "date": "2026-06-07",
+          "expected": true
+        },
+        {
+          "date": "2026-06-01",
+          "expected": false
+        }
+      ],
+      "isoWeekdays": [
+        7
+      ]
+    },
+    {
+      "name": "domingo base cero (doc suelto) cae el domingo",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "weekly",
+        "scheduleWeekdays": [
+          0
+        ],
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": null,
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": null
+      },
+      "checks": [
+        {
+          "date": "2026-05-31",
+          "expected": true
+        },
+        {
+          "date": "2026-06-01",
+          "expected": false
+        }
+      ],
+      "isoWeekdays": [
+        7
+      ]
+    },
+    {
+      "name": "#1343 V1: [1,3,5] sin marcador arrancando jueves se lee Sun-first (dom/mar/jue)",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "weekly",
+        "scheduleWeekdays": [
+          1,
+          3,
+          5
+        ],
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": "2026-10-08",
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": null
+      },
+      "checks": [
+        {
+          "date": "2026-10-11",
+          "expected": true
+        },
+        {
+          "date": "2026-10-13",
+          "expected": true
+        },
+        {
+          "date": "2026-10-15",
+          "expected": true
+        },
+        {
+          "date": "2026-10-12",
+          "expected": false
+        },
+        {
+          "date": "2026-10-14",
+          "expected": false
+        },
+        {
+          "date": "2026-10-16",
+          "expected": false
+        }
+      ],
+      "isoWeekdays": [
+        2,
+        4,
+        7
+      ]
+    },
+    {
+      "name": "#1343 V2: el mismo doc con weekdayFormat:iso es lun/mié/vie",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "weekly",
+        "scheduleWeekdays": [
+          1,
+          3,
+          5
+        ],
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": "2026-10-08",
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": "iso"
+      },
+      "checks": [
+        {
+          "date": "2026-10-12",
+          "expected": true
+        },
+        {
+          "date": "2026-10-14",
+          "expected": true
+        },
+        {
+          "date": "2026-10-16",
+          "expected": true
+        },
+        {
+          "date": "2026-10-11",
+          "expected": false
+        },
+        {
+          "date": "2026-10-13",
+          "expected": false
+        },
+        {
+          "date": "2026-10-15",
+          "expected": false
+        }
+      ],
+      "isoWeekdays": [
+        1,
+        3,
+        5
+      ]
+    },
+    {
+      "name": "#1343 V3: domingo base cero se respeta sin marcador",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "weekly",
+        "scheduleWeekdays": [
+          0,
+          3
+        ],
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": "2026-10-12",
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": null
+      },
+      "checks": [
+        {
+          "date": "2026-10-14",
+          "expected": true
+        },
+        {
+          "date": "2026-10-18",
+          "expected": true
+        },
+        {
+          "date": "2026-10-13",
+          "expected": false
+        }
+      ],
+      "isoWeekdays": [
+        3,
+        7
+      ]
+    },
+    {
+      "name": "#1343 V3: con marcador el 0 se ignora",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "weekly",
+        "scheduleWeekdays": [
+          0,
+          3
+        ],
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": "2026-10-12",
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": "iso"
+      },
+      "checks": [
+        {
+          "date": "2026-10-14",
+          "expected": true
+        },
+        {
+          "date": "2026-10-18",
+          "expected": false
+        }
+      ],
+      "isoWeekdays": [
+        3
+      ]
+    },
+    {
+      "name": "#1343 V4: un marcador desconocido vuelve a la heurística",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "weekly",
+        "scheduleWeekdays": [
+          1,
+          3,
+          5
+        ],
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": "2026-10-08",
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": "sunday-first"
+      },
+      "checks": [
+        {
+          "date": "2026-10-11",
+          "expected": true
+        },
+        {
+          "date": "2026-10-13",
+          "expected": true
+        },
+        {
+          "date": "2026-10-15",
+          "expected": true
+        },
+        {
+          "date": "2026-10-12",
+          "expected": false
+        }
+      ],
+      "isoWeekdays": [
+        2,
+        4,
+        7
+      ]
+    },
+    {
+      "name": "#1343 V5: un legado Sun-first real se resuelve a sus días ISO",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "weekly",
+        "scheduleWeekdays": [
+          2,
+          4,
+          6
+        ],
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": "2026-10-12",
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": null
+      },
+      "checks": [
+        {
+          "date": "2026-10-12",
+          "expected": true
+        },
+        {
+          "date": "2026-10-14",
+          "expected": true
+        },
+        {
+          "date": "2026-10-16",
+          "expected": true
+        },
+        {
+          "date": "2026-10-13",
+          "expected": false
+        },
+        {
+          "date": "2026-10-15",
+          "expected": false
+        },
+        {
+          "date": "2026-10-18",
+          "expected": false
+        }
+      ],
+      "isoWeekdays": [
+        1,
+        3,
+        5
+      ]
+    },
+    {
+      "name": "#1343 V5: re-guardado con marcador mantiene los días",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "weekly",
+        "scheduleWeekdays": [
+          1,
+          3,
+          5
+        ],
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": "2026-10-12",
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": "iso"
+      },
+      "checks": [
+        {
+          "date": "2026-10-12",
+          "expected": true
+        },
+        {
+          "date": "2026-10-14",
+          "expected": true
+        },
+        {
+          "date": "2026-10-16",
+          "expected": true
+        },
+        {
+          "date": "2026-10-13",
+          "expected": false
+        },
+        {
+          "date": "2026-10-15",
+          "expected": false
+        },
+        {
+          "date": "2026-10-18",
+          "expected": false
+        }
+      ],
+      "isoWeekdays": [
+        1,
+        3,
+        5
+      ]
+    },
+    {
+      "name": "ambiguo (inicio coincide con ambas lecturas) queda ISO",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "weekly",
+        "scheduleWeekdays": [
+          1,
+          2
+        ],
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": "2026-10-12",
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": null
+      },
+      "checks": [
+        {
+          "date": "2026-10-12",
+          "expected": true
+        },
+        {
+          "date": "2026-10-13",
+          "expected": true
+        },
+        {
+          "date": "2026-10-11",
+          "expected": false
+        }
+      ],
+      "isoWeekdays": [
+        1,
+        2
+      ]
+    },
+    {
+      "name": "diario quitado de un día no cuenta ese día",
+      "habit": {
+        "scheduleType": null,
+        "scheduleCadence": "daily",
+        "scheduleWeekdays": null,
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": null,
+        "endsOn": null,
+        "skippedDates": [
+          "2026-05-30"
+        ],
+        "weekdayFormat": null
+      },
+      "checks": [
+        {
+          "date": "2026-05-29",
+          "expected": true
+        },
+        {
+          "date": "2026-05-31",
+          "expected": true
+        },
+        {
+          "date": "2026-05-30",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "name": "semanal quitado en un día que coincide no cuenta",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "weekly",
+        "scheduleWeekdays": [
+          5
+        ],
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": null,
+        "endsOn": null,
+        "skippedDates": [
+          "2026-05-29"
+        ],
+        "weekdayFormat": null
+      },
+      "checks": [
+        {
+          "date": "2026-06-05",
+          "expected": true
+        },
+        {
+          "date": "2026-05-29",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "name": "diario siempre cae",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "daily",
+        "scheduleWeekdays": null,
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": null,
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": null
+      },
+      "checks": [
+        {
+          "date": "2026-05-29",
+          "expected": true
+        },
+        {
+          "date": "2026-02-28",
+          "expected": true
+        }
+      ]
+    },
+    {
+      "name": "sin campos de agenda = diario",
+      "habit": {
+        "scheduleType": null,
+        "scheduleCadence": null,
+        "scheduleWeekdays": null,
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": null,
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": null
+      },
+      "checks": [
+        {
+          "date": "2026-05-29",
+          "expected": true
+        },
+        {
+          "date": "2026-12-31",
+          "expected": true
+        }
+      ]
+    },
+    {
+      "name": "una vez cae sólo en startsOn",
+      "habit": {
+        "scheduleType": "one-time",
+        "scheduleCadence": null,
+        "scheduleWeekdays": null,
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": "2026-05-30",
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": null
+      },
+      "checks": [
+        {
+          "date": "2026-05-30",
+          "expected": true
+        },
+        {
+          "date": "2026-05-29",
+          "expected": false
+        },
+        {
+          "date": "2026-05-31",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "name": "una vez sin startsOn cae siempre",
+      "habit": {
+        "scheduleType": "one-time",
+        "scheduleCadence": null,
+        "scheduleWeekdays": null,
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": null,
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": null
+      },
+      "checks": [
+        {
+          "date": "2026-05-30",
+          "expected": true
+        }
+      ],
+      "serverDiverges": "one-time sin startsOn: el predicado del server (sendHabitReminders) devuelve false"
+    },
+    {
+      "name": "ventana: antes de startsOn no cae",
+      "habit": {
+        "scheduleType": null,
+        "scheduleCadence": "daily",
+        "scheduleWeekdays": null,
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": "2026-05-30",
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": null
+      },
+      "checks": [
+        {
+          "date": "2026-05-30",
+          "expected": true
+        },
+        {
+          "date": "2026-06-15",
+          "expected": true
+        },
+        {
+          "date": "2026-05-29",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "name": "ventana: después de endsOn no cae (inclusivo)",
+      "habit": {
+        "scheduleType": null,
+        "scheduleCadence": "daily",
+        "scheduleWeekdays": null,
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": "2026-05-01",
+        "endsOn": "2026-05-29",
+        "skippedDates": null,
+        "weekdayFormat": null
+      },
+      "checks": [
+        {
+          "date": "2026-05-01",
+          "expected": true
+        },
+        {
+          "date": "2026-05-29",
+          "expected": true
+        },
+        {
+          "date": "2026-05-30",
+          "expected": false
+        },
+        {
+          "date": "2026-04-30",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "name": "semanal fuera de la ventana no cae aunque coincida el día",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "weekly",
+        "scheduleWeekdays": [
+          5
+        ],
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": "2026-06-01",
+        "endsOn": "2026-06-30",
+        "skippedDates": null,
+        "weekdayFormat": "iso"
+      },
+      "checks": [
+        {
+          "date": "2026-06-05",
+          "expected": true
+        },
+        {
+          "date": "2026-06-26",
+          "expected": true
+        },
+        {
+          "date": "2026-05-29",
+          "expected": false
+        },
+        {
+          "date": "2026-07-03",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "name": "mensual cae en su día del mes",
+      "habit": {
+        "scheduleType": null,
+        "scheduleCadence": "monthly",
+        "scheduleWeekdays": null,
+        "scheduleMonthDays": [
+          30
+        ],
+        "scheduleDayOfMonth": null,
+        "startsOn": null,
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": null
+      },
+      "checks": [
+        {
+          "date": "2026-05-30",
+          "expected": true
+        },
+        {
+          "date": "2026-06-30",
+          "expected": true
+        },
+        {
+          "date": "2026-05-29",
+          "expected": false
+        },
+        {
+          "date": "2026-02-28",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "name": "mensual con varios días",
+      "habit": {
+        "scheduleType": null,
+        "scheduleCadence": "monthly",
+        "scheduleWeekdays": null,
+        "scheduleMonthDays": [
+          1,
+          15
+        ],
+        "scheduleDayOfMonth": null,
+        "startsOn": null,
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": null
+      },
+      "checks": [
+        {
+          "date": "2026-05-01",
+          "expected": true
+        },
+        {
+          "date": "2026-05-15",
+          "expected": true
+        },
+        {
+          "date": "2026-05-16",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "name": "mensual legado scheduleDayOfMonth",
+      "habit": {
+        "scheduleType": null,
+        "scheduleCadence": "monthly",
+        "scheduleWeekdays": null,
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": 29,
+        "startsOn": null,
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": null
+      },
+      "checks": [
+        {
+          "date": "2026-05-29",
+          "expected": true
+        },
+        {
+          "date": "2026-05-30",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "name": "mensual: scheduleMonthDays gana sobre scheduleDayOfMonth",
+      "habit": {
+        "scheduleType": null,
+        "scheduleCadence": "monthly",
+        "scheduleWeekdays": null,
+        "scheduleMonthDays": [
+          2
+        ],
+        "scheduleDayOfMonth": 3,
+        "startsOn": null,
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": null
+      },
+      "checks": [
+        {
+          "date": "2026-05-02",
+          "expected": true
+        },
+        {
+          "date": "2026-05-03",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "name": "mensual el 31 no cae en meses de 30",
+      "habit": {
+        "scheduleType": null,
+        "scheduleCadence": "monthly",
+        "scheduleWeekdays": null,
+        "scheduleMonthDays": [
+          31
+        ],
+        "scheduleDayOfMonth": null,
+        "startsOn": null,
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": null
+      },
+      "checks": [
+        {
+          "date": "2026-05-31",
+          "expected": true
+        },
+        {
+          "date": "2026-06-30",
+          "expected": false
+        },
+        {
+          "date": "2026-02-28",
+          "expected": false
+        }
+      ]
+    },
+    {
+      "name": "semanal con lista vacía cae el día de la semana de startsOn",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "weekly",
+        "scheduleWeekdays": [],
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": "2026-10-12",
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": null
+      },
+      "checks": [
+        {
+          "date": "2026-10-12",
+          "expected": true
+        },
+        {
+          "date": "2026-10-19",
+          "expected": true
+        },
+        {
+          "date": "2026-10-13",
+          "expected": false
+        },
+        {
+          "date": "2026-10-18",
+          "expected": false
+        }
+      ],
+      "serverDiverges": "semanal sin días: el server devuelve false"
+    },
+    {
+      "name": "mensual sin días cae el día del mes de startsOn",
+      "habit": {
+        "scheduleType": null,
+        "scheduleCadence": "monthly",
+        "scheduleWeekdays": null,
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": "2026-05-17",
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": null
+      },
+      "checks": [
+        {
+          "date": "2026-05-17",
+          "expected": true
+        },
+        {
+          "date": "2026-06-17",
+          "expected": true
+        },
+        {
+          "date": "2026-06-01",
+          "expected": false
+        }
+      ],
+      "serverDiverges": "mensual sin días: el server usa [1]"
+    },
+    {
+      "name": "mensual sin días ni startsOn cae el 1",
+      "habit": {
+        "scheduleType": null,
+        "scheduleCadence": "monthly",
+        "scheduleWeekdays": null,
+        "scheduleMonthDays": null,
+        "scheduleDayOfMonth": null,
+        "startsOn": null,
+        "endsOn": null,
+        "skippedDates": null,
+        "weekdayFormat": null
+      },
+      "checks": [
+        {
+          "date": "2026-05-01",
+          "expected": true
+        },
+        {
+          "date": "2026-05-02",
+          "expected": false
+        }
+      ]
+    }
+  ]
+}
