@@ -3696,7 +3696,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       ).toBe("Recommended Delete Me Genomics");
     });
     expect(sdkFetch).toHaveBeenCalledWith(
-      "/admin/partnership-crm/email-templates?status=active&audience=organizations&limit=5",
+      "/admin/partnership-crm/email-templates?status=active&audience=organizations&limit=5&category=org_genomics_laboratories",
       expect.objectContaining({ headers: expect.any(Headers) }),
     );
 
@@ -3728,6 +3728,108 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(within(dialog).getByLabelText("Message").textContent).toBe(
       "Other category body for Ada",
     );
+  });
+
+  it("loads the matching category template body automatically before browsing other templates", async () => {
+    const user = userEvent.setup();
+    let releaseDetail: (() => void) | undefined;
+    const detailReady = new Promise<void>((resolve) => { releaseDetail = resolve; });
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const url = String(path);
+      if (url === "/admin/partnership-crm/email-templates/tpl-recommended") {
+        await detailReady;
+        return { template: recommendedEmailTemplate };
+      }
+      if (url.startsWith("/admin/partnership-crm/email-templates?")) {
+        return {
+          templates: url.includes("category=")
+            ? [{ ...recommendedEmailTemplate, body: "", notes: "" }]
+            : [otherCategoryEmailTemplate],
+          nextCursor: undefined,
+        };
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+    renderWorkbench();
+    await user.click(await screen.findByText("Delete Me Genomics"));
+    await user.click(screen.getByRole("button", { name: "Send Email" }));
+    const dialog = await screen.findByRole("dialog", { name: "Send CRM email" });
+    expect(await within(dialog).findByText("Loading selected template...")).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Preview email" })).toHaveProperty("disabled", true);
+    await act(async () => { releaseDetail?.(); });
+    await waitFor(() => {
+      expect((within(dialog).getByLabelText("Subject") as HTMLInputElement).value)
+        .toBe("Recommended Delete Me Genomics");
+    });
+    expect(within(dialog).getByLabelText("Message").textContent).toBe("Recommended body for Ada");
+    expect(within(dialog).getByRole("combobox").textContent).toContain("Recommended lab");
+    expect(jest.mocked(sdkFetch).mock.calls.filter(([path]) =>
+      String(path).startsWith("/admin/partnership-crm/email-templates?"),
+    )).toHaveLength(1);
+    await user.click(within(dialog).getByRole("button", { name: "Load more templates" }));
+    await waitFor(() => expect(sdkFetch).toHaveBeenCalledWith(
+      "/admin/partnership-crm/email-templates?status=active&audience=organizations&limit=5",
+      expect.objectContaining({ headers: expect.any(Headers) }),
+    ));
+    expect((within(dialog).getByLabelText("Subject") as HTMLInputElement).value)
+      .toBe("Recommended Delete Me Genomics");
+    await user.click(within(dialog).getByRole("combobox"));
+    expect(await screen.findByRole("option", { name: "Other category" })).toBeTruthy();
+    expect(screen.getByText("Recommended templates")).toBeTruthy();
+    expect(screen.getByText("Other templates")).toBeTruthy();
+  });
+
+  it("keeps user edits when an automatically selected template finishes loading", async () => {
+    const user = userEvent.setup();
+    let releaseDetail: (() => void) | undefined;
+    const detailReady = new Promise<void>((resolve) => { releaseDetail = resolve; });
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const url = String(path);
+      if (url === "/admin/partnership-crm/email-templates/tpl-recommended") {
+        await detailReady;
+        return { template: recommendedEmailTemplate };
+      }
+      if (url.startsWith("/admin/partnership-crm/email-templates?")) {
+        return { templates: [{ ...recommendedEmailTemplate, body: "" }], nextCursor: undefined };
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+    renderWorkbench();
+    await user.click(await screen.findByText("Delete Me Genomics"));
+    await user.click(screen.getByRole("button", { name: "Send Email" }));
+    const dialog = await screen.findByRole("dialog", { name: "Send CRM email" });
+    await within(dialog).findByText("Loading selected template...");
+    await user.type(within(dialog).getByLabelText("Subject"), "My own subject");
+    await act(async () => { releaseDetail?.(); });
+    await waitFor(() => expect(within(dialog).queryByText("Loading selected template...")).toBeNull());
+    expect((within(dialog).getByLabelText("Subject") as HTMLInputElement).value).toBe("My own subject");
+    expect(within(dialog).getByLabelText("Message").textContent).toBe("");
+  });
+
+  it("searches empty category pages and falls back to the general list only when no match exists", async () => {
+    const user = userEvent.setup();
+    const paths: string[] = [];
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const url = String(path);
+      if (url.startsWith("/admin/partnership-crm/email-templates?")) {
+        paths.push(url);
+        if (url.includes("category=")) {
+          return { templates: [], nextCursor: url.includes("cursor=") ? undefined : "category-page-2" };
+        }
+        return { templates: [otherCategoryEmailTemplate], nextCursor: undefined };
+      }
+      return { organizations: [organization], nextCursor: undefined };
+    });
+    renderWorkbench();
+    await user.click(await screen.findByText("Delete Me Genomics"));
+    await user.click(screen.getByRole("button", { name: "Send Email" }));
+    const dialog = await screen.findByRole("dialog", { name: "Send CRM email" });
+    await waitFor(() => expect((within(dialog).getByLabelText("Subject") as HTMLInputElement).value)
+      .toBe("Other category Delete Me Genomics"));
+    expect(paths).toHaveLength(3);
+    expect(paths[0]).toContain("category=org_genomics_laboratories");
+    expect(paths[1]).toContain("cursor=category-page-2");
+    expect(paths[2]).not.toContain("category=");
   });
 
   it("shows professional editor fit lowercased without quotes or italics in CRM email", async () => {

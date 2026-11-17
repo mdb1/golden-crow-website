@@ -1,6 +1,15 @@
 {
   "indexes": [
     {
+      "collectionGroup": "plantillas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "category", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" },
+        { "fieldPath": "__name__", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "partner_email_sends",
       "queryScope": "COLLECTION",
       "fields": [

@@ -764,17 +764,18 @@ describe("partnership CRM routes", () => {
 
   it("uses the CRM-only email-template alias for composer reads", async () => {
     const fastify = await buildTestServer();
+    const category = "org_genomics_laboratories,org_fertility_clinics,org_patient_organizations,org_genetic_testing_laboratories";
 
     const response = await fastify.inject({
       method: "GET",
-      url: "/admin/partnership-crm/email-templates?audience=organizations&limit=5",
+      url: `/admin/partnership-crm/email-templates?audience=organizations&limit=5&category=${encodeURIComponent(category)}`,
       headers: crmUsageHeaders,
     });
 
     expect(response.statusCode).toBe(200);
     expect(mockListPartnershipCrmTemplates).toHaveBeenCalledWith(
       bootstrapContext,
-      { audience: "organizations", limit: 5 },
+      { audience: "organizations", limit: 5, category },
     );
     expect(mockConsumePartnershipCrmDailyUsage).toHaveBeenCalledWith(
       bootstrapContext,

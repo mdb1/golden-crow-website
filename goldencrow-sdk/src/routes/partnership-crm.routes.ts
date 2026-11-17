@@ -164,7 +164,7 @@ const ListTemplatesQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(10).optional(),
   query: z.string().trim().max(180).optional(),
   status: z.string().trim().max(40).optional(),
-  category: CrmTemplateCategoryStringSchema,
+  category: CrmCategoryStringSchema,
   audience: CrmTemplateAudienceSchema.optional(),
   deep: DeepSearchSchema,
 });
