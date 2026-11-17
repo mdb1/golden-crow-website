@@ -38,6 +38,7 @@ export async function ClientSummaryCard({
   goals: ClientGoalRow[];
 }) {
   const t = await getTranslations("clients.detail.summary");
+  const tGoals = await getTranslations("clients.detail.goals");
   const db = gcFitnessFirestore();
 
   // Fail-soft on summary data: this card must never break the whole
@@ -279,6 +280,16 @@ export async function ClientSummaryCard({
                     {goal.horizon} · {goal.status}
                     {goal.targetDate ? ` · ${goal.targetDate}` : ""}
                   </p>
+                  {goal.clientOwned ? (
+                    // website#520 — a goal the client set in the app: shown, read-only,
+                    // with the apps' coach-mode label (`coach.detail.goals.by_client`).
+                    <p
+                      className="text-[10px] text-muted-foreground"
+                      data-testid="client-goal-by-client"
+                    >
+                      {tGoals("byClient")}
+                    </p>
+                  ) : null}
                 </li>
               ))}
             </ul>

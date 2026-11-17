@@ -507,7 +507,8 @@
         "newPlaceholder": "Nuevo objetivo",
         "descriptionPlaceholder": "Contexto, resultado medible, restricciones...",
         "addCta": "Agregar objetivo",
-        "saveFailed": "Error al guardar"
+        "saveFailed": "Error al guardar",
+        "byClient": "Lo definió tu cliente"
       },
       "notes": {
         "title": "Bitácora de notas del coach",
