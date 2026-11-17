@@ -254,6 +254,7 @@ export async function partnershipCrmRoutes(
   const snapshotRoute = "/admin/partnership-crm/snapshot";
   const snapshotRefreshRoute = "/admin/partnership-crm/snapshot/refresh";
   const csvImportRoutes = new Set([
+    "/admin/partnership-crm/templates/import",
     "/admin/partnership-crm/import-preview",
     "/admin/partnership-crm/import",
     "/admin/partnership-crm/professionals/import-preview",

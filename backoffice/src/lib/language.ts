@@ -2158,10 +2158,6 @@ const SPANISH_TEXT: Record<string, string> = {
   "Template details load only when you ask for them.":
     "Los detalles de la plantilla se cargan solo cuando lo pedís.",
   "Load template": "Cargar plantilla",
-  "Manual, bounded import": "Importación manual y limitada",
-  "Selecting a CSV does not scan existing templates. Import rows deliberately, at most five at a time.":
-    "Seleccionar un CSV no recorre las plantillas existentes. Importá las filas deliberadamente, como máximo cinco por vez.",
-  "Process next 5 rows": "Procesar las próximas 5 filas",
   Plantilla: "Plantilla",
   "Alta de plantilla": "Alta de plantilla",
   "CRUD system email templates for the CRM.":

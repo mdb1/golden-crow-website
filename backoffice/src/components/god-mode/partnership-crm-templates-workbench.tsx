@@ -593,6 +593,12 @@ function usePlantillasDailyUsage() {
 
   const request = useCallback<PlantillasRequest>(
     async <T,>(path: string, init?: RequestInit) => {
+      if (
+        path === "/admin/partnership-crm/templates/import" &&
+        init?.method?.toUpperCase() === "POST"
+      ) {
+        return sdkFetch<T>(path, init);
+      }
       if (!usageReady || usageRef.current?.locked || usageErrorRef.current) {
         throw new PlantillasRequestNotSentError();
       }
@@ -2398,7 +2404,6 @@ function TemplateImportReviewCard({
   result,
   importing,
   pauseRequested,
-  locked,
   onAdd,
   onSkip,
   onImportAllRemaining,
@@ -2415,7 +2420,6 @@ function TemplateImportReviewCard({
   result?: TemplateImportResult;
   importing: boolean;
   pauseRequested: boolean;
-  locked: boolean;
   onAdd: () => void;
   onSkip: () => void;
   onImportAllRemaining: () => void;
@@ -2648,7 +2652,6 @@ function TemplateImportReviewCard({
           onClick={onAdd}
           disabled={
             importing ||
-            locked ||
             Boolean(result) ||
             !row.valid
           }
@@ -2661,11 +2664,11 @@ function TemplateImportReviewCard({
           variant="outline"
           onClick={onImportAllRemaining}
           disabled={
-            importing || locked || Boolean(result)
+            importing || Boolean(result)
           }
         >
           <FileUp className="h-4 w-4" />
-          {t("Process next 5 rows")}
+          {t("Import remaining in sequence")}
         </Button>
       </div>
     </section>
@@ -2680,7 +2683,6 @@ function TemplateImportDialog({
   onAmbiguousMutation,
   language,
   request,
-  locked,
 }: {
   open: boolean;
   initialAudience: PartnershipCrmTemplateAudience;
@@ -2689,7 +2691,6 @@ function TemplateImportDialog({
   onAmbiguousMutation: () => void;
   language: AppLanguage;
   request: PlantillasRequest;
-  locked: boolean;
 }) {
   const t = (text: string) => appText(language, text);
   const [audience, setAudience] =
@@ -2781,8 +2782,7 @@ function TemplateImportDialog({
     previewRows.length > 0 &&
     hasPendingRows &&
     !importing &&
-    !completed &&
-    !locked;
+    !completed;
 
   function resetImportState() {
     csvTextRef.current = "";
@@ -3085,7 +3085,6 @@ function TemplateImportDialog({
     setReviewPanelOpen(true);
     setImporting(true);
 
-    let processedThisRun = 0;
     for (
       let rowIndex = startIndex;
       rowIndex < previewRows.length;
@@ -3115,7 +3114,6 @@ function TemplateImportDialog({
       }
       setResults(workingResults);
       setProcessedCount(workingResults.length);
-      processedThisRun += 1;
 
       if (result.action === "failed") {
         paused = true;
@@ -3123,7 +3121,7 @@ function TemplateImportDialog({
         break;
       }
 
-      if (importPauseRequestedRef.current || processedThisRun >= 5) {
+      if (importPauseRequestedRef.current) {
         paused = true;
         break;
       }
@@ -3398,51 +3396,15 @@ function TemplateImportDialog({
                 </div>
               ) : null}
 
-              {parsed && previewRows.length > 0 ? (
+              {autoImportPaused ? (
                 <div
-                  className={cn(
-                    "rounded-xl border p-3",
-                    autoImportPaused
-                      ? "border-blue-200 bg-blue-50/85 text-blue-950 dark:border-blue-300/25 dark:bg-blue-400/12 dark:text-blue-50"
-                      : "border-border/80 bg-muted/20",
-                  )}
+                  role="status"
+                  className="rounded-xl border border-blue-200 bg-blue-50/85 p-3 text-sm text-blue-950 dark:border-blue-300/25 dark:bg-blue-400/12 dark:text-blue-50"
                 >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <ListChecks className="h-4 w-4 text-muted-foreground" />
-                        <p className="text-sm font-semibold">
-                          {autoImportPaused
-                            ? t("Automatic import paused.")
-                            : t("Manual, bounded import")}
-                        </p>
-                      </div>
-                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                        {autoImportPaused
-                          ? t(
-                              "Automatic import paused. Review the current row, then continue with pending rows when ready.",
-                            )
-                          : t(
-                              "Selecting a CSV does not scan existing templates. Import rows deliberately, at most five at a time.",
-                            )}
-                      </p>
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                        {t(
-                          "The server decides whether each submitted row creates or updates a template.",
-                        )}
-                      </p>
-                    </div>
-                    <Badge variant={autoImportPaused ? "default" : "outline"}>
-                      {t("Server decides create or update")}
-                    </Badge>
-                  </div>
+                  {t(
+                    "Automatic import paused. Review the current row, then continue with pending rows when ready.",
+                  )}
                 </div>
-              ) : null}
-
-              {headerErrors.length > 0 ? (
-                <ErrorBanner>
-                  {headerErrors.map((error) => t(error.message)).join(" ")}
-                </ErrorBanner>
               ) : null}
 
               {reviewPanelOpen ? (
@@ -3453,7 +3415,6 @@ function TemplateImportDialog({
                     totalRows={previewRows.length}
                     result={currentRowResult}
                     importing={importing}
-                    locked={locked}
                     onAdd={handleAddCurrentRow}
                     onSkip={handleSkipCurrentRow}
                     onImportAllRemaining={handleImportAllRemaining}
@@ -3615,7 +3576,7 @@ function TemplateImportDialog({
                   <FileUp className="h-4 w-4" />
                   {importing
                     ? t("Importing...")
-                    : t("Process next 5 rows")}
+                    : t("Import all")}
                 </Button>
               ) : null}
             </>
@@ -4458,7 +4419,6 @@ export function PartnershipCrmTemplateBrowser() {
             variant="outline"
             size="sm"
             onClick={() => setImportOpen(true)}
-            disabled={!canUseFresh}
           >
             <FileUp className="h-3.5 w-3.5" />
             {t("Import CSV")}
@@ -5039,7 +4999,6 @@ export function PartnershipCrmTemplateBrowser() {
         onAmbiguousMutation={clearCachesAfterAmbiguousTemplateMutation}
         language={language}
         request={request}
-        locked={!canUseFresh}
       />
       <CrmImportRulesDialog
         open={importRulesOpen}

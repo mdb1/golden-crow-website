@@ -705,7 +705,7 @@ describe("partnership CRM routes", () => {
     );
   });
 
-  it("imports one Plantillas row through the bounded atomic endpoint", async () => {
+  it("imports a Plantillas row without consuming or requiring daily usage", async () => {
     const fastify = await buildTestServer();
     const payload = {
       name: "Lab outreach",
@@ -721,7 +721,6 @@ describe("partnership CRM routes", () => {
     const response = await fastify.inject({
       method: "POST",
       url: "/admin/partnership-crm/templates/import",
-      headers: plantillasUsageHeaders,
       payload,
     });
 
@@ -736,12 +735,31 @@ describe("partnership CRM routes", () => {
       bootstrapContext,
       payload,
     );
-    expect(mockConsumePartnershipCrmDailyUsage).toHaveBeenCalledWith(
-      bootstrapContext,
-      "plantillas",
-      plantillasUsageHeaders["x-crm-usage-event-id"],
-      "import",
+    expect(mockConsumePartnershipCrmDailyUsage).not.toHaveBeenCalled();
+  });
+
+  it("allows all 90 template imports despite an exhausted daily budget while enforcing GOD MODE", async () => {
+    const { PartnershipCrmUsageError } = await import("../repositories/partnership-crm.repository.js");
+    mockConsumePartnershipCrmDailyUsage.mockRejectedValue(
+      new PartnershipCrmUsageError("Daily limit reached", 429, "CRM_DAILY_LIMIT_REACHED"),
     );
+    const fastify = await buildTestServer();
+    for (let index = 1; index <= 90; index += 1) {
+      const payload = { name: `E${String(index).padStart(2, "0")}`, audience: "organizations", category: "org_genomics_laboratories", subject: `Subject ${index}`, body: `Body ${index}`, status: "active", notes: "", is_favorite: false };
+      const response = await fastify.inject({ method: "POST", url: "/admin/partnership-crm/templates/import", payload });
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).not.toHaveProperty("usage");
+    }
+    expect(mockImportPartnershipCrmTemplate).toHaveBeenCalledTimes(90);
+    expect(mockConsumePartnershipCrmDailyUsage).not.toHaveBeenCalled();
+    await fastify.close();
+    for (const [context, status] of [[null, 401], [{ ...bootstrapContext, isBootstrap: false }, 403]] as const) {
+      const denied = await buildTestServer(context);
+      const response = await denied.inject({ method: "POST", url: "/admin/partnership-crm/templates/import", payload: { name: "Not authorized", subject: "Subject", body: "Body" } });
+      expect(response.statusCode).toBe(status);
+      expect(mockImportPartnershipCrmTemplate).toHaveBeenCalledTimes(90);
+      await denied.close();
+    }
   });
 
   it("uses the CRM-only email-template alias for composer reads", async () => {
