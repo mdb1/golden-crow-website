@@ -209,7 +209,12 @@ function expectHiddenText(text: string) {
 }
 
 it("adds Board next to Grid and Table, loads it deliberately, and remembers the selected view", async () => {
-  jest.mocked(sdkFetch).mockResolvedValue(page([contact]));
+  jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    const params = sectionRequest(String(path));
+    expect(String(path).startsWith(`${PARTNERS_API_ROUTE}/board?`)).toBe(true);
+    expect(params.get("limit")).toBe("20");
+    return page(params.get("stage") === "noOrganization" ? [contact] : []) as never;
+  });
   const first = renderWorkbench();
   expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Grid", "Table", "Board"]);
   expect(sdkFetch).not.toHaveBeenCalled();
@@ -234,7 +239,8 @@ it("opens the right detail panel from a Board ticket and keeps it open after mov
     }
     if (String(path).includes("/sent-email-log?")) return { emails: [], nextCursor: null } as never;
     if (path === `${PARTNERS_API_ROUTE}/${contact.id}`) return { partner: saved } as never;
-    return page([saved]) as never;
+    const stage = sectionRequest(String(path)).get("stage");
+    return page(stage === (saved.boardStage ?? "noOrganization") ? [saved] : []) as never;
   });
   renderWorkbench();
   clickView("Board");

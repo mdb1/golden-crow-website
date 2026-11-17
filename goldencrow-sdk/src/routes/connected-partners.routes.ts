@@ -6,6 +6,8 @@ import {
   PartnerIdSchema,
   PartnerInputSchema,
   PartnerBoardStageInputSchema,
+  PartnerBoardStageSchema,
+  PartnerBoardCursorSchema,
   PartnerLinkIdSchema,
   PartnerSectionSchema,
   PartnerSectionCursorSchema,
@@ -23,6 +25,7 @@ import {
   getPartner,
   listPartners,
   listPartnersBySection,
+  listPartnersByBoardStage,
   listPartnerLinkOptions,
   updatePartner,
   updatePartnerBoardStage,
@@ -110,6 +113,28 @@ export async function connectedPartnersRoutes(
             request.query.limit,
           )
         : listPartners(request.adminContext!, request.query.cursor),
+  );
+
+  f.get(
+    `${ROUTE}/board`,
+    {
+      schema: {
+        querystring: z
+          .object({
+            stage: PartnerBoardStageSchema,
+            cursor: PartnerBoardCursorSchema.optional(),
+            limit: z.coerce.number().int().min(1).max(20).optional(),
+          })
+          .strict(),
+      },
+    },
+    async (request) =>
+      listPartnersByBoardStage(
+        request.adminContext!,
+        request.query.stage,
+        request.query.cursor,
+        request.query.limit,
+      ),
   );
 
   f.get(

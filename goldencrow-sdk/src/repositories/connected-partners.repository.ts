@@ -6,6 +6,7 @@ import {
   PartnerIdSchema,
   PartnerInputSchema,
   PartnerBoardStageSchema,
+  PartnerBoardCursorSchema,
   PartnerLinkIdSchema,
   PartnerSectionSchema,
   PartnerSectionCursorSchema,
@@ -25,13 +26,18 @@ import {
   type PartnerSection,
   type PartnerSectionPage,
 } from "../contracts/connected-partners.js";
-import { partnerMatchesSection } from "../lib/partner-section.js";
+import {
+  partnerBoardStage,
+  partnerMatchesSection,
+} from "../lib/partner-section.js";
 import type { AdminContext } from "../types/sdk.types.js";
 import { AdminRepositoryError } from "./admin-errors.js";
 
 const PAGE_SIZE = 20;
 const SECTION_SCAN_CHUNK_SIZE = 40;
 const SECTION_SCAN_LIMIT = 200;
+const BOARD_SCAN_CHUNK_SIZE = 20;
+const BOARD_SCAN_LIMIT = 60;
 const ORGANIZATIONS_COLLECTION = "feed_organizations";
 const INDIVIDUALS_COLLECTION = "feed_individuals";
 const APPS_COLLECTION = "app_configs";
@@ -294,19 +300,96 @@ export async function listPartnersBySection(
       400,
     );
   }
-  let after = sectionCursorAfter(section, cursor);
+  return scanPartnerPage({
+    partners,
+    after: sectionCursorAfter(section, cursor),
+    limit,
+    scanLimit: SECTION_SCAN_LIMIT,
+    chunkLimit: SECTION_SCAN_CHUNK_SIZE,
+    matches: (partner) => partnerMatchesSection(partner, section),
+    cursorFor: (after) => sectionCursor(section, after),
+  });
+}
+
+const BoardCursorPayloadSchema = z
+  .object({ stage: PartnerBoardStageSchema, after: PartnerIdSchema })
+  .strict();
+
+function boardCursor(stage: PartnerBoardStage, after: string) {
+  const payload = JSON.stringify({ stage, after });
+  return `pb1.${Buffer.from(payload, "utf8").toString("base64url")}`;
+}
+
+function boardCursorAfter(stage: PartnerBoardStage, cursor?: string) {
+  if (!cursor) return undefined;
+  try {
+    const token = PartnerBoardCursorSchema.parse(cursor).slice(4);
+    const decoded = Buffer.from(token, "base64url");
+    if (decoded.toString("base64url") !== token) {
+      throw new Error("Invalid encoding");
+    }
+    const payload = BoardCursorPayloadSchema.parse(
+      JSON.parse(decoded.toString("utf8")),
+    );
+    if (payload.stage !== stage) throw new Error("Wrong Board stage");
+    return payload.after;
+  } catch {
+    throw new AdminRepositoryError("Invalid partner Board cursor", 400);
+  }
+}
+
+export async function listPartnersByBoardStage(
+  context: AdminContext,
+  stage: PartnerBoardStage,
+  cursor?: string,
+  limit = PAGE_SIZE,
+): Promise<PartnerSectionPage> {
+  const partners = collection(context);
+  if (!PartnerBoardStageSchema.safeParse(stage).success) {
+    throw new AdminRepositoryError("Invalid partner Board stage", 400);
+  }
+  if (!Number.isInteger(limit) || limit < 1 || limit > PAGE_SIZE) {
+    throw new AdminRepositoryError(
+      "Partner Board page size must be between 1 and 20",
+      400,
+    );
+  }
+  return scanPartnerPage({
+    partners,
+    after: boardCursorAfter(stage, cursor),
+    limit,
+    scanLimit: BOARD_SCAN_LIMIT,
+    chunkLimit: BOARD_SCAN_CHUNK_SIZE,
+    matches: (partner) => partnerBoardStage(partner) === stage,
+    cursorFor: (after) => boardCursor(stage, after),
+  });
+}
+
+async function scanPartnerPage({
+  partners,
+  after,
+  limit,
+  scanLimit,
+  chunkLimit,
+  matches,
+  cursorFor,
+}: {
+  partners: ReturnType<typeof collection>;
+  after: string | undefined;
+  limit: number;
+  scanLimit: number;
+  chunkLimit: number;
+  matches: (partner: Partner) => boolean;
+  cursorFor: (after: string) => string;
+}): Promise<PartnerSectionPage> {
   let scanned = 0;
   const items: Partner[] = [];
   const reader = partnerLinkReader();
 
-  // The section depends on live related documents, so no stored category or
-  // historical app status is used as a query shortcut. Cap each request's
-  // source scan and return its exact continuation when a section is sparse.
-  while (scanned < SECTION_SCAN_LIMIT) {
-    const chunkSize = Math.min(
-      SECTION_SCAN_CHUNK_SIZE,
-      SECTION_SCAN_LIMIT - scanned,
-    );
+  // Live related documents determine the derived stage. Each response has a
+  // fixed source-read budget, and clients can continue sparse pages explicitly.
+  while (scanned < scanLimit) {
+    const chunkSize = Math.min(chunkLimit, scanLimit - scanned);
     let query = partners.orderBy(FieldPath.documentId());
     if (after) query = query.startAfter(after);
     const snapshot = await query.limit(chunkSize).get();
@@ -321,7 +404,7 @@ export async function listPartnersBySection(
       const partner = resolved[index]!;
       scanned++;
       after = partner.id;
-      if (partnerMatchesSection(partner, section)) items.push(partner);
+      if (matches(partner)) items.push(partner);
       if (items.length === limit) {
         // Resume after the last examined record, rather than after the fetched
         // chunk, because later matches in this chunk have not been returned.
@@ -329,7 +412,7 @@ export async function listPartnersBySection(
           index < docs.length - 1 || docs.length === chunkSize;
         return {
           items,
-          nextCursor: sourceRemaining ? sectionCursor(section, after) : null,
+          nextCursor: sourceRemaining ? cursorFor(after) : null,
           scanIncomplete: false,
         };
       }
@@ -340,7 +423,7 @@ export async function listPartnersBySection(
   }
   return {
     items,
-    nextCursor: sectionCursor(section, after!),
+    nextCursor: cursorFor(after!),
     scanIncomplete: true,
   };
 }
