@@ -273,6 +273,11 @@ Partner email preview and delivery:
     precondition failure that requires a new preview; a 409 can represent a prior
     uncertain command and must not authorize a new send automatically.
   GET /admin/connected-partners/sent-email-log[?limit=20&cursor=<opaque>]
+    Optional partnerId scopes the same registry to confirmed sent emails for
+    that exact partner. Filtering happens in Firestore before pagination;
+    failed, sending and unknown commands remain in the unfiltered registry.
+    Requires the partner_email_sends composite index in firestore.indexes.json
+    on partnerId, status, updatedAt descending and document ID descending.
     Returns { emails, nextCursor }. Lists every recorded send command, including
     sent, sending, unknown and failed outcomes; the UI distinguishes each status.
     Orders by updatedAt descending then document ID descending, so a later retry
@@ -304,6 +309,9 @@ Email command persistence:
   removing only the accessKey query parameter. Plaintext credentials, HTML, banner
   data and full partner/publisher snapshots are never stored in the command.
   History list responses omit messageText; details load only on expansion.
+  Partner detail adds a compact Contact history below Send an email. Its rows
+  show a one-line subject, the saved template and the send date; tapping a row
+  opens the full recorded message in a modal. Successful sends refresh this list.
   Existing commands without historySnapshot remain visible with date, recipient,
   status and operator. Their unrecorded sender, subject, partner name and body
   remain null instead of being guessed. A missing historical templateVariant is

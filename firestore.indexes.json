@@ -1,6 +1,16 @@
 {
   "indexes": [
     {
+      "collectionGroup": "partner_email_sends",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "partnerId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" },
+        { "fieldPath": "__name__", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "feed_items",
       "queryScope": "COLLECTION",
       "fields": [

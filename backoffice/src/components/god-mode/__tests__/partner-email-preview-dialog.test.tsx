@@ -72,12 +72,13 @@ function failure(status: number, message: string) {
 
 function renderDialog() {
   const onClose = jest.fn();
+  const onSent = jest.fn();
   const result = render(
     <AppLanguageProvider forcedLanguage="en">
-      <PartnerEmailPreviewDialog partnerId={PARTNER_ID} onClose={onClose} />
+      <PartnerEmailPreviewDialog partnerId={PARTNER_ID} onClose={onClose} onSent={onSent} />
     </AppLanguageProvider>,
   );
-  return { ...result, onClose };
+  return { ...result, onClose, onSent };
 }
 
 async function ready() {
@@ -269,7 +270,7 @@ it("sends exactly the reviewed server hash and language once, blocking close and
     .mocked(sdkFetch)
     .mockResolvedValueOnce(preview)
     .mockReturnValueOnce(send.promise);
-  const { onClose } = renderDialog();
+  const { onClose, onSent } = renderDialog();
   await ready();
   const button = screen.getByRole("button", {
     name: "Send email",
@@ -295,6 +296,7 @@ it("sends exactly the reviewed server hash and language once, blocking close and
   });
   expect(onClose).not.toHaveBeenCalled();
   await act(async () => send.resolve(sent));
+  expect(onSent).toHaveBeenCalledTimes(1);
   expect(
     await screen.findByRole("region", { name: "Email sent" }),
   ).toHaveTextContent(preview.to);
@@ -378,7 +380,7 @@ it.each(["sending", "unknown"] as const)(
       .mockResolvedValueOnce(preview)
       .mockResolvedValueOnce({ ...sent, status, sentAt: null })
       .mockResolvedValueOnce(sent);
-    renderDialog();
+    const { onSent } = renderDialog();
     await ready();
     fireEvent.click(screen.getByRole("button", { name: "Send email" }));
     const check = await screen.findByRole("button", {
@@ -392,8 +394,10 @@ it.each(["sending", "unknown"] as const)(
       "Delivery is not confirmed.",
     );
     expect(requests()).toHaveLength(1);
+    expect(onSent).not.toHaveBeenCalled();
     fireEvent.click(check);
     await screen.findByRole("region", { name: "Email sent" });
+    expect(onSent).toHaveBeenCalledTimes(1);
     expect(requests()[1][1]?.body).toBe(requests()[0][1]?.body);
     expect(crypto.randomUUID).toHaveBeenCalledTimes(1);
   },

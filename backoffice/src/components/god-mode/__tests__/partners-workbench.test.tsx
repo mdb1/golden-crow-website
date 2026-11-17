@@ -143,6 +143,8 @@ function savePartner() {
 }
 function mockEditor(saved = contact) {
   jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     if (init?.method === "POST" || init?.method === "PUT")
       return { partner: saved } as never;
     if (String(path).includes("link-options"))
@@ -244,6 +246,8 @@ it("keeps all section contents collapsed and does not fetch partners until a sec
 
 it("opens one section at a time and fetches only the requested section", async () => {
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     const section = sectionRequest(String(path)).get("section");
     return page(
       section === "noOrganization"
@@ -282,6 +286,8 @@ it("replaces the visible 20-partner page and preserves independent section page 
   const first = contacts("First");
   const second = contacts("Second", 2);
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     const params = sectionRequest(String(path));
     if (params.get("section") === "organizationWithoutApp")
       return page([
@@ -355,6 +361,8 @@ it("paginates 20 mixed publisher contacts in one shared section and opens the se
   });
   const selectedIndividual = mixed[1];
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     const value = String(path);
     if (value.includes("/email-preview"))
       return {
@@ -609,6 +617,8 @@ it("preserves missing-link warnings and modal editing in table rows", async () =
 
 it("clears bulk selections when changing page or section", async () => {
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     const params = sectionRequest(String(path));
     if (params.get("section") === "organizationWithoutApp")
       return page([
@@ -662,6 +672,8 @@ it("clears bulk selections when changing page or section", async () => {
 it("bounds sparse section searches and continues filling the same page without dropping partners", async () => {
   const remaining = contacts("More", 19);
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     const params = sectionRequest(String(path));
     switch (params.get("cursor")) {
       case null:
@@ -698,6 +710,8 @@ it("bounds sparse section searches and continues filling the same page without d
 
 it("retains a completed sparse window when reopening sections or returning from the next page", async () => {
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     const params = sectionRequest(String(path));
     if (params.get("section") === "organizationWithoutApp")
       return page([
@@ -753,6 +767,8 @@ it("refreshes the current page's live app status without resetting table view or
   };
   let secondPageReads = 0;
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     const params = sectionRequest(String(path));
     if (params.get("cursor") === "page_two") {
       secondPageReads += 1;
@@ -873,6 +889,8 @@ it("cancels the active section request when it is collapsed and does not keep sc
 
 it("does not label a sparse section empty until its continuation is exhausted", async () => {
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     const cursor = sectionRequest(String(path)).get("cursor");
     return cursor === "scan_three"
       ? (page([]) as never)
@@ -1076,6 +1094,8 @@ it("keeps the modal and draft editable when saving fails", async () => {
 
 it("shows organizations and individual publishers in shared lazy sections and keeps unavailable links separate", async () => {
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     switch (sectionRequest(String(path)).get("section")) {
       case "organizationWithoutApp":
         return page([
@@ -1149,6 +1169,8 @@ it("shows organizations and individual publishers in shared lazy sections and ke
 
 it("links an organization and individual publisher together and preserves both when selecting an app", async () => {
   jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     if (init?.method === "POST") return { partner: withApp } as never;
     const params = new URL(`https://example.test${path}`).searchParams;
     const kind = params.get("kind");
@@ -1179,6 +1201,8 @@ it("links an organization and individual publisher together and preserves both w
 
 it("uses paginated app choices and derives the selected app's publisher", async () => {
   jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     if (init?.method === "POST") return { partner: withApp } as never;
     const params = new URL(`https://example.test${path}`).searchParams;
     return params.has("cursor")
@@ -1229,6 +1253,8 @@ it("uses paginated app choices and derives the selected app's publisher", async 
 
 it("finds an app by its exact ID and derives an individual publisher without losing the organization", async () => {
   jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     if (init?.method === "PUT") return { partner: withBoth } as never;
     if (!String(path).includes("link-options"))
       return { partner: withOrganization } as never;
@@ -1393,6 +1419,8 @@ it("distinguishes publisher selections when organization and individual IDs coin
     linkedIndividualPublisherSnapshot: sharedIndividual,
   };
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     if (!String(path).includes("link-options"))
       return { partner: saved } as never;
     const kind = new URL(`https://example.test${path}`).searchParams.get(
@@ -1431,6 +1459,8 @@ it("ignores a late app lookup after navigating to a different publisher tab", as
     completeLookup = resolve;
   });
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     const params = new URL(`https://example.test${path}`).searchParams;
     if (params.has("id")) return delayed as never;
     return {

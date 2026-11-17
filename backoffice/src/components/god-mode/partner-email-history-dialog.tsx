@@ -40,13 +40,13 @@ const STATUSES = {
   failed: { label: "Not sent", variant: "destructive" },
 } as const;
 
-function HistoryEmail({ email }: { email: PartnerEmailHistoryRecord }) {
-  const { language } = useAppLanguage();
-  const t = (text: string) => appText(language, text);
-  const [expanded, setExpanded] = useState(false);
-  const detail = useQuery({
+function useRecordedPartnerEmail(
+  email: PartnerEmailHistoryRecord,
+  enabled: boolean,
+) {
+  return useQuery({
     queryKey: [...PARTNER_EMAIL_HISTORY_QUERY_KEY, "detail", email.requestId],
-    enabled: expanded && email.messageAvailable,
+    enabled: enabled && email.messageAvailable,
     gcTime: 0,
     staleTime: Infinity,
     retry: false,
@@ -58,6 +58,74 @@ function HistoryEmail({ email }: { email: PartnerEmailHistoryRecord }) {
         { signal },
       ),
   });
+}
+
+function RecordedPartnerMessage({
+  email,
+  detail,
+}: {
+  email: PartnerEmailHistoryRecord;
+  detail: ReturnType<typeof useRecordedPartnerEmail>;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  if (!email.messageAvailable) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        {t("Message content was not recorded for older sends.")}
+      </p>
+    );
+  }
+  if (detail.isPending) {
+    return (
+      <p
+        role="status"
+        className="flex items-center gap-2 text-sm text-muted-foreground"
+      >
+        <Loader2 className="size-4 animate-spin" />
+        {t("Loading message...")}
+      </p>
+    );
+  }
+  if (detail.isError) {
+    return (
+      <div role="alert" className="space-y-2 text-sm text-destructive">
+        <p>
+          {t(
+            detail.error instanceof Error
+              ? detail.error.message
+              : "Could not load the message.",
+          )}
+        </p>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => void detail.refetch()}
+        >
+          {t("Retry")}
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-3">
+      {email.accessKeyOmitted && (
+        <p role="note" className="text-xs text-muted-foreground">
+          {t("Access keys are hidden in the email history.")}
+        </p>
+      )}
+      <div className="whitespace-pre-wrap break-words text-sm leading-6 [overflow-wrap:anywhere]">
+        {detail.data?.email.messageText ?? t("Message unavailable.")}
+      </div>
+    </div>
+  );
+}
+
+function HistoryEmail({ email }: { email: PartnerEmailHistoryRecord }) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const [expanded, setExpanded] = useState(false);
+  const detail = useRecordedPartnerEmail(email, expanded);
   const status = STATUSES[email.status];
   const template = PARTNER_EMAIL_TEMPLATE_OPTIONS.find(
     (option) => option.key === email.templateVariant,
@@ -84,11 +152,7 @@ function HistoryEmail({ email }: { email: PartnerEmailHistoryRecord }) {
       </div>
       <div className="flex flex-wrap gap-2">
         {category && <Badge variant="outline">{t(category)}</Badge>}
-        {template && (
-          <Badge variant="violet">
-            {t(template.label)}
-          </Badge>
-        )}
+        {template && <Badge variant="violet">{t(template.label)}</Badge>}
         <Badge variant="secondary">
           {email.language === "es" ? "Español" : "English"}
         </Badge>
@@ -141,43 +205,9 @@ function HistoryEmail({ email }: { email: PartnerEmailHistoryRecord }) {
           aria-label={t("Recorded message")}
           className="space-y-3 rounded-xl border bg-muted/20 p-4"
         >
-          {detail.isPending ? (
-            <p
-              role="status"
-              className="flex items-center gap-2 text-sm text-muted-foreground"
-            >
-              <Loader2 className="size-4 animate-spin" />
-              {t("Loading message...")}
-            </p>
-          ) : detail.isError ? (
-            <div role="alert" className="space-y-2 text-sm text-destructive">
-              <p>
-                {t(
-                  detail.error instanceof Error
-                    ? detail.error.message
-                    : "Could not load the message.",
-                )}
-              </p>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => void detail.refetch()}
-              >
-                {t("Retry")}
-              </Button>
-            </div>
-          ) : (
-            <>
-              {email.accessKeyOmitted && (
-                <p role="note" className="text-xs text-muted-foreground">
-                  {t("Access keys are hidden in the email history.")}
-                </p>
-              )}
-              <div className="max-h-96 overflow-y-auto whitespace-pre-wrap break-words text-sm leading-6">
-                {detail.data?.email.messageText ?? t("Message unavailable.")}
-              </div>
-            </>
-          )}
+          <div className="max-h-96 overflow-y-auto">
+            <RecordedPartnerMessage email={email} detail={detail} />
+          </div>
         </section>
       )}
     </article>
@@ -300,6 +330,73 @@ export function PartnerEmailHistoryDialog({
         <div className="flex shrink-0 justify-end border-t bg-background p-4 sm:px-6">
           <Button variant="outline" className="rounded-xl" onClick={onClose}>
             {t("Finish")}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function PartnerEmailMessageDialog({
+  email,
+  onClose,
+}: {
+  email: PartnerEmailHistoryRecord;
+  onClose: () => void;
+}) {
+  const { language } = useAppLanguage();
+  const t = (text: string) => appText(language, text);
+  const detail = useRecordedPartnerEmail(email, true);
+  const date = email.sentAt ?? email.updatedAt;
+  const template = PARTNER_EMAIL_TEMPLATE_OPTIONS.find(
+    (option) => option.key === email.templateVariant,
+  );
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
+        <DialogHeader className="pr-6">
+          <DialogTitle className="break-words text-lg leading-6 [overflow-wrap:anywhere]">
+            {email.subject ?? t("No subject recorded")}
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            {t("Recorded message")}
+          </DialogDescription>
+        </DialogHeader>
+        <dl className="grid gap-x-6 gap-y-3 border-b pb-4 text-sm sm:grid-cols-2">
+          {[
+            ["From", email.from],
+            ["Recipient", email.to],
+            [
+              "Email template",
+              template ? t(template.label) : t("Not recorded"),
+            ],
+            [
+              "Date",
+              new Intl.DateTimeFormat(language === "es" ? "es-AR" : "en", {
+                dateStyle: "medium",
+                timeStyle: "short",
+              }).format(new Date(date)),
+            ],
+          ].map(([label, value]) => (
+            <div key={label} className="min-w-0">
+              <dt className="text-xs text-muted-foreground">{t(label!)}</dt>
+              <dd className="mt-1 break-words [overflow-wrap:anywhere]">
+                {value || t("Not recorded")}
+              </dd>
+            </div>
+          ))}
+        </dl>
+        <section aria-label={t("Recorded message")} className="py-2">
+          <RecordedPartnerMessage email={email} detail={detail} />
+        </section>
+        <div className="flex justify-end">
+          <Button variant="outline" onClick={onClose}>
+            {t("Close")}
           </Button>
         </div>
       </DialogContent>
