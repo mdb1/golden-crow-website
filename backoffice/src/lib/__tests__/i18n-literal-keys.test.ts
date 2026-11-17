@@ -137,13 +137,16 @@ describe("literal t(\"…\") keys in src/ resolve in the catalog", () => {
     expect(missingIn(esMessages as Catalog)).toEqual([]);
   });
 
-  it("dynamic (unchecked) keys stay within budget — 42 at the time of writing", () => {
+  it("dynamic (unchecked) keys stay within budget — 48 at the time of writing", () => {
     // Not a correctness check: a budget. If this grows, prefer literal keys (or a
     // `switch` over literals) so the new strings are covered by the tests above.
     // Lower the number when you convert some.
     const where = dynamicCalls.map((c) => `${c.file} (${c.namespace})`);
     // 42: #513 added `tTitles(feedTitleKey(...))` in ActivityFeedList — its keys
     // are pinned by activity-feed-titles.test.ts instead.
-    expect(where.length).toBeLessThanOrEqual(42);
+    // 48: #530 added 6 in /gc-fitness/admin/usage (feature / family / topic / audience /
+    // segment labels from fixed key lists) — every key of those lists is pinned in en + es by
+    // usage-admin.test.tsx («every label key exists»).
+    expect(where.length).toBeLessThanOrEqual(48);
   });
 });

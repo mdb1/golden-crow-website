@@ -3682,5 +3682,146 @@
     "groupTemplates": "Workouts",
     "groupExercises": "Exercises",
     "chatWith": "Chat with {name}"
+  },
+  "usageAdmin": {
+    "title": "Product usage",
+    "subtitle": "How each feature is used, who is active and what people ask Corvo — to decide what to improve next. Daily rollup, Buenos Aires days.",
+    "back": "Back to admin",
+    "rangeLabel": "Period",
+    "rangeDays": "{days} days",
+    "dataThrough": "Data through {day} · {days} of {range} days have a rollup.",
+    "loadError": "The usage data could not be loaded: {error}",
+    "noData": "No rollup in this period yet. The daily job writes yesterday at 03:30 (Buenos Aires); past days come from the backfill (npm run backfill:usage in gc-fitness/functions).",
+    "footnote": "Counts come from the source collections once a day (usage_daily). Adoption = share of the audience's active days that used the feature. Corvo topics are classified without AI (tools Corvo used + keywords); no message text is stored, and a phrase only appears when at least 2 different people wrote it that day.",
+    "cardTitle": "Product usage",
+    "cardDescription": "Daily/weekly actives by segment, usage of every feature over time, adoption ranking, what people ask Corvo and retention by signup week.",
+    "openCard": "Open usage dashboard",
+    "kpi": {
+      "dau": "Daily actives (avg)",
+      "wau": "Weekly actives",
+      "mauDetail": "{mau} in the last 28 days",
+      "signups": "Sign-ups",
+      "workouts": "Workouts logged",
+      "corvoMessages": "Messages to Corvo",
+      "corvoDetail": "{userDays} user-days · {cost} estimated",
+      "acceptance": "Corvo proposals accepted",
+      "premium": "Premium purchases",
+      "reports": "Corvo replies reported",
+      "vsPrevious": "{delta} vs previous period",
+      "noPrevious": "No previous period to compare"
+    },
+    "charts": {
+      "activity": {
+        "title": "Active users",
+        "subtitle": "Distinct users with any activity: per day, last 7 days and last 28 days.",
+        "empty": "No activity in this period.",
+        "table": "Show as table",
+        "day": "Day",
+        "dau": "Daily",
+        "wau": "7 days",
+        "mau": "28 days",
+        "coached": "With coach",
+        "coachless": "Without coach",
+        "guest": "Guests",
+        "coach": "Coaches"
+      },
+      "segments": {
+        "title": "Daily actives by segment",
+        "subtitle": "Clients with a coach, without a coach, guests and coaches."
+      },
+      "families": {
+        "title": "Feature usage over time",
+        "subtitle": "Events per day (workouts, checks, meals, messages, follows, payments…), grouped by area.",
+        "empty": "No feature usage in this period.",
+        "table": "Show as table",
+        "day": "Day"
+      },
+      "corvo": {
+        "title": "Messages to Corvo per day",
+        "subtitle": "Messages people sent to the AI coach.",
+        "empty": "Nobody wrote to Corvo in this period.",
+        "table": "Show as table",
+        "day": "Day",
+        "messages": "Messages",
+        "users": "People"
+      }
+    },
+    "families": {
+      "training": "Training",
+      "habits": "Habits",
+      "nutrition": "Nutrition",
+      "corvo": "Corvo",
+      "chat": "Coach chat",
+      "social": "Social",
+      "photos": "Progress photos",
+      "coaching": "Coach tools"
+    },
+    "features": {
+      "workouts_logged": "Workouts logged",
+      "self_routines_created": "Own routines created",
+      "habits_checked": "Habits checked",
+      "meals_marked": "Meals marked",
+      "self_nutrition_plans": "Own nutrition plans",
+      "progress_photos": "Progress photos",
+      "chat_client": "Chat with coach",
+      "corvo": "Corvo (AI coach)",
+      "social_follows": "Follows",
+      "social_posts": "Feed posts",
+      "social_kudos": "Kudos",
+      "social_comments": "Routine comments",
+      "social_dms": "Direct messages",
+      "challenge_joins": "Challenge joins",
+      "coach_routines_created": "Routines created by coaches",
+      "coach_nutrition_plans": "Nutrition plans by coaches",
+      "chat_coach": "Coach replies in chat",
+      "payments_recorded": "Payments recorded",
+      "plans_assigned": "Payment plans assigned",
+      "invites": "Client invites",
+      "coach_actions": "Coach actions (assignments, edits)"
+    },
+    "audience": {
+      "client": "clients",
+      "coach": "coaches"
+    },
+    "adoption": {
+      "title": "Feature adoption",
+      "subtitle": "Share of the audience's active days that included the feature (clients for client features, coaches for coach tools). Events in parentheses.",
+      "empty": "No feature was used in this period."
+    },
+    "corvo": {
+      "title": "Corvo — what people ask",
+      "subtitle": "Topics of the messages, accepted proposals and the most repeated phrases.",
+      "empty": "Nobody wrote to Corvo in this period.",
+      "topicsTitle": "Topics",
+      "topicsHint": "A message can touch several topics; the % is of all messages.",
+      "proposalsTitle": "Proposals accepted",
+      "proposalsDetail": "{applied} of {resolved} resolved · {dismissed} dismissed · {expired} expired · {pending} pending · {created} created",
+      "ngramsTitle": "Most asked",
+      "ngramsHint": "Words and pairs of words written by 2 or more people on the same day.",
+      "ngramsEmpty": "Not enough repeated phrases yet.",
+      "ngramCount": "{users} people"
+    },
+    "topics": {
+      "routines": "Routines & training",
+      "schedule": "Schedule",
+      "technique": "Technique & pain",
+      "progress": "Progress & records",
+      "nutrition": "Nutrition",
+      "habits": "Habits",
+      "motivation": "Motivation",
+      "social": "Social",
+      "app_help": "App help",
+      "other": "Other"
+    },
+    "retention": {
+      "title": "Retention by signup week",
+      "subtitle": "Clients (no guests) who signed up each week and were active in each following week. As of {asOf}.",
+      "subtitleEmpty": "Clients (no guests) who signed up each week and were active in each following week.",
+      "empty": "No signup cohorts in the last 8 weeks yet.",
+      "cohort": "Signup week",
+      "size": "Sign-ups",
+      "week": "W{k}",
+      "cellTitle": "{active} of {size}"
+    }
   }
 }
