@@ -3,7 +3,7 @@
 
 import { assignedBy, isEndableAssignment, isEndableHabit, isEndablePlan } from "../assigned-by";
 import { computeWorkoutStreak, planInheritedPlanEnd, withoutInherited } from "../inherited-plan";
-import vector from "./assigned-by.vector.json";
+import vector from "./twin-vectors/assigned-by.json";
 
 describe("assignedBy — shared vector", () => {
   it.each(vector.assignedBy.map((c) => [c.name, c] as const))("%s", (_name, c) => {

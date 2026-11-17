@@ -1,7 +1,7 @@
 // __tests__/client-attention.test.ts
 //
 // #499 — the «needs attention» reasons. The bulk of the cases live in the
-// SHARED table `__fixtures__/client-attention-cases.json`, which the apps'
+// SHARED table `__tests__/twin-vectors/client-attention-cases.json` (pinned copy of gc-fitness `twin-vectors/`, #1644), which the apps'
 // callable (gc-fitness `functions/src/coach/coachAttention.ts`) mirrors: a
 // case changed here must change there.
 
@@ -14,7 +14,7 @@ import {
   type ClientAttentionInput,
 } from "../client-attention";
 import { NUTRITION_ATTENTION_RATIO } from "../nutrition-coach-reply";
-import table from "../__fixtures__/client-attention-cases.json";
+import table from "./twin-vectors/client-attention-cases.json";
 
 interface Case {
   name: string;

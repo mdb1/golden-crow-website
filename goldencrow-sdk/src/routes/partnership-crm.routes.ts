@@ -164,7 +164,7 @@ const ListTemplatesQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(10).optional(),
   query: z.string().trim().max(180).optional(),
   status: z.string().trim().max(40).optional(),
-  category: CrmTemplateCategoryStringSchema,
+  category: CrmCategoryStringSchema,
   audience: CrmTemplateAudienceSchema.optional(),
   deep: DeepSearchSchema,
 });
@@ -253,6 +253,13 @@ export async function partnershipCrmRoutes(
   const pageLoadRoute = "/admin/partnership-crm/daily-usage/page-load";
   const snapshotRoute = "/admin/partnership-crm/snapshot";
   const snapshotRefreshRoute = "/admin/partnership-crm/snapshot/refresh";
+  const csvImportRoutes = new Set([
+    "/admin/partnership-crm/templates/import",
+    "/admin/partnership-crm/import-preview",
+    "/admin/partnership-crm/import",
+    "/admin/partnership-crm/professionals/import-preview",
+    "/admin/partnership-crm/professionals/import",
+  ]);
 
   f.addHook("onRequest", async (request, reply) => {
     if (!request.adminContext) {
@@ -270,7 +277,8 @@ export async function partnershipCrmRoutes(
       routeUrl === usageLookupRoute ||
       routeUrl === pageLoadRoute ||
       routeUrl === snapshotRoute ||
-      routeUrl === snapshotRefreshRoute
+      routeUrl === snapshotRefreshRoute ||
+      (request.method === "POST" && csvImportRoutes.has(routeUrl))
     ) {
       return;
     }

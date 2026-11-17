@@ -2,7 +2,7 @@ export {};
 
 type MockDocData = Record<string, unknown>;
 type MockStoredDoc = { id: string; data: MockDocData };
-type MockWhereOperator = "==" | ">=" | ">" | "<=" | "<";
+type MockWhereOperator = "==" | ">=" | ">" | "<=" | "<" | "in";
 type MockQueryOperation =
   | {
       type: "where";
@@ -282,6 +282,9 @@ function mockApplyQueryOperations(
       const value = mockValueForField(doc, operation.fieldPath);
       if (operation.operator === "==") {
         return value === operation.value;
+      }
+      if (operation.operator === "in") {
+        return (operation.value as unknown[]).includes(value);
       }
 
       const comparison = mockCompareValues(value, operation.value, "asc");
@@ -1092,6 +1095,73 @@ describe("partnership CRM repository pagination", () => {
       expect.objectContaining({ id: "body-match", body: "" }),
     ]);
     expect(page.scanned).toBe(1);
+  });
+
+  it("finds a category match behind 89 newer templates without scanning the general collection", async () => {
+    const { listPartnershipCrmTemplates } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    for (let index = 0; index < 90; index += 1) {
+      mockDocs.set(mockDocKey("plantillas", `template-${index}`), {
+        schemaVersion: 1,
+        name: `Template ${index}`,
+        audience: "organizations",
+        category: index === 0 ? "org_genomics_laboratories" : "org_fertility_clinics",
+        subject: "Hello {{organization_name}}",
+        body: "Full email body",
+        notes: "Private notes",
+        status: "active",
+        is_favorite: false,
+        normalizedName: `template ${index}`,
+        updatedAt: mockIsoAt(index),
+      });
+    }
+    const page = await listPartnershipCrmTemplates(godModeContext, {
+      category: "Laboratory / Genomics", audience: "organizations", status: "active", limit: 5,
+    });
+    expect(page.templates).toEqual([
+      expect.objectContaining({ id: "template-0", category: "org_genomics_laboratories", body: "", notes: "" }),
+    ]);
+    expect(page.scanned).toBe(1);
+    expect(page.nextCursor).toBeUndefined();
+    expect(mockQueryReadLog.at(-1)?.operations).toEqual(expect.arrayContaining([
+      { type: "where", fieldPath: "category", operator: "==", value: "org_genomics_laboratories" },
+      { type: "limit", count: 6 },
+    ]));
+  });
+
+  it("paginates templates matching any of the target categories with a scoped cursor", async () => {
+    const { listPartnershipCrmTemplates } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    const categories = ["org_genomics_laboratories", "org_fertility_clinics"];
+    for (let index = 0; index < 9; index += 1) {
+      mockDocs.set(mockDocKey("plantillas", `matching-${index}`), {
+        schemaVersion: 1, name: `Matching ${index}`, audience: "organizations",
+        category: categories[index % 2], subject: "Hello", body: "Body",
+        status: "active", updatedAt: mockIsoAt(index),
+      });
+    }
+    mockDocs.set(mockDocKey("plantillas", "unrelated"), {
+      name: "Unrelated", audience: "organizations", category: "org_patient_organizations",
+      status: "active", updatedAt: mockIsoAt(10),
+    });
+    const options = { category: categories.join(","), audience: "organizations", status: "active", limit: 5 };
+    const first = await listPartnershipCrmTemplates(godModeContext, options);
+    expect(first.templates).toHaveLength(5);
+    expect(first.nextCursor).toBeTruthy();
+    const second = await listPartnershipCrmTemplates(godModeContext, { ...options, cursor: first.nextCursor });
+    expect(second.templates).toHaveLength(4);
+    expect(second.nextCursor).toBeUndefined();
+    const ids = [...first.templates, ...second.templates].map((template) => template.id);
+    expect(new Set(ids).size).toBe(9);
+    expect(ids).not.toContain("unrelated");
+    expect(mockQueryReadLog.at(-1)?.operations).toEqual(expect.arrayContaining([
+      { type: "where", fieldPath: "category", operator: "in", value: categories },
+    ]));
+    await expect(listPartnershipCrmTemplates(godModeContext, {
+      ...options, category: categories[0], cursor: first.nextCursor,
+    })).rejects.toThrow(/cursor/i);
   });
 
   it("uses document id as a cursor tie-breaker for equal timestamps", async () => {

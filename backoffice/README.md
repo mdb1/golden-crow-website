@@ -432,6 +432,23 @@ roughly what the mobile UI-test harness (#609) cost. Worth doing eventually; not
 worth blocking regression coverage on, since these tests run in the gate that
 already protects production.
 
+### Twin vectors (gc-fitness #1644)
+
+The case tables shared with the apps and the Cloud Functions (billing, civil-date,
+habit-schedule, habit-compliance, nutrition plan resolution / coach grid, recurrence
+expansion, assigned-by, client attention, challenge standings) live ONCE in gc-fitness
+`twin-vectors/`. Vercel builds this repo without gc-fitness, so
+`src/lib/gc-fitness/__tests__/twin-vectors/` holds a **pinned copy** plus a `MANIFEST.json`
+of sha256 hashes. Never edit those copies here:
+
+1. change the canonical file in gc-fitness;
+2. there, run `scripts/check-twin-vectors.py --sync --website <this checkout>`;
+3. commit the copies here in the same change set.
+
+`twin-vectors.test.ts` fails when a copy no longer matches its manifest hash; gc-fitness
+`scripts/check-twin-vectors.py` (the `vectors` step of its release gate) fails when this copy
+no longer matches the canonical file.
+
 ## Dependency overrides
 
 `package.json` → `"overrides"` (JSON has no comments, so the reasons live here):

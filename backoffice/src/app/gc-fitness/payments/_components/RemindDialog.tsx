@@ -51,11 +51,18 @@ export function buildReminder(
 export function RemindDialog({ clientFirstName, coachName, billing, open, onOpenChange }: Props) {
   const t = useTranslations("payments");
   const { lang } = usePaymentLabels();
-  const [text, setText] = useState(() => buildReminder(lang, coachName, clientFirstName, billing));
-
-  function handleOpenChange(next: boolean) {
-    if (next) setText(buildReminder(lang, coachName, clientFirstName, billing));
-    onOpenChange(next);
+  // El texto se arma CADA VEZ que el diálogo se abre (y si el cobro cambia estando abierto).
+  // El padre lo abre con `open`, así que Radix nunca llama `onOpenChange(true)`: armarlo sólo
+  // al montar dejaba el vencimiento de cuando cargó la página — después de «Registrar pago»
+  // la card decía «1 de dic» y el recordatorio seguía en «1 de noviembre».
+  const fresh = buildReminder(lang, coachName, clientFirstName, billing);
+  const [text, setText] = useState(fresh);
+  const [shownFor, setShownFor] = useState<string | null>(open ? fresh : null);
+  if (open && shownFor !== fresh) {
+    setShownFor(fresh);
+    setText(fresh);
+  } else if (!open && shownFor !== null) {
+    setShownFor(null);
   }
 
   async function copy() {
@@ -68,7 +75,7 @@ export function RemindDialog({ clientFirstName, coachName, billing, open, onOpen
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg" data-testid="remind-dialog">
         <DialogHeader>
           <DialogTitle>{t("remindTitle")}</DialogTitle>

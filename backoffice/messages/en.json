@@ -507,7 +507,8 @@
         "newPlaceholder": "New goal",
         "descriptionPlaceholder": "Context, measurable outcome, constraints...",
         "addCta": "Add goal",
-        "saveFailed": "Save failed"
+        "saveFailed": "Save failed",
+        "byClient": "Set by your client"
       },
       "notes": {
         "title": "Coach notes log",

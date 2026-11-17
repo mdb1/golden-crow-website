@@ -108,6 +108,7 @@ describe("listClientGoals", () => {
         status: "active",
         createdAt: "2026-09-01T00:00:00.000Z",
         updatedAt: "2026-10-01T00:00:00.000Z",
+        clientOwned: false,
       },
       {
         id: "g-weird",
@@ -120,8 +121,65 @@ describe("listClientGoals", () => {
         status: "active",
         createdAt: null,
         updatedAt: "2026-09-15T00:00:00.000Z",
+        clientOwned: false,
       },
     ]);
+  });
+
+  // website#520 — the goals the client set in the app (gc-fitness#1620: `clientOwned: true`,
+  // `clientId == coachId == client`) are listed too, read-only, merged newest first.
+  it("also lists the client's OWN goals, flagged, newest first", async () => {
+    fake.seed({
+      "client_goals/g-own": {
+        clientId: "client-1",
+        coachId: "client-1",
+        clientOwned: true,
+        kind: "body_weight",
+        title: "Bajar a 70 kg",
+        targetValue: 70,
+        horizon: "medium",
+        status: "active",
+        createdAt: ts("2026-10-05T00:00:00Z"),
+        updatedAt: ts("2026-10-05T00:00:00Z"),
+      },
+      // Another client's own goal and a stray flag on a goal another coach wrote: excluded.
+      "client_goals/g-own-other": {
+        clientId: "client-2",
+        coachId: "client-2",
+        clientOwned: true,
+        title: "Not this client",
+        updatedAt: ts("2026-10-06T00:00:00Z"),
+      },
+      "client_goals/g-stray": {
+        clientId: "client-1",
+        coachId: OTHER,
+        clientOwned: true,
+        title: "Stray",
+        updatedAt: ts("2026-10-07T00:00:00Z"),
+      },
+    });
+    const rows = await listClientGoals("client-1");
+    expect(fake.db.queries[1]).toMatchObject({
+      path: "client_goals",
+      filters: [
+        ["clientId", "==", "client-1"],
+        ["clientOwned", "==", true],
+      ],
+      limit: 50,
+    });
+    expect(rows.map((r) => [r.id, r.clientOwned])).toEqual([
+      ["g-own", true],
+      ["g-mine", false],
+    ]);
+    expect(rows[0]).toMatchObject({ coachId: "client-1", title: "Bajar a 70 kg", horizon: "medium" });
+  });
+
+  it("a coach cannot edit the client's own goal", async () => {
+    fake.seed({
+      "client_goals/g-own": { clientId: "client-1", coachId: "client-1", clientOwned: true, title: "x", status: "active" },
+    });
+    await expect(updateClientGoal({ goalId: "g-own", status: "completed" })).rejects.toThrow("Forbidden");
+    expect(fake.db.writes).toEqual([]);
   });
 });
 

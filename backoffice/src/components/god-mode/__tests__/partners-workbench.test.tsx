@@ -1,5 +1,6 @@
 /** @jest-environment jsdom */
 import "@testing-library/jest-dom";
+import userEvent from "@testing-library/user-event";
 import {
   act,
   fireEvent,
@@ -143,6 +144,8 @@ function savePartner() {
 }
 function mockEditor(saved = contact) {
   jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     if (init?.method === "POST" || init?.method === "PUT")
       return { partner: saved } as never;
     if (String(path).includes("link-options"))
@@ -193,7 +196,7 @@ function contacts(prefix: string, count = 20) {
 function openSection(name = "No organization yet") {
   fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${name}`) }));
 }
-function clickView(name: "Grid" | "Table") {
+function clickView(name: "Grid" | "Table" | "Board") {
   fireEvent.mouseDown(screen.getByRole("tab", { name }));
 }
 function pager() {
@@ -204,6 +207,54 @@ function expectHiddenText(text: string) {
   if (element) expect(element).not.toBeVisible();
   else expect(element).not.toBeInTheDocument();
 }
+
+it("adds Board next to Grid and Table, loads it deliberately, and remembers the selected view", async () => {
+  jest.mocked(sdkFetch).mockResolvedValue(page([contact]));
+  const first = renderWorkbench();
+  expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Grid", "Table", "Board"]);
+  expect(sdkFetch).not.toHaveBeenCalled();
+  clickView("Board");
+  await screen.findByRole("button", { name: "View partner details: Acme" });
+  expect(screen.getByRole("tab", { name: "Board" })).toHaveAttribute("aria-selected", "true");
+  expect(window.localStorage.getItem("golden-crow-partners-view")).toBe("board");
+  expect(jest.mocked(sdkFetch).mock.calls.filter(([path]) => String(path).includes("section="))).toHaveLength(0);
+  first.unmount();
+  renderWorkbench();
+  expect(await screen.findByRole("region", { name: "Partners board" })).toBeVisible();
+  expect(screen.getByRole("tab", { name: "Board" })).toHaveAttribute("aria-selected", "true");
+});
+
+it("opens the right detail panel from a Board ticket and keeps it open after moving the ticket", async () => {
+  const user = userEvent.setup();
+  let saved = contact;
+  jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+    if (init?.method === "PATCH") {
+      saved = { ...contact, boardStage: "contract" };
+      return { partner: saved } as never;
+    }
+    if (String(path).includes("/sent-email-log?")) return { emails: [], nextCursor: null } as never;
+    if (path === `${PARTNERS_API_ROUTE}/${contact.id}`) return { partner: saved } as never;
+    return page([saved]) as never;
+  });
+  renderWorkbench();
+  clickView("Board");
+  const ticket = await screen.findByRole("button", { name: "View partner details: Acme" });
+  expect(screen.getByRole("region", { name: "Partners board" })).not.toHaveAttribute("tabindex");
+  await user.click(ticket);
+  const detail = await screen.findByRole("complementary", { name: "Partner details" });
+  expect(await within(detail).findByText(contact.email)).toBeVisible();
+  expect(ticket).toHaveAttribute("aria-expanded", "true");
+  expect(screen.getByRole("region", { name: "Partners board" })).toHaveAttribute("tabindex", "0");
+  await user.click(screen.getByRole("button", { name: "Move partner: Acme" }));
+  await user.click(await screen.findByRole("menuitem", { name: "With contract" }));
+  await waitFor(() => expect(within(screen.getByRole("region", { name: "With contract" })).getByRole("button", {
+    name: "View partner details: Acme",
+  })).toHaveAttribute("aria-expanded", "true"));
+  expect(screen.getByRole("complementary", { name: "Partner details" })).toBeVisible();
+  await user.click(within(detail).getByRole("button", { name: "Hide details" }));
+  expect(screen.queryByRole("complementary", { name: "Partner details" })).not.toBeInTheDocument();
+  expect(screen.getByRole("region", { name: "Partners board" })).not.toHaveAttribute("tabindex");
+});
 
 it("keeps all section contents collapsed and does not fetch partners until a section opens", async () => {
   jest.mocked(sdkFetch).mockResolvedValue(page([]));
@@ -244,6 +295,8 @@ it("keeps all section contents collapsed and does not fetch partners until a sec
 
 it("opens one section at a time and fetches only the requested section", async () => {
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     const section = sectionRequest(String(path)).get("section");
     return page(
       section === "noOrganization"
@@ -282,6 +335,8 @@ it("replaces the visible 20-partner page and preserves independent section page 
   const first = contacts("First");
   const second = contacts("Second", 2);
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     const params = sectionRequest(String(path));
     if (params.get("section") === "organizationWithoutApp")
       return page([
@@ -355,6 +410,8 @@ it("paginates 20 mixed publisher contacts in one shared section and opens the se
   });
   const selectedIndividual = mixed[1];
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     const value = String(path);
     if (value.includes("/email-preview"))
       return {
@@ -609,6 +666,8 @@ it("preserves missing-link warnings and modal editing in table rows", async () =
 
 it("clears bulk selections when changing page or section", async () => {
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     const params = sectionRequest(String(path));
     if (params.get("section") === "organizationWithoutApp")
       return page([
@@ -662,6 +721,8 @@ it("clears bulk selections when changing page or section", async () => {
 it("bounds sparse section searches and continues filling the same page without dropping partners", async () => {
   const remaining = contacts("More", 19);
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     const params = sectionRequest(String(path));
     switch (params.get("cursor")) {
       case null:
@@ -698,6 +759,8 @@ it("bounds sparse section searches and continues filling the same page without d
 
 it("retains a completed sparse window when reopening sections or returning from the next page", async () => {
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     const params = sectionRequest(String(path));
     if (params.get("section") === "organizationWithoutApp")
       return page([
@@ -753,6 +816,8 @@ it("refreshes the current page's live app status without resetting table view or
   };
   let secondPageReads = 0;
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     const params = sectionRequest(String(path));
     if (params.get("cursor") === "page_two") {
       secondPageReads += 1;
@@ -873,6 +938,8 @@ it("cancels the active section request when it is collapsed and does not keep sc
 
 it("does not label a sparse section empty until its continuation is exhausted", async () => {
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     const cursor = sectionRequest(String(path)).get("cursor");
     return cursor === "scan_three"
       ? (page([]) as never)
@@ -1076,6 +1143,8 @@ it("keeps the modal and draft editable when saving fails", async () => {
 
 it("shows organizations and individual publishers in shared lazy sections and keeps unavailable links separate", async () => {
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     switch (sectionRequest(String(path)).get("section")) {
       case "organizationWithoutApp":
         return page([
@@ -1149,6 +1218,8 @@ it("shows organizations and individual publishers in shared lazy sections and ke
 
 it("links an organization and individual publisher together and preserves both when selecting an app", async () => {
   jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     if (init?.method === "POST") return { partner: withApp } as never;
     const params = new URL(`https://example.test${path}`).searchParams;
     const kind = params.get("kind");
@@ -1179,6 +1250,8 @@ it("links an organization and individual publisher together and preserves both w
 
 it("uses paginated app choices and derives the selected app's publisher", async () => {
   jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     if (init?.method === "POST") return { partner: withApp } as never;
     const params = new URL(`https://example.test${path}`).searchParams;
     return params.has("cursor")
@@ -1229,6 +1302,8 @@ it("uses paginated app choices and derives the selected app's publisher", async 
 
 it("finds an app by its exact ID and derives an individual publisher without losing the organization", async () => {
   jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     if (init?.method === "PUT") return { partner: withBoth } as never;
     if (!String(path).includes("link-options"))
       return { partner: withOrganization } as never;
@@ -1393,6 +1468,8 @@ it("distinguishes publisher selections when organization and individual IDs coin
     linkedIndividualPublisherSnapshot: sharedIndividual,
   };
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     if (!String(path).includes("link-options"))
       return { partner: saved } as never;
     const kind = new URL(`https://example.test${path}`).searchParams.get(
@@ -1431,6 +1508,8 @@ it("ignores a late app lookup after navigating to a different publisher tab", as
     completeLookup = resolve;
   });
   jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (String(path).includes("/sent-email-log?") && String(path).includes("partnerId="))
+      return { emails: [], nextCursor: null } as never;
     const params = new URL(`https://example.test${path}`).searchParams;
     if (params.has("id")) return delayed as never;
     return {

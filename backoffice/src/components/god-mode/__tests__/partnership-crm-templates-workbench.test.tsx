@@ -85,6 +85,7 @@ function installDefaultUsageResponse() {
     ) {
       return { usage };
     }
+    if (path === "/admin/partnership-crm/templates/import") return result;
     if (result && typeof result === "object" && !("usage" in result)) {
       return { ...result, usage };
     }
@@ -370,7 +371,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     });
     await waitFor(() => expect(progress.getAttribute("aria-valuenow")).toBe("100"));
     expect(screen.getByRole("button", { name: "Load templates" }).hasAttribute("disabled")).toBe(true);
-    expect(screen.getByRole("button", { name: "Import CSV" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "Import CSV" }).hasAttribute("disabled")).toBe(false);
     expect(
       screen.getByText(
         "Daily limit reached. Fresh Plantillas data and actions are unavailable until reset.",
@@ -494,7 +495,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     ).toBe(true);
     expect(
       screen.getByRole("button", { name: "Import CSV" }).hasAttribute("disabled"),
-    ).toBe(true);
+    ).toBe(false);
     await user.click(
       screen.getByRole("button", { name: "Retry verification" }),
     );
@@ -2236,7 +2237,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     ).toBeNull();
     expect(
       within(dialog).getByRole("button", {
-        name: "Process next 5 rows",
+        name: "Import all",
       }),
     ).toBeTruthy();
     await user.click(
@@ -2260,7 +2261,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     ).toBeNull();
     expect(
       within(currentRow).getByRole("button", {
-        name: "Process next 5 rows",
+        name: "Import remaining in sequence",
       }),
     ).toBeTruthy();
     await waitFor(() => {
@@ -2291,7 +2292,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
 
     await user.click(
       within(dialog).getByRole("button", {
-        name: "Process next 5 rows",
+        name: "Import remaining in sequence",
       }),
     );
 
@@ -2369,106 +2370,71 @@ describe("PartnershipCrmTemplateBrowser", () => {
     ).toBeUndefined();
   });
 
-  it("keeps the completed import when the next row is locally blocked at the limit", async () => {
-    const user = userEvent.setup();
-    const resetAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-    let importCalls = 0;
-    jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
-      if (path === "/admin/partnership-crm/daily-usage/page-load") {
-        return {
-          usage: {
-            surface: "plantillas",
-            used: 98,
-            limit: 100,
-            percentage: 98,
-            remaining: 2,
-            resetAt,
-            locked: false,
-          },
-        };
-      }
-      if (
-        String(path).startsWith("/admin/partnership-crm/templates?") &&
-        !init?.method
-      ) {
-        return {
-          templates: [template],
-          nextCursor: undefined,
-          usage: {
-            surface: "plantillas",
-            used: 99,
-            limit: 100,
-            percentage: 99,
-            remaining: 1,
-            resetAt,
-            locked: false,
-          },
-        };
-      }
-      if (
-        path === "/admin/partnership-crm/templates/import" &&
-        init?.method === "POST"
-      ) {
-        importCalls += 1;
-        if (importCalls > 1) {
-          throw new Error("second import must not reach sdkFetch");
+  it.each(["all", "remaining"] as const)(
+    "imports all 90 templates sequentially from %s without five-row pauses or a daily-budget gate",
+    async (mode) => {
+      const user = userEvent.setup();
+      let activeRequests = 0;
+      let maximumActiveRequests = 0;
+      let releaseFirstRequest: (() => void) | undefined;
+      const submitted: PartnershipCrmTemplateInput[] = [];
+      jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+        if (path === "/admin/partnership-crm/daily-usage/page-load") {
+          return { usage: { surface: "plantillas", used: 100, limit: 100,
+            percentage: 100, remaining: 0, locked: true,
+            resetAt: new Date(Date.now() + 86400000).toISOString() } };
         }
-        const body = JSON.parse(String(init.body)) as PartnershipCrmTemplateInput;
-        return {
-          action: "created",
-          template: { ...template, ...body, id: "created-first-row" },
-          usage: {
-            surface: "plantillas",
-            used: 100,
-            limit: 100,
-            percentage: 100,
-            remaining: 0,
-            resetAt,
-            locked: false,
-          },
-        };
+        if (path === "/admin/partnership-crm/templates/import" && init?.method === "POST") {
+          const body = JSON.parse(String(init.body)) as PartnershipCrmTemplateInput;
+          submitted.push(body);
+          activeRequests += 1;
+          maximumActiveRequests = Math.max(maximumActiveRequests, activeRequests);
+          await Promise.resolve();
+          if (mode === "remaining" && submitted.length === 1) {
+            await new Promise<void>(resolve => { releaseFirstRequest = resolve; });
+          }
+          activeRequests -= 1;
+          return { action: "created", template: { ...template, ...body, id: `created-${body.name}` } };
+        }
+        throw new Error(`Unexpected request: ${path}`);
+      });
+      renderWithProviders(<PartnershipCrmTemplateBrowser />);
+      await screen.findByText("100 / 100 · 100%");
+      expect(screen.getByRole("button", { name: "Load templates" })).toBeDisabled();
+      await user.click(screen.getByRole("button", { name: "Import CSV" }));
+      const dialog = await screen.findByRole("dialog");
+      const csv = [
+        "name,audience,category,subject,body,status,is_favorite,notes",
+        ...Array.from({ length: 90 }, (_, index) => `E${String(index + 1).padStart(2, "0")},organizations,org_genomics_laboratories,Subject ${index + 1},Body ${index + 1},active,false,`),
+      ].join("\n");
+      const file = new File([csv], "E01-E90.csv", { type: "text/csv" });
+      Object.defineProperty(file, "text", { value: async () => csv });
+      await user.upload(within(dialog).getByLabelText("CSV file"), file);
+      expect(submitted).toHaveLength(0);
+      if (mode === "remaining") {
+        await user.click(within(dialog).getByRole("button", { name: "Evaluate one by one" }));
       }
-      throw new Error(`Unexpected request: ${String(path)}`);
-    });
-
-    await renderLoadedBrowser();
-    await screen.findByText("99 / 100 · 99%");
-    await user.click(screen.getByRole("button", { name: "Import CSV" }));
-    const dialog = await screen.findByRole("dialog");
-    const csv = [
-      "name,category,subject,body,status,is_favorite,notes",
-      '"First known import","org_genetic_testing_laboratories","First","First body","active","false",""',
-      '"Blocked import","org_genetic_testing_laboratories","Second","Second body","active","false",""',
-    ].join("\n");
-    const file = new File([csv], "limit-plantillas.csv", { type: "text/csv" });
-    Object.defineProperty(file, "text", { value: async () => csv });
-    await user.upload(within(dialog).getByLabelText("CSV file"), file);
-
-    await user.click(
-      within(dialog).getByRole("button", { name: "Process next 5 rows" }),
-    );
-
-    expect(
-      await within(dialog).findByText(
-        "This template was not sent because the daily limit was reached or usage could not be verified.",
-      ),
-    ).toBeTruthy();
-    expect(importCalls).toBe(1);
-    expect(within(dialog).getAllByText("Blocked import").length).toBeGreaterThan(0);
-    const cached = JSON.parse(
-      window.sessionStorage.getItem(
-        "golden-crow-plantillas-summary-cache-v1",
-      ) ?? "null",
-    ) as { page?: { templates?: PartnershipCrmTemplateRecord[] } } | null;
-    expect(cached?.page?.templates).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: "created-first-row" }),
-      ]),
-    );
-    expect(
-      cached?.page?.templates?.find((entry) => entry.id === "tpl-1"),
-    ).toBeTruthy();
-  });
+      await user.click(within(dialog).getByRole("button", {
+        name: mode === "all" ? "Import all" : "Import remaining in sequence",
+      }));
+      if (mode === "remaining") {
+        await waitFor(() => expect(submitted).toHaveLength(1));
+        await user.click(within(dialog).getAllByRole("button", { name: "Pause after current row" })[0]);
+        await act(async () => { releaseFirstRequest?.(); });
+        await within(dialog).findByText("Automatic import paused. Review the current row, then continue with pending rows when ready.");
+        expect(submitted).toHaveLength(1);
+        await user.click(within(dialog).getByRole("button", { name: "Import remaining in sequence" }));
+      }
+      expect(await within(dialog).findByText("Template import finished")).toBeVisible();
+      expect(submitted.map(row => row.name)).toEqual(
+        Array.from({ length: 90 }, (_, index) => `E${String(index + 1).padStart(2, "0")}`),
+      );
+      expect(maximumActiveRequests).toBe(1);
+      expect(screen.getByText("100 / 100 · 100%")).toBeInTheDocument();
+      expect(within(dialog).queryByText(/next 5|at most five/)).toBeNull();
+      expect(within(dialog).getByRole("button", { name: "Done" })).toBeVisible();
+    },
+  );
 
   it("does not scan the template corpus when a CSV is selected", async () => {
     const user = userEvent.setup();
@@ -2491,7 +2457,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     await waitFor(() => {
       expect(
         within(dialog)
-          .getByRole("button", { name: "Process next 5 rows" })
+          .getByRole("button", { name: "Import all" })
           .getAttribute("disabled"),
       ).toBeNull();
     });
@@ -2739,14 +2705,14 @@ describe("PartnershipCrmTemplateBrowser", () => {
     await waitFor(() => {
       expect(
         within(dialog)
-          .getByRole("button", { name: "Process next 5 rows" })
+          .getByRole("button", { name: "Import all" })
           .getAttribute("disabled"),
       ).toBeNull();
     });
 
     await user.click(
       within(dialog).getByRole("button", {
-        name: "Process next 5 rows",
+        name: "Import all",
       }),
     );
 
@@ -2791,14 +2757,14 @@ describe("PartnershipCrmTemplateBrowser", () => {
     await waitFor(() => {
       expect(
         within(dialog).getByRole("button", {
-          name: "Process next 5 rows",
+          name: "Import remaining in sequence",
         }),
       ).toBeTruthy();
     });
 
     await user.click(
       within(dialog).getByRole("button", {
-        name: "Process next 5 rows",
+        name: "Import remaining in sequence",
       }),
     );
 

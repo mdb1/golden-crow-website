@@ -81,13 +81,17 @@ export function RecordPaymentDialog({ clientId, clientName, billing, todayCivil,
   // key is minted only on open and after a successful record.
   const [requestId, setRequestId] = useState(newPaymentRequestId);
 
-  function handleOpenChange(next: boolean) {
-    if (next) {
+  // Rearmar el formulario en CADA apertura. El padre lo abre con `open`, así que Radix nunca
+  // llama `onOpenChange(true)`: resetear ahí dejaba los datos de cuando cargó la página (tras
+  // «Registrar pago», «Cambiar plan» traía el vencimiento VIEJO y al guardar lo volvía a escribir).
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
       setForm(initialState(billing, todayCivil));
       setError(null);
       setRequestId(newPaymentRequestId());
     }
-    onOpenChange(next);
   }
 
   function coversLabelFor(kind: PaymentCoversKind): string {
@@ -140,7 +144,7 @@ export function RecordPaymentDialog({ clientId, clientName, billing, todayCivil,
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg" data-testid="record-payment-dialog">
         <DialogHeader>
           <DialogTitle>{t("record")}</DialogTitle>

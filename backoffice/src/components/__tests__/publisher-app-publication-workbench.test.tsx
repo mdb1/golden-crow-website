@@ -24,7 +24,7 @@ const config: PublisherAppConfig = {
   createdByUserId: "publisher-1", updatedByUserId: "publisher-1",
 };
 const signed: PublisherAppConfig = {
-  ...config, status: "active_waiting_for_payment", termsVersion: "2026-10-31",
+  ...config, status: "active_waiting_for_payment", termsVersion: "2026-11-01",
   termsAcceptedAt: "2026-11-09T12:00:00.000Z", termsAcceptedByUserId: "publisher-1", runtimeRevision: 2,
 };
 function renderPublication(props: Partial<React.ComponentProps<typeof PublisherAppPublicationWorkbench>> = {}) {
@@ -152,7 +152,7 @@ describe("publisher app publication signature", () => {
     ).toHaveAttribute("aria-expanded", "true");
     expect(termsFrame).toHaveAttribute(
       "src",
-      "/PocketGenesSDK_Terminos_y_Condiciones.pdf#page=1&view=FitH&toolbar=0&navpanes=0",
+      "/PocketGenesSDK_Terminos_y_Condiciones_Argentina.pdf#page=1&view=FitH&toolbar=0&navpanes=0",
     );
     expect(termsFrame).toHaveAttribute("scrolling", "yes");
     expect(termsFrame.parentElement).toHaveClass(
@@ -162,14 +162,14 @@ describe("publisher app publication signature", () => {
     );
     expect(screen.getByRole("link", { name: /Abrir PDF/i })).toHaveAttribute(
       "href",
-      "/PocketGenesSDK_Terminos_y_Condiciones.pdf",
+      "/PocketGenesSDK_Terminos_y_Condiciones_Argentina.pdf",
     );
     expect(screen.queryByText(/El pedido de/i)).toBeNull();
     expect(screen.queryByText(/Anexo A · Rango razonable de uso/i)).toBeNull();
     const termsPdfPath = join(
       process.cwd(),
       "public",
-      "PocketGenesSDK_Terminos_y_Condiciones.pdf",
+      "PocketGenesSDK_Terminos_y_Condiciones_Argentina.pdf",
     );
     expect(existsSync(termsPdfPath)).toBe(true);
     expect(readFileSync(termsPdfPath).subarray(0, 5).toString("ascii")).toBe(

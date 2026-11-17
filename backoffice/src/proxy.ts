@@ -59,6 +59,7 @@ const PUBLISHER_PORTAL_PUBLIC_PATHS = new Set([
 // and the iframe renders that page instead of PDF bytes.
 const PUBLIC_STATIC_DOCUMENT_PATHS = new Set([
   "/PocketGenesSDK_Terminos_y_Condiciones.pdf",
+  "/PocketGenesSDK_Terminos_y_Condiciones_Argentina.pdf",
   "/Pocket_Genes_Guia_App_Personalizada.pdf",
 ]);
 
@@ -297,7 +298,7 @@ export const config = {
     // Keep them outside this browser-surface gate: a publisher-portal token
     // reaching the main callback is intentionally redirected to
     // /publisher-portal/home, which turns an expected JSON response into HTML.
-    "/((?!login|access-denied|botfarm|api/auth|api/sdk|api/publisher-app|open-api|_next/static|_next/image|favicon.ico|PocketGenesSDK_Terminos_y_Condiciones\\.pdf|Pocket_Genes_Guia_App_Personalizada\\.pdf|gc-fitness|api/gc-fitness|patient-portal|pgflex|publisher-portal|f/|\\.well-known|__).*)",
+    "/((?!login|access-denied|botfarm|api/auth|api/sdk|api/publisher-app|open-api|_next/static|_next/image|favicon.ico|PocketGenesSDK_Terminos_y_Condiciones\\.pdf|PocketGenesSDK_Terminos_y_Condiciones_Argentina\\.pdf|Pocket_Genes_Guia_App_Personalizada\\.pdf|gc-fitness|api/gc-fitness|patient-portal|pgflex|publisher-portal|f/|\\.well-known|__).*)",
     "/patient-portal/:path*",
     "/pgflex/:path*",
     "/publisher-portal/:path*",
