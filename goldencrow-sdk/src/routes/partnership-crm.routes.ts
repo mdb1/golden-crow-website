@@ -253,6 +253,12 @@ export async function partnershipCrmRoutes(
   const pageLoadRoute = "/admin/partnership-crm/daily-usage/page-load";
   const snapshotRoute = "/admin/partnership-crm/snapshot";
   const snapshotRefreshRoute = "/admin/partnership-crm/snapshot/refresh";
+  const csvImportRoutes = new Set([
+    "/admin/partnership-crm/import-preview",
+    "/admin/partnership-crm/import",
+    "/admin/partnership-crm/professionals/import-preview",
+    "/admin/partnership-crm/professionals/import",
+  ]);
 
   f.addHook("onRequest", async (request, reply) => {
     if (!request.adminContext) {
@@ -270,7 +276,8 @@ export async function partnershipCrmRoutes(
       routeUrl === usageLookupRoute ||
       routeUrl === pageLoadRoute ||
       routeUrl === snapshotRoute ||
-      routeUrl === snapshotRefreshRoute
+      routeUrl === snapshotRefreshRoute ||
+      (request.method === "POST" && csvImportRoutes.has(routeUrl))
     ) {
       return;
     }

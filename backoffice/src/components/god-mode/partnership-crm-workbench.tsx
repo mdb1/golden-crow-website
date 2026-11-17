@@ -622,6 +622,18 @@ function clearCachedPlantillasSummary() {
   }
 }
 
+function isCrmCsvImportRequest(path: string, init?: RequestInit) {
+  return (
+    init?.method?.toUpperCase() === "POST" &&
+    [
+      "/admin/partnership-crm/import-preview",
+      "/admin/partnership-crm/import",
+      "/admin/partnership-crm/professionals/import-preview",
+      "/admin/partnership-crm/professionals/import",
+    ].includes(path)
+  );
+}
+
 function crmMutationTargetKind(
   path: string,
   init?: RequestInit,
@@ -811,7 +823,6 @@ function crmLocalText(language: AppLanguage, key: string) {
     "Data changed. Refresh when ready.":
       "Los datos cambiaron. Actualizá cuando quieras.",
     "See 20 more": "Ver 20 más",
-    "Process next 5": "Procesar las siguientes 5",
     "View message": "Ver mensaje",
     "Hide message": "Ocultar mensaje",
     "Unable to load message.": "No se pudo cargar el mensaje.",
@@ -824,8 +835,6 @@ function crmLocalText(language: AppLanguage, key: string) {
       "Los datos de actividad cambiaron. Usá Actualizar para cargar el registro actual.",
     "The template request outcome is unknown. Reload templates deliberately before continuing.":
       "El resultado de la solicitud de plantilla es desconocido. Volvé a cargar las plantillas deliberadamente antes de continuar.",
-    "Processes at most five rows sequentially. Continue manually for the next batch.":
-      "Procesa como máximo cinco filas en secuencia. Continuá manualmente con el siguiente lote.",
     "The request was not sent because the CRM daily limit was reached.":
       "La solicitud no se envió porque se alcanzó el límite diario del CRM.",
     "The request was not sent because CRM usage could not be verified.":
@@ -7801,7 +7810,7 @@ function ImportRowReviewCard({
                 className="w-full border-blue-300 text-blue-700 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-800 dark:border-blue-300/35 dark:text-blue-100 dark:hover:bg-blue-500/10 sm:w-auto"
               >
                 <ChevronRight className="h-4 w-4" />
-                {crmLocalText(language, "Process next 5")}
+                {t("Import remaining in sequence")}
               </Button>
             )}
             <Button
@@ -7849,7 +7858,7 @@ function ImportRowReviewCard({
                 className="w-full border-blue-300 text-blue-700 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-800 dark:border-blue-300/35 dark:text-blue-100 dark:hover:bg-blue-500/10 sm:w-auto"
               >
                 <ChevronRight className="h-4 w-4" />
-                {crmLocalText(language, "Process next 5")}
+                {t("Import remaining in sequence")}
               </Button>
             )}
             <Button
@@ -8032,13 +8041,12 @@ function ImportDialog({
                   <FileUp className="h-5 w-5" />
                   {pending
                     ? t("Importing...")
-                    : crmLocalText(language, "Process next 5")}
+                    : t("Import all")}
                 </Button>
               </div>
               <p className="mt-3 text-xs text-muted-foreground">
-                {crmLocalText(
-                  language,
-                  "Processes at most five rows sequentially. Continue manually for the next batch.",
+                {t(
+                  "Import all previews and commits one row at a time while accepting every valid row.",
                 )}
               </p>
             </section>
@@ -8516,7 +8524,8 @@ export function PartnershipCrmWorkbench() {
   }, [acceptDailyUsage, markDailyUsageStale]);
 
   async function crmFetch<T>(path: string, init?: RequestInit): Promise<T> {
-    if (freshActionsBlockedRef.current || freshActionsDisabled) {
+    const csvImport = isCrmCsvImportRequest(path, init);
+    if (!csvImport && (freshActionsBlockedRef.current || freshActionsDisabled)) {
       throw new CrmRequestNotSentError(
         crmLocalText(
           language,
@@ -8529,18 +8538,21 @@ export function PartnershipCrmWorkbench() {
       );
     }
 
-    const eventId = createPartnershipCrmUsageEventId();
     try {
-      const result = await sdkFetch<T & CrmUsageResponse>(path, {
+      const result = await sdkFetch<T & Partial<CrmUsageResponse>>(path, {
         ...init,
-        headers: crmUsageHeaders(eventId, init?.headers),
+        headers: csvImport
+          ? init?.headers
+          : crmUsageHeaders(createPartnershipCrmUsageEventId(), init?.headers),
       });
-      if (isValidCrmDailyUsage(result?.usage)) {
-        acceptDailyUsage(result.usage);
-      } else {
-        freshActionsBlockedRef.current = true;
-        markDailyUsageStale();
-        setDailyUsageVerificationFailures((current) => current + 1);
+      if (!csvImport) {
+        if (isValidCrmDailyUsage(result?.usage)) {
+          acceptDailyUsage(result.usage);
+        } else {
+          freshActionsBlockedRef.current = true;
+          markDailyUsageStale();
+          setDailyUsageVerificationFailures((current) => current + 1);
+        }
       }
       const changedTargetKind = crmMutationTargetKind(path, init);
       if (changedTargetKind) {
@@ -8635,13 +8647,15 @@ export function PartnershipCrmWorkbench() {
         });
         sentEmailDetailsRef.current.clear();
       }
-      const usage = crmUsageFromError(error);
-      if (usage) {
-        acceptDailyUsage(usage);
-      } else {
-        freshActionsBlockedRef.current = true;
-        markDailyUsageStale();
-        setDailyUsageVerificationFailures((current) => current + 1);
+      if (!csvImport) {
+        const usage = crmUsageFromError(error);
+        if (usage) {
+          acceptDailyUsage(usage);
+        } else {
+          freshActionsBlockedRef.current = true;
+          markDailyUsageStale();
+          setDailyUsageVerificationFailures((current) => current + 1);
+        }
       }
       throw error;
     }
@@ -9164,7 +9178,6 @@ export function PartnershipCrmWorkbench() {
     setDeleteTarget(null);
     setDeleteSelectedOpen(false);
     setCompatibilityDialog(null);
-    setInteractiveAutoImportEnabled(false);
   }, [freshActionsDisabled]);
 
   useEffect(() => {
@@ -10160,13 +10173,8 @@ export function PartnershipCrmWorkbench() {
       showReadyToast?: boolean;
     } = {},
   ) {
-    const requestedPreviewCount = Math.max(
-      options.targetPreviewCount ?? session.previewedRows + 5,
-      0,
-    );
     const targetPreviewCount = Math.min(
-      requestedPreviewCount,
-      session.previewedRows + 5,
+      Math.max(options.targetPreviewCount ?? session.sourceRows.length, 0),
       session.sourceRows.length,
     );
 
@@ -10418,10 +10426,9 @@ export function PartnershipCrmWorkbench() {
     let failedImportIndex = working.activeRowIndex;
 
     try {
-      const batchEnd = Math.min(working.nextImportIndex + 5, working.totalRows);
       for (
         let rowIndex = working.nextImportIndex;
-        rowIndex < batchEnd;
+        rowIndex < working.totalRows;
         rowIndex += 1
       ) {
         failedImportIndex = rowIndex;
@@ -10439,24 +10446,7 @@ export function PartnershipCrmWorkbench() {
         working = imported;
       }
 
-      if (working.nextImportIndex >= working.totalRows) {
-        completeCrmImportSession(working);
-      } else {
-        saveImportSession({
-          ...working,
-          status: "paused",
-          activeRowIndex: working.nextImportIndex,
-          updatedAt: new Date().toISOString(),
-        });
-        setToast({
-          id: Date.now(),
-          tone: "success",
-          message:
-            language === "es"
-              ? "Se procesaron 5 filas. Elegí continuar para las siguientes."
-              : "Processed 5 rows. Choose continue for the next batch.",
-        });
-      }
+      completeCrmImportSession(working);
     } catch (error) {
       setInteractiveAutoImportEnabled(false);
       const lastErrorDetail = buildCrmImportErrorDetail({
@@ -10584,11 +10574,10 @@ export function PartnershipCrmWorkbench() {
     let failedImportIndex = working.activeRowIndex;
 
     try {
-      const batchEnd = Math.min(working.nextImportIndex + 5, working.totalRows);
       while (
         interactiveAutoImportRef.current &&
         interactiveAutoImportRunIdRef.current === runId &&
-        working.nextImportIndex < batchEnd
+        working.nextImportIndex < working.totalRows
       ) {
         const rowIndex = working.nextImportIndex;
         failedImportIndex = rowIndex;
@@ -10637,14 +10626,6 @@ export function PartnershipCrmWorkbench() {
         status: "paused",
         activeRowIndex: working.nextImportIndex,
         updatedAt: new Date().toISOString(),
-      });
-      setToast({
-        id: Date.now(),
-        tone: "success",
-        message:
-          language === "es"
-            ? "Se procesaron hasta 5 filas. Elegí continuar para el siguiente lote."
-            : "Processed up to 5 rows. Choose continue for the next batch.",
       });
     } catch (error) {
       setInteractiveAutoImportEnabled(false);
@@ -11472,7 +11453,6 @@ export function PartnershipCrmWorkbench() {
             variant="outline"
             size="sm"
             onClick={() => setImportOpen(true)}
-            disabled={freshActionsDisabled}
           >
             <FileUp className="h-3.5 w-3.5" />
             {t("Import CSV")}
@@ -12607,7 +12587,7 @@ export function PartnershipCrmWorkbench() {
 
       <ImportDialog
         open={importOpen}
-        pending={importPending || freshActionsDisabled}
+        pending={importPending}
         targetKind={targetKind}
         session={importSession}
         preview={importPreview}

@@ -16,6 +16,7 @@ const mockImportPartnershipCrmProfessionals = jest.fn();
 const mockImportPartnershipCrmTemplate = jest.fn();
 const mockListPartnershipCrmSentEmailLog = jest.fn();
 const mockListPartnershipCrmTemplates = jest.fn();
+const mockPreviewPartnershipCrmImport = jest.fn();
 const mockPreviewPartnershipCrmProfessionalImport = jest.fn();
 const mockUpdatePartnershipCrmOrganizationFavorite = jest.fn();
 const mockUpdatePartnershipCrmOrganizationStatus = jest.fn();
@@ -97,7 +98,7 @@ jest.mock("../repositories/partnership-crm.repository.js", () => ({
   listPartnershipCrmProfessionals: jest.fn(),
   listPartnershipCrmSentEmailLog: mockListPartnershipCrmSentEmailLog,
   listPartnershipCrmTemplates: mockListPartnershipCrmTemplates,
-  previewPartnershipCrmImport: jest.fn(),
+  previewPartnershipCrmImport: mockPreviewPartnershipCrmImport,
   previewPartnershipCrmProfessionalImport:
     mockPreviewPartnershipCrmProfessionalImport,
   refreshPartnershipCrmSnapshot: mockRefreshPartnershipCrmSnapshot,
@@ -236,6 +237,10 @@ describe("partnership CRM routes", () => {
         missingEmail: 0,
         duplicates: 0,
       },
+    });
+    mockPreviewPartnershipCrmImport.mockResolvedValue({
+      rows: [],
+      summary: { total: 0, valid: 0, invalid: 0, missingEmail: 0, duplicates: 0 },
     });
     mockCreatePartnershipCrmProfessional.mockResolvedValue({
       id: "pro-1",
@@ -383,6 +388,42 @@ describe("partnership CRM routes", () => {
     expect(response.statusCode).toBe(status);
     expect(mockAddCrmTargetAsPartner).not.toHaveBeenCalled();
     await fastify.close();
+  });
+
+  it.each([
+    ["/admin/partnership-crm/import-preview", "organizations", mockPreviewPartnershipCrmImport, 200],
+    ["/admin/partnership-crm/import", "organizations", mockImportPartnershipCrmOrganizations, 201],
+    ["/admin/partnership-crm/professionals/import-preview", "professionals", mockPreviewPartnershipCrmProfessionalImport, 200],
+    ["/admin/partnership-crm/professionals/import", "professionals", mockImportPartnershipCrmProfessionals, 201],
+  ] as const)("exempts CSV endpoint %s from daily usage while preserving GOD MODE access", async (url, key, repository, status) => {
+    const { PartnershipCrmUsageError } = await import("../repositories/partnership-crm.repository.js");
+    mockConsumePartnershipCrmDailyUsage.mockRejectedValue(
+      new PartnershipCrmUsageError("Daily limit reached", 429, "CRM_DAILY_LIMIT_REACHED"),
+    );
+    const row = { rowId: "row-1", name: "Genome Lab" };
+    const fastify = await buildTestServer();
+    const response = await fastify.inject({
+      method: "POST",
+      url,
+      payload: { [key]: [row] },
+    });
+    expect(response.statusCode).toBe(status);
+    expect(response.json()).not.toHaveProperty("usage");
+    expect(repository).toHaveBeenCalledWith(bootstrapContext, [row]);
+    expect(mockConsumePartnershipCrmDailyUsage).not.toHaveBeenCalled();
+    await fastify.close();
+
+    repository.mockClear();
+    for (const [context, deniedStatus] of [
+      [null, 401],
+      [{ ...bootstrapContext, isBootstrap: false }, 403],
+    ] as const) {
+      const deniedServer = await buildTestServer(context);
+      const denied = await deniedServer.inject({ method: "POST", url, payload: { [key]: [row] } });
+      expect(denied.statusCode).toBe(deniedStatus);
+      expect(repository).not.toHaveBeenCalled();
+      await deniedServer.close();
+    }
   });
 
   it("returns authoritative usage without headers or consuming quota", async () => {
