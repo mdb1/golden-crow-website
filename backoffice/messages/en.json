@@ -3556,8 +3556,8 @@
       "emptyDeletions": "No deletions for these filters.",
       "emptyEvents": "No events for these filters.",
       "viewDetail": "view detail",
-      "today": "Today · {day}",
-      "yesterday": "Yesterday · {day}",
+      "today": "Today",
+      "yesterday": "Yesterday",
       "noDate": "no date",
       "paging": {
         "label": "Feed pages",
@@ -3775,7 +3775,47 @@
         "coachAllowlistEdited": "Edited the coach list",
         "appConfigChanged": "Changed the app configuration"
       },
-      "coachOf": "coach:"
+      "coachOf": "coach:",
+      "groups": {
+        "workoutsDeleted": "{count, plural, one {Deleted # workout} other {Deleted # workouts}}",
+        "workoutsAssigned": "{count, plural, one {Assigned # workout} other {Assigned # workouts}}",
+        "workoutsMoved": "{count, plural, one {Moved # workout to another day} other {Moved # workouts to another day}}",
+        "workoutsUpdated": "{count, plural, one {Updated # scheduled workout} other {Updated # scheduled workouts}}",
+        "habitsDeleted": "{count, plural, one {Deleted # habit} other {Deleted # habits}}",
+        "habitsAssigned": "{count, plural, one {Assigned # habit} other {Assigned # habits}}",
+        "exercisesDeleted": "{count, plural, one {Deleted # exercise} other {Deleted # exercises}}",
+        "exercisesCreated": "{count, plural, one {Created # exercise} other {Created # exercises}}",
+        "routinesDeleted": "{count, plural, one {Deleted # routine} other {Deleted # routines}}",
+        "routinesCreated": "{count, plural, one {Created # routine} other {Created # routines}}",
+        "andMore": "{count, plural, one {and # more} other {and # more}}",
+        "moreNames": "+{count}",
+        "showDates": "Show dates",
+        "showItems": "{count, plural, one {Show # action} other {Show all # actions}}",
+        "dates": "{count, plural, one {# date} other {# dates}}",
+        "writtenAt": "written {time}",
+        "span": "between {from} and {to}"
+      },
+      "cadence": {
+        "daily": "every day",
+        "weekly": "weekly ({days})",
+        "weeklyAny": "weekly",
+        "everyN": "every {n} days",
+        "monthly": "monthly (day {day})",
+        "monthlyAny": "monthly"
+      },
+      "density": {
+        "label": "Density",
+        "compact": "Compact view",
+        "comfortable": "Comfortable view"
+      },
+      "empty": {
+        "hint": "Try widening the date range or clearing the filters.",
+        "clear": "Clear filters"
+      },
+      "filtersBar": {
+        "toggle": "Filters",
+        "active": "{count, plural, =0 {no filters} one {# active filter} other {# active filters}}"
+      }
     },
     "calendar": {
       "loadError": "Could not load that month.",

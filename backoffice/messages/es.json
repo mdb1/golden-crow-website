@@ -3556,8 +3556,8 @@
       "emptyDeletions": "No hay eliminaciones para estos filtros.",
       "emptyEvents": "No hay eventos para estos filtros.",
       "viewDetail": "ver detalle",
-      "today": "Hoy · {day}",
-      "yesterday": "Ayer · {day}",
+      "today": "Hoy",
+      "yesterday": "Ayer",
       "noDate": "sin fecha",
       "paging": {
         "label": "Páginas del feed",
@@ -3775,7 +3775,47 @@
         "coachAllowlistEdited": "Editó la lista de coaches",
         "appConfigChanged": "Cambió la configuración de la app"
       },
-      "coachOf": "coach:"
+      "coachOf": "coach:",
+      "groups": {
+        "workoutsDeleted": "{count, plural, one {Eliminó # workout} other {Eliminó # workouts}}",
+        "workoutsAssigned": "{count, plural, one {Asignó # workout} other {Asignó # workouts}}",
+        "workoutsMoved": "{count, plural, one {Movió # workout de día} other {Movió # workouts de día}}",
+        "workoutsUpdated": "{count, plural, one {Actualizó # workout agendado} other {Actualizó # workouts agendados}}",
+        "habitsDeleted": "{count, plural, one {Eliminó # hábito} other {Eliminó # hábitos}}",
+        "habitsAssigned": "{count, plural, one {Asignó # hábito} other {Asignó # hábitos}}",
+        "exercisesDeleted": "{count, plural, one {Eliminó # ejercicio} other {Eliminó # ejercicios}}",
+        "exercisesCreated": "{count, plural, one {Creó # ejercicio} other {Creó # ejercicios}}",
+        "routinesDeleted": "{count, plural, one {Eliminó # rutina} other {Eliminó # rutinas}}",
+        "routinesCreated": "{count, plural, one {Creó # rutina} other {Creó # rutinas}}",
+        "andMore": "{count, plural, one {y # más} other {y # más}}",
+        "moreNames": "+{count}",
+        "showDates": "Ver fechas",
+        "showItems": "{count, plural, one {Ver # acción} other {Ver las # acciones}}",
+        "dates": "{count, plural, one {# fecha} other {# fechas}}",
+        "writtenAt": "escrito {time}",
+        "span": "entre {from} y {to}"
+      },
+      "cadence": {
+        "daily": "todos los días",
+        "weekly": "semanal ({days})",
+        "weeklyAny": "semanal",
+        "everyN": "cada {n} días",
+        "monthly": "mensual (día {day})",
+        "monthlyAny": "mensual"
+      },
+      "density": {
+        "label": "Densidad",
+        "compact": "Vista compacta",
+        "comfortable": "Vista cómoda"
+      },
+      "empty": {
+        "hint": "Probá ampliar el rango de fechas o limpiar los filtros.",
+        "clear": "Limpiar filtros"
+      },
+      "filtersBar": {
+        "toggle": "Filtros",
+        "active": "{count, plural, =0 {sin filtros} one {# filtro activo} other {# filtros activos}}"
+      }
     },
     "calendar": {
       "loadError": "No se pudo cargar ese mes.",

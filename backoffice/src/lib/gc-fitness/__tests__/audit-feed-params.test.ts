@@ -1,5 +1,10 @@
 // #503 — the audit page URL ⇄ feed filters (shared by the page and the CSV export).
-import { auditFeedFilters, auditFeedQuery, parseAuditFeedParams } from "../audit-feed-params";
+import {
+  activeAuditFilterCount,
+  auditFeedFilters,
+  auditFeedQuery,
+  parseAuditFeedParams,
+} from "../audit-feed-params";
 
 describe("audit feed params", () => {
   it("reads the form, keeps the cursor and passes the page's zone for the date range", () => {
@@ -35,5 +40,25 @@ describe("audit feed params", () => {
     expect(q.getAll("cat")).toEqual(["habit"]);
     expect(q.get("before")).toBe("CUR");
     expect(new URLSearchParams(auditFeedQuery(p)).has("before")).toBe(false);
+  });
+
+  it("keeps the compact density across links, and only shows it when asked", () => {
+    const compact = parseAuditFeedParams({ density: "compact", actor: "ana" });
+    expect(compact.density).toBe("compact");
+    expect(new URLSearchParams(auditFeedQuery(compact, { before: "CUR" })).get("density")).toBe("compact");
+    expect(new URLSearchParams(auditFeedQuery(compact, { density: "comfortable" })).has("density")).toBe(false);
+    const plain = parseAuditFeedParams({ density: "bogus" });
+    expect(plain.density).toBe("comfortable");
+    expect(new URLSearchParams(auditFeedQuery(plain)).has("density")).toBe(false);
+    // Display only — the reader never sees it.
+    expect(auditFeedFilters(compact, "UTC")).not.toHaveProperty("density");
+  });
+
+  it("counts the active filters for the sticky bar", () => {
+    expect(activeAuditFilterCount(parseAuditFeedParams({}))).toBe(0);
+    expect(activeAuditFilterCount(parseAuditFeedParams({ density: "compact", tab: "deletions" }))).toBe(0);
+    expect(
+      activeAuditFilterCount(parseAuditFeedParams({ actor: "ana", cat: "habit", from: "2026-11-01", raw: "1" })),
+    ).toBe(4);
   });
 });
