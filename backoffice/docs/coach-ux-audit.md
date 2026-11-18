@@ -28,7 +28,7 @@ Las rutas de evidencia son relativas a `backoffice/src/` (salvo `messages/`).
 | 5 | «Asignar plan» sin planes era un callejón sin salida (pedido del dueño) | Pagos / ficha | P1 | ✅ |
 | 6 | Tiempos relativos del roster en **inglés** («2h ago», «yesterday») en un portal en castellano | Clientes | P1 | ✅ |
 | 7 | La ficha del cliente: ~30 consultas por carga (`workout_logs` ×3, el doc del cliente ×7, tendencias de hábitos 1 query por hábito) y `router.refresh()` al cambiar un gráfico | Ficha | P1 | ⏳ L |
-| 8 | Chat: reaccionar / responder / borrar sólo aparecen con **hover** — invisibles en el teléfono | Chat | P1 | ⏳ M |
+| 8 | Chat: reaccionar / responder / borrar sólo aparecen con **hover** — invisibles en el teléfono | Chat | P1 | ✅ PR 5 — en pantallas táctiles quedan visibles (atenuadas) y de 40 px; desktop igual |
 | 9 | Sesión en vivo: los inputs de peso y repes **no tienen label** y miden 32 px (se usa en el gimnasio, con el teléfono) | Sesión en vivo | P1 | ✅ PR 2 |
 | 10 | Glosario: «plantilla» aparece ~65 veces por «rutina», «programado» por «agendado», y quedan pantallas enteras sin i18n (sesión en vivo, comparador de fotos, vista de ejercicio en inglés) | Transversal | P1 | ✅ PR 4 — catálogo es/en: «plantilla» → «rutina» en las pantallas de rutinas/agenda, «programado» → «agendado», «workout» → «entrenamiento»; `glossary.test.ts` lo exige (admin queda a #534). i18n completa de sesión en vivo y comparador sigue ⏳ |
 
@@ -154,7 +154,7 @@ Qué resuelve: cómo viene este cliente y qué hay que hacer con él.
 | # | Hallazgo | Evidencia | Sev | Esf | Estado |
 |---|---|---|---|---|---|
 | 1 | «Asignar plan» sin planes = callejón | `payments/_components/AssignPlanDialog.tsx` | P1 | M | ✅ |
-| 2 | Filtro de estado sin coincidencias muestra la tabla vacía sin mensaje (mira `rows`, no `visible`) | `CollectionsTab.tsx:58,98` | P2 | S | ⏳ |
+| 2 | Filtro de estado sin coincidencias muestra la tabla vacía sin mensaje (mira `rows`, no `visible`) | `CollectionsTab.tsx:58,98` | P2 | S | ✅ PR 5 — mensaje + búsqueda por nombre (la búsqueda cubre parte de #4) |
 | 3 | Tabla de 7 columnas + 4 acciones sin layout de tarjetas en mobile; acciones de 28 px | `CollectionsTab.tsx:101-187`, `ClientPaymentActions.tsx:53` | P2 | M | ⏳ |
 | 4 | Sin búsqueda en Cobros; sin «Recordar a todos los vencidos»; «Recordar» aparece en clientes al día | `CollectionsTab.tsx:51-94`, `ClientPaymentActions.tsx:76` | P2 | M | ⏳ |
 | 5 | Planes no dicen «N clientes en este plan» | `PlansTab.tsx` | P2 | S | ⏳ |
@@ -163,8 +163,8 @@ Qué resuelve: cómo viene este cliente y qué hay que hacer con él.
 ### Chat (`chat/`)
 | # | Hallazgo | Evidencia | Sev | Esf | Estado |
 |---|---|---|---|---|---|
-| 1 | Acciones de mensaje `opacity-0` hasta hover: invisibles en touch | `chat/_components/ChatConversation.tsx:512,614,633,662` | P1 | M | ⏳ |
-| 2 | El encabezado de la conversación no linkea a la ficha del cliente | `ChatConversation.tsx:322-341` | P2 | S | ⏳ |
+| 1 | Acciones de mensaje `opacity-0` hasta hover: invisibles en touch | `chat/_components/ChatConversation.tsx:512,614,633,662` | P1 | M | ✅ PR 5 — visibles en pointer coarse |
+| 2 | El encabezado de la conversación no linkea a la ficha del cliente | `ChatConversation.tsx:322-341` | P2 | S | ✅ PR 5 — el nombre abre la ficha; agenda a 40 px |
 | 3 | La bandeja refresca cada 120 s | `lib/gc-fitness/chat-listener.ts:99` | P2 | M | ⏳ |
 | 4 | Sin filtro «sin leer»; error sin reintentar; lightbox sin trampa de foco y con `aria-label` en inglés | `ChatThreadList.tsx:117`, `ChatImageLightbox.tsx:33-49` | P3 | S | ⏳ |
 
@@ -191,10 +191,10 @@ Qué resuelve: cómo viene este cliente y qué hay que hacer con él.
 ### Shell, login, ajustes, wiki, layout
 | # | Hallazgo | Evidencia | Sev | Esf | Estado |
 |---|---|---|---|---|---|
-| 1 | `Button size="sm"` = 28 px y `icon` = 32 px: todo lo que los usa queda bajo los 40 px | `components/ui/button.tsx:39-42` | P2 | M | ⏳ (cambio compartido con admin: coordinar con #534) |
+| 1 | `Button size="sm"` = 28 px y `icon` = 32 px: todo lo que los usa queda bajo los 40 px | `components/ui/button.tsx:39-42` | P2 | M | ✅ PR 5 — en táctil, mínimo 40 px sólo en pantallas del coach (`data-coach-surface` en body + `@media (pointer: coarse)`); admin y desktop sin cambios |
 | 2 | El nombre del coach se arma del mail en 3 lugares aunque Ajustes guarda un nombre | `gc-fitness-shell.tsx:327`, `coach-card.tsx:31`, `settings/page.tsx:46` | P2 | S | ⏳ |
 | 3 | La tarjeta del coach dice «Premium» a todo no-admin | `coach-card.tsx:83,133` | P2 | S | ⏳ |
-| 4 | Header mobile: el contador de chats sin leer no es link; hamburguesa de 28 px con «Toggle Sidebar» | `gc-fitness-shell.tsx:305-317`, `ui/sidebar.tsx:266` | P2 | S | ⏳ |
+| 4 | Header mobile: el contador de chats sin leer no es link; hamburguesa de 28 px con «Toggle Sidebar» | `gc-fitness-shell.tsx:305-317`, `ui/sidebar.tsx:266` | P2 | S | ✅ PR 5 — contador de chats es link con nombre; hamburguesa de 40 px con «Abrir menú» |
 | 5 | Login muestra el texto crudo de Firebase y no vuelve a la página pedida (`?next=`) | `login/page.tsx:60,79,126` | P2 | S | ⏳ |
 | 6 | El error de ruta sólo hace `reset()` (no `router.refresh()`), sin link a Inicio | `components/gc-fitness/route-error-boundary.tsx:68-86` | P2 | S | ⏳ |
 | 7 | El layout manda el catálogo entero al browser y espera 4 lecturas en serie | `app/gc-fitness/layout.tsx:43-60` | P2 | M | ⏳ |
