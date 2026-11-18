@@ -1,5 +1,5 @@
 {
-  "_comment": "#1644 — THE billing case table (gc-fitness #1540 / #1659). ONE file, read by every twin: Swift GCFitnessCore `Billing` (BillingVectorTests), Kotlin android/core `Billing` (BillingVectorTest), functions/src/billing/billing.ts (billingVectors.test.ts: addMonths/status/applyPayment/revertPayment/consumeClass — the server has no defaultCovers/recordEffect/voidEffect) and the backoffice billing.ts (pinned copy, drift-checked by scripts/check-twin-vectors.py). Civil dates are strings; `today`/`paidCivil` come from the case. `billing` objects carry every client_billing field the pure functions read (null = absent).",
+  "_comment": "#1644 — THE billing case table (gc-fitness #1540 / #1659). ONE file, read by every twin: Swift GCFitnessCore `Billing` (BillingVectorTests), Kotlin android/core `Billing` (BillingVectorTest), functions/src/billing/billing.ts (billingVectors.test.ts: addMonths/status/applyPayment/revertPayment/consumeClass — the server has no defaultCovers/recordEffect/voidEffect) and the backoffice billing.ts (pinned copy, drift-checked by scripts/check-twin-vectors.py). Civil dates are strings; `today`/`paidCivil` come from the case. `billing` objects carry every client_billing field the pure functions read (null = absent). `reminderText` (#1697): `{money}` in `expected` is replaced by the twin's OWN formatAmount(amount, currency, lang) — the money format is the platform's, the words are not; `paymentDetails` is trimmed, CRLF→LF and per-line trailing spaces dropped; blank = absent (the server has no reminderText). `noticeDueDate` (#1697): the due date printed on the payment-notice image (with the year); invalid = null.",
   "addMonths": [
     {
       "name": "mensual 10 nov + 1",
@@ -1753,6 +1753,161 @@
         "lastPaymentCivil": null,
         "lastPaymentAmount": null
       }
+    }
+  ],
+  "reminderText": [
+    {
+      "name": "es con fecha, sin datos",
+      "lang": "es",
+      "coachName": "Caro",
+      "clientFirstName": "Ana",
+      "amount": 25000,
+      "currency": "ARS",
+      "dueCivil": "2026-11-16",
+      "paymentDetails": null,
+      "expected": "Hola Ana! Te recuerdo el pago de {money} que vence el 16 de noviembre. ¡Gracias! — Caro"
+    },
+    {
+      "name": "es pendiente, sin datos",
+      "lang": "es",
+      "coachName": "Caro",
+      "clientFirstName": "Ana",
+      "amount": 25000,
+      "currency": "ARS",
+      "dueCivil": null,
+      "paymentDetails": null,
+      "expected": "Hola Ana! Te recuerdo el pago de {money} pendiente. ¡Gracias! — Caro"
+    },
+    {
+      "name": "en con fecha, sin datos",
+      "lang": "en",
+      "coachName": "Caro",
+      "clientFirstName": "Ana",
+      "amount": 25000,
+      "currency": "ARS",
+      "dueCivil": "2026-11-16",
+      "paymentDetails": null,
+      "expected": "Hi Ana! A reminder about your {money} payment due on November 16. Thanks! — Caro"
+    },
+    {
+      "name": "en pendiente, sin datos",
+      "lang": "en",
+      "coachName": "Caro",
+      "clientFirstName": "Ana",
+      "amount": 25000,
+      "currency": "ARS",
+      "dueCivil": null,
+      "paymentDetails": null,
+      "expected": "Hi Ana! A reminder about your {money} payment that is pending. Thanks! — Caro"
+    },
+    {
+      "name": "es datos vacíos = sin datos",
+      "lang": "es",
+      "coachName": "Caro",
+      "clientFirstName": "Ana",
+      "amount": 25000,
+      "currency": "ARS",
+      "dueCivil": "2026-11-16",
+      "paymentDetails": "   \n  ",
+      "expected": "Hola Ana! Te recuerdo el pago de {money} que vence el 16 de noviembre. ¡Gracias! — Caro"
+    },
+    {
+      "name": "es con datos de una línea",
+      "lang": "es",
+      "coachName": "Caro",
+      "clientFirstName": "Ana",
+      "amount": 25000,
+      "currency": "ARS",
+      "dueCivil": "2026-11-16",
+      "paymentDetails": "Alias: caro.fit",
+      "expected": "Hola Ana! Te recuerdo el pago de {money} que vence el 16 de noviembre.\n\nDatos para el pago:\nAlias: caro.fit\n\n¡Gracias! — Caro"
+    },
+    {
+      "name": "es con datos multilínea recortados",
+      "lang": "es",
+      "coachName": "Caro",
+      "clientFirstName": "Ana",
+      "amount": 25000,
+      "currency": "ARS",
+      "dueCivil": "2026-11-16",
+      "paymentDetails": "  Alias: caro.fit\r\nCBU: 0000003100010000000001\nBanco Galicia  \n\n",
+      "expected": "Hola Ana! Te recuerdo el pago de {money} que vence el 16 de noviembre.\n\nDatos para el pago:\nAlias: caro.fit\nCBU: 0000003100010000000001\nBanco Galicia\n\n¡Gracias! — Caro"
+    },
+    {
+      "name": "es pendiente con datos",
+      "lang": "es",
+      "coachName": "Caro",
+      "clientFirstName": "Ana",
+      "amount": 25000,
+      "currency": "ARS",
+      "dueCivil": null,
+      "paymentDetails": "Alias: caro.fit",
+      "expected": "Hola Ana! Te recuerdo el pago de {money} pendiente.\n\nDatos para el pago:\nAlias: caro.fit\n\n¡Gracias! — Caro"
+    },
+    {
+      "name": "en con datos",
+      "lang": "en",
+      "coachName": "Caro",
+      "clientFirstName": "Ana",
+      "amount": 25000,
+      "currency": "ARS",
+      "dueCivil": "2026-11-16",
+      "paymentDetails": "Alias: caro.fit\nBank: Galicia",
+      "expected": "Hi Ana! A reminder about your {money} payment due on November 16.\n\nPayment details:\nAlias: caro.fit\nBank: Galicia\n\nThanks! — Caro"
+    },
+    {
+      "name": "en pendiente con datos",
+      "lang": "en",
+      "coachName": "Caro",
+      "clientFirstName": "Ana",
+      "amount": 25000,
+      "currency": "ARS",
+      "dueCivil": null,
+      "paymentDetails": "https://mpago.la/abc",
+      "expected": "Hi Ana! A reminder about your {money} payment that is pending.\n\nPayment details:\nhttps://mpago.la/abc\n\nThanks! — Caro"
+    },
+    {
+      "name": "es fin de año",
+      "lang": "es",
+      "coachName": "Caro",
+      "clientFirstName": "Ana",
+      "amount": 25000,
+      "currency": "ARS",
+      "dueCivil": "2026-12-31",
+      "paymentDetails": "Alias: caro.fit",
+      "expected": "Hola Ana! Te recuerdo el pago de {money} que vence el 31 de diciembre.\n\nDatos para el pago:\nAlias: caro.fit\n\n¡Gracias! — Caro"
+    }
+  ],
+  "noticeDueDate": [
+    {
+      "name": "es noviembre",
+      "lang": "es",
+      "civil": "2026-11-16",
+      "expected": "16 de noviembre de 2026"
+    },
+    {
+      "name": "es 1 de enero",
+      "lang": "es",
+      "civil": "2027-01-01",
+      "expected": "1 de enero de 2027"
+    },
+    {
+      "name": "en noviembre",
+      "lang": "en",
+      "civil": "2026-11-16",
+      "expected": "November 16, 2026"
+    },
+    {
+      "name": "en 1 de marzo",
+      "lang": "en",
+      "civil": "2027-03-01",
+      "expected": "March 1, 2027"
+    },
+    {
+      "name": "fecha inválida",
+      "lang": "es",
+      "civil": "2026-13-40",
+      "expected": null
     }
   ]
 }
