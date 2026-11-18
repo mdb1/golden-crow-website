@@ -20,7 +20,9 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { PAYMENT_DETAILS_MAX_LENGTH } from "@/lib/gc-fitness/billing";
-import { updateCoachPaymentDetails } from "@/lib/gc-fitness/payment-details-actions";
+// The Server Action module is imported ON USE, not at the top: this component is mounted by
+// screens whose tests render it without the Admin SDK (roster, Inicio, Cobros) — a static
+// import drags firebase-admin into every one of them. Same action, same ID (#382).
 import { noteIfStaleDeployment } from "@/lib/gc-fitness/stale-deployment";
 import {
   setCoachPaymentDetailsCache,
@@ -45,7 +47,9 @@ export function PaymentDetailsEditor() {
   function save() {
     startTransition(async () => {
       try {
-        const result = await updateCoachPaymentDetails({ paymentDetails: value });
+        const result = await (
+          await import("@/lib/gc-fitness/payment-details-actions")
+        ).updateCoachPaymentDetails({ paymentDetails: value });
         if (!result.ok) {
           toast.error(result.error);
           return;
@@ -61,12 +65,21 @@ export function PaymentDetailsEditor() {
 
   return (
     <>
-      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)} data-testid="payment-details-open">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => setOpen(true)}
+        data-testid="payment-details-open"
+      >
         <Landmark className="size-4" />
         {t("detailsTitle")}
       </Button>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-lg" data-testid="payment-details-dialog">
+        <DialogContent
+          className="sm:max-w-lg"
+          data-testid="payment-details-dialog"
+        >
           <DialogHeader>
             <DialogTitle>{t("detailsTitle")}</DialogTitle>
             <DialogDescription>{t("detailsFooter")}</DialogDescription>
@@ -80,11 +93,23 @@ export function PaymentDetailsEditor() {
             placeholder={t("detailsPlaceholder")}
             onChange={(e) => setDraft(e.target.value)}
           />
-          <p className={tooLong ? "text-sm text-destructive" : "text-xs text-muted-foreground"}>
-            {tooLong ? t("detailsTooLong") : `${value.length}/${PAYMENT_DETAILS_MAX_LENGTH}`}
+          <p
+            className={
+              tooLong
+                ? "text-sm text-destructive"
+                : "text-xs text-muted-foreground"
+            }
+          >
+            {tooLong
+              ? t("detailsTooLong")
+              : `${value.length}/${PAYMENT_DETAILS_MAX_LENGTH}`}
           </p>
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => onOpenChange(false)}
+            >
               {t("cancel")}
             </Button>
             <Button

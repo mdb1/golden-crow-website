@@ -12,7 +12,7 @@
 //     «Descargar imagen»);
 //   - descargar el PNG y copiar el texto.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Copy, Download, MessageCircle, Send } from "lucide-react";
 import { toast } from "sonner";
@@ -25,10 +25,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { PaymentNoticeCard, type PaymentNoticeLabels } from "@/components/gc-fitness/payment-notice-card";
+import {
+  PaymentNoticeCard,
+  type PaymentNoticeLabels,
+} from "@/components/gc-fitness/payment-notice-card";
 import { rasterizeShareCardNode } from "@/components/gc-fitness/share-workout-card";
 import { whatsappShareUrl } from "@/lib/gc-fitness/billing";
-import { sendTrainerMessage, uploadTrainerChatAttachment } from "@/lib/gc-fitness/chat-server-actions";
+// The Server Action module is imported ON USE, not at the top: this component is mounted by
+// screens whose tests render it without the Admin SDK (roster, Inicio, Cobros) — a static
+// import drags firebase-admin into every one of them. Same action, same ID (#382).
 import { buildPaymentNotice } from "@/lib/gc-fitness/payment-notice";
 import type { ClientBillingView } from "@/lib/gc-fitness/payments-model";
 import { noteIfStaleDeployment } from "@/lib/gc-fitness/stale-deployment";
@@ -63,7 +68,15 @@ export function PaymentNoticeDialog({
   const t = useTranslations("payments");
   const { lang } = usePaymentLabels();
   const model = useMemo(
-    () => buildPaymentNotice({ lang, clientName, clientFirstName, coachName, billing, paymentDetails }),
+    () =>
+      buildPaymentNotice({
+        lang,
+        clientName,
+        clientFirstName,
+        coachName,
+        billing,
+        paymentDetails,
+      }),
     [lang, clientName, clientFirstName, coachName, billing, paymentDetails],
   );
   const labels: PaymentNoticeLabels = {
@@ -75,7 +88,14 @@ export function PaymentNoticeDialog({
     pending: t("noticePending"),
     details: t("noticeDetails"),
   };
-  const cardRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  // The dialog's content mounts in a LATER commit than this component (Radix portal +
+  // presence), so the preview waits for the node itself, not for a ref read at mount.
+  const [cardNode, setCardNode] = useState<HTMLDivElement | null>(null);
+  const setCard = useCallback((node: HTMLDivElement | null) => {
+    cardRef.current = node;
+    setCardNode(node);
+  }, []);
   const [preview, setPreview] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
 
@@ -84,7 +104,7 @@ export function PaymentNoticeDialog({
     if (!open || !detailsLoaded) return;
     let cancelled = false;
     setPreview(null);
-    const node = cardRef.current;
+    const node = cardNode;
     if (!node) return;
     rasterizeShareCardNode(node, "png")
       .then((r) => {
@@ -96,7 +116,7 @@ export function PaymentNoticeDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, detailsLoaded, model]);
+  }, [open, detailsLoaded, model, cardNode]);
 
   async function download() {
     const node = cardRef.current;
@@ -129,8 +149,13 @@ export function PaymentNoticeDialog({
     setSending(true);
     try {
       // JPEG como las fotos del chat de las apps (un PNG de 1080 px pesa varias veces más).
-      const { dataUrl, width, height } = await rasterizeShareCardNode(node, "jpeg");
+      const { dataUrl, width, height } = await rasterizeShareCardNode(
+        node,
+        "jpeg",
+      );
       const base64Data = dataUrl.slice(dataUrl.indexOf(",") + 1);
+      const { sendTrainerMessage, uploadTrainerChatAttachment } =
+        await import("@/lib/gc-fitness/chat-server-actions");
       const uploaded = await uploadTrainerChatAttachment({
         chatId: clientId,
         kind: "image",
@@ -157,30 +182,52 @@ export function PaymentNoticeDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg" data-testid="payment-notice-dialog">
+      <DialogContent
+        className="max-h-[90vh] overflow-y-auto sm:max-w-lg"
+        data-testid="payment-notice-dialog"
+      >
         <DialogHeader>
           <DialogTitle>{t("noticeAction")}</DialogTitle>
         </DialogHeader>
 
-        <div className="overflow-hidden rounded-xl border bg-black" style={{ aspectRatio: "1080 / 1350" }}>
+        <div
+          className="overflow-hidden rounded-xl border bg-black"
+          style={{ aspectRatio: "1080 / 1350" }}
+        >
           {preview ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={preview} alt={t("noticeAction")} className="h-full w-full object-contain" data-testid="payment-notice-preview" />
+            <img
+              src={preview}
+              alt={t("noticeAction")}
+              className="h-full w-full object-contain"
+              data-testid="payment-notice-preview"
+            />
           ) : null}
         </div>
 
         {detailsLoaded && !model.details ? (
-          <p className="text-sm text-muted-foreground" data-testid="payment-notice-no-details">
+          <p
+            className="text-sm text-muted-foreground"
+            data-testid="payment-notice-no-details"
+          >
             {t("noticeNoDetails")}
           </p>
         ) : null}
 
-        <p className="whitespace-pre-wrap rounded-md border bg-muted/40 p-3 text-sm" data-testid="payment-notice-text">
+        <p
+          className="whitespace-pre-wrap rounded-md border bg-muted/40 p-3 text-sm"
+          data-testid="payment-notice-text"
+        >
           {model.text}
         </p>
 
         <DialogFooter className="flex-wrap gap-2 sm:justify-start">
-          <Button type="button" onClick={sendToChat} disabled={sending || !detailsLoaded} data-testid="payment-notice-send-chat">
+          <Button
+            type="button"
+            onClick={sendToChat}
+            disabled={sending || !detailsLoaded}
+            data-testid="payment-notice-send-chat"
+          >
             <Send className="size-4" />
             {t("noticeSendChat")}
           </Button>
@@ -195,19 +242,38 @@ export function PaymentNoticeDialog({
               {t("noticeWhatsapp")}
             </a>
           </Button>
-          <Button type="button" variant="outline" onClick={download} disabled={!detailsLoaded} data-testid="payment-notice-download">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={download}
+            disabled={!detailsLoaded}
+            data-testid="payment-notice-download"
+          >
             <Download className="size-4" />
             {t("noticeDownload")}
           </Button>
-          <Button type="button" variant="ghost" onClick={copy} data-testid="payment-notice-copy">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={copy}
+            data-testid="payment-notice-copy"
+          >
             <Copy className="size-4" />
             {t("noticeCopyText")}
           </Button>
         </DialogFooter>
 
         {/* Off-screen card — laid out (NOT display:none) so html-to-image can rasterize it. */}
-        <div aria-hidden style={{ position: "fixed", left: "-10000px", top: 0, pointerEvents: "none" }}>
-          <PaymentNoticeCard ref={cardRef} model={model} labels={labels} />
+        <div
+          aria-hidden
+          style={{
+            position: "fixed",
+            left: "-10000px",
+            top: 0,
+            pointerEvents: "none",
+          }}
+        >
+          <PaymentNoticeCard ref={setCard} model={model} labels={labels} />
         </div>
       </DialogContent>
     </Dialog>

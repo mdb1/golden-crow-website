@@ -52,7 +52,7 @@ import { isHabitNotDeleted } from "./habit-visibility";
 import { effectiveIsoWeekdays, isHabitScheduledOn } from "./habit-schedule";
 import { civilDateAddDays, civilDateToday } from "./civil-date";
 import { status as billingStatus } from "./billing";
-import { decodeBilling } from "./payments-model";
+import { decodeBilling, type ClientBillingView } from "./payments-model";
 import { getTrainerTimezone } from "./trainer-timezone";
 import { loadNutritionRosterSummaries } from "./nutrition-roster";
 import {
@@ -207,6 +207,11 @@ export interface RosterBilling {
   classBased: boolean;
   planName: string | null;
   nextDueCivil: string | null;
+  /**
+   * gc-fitness #1697 — the whole `client_billing` (plan snapshot, own price, due date) so the
+   * row can open the «Aviso de pago». Optional: rows cached before it simply show no button.
+   */
+  view?: ClientBillingView;
 }
 
 function toIsoMaybe(value: unknown): string | null {
@@ -1158,6 +1163,7 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
                 billing.plan?.kind === "class_pack" || billing.plan?.kind === "per_class",
               planName: billing.plan?.name ?? null,
               nextDueCivil: billing.nextDueCivil,
+              view: billing,
             }
           : null;
       const attention = isPending

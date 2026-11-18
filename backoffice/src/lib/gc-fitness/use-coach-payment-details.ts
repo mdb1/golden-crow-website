@@ -7,7 +7,9 @@
 
 import { useEffect, useState } from "react";
 
-import { getCoachPaymentDetails } from "./payment-details-actions";
+// The Server Action module is imported ON USE, not at the top: this component is mounted by
+// screens whose tests render it without the Admin SDK (roster, Inicio, Cobros) — a static
+// import drags firebase-admin into every one of them. Same action, same ID (#382).
 
 type State = { loaded: boolean; value: string | null };
 
@@ -23,7 +25,8 @@ function publish(next: State) {
 function load(): Promise<void> {
   if (current.loaded) return Promise.resolve();
   if (!inflight) {
-    inflight = getCoachPaymentDetails()
+    inflight = import("./payment-details-actions")
+      .then(({ getCoachPaymentDetails }) => getCoachPaymentDetails())
       .then((value) => publish({ loaded: true, value }))
       .catch(() => publish({ loaded: true, value: null }))
       .finally(() => {

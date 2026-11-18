@@ -19,7 +19,12 @@ jest.mock("next-intl", () => ({
   useLocale: () => "es",
 }));
 const mockToast = { success: jest.fn(), error: jest.fn() };
-jest.mock("sonner", () => ({ toast: mockToast }));
+jest.mock("sonner", () => ({
+  toast: {
+    success: (...a: unknown[]) => mockToast.success(...a),
+    error: (...a: unknown[]) => mockToast.error(...a),
+  },
+}));
 const mockRasterize = jest.fn();
 jest.mock("@/components/gc-fitness/share-workout-card", () => ({
   ...jest.requireActual("@/components/gc-fitness/share-workout-card"),
