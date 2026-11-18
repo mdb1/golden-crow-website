@@ -95,7 +95,9 @@
     "signOut": "Cerrar sesión",
     "themeDark": "Tema oscuro",
     "themeLight": "Tema claro",
-    "coachPortal": "Coach Portal"
+    "coachPortal": "Coach Portal",
+    "openMenu": "Abrir menú",
+    "unreadChatsAria": "{count, plural, one {# mensaje sin leer} other {# mensajes sin leer}} — abrir chat"
   },
   "dashboard": {
     "title": "Inicio",
@@ -3016,7 +3018,9 @@
     "createPlan": "Crear plan",
     "newPlanOption": "+ Nuevo plan",
     "removePlan": "Quitar plan",
-    "assignNoPlansHint": "Todavía no creaste planes. Creá uno acá y queda elegido para este cliente."
+    "assignNoPlansHint": "Todavía no creaste planes. Creá uno acá y queda elegido para este cliente.",
+    "searchClients": "Buscar cliente",
+    "noMatches": "Ningún cliente coincide con la búsqueda o el filtro."
   },
   "admin": {
     "common": {

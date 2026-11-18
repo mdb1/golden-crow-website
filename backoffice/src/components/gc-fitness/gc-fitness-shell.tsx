@@ -302,18 +302,27 @@ export function GCFitnessShell({
             {/* Mobile-only top bar: hamburger + brand. Desktop pages own their
                 own title via the in-page PageHeader. */}
             <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border/70 bg-background/85 px-3 backdrop-blur-sm md:hidden">
-              <SidebarTrigger className="-ml-1" />
+              {/* #535 — 40 px and a Spanish name (the primitive says "Toggle Sidebar"). */}
+              <SidebarTrigger className="-ml-1 size-10" aria-label={t("openMenu")} title={t("openMenu")} />
               <span className="font-heading text-sm font-bold text-foreground">
                 {t("coachPortal")}
               </span>
               <CommandPaletteTrigger compact className="ml-auto size-9" />
               {unreadChatTotal > 0 ? (
-                <Badge
-                  variant="destructive"
-                  className=" h-5 min-w-5 justify-center rounded-full px-1.5 text-[11px]"
+                // #535 — was a bare number: now it opens the chat and says what it counts.
+                <Link
+                  href="/gc-fitness/chat"
+                  aria-label={t("unreadChatsAria", { count: unreadChatTotal })}
+                  className="inline-flex size-10 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  data-testid="mobile-unread-chats"
                 >
-                  {unreadChatTotal}
-                </Badge>
+                  <Badge
+                    variant="destructive"
+                    className=" h-5 min-w-5 justify-center rounded-full px-1.5 text-[11px]"
+                  >
+                    {unreadChatTotal}
+                  </Badge>
+                </Link>
               ) : null}
             </header>
             <main className="relative z-10 flex-1 overflow-auto">{children}</main>
