@@ -159,15 +159,15 @@
   --card-foreground: #0f1728;
   --popover: rgba(255, 255, 255, 0.98);
   --popover-foreground: #0f1728;
-  --primary: #007aff;
+  --primary: #0066cc;
   --primary-foreground: #ffffff;
   --secondary: #ececf1;
   --secondary-foreground: #172334;
   --muted: #f2f2f7;
-  --muted-foreground: #6a7688;
+  --muted-foreground: #5b6576;
   --accent: rgba(0, 122, 255, 0.1);
   --accent-foreground: #133258;
-  --destructive: #e53935;
+  --destructive: #c62828;
   --border: rgba(15, 23, 40, 0.22);
   --input: rgba(255, 255, 255, 0.98);
   --ring: rgba(0, 122, 255, 0.55);
@@ -178,13 +178,13 @@
   --chart-5: #4e8fbb;
   --sidebar: rgba(250, 251, 255, 0.94);
   --sidebar-foreground: #132033;
-  --sidebar-primary: #007aff;
+  --sidebar-primary: #0066cc;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: rgba(0, 122, 255, 0.08);
   --sidebar-accent-foreground: #11335a;
   --sidebar-border: rgba(15, 23, 40, 0.2);
   --sidebar-ring: rgba(0, 122, 255, 0.55);
-  --eyebrow: rgba(91, 109, 135, 0.78);
+  --eyebrow: rgba(74, 88, 110, 0.95);
   --ambient-glow-top-left: rgba(0, 122, 255, 0.14);
   --ambient-glow-top-right: rgba(224, 76, 115, 0.08);
   --ambient-glow-bottom: rgba(95, 174, 106, 0.08);
@@ -274,6 +274,9 @@
     --border: rgba(255, 255, 255, 0.09);
     --input: #1a1e26;
     --ring: rgba(211, 168, 78, 0.6);
+    /* gc-fitness #1637 — the gold as TEXT (`text-primary`). On the dark canvas it is the gold
+       itself (8.6:1); the light theme overrides it (see the end of this file). */
+    --primary-text: var(--primary);
 
     /* #1070 (épica #1067) — la rampa del heatmap de músculos.
        CÁLIDA a propósito: rojo → naranja → ámbar, variando en LUMINANCIA además
@@ -368,7 +371,7 @@
     --popover: #ffffff;
     --popover-foreground: #1b2336;
     --primary: #c3982e;
-    --primary-foreground: #ffffff;
+    --primary-foreground: #1b1205;
     --secondary: #eef0f4;
     --secondary-foreground: #1b2336;
     --muted: #f1f2f5;
@@ -378,10 +381,15 @@
     --muted-foreground: #4a5365;
     --accent: rgba(195, 152, 46, 0.12);
     --accent-foreground: #6b5210;
-    --destructive: #e5484d;
+    --destructive: #c4262e;
     --border: rgba(27, 35, 54, 0.1);
     --input: #f4f5f7;
     --ring: rgba(195, 152, 46, 0.5);
+    /* gc-fitness #1637 — the mustard gold is a FILL: as text on white it is 2.7:1, so
+       `text-primary` reads this darker gold instead (5.0:1 on white, same hex as the apps'
+       `AccentTextColor` / `ACCENT_TEXT`). The label ON a gold fill is the dark ink of
+       `--primary-foreground` (#1b1205, 6.2:1; white was 2.7:1). */
+    --primary-text: #8c6418;
     --chart-1: #c3982e;
     /* #480 — muscle-group categorical palette, darkened for legibility on the
        light canvas (white cards). Yellow/teal are deepened so they don't wash
@@ -399,7 +407,7 @@
     /* Inactive nav / labels: darkened a touch for legibility. */
     --sidebar-foreground: #4d5667;
     --sidebar-primary: #c3982e;
-    --sidebar-primary-foreground: #ffffff;
+    --sidebar-primary-foreground: #1b1205;
     --sidebar-accent: rgba(27, 35, 54, 0.05);
     --sidebar-accent-foreground: #1b2336;
     --sidebar-border: rgba(27, 35, 54, 0.07);
@@ -1445,4 +1453,12 @@
   .publisher-app-instructions-download::after {
     display: none;
   }
+}
+
+/* gc-fitness #1637 — `text-primary` in the coach portal is the AA text gold
+   (`--primary-text`), not the fill gold. Unlayered on purpose: it has to win over the
+   Tailwind utility, which lives in a cascade layer. `bg-primary` / borders keep the fill.
+   Checked by src/app/gc-fitness/__tests__/design-tokens-contrast.test.ts. */
+.gc-fitness-theme .text-primary {
+  color: var(--primary-text);
 }
