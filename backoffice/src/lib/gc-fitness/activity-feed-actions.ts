@@ -61,10 +61,17 @@ import {
   type NutritionMarkSummary,
 } from "@/lib/gc-fitness/activity-feed-model";
 import {
+  assignmentTemplateId,
   findRecurrenceEdits,
   groupAuditBursts,
   groupRecurringAuditEntries,
+  recurringSeries,
 } from "@/lib/gc-fitness/audit-grouping";
+import {
+  auditSeriesHint,
+  coachSeriesHint,
+  type FeedSeriesHint,
+} from "@/lib/gc-fitness/audit-feed-grouping";
 import { BURST_GAP_MS, burstKeyFor, collapseByGap } from "@/lib/gc-fitness/activity-feed-model-ext";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { COACH_ACTIVITY_COLLECTION } from "@/lib/gc-fitness/coach-activity-log";
@@ -130,6 +137,11 @@ export interface ActivityFeedEvent {
   /** Primary tap target. */
   href: string | null;
   occurrenceCount?: number;
+  /**
+   * Workout-assignment rows only: what the page needs to fold a series (or a
+   * hand-made run of single assigns) into one row — see `audit-feed-grouping.ts`.
+   */
+  series?: FeedSeriesHint | null;
   isDeletion: boolean;
   /** Kept for filtering/debugging: the raw source kind (collection / op name). */
   kind: string;
@@ -1180,6 +1192,17 @@ async function collectFeed(
         clientUid && clientUid !== actorUid ? person(clientUid, "client", users) : null,
       href: targetHref(event.target, users),
       occurrenceCount: group.count > 1 ? group.count : undefined,
+      series:
+        head.collection === "workout_assignments"
+          ? auditSeriesHint({
+              after: head.after,
+              before: head.before,
+              templateId: assignmentTemplateId(head),
+              groupDates: group.dates,
+              docDate: recurringSeries(head.docId)?.date ?? null,
+              count: group.count,
+            })
+          : null,
       isDeletion: event.isDeletion,
       kind: `${head.collection}.${head.op}`,
       clientUid,
@@ -1206,6 +1229,10 @@ async function collectFeed(
       actor: person(c.trainerId, "coach", users),
       client: person(c.clientId, "client", users, c.pendingEmail),
       href: c.clientId ? userHref(c.clientId, users) : null,
+      series:
+        c.kind === "workout_assignment"
+          ? coachSeriesHint(c.id.slice(COACH_EVENT_ID_PREFIX.length), c.detail)
+          : null,
       isDeletion: c.deleted,
       kind: c.kind,
       clientUid: c.clientId,
