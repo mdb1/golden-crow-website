@@ -88,7 +88,20 @@ export function AssignTemplateModal({
   onAssigned,
 }: AssignTemplateModalProps) {
   const t = useTranslations("schedule.assignModal");
-  const { data: templates, isLoading: templatesLoading } = useWorkoutTemplates();
+  const {
+    data: templates,
+    isLoading: templatesLoading,
+    refetch: refetchTemplates,
+  } = useWorkoutTemplates();
+  // #535 — «Crear rutina» opens the editor in a NEW tab, so this dialog keeps the
+  // client, date and recurrence the coach already chose; when they come back to
+  // this tab the list refetches and the new routine is there to pick.
+  useEffect(() => {
+    if (!open) return;
+    const onFocus = () => void refetchTemplates();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [open, refetchTemplates]);
 
   const [templateId, setTemplateId] = useState<string>("");
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
@@ -289,7 +302,7 @@ export function AssignTemplateModal({
             <div className="flex items-center justify-between gap-2">
               <label className="text-sm font-medium">{t("templateLabel")}</label>
               <Button asChild variant="outline" size="sm" className="h-8 shrink-0 gap-1 rounded-full px-2.5 text-xs">
-                <Link href="/gc-fitness/templates/new">
+                <Link href="/gc-fitness/templates/new" target="_blank" rel="noopener">
                   <Plus className="h-3.5 w-3.5" />
                   {t("createTemplate")}
                 </Link>

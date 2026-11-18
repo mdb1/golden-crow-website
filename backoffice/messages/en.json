@@ -1043,6 +1043,9 @@
       "label": "View",
       "cards": "Cards",
       "list": "List"
+    },
+    "emptyPicker": {
+      "cta": "Add a client"
     }
   },
   "templates": {
@@ -1414,7 +1417,12 @@
     },
     "compliance": {
       "scheduledInfo": "Percentage of scheduled days completed since the habit started (days before the start date and non-scheduled days don't count).",
-      "scheduledInfoLabel": "How compliance is calculated"
+      "scheduledInfoLabel": "How compliance is calculated",
+      "summary": "Compliance summary",
+      "sevenDay": "7-day compliance",
+      "thirtyDay": "30-day compliance",
+      "empty": "No compliance data yet.",
+      "sparklineAria": "Compliance over the last {count} days"
     },
     "columns": {
       "client": "Client",
@@ -1597,6 +1605,10 @@
       },
       "schedulePreviewHeading": "Calendar preview",
       "schedulePreviewCount": "{count, plural, =0 {No active days yet} one {# active day highlighted} other {# active days highlighted}}"
+    },
+    "newPage": {
+      "title": "New habit",
+      "subtitle": "Create a reusable habit, add its photo or demo link, and assign it to clients later from the library."
     }
   },
   "exercises": {
@@ -1757,7 +1769,9 @@
       "mineOnlyLabel": "Created by me",
       "allLabel": "All",
       "clearAria": "Clear filters",
-      "clearCta": "Clear filters"
+      "clearCta": "Clear filters",
+      "sourceStandardOption": "Library",
+      "sourceCustomOption": "Mine"
     },
     "multiSelect": {
       "removeAria": "Remove {label}",
@@ -1843,6 +1857,12 @@
       "description": "Run this in your terminal where the GIF lives:",
       "afterHint": "Then upload the resulting MP4.",
       "dismiss": "Got it"
+    },
+    "viewPage": {
+      "title": "Exercise details",
+      "instructions": "Instructions",
+      "noInstructions": "This exercise has no instructions yet.",
+      "tips": "Coaching tips"
     }
   },
   "chat": {

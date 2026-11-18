@@ -24,6 +24,9 @@
 
 interface ComplianceSparklineProps {
   counts: { date: string; completed: boolean }[];
+  /** #535 — localized by the caller (this file stays hook-free / server-safe). */
+  emptyLabel: string;
+  ariaLabel: string;
 }
 
 const BAR_WIDTH = 8;
@@ -33,11 +36,11 @@ const EMPTY_BAR_HEIGHT = 6;
 const SVG_PADDING = 4;
 const SVG_HEIGHT = FULL_BAR_HEIGHT + SVG_PADDING;
 
-export function ComplianceSparkline({ counts }: ComplianceSparklineProps) {
+export function ComplianceSparkline({ counts, emptyLabel, ariaLabel }: ComplianceSparklineProps) {
   if (counts.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        No compliance data yet.
+        {emptyLabel}
       </p>
     );
   }
@@ -49,7 +52,7 @@ export function ComplianceSparkline({ counts }: ComplianceSparklineProps) {
       width={totalWidth}
       height={SVG_HEIGHT}
       role="img"
-      aria-label={`Last ${counts.length} days compliance`}
+      aria-label={ariaLabel}
       className="text-foreground"
     >
       {counts.map((c, i) => {
