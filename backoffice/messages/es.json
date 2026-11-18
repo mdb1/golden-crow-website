@@ -1043,6 +1043,9 @@
       "label": "Vista",
       "cards": "Tarjetas",
       "list": "Lista"
+    },
+    "emptyPicker": {
+      "cta": "Agregar un cliente"
     }
   },
   "templates": {
@@ -1414,7 +1417,12 @@
     },
     "compliance": {
       "scheduledInfo": "Porcentaje de días programados completados desde que empezó el hábito (los días anteriores a la fecha de inicio y los días no programados no cuentan).",
-      "scheduledInfoLabel": "Cómo se calcula el cumplimiento"
+      "scheduledInfoLabel": "Cómo se calcula el cumplimiento",
+      "summary": "Resumen de cumplimiento",
+      "sevenDay": "Cumplimiento 7 días",
+      "thirtyDay": "Cumplimiento 30 días",
+      "empty": "Todavía no hay datos de cumplimiento.",
+      "sparklineAria": "Cumplimiento de los últimos {count} días"
     },
     "columns": {
       "client": "Cliente",
@@ -1597,6 +1605,10 @@
       },
       "schedulePreviewHeading": "Vista previa en el calendario",
       "schedulePreviewCount": "{count, plural, =0 {Todavía no hay días activos} one {# día activo marcado} other {# días activos marcados}}"
+    },
+    "newPage": {
+      "title": "Nuevo hábito",
+      "subtitle": "Creá un hábito reutilizable, sumale una foto o un link de demostración y asignalo a tus clientes desde la biblioteca."
     }
   },
   "exercises": {
@@ -1757,7 +1769,9 @@
       "mineOnlyLabel": "Creados por mí",
       "allLabel": "Todos",
       "clearAria": "Limpiar filtros",
-      "clearCta": "Limpiar filtros"
+      "clearCta": "Limpiar filtros",
+      "sourceStandardOption": "Biblioteca",
+      "sourceCustomOption": "Propios"
     },
     "multiSelect": {
       "removeAria": "Quitar {label}",
@@ -1843,6 +1857,12 @@
       "description": "Ejecutá esto en tu terminal donde está el GIF:",
       "afterHint": "Después subí el MP4 resultante.",
       "dismiss": "Entendido"
+    },
+    "viewPage": {
+      "title": "Detalle del ejercicio",
+      "instructions": "Instrucciones",
+      "noInstructions": "Este ejercicio todavía no tiene instrucciones.",
+      "tips": "Consejos para el coach"
     }
   },
   "chat": {
