@@ -5,6 +5,8 @@
 // group and reports the selected key upward. Labels are passed in already
 // localized so this stays a pure presentational toggle.
 
+import { useTranslations } from "next-intl";
+
 import { cn } from "@/lib/utils";
 import { TREND_RANGES, type TrendRangeKey } from "./trend-range";
 
@@ -15,10 +17,12 @@ export interface TrendRangeSelectorProps {
 }
 
 export function TrendRangeSelector({ value, onChange, labels }: TrendRangeSelectorProps) {
+  // #535 — the group name was hardcoded English ("Time range").
+  const t = useTranslations("clients.detail");
   return (
     <div
       role="tablist"
-      aria-label="Time range"
+      aria-label={t("trendRangeAria")}
       className="inline-flex shrink-0 items-center gap-0.5 rounded-full border bg-muted/40 p-0.5"
     >
       {TREND_RANGES.map((range) => {
@@ -31,7 +35,7 @@ export function TrendRangeSelector({ value, onChange, labels }: TrendRangeSelect
             aria-selected={selected}
             onClick={() => onChange(range.key)}
             className={cn(
-              "rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+              "min-h-8 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               selected
                 ? "bg-background text-foreground shadow-sm"

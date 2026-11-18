@@ -213,7 +213,7 @@ export function ActiveWorkoutSession({
         close();
         queryClient.removeQueries({ queryKey: activeWorkoutSummariesKey() });
         queryClient.removeQueries({ queryKey: activeSessionKey(assignmentId) });
-        toast.success("Entrenamiento cancelado · volvió a programado");
+        toast.success("Entrenamiento cancelado · volvió a agendado");
         // Cancel is an operational action, not a client-detail action.
         // Send the coach back to the notifications hub so the canceled
         // workout does not re-enter the client profile flow.
@@ -277,7 +277,7 @@ export function ActiveWorkoutSession({
   }
 
   const session = live.session!;
-  const workoutName = session.workoutName.en || session.workoutName.es || "Entrenamiento";
+  const workoutName = session.workoutName.es || session.workoutName.en || "Entrenamiento";
 
   return (
     <div className="mx-auto w-full max-w-2xl pb-28">
@@ -286,7 +286,8 @@ export function ActiveWorkoutSession({
         <Button
           variant="ghost"
           size="icon"
-          aria-label="Cerrar"
+          aria-label="Cancelar entrenamiento"
+          title="Cancelar entrenamiento"
           onClick={() => setCancelOpen(true)}
         >
           <X className="h-5 w-5" />

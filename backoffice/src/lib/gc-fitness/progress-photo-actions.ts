@@ -1,6 +1,7 @@
 "use server";
 
 import { gcFitnessFirestore, gcFitnessStorage } from "@/lib/firebase/gc-fitness-admin";
+import { readClientUserDoc } from "@/lib/gc-fitness/client-doc-read";
 
 import { getCurrentAdmin, getCurrentTrainer } from "./auth-helpers";
 import { adminCanViewClientUnderCoach } from "./coachless-user-model";
@@ -24,10 +25,8 @@ async function assertOwnsClient(
   coachId: string,
   clientId: string,
 ): Promise<void> {
-  const snap = await gcFitnessFirestore()
-    .collection(FirestoreCollections.users)
-    .doc(clientId)
-    .get();
+  // #535 — same request-scoped read as the profile page's gate.
+  const snap = await readClientUserDoc(clientId);
   if (!snap.exists || snap.get("coachId") !== coachId) {
     throw new Error("Forbidden");
   }

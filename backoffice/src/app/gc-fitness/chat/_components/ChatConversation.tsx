@@ -30,6 +30,7 @@
 //
 // Trainer uid (Note H) plumbed in from `client.tsx`.
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
@@ -322,9 +323,14 @@ export function ChatConversation({
       <div className="flex items-center gap-3 border-b border-border bg-card/80 px-4 py-3 backdrop-blur">
         <ClientAvatar name={partnerName} photoURL={partnerPhotoURL} />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-base font-semibold text-foreground">
+          {/* #535 — the name opens the client's profile (chatId == client uid). */}
+          <Link
+            href={`/gc-fitness/clients/${encodeURIComponent(chatId)}`}
+            className="block truncate rounded-md text-base font-semibold text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            data-testid="chat-partner-profile-link"
+          >
             {partnerName}
-          </div>
+          </Link>
         </div>
         {/* quick-260617 — open this client's schedule (agenda) in a new tab,
             preselected via ?clientIds=<client uid> (chatId == client uid). */}
@@ -334,7 +340,7 @@ export function ChatConversation({
           rel="noopener noreferrer"
           title={t("openSchedule")}
           aria-label={t("openSchedule")}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-background/70 text-foreground ring-1 ring-border transition hover:bg-background"
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-background/70 text-foreground ring-1 ring-border transition hover:bg-background"
         >
           <CalendarDays className="h-4 w-4" />
         </a>
@@ -509,7 +515,7 @@ function MessageBubble({
         <button
           type="button"
           aria-label={t("reactionAdd")}
-          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover/msg:opacity-100 data-[state=open]:opacity-100 aria-expanded:opacity-100"
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-opacity pointer-coarse:h-10 pointer-coarse:w-10 pointer-coarse:opacity-70 hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover/msg:opacity-100 data-[state=open]:opacity-100 aria-expanded:opacity-100"
         >
           <SmilePlus className="h-3.5 w-3.5" />
         </button>
@@ -604,6 +610,9 @@ function MessageBubble({
     </div>
   ) : null;
 
+  // golden-crow-website#535 — these actions used to exist ONLY on hover, so on a
+  // phone or tablet a coach could not react, reply or delete at all. On a coarse
+  // pointer they stay visible (dimmed) and get a 40 px target; desktop unchanged.
   // quick-260603-p1p — hover reply button mirroring the delete affordance,
   // placed on the OPPOSITE side of the delete button.
   const replyButton = onReply ? (
@@ -611,7 +620,7 @@ function MessageBubble({
       type="button"
       onClick={() => onReply(message)}
       aria-label={t("reply.replyButton")}
-      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover/msg:opacity-100"
+      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-opacity pointer-coarse:h-10 pointer-coarse:w-10 pointer-coarse:opacity-70 hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover/msg:opacity-100"
     >
       <CornerUpLeft className="h-3.5 w-3.5" />
     </button>
@@ -630,7 +639,7 @@ function MessageBubble({
             type="button"
             onClick={() => setConfirmOpen(true)}
             aria-label={t("deleteMessageAria")}
-            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover/msg:opacity-100"
+            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-opacity pointer-coarse:h-10 pointer-coarse:w-10 pointer-coarse:opacity-70 hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover/msg:opacity-100"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
@@ -659,7 +668,7 @@ function MessageBubble({
             type="button"
             onClick={() => setConfirmOpen(true)}
             aria-label={t("deleteMessageAria")}
-            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover/msg:opacity-100"
+            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-opacity pointer-coarse:h-10 pointer-coarse:w-10 pointer-coarse:opacity-70 hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover/msg:opacity-100"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>

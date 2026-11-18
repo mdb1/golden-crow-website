@@ -25,6 +25,7 @@ import {
 } from "@/lib/gc-fitness/exercise-vocabulary";
 import { MusclePresetChips } from "@/components/gc-fitness/muscle-preset-chips";
 import { MultiSelectCombobox } from "./MultiSelectCombobox";
+import { useVocabularyLabels } from "./use-vocabulary-labels";
 
 const SEARCH_DEBOUNCE_MS = 200;
 
@@ -52,6 +53,13 @@ export interface ExerciseFiltersProps {
 
 export function ExerciseFilters({ onChange }: ExerciseFiltersProps) {
   const t = useTranslations("exercises.filters");
+  // #535 — the comboboxes listed the raw vocabulary keys ("Chest", "Barbell") and a
+  // literal "Standard/Custom"; the form already translates them through this catalog.
+  const vocab = useVocabularyLabels();
+  const formatMuscleLabel = vocab.muscle;
+  const formatEquipmentLabel = vocab.equipment;
+  const formatSourceLabel = (key: string) =>
+    key === "Custom" ? t("sourceCustomOption") : t("sourceStandardOption");
   const searchParams = useSearchParams();
   const ownerParam = searchParams?.get("owner") ?? null;
   const [state, setState] = useState<ExerciseFiltersState>(EMPTY);
@@ -197,6 +205,7 @@ export function ExerciseFilters({ onChange }: ExerciseFiltersProps) {
             }
             ariaLabel={t("muscleGroupsAria")}
             max={8}
+            formatLabel={formatMuscleLabel}
           />
         </div>
         <div className="flex-1 min-w-[180px]">
@@ -215,6 +224,7 @@ export function ExerciseFilters({ onChange }: ExerciseFiltersProps) {
             }
             ariaLabel={t("equipmentAria")}
             max={8}
+            formatLabel={formatEquipmentLabel}
           />
         </div>
         <div className="flex-1 min-w-[160px]">
@@ -229,7 +239,7 @@ export function ExerciseFilters({ onChange }: ExerciseFiltersProps) {
             }
             ariaLabel={t("sourceAria")}
             max={2}
-            formatLabel={(s) => s}
+            formatLabel={formatSourceLabel}
           />
         </div>
         {showClear && (

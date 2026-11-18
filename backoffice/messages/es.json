@@ -59,7 +59,7 @@
     "clientsSection": "Clientes",
     "clientsSectionDescription": "Plantel y vista detallada por cliente.",
     "contentSection": "Contenido",
-    "contentSectionDescription": "Plantillas de entrenamiento, hábitos y biblioteca de ejercicios.",
+    "contentSectionDescription": "Rutinas, hábitos y biblioteca de ejercicios.",
     "engagementSection": "Comunicación",
     "engagementSectionDescription": "Bandeja de chat y preferencias del coach.",
     "adminSection": "Admin",
@@ -68,7 +68,7 @@
     "recentLogsDescription": "Actividad reciente de hábitos y entrenamientos entre clientes.",
     "myActivityDescription": "Acciones propias del coach en planificación, notas y chat.",
     "notificationsDescription": "Renovaciones de entrenamientos/hábitos, cumpleaños y activaciones recientes de clientes.",
-    "workoutsDescription": "Creación y asignación de plantillas de entrenamiento.",
+    "workoutsDescription": "Creación y asignación de rutinas.",
     "habitsDescription": "CRUD de hábitos y asignación por cliente.",
     "exercisesDescription": "Biblioteca de ejercicios y gestión de GIFs.",
     "chatDescription": "Bandeja del coach y conversaciones por cliente.",
@@ -95,7 +95,9 @@
     "signOut": "Cerrar sesión",
     "themeDark": "Tema oscuro",
     "themeLight": "Tema claro",
-    "coachPortal": "Coach Portal"
+    "coachPortal": "Coach Portal",
+    "openMenu": "Abrir menú",
+    "unreadChatsAria": "{count, plural, one {# mensaje sin leer} other {# mensajes sin leer}} — abrir chat"
   },
   "dashboard": {
     "title": "Inicio",
@@ -111,7 +113,7 @@
     "workoutAdherenceEmpty": "No hay entrenamientos asignados esta semana.",
     "workoutUnit": "clientes",
     "habitAdherenceTitle": "Adherencia a Hábitos",
-    "habitAdherenceEmpty": "No hay hábitos programados esta semana.",
+    "habitAdherenceEmpty": "No hay hábitos agendados esta semana.",
     "habitUnit": "hábitos",
     "recentActivityTitle": "Actividad Reciente de Clientes",
     "recentActivitySubtitle": "Última acción de cada cliente",
@@ -131,8 +133,8 @@
     "needsReviewTitle": "Pendientes de revisar",
     "needsReviewSubtitle": "Sin registros en {days}+ días. Más antiguos primero.",
     "allCaughtUp": "Todos al día — buen trabajo.",
-    "nothingScheduled": "Nada programado",
-    "chartTooltipNothingScheduled": "{weekday}: nada programado",
+    "nothingScheduled": "Nada agendado",
+    "chartTooltipNothingScheduled": "{weekday}: nada agendado",
     "chartTooltipValue": "{weekday}: {numerator} de {denominator} {unit} ({percentage}%)",
     "pageOf": "Página {page} de {total}",
     "previous": "Anterior",
@@ -151,7 +153,7 @@
     "openRecentClientActivity": "Ver actividad reciente de clientes",
     "cards": {
       "clients": "Clientes",
-      "templates": "Plantillas de entrenamiento",
+      "templates": "Rutinas",
       "exercises": "Ejercicios",
       "chats": "Conversaciones"
     },
@@ -159,7 +161,7 @@
       "clientsTitle": "Clientes",
       "clientsDescription": "Vinculá usuarios de la app y abrí el espacio de cada cliente.",
       "scheduleTitle": "Agenda",
-      "scheduleDescription": "Asigná plantillas de entrenamiento al calendario del cliente.",
+      "scheduleDescription": "Asigná rutinas al calendario del cliente.",
       "workoutsTitle": "Entrenamientos",
       "workoutsDescription": "Creá rutinas reutilizables para las asignaciones.",
       "libraryTitle": "Biblioteca",
@@ -435,7 +437,8 @@
         "personalRecords": "Récords personales",
         "dailySteps": "Pasos diarios",
         "nutrition": "Nutrición",
-        "payments": "Pagos"
+        "payments": "Pagos",
+        "summary": "Resumen"
       },
       "personalRecords": {
         "title": "Récords personales",
@@ -506,7 +509,7 @@
         "clientCreated": "Creado por el cliente",
         "inherited": "Del coach anterior",
         "workoutStatus": {
-          "scheduled": "programado",
+          "scheduled": "agendado",
           "started": "en curso",
           "completed": "hecho",
           "missed": "vencido"
@@ -579,13 +582,13 @@
         "empty": "Aún no hay hábitos asignados.",
         "unnamed": "(hábito sin nombre)",
         "daysCompleted": "días completados",
-        "noScheduled": "Sin días programados en este rango",
-        "streakTooltip": "Racha de {count} cumplimientos en días programados",
+        "noScheduled": "Sin días agendados en este rango",
+        "streakTooltip": "Racha de {count} cumplimientos en días agendados",
         "rangeAll": "Todo",
         "range90": "90d",
         "range30": "30d",
         "range7": "7d",
-        "noneInRange": "Ningún hábito estaba programado en este rango."
+        "noneInRange": "Ningún hábito estaba agendado en este rango."
       },
       "chatHistory": {
         "title": "Mensajes recientes",
@@ -763,7 +766,7 @@
         "phases": "Fases",
         "statePast": "Pasada",
         "stateCurrent": "Vigente",
-        "stateScheduled": "Programada",
+        "stateScheduled": "Agendada",
         "openEnded": "sin fecha de fin",
         "selfAuthored": "Del cliente",
         "currentTargets": "Objetivo vigente",
@@ -977,7 +980,16 @@
         "pagos": "Pagos",
         "progreso": "Progreso",
         "chat": "Chat"
-      }
+      },
+      "statusStrip": {
+        "lastActivity": "Última actividad",
+        "habits": "Hábitos (7 d)",
+        "missedWorkouts": "Entrenamientos perdidos (7 d)",
+        "payment": "Pago",
+        "notComputed": "Todavía sin datos: abrí Clientes para calcularlos.",
+        "noHabitsScheduled": "Sin hábitos esta semana"
+      },
+      "trendRangeAria": "Período"
     },
     "invite": {
       "statusSent": "Invitación enviada",
@@ -1043,19 +1055,22 @@
       "label": "Vista",
       "cards": "Tarjetas",
       "list": "Lista"
+    },
+    "emptyPicker": {
+      "cta": "Agregar un cliente"
     }
   },
   "templates": {
-    "title": "Plantillas de entrenamiento",
-    "newTemplate": "Nueva plantilla",
-    "editTemplate": "Editar plantilla",
+    "title": "Rutinas",
+    "newTemplate": "Nueva rutina",
+    "editTemplate": "Editar rutina",
     "newPage": {
       "title": "Nuevo template de entrenamiento",
       "subtitle": "Elegí una etiqueta, agregá ejercicios, prescribí series / repeticiones / descanso y guardá."
     },
     "empty": {
-      "headline": "Aún no hay plantillas",
-      "body": "Creá tu primera plantilla de entrenamiento."
+      "headline": "Aún no hay rutinas",
+      "body": "Creá tu primera rutina."
     },
     "columns": {
       "name": "Nombre",
@@ -1087,17 +1102,17 @@
       "setsTimeLabel": "{sets} × {seconds}s",
       "backCta": "Volver",
       "duplicateCta": "Duplicar",
-      "duplicatedToast": "Plantilla duplicada.",
+      "duplicatedToast": "Rutina duplicada.",
       "duplicateFailedToast": "No se pudo duplicar. Intentá de nuevo."
     },
     "editPage": {
-      "title": "Editar plantilla",
+      "title": "Editar rutina",
       "subtitlePrefix": "Los cambios se guardan al tocar ",
       "subtitleCta": "Guardar",
-      "subtitleSuffix": ". Si la plantilla ya está agendada, te preguntamos si querés aplicar los cambios a esos entrenamientos.",
+      "subtitleSuffix": ". Si la rutina ya está agendada, te preguntamos si querés aplicar los cambios a esos entrenamientos.",
       "propagateDialog": {
         "title": "¿Aplicar los cambios a los entrenamientos agendados?",
-        "summary": "La plantilla se guardó. Actualmente está agendada en {sessions, plural, one {<strong># entrenamiento próximo</strong>} other {<strong># entrenamientos próximos</strong>}} para {clients, plural, one {<strong># cliente</strong>} other {<strong># clientes</strong>}}.",
+        "summary": "La rutina se guardó. Actualmente está agendada en {sessions, plural, one {<strong># entrenamiento próximo</strong>} other {<strong># entrenamientos próximos</strong>}} para {clients, plural, one {<strong># cliente</strong>} other {<strong># clientes</strong>}}.",
         "explainer": "Las notas y la estructura (series, repeticiones, descanso, orden) siempre se actualizan en esos días. Los entrenamientos completados o en curso nunca se modifican.",
         "clientLine": "{name} — {sessions, plural, one {# entrenamiento} other {# entrenamientos}} (próxima {next})",
         "pushWeightsLabel": "Actualizar también los pesos de los clientes",
@@ -1110,29 +1125,29 @@
       }
     },
     "list": {
-      "pageHeading": "Plantillas de entrenamiento",
-      "pageSubtitle": "Diseñá plantillas push / pull / piernas y asignalas desde la vista de agenda.",
-      "newTemplateCta": "Nueva plantilla",
-      "generateCta": "Generador de Plantillas",
+      "pageHeading": "Rutinas",
+      "pageSubtitle": "Diseñá rutinas push / pull / piernas y asignalas desde la vista de agenda.",
+      "newTemplateCta": "Nueva rutina",
+      "generateCta": "Generador de rutinas",
       "filterPlaceholder": "Filtrar por nombre o etiqueta",
-      "loadError": "No se pudieron cargar las plantillas.",
+      "loadError": "No se pudieron cargar las rutinas.",
       "loadErrorDescription": "Revisá tu conexión e intentá de nuevo.",
       "loading": "Cargando…",
-      "emptyHeadline": "Aún no hay plantillas.",
-      "emptySubtitle": "Creá tu primera plantilla de entrenamiento para empezar a asignársela a tus clientes.",
+      "emptyHeadline": "Aún no hay rutinas.",
+      "emptySubtitle": "Creá tu primera rutina para empezar a asignársela a tus clientes.",
       "filteredEmptyHeadline": "Sin coincidencias.",
       "filteredEmptySubtitle": "Probá con otro nombre o etiqueta, o limpiá el filtro.",
       "pagination": "Página {current} de {total}",
       "previous": "Anterior",
       "next": "Siguiente",
-      "deleteDialogTitle": "¿Eliminar esta plantilla?",
+      "deleteDialogTitle": "¿Eliminar esta rutina?",
       "deleteDialogBody": "Las asignaciones existentes conservan su snapshot — no se ven afectadas. Es un borrado lógico y se puede revertir.",
       "deleteDialogCancel": "Cancelar",
       "deleting": "Eliminando…",
       "deleteDialogConfirm": "Eliminar",
-      "deletedToast": "Plantilla eliminada.",
+      "deletedToast": "Rutina eliminada.",
       "deleteFailedToast": "No se pudo eliminar.",
-      "duplicatedToast": "Plantilla duplicada.",
+      "duplicatedToast": "Rutina duplicada.",
       "duplicateFailedToast": "No se pudo duplicar. Intentá de nuevo.",
       "tabAll": "TODOS",
       "tabAssignments": "Asignaciones",
@@ -1170,11 +1185,11 @@
       },
       "tagsLabel": "Etiquetas",
       "tagsPlaceholder": "Escribí una etiqueta y presioná Enter (ej. Legs, Back)",
-      "tagsHint": "Podés agregar varias etiquetas a una plantilla. Después se usan para filtrar la lista rápidamente.",
+      "tagsHint": "Podés agregar varias etiquetas a una rutina. Después se usan para filtrar la lista rápidamente.",
       "tagsSuggestionsLabel": "Sugerencias",
       "tagsRemoveAria": "Quitar etiqueta {tag}",
       "endsOnLabel": "Fecha de fin (opcional)",
-      "endsOnHint": "Dejalo vacío si la plantilla no expira nunca.",
+      "endsOnHint": "Dejalo vacío si la rutina no expira nunca.",
       "endDatePreset": "{months, plural, one {# mes} other {# meses}}",
       "exercises": "Ejercicios",
       "exercisesCount": "{count}/30",
@@ -1244,10 +1259,10 @@
       "addExercise": "Agregar ejercicio",
       "cancel": "Cancelar",
       "saving": "Guardando…",
-      "createCta": "Crear plantilla",
+      "createCta": "Crear rutina",
       "saveCta": "Guardar cambios",
-      "createdToast": "Plantilla creada.",
-      "savedToast": "Plantilla guardada.",
+      "createdToast": "Rutina creada.",
+      "savedToast": "Rutina guardada.",
       "saveFailed": "No se pudo guardar.",
       "submitErrorsHeadline": "Falta completar antes de guardar:",
       "submitErrorExercisePrefix": "Ejercicio #{index}",
@@ -1413,8 +1428,13 @@
       }
     },
     "compliance": {
-      "scheduledInfo": "Porcentaje de días programados completados desde que empezó el hábito (los días anteriores a la fecha de inicio y los días no programados no cuentan).",
-      "scheduledInfoLabel": "Cómo se calcula el cumplimiento"
+      "scheduledInfo": "Porcentaje de días agendados completados desde que empezó el hábito (los días anteriores a la fecha de inicio y los días no agendados no cuentan).",
+      "scheduledInfoLabel": "Cómo se calcula el cumplimiento",
+      "summary": "Resumen de cumplimiento",
+      "sevenDay": "Cumplimiento 7 días",
+      "thirtyDay": "Cumplimiento 30 días",
+      "empty": "Todavía no hay datos de cumplimiento.",
+      "sparklineAria": "Cumplimiento de los últimos {count} días"
     },
     "columns": {
       "client": "Cliente",
@@ -1597,6 +1617,10 @@
       },
       "schedulePreviewHeading": "Vista previa en el calendario",
       "schedulePreviewCount": "{count, plural, =0 {Todavía no hay días activos} one {# día activo marcado} other {# días activos marcados}}"
+    },
+    "newPage": {
+      "title": "Nuevo hábito",
+      "subtitle": "Creá un hábito reutilizable, sumale una foto o un link de demostración y asignalo a tus clientes desde la biblioteca."
     }
   },
   "exercises": {
@@ -1757,7 +1781,9 @@
       "mineOnlyLabel": "Creados por mí",
       "allLabel": "Todos",
       "clearAria": "Limpiar filtros",
-      "clearCta": "Limpiar filtros"
+      "clearCta": "Limpiar filtros",
+      "sourceStandardOption": "Biblioteca",
+      "sourceCustomOption": "Propios"
     },
     "multiSelect": {
       "removeAria": "Quitar {label}",
@@ -1843,6 +1869,12 @@
       "description": "Ejecutá esto en tu terminal donde está el GIF:",
       "afterHint": "Después subí el MP4 resultante.",
       "dismiss": "Entendido"
+    },
+    "viewPage": {
+      "title": "Detalle del ejercicio",
+      "instructions": "Instrucciones",
+      "noInstructions": "Este ejercicio todavía no tiene instrucciones.",
+      "tips": "Consejos para el coach"
     }
   },
   "chat": {
@@ -2040,7 +2072,7 @@
       "pickClientsPrompt": "Elegí uno o más clientes arriba para ver su agenda.",
       "pickClientFirstToast": "Elegí al menos un cliente primero",
       "bulkAssignHabit": "Asignar hábito",
-      "addWorkoutOnAria": "Asignar workout el {date}",
+      "addWorkoutOnAria": "Agendar entrenamiento el {date}",
       "addHabitOnAria": "Asignar hábito el {date}",
       "addOnAria": "Asignar el {date}",
       "addMenuWorkout": "Entrenamiento",
@@ -2053,9 +2085,9 @@
     },
     "bulk": {
       "title": "Asignación masiva",
-      "subtitle": "Elegí una plantilla + una fecha + varios clientes. Confirmá la lista antes de enviar — todas las asignaciones se guardan de forma atómica.",
+      "subtitle": "Elegí una rutina + una fecha + varios clientes. Confirmá la lista antes de enviar — todas las asignaciones se guardan de forma atómica.",
       "backToSchedule": "Volver a la agenda",
-      "emptyHint": "Todavía no tenés clientes. Agregá un cliente primero y volvé para asignar la plantilla.",
+      "emptyHint": "Todavía no tenés clientes. Agregá un cliente primero y volvé para asignar la rutina.",
       "emptyCta": "Gestionar clientes"
     },
     "weekGrid": {
@@ -2065,7 +2097,7 @@
       "loadErrorPrefix": "No se pudo cargar la agenda.",
       "loadErrorFallback": "Probá de nuevo.",
       "loading": "Cargando…",
-      "assignTemplateCta": "Asignar plantilla",
+      "assignTemplateCta": "Asignar rutina",
       "removeWorkoutAria": "Quitar {name}",
       "untitledTemplate": "(sin título)",
       "daysShort": {
@@ -2079,13 +2111,13 @@
       }
     },
     "bulkAssign": {
-      "templateAndDate": "Plantilla + Fecha",
-      "templateLabel": "Plantilla",
-      "templatePlaceholder": "Elegí una plantilla",
+      "templateAndDate": "Rutina + Fecha",
+      "templateLabel": "Rutina",
+      "templatePlaceholder": "Elegí una rutina",
       "templateLoading": "Cargando…",
-      "createTemplate": "Crear plantilla",
+      "createTemplate": "Crear rutina",
       "dayLabel": "Día",
-      "scheduledFor": "Programado para {date}",
+      "scheduledFor": "Agendado para {date}",
       "timeLabel": "Hora",
       "meetingNotesLabel": "Notas del entrenamiento",
       "meetingNotesPlaceholder": "Link de Zoom / Meet, instrucciones, notas de preparación...",
@@ -2100,12 +2132,12 @@
       "overCapMessage": "Seleccionaste {count} clientes — el tope por envío es {cap}. Desmarcá algunos para continuar.",
       "reviewSingular": "Revisar {count} asignación",
       "reviewPlural": "Revisar {count} asignaciones",
-      "errorPickTemplate": "Elegí primero una plantilla.",
+      "errorPickTemplate": "Elegí primero una rutina.",
       "errorKeepOne": "Dejá al menos un cliente marcado.",
       "errorBulkFailed": "Falló la asignación masiva.",
       "successSingular": "Asignado a {count} cliente.",
       "successPlural": "Asignado a {count} clientes.",
-      "unknownTemplate": "(plantilla desconocida)",
+      "unknownTemplate": "(rutina desconocida)",
       "modeLabel": "Frecuencia",
       "modeOnce": "Única",
       "modeWeekly": "Semanal recurrente",
@@ -2149,12 +2181,12 @@
       "recurrenceHint": "Cada uno de los {count, plural, one {# cliente} other {# clientes}} recibe una serie recurrente que empieza el {start}."
     },
     "assignModal": {
-      "title": "Asignar una plantilla de entrenamiento",
-      "description": "Elegí una plantilla y confirmá el día. El snapshot se congela al enviar — editar la plantilla más adelante no cambiará esta asignación.",
-      "templateLabel": "Plantilla",
-      "templatePlaceholder": "Elegí una plantilla",
+      "title": "Asignar una rutina",
+      "description": "Elegí una rutina y confirmá el día. El snapshot se congela al enviar — editar la rutina más adelante no cambiará esta asignación.",
+      "templateLabel": "Rutina",
+      "templatePlaceholder": "Elegí una rutina",
       "templateLoading": "Cargando…",
-      "createTemplate": "Crear plantilla",
+      "createTemplate": "Crear rutina",
       "modeLabel": "Modo de asignación",
       "modeOnce": "Única",
       "modeWeekly": "Semanal recurrente",
@@ -2180,15 +2212,15 @@
       "endDateHintWithEnd": "Se repite semanalmente hasta esta fecha.",
       "endDateHintNoEnd": "Sin fecha de fin: crea los próximos 12 meses.",
       "dayLabel": "Día",
-      "scheduledFor": "Programado para {date}",
+      "scheduledFor": "Agendado para {date}",
       "timeLabel": "Hora",
       "timeHint": "Opcional para entrenamientos en vivo o virtuales. Si configurás una hora, el cliente recibe un recordatorio push antes del entrenamiento (si tiene las notificaciones activadas).",
       "meetingNotesLabel": "Notas del entrenamiento",
       "meetingNotesPlaceholder": "Link de Zoom / Meet, instrucciones, notas de preparación...",
       "exerciseOverridesTitle": "Ajustes por cliente",
-      "exerciseOverridesHint": "Opcional: personalizá solo esta asignación (la plantilla no se modifica).",
-      "exerciseOverridesLoading": "Cargando detalles de ejercicios de la plantilla…",
-      "exerciseOverridesEmpty": "Esta plantilla no tiene ejercicios.",
+      "exerciseOverridesHint": "Opcional: personalizá solo esta asignación (la rutina no se modifica).",
+      "exerciseOverridesLoading": "Cargando detalles de ejercicios de la rutina…",
+      "exerciseOverridesEmpty": "Esta rutina no tiene ejercicios.",
       "exerciseOverridesSets": "Series",
       "exerciseOverridesReps": "Reps",
       "exerciseOverridesRest": "Descanso entre series (seg)",
@@ -2210,13 +2242,13 @@
       "supersetLabel": "Superserie {group}",
       "supersetGroupRoundRest": "Descanso de la superserie (seg)",
       "supersetGroupAfterRest": "Descanso al terminar la superserie (seg)",
-      "errorTemplateDetailFallback": "No se pudieron cargar los detalles de la plantilla.",
+      "errorTemplateDetailFallback": "No se pudieron cargar los detalles de la rutina.",
       "cancel": "Cancelar",
       "assigning": "Asignando…",
       "submit": "Asignar",
-      "errorPickTemplate": "Elegí primero una plantilla.",
+      "errorPickTemplate": "Elegí primero una rutina.",
       "errorFallback": "Falló la asignación.",
-      "successOnce": "Plantilla asignada.",
+      "successOnce": "Rutina asignada.",
       "successRecurring": "Asignación recurrente creada ({count} entrenamientos).",
       "recurrencePreviewCount": "{count, plural, =0 {Todavía no hay fechas} one {# fecha marcada en el calendario} other {# fechas marcadas en el calendario}}"
     },
@@ -2269,7 +2301,7 @@
       "titleRecurring": "¿Quitar “{name}”?",
       "titleSingle": "¿Quitar el entrenamiento?",
       "descriptionRecurring": "Este es un entrenamiento recurrente. ¿Querés borrar solo este, o este y todas las próximas ocurrencias?",
-      "descriptionSingle": "Esto va a quitar el entrenamiento programado del calendario del cliente. El cliente ya no lo verá. No se puede deshacer.",
+      "descriptionSingle": "Esto va a quitar el entrenamiento agendado del calendario del cliente. El cliente ya no lo verá. No se puede deshacer.",
       "thisOnly": "Solo esta ocurrencia",
       "cascade": "Esta y todas las próximas ocurrencias",
       "cancel": "Cancelar",
@@ -2986,7 +3018,9 @@
     "createPlan": "Crear plan",
     "newPlanOption": "+ Nuevo plan",
     "removePlan": "Quitar plan",
-    "assignNoPlansHint": "Todavía no creaste planes. Creá uno acá y queda elegido para este cliente."
+    "assignNoPlansHint": "Todavía no creaste planes. Creá uno acá y queda elegido para este cliente.",
+    "searchClients": "Buscar cliente",
+    "noMatches": "Ningún cliente coincide con la búsqueda o el filtro."
   },
   "admin": {
     "common": {

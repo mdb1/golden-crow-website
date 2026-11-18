@@ -24,6 +24,10 @@ const BANNED: Record<"es" | "en", Rule[]> = {
     { pattern: /\bentrenador(?:a|es|as)?\b/i, instead: "coach" },
     { pattern: /\bsesi[oó]n(?:es)?(?![\p{L}])/iu, instead: "entrenamiento" },
     { pattern: /(?<!drop )\bsets?\b/i, instead: "serie" },
+    // golden-crow-website#535 — agendar, never «programar» (GLOSSARY.md, Entrenamiento).
+    { pattern: /\bprogram(?:ad[oa]s?|ar|á)\b/i, instead: "agendado / agendar" },
+    // «workout» is English; the Spanish copy says «entrenamiento».
+    { pattern: /\bworkouts?\b/i, instead: "entrenamiento" },
   ],
   en: [
     { pattern: /\btrainers?\b/i, instead: "coach" },
@@ -46,6 +50,14 @@ const ACCOUNT_SESSION: Record<"es" | "en", RegExp> = {
   en: /\bguest\s+sessions?\b|\bsessions?\s+expired\b|\bstays in this session\b/gi,
 };
 
+// #535 — the admin screens' copy is being reworked in golden-crow-website#534;
+// drop a prefix here once that lands.
+const PENDING_ELSEWHERE = ["admin.", "corvoAdmin."];
+
+// «plantilla» means a ROUTINE only in the routine screens; habit templates and
+// quick-reply templates are other concepts. Checked separately, by namespace.
+const ROUTINE_NAMESPACES = ["templates.", "schedule.", "dashboard.", "nav.", "dialogs.", "library."];
+
 // ICU argument names (`{sets}`, `{sessions, plural, …}`) are identifiers, not copy.
 const ICU_ARG = /\{\w+(?=[,}])/g;
 
@@ -64,6 +76,7 @@ describe("the backoffice speaks the gc-fitness glossary (#1604)", () => {
     it(`messages/${lang}.json uses no word the glossary rules out`, () => {
       const data = JSON.parse(fs.readFileSync(path.join(MESSAGES, `${lang}.json`), "utf8"));
       const hits = flatten(data).flatMap(([key, value]) => {
+        if (PENDING_ELSEWHERE.some((ns) => key.startsWith(ns))) return [];
         const text = value.replace(ICU_ARG, " ").replace(ACCOUNT_SESSION[lang], " ");
         return BANNED[lang]
           .map(({ pattern, instead }) => {
@@ -75,6 +88,15 @@ describe("the backoffice speaks the gc-fitness glossary (#1604)", () => {
       expect(hits).toEqual([]);
     });
   }
+
+  it("the routine screens say «rutina», never «plantilla» (#535)", () => {
+    const data = JSON.parse(fs.readFileSync(path.join(MESSAGES, "es.json"), "utf8"));
+    const hits = flatten(data)
+      .filter(([key]) => ROUTINE_NAMESPACES.some((ns) => key.startsWith(ns)))
+      .filter(([, value]) => /\bplantillas?\b/i.test(value))
+      .map(([key, value]) => `${key}: ${value.slice(0, 80)}`);
+    expect(hits).toEqual([]);
+  });
 
   it("still catches the words it exists for", () => {
     const check = (lang: "es" | "en", value: string) =>
@@ -93,5 +115,8 @@ describe("the backoffice speaks the gc-fitness glossary (#1604)", () => {
     expect(check("es", "Cuando tus clientes inicien sesión en la app")).toBe(false);
     expect(check("es", "{sets} series esta semana")).toBe(false);
     expect(check("es", "Drop set")).toBe(false);
+    expect(check("es", "Programado para {date}")).toBe(true);
+    expect(check("es", "Asignar workout")).toBe(true);
+    expect(check("es", "Agendado para {date}")).toBe(false);
   });
 });

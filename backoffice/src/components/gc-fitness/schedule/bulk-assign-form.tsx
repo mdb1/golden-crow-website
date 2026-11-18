@@ -1,4 +1,5 @@
 "use client";
+import { NoClientsHint } from "@/components/gc-fitness/no-clients-hint";
 
 // bulk-assign-form.tsx
 //
@@ -552,7 +553,7 @@ export function BulkAssignForm({
         </CardHeader>
         <CardContent>
           {clients.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("noClients")}</p>
+            <NoClientsHint message={t("noClients")} className="py-2" />
           ) : (
             <div className="max-h-96 overflow-auto rounded border">
               <table className="w-full min-w-[28rem] text-sm">

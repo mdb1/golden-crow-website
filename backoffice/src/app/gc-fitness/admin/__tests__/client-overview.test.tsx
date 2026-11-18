@@ -86,7 +86,7 @@ function overview(extra: Partial<ClientAdminOverview> = {}): ClientAdminOverview
       lastHabitAtMs: null,
       lastPhotoAtMs: null,
       thisWeekComplianceRatio: 0.6,
-      prevWeekComplianceRatio: null,
+      prevWeekComplianceRatio: null, // client_stats v2 (#535)
       habitsCompletedThisWeek: 3,
       habitsScheduledThisWeek: 5,
       missedWorkoutsLast7Days: 2,

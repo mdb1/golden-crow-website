@@ -1,4 +1,5 @@
 "use client";
+import { NoClientsHint } from "@/components/gc-fitness/no-clients-hint";
 
 // bulk-assign-habit-dialog.tsx
 //
@@ -467,9 +468,7 @@ export function BulkAssignHabitDialog({
                   </div>
                 </div>
                 {clients.length === 0 ? (
-                  <p className="rounded-md border px-3 py-4 text-center text-sm text-muted-foreground">
-                    {t("noClients")}
-                  </p>
+                  <NoClientsHint message={t("noClients")} className="rounded-md border px-3 py-4" />
                 ) : (
                   <ul className="flex max-h-[42vh] flex-col gap-0.5 overflow-y-auto rounded-md border p-2">
                     {clients.map((c) => {

@@ -52,17 +52,17 @@ export async function ComplianceWidget({ habitId }: ComplianceWidgetProps) {
       className="flex flex-col gap-4"
     >
       <h3 id="compliance-heading" className="sr-only">
-        Compliance summary
+        {t("summary")}
       </h3>
       <div className="flex flex-wrap gap-4">
         <RatioCard
-          label="7-day compliance"
+          label={t("sevenDay")}
           ratio={sevenDayRatio}
           infoText={infoText}
           infoLabel={infoLabel}
         />
         <RatioCard
-          label="30-day compliance"
+          label={t("thirtyDay")}
           ratio={thirtyDayRatio}
           infoText={infoText}
           infoLabel={infoLabel}
@@ -72,7 +72,11 @@ export async function ComplianceWidget({ habitId }: ComplianceWidgetProps) {
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Last 30 days
         </p>
-        <ComplianceSparkline counts={dailyCounts} />
+        <ComplianceSparkline
+          counts={dailyCounts}
+          emptyLabel={t("empty")}
+          ariaLabel={t("sparklineAria", { count: dailyCounts.length })}
+        />
       </div>
     </section>
   );
