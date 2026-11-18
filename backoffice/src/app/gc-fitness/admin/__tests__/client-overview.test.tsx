@@ -112,6 +112,8 @@ function overview(extra: Partial<ClientAdminOverview> = {}): ClientAdminOverview
       "coach1",
       "c1",
     ),
+    subscriptionEvents: [],
+    social: null,
     ...extra,
   };
 }
