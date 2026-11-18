@@ -11,7 +11,7 @@ import enMessages from "../../../../messages/en.json";
 import esMessages from "../../../../messages/es.json";
 import { FEED_TITLE_KEYS, feedTitleKey } from "../activity-feed-titles";
 
-const MODEL_FILES = ["activity-feed-model.ts", "activity-feed-actions.ts"].map((f) =>
+const MODEL_FILES = ["activity-feed-model.ts", "activity-feed-actions.ts", "activity-feed-model-ext.ts"].map((f) =>
   fs.readFileSync(path.join(__dirname, "..", f), "utf8"),
 );
 
@@ -63,7 +63,7 @@ describe("activity feed titles (#513)", () => {
       }
     }
     // Not vacuous: the scan must actually be seeing the titles.
-    expect(found.size).toBeGreaterThan(60);
+    expect(found.size).toBeGreaterThan(160);
     const unmapped = [...found].filter((title) => feedTitleKey(title) === null);
     expect(unmapped).toEqual([]);
   });

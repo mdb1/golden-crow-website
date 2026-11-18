@@ -14,14 +14,20 @@ import { useTranslations } from "next-intl";
 import {
   Activity,
   Apple,
+  BotMessageSquare,
   CalendarClock,
   Camera,
   Dumbbell,
+  HeartHandshake,
   ListChecks,
+  MessagesSquare,
   Repeat,
   ShieldAlert,
   Sparkles,
+  TrendingUp,
+  Trophy,
   UserRound,
+  Wallet,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +50,13 @@ const CATEGORY_ICON: Record<FeedCategory, React.ComponentType<{ className?: stri
   account: UserRound,
   coach: Activity,
   admin: ShieldAlert,
+  // #529
+  billing: Wallet,
+  progress: TrendingUp,
+  chat: MessagesSquare,
+  social: HeartHandshake,
+  challenge: Trophy,
+  corvo: BotMessageSquare,
   other: Activity,
 };
 
@@ -59,6 +72,12 @@ const CATEGORY_TONE: Record<FeedCategory, string> = {
   account: "bg-chart-1/15 text-chart-1",
   coach: "bg-muted text-foreground",
   admin: "bg-destructive/10 text-destructive",
+  billing: "bg-chart-4/15 text-chart-4",
+  progress: "bg-chart-3/15 text-chart-3",
+  chat: "bg-chart-1/15 text-chart-1",
+  social: "bg-chart-5/15 text-chart-5",
+  challenge: "bg-chart-4/15 text-chart-4",
+  corvo: "bg-primary/15 text-primary",
   other: "bg-muted text-muted-foreground",
 };
 
@@ -201,6 +220,13 @@ function FeedRow({ event, timeZone }: { event: ActivityFeedEvent; timeZone: stri
             <span className="text-muted-foreground">
               {" → "}
               <PersonLink person={event.client} muted />
+            </span>
+          ) : null}
+          {/* #529 — whose roster this happened in, when the coach is not already the actor. */}
+          {event.coach && event.coach.uid !== event.actor?.uid ? (
+            <span className="text-xs text-muted-foreground" data-testid="feed-row-coach">
+              {"· "}
+              {t("coachOf")} <PersonLink person={event.coach} muted />
             </span>
           ) : null}
         </div>

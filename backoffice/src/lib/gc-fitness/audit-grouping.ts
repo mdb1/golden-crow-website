@@ -281,3 +281,45 @@ export function findRecurrenceEdits<T extends RawAuditLogEntry>(
 
   return links;
 }
+
+/**
+ * golden-crow-website#529 — collapse a BURST: the same person doing the same small thing
+ * several times in a row (a Corvo conversation, a chat sitting, a run of kudos). Each
+ * message is its own `audit_log` entry, and one row per message would bury everything
+ * else — «Cami habló con Corvo (6 mensajes · usó: rutinas, progreso)» is the row the
+ * operator wants.
+ *
+ * `keyOf` says which records may burst together (null = never); a burst stays open while
+ * the next-older member lands within `gapMs` of the OLDEST member so far, so a long but
+ * continuous conversation is one row and a sitting the next morning is another. Only
+ * single-record groups take part: a recurring-series collapse above is already one action.
+ *
+ * Input and output are newest-first; `head` stays the newest member.
+ */
+export function groupAuditBursts<T extends RawAuditLogEntry>(
+  groups: Array<AuditLogGroup<T>>,
+  keyOf: (entry: T) => string | null,
+  gapMs: number,
+): Array<AuditLogGroup<T>> {
+  const out: Array<AuditLogGroup<T>> = [];
+  const open = new Map<string, { index: number; oldestMs: number }>();
+  for (const group of groups) {
+    const key = group.count === 1 ? keyOf(group.head) : null;
+    const at = Date.parse(group.head.occurredAtISO ?? "");
+    if (!key || Number.isNaN(at)) {
+      out.push(group);
+      continue;
+    }
+    const burst = open.get(key);
+    if (burst && burst.oldestMs - at <= gapMs) {
+      const target = out[burst.index];
+      target.members.push(group.head);
+      target.count += 1;
+      burst.oldestMs = at;
+      continue;
+    }
+    open.set(key, { index: out.length, oldestMs: at });
+    out.push({ ...group, members: [...group.members] });
+  }
+  return out;
+}

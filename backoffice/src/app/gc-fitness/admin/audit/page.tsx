@@ -77,6 +77,7 @@ export default async function AuditPage({
     allCategoriesSelected,
     actorQuery,
     clientQuery,
+    coachQuery,
     fromISO,
     toISO,
     includeLowSignal,
@@ -131,6 +132,18 @@ export default async function AuditPage({
         return t("categories.coach");
       case "admin":
         return t("categories.admin");
+      case "billing":
+        return t("categories.billing");
+      case "progress":
+        return t("categories.progress");
+      case "chat":
+        return t("categories.chat");
+      case "social":
+        return t("categories.social");
+      case "challenge":
+        return t("categories.challenge");
+      case "corvo":
+        return t("categories.corvo");
       case "other":
         return t("categories.other");
     }
@@ -245,6 +258,11 @@ export default async function AuditPage({
             <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
               {t("filters.client")}
               <Input name="client" defaultValue={clientQuery} placeholder={t("filters.contains")} className="h-9" />
+            </label>
+
+            <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+              {t("filters.coach")}
+              <Input name="coach" defaultValue={coachQuery} placeholder={t("filters.contains")} className="h-9" data-testid="audit-filter-coach" />
             </label>
 
             <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
