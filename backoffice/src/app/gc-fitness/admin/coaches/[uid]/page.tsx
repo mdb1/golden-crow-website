@@ -21,9 +21,21 @@ import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import {
   getDeletionTargetInfo,
   getCoachAdminDetail,
-  listCoachesForAdmin,
+  listCoachOptionsForAdmin,
   previewClientCascade,
 } from "@/lib/gc-fitness/admin-actions";
+import { loadCoachAdminOverview } from "@/lib/gc-fitness/admin-coach-overview";
+import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
+import { CoachClientsTable } from "./_components/CoachClientsTable";
+import {
+  CoachActivityCard,
+  CoachBillingCard,
+  CoachChallengesCard,
+  CoachEngagementCards,
+  CoachOverviewKpis,
+  CoachProgramsCard,
+  PendingInvitesTable,
+} from "./_components/CoachOverviewSections";
 import { AdminActionForm } from "../../_components/admin-action-form";
 import { AdminSubmitButton } from "../../_components/admin-submit-button";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
@@ -68,12 +80,23 @@ export default async function CoachAdminDetailPage({
   if (!detail) notFound();
   const t = await getTranslations("admin.coachDetail");
   const tc = await getTranslations("admin.common");
+  const to = await getTranslations("admin.coachDetail.overview");
   const actionMessage = op && ok === "1" ? tc("actionCompleted", { op }) : null;
   const coachDisabled = detail.coachDisabled === true;
 
   // Destination coaches for the transfer control — every coach except this one.
-  const allCoaches = await listCoachesForAdmin();
+  // #534: the projected option list, not `listCoachesForAdmin` (4 reads × every coach).
+  const [allCoaches, overview] = await Promise.all([
+    listCoachOptionsForAdmin(),
+    getTrainerTimezone().then((fallbackTimezone) => loadCoachAdminOverview(uid, { fallbackTimezone })),
+  ]);
   const otherCoaches = allCoaches.filter((coach) => coach.uid !== detail.coach.uid);
+  const auditHref = (extra = "") =>
+    `/gc-fitness/admin/audit?tab=timeline&coach=${encodeURIComponent(detail.coach.email || detail.coach.uid)}${extra}`;
+  const clientNames = Object.fromEntries(
+    overview.clients.map((c) => [c.uid, c.displayName || c.email || c.uid]),
+  );
+  const activeClients = overview.clients.filter((c) => !c.deleted).length;
 
   let clientPreview: Awaited<ReturnType<typeof previewClientCascade>> | null = null;
   let targetInfo: Awaited<ReturnType<typeof getDeletionTargetInfo>> | null = null;
@@ -155,7 +178,9 @@ export default async function CoachAdminDetailPage({
         </CardContent>
       </Card>
 
-      <section className="grid gap-4 sm:grid-cols-3">
+      <CoachOverviewKpis activeClients={activeClients} engagement={overview.engagement} billing={overview.billing} />
+
+      <section className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
         <Metric label={tc("clients")} value={detail.coach.clientsCount} />
         <Metric label={tc("customWorkouts")} value={detail.coach.customWorkoutsCount} />
         <Metric label={tc("customExercises")} value={detail.coach.customExercisesCount} />
@@ -166,47 +191,30 @@ export default async function CoachAdminDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">{t("linked.title")}</CardTitle>
-          <CardDescription>{t("linked.description")}</CardDescription>
+          <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-xl">
+            {to("clients.title")}
+            <Link href={auditHref()} className="text-xs font-normal text-primary hover:underline">
+              {to("auditLink")}
+            </Link>
+          </CardTitle>
+          <CardDescription>{to("clients.description")}</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("linked.client")}</TableHead>
-                  <TableHead>{tc("uid")}</TableHead>
-                  <TableHead>{tc("status")}</TableHead>
-                  <TableHead className="text-right">{tc("action")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {detail.linkedClients.length === 0 ? (
-                  <TableRow>
-                    <TableCell className="text-muted-foreground" colSpan={4}>
-                      {t("linked.empty")}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  detail.linkedClients.map((client) => (
-                    <TableRow key={client.uid}>
-                      <TableCell>
-                        <div className="font-medium">
-                          <Link
-                            href={`/gc-fitness/admin/coaches/${detail.coach.uid}/clients/${client.uid}`}
-                            className="text-primary hover:underline"
-                          >
-                            {client.displayName || "—"}
-                          </Link>
-                        </div>
-                        <div className="text-xs text-muted-foreground">{client.email}</div>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">{client.uid}</TableCell>
-                      <TableCell>
-                        {client.deleted ? <Badge variant="secondary">{t("linked.deleted")}</Badge> : <Badge variant="success">{t("linked.active")}</Badge>}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex flex-wrap items-center justify-end gap-2">
+          <CoachClientsTable
+            coachUid={detail.coach.uid}
+            rows={overview.clients}
+            nowMs={overview.nowMs}
+            timezone={overview.timezone}
+            actions={Object.fromEntries(
+              overview.clients.map((client) => [
+                client.uid,
+                <details key={client.uid} className="inline-block text-left">
+                  <summary className="inline-flex h-8 cursor-pointer list-none items-center rounded-md border px-3 text-xs font-medium hover:bg-muted">
+                    {tc("action")}
+                  </summary>
+                  {/* Inline (not a floating popover): the table scrolls, a popover would be clipped. */}
+                  <div className="mt-1 w-max max-w-[22rem] rounded-xl border bg-popover p-2">
+                    <div className="flex flex-col items-stretch gap-2">
                           {!client.deleted && otherCoaches.length > 0 ? (
                             <AdminActionForm action={transferClientAction} className="flex flex-wrap items-center gap-1">
                               <input type="hidden" name="coachUid" value={detail.coach.uid} />
@@ -257,15 +265,28 @@ export default async function CoachAdminDetailPage({
                             </Link>
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                  </div>
+                </details>,
+              ]),
+            )}
+          />
         </CardContent>
       </Card>
+
+      <CoachBillingCard billing={overview.billing} clientNames={clientNames} auditHref={auditHref("&cat=billing")} />
+
+      <CoachProgramsCard nutrition={overview.nutrition} habits={overview.habits} />
+
+      <CoachChallengesCard challenges={overview.challenges} />
+
+      <CoachEngagementCards
+        checklist={overview.checklist}
+        corvo={overview.corvo}
+        social={overview.social}
+        timezone={overview.timezone}
+      />
+
+      <CoachActivityCard activity={overview.activity} timezone={overview.timezone} />
 
       <Card className="border-destructive/35">
         <CardHeader>
@@ -334,52 +355,24 @@ export default async function CoachAdminDetailPage({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl">{t("pending.title")}</CardTitle>
-          <CardDescription>{t("pending.description")}</CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{tc("email")}</TableHead>
-                  <TableHead>{tc("name")}</TableHead>
-                  <TableHead className="text-right">{tc("action")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {detail.pendingClients.length === 0 ? (
-                  <TableRow>
-                    <TableCell className="text-muted-foreground" colSpan={3}>
-                      {t("pending.empty")}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  detail.pendingClients.map((pending) => (
-                    <TableRow key={pending.email}>
-                      <TableCell>{pending.email}</TableCell>
-                      <TableCell>{pending.displayName || "—"}</TableCell>
-                      <TableCell className="text-right">
-                        <AdminActionForm action={removePendingAction} className="inline-block">
-                          <input type="hidden" name="coachUid" value={detail.coach.uid} />
-                          <input type="hidden" name="email" value={pending.email} />
-                          <AdminSubmitButton
-                            idleLabel={t("pending.remove")}
-                            pendingLabel={tc("removing")}
-                            className="inline-flex h-8 items-center rounded-md border border-destructive/60 px-3 text-xs font-medium text-destructive hover:bg-destructive/10"
-                          />
-                        </AdminActionForm>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+      <PendingInvitesTable
+        invites={overview.invites}
+        timezone={overview.timezone}
+        actions={Object.fromEntries(
+          overview.invites.map((pending) => [
+            pending.email,
+            <AdminActionForm key={pending.email} action={removePendingAction} className="inline-block">
+              <input type="hidden" name="coachUid" value={detail.coach.uid} />
+              <input type="hidden" name="email" value={pending.email} />
+              <AdminSubmitButton
+                idleLabel={t("pending.remove")}
+                pendingLabel={tc("removing")}
+                className="inline-flex h-8 items-center rounded-md border border-destructive/60 px-3 text-xs font-medium text-destructive hover:bg-destructive/10"
+              />
+            </AdminActionForm>,
+          ]),
+        )}
+      />
 
       <Card>
         <CardHeader>

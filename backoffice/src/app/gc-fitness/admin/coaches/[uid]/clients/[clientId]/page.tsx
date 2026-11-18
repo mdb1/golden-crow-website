@@ -45,6 +45,17 @@ import { ArrowLeft, UserRound } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 import { AdminNutritionCard } from "../../../../_components/admin-nutrition-card";
+import { loadClientAdminOverview } from "@/lib/gc-fitness/admin-client-overview";
+import { listClientPersonalRecordsAsAdmin } from "@/lib/gc-fitness/personal-records-actions";
+import { BodyWeightTrendChart } from "@/app/gc-fitness/clients/[id]/_components/BodyWeightTrendChart";
+import { HabitTrendsWidget } from "@/app/gc-fitness/clients/[id]/_components/HabitTrendsWidget";
+import { PersonalRecordsClient } from "@/app/gc-fitness/clients/[id]/_components/PersonalRecordsClient";
+import {
+  ClientAccountCard,
+  ClientBillingCard,
+  ClientOverviewTiles,
+  ClientRelationshipCards,
+} from "./_components/ClientOverviewCards";
 import { ClientRecentLogsFeed } from "@/app/gc-fitness/clients/[id]/_components/ClientRecentLogsFeed";
 import { ProgressPhotosGridClient } from "@/app/gc-fitness/clients/[id]/_components/ProgressPhotosGridClient";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
@@ -118,6 +129,30 @@ export default async function AdminCoachClientPage({
       ? storedTimezone
       : await getTrainerTimezone();
 
+  // #534 — account / app / billing / goals / chat / Corvo + PRs. Fail-soft: a broken
+  // source empties its card, never the page (the ownership gate already ran above).
+  const [overview, personalRecords] = await Promise.all([
+    loadClientAdminOverview(uid, clientId, { fallbackTimezone: timezone }).catch(() => null),
+    listClientPersonalRecordsAsAdmin(uid, clientId).catch(() => ({ clientId, records: [] })),
+  ]);
+  const tRecords = await getTranslations("clients.detail.personalRecords");
+  const tProfile = await getTranslations("admin.coachlessProfile");
+  const tOverview = await getTranslations("admin.coachDetail.overview");
+  const personalRecordLabels = {
+    empty: tRecords("empty"),
+    muscleGroupLabel: tRecords("muscleGroupLabel"),
+    muscleGroupAll: tRecords("muscleGroupAll"),
+    sortLabel: tRecords("sortLabel"),
+    sortRecent: tRecords("sortRecent"),
+    sortMostCommon: tRecords("sortMostCommon"),
+    previousLabel: tRecords.raw("previousLabel") as string,
+    estOneRm: tRecords.raw("estOneRm") as string,
+    noDate: tRecords("noDate"),
+  };
+  const clientEmail = overview?.account.email || clientId;
+  const auditHref = (extra = "") =>
+    `/gc-fitness/admin/audit?tab=timeline&client=${encodeURIComponent(clientEmail)}${extra}`;
+
   const t = await getTranslations("admin.clientDetail");
   const tc = await getTranslations("admin.common");
   const statusLabel = (status: string): string => {
@@ -175,6 +210,21 @@ export default async function AdminCoachClientPage({
           {coachName}
         </Link>
         {coachEmail && coachEmail !== coachName ? ` · ${coachEmail}` : null}
+      </p>
+
+      {overview ? (
+        <>
+          <ClientOverviewTiles overview={overview} />
+          <ClientAccountCard overview={overview} />
+          <ClientBillingCard overview={overview} auditHref={auditHref("&cat=billing")} />
+          <ClientRelationshipCards overview={overview} />
+        </>
+      ) : null}
+
+      <p className="-mt-2 text-sm">
+        <Link href={auditHref()} className="text-primary hover:underline">
+          {tOverview("auditLink")}
+        </Link>
       </p>
 
       <Card>
@@ -309,6 +359,37 @@ export default async function AdminCoachClientPage({
 
       {/* Nutrition (#949-adjacent) — shared with the coach-less profile (#1133). */}
       <AdminNutritionCard nutrition={nutrition} />
+
+      {personalRecords.records.length > 0 ? (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-xl">
+              {tProfile("personalRecords", { count: personalRecords.records.length })}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PersonalRecordsClient records={personalRecords.records} labels={personalRecordLabels} />
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-xl">{tProfile("habitAdherence")}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <HabitTrendsWidget clientId={clientId} coachId={uid === clientId ? null : uid} timezone={timezone} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-xl">{tProfile("bodyWeight")}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <BodyWeightTrendChart clientId={clientId} timezone={timezone} />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="pb-3">
