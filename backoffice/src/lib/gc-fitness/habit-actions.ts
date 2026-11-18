@@ -57,6 +57,7 @@ import { FirestoreCollections } from "./collections";
 import { normalizeMirrorEmail } from "./email-normalization";
 import { isHabitNotDeleted } from "./habit-visibility";
 import { HABIT_WEEKDAY_FORMAT_ISO, effectiveIsoWeekdays } from "./habit-schedule";
+import { habitQuantityTarget, habitQuantityUnit, type HabitQuantityUnit } from "./habit-quantity";
 
 const COLLECTION = FirestoreCollections.habits;
 const TEMPLATE_COLLECTION = FirestoreCollections.habitTemplates;
@@ -261,6 +262,9 @@ export interface HabitRow {
    */
   archivedOn?: string;
   archivedPeriods?: string[];
+  /** gc-fitness#1648 — optional daily amount (validated: 1…100000) + unit. */
+  quantityTarget?: number;
+  quantityUnit?: HabitQuantityUnit;
   seedSource?: string;
   deleted: boolean;
   createdAt: string | null;
@@ -289,6 +293,9 @@ export interface HabitTemplateRow {
   scheduleWeekdays?: number[];
   scheduleDayOfMonth?: number;
   scheduleMonthDays?: number[];
+  /** gc-fitness#1648 — copied onto each assignment. */
+  quantityTarget?: number;
+  quantityUnit?: HabitQuantityUnit;
   deleted: boolean;
   createdAt: string | null;
   updatedAt: string | null;
@@ -336,6 +343,29 @@ function normalizeStartsOn(v: unknown): string {
 
 function normalizeEndsOn(v: unknown): string | undefined {
   return normalizeCivilDateInput(v);
+}
+
+/**
+ * gc-fitness#1648 — the create-side quantity fields: both or neither. A unit
+ * without a valid target is dropped (it would mean nothing to the apps).
+ * NOT exported: this is a "use server" module (only async exports allowed).
+ */
+function habitQuantityFields(
+  rawTarget: unknown,
+  rawUnit: unknown,
+): { quantityTarget?: number; quantityUnit?: HabitQuantityUnit } {
+  const target = habitQuantityTarget(rawTarget);
+  if (target === null) return { quantityTarget: undefined, quantityUnit: undefined };
+  return { quantityTarget: target, quantityUnit: habitQuantityUnit(rawUnit) };
+}
+
+/** Update-side twin of `habitQuantityFields`: OFF deletes both fields. */
+function habitQuantityPatch(rawTarget: unknown, rawUnit: unknown): Record<string, unknown> {
+  const target = habitQuantityTarget(rawTarget);
+  if (target === null) {
+    return { quantityTarget: FieldValue.delete(), quantityUnit: FieldValue.delete() };
+  }
+  return { quantityTarget: target, quantityUnit: habitQuantityUnit(rawUnit) };
 }
 
 function withoutUndefined<T extends Record<string, unknown>>(value: T): T {
@@ -420,6 +450,12 @@ function projectHabitRow(
     reminderTime:
       typeof data.reminderTime === "string" ? data.reminderTime : undefined,
     reminderEnabled: data.reminderEnabled === true,
+    ...(habitQuantityTarget(data.quantityTarget) !== null
+      ? {
+          quantityTarget: habitQuantityTarget(data.quantityTarget) as number,
+          quantityUnit: habitQuantityUnit(data.quantityUnit),
+        }
+      : {}),
     reminderCadence:
       data.reminderCadence === "daily" ||
       data.reminderCadence === "weekly" ||
@@ -507,6 +543,12 @@ function projectHabitTemplateRow(
     reminderTime:
       typeof data.reminderTime === "string" ? data.reminderTime : undefined,
     reminderEnabled: data.reminderEnabled === true,
+    ...(habitQuantityTarget(data.quantityTarget) !== null
+      ? {
+          quantityTarget: habitQuantityTarget(data.quantityTarget) as number,
+          quantityUnit: habitQuantityUnit(data.quantityUnit),
+        }
+      : {}),
     reminderCadence:
       data.reminderCadence === "daily" ||
       data.reminderCadence === "weekly" ||
@@ -660,6 +702,7 @@ export async function createHabit(
 
   await docRef.set(withoutUndefined({
     ...data,
+    ...habitQuantityFields(data.quantityTarget, data.quantityUnit),
     reminderDayOfMonth,
     scheduleDayOfMonth,
     startsOn: normalizeStartsOn(data.startsOn),
@@ -679,6 +722,7 @@ export async function createHabit(
   if (newTemplateId) {
     const templatePayload: Record<string, unknown> = {
       ...data,
+      ...habitQuantityFields(data.quantityTarget, data.quantityUnit),
       reminderDayOfMonth,
       scheduleDayOfMonth,
       id: newTemplateId,
@@ -774,6 +818,7 @@ export async function createPendingHabit(
 
   await docRef.set(withoutUndefined({
     ...data,
+    ...habitQuantityFields(data.quantityTarget, data.quantityUnit),
     clientId: null,
     pendingEmail: normalizedPendingEmail,
     reminderDayOfMonth:
@@ -927,6 +972,8 @@ export async function updateHabit(
     scheduleWeekdays?: number[];
     scheduleDayOfMonth?: number;
     scheduleMonthDays?: number[];
+    quantityTarget?: number;
+    quantityUnit?: HabitQuantityUnit;
   };
 
   // Field-by-field whitelist (matches P06-03 affectedKeys.hasOnly([...]))
@@ -980,6 +1027,11 @@ export async function updateHabit(
     patch.scheduleDayOfMonth =
       parsed.scheduleMonthDays.length > 0 ? parsed.scheduleMonthDays[0] : null;
   }
+
+  // gc-fitness#1648 — the daily amount. HabitForm always sends the whole
+  // state, so an absent target means the coach turned it OFF: delete both
+  // fields (never write undefined — the Admin SDK rejects it).
+  Object.assign(patch, habitQuantityPatch(parsed.quantityTarget, parsed.quantityUnit));
 
   await docRef.update(patch);
 
@@ -1863,6 +1915,9 @@ export async function assignHabitTemplate(input: unknown): Promise<{
       ...(template.reminderMonthDays
         ? { reminderMonthDays: template.reminderMonthDays }
         : {}),
+      ...(template.quantityTarget !== undefined
+        ? { quantityTarget: template.quantityTarget, quantityUnit: template.quantityUnit ?? "times" }
+        : {}),
       startsOn: parsed.startsOn ?? template.startsOn ?? todayCivilDateUTC(),
       ...scheduleFields,
       weekdayFormat: HABIT_WEEKDAY_FORMAT_ISO, // gc-fitness#1343
@@ -1954,6 +2009,9 @@ export async function assignHabitTemplateToPending(input: unknown): Promise<{
       : {}),
     ...(template.reminderMonthDays
       ? { reminderMonthDays: template.reminderMonthDays }
+      : {}),
+    ...(template.quantityTarget !== undefined
+      ? { quantityTarget: template.quantityTarget, quantityUnit: template.quantityUnit ?? "times" }
       : {}),
     scheduleType: template.scheduleType ?? "recurring",
     startsOn: template.startsOn ?? todayCivilDateUTC(),

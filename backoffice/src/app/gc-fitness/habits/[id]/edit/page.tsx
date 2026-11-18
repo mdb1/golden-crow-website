@@ -28,6 +28,7 @@ import type {
   HabitType,
 } from "@/lib/gc-fitness/habit-schema";
 import { EditHabitClient } from "./client";
+import { habitQuantityTarget, habitQuantityUnit } from "@/lib/gc-fitness/habit-quantity";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
 // Tab title: "Corvo - <habits>" (issue #170).
@@ -98,6 +99,12 @@ export default async function EditHabitPage({ params }: PageParams) {
     youtubeUrl: data.youtubeUrl,
     reminderTime: data.reminderTime,
     reminderEnabled: data.reminderEnabled ?? false,
+    // gc-fitness#1648 — the daily amount, when the habit has one.
+    quantityTarget: habitQuantityTarget(data.quantityTarget) ?? undefined,
+    quantityUnit:
+      habitQuantityTarget(data.quantityTarget) !== null
+        ? habitQuantityUnit(data.quantityUnit)
+        : undefined,
     reminderCadence: data.reminderCadence,
     reminderWeekdays: data.reminderWeekdays,
     reminderDayOfMonth: data.reminderDayOfMonth,
