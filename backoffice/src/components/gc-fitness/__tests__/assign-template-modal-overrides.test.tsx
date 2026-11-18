@@ -112,7 +112,7 @@ function renderModal() {
 function templatePicker() {
   const picker = screen
     .getAllByRole("combobox")
-    .find((el) => /Choose a template|Push Day/i.test(el.textContent ?? ""));
+    .find((el) => /Choose a routine|Push Day/i.test(el.textContent ?? ""));
   if (!picker) throw new Error("template picker combobox not found");
   return picker;
 }
