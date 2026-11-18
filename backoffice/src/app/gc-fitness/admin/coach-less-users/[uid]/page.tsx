@@ -25,7 +25,11 @@ import { ArrowLeft } from "lucide-react";
 
 import { AdminNutritionCard } from "../../_components/admin-nutrition-card";
 import { loadClientAdminOverview } from "@/lib/gc-fitness/admin-client-overview";
-import { ClientRelationshipCards } from "../../coaches/[uid]/clients/[clientId]/_components/ClientOverviewCards";
+import {
+  ClientRelationshipCards,
+  ClientSocialCard,
+  ClientSubscriptionHistoryCard,
+} from "../../coaches/[uid]/clients/[clientId]/_components/ClientOverviewCards";
 import { AdminActionForm } from "../../_components/admin-action-form";
 import { AdminSubmitButton } from "../../_components/admin-submit-button";
 import { Badge } from "@/components/ui/badge";
@@ -630,9 +634,19 @@ export default async function CoachlessUserDetailPage({
                       <TableCell>
                         {h.deleted ? (
                           <Badge variant="secondary">{tcd("habits.deleted")}</Badge>
+                        ) : h.archivedOn ? (
+                          <Badge variant="warning">{tcd("habits.archivedSince", { date: h.archivedOn })}</Badge>
                         ) : (
                           <Badge variant="success">{tcd("habits.active")}</Badge>
                         )}
+                        {h.clientOwned ? (
+                          <Badge variant="outline" className="ml-1">{tcd("habits.clientOwned")}</Badge>
+                        ) : null}
+                        {h.archivedPeriods > 0 ? (
+                          <span className="ml-1 text-xs text-muted-foreground">
+                            {tcd("habits.archivedPeriods", { count: h.archivedPeriods })}
+                          </span>
+                        ) : null}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -824,7 +838,16 @@ export default async function CoachlessUserDetailPage({
         </CardContent>
       </Card>
 
-      {overview ? <ClientRelationshipCards overview={overview} /> : null}
+      {overview ? (
+        <>
+          <ClientRelationshipCards overview={overview} />
+          {/* #541 — RevenueCat history matters most here: entitlement is the only premium source. */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <ClientSubscriptionHistoryCard overview={overview} />
+            <ClientSocialCard overview={overview} />
+          </div>
+        </>
+      ) : null}
 
       <AdminNutritionCard nutrition={nutrition} />
 

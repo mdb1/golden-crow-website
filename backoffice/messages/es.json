@@ -3354,7 +3354,10 @@
         "on": "Activado",
         "off": "Desactivado",
         "deleted": "borrado",
-        "active": "activo"
+        "active": "activo",
+        "archivedSince": "Archivado desde {date}",
+        "clientOwned": "propio del cliente",
+        "archivedPeriods": "{count, plural, one {pausado # vez} other {pausado # veces}}"
       },
       "photos": {
         "title": "Fotos de progreso",
@@ -3405,7 +3408,37 @@
           "reports": "Respuestas reportadas",
           "none": "Nunca usó Corvo."
         },
-        "progressTitle": "Progreso"
+        "progressTitle": "Progreso",
+        "subscriptionHistory": {
+          "title": "Historial de suscripción",
+          "description": "Eventos de RevenueCat que recibió el webhook (últimos 50).",
+          "empty": "Sin compras ni eventos de suscripción.",
+          "unavailable": "No se pudo leer el historial.",
+          "types": {
+            "INITIAL_PURCHASE": "Compra",
+            "RENEWAL": "Renovación",
+            "CANCELLATION": "Canceló la renovación",
+            "UNCANCELLATION": "Reactivó la renovación",
+            "EXPIRATION": "Venció",
+            "BILLING_ISSUE": "Problema de cobro",
+            "PRODUCT_CHANGE": "Cambio de plan",
+            "NON_RENEWING_PURCHASE": "Compra sin renovación",
+            "SUBSCRIPTION_PAUSED": "Pausada",
+            "TRANSFER": "Transferida"
+          }
+        },
+        "social": {
+          "title": "Social",
+          "none": "Sin actividad social.",
+          "handle": "Usuario",
+          "visibility": "Visibilidad",
+          "followers": "Seguidores",
+          "following": "Sigue a",
+          "publicRoutines": "Rutinas publicadas",
+          "challenges": "Desafíos",
+          "status": "Estado",
+          "suspended": "Suspendido"
+        }
       }
     },
     "nutrition": {
@@ -3596,6 +3629,37 @@
         "workoutAssignedNamed": "Asignó el workout: {name}",
         "clientPreProvisioned": "Dio de alta un cliente pendiente",
         "clientFirstLogin": "El cliente entró por primera vez"
+      },
+      "log": {
+        "title": "Log de acciones de coaches",
+        "description": "Cada acción que registra el portal (asignaciones, hábitos, nutrición, notas, pedidos de foto y peso, clientes agregados, descansos editados…), la más nueva primero. Las acciones en bloque se muestran en una fila.",
+        "filter": "Filtrar por coach",
+        "allCoaches": "Todos los coaches",
+        "apply": "Filtrar",
+        "unavailable": "No se pudo leer el log.",
+        "empty": "Sin acciones registradas.",
+        "deleted": "Borrado",
+        "group": "{count} clientes",
+        "col": {
+          "when": "Cuándo",
+          "coach": "Coach",
+          "kind": "Tipo",
+          "what": "Qué",
+          "client": "Cliente"
+        },
+        "kinds": {
+          "workout_template": "Rutina",
+          "exercise": "Ejercicio",
+          "workout_assignment": "Asignación",
+          "workout_rest_edited": "Descansos editados",
+          "habit_assignment": "Hábito",
+          "note": "Nota",
+          "progress_photo_request": "Pidió fotos",
+          "weight_request": "Pidió peso",
+          "client_added": "Cliente agregado",
+          "nutrition_plan": "Plan de nutrición",
+          "nutrition_library": "Biblioteca de nutrición"
+        }
       }
     },
     "hygiene": {
@@ -3631,7 +3695,12 @@
       "loadMore": "Cargar más",
       "updatedAt": "Actualizado: {date}",
       "deleteConfirm": "¿Borrar este registro ({kind}) de Firestore?",
-      "delete": "Borrar de la base"
+      "delete": "Borrar de la base",
+      "coverage": {
+        "capped": "{count, plural, one {# colección llegó} other {# colecciones llegaron}} al tope de {limit} documentos del escaneo: lo que queda después NO se revisó, así que no ver problemas ahí no quiere decir que esté limpio.",
+        "complete": "Todas las colecciones escaneadas se leyeron completas.",
+        "cut": "cortada en el tope"
+      }
     },
     "appConfig": {
       "title": "Versión de la app",
@@ -3659,6 +3728,25 @@
         "tooLarge": "Demasiado grande.",
         "dottedVersion": "Usá una versión con puntos como 1.2.0 (o dejalo vacío).",
         "httpUrl": "Tiene que ser una URL http(s) (o dejalo vacío)."
+      },
+      "distribution": {
+        "title": "Versiones instaladas",
+        "description": "Por plataforma: cuántas personas corren cada build (el dispositivo más nuevo de cada una, según su token de push). Es un techo: quien desinstaló conserva su último token.",
+        "capped": "Se leyeron {count} tokens (el tope): los números son parciales.",
+        "users": "{count, plural, one {# persona} other {# personas}}",
+        "blockedNow": "El minBuild actual ({minBuild}) ya bloquea a {count}.",
+        "gateOff": "Sin bloqueo (minBuild 0).",
+        "simulate": "Probar con minBuild",
+        "wouldBlock": "Bloquearía a {count} (+ {unknown} sin versión conocida, que son builds viejos).",
+        "empty": "Sin dispositivos registrados.",
+        "blocked": "bloqueado",
+        "unknown": "Sin versión (anterior a #785)",
+        "unavailable": "No se pudo leer la distribución de versiones.",
+        "col": {
+          "build": "Build",
+          "version": "Versión",
+          "users": "Personas"
+        }
       }
     },
     "moderation": {
@@ -4110,7 +4198,10 @@
       "premium": "Compras de Premium",
       "reports": "Respuestas de Corvo reportadas",
       "vsPrevious": "{delta} vs. período anterior",
-      "noPrevious": "Sin período anterior para comparar"
+      "noPrevious": "Sin período anterior para comparar",
+      "premiumDetail": "{renewals, plural, one {# renovación} other {# renovaciones}}",
+      "premiumChurn": "Bajas de premium",
+      "premiumChurnDetail": "{cancellations} cancelaciones · {expirations} vencimientos"
     },
     "charts": {
       "activity": {

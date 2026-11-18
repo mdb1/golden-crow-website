@@ -93,7 +93,28 @@ export default async function UsageAdminPage({
       value: pct(now.acceptance),
       delta: delta(now.acceptance, before.acceptance, prevHas),
     },
-    { id: "premium", label: t("kpi.premium"), value: fmt.format(now.premiumPurchases), delta: delta(now.premiumPurchases, before.premiumPurchases, prevHas) },
+    {
+      id: "premium",
+      label: t("kpi.premium"),
+      value: fmt.format(now.premiumPurchases),
+      delta: delta(now.premiumPurchases, before.premiumPurchases, prevHas),
+      detail: t("kpi.premiumDetail", { renewals: now.premiumRenewals }),
+    },
+    // #541 — churn: cancellations (auto-renew turned off) + expirations (premium ended).
+    {
+      id: "premiumChurn",
+      label: t("kpi.premiumChurn"),
+      value: fmt.format(now.premiumCancellations + now.premiumExpirations),
+      delta: delta(
+        now.premiumCancellations + now.premiumExpirations,
+        before.premiumCancellations + before.premiumExpirations,
+        prevHas,
+      ),
+      detail: t("kpi.premiumChurnDetail", {
+        cancellations: now.premiumCancellations,
+        expirations: now.premiumExpirations,
+      }),
+    },
     { id: "reports", label: t("kpi.reports"), value: fmt.format(now.reports), delta: delta(now.reports, before.reports, prevHas) },
   ];
 

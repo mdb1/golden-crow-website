@@ -11,6 +11,8 @@ import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 import { PageHeader } from "@/components/gc-fitness/page-header";
 import { AppVersionForm } from "./app-version-form";
+import { AppVersionDistributionPanel } from "./AppVersionDistributionPanel";
+import { loadAppVersionDistribution } from "@/lib/gc-fitness/app-version-distribution-reader";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
 // Tab title: "Corvo - <adminPanel>" (issue #170).
@@ -47,6 +49,8 @@ export default async function AppConfigPage() {
   }
 
   const t = await getTranslations("admin.appConfig");
+  // #541 — who each minBuild would lock out. Fail-soft: the form never depends on it.
+  const distribution = await loadAppVersionDistribution().catch(() => null);
 
   return (
     <div className="gc-page flex flex-col gap-6">
@@ -64,6 +68,17 @@ export default async function AppConfigPage() {
       </Link>
 
       <AppVersionForm initialConfig={config} timezone={await getTrainerTimezone()} />
+
+      {distribution ? (
+        <AppVersionDistributionPanel
+          platforms={distribution.platforms}
+          tokensRead={distribution.tokensRead}
+          capped={distribution.capped}
+          currentMinBuild={{ ios: config.ios.minBuild, android: config.android.minBuild }}
+        />
+      ) : (
+        <p className="text-sm text-muted-foreground">{t("distribution.unavailable")}</p>
+      )}
     </div>
   );
 }

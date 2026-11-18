@@ -3354,7 +3354,10 @@
         "on": "On",
         "off": "Off",
         "deleted": "deleted",
-        "active": "active"
+        "active": "active",
+        "archivedSince": "Archived since {date}",
+        "clientOwned": "client's own",
+        "archivedPeriods": "{count, plural, one {paused # time} other {paused # times}}"
       },
       "photos": {
         "title": "Progress photos",
@@ -3405,7 +3408,37 @@
           "reports": "Reported answers",
           "none": "Never used Corvo."
         },
-        "progressTitle": "Progress"
+        "progressTitle": "Progress",
+        "subscriptionHistory": {
+          "title": "Subscription history",
+          "description": "RevenueCat events the webhook received (last 50).",
+          "empty": "No purchases or subscription events.",
+          "unavailable": "The history could not be read.",
+          "types": {
+            "INITIAL_PURCHASE": "Purchase",
+            "RENEWAL": "Renewal",
+            "CANCELLATION": "Turned off renewal",
+            "UNCANCELLATION": "Turned renewal back on",
+            "EXPIRATION": "Expired",
+            "BILLING_ISSUE": "Billing issue",
+            "PRODUCT_CHANGE": "Plan change",
+            "NON_RENEWING_PURCHASE": "Non-renewing purchase",
+            "SUBSCRIPTION_PAUSED": "Paused",
+            "TRANSFER": "Transferred"
+          }
+        },
+        "social": {
+          "title": "Social",
+          "none": "No social activity.",
+          "handle": "Handle",
+          "visibility": "Visibility",
+          "followers": "Followers",
+          "following": "Following",
+          "publicRoutines": "Published routines",
+          "challenges": "Challenges",
+          "status": "Status",
+          "suspended": "Suspended"
+        }
       }
     },
     "nutrition": {
@@ -3596,6 +3629,37 @@
         "workoutAssignedNamed": "Assigned workout: {name}",
         "clientPreProvisioned": "Pre-provisioned a pending client",
         "clientFirstLogin": "Client completed first login"
+      },
+      "log": {
+        "title": "Coach action log",
+        "description": "Every action the portal records (assignments, habits, nutrition, notes, photo and weight requests, clients added, edited rests…), newest first. Bulk actions show as one row.",
+        "filter": "Filter by coach",
+        "allCoaches": "All coaches",
+        "apply": "Filter",
+        "unavailable": "The log could not be read.",
+        "empty": "No recorded actions.",
+        "deleted": "Deleted",
+        "group": "{count} clients",
+        "col": {
+          "when": "When",
+          "coach": "Coach",
+          "kind": "Type",
+          "what": "What",
+          "client": "Client"
+        },
+        "kinds": {
+          "workout_template": "Routine",
+          "exercise": "Exercise",
+          "workout_assignment": "Assignment",
+          "workout_rest_edited": "Edited rests",
+          "habit_assignment": "Habit",
+          "note": "Note",
+          "progress_photo_request": "Requested photos",
+          "weight_request": "Requested weight",
+          "client_added": "Client added",
+          "nutrition_plan": "Nutrition plan",
+          "nutrition_library": "Nutrition library"
+        }
       }
     },
     "hygiene": {
@@ -3631,7 +3695,12 @@
       "loadMore": "Load more",
       "updatedAt": "Updated at: {date}",
       "deleteConfirm": "Delete this record ({kind}) from Firestore?",
-      "delete": "Delete from DB"
+      "delete": "Delete from DB",
+      "coverage": {
+        "capped": "{count, plural, one {# collection hit} other {# collections hit}} the {limit}-document scan limit: documents beyond it were NOT checked, so an empty result there does not mean it is clean.",
+        "complete": "Every scanned collection was read completely.",
+        "cut": "cut at the limit"
+      }
     },
     "appConfig": {
       "title": "App Version",
@@ -3659,6 +3728,25 @@
         "tooLarge": "Too large.",
         "dottedVersion": "Use a dotted version like 1.2.0 (or leave blank).",
         "httpUrl": "Must be an http(s) URL (or leave blank)."
+      },
+      "distribution": {
+        "title": "Installed versions",
+        "description": "Per platform: how many people run each build (each person's newest device, from its push token). It is an upper bound: someone who uninstalled keeps their last token.",
+        "capped": "Read {count} tokens (the cap): the numbers are partial.",
+        "users": "{count, plural, one {# person} other {# people}}",
+        "blockedNow": "The current minBuild ({minBuild}) already blocks {count}.",
+        "gateOff": "No gate (minBuild 0).",
+        "simulate": "Try minBuild",
+        "wouldBlock": "Would block {count} (+ {unknown} with no known version, which are old builds).",
+        "empty": "No registered devices.",
+        "blocked": "blocked",
+        "unknown": "No version (before #785)",
+        "unavailable": "The version distribution could not be read.",
+        "col": {
+          "build": "Build",
+          "version": "Version",
+          "users": "People"
+        }
       }
     },
     "moderation": {
@@ -4110,7 +4198,10 @@
       "premium": "Premium purchases",
       "reports": "Corvo replies reported",
       "vsPrevious": "{delta} vs previous period",
-      "noPrevious": "No previous period to compare"
+      "noPrevious": "No previous period to compare",
+      "premiumDetail": "{renewals, plural, one {# renewal} other {# renewals}}",
+      "premiumChurn": "Premium churn",
+      "premiumChurnDetail": "{cancellations} cancellations · {expirations} expirations"
     },
     "charts": {
       "activity": {

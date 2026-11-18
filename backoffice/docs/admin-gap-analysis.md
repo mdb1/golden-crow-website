@@ -6,7 +6,7 @@ día en admin muestren más info». Esta es la foto al 2026-11-18 sobre `feat/2.
 gc-fitness `origin/feat/2.3.0` y la capa de datos del backoffice.
 
 **Prioridad** = utilidad para manejar el negocio: 💰 plata, 📈 engagement, ⚠️ riesgo.
-**Estado**: ✅ hecho en #534 PR 1 · 🔜 PR 2 (ficha del cliente / sin coach) · 📋 follow-up.
+**Estado**: ✅ hecho en #534 (PRs #539 / #540) · ✅² hecho en #541 · 🔜 PR 2 de #534 (ya mergeado) · 📋 follow-up.
 
 ## 1. Ficha del coach — `/admin/coaches/[uid]`
 
@@ -60,12 +60,12 @@ hábitos (nombre, cadencia, recordatorio, activo/borrado), nutrición (card comp
 | Cuenta: alta, último login, última vez que abrió la app, **versión de app / plataforma**, zona horaria, cumpleaños | Auth, `fcm_tokens`, `users` | ⚠️ alta | 🔜 |
 | Suscripción (tier, fuente, vence) | `users.entitlement` | 💰 media | 🔜 |
 | Tiles de actividad (último entreno / hábito / foto / peso; 7 d / 30 d) — el perfil sin coach ya los tiene | `workout_logs`, `habit_logs`, `progress_photos`, `body_weight_logs` | 📈 alta | 🔜 |
-| Peso corporal, PRs, progreso por ejercicio, calendario del mes, tendencias, volumen muscular (los loaders `*AsAdmin` ya existen y aceptan el coach) | varios | 📈 alta | 🔜 |
+| Peso corporal, PRs, progreso por ejercicio, calendario del mes, tendencias, volumen muscular (los loaders `*AsAdmin` ya existen y aceptan el coach) | varios | 📈 alta | ✅ peso / PRs (#540) · ✅² calendario, tendencias, volumen, progreso por ejercicio |
 | Objetivos (incl. los del cliente), notas privadas del coach (cantidad) | `client_goals`, `client_notes` | 📈 media | 🔜 |
 | Corvo: turnos, último uso, consentimiento (y de fotos), reportes | `ai_coach`, `ai_coach/{uid}/reports` | 📈 media | 🔜 |
 | Chat: última conversación, sin leer | `chats/{clientId}` | 📈 media | 🔜 |
-| Hábitos archivados (`archivedOn` / `archivedPeriods`) en vez de sólo borrado | `habits` | baja | 📋 |
-| Social: perfil, seguidores, desafíos, rutinas públicas, suspensión | `social_*` | baja | 📋 |
+| Hábitos archivados (`archivedOn` / `archivedPeriods`) en vez de sólo borrado | `habits` | baja | ✅² |
+| Social: perfil, seguidores, desafíos, rutinas públicas, suspensión | `social_*` | baja | ✅² |
 | Link «Ver en el audit» filtrado por este cliente | `/admin/audit?client=…` | — | 🔜 |
 
 ## 3. Usuarios sin coach — lista `/admin/coach-less-users` y perfil `[uid]`
@@ -80,8 +80,8 @@ progreso por ejercicio, PRs, adherencia, nutrición, peso, fotos).
 | Lista: última actividad / último login (churn) y orden por ella | Auth, `users.lastWorkoutAt` | 📈 alta | 📋 |
 | Lista + perfil: uso de Corvo (turnos, consentimiento) — es el embudo free → premium | `ai_coach` | 💰 alta | 🔜 perfil / 📋 lista |
 | Perfil: objetivos propios | `client_goals (clientOwned)` | media | 🔜 |
-| Perfil: social (perfil, seguidores, desafíos con amigos) | `social_*` | media | 📋 |
-| Historial de RevenueCat (compras, renovaciones, cancelaciones) | `revenuecat_events` (hoy sin lector) | 💰 media | 📋 |
+| Perfil: social (perfil, seguidores, desafíos con amigos) | `social_*` | media | ✅² |
+| Historial de RevenueCat (compras, renovaciones, cancelaciones) | `revenuecat_events` | 💰 media | ✅² (perfil + ficha del cliente) |
 | Pasos / altura | `daily_steps`, `height_logs` | baja | 📋 |
 
 ## 4. Home del admin — `/admin`
@@ -91,7 +91,7 @@ rutinas, ejercicios), borrado de coach.
 
 | Falta | Fuente | Prioridad | Estado |
 |---|---|---|---|
-| Badge «dado de baja» (ya viene en la fila, `coachDisabled`) | `users.coachDisabled` | ⚠️ media | 📋 |
+| Badge «dado de baja» (ya viene en la fila, `coachDisabled`) | `users.coachDisabled` | ⚠️ media | ✅² |
 | Por coach: vencidos / cobrado del mes, última actividad, invitaciones fallidas | `client_billing`, `client_payments`, `coach_activity`, `user_mirror` | 💰 alta | 📋 (lo cubre la ficha; en la tabla cuesta N coaches × queries) |
 | KPIs arriba (premium activos, MAU) | `usage_daily` | media | 📋 (están en `/admin/usage`) |
 | La tabla hace 4 lecturas × coach en cada vista | — | costo | 📋 |
@@ -100,8 +100,8 @@ rutinas, ejercicios), borrado de coach.
 
 | Falta | Prioridad | Estado |
 |---|---|---|
-| Un usuario sin coach no tiene link a su perfil (`/admin/coach-less-users/[uid]`) | ⚠️ alta | 📋 |
-| Buscar también por nombre (`displayName` ya está proyectado) | media | 📋 |
+| Un usuario sin coach no tiene link a su perfil (`/admin/coach-less-users/[uid]`) | ⚠️ alta | ✅² |
+| Buscar también por nombre (`displayName` ya está proyectado) | media | ✅² |
 | Alta / último login, vencimiento de la suscripción, invitado, coach dado de baja | baja | 📋 |
 
 ## 6. Corvo — `/admin/corvo` (+ reportes)
@@ -119,7 +119,7 @@ reportes con triage.
 
 | Falta | Prioridad | Estado |
 |---|---|---|
-| `premium.renewals` / `cancellations` / `expirations` se decodifican y no se muestran | 💰 alta | 📋 |
+| `premium.renewals` / `cancellations` / `expirations` se decodifican y no se muestran | 💰 alta | ✅² (renovaciones en el tile de compras + tile «Bajas de premium») |
 | Altas por segmento como KPI | media | 📋 |
 | Monto cobrado por los coaches (hoy sólo el conteo `payments_recorded`) | 💰 media | 📋 |
 
@@ -132,7 +132,7 @@ Pendiente para ese dueño: `coach_activity` y `revenuecat_events` como fuentes.
 
 | Falta | Prioridad | Estado |
 |---|---|---|
-| El escaneo tiene tope de 120 docs por colección sin avisar que cortó | ⚠️ alta | 📋 |
+| El escaneo tiene tope de 120 docs por colección sin avisar que cortó | ⚠️ alta | ✅² (aviso por colección + arreglados los falsos «huérfanos» pasado el tope en logs y ejercicios) |
 | Huérfanos de `client_billing` / `client_payments`, `nutrition_plans`, `habits`, `client_goals`, `client_notes`, `client_stats`, `user_mirror` viejos | media | 📋 |
 
 ## 10. Moderación — `/admin/moderation`
@@ -146,15 +146,15 @@ Pendiente para ese dueño: `coach_activity` y `revenuecat_events` como fuentes.
 
 | Falta | Prioridad | Estado |
 |---|---|---|
-| Lee eventos DERIVADOS de 4 colecciones; no usa `coach_activity` (cobros, nutrición, chat) | 📈 alta | 📋 |
+| Lee eventos DERIVADOS de 4 colecciones; no usa `coach_activity` (cobros, nutrición, chat) | 📈 alta | ✅² (log real arriba, con filtro por coach) |
 | Estado del mail en «cliente pre-cargado» | media | 📋 |
-| Filtro por coach / fecha | baja | 📋 |
+| Filtro por coach / fecha | baja | ✅² (por coach) |
 
 ## 12. Configuración de app — `/admin/app-config`
 
 | Falta | Prioridad | Estado |
 |---|---|---|
-| Distribución de versiones instaladas (`users/*/fcm_tokens.appVersion/appBuild/platform`): cuántos quedan bloqueados al subir `minBuild` | ⚠️ alta | 📋 (necesita un rollup diario en functions: un `collectionGroup` de tokens por vista es caro) |
+| Distribución de versiones instaladas (`users/*/fcm_tokens.appVersion/appBuild/platform`): cuántos quedan bloqueados al subir `minBuild` | ⚠️ alta | ✅² (un `collectionGroup` proyectado ≤ 5000 tokens al abrir la página + simulador; si se llega al tope, un rollup diario en functions) |
 
 ## 13. Foto / entreno del cliente (subrutas)
 
