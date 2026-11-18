@@ -336,19 +336,34 @@ export async function getCoachAdminDetail(coachUid: string): Promise<CoachAdminD
   if (!coachDoc.exists) {
     return null;
   }
-  const baseList = await listCoachesForAdmin();
-  const coach = baseList.find((row) => row.uid === coachUid);
-  if (!coach) {
+  // #534: this used to call `listCoachesForAdmin()` (4 reads × EVERY coach) to build one
+  // row. Same row, same filter (a non-deleted trainer), for this coach only.
+  const coachData = coachDoc.data() ?? {};
+  if (coachData.role !== "trainer" || coachData.deleted !== false) {
     return null;
   }
 
-  const [assignmentsAgg, habitsAgg, chatsAgg, linkedClientsSnap, pendingSnap] = await Promise.all([
+  const [assignmentsAgg, habitsAgg, chatsAgg, linkedClientsSnap, pendingSnap, workoutsAgg, exercisesAgg, authUser] = await Promise.all([
     db.collection(FirestoreCollections.workoutAssignments).where("trainerId", "==", coachUid).count().get(),
     db.collection(FirestoreCollections.habits).where("trainerId", "==", coachUid).count().get(),
     db.collection(FirestoreCollections.chats).where("coachId", "==", coachUid).count().get(),
     db.collection(FirestoreCollections.users).where("coachId", "==", coachUid).get(),
     db.collection(FirestoreCollections.userMirror).where("coachId", "==", coachUid).get(),
+    db.collection(FirestoreCollections.workoutTemplates).where("trainerId", "==", coachUid).count().get(),
+    db.collection(FirestoreCollections.exercises).where("trainerId", "==", coachUid).count().get(),
+    gcFitnessAuth().getUser(coachUid).catch(() => null),
   ]);
+
+  const coach: CoachAdminRow = {
+    uid: coachUid,
+    email: (coachData.email as string | undefined) ?? "",
+    displayName: (coachData.displayName as string | undefined) ?? "",
+    roles: rolesFromClaims(authUser?.customClaims as Record<string, unknown> | undefined),
+    clientsCount: linkedClientsSnap.docs.filter((d) => d.get("deleted") !== true).length,
+    customWorkoutsCount: workoutsAgg.data().count,
+    customExercisesCount: exercisesAgg.data().count,
+    coachDisabled: coachData.coachDisabled === true,
+  };
 
   const linkedClients: CoachLinkedClientRow[] = linkedClientsSnap.docs.map((doc) => {
     const data = doc.data();
