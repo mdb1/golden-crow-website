@@ -28,6 +28,8 @@ import { getTrainerTimezone } from "./trainer-timezone";
 // quick-260714-m57 (#403) — effective per-set type (setType ?? is_warmup) for
 // the "Detalle de series" badges + warmup exclusions.
 import { effectiveSetType, type SetType } from "./set-type";
+// gc-fitness #1623 — per-set RPE (forgiving read, TS twin of mobile).
+import { rpeField } from "./set-effort";
 import { wireSetLoadInputs } from "./live-workout-volume";
 // #949 follow-up — the nutrition row's "X de Y" counts one day of marks. Shared
 // with the admin feed rather than recomputed: the two surfaces describing the
@@ -216,6 +218,11 @@ export interface WorkoutLogDetail {
      * consistent with `isWarmup` (`isWarmup === (setType === "warmup")`).
      */
     setType: SetType;
+    /**
+     * gc-fitness #1623 — per-set effort (wire `rpe`), normalized through
+     * `normalizedRpe` (0.5 steps, 6–10). Absent when not logged or invalid.
+     */
+    rpe?: number;
     /** True when this set matches a PR row in the parent workout log's prs[]. */
     isPR: boolean;
     /** Stored Epley estimated 1RM (kg) when isPR === true. */
@@ -2277,6 +2284,9 @@ async function buildWorkoutLogDetail(
       // excluded too (sync invariant holds by construction).
       isWarmup: setTypeEffective === "warmup",
       setType: setTypeEffective,
+      // gc-fitness #1623 — forgiving read; spread so an absent RPE leaves no
+      // key (the payload crosses the RSC boundary as a plain object).
+      ...rpeField(set.rpe),
       isPR: Boolean(pr),
       prEstimatedOneRM: pr?.estimatedOneRM ?? null,
       prPrevious: pr ? (prPrevBySetLogId.get(setLogId) ?? null) : null,

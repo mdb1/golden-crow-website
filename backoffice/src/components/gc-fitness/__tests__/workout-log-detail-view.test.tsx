@@ -442,6 +442,61 @@ describe("WorkoutLogDetailView — set types (#403)", () => {
   });
 });
 
+describe("WorkoutLogDetailView — per-set RPE (gc-fitness #1623)", () => {
+  it("shows the RPE on the set that logged it and nothing on the others", () => {
+    renderDetail(
+      detail({
+        sets: [
+          set({ index: 1, setLogId: "s1", rpe: 8 }),
+          set({ index: 2, setLogId: "s2", rpe: 8.5 }),
+          set({ index: 3, setLogId: "s3" }),
+        ],
+      }),
+    );
+
+    const rows = within(exerciseBlock("Bench Press")).getAllByRole("row");
+    // header + 3 sets
+    expect(rows).toHaveLength(4);
+    expect(within(rows[1]).getByTestId("set-rpe")).toHaveTextContent("RPE 8");
+    // Half steps keep their decimal; RIR (= 10 − RPE) rides in the label.
+    expect(within(rows[2]).getByTestId("set-rpe")).toHaveTextContent("RPE 8.5");
+    expect(
+      within(rows[2]).getByLabelText("RPE 8.5 (RIR 1.5)"),
+    ).toBeInTheDocument();
+    // No RPE logged → no chrome at all (layout unchanged).
+    expect(within(rows[3]).queryByTestId("set-rpe")).not.toBeInTheDocument();
+    expect(rows[3]).not.toHaveTextContent("RPE");
+  });
+
+  it("renders the RPE on a time-only block, which has no weight column", () => {
+    renderDetail(
+      detail({
+        sets: [
+          set({
+            exerciseId: "ex-plank",
+            exerciseName: "Plank",
+            metric: "time",
+            reps: null,
+            weight: null,
+            durationSeconds: 45,
+            rpe: 9,
+          }),
+        ],
+      }),
+    );
+
+    expect(
+      within(exerciseBlock("Plank")).getByTestId("set-rpe"),
+    ).toHaveTextContent("RPE 9");
+  });
+
+  it("shows no RPE anywhere on a workout that never logged one", () => {
+    renderDetail(detail());
+
+    expect(screen.queryByTestId("set-rpe")).not.toBeInTheDocument();
+  });
+});
+
 describe("WorkoutLogDetailView — the header facts", () => {
   it("shows logged vs prescribed set counts", () => {
     renderDetail(detail({ completedSetCount: 3, setCount: 4 }));
