@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { getBillingDashboardData, type BillingDashboardData } from "@/lib/gc-fitness/billing-dashboard-actions";
 import { noteIfStaleDeployment } from "@/lib/gc-fitness/stale-deployment";
 
+import { BillingAICard } from "./BillingAICard";
 import { BillingDashboardView } from "./BillingDashboardView";
 import { BillingLedger } from "./BillingLedger";
 
@@ -60,6 +61,7 @@ export function DashboardTab() {
       {data.truncated ? <p className="text-sm text-muted-foreground">{t("truncated")}</p> : null}
       <BillingDashboardView dashboard={data.dashboard} />
       <BillingLedger payments={data.payments} clients={data.clients} todayCivil={data.todayCivil} />
+      <BillingAICard dashboard={data.dashboard} />
     </div>
   );
 }

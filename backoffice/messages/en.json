@@ -3029,6 +3029,37 @@
       "export": "Export CSV",
       "empty": "No payments match these filters.",
       "total": "Total"
+    },
+    "ai": {
+      "title": "Corvo analysis",
+      "disclosure": "Corvo (Anthropic's AI) only gets the month's totals, no client names.",
+      "analyze": "Analyze billing with AI",
+      "card": "Image of the month",
+      "cardShare": "Share image of the month",
+      "remaining": "{remaining} of {limit} left this month",
+      "risks": "Risks",
+      "actions": "What to do",
+      "working": "Corvo is thinking…",
+      "error": {
+        "quota": "You've used them all this month. They renew on the 1st.",
+        "unavailable": "Corvo isn't available right now. Try again in a bit.",
+        "generic": "Couldn't generate it. Try again.",
+        "forbidden": "Your account can't use this feature."
+      },
+      "cardEyebrow": "My month · {month}",
+      "cardRecommendation": "Corvo's recommendation",
+      "stat": {
+        "collected": "Collected",
+        "collectedDelta": "vs. last month",
+        "mrr": "Recurring per month",
+        "paying": "Paid",
+        "newClients": "New",
+        "churned": "Dropped",
+        "avgTicket": "Average payment",
+        "projection3": "Next 3 months",
+        "projection6": "Next 6 months",
+        "projection12": "Next 12 months"
+      }
     }
   },
   "admin": {

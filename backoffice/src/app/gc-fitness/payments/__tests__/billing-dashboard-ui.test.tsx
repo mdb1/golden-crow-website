@@ -22,6 +22,12 @@ jest.mock("@/lib/gc-fitness/billing-dashboard-actions", () => ({
   getBillingDashboardData: () => getBillingDashboardData(),
 }));
 
+// #1696 — the Corvo card at the bottom of the tab (its own suite: billing-ai-card.test.tsx).
+jest.mock("@/lib/gc-fitness/billing-ai-actions", () => ({
+  getBillingAIState: jest.fn(async () => ({ ok: false, error: "generic" })),
+  runBillingAI: jest.fn(),
+}));
+
 const downloadCsv = jest.fn();
 jest.mock("../_components/dashboard-format", () => {
   const actual = jest.requireActual("../_components/dashboard-format");

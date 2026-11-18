@@ -3029,6 +3029,37 @@
       "export": "Exportar CSV",
       "empty": "No hay pagos con estos filtros.",
       "total": "Total"
+    },
+    "ai": {
+      "title": "Análisis con Corvo",
+      "disclosure": "Corvo (IA de Anthropic) sólo recibe los totales del mes, sin nombres de clientes.",
+      "analyze": "Analizar facturación con IA",
+      "card": "Imagen del mes",
+      "cardShare": "Compartir imagen del mes",
+      "remaining": "Te quedan {remaining} de {limit} este mes",
+      "risks": "Riesgos",
+      "actions": "Qué hacer",
+      "working": "Corvo está pensando…",
+      "error": {
+        "quota": "Ya usaste todos los de este mes. Se renuevan el 1°.",
+        "unavailable": "Corvo no está disponible ahora. Probá en un rato.",
+        "generic": "No se pudo generar. Probá de nuevo.",
+        "forbidden": "Tu cuenta no tiene acceso a esta función."
+      },
+      "cardEyebrow": "Mi mes · {month}",
+      "cardRecommendation": "La recomendación de Corvo",
+      "stat": {
+        "collected": "Cobrado",
+        "collectedDelta": "vs. mes anterior",
+        "mrr": "Recurrente por mes",
+        "paying": "Pagaron",
+        "newClients": "Nuevos",
+        "churned": "Bajas",
+        "avgTicket": "Ticket promedio",
+        "projection3": "Próximos 3 meses",
+        "projection6": "Próximos 6 meses",
+        "projection12": "Próximos 12 meses"
+      }
     }
   },
   "admin": {

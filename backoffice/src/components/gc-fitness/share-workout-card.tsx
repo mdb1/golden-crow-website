@@ -127,6 +127,16 @@ export interface ShareCardModel {
   downloadFileName: string;
   /** Title passed to navigator.share (the workout/template name). */
   shareTitle: string;
+  /**
+   * gc-fitness #1696 — accent caption above the body (e.g. «La recomendación de Corvo»).
+   * Shown when there are exercise rows or a `note`. Optional: the workout variants omit it.
+   */
+  rowsCaption?: string | null;
+  /**
+   * gc-fitness #1696 — one paragraph after the rows, drawn in the exercise-card surface style
+   * (the «Imagen del mes» recommendation). Optional: the workout variants omit it.
+   */
+  note?: string | null;
 }
 
 /** Up-to-1-decimal, trailing-zero-trimmed kg string ("50", "72.5"). */
@@ -777,6 +787,17 @@ export function ShareAssignmentCard({
   return <ShareCardRenderer model={buildAssignmentModel(assignment, t)} t={t} />;
 }
 
+/**
+ * gc-fitness #1696 — «Imagen del mes» of the coach's billing: the SAME renderer and capture path
+ * as the workout cards (no second image engine). The model comes from
+ * `buildBillingMonthShareModel` (billing-month-share.ts): Corvo's headline and recommendation,
+ * the portal's own numbers.
+ */
+export function ShareBillingMonthCard({ model }: { model: ShareCardModel }) {
+  const t = useTranslations("recentLogs.workoutDetail");
+  return <ShareCardRenderer model={model} t={t} />;
+}
+
 // ---------------------------------------------------------------------------
 // Renderer — ONE hidden 1080-wide node + capture path for both variants
 // ---------------------------------------------------------------------------
@@ -1101,6 +1122,22 @@ function ShareCardRenderer({
             style={{ height: 1, backgroundColor: DIVIDER, margin: "36px 0" }}
           />
 
+          {/* #1696 — caption over the body (shown when there is something under it). */}
+          {model.rowsCaption && (model.exercises.length > 0 || model.note) ? (
+            <div
+              style={{
+                fontSize: 24,
+                fontWeight: 600,
+                letterSpacing: 3,
+                textTransform: "uppercase",
+                color: ACCENT,
+                marginBottom: 16,
+              }}
+            >
+              {model.rowsCaption}
+            </div>
+          ) : null}
+
           {/* Body — exercise cards (complete routine, no cap) */}
           <div
             style={{
@@ -1123,6 +1160,24 @@ function ShareCardRenderer({
                 ))
               ),
             )}
+            {/* #1696 — the note, in the same surface as an exercise card. */}
+            {model.note ? (
+              <div
+                data-share-note=""
+                style={{
+                  backgroundColor: SURFACE,
+                  border: `1px solid ${CARD_BORDER}`,
+                  borderRadius: 24,
+                  padding: "28px 32px",
+                  fontSize: 34,
+                  fontWeight: 500,
+                  lineHeight: 1.35,
+                  color: TEXT_PRIMARY,
+                }}
+              >
+                {model.note}
+              </div>
+            ) : null}
           </div>
 
           {/* Footer band */}

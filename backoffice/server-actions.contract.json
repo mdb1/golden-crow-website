@@ -277,6 +277,16 @@
       "params": "arg"
     },
     {
+      "file": "src/lib/gc-fitness/billing-ai-actions.ts",
+      "export": "getBillingAIState",
+      "params": ""
+    },
+    {
+      "file": "src/lib/gc-fitness/billing-ai-actions.ts",
+      "export": "runBillingAI",
+      "params": "arg"
+    },
+    {
       "file": "src/lib/gc-fitness/billing-dashboard-actions.ts",
       "export": "getBillingDashboardData",
       "params": ""
