@@ -2953,7 +2953,11 @@
     "errorGeneric": "Algo salió mal. Probá de nuevo.",
     "errorAmount": "Ingresá un monto válido.",
     "save": "Guardar",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "createPlan": "Crear plan",
+    "newPlanOption": "+ Nuevo plan",
+    "removePlan": "Quitar plan",
+    "assignNoPlansHint": "Todavía no creaste planes. Creá uno acá y queda elegido para este cliente."
   },
   "admin": {
     "common": {
