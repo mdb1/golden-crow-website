@@ -69,11 +69,11 @@ Qué resuelve: qué necesita el coach **hoy** y cómo viene el grupo.
 | 4 | El KPI «Necesitan atención» repetía su número como «delta» con flecha roja | `dashboard/page.tsx:232` | P2 | S | ✅ |
 | 5 | `<Button>` anidado dentro del `<Link>` en «Sin nada asignado» | `unassigned-clients-card.tsx:62-80` | P2 | S | ✅ |
 | 6 | Paginador de 32 px | `dashboard/page.tsx` Pager | P2 | S | ✅ 40 px |
-| 7 | El gráfico semanal lee ≤ 600 `workout_logs` sin orden ni ventana: con > 600 logs faltan los de esta semana | `lib/gc-fitness/coach-pulse-actions.ts:212-216` | P1 | S | ⏳ (no hay índice `(trainerId, startedAt)`; ventana en memoria o índice nuevo) |
+| 7 | El gráfico semanal lee ≤ 600 `workout_logs` sin orden ni ventana: con > 600 logs faltan los de esta semana | `lib/gc-fitness/coach-pulse-actions.ts:212-216` | P1 | S | ✅ PR 6 — por cliente, con ventana sobre `(clientId, startedAt)` (índice vivo), con fallback a la consulta vieja |
 | 8 | No hay sección «hoy»: entrenamientos agendados para hoy / en curso | `dashboard/page.tsx` | P1 | M | ⏳ |
 | 9 | Si no hay pendientes, la checklist se oculta y no queda ningún acceso a ella desde Inicio | `checklist-pending.tsx:24-29` | P2 | S | ⏳ |
 | 10 | Ítems vencidos de la checklist muestran sólo la hora, no el día | `checklist-pending-list.tsx:35-39` | P2 | S | ⏳ |
-| 11 | Tres loaders recorren hábitos por cliente (pulse, attention, roster); `listClientsWithNothingAssignedSoon` repite lo que el roster ya calcula (`nothingAssigned`) | `coach-attention-actions.ts:141`, `coach-pulse-actions.ts:111` | P2 | L | ⏳ |
+| 11 | Tres loaders recorren hábitos por cliente (pulse, attention, roster); `listClientsWithNothingAssignedSoon` repite lo que el roster ya calcula (`nothingAssigned`) | `coach-attention-actions.ts:141`, `coach-pulse-actions.ts:111` | P2 | L | ✅ PR 6 — «Sin nada asignado» sale del roster (motivo `nothingAssigned`): un loader menos; pulse sigue recorriendo hábitos |
 | 12 | «Adherencia promedio» cambia en silencio de hábitos a entrenamientos cuando hábitos = 0 | `dashboard/page.tsx:171` | P2 | S | ⏳ |
 
 ### Clientes (`clients/page.tsx`, `_components/RosterTable.tsx`)
@@ -139,7 +139,7 @@ Qué resuelve: cómo viene este cliente y qué hay que hacer con él.
 | # | Hallazgo | Evidencia | Sev | Esf | Estado |
 |---|---|---|---|---|---|
 | 1 | Rutinas: el título muestra `name.en` primero (coach en castellano ve inglés) | `templates/client.tsx:572-574`, `[id]/view/page.tsx:111` | P1 | S | ✅ PR 2 |
-| 2 | Rutinas: el conteo de asignaciones lee **todas** las asignaciones históricas del coach; la vista Asignaciones además hace N+1 | `lib/gc-fitness/workout-assignment-actions.ts:2278-2281,2330-2374` | P1 | M | ⏳ |
+| 2 | Rutinas: el conteo de asignaciones lee **todas** las asignaciones históricas del coach; la vista Asignaciones además hace N+1 | `lib/gc-fitness/workout-assignment-actions.ts:2278-2281,2330-2374` | P1 | M | ✅ PR 6 — `scheduledFor >= hoy` sobre `(trainerId, scheduledFor)` (índice vivo) en el conteo y en la vista Asignaciones; el N+1 de nombres sigue ⏳ |
 | 3 | Rutinas: sin orden por nombre / última edición / último uso; la vista no tiene «Agendar» | `templates/client.tsx:301`, `[id]/view/actions.tsx:51` | P2 | M | ⏳ |
 | 4 | Ejercicios: filtros con claves en inglés («Chest», «Standard/Custom»); la vista de ejercicio está en inglés | `exercises/_components/MultiSelectCombobox.tsx:47`, `ExerciseFilters.tsx:186,222`, `exercises/[id]/view/page.tsx:140-189` | P1 | S | ✅ PR 2 — filtros traducidos con el mismo catálogo que el form; vista del ejercicio en i18n e instrucciones en el idioma del coach |
 | 5 | Ejercicios: filas `<tr onClick>` sin teclado; borrar no avisa «se usa en N rutinas» (el dato está) | `exercises/client.tsx:358,450` | P2 | S | ⏳ |

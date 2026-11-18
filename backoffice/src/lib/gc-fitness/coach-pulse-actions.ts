@@ -149,8 +149,8 @@ export async function getCoachPulse(): Promise<CoachPulse> {
   // `scheduledFor` + `civilDate` are "YYYY-MM-DD" strings, so the
   // lexicographic range matches civil-date order exactly. The trailing
   // `.limit(...)` stays as a safety backstop; the window keeps it cold.
-  // workout_logs has NO (trainerId, startedAt) index, so it keeps the
-  // single-where + in-memory window slice (see logsInWindow below).
+  // workout_logs has NO (trainerId, startedAt) index: it is read per client on
+  // (clientId, startedAt) instead (#535, see workoutLogsPromise below).
   const logError = (label: string) => (err: unknown) => {
     console.error(`[coach-pulse] ${label} failed`, err);
     return null;
@@ -209,12 +209,40 @@ export async function getCoachPulse(): Promise<CoachPulse> {
         .get()
         .catch(logError("workout_assignments")),
     );
-  const workoutLogsPromise = db
-    .collection(FirestoreCollections.workoutLogs)
-    .where("trainerId", "==", trainer.uid)
-    .limit(600)
-    .get()
-    .catch(logError("workout_logs"));
+  // golden-crow-website#535 — this was ONE trainer-wide `limit(600)` with no
+  // order and no window (there is no `(trainerId, startedAt)` index): past ~600
+  // logs in a coach's history, THIS WEEK's could be the ones left out, and the
+  // bars + «Entrenamientos esta semana» undercounted. Now: per current-roster
+  // client, windowed on the live `workout_logs (clientId, startedAt DESC)` index,
+  // so it reads only this week's logs (a few per client instead of 600). The
+  // lower bound is a day early (civil-date ↔ UTC slack); the in-memory
+  // `logsInWindow` filter below still trims exactly. If the windowed query fails,
+  // that client falls back to the old trainer-wide read (never a silent zero).
+  const logsLowerBound = new Date(windowStartDate.getTime() - 24 * 60 * 60 * 1000);
+  const workoutLogsPromise = Promise.all(
+    activeClients.map((client) =>
+      db
+        .collection(FirestoreCollections.workoutLogs)
+        .where("clientId", "==", client.uid)
+        .where("startedAt", ">=", logsLowerBound)
+        .orderBy("startedAt", "desc")
+        .limit(100)
+        .get()
+        .then((snap) => snap.docs)
+        .catch(() => null),
+    ),
+  ).then(async (perClient) => {
+    if (perClient.every((docs) => docs !== null)) {
+      return { docs: perClient.flatMap((docs) => docs ?? []) };
+    }
+    const legacy = await db
+      .collection(FirestoreCollections.workoutLogs)
+      .where("trainerId", "==", trainer.uid)
+      .limit(600)
+      .get()
+      .catch(logError("workout_logs"));
+    return legacy ? { docs: legacy.docs } : null;
+  });
   const customExercisesPromise = db
     .collection(FirestoreCollections.exercises)
     .where("source", "==", "trainer")
