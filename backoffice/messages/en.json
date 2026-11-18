@@ -99,7 +99,7 @@
   },
   "dashboard": {
     "title": "Dashboard",
-    "headerSubtitle": "Overview of your clients and their progress",
+    "headerSubtitle": "What needs your attention today and how your clients are doing",
     "signedInAs": "Signed in as {email}.",
     "addOrManageClients": "Add or manage clients",
     "kpiActiveClients": "Active clients",
@@ -174,7 +174,15 @@
     "unassignedSoonEmpty": "All caught up — every active client has something assigned.",
     "unassignedSoonTruncated": "Checked your first {count} active clients — open the roster to see the rest.",
     "unassignedSoonEmptyTruncated": "None of the first {count} active clients is missing an assignment.",
-    "unassignedSoonAssignCta": "Assign"
+    "unassignedSoonAssignCta": "Assign",
+    "attentionTodayTitle": "Need your attention ({count})",
+    "attentionTodaySubtitle": "Most urgent first. Tap a client to open their profile.",
+    "attentionTodayViewAll": "See in Clients",
+    "paymentsDueTitle": "Payments",
+    "paymentsDueSubtitle": "{overdue} overdue · {soon} due soon",
+    "paymentsDueViewAll": "Go to Payments",
+    "paymentsDueEmpty": "Nobody has an overdue or upcoming payment.",
+    "paymentsDueMore": "And {count} more in Payments."
   },
   "notifications": {
     "title": "Notifications",
@@ -247,7 +255,8 @@
       "workouts": "Workouts this month",
       "unread": "Unread messages",
       "ascending": "Ascending",
-      "descending": "Descending"
+      "descending": "Descending",
+      "payment": "Payments"
     },
     "table": {
       "name": "Name",
@@ -268,7 +277,21 @@
       "nutritionNoPlan": "No plan in force",
       "nutritionNeverPlanned": "No plan yet",
       "nutritionNothingAsked": "Nothing asked this week",
-      "nutritionNeedsTalk": "Worth a conversation this week"
+      "nutritionNeedsTalk": "Worth a conversation this week",
+      "client": "Client",
+      "habitsWeek": "Habits (7 d)",
+      "payment": "Payment",
+      "attention": "Attention",
+      "allGood": "All good",
+      "noMatches": "No client matches the search or filter.",
+      "trendUp": "{points} points more than the week before",
+      "trendDown": "{points} points less than the week before",
+      "trendFlat": "Same as the week before",
+      "lastActivityKind": {
+        "workout": "workout",
+        "habit": "habit",
+        "photo": "progress photo"
+      }
     },
     "empty": {
       "headline": "No clients yet",
@@ -1014,6 +1037,12 @@
         "recipients": "Pick between 1 and 200 clients.",
         "generic": "Couldn't send the message. Try again."
       }
+    },
+    "paymentsOverdueFilter": "Overdue payments ({count})",
+    "view": {
+      "label": "View",
+      "cards": "Cards",
+      "list": "List"
     }
   },
   "templates": {
@@ -2954,6 +2983,10 @@
     "errorAmount": "Enter a valid amount.",
     "save": "Save",
     "cancel": "Cancel",
+    "createPlan": "Create plan",
+    "newPlanOption": "+ New plan",
+    "removePlan": "Remove plan",
+    "assignNoPlansHint": "You haven't created any plans yet. Create one here and it's selected for this client.",
     "dashboard": {
       "tab": "Dashboard",
       "title": "Collections dashboard",
@@ -3599,8 +3632,8 @@
       "emptyDeletions": "No deletions for these filters.",
       "emptyEvents": "No events for these filters.",
       "viewDetail": "view detail",
-      "today": "Today · {day}",
-      "yesterday": "Yesterday · {day}",
+      "today": "Today",
+      "yesterday": "Yesterday",
       "noDate": "no date",
       "paging": {
         "label": "Feed pages",
@@ -3818,7 +3851,47 @@
         "coachAllowlistEdited": "Edited the coach list",
         "appConfigChanged": "Changed the app configuration"
       },
-      "coachOf": "coach:"
+      "coachOf": "coach:",
+      "groups": {
+        "workoutsDeleted": "{count, plural, one {Deleted # workout} other {Deleted # workouts}}",
+        "workoutsAssigned": "{count, plural, one {Assigned # workout} other {Assigned # workouts}}",
+        "workoutsMoved": "{count, plural, one {Moved # workout to another day} other {Moved # workouts to another day}}",
+        "workoutsUpdated": "{count, plural, one {Updated # scheduled workout} other {Updated # scheduled workouts}}",
+        "habitsDeleted": "{count, plural, one {Deleted # habit} other {Deleted # habits}}",
+        "habitsAssigned": "{count, plural, one {Assigned # habit} other {Assigned # habits}}",
+        "exercisesDeleted": "{count, plural, one {Deleted # exercise} other {Deleted # exercises}}",
+        "exercisesCreated": "{count, plural, one {Created # exercise} other {Created # exercises}}",
+        "routinesDeleted": "{count, plural, one {Deleted # routine} other {Deleted # routines}}",
+        "routinesCreated": "{count, plural, one {Created # routine} other {Created # routines}}",
+        "andMore": "{count, plural, one {and # more} other {and # more}}",
+        "moreNames": "+{count}",
+        "showDates": "Show dates",
+        "showItems": "{count, plural, one {Show # action} other {Show all # actions}}",
+        "dates": "{count, plural, one {# date} other {# dates}}",
+        "writtenAt": "written {time}",
+        "span": "between {from} and {to}"
+      },
+      "cadence": {
+        "daily": "every day",
+        "weekly": "weekly ({days})",
+        "weeklyAny": "weekly",
+        "everyN": "every {n} days",
+        "monthly": "monthly (day {day})",
+        "monthlyAny": "monthly"
+      },
+      "density": {
+        "label": "Density",
+        "compact": "Compact view",
+        "comfortable": "Comfortable view"
+      },
+      "empty": {
+        "hint": "Try widening the date range or clearing the filters.",
+        "clear": "Clear filters"
+      },
+      "filtersBar": {
+        "toggle": "Filters",
+        "active": "{count, plural, =0 {no filters} one {# active filter} other {# active filters}}"
+      }
     },
     "calendar": {
       "loadError": "Could not load that month.",

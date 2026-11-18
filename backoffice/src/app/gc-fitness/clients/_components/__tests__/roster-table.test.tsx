@@ -57,6 +57,7 @@ jest.mock("sonner", () => ({
 }));
 
 import { RosterTable } from "../RosterTable";
+import { formatRelativeLabel } from "../RelativeTime";
 import { chooseFormSelectValue } from "@/lib/test-utils/form-select";
 
 const TRAINER = "trainer-1";
@@ -258,13 +259,14 @@ describe("RosterTable — search", () => {
     expect(visibleNames()).toEqual(["Beto Diaz"]);
   });
 
-  it("says 'no clients' for a search that matches nobody", async () => {
+  it("says nobody MATCHES (not 'no clients yet') for a search that matches nobody (#535)", async () => {
     const { user } = renderRoster(ROWS);
 
     await user.type(screen.getByRole("searchbox"), "zzzz");
 
     expect(visibleNames()).toEqual([]);
-    expect(screen.getByText("No clients in your roster yet.")).toBeInTheDocument();
+    expect(screen.getByText("No client matches the search or filter.")).toBeInTheDocument();
+    expect(screen.queryByText("No clients in your roster yet.")).not.toBeInTheDocument();
   });
 });
 
@@ -489,7 +491,8 @@ describe("RosterTable — bulk actions (#500)", () => {
       "You can message up to 200 clients at once. You selected 201.",
     );
     expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
-  });
+    // 201 cards in jsdom: slow on a loaded machine (the Vercel gate runs with 30 s too).
+  }, 30_000);
 });
 
 describe("RosterTable — #499 attention reasons and sorting", () => {
@@ -575,5 +578,129 @@ describe("RosterTable — #499 attention reasons and sorting", () => {
     ]);
     await sortBy(user, "name");
     expect(visibleNames().at(-1)).toBe("Aaron Pending");
+  });
+});
+
+// ───────────── golden-crow-website#535 — payments, trend, list view ─────────────
+
+describe("RosterTable — #535 payments, habit trend and the list view", () => {
+  const plan = (state: "overdue" | "due_soon" | "up_to_date", days: number, classBased = false) => ({
+    state,
+    days,
+    classBased,
+    planName: "Mensual",
+    nextDueCivil: null,
+  });
+  const ROWS = [
+    client({ uid: "ok", displayName: "Ana Gomez", billing: plan("up_to_date", 20) }),
+    client({ uid: "late", displayName: "Beto Diaz", lastActivityAt: "2026-08-04T12:00:00.000Z", billing: plan("overdue", 4) }),
+    client({ uid: "soon", displayName: "Caro Ruiz", lastActivityAt: "2026-08-03T12:00:00.000Z", billing: plan("due_soon", 2) }),
+    client({ uid: "none", displayName: "Dani Paz", lastActivityAt: "2026-08-02T12:00:00.000Z", billing: null }),
+    client({ uid: "later", displayName: "Eva Sol", lastActivityAt: "2026-08-01T12:00:00.000Z", billing: plan("overdue", 10) }),
+  ];
+
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it("every card shows the payment state with its detail; no plan reads «No plan»", () => {
+    renderRoster(ROWS);
+    const pay = (name: string) => within(cardFor(name)).getByTestId("roster-payment");
+    expect(pay("Beto Diaz")).toHaveAttribute("data-state", "overdue");
+    expect(pay("Beto Diaz")).toHaveTextContent(/^Overdue4 days overdue$/);
+    expect(pay("Caro Ruiz")).toHaveTextContent(/^Due soonDue in 2 days$/);
+    expect(pay("Dani Paz")).toHaveTextContent(/^No plan$/);
+  });
+
+  it("a class pack shows the classes left, not a due date", () => {
+    renderRoster([client({ billing: plan("up_to_date", 3, true) })]);
+    expect(within(cardFor("Ana Gomez")).getByTestId("roster-payment")).toHaveTextContent(/^Up to date3 classes left$/);
+  });
+
+  it("«Overdue payments (N)» counts the whole roster and filters to them", async () => {
+    const { user } = renderRoster(ROWS);
+    const filter = screen.getByTestId("roster-filter-overdue");
+    expect(filter).toHaveTextContent(/^Overdue payments \(2\)$/);
+    await user.click(filter);
+    expect(filter).toHaveAttribute("aria-pressed", "true");
+    expect(visibleNames()).toEqual(["Beto Diaz", "Eva Sol"]);
+    expect(filter).toHaveTextContent(/^Overdue payments \(2\)$/);
+  });
+
+  it("no overdue client → no overdue filter", () => {
+    renderRoster([client()]);
+    expect(screen.queryByTestId("roster-filter-overdue")).not.toBeInTheDocument();
+  });
+
+  it("sorts by payments: most overdue first, then due soon, up to date, no plan last", async () => {
+    const { user } = renderRoster(ROWS);
+    await chooseFormSelectValue(user, screen.getByRole("combobox", { name: "Sort by" }), "payment");
+    expect(visibleNames()).toEqual(["Eva Sol", "Beto Diaz", "Caro Ruiz", "Ana Gomez", "Dani Paz"]);
+    await user.click(screen.getByRole("button", { name: "Ascending" }));
+    // Flipped — but «no plan» stays last: an em dash is not "the best payer".
+    expect(visibleNames()).toEqual(["Ana Gomez", "Caro Ruiz", "Beto Diaz", "Eva Sol", "Dani Paz"]);
+  });
+
+  it("the habit arrow is the change vs the week before, not the absolute value", () => {
+    renderRoster([
+      client({ uid: "up", displayName: "Ana Gomez", thisWeekComplianceRatio: 0.5, prevWeekComplianceRatio: 0.2 }),
+      client({ uid: "down", displayName: "Beto Diaz", thisWeekComplianceRatio: 0.9, prevWeekComplianceRatio: 1 }),
+      client({ uid: "new", displayName: "Caro Ruiz", thisWeekComplianceRatio: 0.9, prevWeekComplianceRatio: null }),
+    ]);
+    const trend = (name: string) => within(cardFor(name)).queryByTestId("roster-habit-trend");
+    // 50% is "bad" in absolute terms, but it went UP 30 points.
+    expect(trend("Ana Gomez")).toHaveAttribute("data-direction", "up");
+    expect(trend("Ana Gomez")).toHaveTextContent("30 points more than the week before");
+    // 90% is "good", but it went DOWN.
+    expect(trend("Beto Diaz")).toHaveAttribute("data-direction", "down");
+    // Nothing to compare with → no arrow at all.
+    expect(trend("Caro Ruiz")).toBeNull();
+  });
+
+  it("last activity says what it was, in words", () => {
+    renderRoster([client({ lastActivityKind: "workout" })]);
+    expect(within(cardFor("Ana Gomez")).getByTestId("roster-last-activity")).toHaveTextContent(/· workout$/);
+  });
+
+  it("the list view: one row per client, sortable from the headers, remembered", async () => {
+    const { user } = renderRoster(ROWS);
+    await user.click(screen.getByTestId("roster-view-list"));
+    expect(screen.getByTestId("roster-view-list")).toHaveAttribute("aria-pressed", "true");
+    const list = screen.getByTestId("roster-list");
+    expect(within(list).getAllByTestId("roster-list-row")).toHaveLength(5);
+    expect(window.localStorage.getItem("gc-fitness.roster.view")).toBe("list");
+
+    const names = () =>
+      within(list)
+        .getAllByTestId("roster-list-row")
+        .map((r) => within(r).getAllByRole("link")[0].textContent);
+    await user.click(screen.getByTestId("roster-sort-payment"));
+    expect(names()).toEqual(["Eva Sol", "Beto Diaz", "Caro Ruiz", "Ana Gomez", "Dani Paz"]);
+    expect(screen.getByTestId("roster-sort-payment").closest("th")).toHaveAttribute("aria-sort", "ascending");
+    // Same header again flips the direction; the toolbar select follows.
+    await user.click(screen.getByTestId("roster-sort-payment"));
+    expect(screen.getByTestId("roster-sort-payment").closest("th")).toHaveAttribute("aria-sort", "descending");
+    expect(screen.getByRole("combobox", { name: "Sort by" })).toHaveAttribute("data-value", "payment");
+
+    // The name is a real link to the client.
+    expect(within(list).getByRole("link", { name: "Ana Gomez" })).toHaveAttribute("href", "/gc-fitness/clients/ok");
+  });
+
+  it("opens in the remembered view", () => {
+    window.localStorage.setItem("gc-fitness.roster.view", "list");
+    renderRoster(ROWS);
+    expect(screen.getByTestId("roster-list")).toBeInTheDocument();
+  });
+});
+
+describe("formatRelativeLabel (#535 — was hardcoded English)", () => {
+  const NOW = Date.parse("2026-08-05T12:00:00.000Z");
+  it("speaks the UI language", () => {
+    expect(formatRelativeLabel("2026-08-05T10:00:00.000Z", NOW, "es")).toBe("hace 2 h");
+    expect(formatRelativeLabel("2026-08-04T11:00:00.000Z", NOW, "es")).toBe("ayer");
+    expect(formatRelativeLabel("2026-08-05T10:00:00.000Z", NOW, "en")).toBe("2 hr. ago");
+    // A future instant (clock skew) is "now", never "in 3 min".
+    expect(formatRelativeLabel("2026-08-05T12:03:00.000Z", NOW, "es")).toBe("ahora");
+    expect(formatRelativeLabel("nope", NOW, "es")).toBeNull();
   });
 });

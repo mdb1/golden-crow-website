@@ -33,14 +33,15 @@ import { getCoachPulse } from "@/lib/gc-fitness/coach-pulse-actions";
 import { listClientsWithNothingAssignedSoon } from "@/lib/gc-fitness/coach-attention-actions";
 import { listPendingChecklistItems } from "@/lib/gc-fitness/coach-checklist-actions";
 import { safe } from "@/lib/gc-fitness/safe-load";
-import { NEEDS_ATTENTION_INACTIVITY_HOURS } from "@/lib/gc-fitness/client-attention";
 
 import {
-  ActivityRow,
   DailyBars,
   DailyLineChart,
   TopPerformers,
 } from "./_components/coach-pulse";
+import { AttentionTodayCard } from "./_components/attention-today-card";
+import { PaymentsDueCard } from "./_components/payments-due-card";
+import { attentionQueue, paymentsDue } from "./_components/today-model";
 import { ChecklistPending } from "./_components/checklist-pending";
 import { UnassignedClientsCard } from "./_components/unassigned-clients-card";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
@@ -50,9 +51,6 @@ export const generateMetadata = () => sectionMetadata("dashboard");
 
 export const dynamic = "force-dynamic";
 const ATTENTION_PAGE_SIZE = 10;
-const ATTENTION_INACTIVITY_THRESHOLD_DAYS = Math.round(
-  NEEDS_ATTENTION_INACTIVITY_HOURS / 24,
-);
 
 interface DashboardPageProps {
   searchParams: Promise<{ attentionPage?: string }>;
@@ -114,50 +112,29 @@ export default async function GCFitnessDashboardPage({
     noActivity: tDashboard("noActivity"),
   } as const;
   const activeClients = roster.filter((client) => client.source === "active");
-  const lastActionRows = activeClients
-    .map((client) => {
-      return {
-        uid: client.uid,
-        name: client.displayName,
-        photoURL: client.photoURL,
-        lastActivityAt: client.lastActivityAt,
-        // #488: the client's REAL last action (workout / habit / photo),
-        // not a hardcoded "No activity" next to "4 days ago".
-        lastActionTitle: lastActionLabels[lastActionMessageKey(client.lastActivityKind)],
-        // % adherence over the last 7 days — drives the activity progress bar.
-        ratio: client.thisWeekComplianceRatio ?? 0,
-      };
-    })
-    .sort((a, b) => {
-      const aMs = a.lastActivityAt ? Date.parse(a.lastActivityAt) : 0;
-      const bMs = b.lastActivityAt ? Date.parse(b.lastActivityAt) : 0;
-      return bMs - aMs;
-    });
 
-  const attentionCutoffMs =
-    Date.now() - NEEDS_ATTENTION_INACTIVITY_HOURS * 60 * 60 * 1000;
-  const staleRows = lastActionRows
-    .filter((row) => {
-      if (!row.lastActivityAt) return true;
-      return Date.parse(row.lastActivityAt) < attentionCutoffMs;
-    })
-    .sort((a, b) => {
-      const aMs = a.lastActivityAt ? Date.parse(a.lastActivityAt) : 0;
-      const bMs = b.lastActivityAt ? Date.parse(b.lastActivityAt) : 0;
-      return aMs - bMs;
-    });
-
+  // #535 — «Necesitan tu atención»: the SAME predicate as the KPI tile and the
+  // roster filter (it used to be an inactivity-only list at the bottom of the
+  // page, so the tile said 4 and the list showed 1), with the reasons named.
+  const queue = attentionQueue(roster);
   const params = await searchParams;
   const requestedAttentionPage = parsePage(params.attentionPage);
   const attentionTotalPages = Math.max(
     1,
-    Math.ceil(staleRows.length / ATTENTION_PAGE_SIZE),
+    Math.ceil(queue.length / ATTENTION_PAGE_SIZE),
   );
   const attentionPage = Math.min(attentionTotalPages, requestedAttentionPage);
-  const attentionPageRows = staleRows.slice(
-    (attentionPage - 1) * ATTENTION_PAGE_SIZE,
-    attentionPage * ATTENTION_PAGE_SIZE,
-  );
+  const attentionPageRows = queue
+    .slice((attentionPage - 1) * ATTENTION_PAGE_SIZE, attentionPage * ATTENTION_PAGE_SIZE)
+    .map((row) => ({
+      row,
+      // #488: the client's REAL last action (workout / habit / photo) + when.
+      lastActivityLabel: row.lastActivityAt
+        ? `${lastActionLabels[lastActionMessageKey(row.lastActivityKind)]} · ${formatRelative(row.lastActivityAt, tDashboard)}`
+        : lastActionLabels.noActivity,
+    }));
+  const due = paymentsDue(roster);
+  const anyPlan = activeClients.some((client) => client.billing);
 
   const activeClientCount = activeClients.length;
   // #513 — the tile links to `/clients?filter=attention`, so it counts EXACTLY
@@ -165,7 +142,6 @@ export default async function GCFitnessDashboardPage({
   // ANY of the six reasons of client-attention.ts (#499) — not only inactivity
   // (that narrower list is the "Needs review" panel below, labelled as such).
   const atRiskCount = roster.filter((client) => client.needsAttention).length;
-  const attentionDays = ATTENTION_INACTIVITY_THRESHOLD_DAYS;
 
   // Headline adherence KPI: prefer this-week habit %, fall back to workout %.
   const adherencePct = pulse?.weekHabitPct || pulse?.weekWorkoutPct || 0;
@@ -229,9 +205,24 @@ export default async function GCFitnessDashboardPage({
           icon={<AlertTriangle />}
           value={atRiskCount}
           label={tDashboard("kpiNeedsAttention")}
-          delta={atRiskCount > 0 ? `${atRiskCount}` : undefined}
-          trend={atRiskCount > 0 ? "down" : "neutral"}
         />
+      </div>
+
+      {/* #535 — what to do today, first: who needs you (and why) + who owes you. */}
+      <div className={anyPlan ? "grid gap-4 xl:grid-cols-[3fr_2fr]" : "grid gap-4"}>
+        <AttentionTodayCard
+          rows={attentionPageRows}
+          total={queue.length}
+          footer={
+            <Pager
+              page={attentionPage}
+              total={attentionTotalPages}
+              buildHref={(p) => `?attentionPage=${p}`}
+              t={tDashboard}
+            />
+          }
+        />
+        <PaymentsDueCard due={due} anyPlan={anyPlan} />
       </div>
 
       {/* Pending checklist (overdue + due today) */}
@@ -312,53 +303,6 @@ export default async function GCFitnessDashboardPage({
         </Card>
       </div>
 
-      {/* Needs attention */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="gc-page-title text-xl">
-            {tDashboard("needsReviewTitle")}
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            {tDashboard("needsReviewSubtitle", { days: attentionDays })}
-          </p>
-        </CardHeader>
-        <CardContent className="flex flex-col divide-y divide-border">
-          {attentionPageRows.length === 0 ? (
-            <EmptyRow>{tDashboard("allCaughtUp")}</EmptyRow>
-          ) : (
-            attentionPageRows.map((row) => (
-              <ActivityRow
-                key={`attention-${row.uid}`}
-                row={{
-                  uid: row.uid,
-                  name: row.name,
-                  photoURL: row.photoURL,
-                  primary: row.lastActionTitle,
-                  timeLabel: row.lastActivityAt
-                    ? formatRelative(row.lastActivityAt, tDashboard)
-                    : tDashboard("noActivity"),
-                  ratio: row.ratio,
-                  stale: true,
-                }}
-              />
-            ))
-          )}
-          <Pager
-            page={attentionPage}
-            total={attentionTotalPages}
-            buildHref={(p) => `?attentionPage=${p}`}
-            t={tDashboard}
-          />
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function EmptyRow({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="rounded-md border border-dashed bg-background/40 px-3 py-8 text-center text-sm text-muted-foreground">
-      {children}
     </div>
   );
 }
@@ -386,7 +330,7 @@ function Pager({
         {hasPrev ? (
           <Link
             href={buildHref(page - 1)}
-            className="inline-flex h-8 items-center rounded-full border border-border bg-background px-3 text-xs font-medium hover:bg-muted"
+            className="inline-flex min-h-10 items-center rounded-full border border-border bg-background px-3 text-xs font-medium hover:bg-muted"
           >
             <ChevronLeft className="mr-1 h-3.5 w-3.5" />
             {t("previous")}
@@ -395,7 +339,7 @@ function Pager({
         {hasNext ? (
           <Link
             href={buildHref(page + 1)}
-            className="inline-flex h-8 items-center rounded-full border border-border bg-background px-3 text-xs font-medium hover:bg-muted"
+            className="inline-flex min-h-10 items-center rounded-full border border-border bg-background px-3 text-xs font-medium hover:bg-muted"
           >
             {t("next")}
             <ChevronRight className="ml-1 h-3.5 w-3.5" />
