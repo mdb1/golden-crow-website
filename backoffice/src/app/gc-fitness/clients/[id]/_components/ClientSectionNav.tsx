@@ -82,7 +82,7 @@ export function ClientSectionNav({
                   setActive(item.id);
                 }}
                 className={cn(
-                  "inline-flex h-9 items-center rounded-full px-3 text-sm transition-colors",
+                  "inline-flex h-10 items-center rounded-full px-3 text-sm transition-colors", // #535: 40 px tap target
                   isActive
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground",
