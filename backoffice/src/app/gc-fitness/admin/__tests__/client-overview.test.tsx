@@ -86,6 +86,7 @@ function overview(extra: Partial<ClientAdminOverview> = {}): ClientAdminOverview
       lastHabitAtMs: null,
       lastPhotoAtMs: null,
       thisWeekComplianceRatio: 0.6,
+      prevWeekComplianceRatio: null,
       habitsCompletedThisWeek: 3,
       habitsScheduledThisWeek: 5,
       missedWorkoutsLast7Days: 2,
@@ -111,6 +112,8 @@ function overview(extra: Partial<ClientAdminOverview> = {}): ClientAdminOverview
       "coach1",
       "c1",
     ),
+    subscriptionEvents: [],
+    social: null,
     ...extra,
   };
 }

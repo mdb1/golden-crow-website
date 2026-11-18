@@ -800,8 +800,8 @@ describe("drill-down reader shapes", () => {
   it("lists habits active-first", async () => {
     const rows = await listClientHabitsForAdmin(COACH_A, CLIENT_A);
     expect(rows).toEqual([
-      { id: "h1", name: "Agua", cadence: "daily", scheduleType: "fixed", reminderEnabled: true, deleted: false },
-      { id: "h2", name: "Sleep", cadence: null, scheduleType: null, reminderEnabled: false, deleted: true },
+      { id: "h1", name: "Agua", cadence: "daily", scheduleType: "fixed", reminderEnabled: true, deleted: false, archivedOn: null, archivedPeriods: 0, clientOwned: false },
+      { id: "h2", name: "Sleep", cadence: null, scheduleType: null, reminderEnabled: false, deleted: true, archivedOn: null, archivedPeriods: 0, clientOwned: false },
     ]);
   });
 });
