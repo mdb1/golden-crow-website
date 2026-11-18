@@ -114,7 +114,8 @@ function lastHabitFormProps() {
 
 /** Switch to the "new habit" tab, where the forms render. */
 async function openNewTab(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole("button", { name: /Nuevo hábito|Crear/i }));
+  // #535 — the empty picker now has its own «Crear hábito»: target the tab.
+  await user.click(screen.getByRole("button", { name: /^(Nuevo hábito|Crear nuevo)$/i }));
 }
 
 beforeEach(() => {
