@@ -70,9 +70,9 @@ describe("ActivityFeedList", () => {
       />,
     );
 
-    // 01:30Z del 1/8 = 22:30 del 31/7 en Buenos Aires ⇒ va bajo "Hoy · 2026-07-31".
-    expect(screen.getByText(/Today · 2026-07-31/)).toBeInTheDocument();
-    expect(screen.queryByText(/2026-08-01/)).not.toBeInTheDocument();
+    // 01:30Z del 1/8 = 22:30 del 31/7 en Buenos Aires ⇒ va bajo "Hoy".
+    expect(screen.getByRole("heading", { name: /^Today/ })).toBeInTheDocument();
+    expect(screen.queryByText(/Aug 1/)).not.toBeInTheDocument();
   });
 
   it("sin timeZone se comporta como antes (UTC), que es el default de getTrainerTimezone", () => {
@@ -120,7 +120,7 @@ describe("ActivityFeedList", () => {
     expect(screen.getByRole("link", { name: "view detail" })).toBeInTheDocument();
   });
 
-  it("groups by UTC day with Hoy / Ayer headers", () => {
+  it("groups by UTC day with Hoy / Ayer / «Lunes 16 nov» headers", () => {
     render(
       <ActivityFeedList
         events={[
@@ -131,9 +131,9 @@ describe("ActivityFeedList", () => {
         today="2026-07-31"
       />,
     );
-    expect(screen.getByText(/Today · 2026-07-31/)).toBeInTheDocument();
-    expect(screen.getByText(/Yesterday · 2026-07-30/)).toBeInTheDocument();
-    expect(screen.getByText("2026-07-28")).toBeInTheDocument();
+    const headings = screen.getAllByRole("heading").map((h) => h.textContent);
+    expect(headings).toEqual(["Today1 event", "Yesterday1 event", "Tuesday, Jul 281 event"]);
+    expect(screen.queryByText(/2026-07-28/)).not.toBeInTheDocument();
   });
 
   it("shows the recurrence count and the folded-in routine update", () => {

@@ -99,7 +99,7 @@
   },
   "dashboard": {
     "title": "Inicio",
-    "headerSubtitle": "Vista general de tus clientes y su progreso",
+    "headerSubtitle": "Qué necesita tu atención hoy y cómo vienen tus clientes",
     "signedInAs": "Sesión iniciada como {email}.",
     "addOrManageClients": "Agregar o gestionar clientes",
     "kpiActiveClients": "Clientes activos",
@@ -174,7 +174,15 @@
     "unassignedSoonEmpty": "Todo al día — cada cliente activo tiene algo asignado.",
     "unassignedSoonTruncated": "Revisé tus primeros {count} clientes activos — abrí el roster para ver el resto.",
     "unassignedSoonEmptyTruncated": "A ninguno de tus primeros {count} clientes activos le falta algo asignado.",
-    "unassignedSoonAssignCta": "Asignar"
+    "unassignedSoonAssignCta": "Asignar",
+    "attentionTodayTitle": "Necesitan tu atención ({count})",
+    "attentionTodaySubtitle": "Lo más urgente primero. Tocá un cliente para abrir su ficha.",
+    "attentionTodayViewAll": "Ver en Clientes",
+    "paymentsDueTitle": "Cobros",
+    "paymentsDueSubtitle": "{overdue} vencidos · {soon} por vencer",
+    "paymentsDueViewAll": "Ir a Pagos",
+    "paymentsDueEmpty": "Nadie tiene pagos vencidos ni por vencer.",
+    "paymentsDueMore": "Y {count} más en Pagos."
   },
   "notifications": {
     "title": "Notificaciones",
@@ -247,7 +255,8 @@
       "workouts": "Entrenamientos del mes",
       "unread": "Mensajes sin leer",
       "ascending": "Ascendente",
-      "descending": "Descendente"
+      "descending": "Descendente",
+      "payment": "Pagos"
     },
     "table": {
       "name": "Nombre",
@@ -259,7 +268,7 @@
       "status": "Estado",
       "habits": "Hábitos (sem)",
       "workouts": "Entrenamientos (mes)",
-      "goals": "Goals",
+      "goals": "Objetivos",
       "goalsShort": "C",
       "goalsMedium": "M",
       "goalsLong": "L",
@@ -268,7 +277,21 @@
       "nutritionNoPlan": "Sin plan vigente",
       "nutritionNeverPlanned": "Todavía sin plan",
       "nutritionNothingAsked": "Nada pedido esta semana",
-      "nutritionNeedsTalk": "Conviene hablar esta semana"
+      "nutritionNeedsTalk": "Conviene hablar esta semana",
+      "client": "Cliente",
+      "habitsWeek": "Hábitos (7 d)",
+      "payment": "Pago",
+      "attention": "Atención",
+      "allGood": "Todo en orden",
+      "noMatches": "Ningún cliente coincide con la búsqueda o el filtro.",
+      "trendUp": "{points} puntos más que la semana anterior",
+      "trendDown": "{points} puntos menos que la semana anterior",
+      "trendFlat": "Igual que la semana anterior",
+      "lastActivityKind": {
+        "workout": "entrenamiento",
+        "habit": "hábito",
+        "photo": "foto de progreso"
+      }
     },
     "empty": {
       "headline": "Aún no tenés clientes",
@@ -1014,6 +1037,12 @@
         "recipients": "Elegí entre 1 y 200 clientes.",
         "generic": "No se pudo mandar el mensaje. Probá de nuevo."
       }
+    },
+    "paymentsOverdueFilter": "Pagos vencidos ({count})",
+    "view": {
+      "label": "Vista",
+      "cards": "Tarjetas",
+      "list": "Lista"
     }
   },
   "templates": {
@@ -2973,7 +3002,11 @@
     "detailsPlaceholder": "Alias: tu.alias — CBU: … — Banco: …",
     "detailsSaved": "Datos de cobro guardados",
     "detailsTooLong": "Hasta 500 caracteres",
-    "noticeCopied": "Texto copiado"
+    "noticeCopied": "Texto copiado",
+    "createPlan": "Crear plan",
+    "newPlanOption": "+ Nuevo plan",
+    "removePlan": "Quitar plan",
+    "assignNoPlansHint": "Todavía no creaste planes. Creá uno acá y queda elegido para este cliente."
   },
   "admin": {
     "common": {
@@ -3576,8 +3609,8 @@
       "emptyDeletions": "No hay eliminaciones para estos filtros.",
       "emptyEvents": "No hay eventos para estos filtros.",
       "viewDetail": "ver detalle",
-      "today": "Hoy · {day}",
-      "yesterday": "Ayer · {day}",
+      "today": "Hoy",
+      "yesterday": "Ayer",
       "noDate": "sin fecha",
       "paging": {
         "label": "Páginas del feed",
@@ -3795,7 +3828,47 @@
         "coachAllowlistEdited": "Editó la lista de coaches",
         "appConfigChanged": "Cambió la configuración de la app"
       },
-      "coachOf": "coach:"
+      "coachOf": "coach:",
+      "groups": {
+        "workoutsDeleted": "{count, plural, one {Eliminó # workout} other {Eliminó # workouts}}",
+        "workoutsAssigned": "{count, plural, one {Asignó # workout} other {Asignó # workouts}}",
+        "workoutsMoved": "{count, plural, one {Movió # workout de día} other {Movió # workouts de día}}",
+        "workoutsUpdated": "{count, plural, one {Actualizó # workout agendado} other {Actualizó # workouts agendados}}",
+        "habitsDeleted": "{count, plural, one {Eliminó # hábito} other {Eliminó # hábitos}}",
+        "habitsAssigned": "{count, plural, one {Asignó # hábito} other {Asignó # hábitos}}",
+        "exercisesDeleted": "{count, plural, one {Eliminó # ejercicio} other {Eliminó # ejercicios}}",
+        "exercisesCreated": "{count, plural, one {Creó # ejercicio} other {Creó # ejercicios}}",
+        "routinesDeleted": "{count, plural, one {Eliminó # rutina} other {Eliminó # rutinas}}",
+        "routinesCreated": "{count, plural, one {Creó # rutina} other {Creó # rutinas}}",
+        "andMore": "{count, plural, one {y # más} other {y # más}}",
+        "moreNames": "+{count}",
+        "showDates": "Ver fechas",
+        "showItems": "{count, plural, one {Ver # acción} other {Ver las # acciones}}",
+        "dates": "{count, plural, one {# fecha} other {# fechas}}",
+        "writtenAt": "escrito {time}",
+        "span": "entre {from} y {to}"
+      },
+      "cadence": {
+        "daily": "todos los días",
+        "weekly": "semanal ({days})",
+        "weeklyAny": "semanal",
+        "everyN": "cada {n} días",
+        "monthly": "mensual (día {day})",
+        "monthlyAny": "mensual"
+      },
+      "density": {
+        "label": "Densidad",
+        "compact": "Vista compacta",
+        "comfortable": "Vista cómoda"
+      },
+      "empty": {
+        "hint": "Probá ampliar el rango de fechas o limpiar los filtros.",
+        "clear": "Limpiar filtros"
+      },
+      "filtersBar": {
+        "toggle": "Filtros",
+        "active": "{count, plural, =0 {sin filtros} one {# filtro activo} other {# filtros activos}}"
+      }
     },
     "calendar": {
       "loadError": "No se pudo cargar ese mes.",
