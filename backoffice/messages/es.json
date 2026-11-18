@@ -99,7 +99,7 @@
   },
   "dashboard": {
     "title": "Inicio",
-    "headerSubtitle": "Vista general de tus clientes y su progreso",
+    "headerSubtitle": "Qué necesita tu atención hoy y cómo vienen tus clientes",
     "signedInAs": "Sesión iniciada como {email}.",
     "addOrManageClients": "Agregar o gestionar clientes",
     "kpiActiveClients": "Clientes activos",
@@ -174,7 +174,15 @@
     "unassignedSoonEmpty": "Todo al día — cada cliente activo tiene algo asignado.",
     "unassignedSoonTruncated": "Revisé tus primeros {count} clientes activos — abrí el roster para ver el resto.",
     "unassignedSoonEmptyTruncated": "A ninguno de tus primeros {count} clientes activos le falta algo asignado.",
-    "unassignedSoonAssignCta": "Asignar"
+    "unassignedSoonAssignCta": "Asignar",
+    "attentionTodayTitle": "Necesitan tu atención ({count})",
+    "attentionTodaySubtitle": "Lo más urgente primero. Tocá un cliente para abrir su ficha.",
+    "attentionTodayViewAll": "Ver en Clientes",
+    "paymentsDueTitle": "Cobros",
+    "paymentsDueSubtitle": "{overdue} vencidos · {soon} por vencer",
+    "paymentsDueViewAll": "Ir a Pagos",
+    "paymentsDueEmpty": "Nadie tiene pagos vencidos ni por vencer.",
+    "paymentsDueMore": "Y {count} más en Pagos."
   },
   "notifications": {
     "title": "Notificaciones",
@@ -247,7 +255,8 @@
       "workouts": "Entrenamientos del mes",
       "unread": "Mensajes sin leer",
       "ascending": "Ascendente",
-      "descending": "Descendente"
+      "descending": "Descendente",
+      "payment": "Pagos"
     },
     "table": {
       "name": "Nombre",
@@ -259,7 +268,7 @@
       "status": "Estado",
       "habits": "Hábitos (sem)",
       "workouts": "Entrenamientos (mes)",
-      "goals": "Goals",
+      "goals": "Objetivos",
       "goalsShort": "C",
       "goalsMedium": "M",
       "goalsLong": "L",
@@ -268,7 +277,21 @@
       "nutritionNoPlan": "Sin plan vigente",
       "nutritionNeverPlanned": "Todavía sin plan",
       "nutritionNothingAsked": "Nada pedido esta semana",
-      "nutritionNeedsTalk": "Conviene hablar esta semana"
+      "nutritionNeedsTalk": "Conviene hablar esta semana",
+      "client": "Cliente",
+      "habitsWeek": "Hábitos (7 d)",
+      "payment": "Pago",
+      "attention": "Atención",
+      "allGood": "Todo en orden",
+      "noMatches": "Ningún cliente coincide con la búsqueda o el filtro.",
+      "trendUp": "{points} puntos más que la semana anterior",
+      "trendDown": "{points} puntos menos que la semana anterior",
+      "trendFlat": "Igual que la semana anterior",
+      "lastActivityKind": {
+        "workout": "entrenamiento",
+        "habit": "hábito",
+        "photo": "foto de progreso"
+      }
     },
     "empty": {
       "headline": "Aún no tenés clientes",
@@ -1014,6 +1037,12 @@
         "recipients": "Elegí entre 1 y 200 clientes.",
         "generic": "No se pudo mandar el mensaje. Probá de nuevo."
       }
+    },
+    "paymentsOverdueFilter": "Pagos vencidos ({count})",
+    "view": {
+      "label": "Vista",
+      "cards": "Tarjetas",
+      "list": "Lista"
     }
   },
   "templates": {
@@ -2953,7 +2982,11 @@
     "errorGeneric": "Algo salió mal. Probá de nuevo.",
     "errorAmount": "Ingresá un monto válido.",
     "save": "Guardar",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "createPlan": "Crear plan",
+    "newPlanOption": "+ Nuevo plan",
+    "removePlan": "Quitar plan",
+    "assignNoPlansHint": "Todavía no creaste planes. Creá uno acá y queda elegido para este cliente."
   },
   "admin": {
     "common": {

@@ -8,6 +8,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -34,7 +35,11 @@ import { noteIfStaleDeployment } from "@/lib/gc-fitness/stale-deployment";
 
 import { FormSelect } from "@/components/gc-fitness/form-select";
 
+import { PlanFormDialog } from "./PlanFormDialog";
 import { usePaymentLabels } from "./payment-labels";
+
+/** Valor centinela del select: no es un plan, abre «Nuevo plan» (#535). */
+const NEW_PLAN_OPTION = "__new_plan__";
 
 interface Props {
   clientId: string;
@@ -65,11 +70,24 @@ export function AssignPlanDialog({ clientId, clientName, billing, plans, todayCi
   const [form, setForm] = useState(() => initialState(billing, todayCivil));
   const [error, setError] = useState<string | null>(null);
 
-  const selectable = plans.filter((p) => !p.archived || p.id === billing?.planId);
+  // Planes creados desde este diálogo: entran ya, sin esperar al `router.refresh()`.
+  const [created, setCreated] = useState<PaymentPlan[]>([]);
+  const [planFormOpen, setPlanFormOpen] = useState(false);
+  const [planFormKey, setPlanFormKey] = useState(0);
+  const allPlans = [...plans, ...created.filter((c) => !plans.some((p) => p.id === c.id))];
+  const selectable = allPlans.filter((p) => !p.archived || p.id === billing?.planId);
   const selected = selectable.find((p) => p.id === form.planId) ?? null;
   const samePlan = !!selected && selected.id === billing?.planId;
   const periodic = planIsPeriodic(selected);
   const classBased = planHasClassBalance(selected);
+  // «Sin plan» sobre un cliente SIN plan no cambia nada: el botón no puede parecer útil.
+  const removing = !form.planId && !!billing?.planId;
+  const nothingToSave = !form.planId && !billing?.planId;
+
+  function openPlanForm() {
+    setPlanFormKey((k) => k + 1);
+    setPlanFormOpen(true);
+  }
 
   // Rearmar el formulario en CADA apertura. El padre lo abre con `open`, así que Radix nunca
   // llama `onOpenChange(true)`: resetear ahí dejaba los datos de cuando cargó la página (tras
@@ -145,7 +163,13 @@ export function AssignPlanDialog({ clientId, clientName, billing, plans, todayCi
             <FormSelect
               id="assign-plan"
               value={form.planId}
-              onValueChange={(v) => setForm({ ...form, planId: v })}
+              onValueChange={(v) => {
+                if (v === NEW_PLAN_OPTION) {
+                  openPlanForm();
+                  return;
+                }
+                setForm({ ...form, planId: v });
+              }}
               className="data-[size=default]:h-9"
               options={[
                 { value: "", label: t("noPlanOption") },
@@ -153,9 +177,21 @@ export function AssignPlanDialog({ clientId, clientName, billing, plans, todayCi
                   value: plan.id,
                   label: `${plan.name} · ${labels.kind(plan.kind)} · ${labels.money(plan.amount, plan.currency)}`,
                 })),
+                ...(selectable.length > 0 ? [{ value: NEW_PLAN_OPTION, label: t("newPlanOption") }] : []),
               ]}
             />
-            {plans.length === 0 ? <p className="text-xs text-muted-foreground">{t("plans.empty")}</p> : null}
+            {selectable.length === 0 ? (
+              <div
+                className="flex flex-col gap-2 rounded-xl border border-dashed border-border p-3 sm:flex-row sm:items-center sm:justify-between"
+                data-testid="assign-plan-empty"
+              >
+                <p className="text-sm text-muted-foreground">{t("assignNoPlansHint")}</p>
+                <Button type="button" variant="outline" size="sm" onClick={openPlanForm} data-testid="assign-plan-create">
+                  <Plus className="size-4" aria-hidden />
+                  {t("createPlan")}
+                </Button>
+              </div>
+            ) : null}
           </div>
 
           {selected ? (
@@ -230,10 +266,27 @@ export function AssignPlanDialog({ clientId, clientName, billing, plans, todayCi
         </div>
 
         <DialogFooter>
-          <Button type="button" onClick={submit} disabled={pending} data-testid="assign-plan-submit">
-            {billing?.planId ? t("changePlan") : t("assignPlan")}
+          <Button
+            type="button"
+            onClick={submit}
+            disabled={pending || nothingToSave}
+            variant={removing ? "destructive" : "default"}
+            data-testid="assign-plan-submit"
+          >
+            {removing ? t("removePlan") : billing?.planId ? t("changePlan") : t("assignPlan")}
           </Button>
         </DialogFooter>
+        {/* Dentro del contenido: Radix trata el diálogo anidado como rama y no cierra este. */}
+        <PlanFormDialog
+          key={planFormKey}
+          plan={null}
+          open={planFormOpen}
+          onOpenChange={setPlanFormOpen}
+          onSaved={(plan) => {
+            setCreated((prev) => [...prev, plan]);
+            setForm((prev) => ({ ...prev, planId: plan.id }));
+          }}
+        />
       </DialogContent>
     </Dialog>
   );
