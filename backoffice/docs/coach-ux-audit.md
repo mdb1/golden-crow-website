@@ -96,17 +96,17 @@ Qué resuelve: cómo viene este cliente y qué hay que hacer con él.
 
 | # | Hallazgo | Evidencia | Sev | Esf | Estado |
 |---|---|---|---|---|---|
-| 1 | El encabezado no dice pago, última actividad ni adherencia; los pagos están en la 5ª sección | `_components/ClientHeader.tsx:119-144`, `page.tsx:540-556` | P1 | M | ⏳ (franja de estado reutilizando `RosterPayment` / `RosterLastActivity`) |
+| 1 | El encabezado no dice pago, última actividad ni adherencia; los pagos están en la 5ª sección | `_components/ClientHeader.tsx:119-144`, `page.tsx:540-556` | P1 | M | ✅ PR 3 — franja de estado: última actividad, hábitos 7 d + tendencia, entrenamientos perdidos 7 d, pago (2 lecturas puntuales: client_stats + billing) |
 | 2 | Calendario `min-w-[780px]` como primer widget: scroll lateral en el teléfono | `_components/ClientCalendarPeek.tsx:273` | P1 | M | ⏳ vista agenda en mobile |
 | 3 | Entrenamientos perdidos escondidos en un `<details>` «Ver pasados» | `_components/ClientSummaryCard.tsx:122-124,235-256` | P1 | S | ⏳ |
-| 4 | ~30 consultas por carga: `users/{id}` ×7, `workout_logs` ×3 (500/300/300), hábitos ×3, tendencias de hábitos N+1; `getLatestBodyWeightKg` espera a todo | `lib/gc-fitness/exercise-progress-actions.ts:217,240,295`, `personal-records-actions.ts:54,76,105`, `HabitTrendsWidget.tsx:58-88`, `page.tsx:236-263` | P1 | L | ⏳ |
-| 5 | `ClientSummaryCard` async sin `<Suspense>`: frena toda la página | `page.tsx:509` | P1 | S | ⏳ |
+| 4 | ~30 consultas por carga: `users/{id}` ×7, `workout_logs` ×3 (500/300/300), hábitos ×3, tendencias de hábitos N+1; `getLatestBodyWeightKg` espera a todo | `lib/gc-fitness/exercise-progress-actions.ts:217,240,295`, `personal-records-actions.ts:54,76,105`, `HabitTrendsWidget.tsx:58-88`, `page.tsx:236-263` | P1 | L | ✅ PR 3 — `users/{id}` 1 vez por render (React `cache` en page, calendario, fotos, progreso por ejercicio, récords); `workout_logs` ×3 y tendencias N+1 siguen ⏳ (PR 6) |
+| 5 | `ClientSummaryCard` async sin `<Suspense>`: frena toda la página | `page.tsx:509` | P1 | S | ✅ PR 3 — en <Suspense> |
 | 6 | Cambiar un gráfico hace `router.refresh()` (re-corre todas las lecturas) | `_components/ClientChartsSection.tsx:76-79` | P2 | M | ⏳ |
-| 7 | Gráficos sin alternativa de texto; selector de rango con `aria-label` en inglés y opciones de 24 px | `TrendRangeSelector.tsx:21,34` y 6 gráficos | P2 | M | ⏳ |
+| 7 | Gráficos sin alternativa de texto; selector de rango con `aria-label` en inglés y opciones de 24 px | `TrendRangeSelector.tsx:21,34` y 6 gráficos | P2 | M | ✅ PR 3 — sólo el selector de rango: aria-label traducido y opciones más altas; texto alternativo de gráficos sigue ⏳ |
 | 8 | Colores de grupos musculares en hex crudo con texto `#fff` | `MuscleGroupProgressClient.tsx:85-91` | P2 | S | ⏳ |
-| 9 | Pills de secciones de 36 px | `ClientSectionNav.tsx:66,85` | P2 | S | ⏳ |
+| 9 | Pills de secciones de 36 px | `ClientSectionNav.tsx:66,85` | P2 | S | ✅ PR 3 — 40 px |
 | 10 | Vista de cliente pendiente: copy hardcodeado + «Corvo · Pending»; precarga con «plantilla» y ~45 strings sin i18n | `page.tsx:686-727`, `PendingWorkoutAssignForm.tsx:81,87` | P2 | M | ⏳ |
-| 11 | `pagos/page.tsx`: `Promise.all` sin catch → una lectura caída tira la página | `pagos/page.tsx:79-85` | P2 | S | ⏳ |
+| 11 | `pagos/page.tsx`: `Promise.all` sin catch → una lectura caída tira la página | `pagos/page.tsx:79-85` | P2 | S | ✅ PR 3 — cada lectura falla sola |
 
 ### Nutrición del cliente (`clients/[id]/nutricion/**`)
 | # | Hallazgo | Evidencia | Sev | Esf | Estado |

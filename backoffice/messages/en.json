@@ -435,7 +435,8 @@
         "personalRecords": "Personal records",
         "dailySteps": "Daily steps",
         "nutrition": "Nutrition",
-        "payments": "Payments"
+        "payments": "Payments",
+        "summary": "Summary"
       },
       "personalRecords": {
         "title": "Personal records",
@@ -977,7 +978,16 @@
         "pagos": "Payments",
         "progreso": "Progress",
         "chat": "Chat"
-      }
+      },
+      "statusStrip": {
+        "lastActivity": "Last activity",
+        "habits": "Habits (7 d)",
+        "missedWorkouts": "Missed workouts (7 d)",
+        "payment": "Payment",
+        "notComputed": "No data yet: open Clients to compute it.",
+        "noHabitsScheduled": "No habits this week"
+      },
+      "trendRangeAria": "Time range"
     },
     "invite": {
       "statusSent": "Invitation sent",

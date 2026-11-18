@@ -435,7 +435,8 @@
         "personalRecords": "Récords personales",
         "dailySteps": "Pasos diarios",
         "nutrition": "Nutrición",
-        "payments": "Pagos"
+        "payments": "Pagos",
+        "summary": "Resumen"
       },
       "personalRecords": {
         "title": "Récords personales",
@@ -977,7 +978,16 @@
         "pagos": "Pagos",
         "progreso": "Progreso",
         "chat": "Chat"
-      }
+      },
+      "statusStrip": {
+        "lastActivity": "Última actividad",
+        "habits": "Hábitos (7 d)",
+        "missedWorkouts": "Entrenamientos perdidos (7 d)",
+        "payment": "Pago",
+        "notComputed": "Todavía sin datos: abrí Clientes para calcularlos.",
+        "noHabitsScheduled": "Sin hábitos esta semana"
+      },
+      "trendRangeAria": "Período"
     },
     "invite": {
       "statusSent": "Invitación enviada",
