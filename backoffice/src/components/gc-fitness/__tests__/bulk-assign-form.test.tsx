@@ -190,7 +190,7 @@ describe("BulkAssignForm — the one-time path", () => {
 
     await waitFor(() => expect(mockPush).toHaveBeenCalledTimes(1));
     expect(mockPush).toHaveBeenCalledWith(
-      "/gc-fitness/schedule?clientId=client-2",
+      "/gc-fitness/schedule?clientIds=client-2",
     );
   });
 });

@@ -99,7 +99,7 @@
   },
   "dashboard": {
     "title": "Dashboard",
-    "headerSubtitle": "Overview of your clients and their progress",
+    "headerSubtitle": "What needs your attention today and how your clients are doing",
     "signedInAs": "Signed in as {email}.",
     "addOrManageClients": "Add or manage clients",
     "kpiActiveClients": "Active clients",
@@ -174,7 +174,15 @@
     "unassignedSoonEmpty": "All caught up — every active client has something assigned.",
     "unassignedSoonTruncated": "Checked your first {count} active clients — open the roster to see the rest.",
     "unassignedSoonEmptyTruncated": "None of the first {count} active clients is missing an assignment.",
-    "unassignedSoonAssignCta": "Assign"
+    "unassignedSoonAssignCta": "Assign",
+    "attentionTodayTitle": "Need your attention ({count})",
+    "attentionTodaySubtitle": "Most urgent first. Tap a client to open their profile.",
+    "attentionTodayViewAll": "See in Clients",
+    "paymentsDueTitle": "Payments",
+    "paymentsDueSubtitle": "{overdue} overdue · {soon} due soon",
+    "paymentsDueViewAll": "Go to Payments",
+    "paymentsDueEmpty": "Nobody has an overdue or upcoming payment.",
+    "paymentsDueMore": "And {count} more in Payments."
   },
   "notifications": {
     "title": "Notifications",
@@ -247,7 +255,8 @@
       "workouts": "Workouts this month",
       "unread": "Unread messages",
       "ascending": "Ascending",
-      "descending": "Descending"
+      "descending": "Descending",
+      "payment": "Payments"
     },
     "table": {
       "name": "Name",
@@ -268,7 +277,21 @@
       "nutritionNoPlan": "No plan in force",
       "nutritionNeverPlanned": "No plan yet",
       "nutritionNothingAsked": "Nothing asked this week",
-      "nutritionNeedsTalk": "Worth a conversation this week"
+      "nutritionNeedsTalk": "Worth a conversation this week",
+      "client": "Client",
+      "habitsWeek": "Habits (7 d)",
+      "payment": "Payment",
+      "attention": "Attention",
+      "allGood": "All good",
+      "noMatches": "No client matches the search or filter.",
+      "trendUp": "{points} points more than the week before",
+      "trendDown": "{points} points less than the week before",
+      "trendFlat": "Same as the week before",
+      "lastActivityKind": {
+        "workout": "workout",
+        "habit": "habit",
+        "photo": "progress photo"
+      }
     },
     "empty": {
       "headline": "No clients yet",
@@ -1014,6 +1037,12 @@
         "recipients": "Pick between 1 and 200 clients.",
         "generic": "Couldn't send the message. Try again."
       }
+    },
+    "paymentsOverdueFilter": "Overdue payments ({count})",
+    "view": {
+      "label": "View",
+      "cards": "Cards",
+      "list": "List"
     }
   },
   "templates": {

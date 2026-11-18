@@ -133,6 +133,16 @@ export interface ClientRosterRow {
   lastActivityKind: LastActivityKind | null;
   /** Compliance ratio in [0, 1] averaged across this client's habits over the last 7 days. */
   thisWeekComplianceRatio: number;
+  /**
+   * #535 — the same ratio over the 7 days before that window (the trend), or
+   * `null` when nothing was scheduled then. Optional for rows built before it.
+   */
+  prevWeekComplianceRatio?: number | null;
+  /**
+   * #535 — the client's billing state, from the `client_billing` read the roster
+   * already does for the «pago vencido» reason (no extra query). `null` = no plan.
+   */
+  billing?: RosterBilling | null;
   /** Unread chat messages for this trainer reading this client's thread. */
   unreadChatCount: number;
   /**
@@ -187,6 +197,16 @@ export interface ClientRosterRow {
   workoutsScheduledThisMonth: number;
   /** Goal counts on `/client_goals` bucketed by horizon. */
   goalsCount: { short: number; medium: number; long: number };
+}
+
+/** #535 — what the roster shows about a client's payments. */
+export interface RosterBilling {
+  state: "overdue" | "due_soon" | "up_to_date";
+  /** Days overdue / until due; for class packs, classes left. */
+  days: number;
+  classBased: boolean;
+  planName: string | null;
+  nextDueCivil: string | null;
 }
 
 function toIsoMaybe(value: unknown): string | null {
@@ -430,6 +450,10 @@ async function computeClientStats(
   const sevenDaysAgoMs = Date.now() - 7 * 24 * 60 * 60 * 1000;
   const sevenDaysAgoDate = new Date(sevenDaysAgoMs);
   const windowStartCivil = civilDateToday(tzForToday, sevenDaysAgoDate);
+  // #535 — the habit-log query reaches one more week back so the roster can show
+  // the compliance TREND (this 7 days vs the 7 before). Same index, same query.
+  const prevWeekToday = civilDateAddDays(today, -7) ?? today;
+  const habitLogsStartCivil = civilDateAddDays(today, -13) ?? windowStartCivil;
 
   // Month window — civil-date strings clamped to the first/last day of
   // the calendar month containing `today`. `today` is "YYYY-MM-DD" so
@@ -545,15 +569,15 @@ async function computeClientStats(
     db
       .collection(FirestoreCollections.habitLogs)
       .where("clientId", "==", clientUid)
-      .where("civilDate", ">=", windowStartCivil)
+      .where("civilDate", ">=", habitLogsStartCivil)
       .orderBy("civilDate", "desc")
-      .limit(150)
+      .limit(300)
       .get()
       .catch(() =>
         db
           .collection(FirestoreCollections.habitLogs)
           .where("clientId", "==", clientUid)
-          .limit(200)
+          .limit(400)
           .get(),
       ),
   ]);
@@ -639,18 +663,26 @@ async function computeClientStats(
   // started yet) are not "due" this week, so they don't drag the average.
   let complianceSum = 0;
   let complianceCount = 0;
+  let prevComplianceSum = 0;
+  let prevComplianceCount = 0;
   for (const hdoc of habitDocs) {
     const logs = windowedLogsByHabit.get(hdoc.id) ?? [];
-    const { ratio, scheduledDays } = computeAdherence(
-      hdoc.data() as Record<string, unknown>,
-      logs,
-      7,
-      today,
-    );
-    if (scheduledDays === 0) continue;
-    complianceSum += ratio;
-    complianceCount += 1;
+    const habitData = hdoc.data() as Record<string, unknown>;
+    const { ratio, scheduledDays } = computeAdherence(habitData, logs, 7, today);
+    if (scheduledDays > 0) {
+      complianceSum += ratio;
+      complianceCount += 1;
+    }
+    // #535 — same math, the week before (computeAdherence only counts logs whose
+    // civilDate falls inside ITS window, so the extra week of logs can't leak).
+    const prev = computeAdherence(habitData, logs, 7, prevWeekToday);
+    if (prev.scheduledDays > 0) {
+      prevComplianceSum += prev.ratio;
+      prevComplianceCount += 1;
+    }
   }
+  const prevWeekComplianceRatio =
+    prevComplianceCount > 0 ? prevComplianceSum / prevComplianceCount : null;
   // No habits yet → show 0% instead of the vacuous 100% that read as
   // "already perfect" for brand-new clients. The attention predicate
   // below is based on activity recency only, so this stays visual.
@@ -791,6 +823,7 @@ async function computeClientStats(
     lastHabitAtMs: tsHabit?.getTime() ?? null,
     lastPhotoAtMs: tsPhoto?.getTime() ?? null,
     thisWeekComplianceRatio,
+    prevWeekComplianceRatio,
     habitsCompletedThisWeek,
     habitsScheduledThisWeek,
     missedWorkoutsLast7Days,
@@ -1072,6 +1105,7 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
       const unreadChatCount = rawUnread > 0 ? rawUnread : 0;
       const {
         thisWeekComplianceRatio,
+        prevWeekComplianceRatio,
         missedWorkoutsLast7Days,
         missedForAttention,
         hasSomethingAssignedSoon,
@@ -1100,7 +1134,7 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
       // logged activity yet by definition, so the inactivity predicate
       // would always fire — that's noise, not a real signal.
       const billing = billingByClient.get(c.uid);
-      const billingOverdue = billing
+      const billingState = billing
         ? billingStatus(
             {
               planId: billing.planId,
@@ -1111,8 +1145,21 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
               reminderDaysBefore: billing.reminderDaysBefore,
             },
             today,
-          ).state === "overdue"
-        : false;
+          )
+        : null;
+      const billingOverdue = billingState?.state === "overdue";
+      // #535 — surfaced on the roster card / list (payment chip + sort + filter).
+      const rosterBilling: RosterBilling | null =
+        billing && billingState && billingState.state !== "none"
+          ? {
+              state: billingState.state,
+              days: billingState.days,
+              classBased:
+                billing.plan?.kind === "class_pack" || billing.plan?.kind === "per_class",
+              planName: billing.plan?.name ?? null,
+              nextDueCivil: billing.nextDueCivil,
+            }
+          : null;
       const attention = isPending
         ? { needsAttention: false, reasons: [] as AttentionReason[] }
         : clientNeedsAttention({
@@ -1139,6 +1186,8 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
         lastActivityAt: lastActivity?.toISOString() ?? null,
         lastActivityKind,
         thisWeekComplianceRatio,
+        prevWeekComplianceRatio,
+        billing: rosterBilling,
         unreadChatCount,
         missedWorkoutsLast7Days,
         needsAttention: attention.needsAttention,

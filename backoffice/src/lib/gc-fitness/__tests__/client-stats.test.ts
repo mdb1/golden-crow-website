@@ -24,6 +24,7 @@ const VALUES: ClientStatsValues = {
   lastHabitAtMs: null,
   lastPhotoAtMs: NOW - 5000,
   thisWeekComplianceRatio: 0.5,
+  prevWeekComplianceRatio: 0.25,
   habitsCompletedThisWeek: 3,
   habitsScheduledThisWeek: 7,
   missedWorkoutsLast7Days: 1,

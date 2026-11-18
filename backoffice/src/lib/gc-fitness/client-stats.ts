@@ -44,7 +44,8 @@
 import { Timestamp } from "firebase-admin/firestore";
 
 /** Bump when the computation or the stored shape changes: old docs recompute. */
-export const CLIENT_STATS_VERSION = 1;
+// v2 (golden-crow-website#535): + `prevWeekComplianceRatio` (the habit-compliance trend).
+export const CLIENT_STATS_VERSION = 2;
 
 /** A cached doc older than this recomputes even when no trigger marked it dirty. */
 export const CLIENT_STATS_MAX_AGE_MS = 2 * 60 * 60 * 1000;
@@ -55,6 +56,12 @@ export interface ClientStatsValues {
   lastHabitAtMs: number | null;
   lastPhotoAtMs: number | null;
   thisWeekComplianceRatio: number;
+  /**
+   * #535 — the same compliance over the 7 days BEFORE the current window, so the
+   * roster can say "up / down vs last week" instead of a hardcoded arrow. `null`
+   * when no habit was scheduled then (a new client): no trend, not "0 → x".
+   */
+  prevWeekComplianceRatio: number | null;
   habitsCompletedThisWeek: number;
   habitsScheduledThisWeek: number;
   missedWorkoutsLast7Days: number;
@@ -87,6 +94,7 @@ export const EMPTY_CLIENT_STATS: ClientStatsValues = {
   lastHabitAtMs: null,
   lastPhotoAtMs: null,
   thisWeekComplianceRatio: 0,
+  prevWeekComplianceRatio: null,
   habitsCompletedThisWeek: 0,
   habitsScheduledThisWeek: 0,
   missedWorkoutsLast7Days: 0,
@@ -120,6 +128,7 @@ export function decodeClientStats(data: Record<string, unknown> | undefined): Cl
     return null;
   }
   const ratio = typeof data.thisWeekComplianceRatio === "number" ? data.thisWeekComplianceRatio : 0;
+  const prev = data.prevWeekComplianceRatio;
   return {
     v: typeof data.v === "number" ? data.v : 0,
     key: { coachId, timezone, civilDate },
@@ -130,6 +139,8 @@ export function decodeClientStats(data: Record<string, unknown> | undefined): Cl
       lastHabitAtMs: toMs(data.lastHabitAt),
       lastPhotoAtMs: toMs(data.lastPhotoAt),
       thisWeekComplianceRatio: Number.isFinite(ratio) ? Math.min(1, Math.max(0, ratio)) : 0,
+      prevWeekComplianceRatio:
+        typeof prev === "number" && Number.isFinite(prev) ? Math.min(1, Math.max(0, prev)) : null,
       habitsCompletedThisWeek: count(data.habitsCompletedThisWeek),
       habitsScheduledThisWeek: count(data.habitsScheduledThisWeek),
       missedWorkoutsLast7Days: count(data.missedWorkoutsLast7Days),
@@ -182,6 +193,8 @@ export function encodeClientStats(
     lastHabitAt: ts(values.lastHabitAtMs),
     lastPhotoAt: ts(values.lastPhotoAtMs),
     thisWeekComplianceRatio: values.thisWeekComplianceRatio,
+    // `?? null`: the Admin SDK rejects `undefined`.
+    prevWeekComplianceRatio: values.prevWeekComplianceRatio ?? null,
     habitsCompletedThisWeek: values.habitsCompletedThisWeek,
     habitsScheduledThisWeek: values.habitsScheduledThisWeek,
     missedWorkoutsLast7Days: values.missedWorkoutsLast7Days,
