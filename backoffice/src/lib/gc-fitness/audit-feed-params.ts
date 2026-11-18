@@ -70,6 +70,22 @@ export interface AuditFeedParams {
   includeLowSignal: boolean;
   /** #503 — opaque cursor of the page being shown (`?before=`), "" = newest. */
   before: string;
+  /** Row density of the feed (`?density=compact`); display only, the reader ignores it. */
+  density: "comfortable" | "compact";
+}
+
+/** How many filters differ from the untouched form (the sticky bar's «N filtros activos»). */
+export function activeAuditFilterCount(p: AuditFeedParams): number {
+  return [
+    p.source !== "all",
+    !p.allCategoriesSelected,
+    !!p.actorQuery,
+    !!p.clientQuery,
+    !!p.coachQuery,
+    !!p.fromISO,
+    !!p.toISO,
+    p.includeLowSignal,
+  ].filter(Boolean).length;
 }
 
 export function parseAuditFeedParams(sp: Params): AuditFeedParams {
@@ -97,6 +113,7 @@ export function parseAuditFeedParams(sp: Params): AuditFeedParams {
     toISO: str(sp.to).trim(),
     includeLowSignal: str(sp.raw) === "1",
     before: str(sp.before).trim(),
+    density: str(sp.density) === "compact" ? "compact" : "comfortable",
   };
 }
 
@@ -122,7 +139,11 @@ export function auditFeedFilters(p: AuditFeedParams, timeZone: string): Activity
 /** The query string for these params (without `before` unless given). */
 export function auditFeedQuery(
   p: AuditFeedParams,
-  overrides: { tab?: "timeline" | "deletions"; before?: string | null } = {},
+  overrides: {
+    tab?: "timeline" | "deletions";
+    before?: string | null;
+    density?: "comfortable" | "compact";
+  } = {},
 ): string {
   const params = new URLSearchParams();
   params.set("tab", overrides.tab ?? p.tab);
@@ -137,5 +158,6 @@ export function auditFeedQuery(
   if (p.toISO) params.set("to", p.toISO);
   if (p.includeLowSignal) params.set("raw", "1");
   if (overrides.before) params.set("before", overrides.before);
+  if ((overrides.density ?? p.density) === "compact") params.set("density", "compact");
   return params.toString();
 }

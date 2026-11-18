@@ -58,7 +58,8 @@ export default async function ClientsPage({
   const pendingSuffix =
     pendingCount > 0 ? t("subtitlePendingSuffix", { count: pendingCount }) : "";
 
-  const subtitle = `${activeText}${pendingSuffix}${t("subtitleSortNote")}`;
+  // #535 — no «ordenados por actividad» suffix: the coach can re-sort now, so it would lie.
+  const subtitle = `${activeText}${pendingSuffix}`;
 
   // New clients that signed up WITHOUT a coach pre-assignment (no user_mirror)
   // and were auto-attached to this coach by the sign-up fallback. Surface them

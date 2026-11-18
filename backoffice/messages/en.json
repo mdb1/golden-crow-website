@@ -99,7 +99,7 @@
   },
   "dashboard": {
     "title": "Dashboard",
-    "headerSubtitle": "Overview of your clients and their progress",
+    "headerSubtitle": "What needs your attention today and how your clients are doing",
     "signedInAs": "Signed in as {email}.",
     "addOrManageClients": "Add or manage clients",
     "kpiActiveClients": "Active clients",
@@ -174,7 +174,15 @@
     "unassignedSoonEmpty": "All caught up — every active client has something assigned.",
     "unassignedSoonTruncated": "Checked your first {count} active clients — open the roster to see the rest.",
     "unassignedSoonEmptyTruncated": "None of the first {count} active clients is missing an assignment.",
-    "unassignedSoonAssignCta": "Assign"
+    "unassignedSoonAssignCta": "Assign",
+    "attentionTodayTitle": "Need your attention ({count})",
+    "attentionTodaySubtitle": "Most urgent first. Tap a client to open their profile.",
+    "attentionTodayViewAll": "See in Clients",
+    "paymentsDueTitle": "Payments",
+    "paymentsDueSubtitle": "{overdue} overdue · {soon} due soon",
+    "paymentsDueViewAll": "Go to Payments",
+    "paymentsDueEmpty": "Nobody has an overdue or upcoming payment.",
+    "paymentsDueMore": "And {count} more in Payments."
   },
   "notifications": {
     "title": "Notifications",
@@ -247,7 +255,8 @@
       "workouts": "Workouts this month",
       "unread": "Unread messages",
       "ascending": "Ascending",
-      "descending": "Descending"
+      "descending": "Descending",
+      "payment": "Payments"
     },
     "table": {
       "name": "Name",
@@ -268,7 +277,21 @@
       "nutritionNoPlan": "No plan in force",
       "nutritionNeverPlanned": "No plan yet",
       "nutritionNothingAsked": "Nothing asked this week",
-      "nutritionNeedsTalk": "Worth a conversation this week"
+      "nutritionNeedsTalk": "Worth a conversation this week",
+      "client": "Client",
+      "habitsWeek": "Habits (7 d)",
+      "payment": "Payment",
+      "attention": "Attention",
+      "allGood": "All good",
+      "noMatches": "No client matches the search or filter.",
+      "trendUp": "{points} points more than the week before",
+      "trendDown": "{points} points less than the week before",
+      "trendFlat": "Same as the week before",
+      "lastActivityKind": {
+        "workout": "workout",
+        "habit": "habit",
+        "photo": "progress photo"
+      }
     },
     "empty": {
       "headline": "No clients yet",
@@ -1014,6 +1037,12 @@
         "recipients": "Pick between 1 and 200 clients.",
         "generic": "Couldn't send the message. Try again."
       }
+    },
+    "paymentsOverdueFilter": "Overdue payments ({count})",
+    "view": {
+      "label": "View",
+      "cards": "Cards",
+      "list": "List"
     }
   },
   "templates": {
@@ -2966,7 +2995,11 @@
     "errorGeneric": "Something went wrong. Try again.",
     "errorAmount": "Enter a valid amount.",
     "save": "Save",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "createPlan": "Create plan",
+    "newPlanOption": "+ New plan",
+    "removePlan": "Remove plan",
+    "assignNoPlansHint": "You haven't created any plans yet. Create one here and it's selected for this client."
   },
   "admin": {
     "common": {
@@ -3145,6 +3178,162 @@
         "mode": "Mode",
         "error": "Error",
         "empty": "No admin operations yet."
+      },
+      "overview": {
+        "kpi": {
+          "clients": "Active clients",
+          "active7d": "Active last 7 days",
+          "inactive30d": "Inactive 30+ days",
+          "overdue": "Overdue payments",
+          "dueSoon": "Due soon",
+          "collectedThisMonth": "Collected this month",
+          "expectedMonthly": "Expected monthly income",
+          "none": "—"
+        },
+        "auditLink": "View in audit",
+        "clients": {
+          "title": "Clients",
+          "description": "Sort by any column. Activity = the last thing they did (workout, habit, photo, Corvo or opening the app).",
+          "showDeleted": "Show deleted ({count})",
+          "col": {
+            "name": "Client",
+            "lastActivity": "Last activity",
+            "billing": "Billing",
+            "nextDue": "Due",
+            "lastPayment": "Last payment",
+            "compliance": "Compliance",
+            "nutrition": "Nutrition",
+            "corvo": "Corvo",
+            "signup": "Signed up",
+            "actions": "Actions"
+          },
+          "activityKind": {
+            "workout": "workout",
+            "habit": "habit",
+            "photo": "photo",
+            "corvo": "Corvo",
+            "app_open": "opened the app"
+          },
+          "never": "Never",
+          "today": "Today",
+          "daysAgo": "{days, plural, one {# day ago} other {# days ago}}",
+          "workoutsMonth": "{done}/{total} workouts this month",
+          "noPlan": "No plan",
+          "turns": "{count, plural, one {# turn} other {# turns}}",
+          "premium": "premium",
+          "sortBy": "Sort by {column}"
+        },
+        "billing": {
+          "title": "Billing",
+          "description": "Plans, each client's payment status and what was collected in the last 12 months (recorded by hand by the coach).",
+          "unavailable": "Billing could not be read.",
+          "plansTitle": "Plans",
+          "plansEmpty": "This coach has not created plans yet.",
+          "planCol": {
+            "name": "Plan",
+            "kind": "Type",
+            "price": "Price",
+            "clients": "Clients"
+          },
+          "perMonths": "{count, plural, one {per month} other {every # months}}",
+          "perClasses": "{count, plural, one {# class} other {# classes}}",
+          "archived": "Archived",
+          "monthlyEmpty": "No payments recorded in the last 12 months.",
+          "chartTitle": "Collected per month ({currency})",
+          "tableView": "View as table",
+          "month": "Month",
+          "payments": "Payments",
+          "total12m": "12-month total",
+          "recentTitle": "Payments received",
+          "recentEmpty": "No payments.",
+          "recentCol": {
+            "date": "Date",
+            "client": "Client",
+            "amount": "Amount",
+            "method": "Method",
+            "covers": "Covers",
+            "plan": "Plan"
+          },
+          "voided": "Voided",
+          "voidedCount": "{count, plural, one {# voided payment} other {# voided payments}}",
+          "formerClients": "{count, plural, one {# payment from a former client} other {# payments from former clients}}",
+          "formerClient": "former client"
+        },
+        "content": {
+          "nutritionTitle": "Nutrition",
+          "nutritionTemplates": "Templates",
+          "nutritionPlans": "Plans loaded",
+          "nutritionActive": "Clients with a current plan",
+          "nutritionLapsed": "Clients with a lapsed plan",
+          "nutritionAdherence": "7-day adherence (average)",
+          "habitsTitle": "Habits",
+          "habitsActive": "Active assigned",
+          "habitsArchived": "Archived",
+          "habitsTemplates": "Own templates",
+          "unavailable": "Not available"
+        },
+        "challenges": {
+          "title": "Coach challenges",
+          "empty": "No challenges created.",
+          "col": {
+            "name": "Challenge",
+            "dates": "Dates",
+            "members": "Joined / invited",
+            "leader": "Leading",
+            "status": "Status"
+          },
+          "active": "Active",
+          "ended": "Ended",
+          "hidden": "Hidden"
+        },
+        "checklist": {
+          "title": "Checklist",
+          "summary": "{open} open · {overdue} overdue · {done} done",
+          "empty": "Nothing pending.",
+          "overdue": "overdue"
+        },
+        "invites": {
+          "title": "Pending invites",
+          "description": "Clients added who have not signed in to the app yet, with the invite email status.",
+          "col": {
+            "invited": "Added",
+            "email": "Invite email"
+          },
+          "status": {
+            "sent": "Sent",
+            "failed": "Failed",
+            "skipped": "Not sent",
+            "none": "Not attempted"
+          },
+          "sentAt": "sent {date}"
+        },
+        "corvo": {
+          "title": "Corvo (clients)",
+          "using": "Clients using it",
+          "active7d": "Active last 7 days",
+          "turns": "Total turns",
+          "consented": "Accepted the consent",
+          "last": "Last use"
+        },
+        "social": {
+          "title": "Social",
+          "handle": "Handle",
+          "visibility": "Visibility",
+          "suspended": "Suspended",
+          "publicRoutines": "Published routines",
+          "none": "No social profile."
+        },
+        "activity": {
+          "title": "Coach activity",
+          "lastAction": "Last action in the portal",
+          "lastSignIn": "Last sign-in",
+          "lastAppOpen": "Last app open",
+          "created": "Account created",
+          "app": "App",
+          "noDevices": "No registered devices",
+          "subscription": "Own subscription",
+          "timezone": "Time zone"
+        }
       }
     },
     "clientDetail": {
@@ -3184,7 +3373,53 @@
         "title": "Progress photos",
         "empty": "No progress photos yet."
       },
-      "backToClient": "Back to client"
+      "backToClient": "Back to client",
+      "overview": {
+        "tiles": {
+          "lastActivity": "Last activity",
+          "compliance": "Weekly compliance",
+          "missed7d": "Missed workouts (7 days)",
+          "billing": "Billing"
+        },
+        "lastAppOpen": "Last app open",
+        "noDevices": "No registered devices",
+        "locale": "Language",
+        "bodyWeight": "Current weight",
+        "height": "Height",
+        "billing": {
+          "title": "Billing with this coach",
+          "description": "Assigned plan, status and the payments the coach recorded (last 50).",
+          "none": "Not available for a coach-less user.",
+          "classes": "Classes",
+          "paidTotal": "Total paid (recorded)"
+        },
+        "goals": {
+          "title": "Goals and notes",
+          "summary": "{active} active · {completed} achieved · {archived} archived",
+          "empty": "No active goals.",
+          "clientOwned": "{count, plural, one {# written by the client} other {# written by the client}}"
+        },
+        "notes": "{count, plural, one {# private coach note} other {# private coach notes}}",
+        "chat": {
+          "title": "Chat with the coach",
+          "last": "Last message",
+          "lastFrom": "Sent by",
+          "client": "the client",
+          "coach": "the coach",
+          "unreadByCoach": "Unread by the coach",
+          "unreadByClient": "Unread by the client",
+          "none": "No chat yet."
+        },
+        "corvo": {
+          "turns": "Total turns",
+          "last": "Last use",
+          "consent": "Accepted the consent",
+          "photosConsent": "Accepted photos",
+          "reports": "Reported answers",
+          "none": "Never used Corvo."
+        },
+        "progressTitle": "Progress"
+      }
     },
     "nutrition": {
       "title": "Nutrition",
@@ -3569,8 +3804,8 @@
       "emptyDeletions": "No deletions for these filters.",
       "emptyEvents": "No events for these filters.",
       "viewDetail": "view detail",
-      "today": "Today · {day}",
-      "yesterday": "Yesterday · {day}",
+      "today": "Today",
+      "yesterday": "Yesterday",
       "noDate": "no date",
       "paging": {
         "label": "Feed pages",
@@ -3788,7 +4023,47 @@
         "coachAllowlistEdited": "Edited the coach list",
         "appConfigChanged": "Changed the app configuration"
       },
-      "coachOf": "coach:"
+      "coachOf": "coach:",
+      "groups": {
+        "workoutsDeleted": "{count, plural, one {Deleted # workout} other {Deleted # workouts}}",
+        "workoutsAssigned": "{count, plural, one {Assigned # workout} other {Assigned # workouts}}",
+        "workoutsMoved": "{count, plural, one {Moved # workout to another day} other {Moved # workouts to another day}}",
+        "workoutsUpdated": "{count, plural, one {Updated # scheduled workout} other {Updated # scheduled workouts}}",
+        "habitsDeleted": "{count, plural, one {Deleted # habit} other {Deleted # habits}}",
+        "habitsAssigned": "{count, plural, one {Assigned # habit} other {Assigned # habits}}",
+        "exercisesDeleted": "{count, plural, one {Deleted # exercise} other {Deleted # exercises}}",
+        "exercisesCreated": "{count, plural, one {Created # exercise} other {Created # exercises}}",
+        "routinesDeleted": "{count, plural, one {Deleted # routine} other {Deleted # routines}}",
+        "routinesCreated": "{count, plural, one {Created # routine} other {Created # routines}}",
+        "andMore": "{count, plural, one {and # more} other {and # more}}",
+        "moreNames": "+{count}",
+        "showDates": "Show dates",
+        "showItems": "{count, plural, one {Show # action} other {Show all # actions}}",
+        "dates": "{count, plural, one {# date} other {# dates}}",
+        "writtenAt": "written {time}",
+        "span": "between {from} and {to}"
+      },
+      "cadence": {
+        "daily": "every day",
+        "weekly": "weekly ({days})",
+        "weeklyAny": "weekly",
+        "everyN": "every {n} days",
+        "monthly": "monthly (day {day})",
+        "monthlyAny": "monthly"
+      },
+      "density": {
+        "label": "Density",
+        "compact": "Compact view",
+        "comfortable": "Comfortable view"
+      },
+      "empty": {
+        "hint": "Try widening the date range or clearing the filters.",
+        "clear": "Clear filters"
+      },
+      "filtersBar": {
+        "toggle": "Filters",
+        "active": "{count, plural, =0 {no filters} one {# active filter} other {# active filters}}"
+      }
     },
     "calendar": {
       "loadError": "Could not load that month.",

@@ -23,8 +23,14 @@
 // and the toolbar sorts the roster by any of the card's columns. Default sort
 // stays "last activity" (the server order), so nothing moves until the coach
 // asks for it.
+//
+// golden-crow-website#535 — the payment state is on every card (chip + «vence en
+// 3 días»), sortable and filterable («Pagos vencidos»); the habit arrow is a REAL
+// trend vs the week before (it used to be drawn from the absolute value); the last
+// activity says what it was; and a dense «Lista» view (RosterListView) sorts from
+// its column headers. The view choice is remembered per browser.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import {
@@ -33,9 +39,10 @@ import {
   ArrowUpNarrowWide,
   CheckCircle2,
   Clock,
+  CreditCard,
+  LayoutGrid,
+  List,
   Search,
-  TrendingDown,
-  TrendingUp,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -57,8 +64,16 @@ import {
   toggleAllVisible,
 } from "@/lib/gc-fitness/coach-broadcast-model";
 import { cn } from "@/lib/utils";
-import { RelativeTime } from "./RelativeTime";
+import { HabitTrendBadge, RosterLastActivity, RosterPayment } from "./RosterBits";
 import { RosterBulkActions } from "./RosterBulkActions";
+import { RosterListView } from "./RosterListView";
+import {
+  COMPLIANCE_GOOD_PCT,
+  habitCompliancePct,
+  habitTrend,
+  isPaymentOverdue,
+  paymentScore,
+} from "./roster-metrics";
 import { RosterEmptyState } from "./RosterEmptyState";
 import { FormSelect } from "@/components/gc-fitness/form-select";
 
@@ -73,6 +88,7 @@ export interface RosterTableProps {
 export const ROSTER_SORT_KEYS = [
   "lastActivity",
   "attention",
+  "payment",
   "name",
   "habits",
   "nutrition",
@@ -85,6 +101,7 @@ export type RosterSortKey = (typeof ROSTER_SORT_KEYS)[number];
 const DEFAULT_DIRECTION: Record<RosterSortKey, "asc" | "desc"> = {
   lastActivity: "desc",
   attention: "asc",
+  payment: "asc",
   name: "asc",
   habits: "asc",
   nutrition: "asc",
@@ -153,6 +170,8 @@ export function compareRosterRows(
       );
     case "nutrition":
       return nullable(finiteOrNull(a.nutritionRatio7Days), finiteOrNull(b.nutritionRatio7Days));
+    case "payment":
+      return nullable(paymentScore(a), paymentScore(b));
     case "workouts":
       return nullable(monthRatio(a), monthRatio(b));
     case "unread":
@@ -217,8 +236,29 @@ export function RosterTable({
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
 
   const tSort = useTranslations("clients.sort");
+  const tView = useTranslations("clients.view");
   const [sortKey, setSortKey] = useState<RosterSortKey>("lastActivity");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [paymentOverdueOnly, setPaymentOverdueOnly] = useState(false);
+  // #535 — «Tarjetas» / «Lista». Cards are the default (and what the server
+  // renders); the remembered choice is applied after mount, per browser.
+  const [view, setView] = useState<RosterView>("cards");
+  useEffect(() => {
+    const saved = readRosterView();
+    if (saved) setView(saved);
+  }, []);
+  function chooseView(next: RosterView) {
+    setView(next);
+    writeRosterView(next);
+  }
+  function sortBy(key: RosterSortKey) {
+    if (key === sortKey) {
+      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortKey(key);
+    setSortDirection(DEFAULT_DIRECTION[key]);
+  }
 
   // Locale-aware label for an attention reason. Kept in lockstep with the
   // shared table in `client-attention.ts` (an unknown id from an older row
@@ -248,6 +288,8 @@ export function RosterTable({
         return tSort("lastActivity");
       case "attention":
         return tSort("attention");
+      case "payment":
+        return tSort("payment");
       case "name":
         return tSort("name");
       case "habits":
@@ -267,18 +309,20 @@ export function RosterTable({
     () => rows.filter((r) => r.needsAttention).length,
     [rows],
   );
+  const overdueCount = useMemo(() => rows.filter(isPaymentOverdue).length, [rows]);
 
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();
     return rows.filter((r) => {
       if (needsAttentionOnly && !r.needsAttention) return false;
+      if (paymentOverdueOnly && !isPaymentOverdue(r)) return false;
       if (q) {
         const hay = `${r.displayName} ${r.email}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     }).sort((a, b) => compareRosterRows(a, b, sortKey, sortDirection));
-  }, [rows, needsAttentionOnly, query, sortKey, sortDirection]);
+  }, [rows, needsAttentionOnly, paymentOverdueOnly, query, sortKey, sortDirection]);
 
   const visibleSelectableIds = useMemo(
     () => filteredRows.filter(isBulkSelectable).map((r) => r.uid),
@@ -333,11 +377,27 @@ export function RosterTable({
           <Clock className="size-4" />
           {t("needsAttentionFilter", { count: needsAttentionCount })}
         </Button>
-        {needsAttentionOnly ? (
+        {overdueCount > 0 || paymentOverdueOnly ? (
+          <Button
+            type="button"
+            variant={paymentOverdueOnly ? "default" : "outline"}
+            onClick={() => setPaymentOverdueOnly((v) => !v)}
+            aria-pressed={paymentOverdueOnly}
+            className="h-11 shrink-0 gap-2 rounded-full px-4"
+            data-testid="roster-filter-overdue"
+          >
+            <CreditCard className="size-4" />
+            {t("paymentsOverdueFilter", { count: overdueCount })}
+          </Button>
+        ) : null}
+        {needsAttentionOnly || paymentOverdueOnly ? (
           <Button
             type="button"
             variant="ghost"
-            onClick={() => setNeedsAttentionOnly(false)}
+            onClick={() => {
+              setNeedsAttentionOnly(false);
+              setPaymentOverdueOnly(false);
+            }}
             className="h-11 shrink-0 rounded-full"
           >
             {tCommon("clearFilter")}
@@ -370,6 +430,38 @@ export function RosterTable({
               <ArrowDownWideNarrow className="size-4" />
             )}
           </Button>
+          <div
+            role="group"
+            aria-label={tView("label")}
+            className="ml-1 inline-flex rounded-full border border-border p-0.5"
+          >
+            <Button
+              type="button"
+              variant={view === "cards" ? "secondary" : "ghost"}
+              size="icon"
+              onClick={() => chooseView("cards")}
+              aria-pressed={view === "cards"}
+              aria-label={tView("cards")}
+              title={tView("cards")}
+              className="size-10 rounded-full"
+              data-testid="roster-view-cards"
+            >
+              <LayoutGrid className="size-4" />
+            </Button>
+            <Button
+              type="button"
+              variant={view === "list" ? "secondary" : "ghost"}
+              size="icon"
+              onClick={() => chooseView("list")}
+              aria-pressed={view === "list"}
+              aria-label={tView("list")}
+              title={tView("list")}
+              className="size-10 rounded-full"
+              data-testid="roster-view-list"
+            >
+              <List className="size-4" />
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -400,16 +492,27 @@ export function RosterTable({
       {filteredRows.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-muted-foreground">
-            {tTable("noClientsRow")}
+            {tTable("noMatches")}
           </CardContent>
         </Card>
+      ) : view === "list" ? (
+        <RosterListView
+          rows={filteredRows}
+          sortKey={sortKey}
+          sortDirection={sortDirection}
+          onSort={sortBy}
+          selected={selected}
+          onToggle={toggleOne}
+          showSelection={anySelectable}
+          formatReason={formatReason}
+          hrefFor={rosterHref}
+        />
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {filteredRows.map((row) => {
-            const compliancePct = Math.round(
-              Math.min(1, Math.max(0, row.thisWeekComplianceRatio)) * 100,
-            );
-            const complianceGood = compliancePct >= 70;
+            const compliancePct = habitCompliancePct(row);
+            const complianceGood = compliancePct >= COMPLIANCE_GOOD_PCT;
+            const trend = habitTrend(row);
             const habitsPct =
               row.habitsScheduledThisWeek > 0
                 ? Math.round(
@@ -427,7 +530,7 @@ export function RosterTable({
               Number.isFinite(row.nutritionRatio7Days)
                 ? Math.round(Math.min(1, Math.max(0, row.nutritionRatio7Days)) * 100)
                 : null;
-            const nutritionGood = (nutritionPct ?? 0) >= 70;
+            const nutritionGood = (nutritionPct ?? 0) >= COMPLIANCE_GOOD_PCT;
             // Had a phase, has none today. NOT the same as never having had one — this is
             // the one a coach has to act on, and it is invisible everywhere else.
             const nutritionExpired =
@@ -450,9 +553,7 @@ export function RosterTable({
             const attentionTitle = t("needsAttentionTitle", { reasons });
             const { short, medium, long } = row.goalsCount;
             const hasGoals = short + medium + long > 0;
-            const href = row.pendingProvisioning
-              ? `/gc-fitness/clients/pending/${encodeURIComponent(row.email)}`
-              : `/gc-fitness/clients/${row.uid}`;
+            const href = rosterHref(row);
 
             const selectable = isBulkSelectable(row);
             return (
@@ -547,11 +648,7 @@ export function RosterTable({
                         <span className="text-lg font-semibold tabular-nums text-foreground">
                           {compliancePct}%
                         </span>
-                        {complianceGood ? (
-                          <TrendingUp className="size-4 text-chart-3" aria-hidden />
-                        ) : (
-                          <TrendingDown className="size-4 text-chart-4" aria-hidden />
-                        )}
+                        <HabitTrendBadge trend={trend} />
                       </div>
                       <ComplianceBar pct={compliancePct} good={complianceGood} />
                       {habitsPct !== null ? (
@@ -582,11 +679,6 @@ export function RosterTable({
                             <span className="text-lg font-semibold tabular-nums text-foreground">
                               {nutritionPct}%
                             </span>
-                            {nutritionGood ? (
-                              <TrendingUp className="size-4 text-chart-3" aria-hidden />
-                            ) : (
-                              <TrendingDown className="size-4 text-chart-4" aria-hidden />
-                            )}
                           </div>
                           <ComplianceBar pct={nutritionPct} good={nutritionGood} />
                         </>
@@ -640,8 +732,9 @@ export function RosterTable({
                     </div>
                   </div>
 
-                  {/* Goals + last activity footer */}
+                  {/* Payment + goals + last activity footer */}
                   <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+                    {row.pendingProvisioning ? null : <RosterPayment row={row} />}
                     {hasGoals ? (
                       <div className="flex items-center gap-1">
                         <GoalPill label={tTable("goalsShort")} count={short} />
@@ -656,7 +749,7 @@ export function RosterTable({
                     <p className="text-xs text-muted-foreground">
                       {row.lastActivityAt ? (
                         <>
-                          {tTable("lastActivity")}: <RelativeTime iso={row.lastActivityAt} />
+                          {tTable("lastActivity")}: <RosterLastActivity row={row} />
                         </>
                       ) : (
                         <>
@@ -681,6 +774,34 @@ export function RosterTable({
       ) : null}
     </div>
   );
+}
+
+function rosterHref(row: ClientRosterRow): string {
+  return row.pendingProvisioning
+    ? `/gc-fitness/clients/pending/${encodeURIComponent(row.email)}`
+    : `/gc-fitness/clients/${row.uid}`;
+}
+
+type RosterView = "cards" | "list";
+const ROSTER_VIEW_KEY = "gc-fitness.roster.view";
+
+// Per-browser convenience only: storage can be blocked (private mode, previews),
+// so every access is guarded and the cards are the fallback.
+function readRosterView(): RosterView | null {
+  try {
+    const v = window.localStorage.getItem(ROSTER_VIEW_KEY);
+    return v === "list" || v === "cards" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeRosterView(view: RosterView) {
+  try {
+    window.localStorage.setItem(ROSTER_VIEW_KEY, view);
+  } catch {
+    // ignore
+  }
 }
 
 // #747 — `timeZone` is explicit. Without it this rendered the UTC day on the

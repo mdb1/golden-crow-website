@@ -152,6 +152,10 @@ it("the attention tile counts every flagged client, not only the inactive ones",
   const tile = findByProp(await page, "href", "/gc-fitness/clients?filter=attention");
   expect(tile?.props?.value).toBe(2);
   expect(tile?.props?.label).toBe("kpiNeedsAttention");
+  // #535 — and the list under it shows THOSE two (it used to be inactivity-only,
+  // so this exact roster rendered an empty list under a tile saying 2).
+  const list = findByProp(await page, "total", 2);
+  expect((list?.props?.rows as Array<{ row: { uid: string } }>).map((r) => r.row.uid)).toEqual(["b", "a"]); // nothingAssigned outranks overduePayment
 });
 
 it("passes the truncation of the 'nothing assigned' scan to its card", async () => {

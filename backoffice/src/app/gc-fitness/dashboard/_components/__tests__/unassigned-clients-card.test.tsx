@@ -41,3 +41,12 @@ it("never claims 'all caught up' over a partial scan", async () => {
   expect(screen.queryByText("unassignedSoonEmpty")).not.toBeInTheDocument();
   expect(screen.getByText('unassignedSoonEmptyTruncated:{"count":150}')).toBeInTheDocument();
 });
+
+// #535 — «Asignar» opened an EMPTY calendar: the schedule reads `clientIds`
+// (plural) and the link sent `clientId`. Also: no <button> nested in the link.
+it("«Asignar» opens the schedule with THAT client selected", async () => {
+  render(await UnassignedClientsCard({ rows: [{ ...ROW, uid: "c+1" }], truncated: false, scanned: 1 }));
+  const link = screen.getByTestId("unassigned-soon-row");
+  expect(link).toHaveAttribute("href", "/gc-fitness/schedule?clientIds=c%2B1");
+  expect(link.querySelector("button")).toBeNull();
+});

@@ -18,7 +18,7 @@ import { redirect } from "next/navigation";
 
 import { civilDateFormat } from "@/lib/gc-fitness/civil-date";
 import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
-import { ArrowLeft, ChevronsRight, Download } from "lucide-react";
+import { ArrowLeft, ChevronsRight, Download, Rows3, Rows4, SlidersHorizontal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -40,6 +40,7 @@ import {
 import {
   AUDIT_CATEGORY_OPTIONS as CATEGORY_OPTIONS,
   AUDIT_SOURCE_OPTIONS as SOURCE_OPTIONS,
+  activeAuditFilterCount,
   auditFeedFilters,
   auditFeedQuery,
   parseAuditFeedParams,
@@ -82,7 +83,9 @@ export default async function AuditPage({
     toISO,
     includeLowSignal,
     before,
+    density,
   } = params;
+  const activeFilters = activeAuditFilterCount(params);
 
   // #736 — "hoy" en la zona del USUARIO, no del servidor. `new Date().toISOString()`
   // devolvía el día UTC, que en Vercel es el día del servidor: cerca de la medianoche
@@ -176,6 +179,11 @@ export default async function AuditPage({
     ? `/gc-fitness/admin/audit?${auditFeedQuery(params, { before: nextCursor })}`
     : null;
   const exportHref = `/api/gc-fitness/admin/audit-export?${auditFeedQuery(params)}`;
+  const densityHref = `/gc-fitness/admin/audit?${auditFeedQuery(params, {
+    before: before || null,
+    density: density === "compact" ? "comfortable" : "compact",
+  })}`;
+  const clearHref = `/gc-fitness/admin/audit?tab=${tab}${density === "compact" ? "&density=compact" : ""}`;
 
   return (
     <div className="gc-page flex flex-col gap-6">
@@ -200,107 +208,128 @@ export default async function AuditPage({
         ]}
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl">{t("filters.title")}</CardTitle>
-          <CardDescription>{t("filters.description", { timezone: timeZone })}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form
-            action="/gc-fitness/admin/audit"
-            method="get"
-            className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
-          >
-            <input type="hidden" name="tab" value={tab} />
+      {/* Filters stay at hand while scrolling a long feed: a sticky bar that
+          says how many are active and opens the full form in place. The day
+          separators below stick UNDER it (stickyTopClassName="top-14"). */}
+      <div className="sticky top-0 z-30 -mx-1 rounded-xl border bg-background/95 px-1 shadow-sm backdrop-blur" data-testid="audit-filters-bar">
+        <details className="group/filters">
+          <summary className="flex h-14 cursor-pointer list-none items-center gap-3 px-3 [&::-webkit-details-marker]:hidden">
+            <SlidersHorizontal className="h-4 w-4 text-muted-foreground" aria-hidden />
+            <span className="text-sm font-semibold">{t("filtersBar.toggle")}</span>
+            <span className="text-xs text-muted-foreground" data-testid="audit-active-filters">
+              {t("filtersBar.active", { count: activeFilters })}
+            </span>
+            <span className="ml-auto flex items-center gap-2">
+              {activeFilters > 0 ? (
+                <Button asChild variant="ghost" size="sm" className="rounded-full">
+                  <Link href={clearHref}>{t("filters.clear")}</Link>
+                </Button>
+              ) : null}
+            </span>
+          </summary>
+          <div className="max-h-[70vh] overflow-auto border-t px-3 pb-4 pt-3">
+            <p className="mb-3 text-xs text-muted-foreground">
+              {t("filters.description", { timezone: timeZone })}
+            </p>
+            <form
+              action="/gc-fitness/admin/audit"
+              method="get"
+              className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+            >
+              <input type="hidden" name="tab" value={tab} />
+              {density === "compact" ? <input type="hidden" name="density" value="compact" /> : null}
 
-            {/* #762 — quick filters: todos marcados por defecto, destildar
-                para sacar un tipo de evento del feed. */}
-            <fieldset className="flex flex-col gap-2 sm:col-span-2 lg:col-span-3">
-              <legend className="text-xs font-medium text-muted-foreground">
-                {t("filters.eventType")}
-              </legend>
-              <div className="flex flex-wrap gap-x-4 gap-y-2">
-                {CATEGORY_OPTIONS.map((value) => (
-                  <label
-                    key={value}
-                    className="flex items-center gap-2 text-sm text-foreground"
-                  >
-                    <input
-                      type="checkbox"
-                      name="cat"
-                      value={value}
-                      defaultChecked={
-                        allCategoriesSelected || selectedCategories.includes(value)
-                      }
-                      className="h-4 w-4 rounded border-input"
-                    />
-                    {categoryLabel(value)}
-                  </label>
-                ))}
+              {/* #762 — quick filters: todos marcados por defecto, destildar
+                  para sacar un tipo de evento del feed. */}
+              <fieldset className="flex flex-col gap-2 sm:col-span-2 lg:col-span-3">
+                <legend className="text-xs font-medium text-muted-foreground">
+                  {t("filters.eventType")}
+                </legend>
+                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                  {CATEGORY_OPTIONS.map((value) => (
+                    <label
+                      key={value}
+                      className="flex items-center gap-2 text-sm text-foreground"
+                    >
+                      <input
+                        type="checkbox"
+                        name="cat"
+                        value={value}
+                        defaultChecked={
+                          allCategoriesSelected || selectedCategories.includes(value)
+                        }
+                        className="h-4 w-4 rounded border-input"
+                      />
+                      {categoryLabel(value)}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+
+              <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+                {t("filters.source")}
+                <FormSelect
+                  name="source"
+                  defaultValue={source}
+                  className="font-normal data-[size=default]:h-9"
+                  options={SOURCE_OPTIONS.map((value) => ({ value, label: sourceLabel(value) }))}
+                />
+              </label>
+
+              <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+                {t("filters.actor")}
+                <Input name="actor" defaultValue={actorQuery} placeholder={t("filters.contains")} className="h-9" />
+              </label>
+
+              <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+                {t("filters.client")}
+                <Input name="client" defaultValue={clientQuery} placeholder={t("filters.contains")} className="h-9" />
+              </label>
+
+              <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+                {t("filters.coach")}
+                <Input name="coach" defaultValue={coachQuery} placeholder={t("filters.contains")} className="h-9" data-testid="audit-filter-coach" />
+              </label>
+
+              <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+                {t("filters.from")}
+                <Input name="from" type="date" defaultValue={fromISO} className="h-9" />
+              </label>
+
+              <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+                {t("filters.to")}
+                <Input name="to" type="date" defaultValue={toISO} className="h-9" />
+              </label>
+
+              <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground sm:col-span-2 lg:col-span-3">
+                <input
+                  type="checkbox"
+                  name="raw"
+                  value="1"
+                  defaultChecked={includeLowSignal}
+                  className="h-4 w-4 rounded border-input"
+                />
+                {t.rich("filters.lowSignal", {
+                  code: (chunks) => <span className="font-mono">{chunks}</span>,
+                })}
+              </label>
+
+              <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-3">
+                <Button type="submit" className="rounded-full">
+                  {t("filters.apply")}
+                </Button>
+                <Button asChild variant="outline" className="rounded-full">
+                  <Link href={clearHref}>{t("filters.clear")}</Link>
+                </Button>
               </div>
-            </fieldset>
+            </form>
+          </div>
+        </details>
+      </div>
 
-            <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-              {t("filters.source")}
-              <FormSelect
-                name="source"
-                defaultValue={source}
-                className="font-normal data-[size=default]:h-9"
-                options={SOURCE_OPTIONS.map((value) => ({ value, label: sourceLabel(value) }))}
-              />
-            </label>
-
-            <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-              {t("filters.actor")}
-              <Input name="actor" defaultValue={actorQuery} placeholder={t("filters.contains")} className="h-9" />
-            </label>
-
-            <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-              {t("filters.client")}
-              <Input name="client" defaultValue={clientQuery} placeholder={t("filters.contains")} className="h-9" />
-            </label>
-
-            <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-              {t("filters.coach")}
-              <Input name="coach" defaultValue={coachQuery} placeholder={t("filters.contains")} className="h-9" data-testid="audit-filter-coach" />
-            </label>
-
-            <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-              {t("filters.from")}
-              <Input name="from" type="date" defaultValue={fromISO} className="h-9" />
-            </label>
-
-            <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-              {t("filters.to")}
-              <Input name="to" type="date" defaultValue={toISO} className="h-9" />
-            </label>
-
-            <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground sm:col-span-2 lg:col-span-3">
-              <input
-                type="checkbox"
-                name="raw"
-                value="1"
-                defaultChecked={includeLowSignal}
-                className="h-4 w-4 rounded border-input"
-              />
-              {t.rich("filters.lowSignal", {
-                code: (chunks) => <span className="font-mono">{chunks}</span>,
-              })}
-            </label>
-
-            <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-3">
-              <Button type="submit" className="rounded-full">
-                {t("filters.apply")}
-              </Button>
-              <Button asChild variant="outline" className="rounded-full">
-                <Link href={`/gc-fitness/admin/audit?tab=${tab}`}>{t("filters.clear")}</Link>
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card>
+      {/* overflow-clip, not the Card's default overflow-hidden: `hidden` makes the
+          card a scroll container, which silently disabled the sticky day headers. */}
+      <Card className="overflow-clip">
         <CardHeader>
           <CardTitle className="text-xl">
             {tab === "deletions" ? t("tabs.deletions") : t("tabs.timeline")}
@@ -318,6 +347,12 @@ export default async function AuditPage({
                 {t("paging.exportCsv")}
               </a>
             </Button>
+            <Button asChild variant="ghost" size="sm" className="rounded-full">
+              <Link href={densityHref} data-testid="audit-density-toggle">
+                {density === "compact" ? <Rows3 className="h-4 w-4" /> : <Rows4 className="h-4 w-4" />}
+                {density === "compact" ? t("density.comfortable") : t("density.compact")}
+              </Link>
+            </Button>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -331,6 +366,9 @@ export default async function AuditPage({
                 events={events}
                 today={today}
                 timeZone={timeZone}
+                density={density}
+                clearHref={activeFilters > 0 ? clearHref : undefined}
+                stickyTopClassName="top-14"
                 emptyLabel={
                   tab === "deletions" ? t("emptyDeletions") : t("emptyEvents")
                 }
