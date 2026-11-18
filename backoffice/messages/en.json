@@ -3360,7 +3360,53 @@
         "title": "Progress photos",
         "empty": "No progress photos yet."
       },
-      "backToClient": "Back to client"
+      "backToClient": "Back to client",
+      "overview": {
+        "tiles": {
+          "lastActivity": "Last activity",
+          "compliance": "Weekly compliance",
+          "missed7d": "Missed workouts (7 days)",
+          "billing": "Billing"
+        },
+        "lastAppOpen": "Last app open",
+        "noDevices": "No registered devices",
+        "locale": "Language",
+        "bodyWeight": "Current weight",
+        "height": "Height",
+        "billing": {
+          "title": "Billing with this coach",
+          "description": "Assigned plan, status and the payments the coach recorded (last 50).",
+          "none": "Not available for a coach-less user.",
+          "classes": "Classes",
+          "paidTotal": "Total paid (recorded)"
+        },
+        "goals": {
+          "title": "Goals and notes",
+          "summary": "{active} active · {completed} achieved · {archived} archived",
+          "empty": "No active goals.",
+          "clientOwned": "{count, plural, one {# written by the client} other {# written by the client}}"
+        },
+        "notes": "{count, plural, one {# private coach note} other {# private coach notes}}",
+        "chat": {
+          "title": "Chat with the coach",
+          "last": "Last message",
+          "lastFrom": "Sent by",
+          "client": "the client",
+          "coach": "the coach",
+          "unreadByCoach": "Unread by the coach",
+          "unreadByClient": "Unread by the client",
+          "none": "No chat yet."
+        },
+        "corvo": {
+          "turns": "Total turns",
+          "last": "Last use",
+          "consent": "Accepted the consent",
+          "photosConsent": "Accepted photos",
+          "reports": "Reported answers",
+          "none": "Never used Corvo."
+        },
+        "progressTitle": "Progress"
+      }
     },
     "nutrition": {
       "title": "Nutrition",

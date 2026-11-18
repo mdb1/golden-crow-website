@@ -24,6 +24,8 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { AdminNutritionCard } from "../../_components/admin-nutrition-card";
+import { loadClientAdminOverview } from "@/lib/gc-fitness/admin-client-overview";
+import { ClientRelationshipCards } from "../../coaches/[uid]/clients/[clientId]/_components/ClientOverviewCards";
 import { AdminActionForm } from "../../_components/admin-action-form";
 import { AdminSubmitButton } from "../../_components/admin-submit-button";
 import { Badge } from "@/components/ui/badge";
@@ -249,6 +251,9 @@ export default async function CoachlessUserDetailPage({
     // plan (`source: "self"`, trainerId === clientId) was invisible here.
     listClientNutritionForAdmin(uid, uid).catch(() => null),
   ]);
+  // #534 — goals (incl. their own), chat and Corvo, the same cards as the coached drill-down
+  // (self-as-coach: billing does not apply and is not shown here).
+  const overview = await loadClientAdminOverview(uid, uid, { fallbackTimezone: timezone }).catch(() => null);
 
   // The chart components take their copy as props (they are shared client
   // components); pull the SAME i18n namespaces the coach progress page uses so
@@ -818,6 +823,8 @@ export default async function CoachlessUserDetailPage({
           <HabitTrendsWidget clientId={uid} coachId={null} timezone={timezone} />
         </CardContent>
       </Card>
+
+      {overview ? <ClientRelationshipCards overview={overview} /> : null}
 
       <AdminNutritionCard nutrition={nutrition} />
 

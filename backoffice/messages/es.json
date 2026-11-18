@@ -3360,7 +3360,53 @@
         "title": "Fotos de progreso",
         "empty": "Todavía no hay fotos de progreso."
       },
-      "backToClient": "Volver al cliente"
+      "backToClient": "Volver al cliente",
+      "overview": {
+        "tiles": {
+          "lastActivity": "Última actividad",
+          "compliance": "Cumplimiento semanal",
+          "missed7d": "Entrenamientos salteados (7 días)",
+          "billing": "Cobro"
+        },
+        "lastAppOpen": "Última vez que abrió la app",
+        "noDevices": "Sin dispositivos registrados",
+        "locale": "Idioma",
+        "bodyWeight": "Peso actual",
+        "height": "Altura",
+        "billing": {
+          "title": "Cobro con este coach",
+          "description": "Plan asignado, estado y pagos registrados por el coach (últimos 50).",
+          "none": "No disponible para un usuario sin coach.",
+          "classes": "Clases",
+          "paidTotal": "Total pagado (cargado)"
+        },
+        "goals": {
+          "title": "Objetivos y notas",
+          "summary": "{active} activos · {completed} cumplidos · {archived} archivados",
+          "empty": "Sin objetivos activos.",
+          "clientOwned": "{count, plural, one {# lo escribió el cliente} other {# los escribió el cliente}}"
+        },
+        "notes": "{count, plural, one {# nota privada del coach} other {# notas privadas del coach}}",
+        "chat": {
+          "title": "Chat con el coach",
+          "last": "Último mensaje",
+          "lastFrom": "Lo mandó",
+          "client": "el cliente",
+          "coach": "el coach",
+          "unreadByCoach": "Sin leer por el coach",
+          "unreadByClient": "Sin leer por el cliente",
+          "none": "Todavía no hay chat."
+        },
+        "corvo": {
+          "turns": "Turnos totales",
+          "last": "Último uso",
+          "consent": "Aceptó el consentimiento",
+          "photosConsent": "Aceptó fotos",
+          "reports": "Respuestas reportadas",
+          "none": "Nunca usó Corvo."
+        },
+        "progressTitle": "Progreso"
+      }
     },
     "nutrition": {
       "title": "Nutrición",
