@@ -30,7 +30,7 @@ Las rutas de evidencia son relativas a `backoffice/src/` (salvo `messages/`).
 | 7 | La ficha del cliente: ~30 consultas por carga (`workout_logs` ×3, el doc del cliente ×7, tendencias de hábitos 1 query por hábito) y `router.refresh()` al cambiar un gráfico | Ficha | P1 | ⏳ L |
 | 8 | Chat: reaccionar / responder / borrar sólo aparecen con **hover** — invisibles en el teléfono | Chat | P1 | ⏳ M |
 | 9 | Sesión en vivo: los inputs de peso y repes **no tienen label** y miden 32 px (se usa en el gimnasio, con el teléfono) | Sesión en vivo | P1 | ✅ PR 2 |
-| 10 | Glosario: «plantilla» aparece ~65 veces por «rutina», «programado» por «agendado», y quedan pantallas enteras sin i18n (sesión en vivo, comparador de fotos, vista de ejercicio en inglés) | Transversal | P1 | ⏳ M |
+| 10 | Glosario: «plantilla» aparece ~65 veces por «rutina», «programado» por «agendado», y quedan pantallas enteras sin i18n (sesión en vivo, comparador de fotos, vista de ejercicio en inglés) | Transversal | P1 | ✅ PR 4 — catálogo es/en: «plantilla» → «rutina» en las pantallas de rutinas/agenda, «programado» → «agendado», «workout» → «entrenamiento»; `glossary.test.ts` lo exige (admin queda a #534). i18n completa de sesión en vivo y comparador sigue ⏳ |
 
 ---
 
@@ -115,7 +115,7 @@ Qué resuelve: cómo viene este cliente y qué hay que hacer con él.
 | 2 | Las acciones del coach van 4ª de 10 secciones | `nutricion/page.tsx:219-263` | P2 | M | ⏳ |
 | 3 | Lecturas en serie (planes → logs + pesos) | `nutricion/page.tsx:118,129` | P2 | S | ⏳ |
 | 4 | kcal de una opción sin label; guardar no es sticky en mobile | `asignar/meal-draft-editor.tsx:197`, `AssignNutritionForm.tsx:681` | P2 | S | ⏳ |
-| 5 | «Programada» → «Agendada» | `messages/es.json clients.detail.nutrition.stateScheduled` | P3 | S | ⏳ |
+| 5 | «Programada» → «Agendada» | `messages/es.json clients.detail.nutrition.stateScheduled` | P3 | S | ✅ PR 4 |
 
 ### Comparador de fotos (`clients/[id]/compare-photos/**`)
 | # | Hallazgo | Evidencia | Sev | Esf | Estado |
@@ -173,7 +173,7 @@ Qué resuelve: cómo viene este cliente y qué hay que hacer con él.
 |---|---|---|---|---|---|
 | 1 | `useQuery` sin `isError`: si falla, grilla vieja o vacía sin mensaje | `components/gc-fitness/schedule/month-calendar.tsx:127-154` | P2 | S | ⏳ |
 | 2 | Vista y fecha fuera de la URL: recargar vuelve a «mes» | `month-calendar.tsx:111-112` | P3 | S | ⏳ |
-| 3 | «serie» usado para «serie recurrente» (choca con serie = set); «plantilla» ×20, «Programado para», «Asignar workout» | `workout-recurrence-edit-dialog.tsx:192`, `messages/es.json schedule.*` | P2 | S | ⏳ |
+| 3 | «serie» usado para «serie recurrente» (choca con serie = set); «plantilla» ×20, «Programado para», «Asignar workout» | `workout-recurrence-edit-dialog.tsx:192`, `messages/es.json schedule.*` | P2 | S | ✅ PR 4 — catálogo arreglado («plantilla», «Programado para», «Asignar workout»); los toasts hardcodeados de recurrencia siguen ⏳ |
 | 4 | Botones «+» de celda de ~22 px; leyenda de 9 px; detalle sólo en `title` | `month-calendar/chip-parts.tsx:134`, `day-cell.tsx:195` | P2 | S | ⏳ |
 
 ### Actividad, notificaciones, checklist, desafíos
@@ -198,7 +198,7 @@ Qué resuelve: cómo viene este cliente y qué hay que hacer con él.
 | 5 | Login muestra el texto crudo de Firebase y no vuelve a la página pedida (`?next=`) | `login/page.tsx:60,79,126` | P2 | S | ⏳ |
 | 6 | El error de ruta sólo hace `reset()` (no `router.refresh()`), sin link a Inicio | `components/gc-fitness/route-error-boundary.tsx:68-86` | P2 | S | ⏳ |
 | 7 | El layout manda el catálogo entero al browser y espera 4 lecturas en serie | `app/gc-fitness/layout.tsx:43-60` | P2 | M | ⏳ |
-| 8 | Wiki: «Programá», «sesiones», «plantillas» | `wiki/wiki-data.ts:153,349,411` | P2 | S | ⏳ |
+| 8 | Wiki: «Programá», «sesiones», «plantillas» | `wiki/wiki-data.ts:153,349,411` | P2 | S | ✅ PR 4 |
 
 Lo que salió limpio: sin hex crudo en pantallas del coach (salvo grupos musculares y el
 lightbox), todas las páginas de lista usan `gc-page` + `PageHeader`, la paleta de comandos está

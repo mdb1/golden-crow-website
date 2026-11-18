@@ -114,7 +114,7 @@ function renderForm(
 }
 
 function saveButton() {
-  return screen.getByRole("button", { name: /^(Save changes|Create template)$/ });
+  return screen.getByRole("button", { name: /^(Save changes|Create routine)$/ });
 }
 
 async function save(
@@ -619,7 +619,7 @@ describe("TemplateForm editing — the localStorage draft", () => {
     await save(user, onSubmit);
     await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1));
     expect(window.localStorage.getItem(STORAGE)).toBeNull();
-    expect(mockToast.success).toHaveBeenCalledWith("Template saved.");
+    expect(mockToast.success).toHaveBeenCalledWith("Routine saved.");
   });
 
   it("a FAILED save keeps the draft on disk so the work survives a reload", async () => {
@@ -676,7 +676,7 @@ describe("TemplateForm editing — the localStorage draft", () => {
     const onSubmit = jest.fn().mockResolvedValue({ ok: true, id: "new-id" });
     renderForm(defaults([]), { draftKey: KEY2, mode: "create", onSubmit });
     await save(user, onSubmit);
-    await waitFor(() => expect(mockToast.success).toHaveBeenCalledWith("Template created."));
+    await waitFor(() => expect(mockToast.success).toHaveBeenCalledWith("Routine created."));
     expect(window.localStorage.getItem(`${DRAFT_PREFIX}${KEY2}`)).toBeNull();
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
