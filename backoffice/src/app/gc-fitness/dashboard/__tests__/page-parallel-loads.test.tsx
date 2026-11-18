@@ -33,12 +33,10 @@ const loads = {
   roster: deferred<unknown[]>(),
   pulse: deferred<unknown>(),
   checklist: deferred<unknown[]>(),
-  unassigned: deferred<unknown>(),
 };
 const mockRoster = jest.fn(() => loads.roster.promise);
 const mockPulse = jest.fn(() => loads.pulse.promise);
 const mockChecklist = jest.fn(() => loads.checklist.promise);
-const mockUnassigned = jest.fn(() => loads.unassigned.promise);
 jest.mock("@/lib/gc-fitness/client-roster", () => ({
   listClientsForRoster: () => mockRoster(),
 }));
@@ -47,9 +45,6 @@ jest.mock("@/lib/gc-fitness/coach-pulse-actions", () => ({
 }));
 jest.mock("@/lib/gc-fitness/coach-checklist-actions", () => ({
   listPendingChecklistItems: () => mockChecklist(),
-}));
-jest.mock("@/lib/gc-fitness/coach-attention-actions", () => ({
-  listClientsWithNothingAssignedSoon: () => mockUnassigned(),
 }));
 
 import GCFitnessDashboardPage from "../page";
@@ -62,7 +57,6 @@ beforeEach(() => {
   loads.roster = deferred();
   loads.pulse = deferred();
   loads.checklist = deferred();
-  loads.unassigned = deferred();
   jest.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -74,8 +68,6 @@ it("starts all the card loaders before any of them resolves", async () => {
   expect(mockRoster).toHaveBeenCalledTimes(1);
   expect(mockPulse).toHaveBeenCalledTimes(1);
   expect(mockChecklist).toHaveBeenCalledTimes(1);
-  // #535 — «Sin nada asignado» is derived from the roster now: no 4th fan-out.
-  expect(mockUnassigned).not.toHaveBeenCalled();
 
   loads.roster.resolve([]);
   loads.pulse.resolve({
