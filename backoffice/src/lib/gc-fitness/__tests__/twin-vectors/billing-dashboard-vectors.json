@@ -1,0 +1,5879 @@
+{
+  "_comment": "#1695 — THE billing-dashboard case table. ONE file read by every twin: Swift GCFitnessCore `BillingDashboard` + `BillingExport` (BillingDashboardVectorTests), Kotlin android/core (BillingDashboardVectorTest) and the backoffice `billing-dashboard.ts` (pinned copy, drift-checked by scripts/check-twin-vectors.py). Definitions in BillingDashboard.swift's header. Payments use a flat shape: `voided` true = has voidedAt. Money compares with |a-b| < 0.005, rates with 1e-9.",
+  "constants": {
+    "graceDays": 30,
+    "seriesMonths": 12,
+    "lookbackMonths": 3,
+    "churnWindowMonths": 6,
+    "horizons": [
+      3,
+      6,
+      12
+    ]
+  },
+  "addDays": [
+    {
+      "civil": "2026-11-18",
+      "days": 31,
+      "expected": "2026-12-19"
+    },
+    {
+      "civil": "2026-12-31",
+      "days": 1,
+      "expected": "2027-01-01"
+    },
+    {
+      "civil": "2028-02-28",
+      "days": 1,
+      "expected": "2028-02-29"
+    },
+    {
+      "civil": "2028-02-29",
+      "days": 1,
+      "expected": "2028-03-01"
+    },
+    {
+      "civil": "2027-02-28",
+      "days": 1,
+      "expected": "2027-03-01"
+    },
+    {
+      "civil": "2026-03-01",
+      "days": -1,
+      "expected": "2026-02-28"
+    },
+    {
+      "civil": "2024-03-01",
+      "days": -1,
+      "expected": "2024-02-29"
+    },
+    {
+      "civil": "2026-07-05",
+      "days": 31,
+      "expected": "2026-08-05"
+    },
+    {
+      "civil": "1999-12-31",
+      "days": 1,
+      "expected": "2000-01-01"
+    }
+  ],
+  "loadFrom": [
+    {
+      "today": "2026-11-18",
+      "expected": "2025-09-01"
+    },
+    {
+      "today": "2026-01-01",
+      "expected": "2024-11-01"
+    },
+    {
+      "today": "2028-02-29",
+      "expected": "2026-12-01"
+    }
+  ],
+  "seriesMonths": [
+    {
+      "today": "2026-11-18",
+      "expected": [
+        "2025-12",
+        "2026-01",
+        "2026-02",
+        "2026-03",
+        "2026-04",
+        "2026-05",
+        "2026-06",
+        "2026-07",
+        "2026-08",
+        "2026-09",
+        "2026-10",
+        "2026-11"
+      ]
+    },
+    {
+      "today": "2026-01-31",
+      "expected": [
+        "2025-02",
+        "2025-03",
+        "2025-04",
+        "2025-05",
+        "2025-06",
+        "2025-07",
+        "2025-08",
+        "2025-09",
+        "2025-10",
+        "2025-11",
+        "2025-12",
+        "2026-01"
+      ]
+    }
+  ],
+  "coverEnd": [
+    {
+      "payment": {
+        "id": "p171",
+        "clientId": "x",
+        "amount": 1,
+        "currency": "ARS",
+        "paidCivil": "2026-01-31",
+        "method": "transfer",
+        "methodNote": null,
+        "covers": {
+          "kind": "months",
+          "months": 1,
+          "classes": null
+        },
+        "planName": null,
+        "note": null,
+        "voided": false
+      },
+      "expected": "2026-02-28"
+    },
+    {
+      "payment": {
+        "id": "p172",
+        "clientId": "x",
+        "amount": 1,
+        "currency": "ARS",
+        "paidCivil": "2026-11-30",
+        "method": "transfer",
+        "methodNote": null,
+        "covers": {
+          "kind": "months",
+          "months": 3,
+          "classes": null
+        },
+        "planName": null,
+        "note": null,
+        "voided": false
+      },
+      "expected": "2027-02-28"
+    },
+    {
+      "payment": {
+        "id": "p173",
+        "clientId": "x",
+        "amount": 1,
+        "currency": "ARS",
+        "paidCivil": "2026-11-10",
+        "method": "transfer",
+        "methodNote": null,
+        "covers": {
+          "kind": "months",
+          "months": null,
+          "classes": null
+        },
+        "planName": null,
+        "note": null,
+        "voided": false
+      },
+      "expected": "2026-12-10"
+    },
+    {
+      "payment": {
+        "id": "p174",
+        "clientId": "x",
+        "amount": 1,
+        "currency": "ARS",
+        "paidCivil": "2026-11-10",
+        "method": "transfer",
+        "methodNote": null,
+        "covers": {
+          "kind": "classes",
+          "months": null,
+          "classes": 10
+        },
+        "planName": null,
+        "note": null,
+        "voided": false
+      },
+      "expected": "2026-12-10"
+    },
+    {
+      "payment": {
+        "id": "p175",
+        "clientId": "x",
+        "amount": 1,
+        "currency": "ARS",
+        "paidCivil": "2026-11-10",
+        "method": "transfer",
+        "methodNote": null,
+        "covers": {
+          "kind": "routine",
+          "months": null,
+          "classes": null
+        },
+        "planName": null,
+        "note": null,
+        "voided": false
+      },
+      "expected": "2026-12-10"
+    },
+    {
+      "payment": {
+        "id": "p176",
+        "clientId": "x",
+        "amount": 1,
+        "currency": "ARS",
+        "paidCivil": "2026-11-10",
+        "method": "transfer",
+        "methodNote": null,
+        "covers": {
+          "kind": "other",
+          "months": null,
+          "classes": null
+        },
+        "planName": null,
+        "note": null,
+        "voided": false
+      },
+      "expected": "2026-12-10"
+    }
+  ],
+  "project": [
+    {
+      "mrr": 100000,
+      "rate": 0.0,
+      "months": 3,
+      "expected": 300000.0
+    },
+    {
+      "mrr": 100000,
+      "rate": 0.1,
+      "months": 3,
+      "expected": 243900.0
+    },
+    {
+      "mrr": 100000,
+      "rate": 0.1,
+      "months": 12,
+      "expected": 645813.42
+    },
+    {
+      "mrr": 25000,
+      "rate": 0.05,
+      "months": 6,
+      "expected": 125831.35
+    },
+    {
+      "mrr": 33333.33,
+      "rate": 0.137,
+      "months": 12,
+      "expected": 174141.38
+    },
+    {
+      "mrr": 100,
+      "rate": 1.0,
+      "months": 3,
+      "expected": 0.0
+    },
+    {
+      "mrr": 0,
+      "rate": 0.2,
+      "months": 6,
+      "expected": 0.0
+    }
+  ],
+  "dashboard": [
+    {
+      "name": "sin pagos ni planes",
+      "today": "2026-11-18",
+      "payments": [],
+      "billings": [],
+      "expected": {
+        "month": "2026-11",
+        "previousMonth": "2026-10",
+        "loadFrom": "2025-09-01",
+        "primaryCurrency": "ARS",
+        "series": [
+          {
+            "month": "2025-12",
+            "collected": [],
+            "payments": 0,
+            "paying": 0,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 0,
+            "avgTicket": [],
+            "byMethod": []
+          },
+          {
+            "month": "2026-01",
+            "collected": [],
+            "payments": 0,
+            "paying": 0,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 0,
+            "avgTicket": [],
+            "byMethod": []
+          },
+          {
+            "month": "2026-02",
+            "collected": [],
+            "payments": 0,
+            "paying": 0,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 0,
+            "avgTicket": [],
+            "byMethod": []
+          },
+          {
+            "month": "2026-03",
+            "collected": [],
+            "payments": 0,
+            "paying": 0,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 0,
+            "avgTicket": [],
+            "byMethod": []
+          },
+          {
+            "month": "2026-04",
+            "collected": [],
+            "payments": 0,
+            "paying": 0,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 0,
+            "avgTicket": [],
+            "byMethod": []
+          },
+          {
+            "month": "2026-05",
+            "collected": [],
+            "payments": 0,
+            "paying": 0,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 0,
+            "avgTicket": [],
+            "byMethod": []
+          },
+          {
+            "month": "2026-06",
+            "collected": [],
+            "payments": 0,
+            "paying": 0,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 0,
+            "avgTicket": [],
+            "byMethod": []
+          },
+          {
+            "month": "2026-07",
+            "collected": [],
+            "payments": 0,
+            "paying": 0,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 0,
+            "avgTicket": [],
+            "byMethod": []
+          },
+          {
+            "month": "2026-08",
+            "collected": [],
+            "payments": 0,
+            "paying": 0,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 0,
+            "avgTicket": [],
+            "byMethod": []
+          },
+          {
+            "month": "2026-09",
+            "collected": [],
+            "payments": 0,
+            "paying": 0,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 0,
+            "avgTicket": [],
+            "byMethod": []
+          },
+          {
+            "month": "2026-10",
+            "collected": [],
+            "payments": 0,
+            "paying": 0,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 0,
+            "avgTicket": [],
+            "byMethod": []
+          },
+          {
+            "month": "2026-11",
+            "collected": [],
+            "payments": 0,
+            "paying": 0,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 0,
+            "avgTicket": [],
+            "byMethod": []
+          }
+        ],
+        "statusCounts": {
+          "upToDate": 0,
+          "dueSoon": 0,
+          "overdue": 0
+        },
+        "mrr": [],
+        "recurringClients": 0,
+        "churnRate": null,
+        "rates": {
+          "optimistic": 0.0,
+          "expected": 0.0,
+          "pessimistic": 0.03
+        },
+        "projections": []
+      }
+    },
+    {
+      "name": "una alumna mensual al día todo el año",
+      "today": "2026-11-18",
+      "payments": [
+        {
+          "id": "p001",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2025-08-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p002",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2025-09-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p003",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2025-10-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p004",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2025-11-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p005",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2025-12-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p006",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-01-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p007",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-02-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p008",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-03-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p009",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-04-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p010",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-05-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p011",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-06-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p012",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-07-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p013",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-08-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p014",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-09-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p015",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-10-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p016",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-11-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        }
+      ],
+      "billings": [
+        {
+          "coachId": "coach",
+          "clientId": "ana",
+          "planId": "plan-ana",
+          "plan": {
+            "name": "Mensual",
+            "kind": "monthly",
+            "modality": null,
+            "amount": 25000,
+            "currency": "ARS",
+            "periodMonths": 1,
+            "classCount": null,
+            "description": null
+          },
+          "amount": null,
+          "startCivil": null,
+          "nextDueCivil": "2026-12-10",
+          "classesRemaining": null,
+          "reminderDaysBefore": 3,
+          "lastPaymentCivil": null,
+          "lastPaymentAmount": null
+        }
+      ],
+      "expected": {
+        "month": "2026-11",
+        "previousMonth": "2026-10",
+        "loadFrom": "2025-09-01",
+        "primaryCurrency": "ARS",
+        "series": [
+          {
+            "month": "2025-12",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 25000.0
+              }
+            ],
+            "payments": 1,
+            "paying": 1,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 1,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 25000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 25000.0
+              }
+            ]
+          },
+          {
+            "month": "2026-01",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 25000.0
+              }
+            ],
+            "payments": 1,
+            "paying": 1,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 1,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 25000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 25000.0
+              }
+            ]
+          },
+          {
+            "month": "2026-02",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 25000.0
+              }
+            ],
+            "payments": 1,
+            "paying": 1,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 1,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 25000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 25000.0
+              }
+            ]
+          },
+          {
+            "month": "2026-03",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 25000.0
+              }
+            ],
+            "payments": 1,
+            "paying": 1,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 1,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 25000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 25000.0
+              }
+            ]
+          },
+          {
+            "month": "2026-04",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 25000.0
+              }
+            ],
+            "payments": 1,
+            "paying": 1,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 1,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 25000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 25000.0
+              }
+            ]
+          },
+          {
+            "month": "2026-05",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 25000.0
+              }
+            ],
+            "payments": 1,
+            "paying": 1,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 1,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 25000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 25000.0
+              }
+            ]
+          },
+          {
+            "month": "2026-06",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 25000.0
+              }
+            ],
+            "payments": 1,
+            "paying": 1,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 1,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 25000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 25000.0
+              }
+            ]
+          },
+          {
+            "month": "2026-07",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 25000.0
+              }
+            ],
+            "payments": 1,
+            "paying": 1,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 1,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 25000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 25000.0
+              }
+            ]
+          },
+          {
+            "month": "2026-08",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 25000.0
+              }
+            ],
+            "payments": 1,
+            "paying": 1,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 1,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 25000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 25000.0
+              }
+            ]
+          },
+          {
+            "month": "2026-09",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 25000.0
+              }
+            ],
+            "payments": 1,
+            "paying": 1,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 1,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 25000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 25000.0
+              }
+            ]
+          },
+          {
+            "month": "2026-10",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 25000.0
+              }
+            ],
+            "payments": 1,
+            "paying": 1,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 1,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 25000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 25000.0
+              }
+            ]
+          },
+          {
+            "month": "2026-11",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 25000.0
+              }
+            ],
+            "payments": 1,
+            "paying": 1,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 1,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 25000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 25000.0
+              }
+            ]
+          }
+        ],
+        "statusCounts": {
+          "upToDate": 1,
+          "dueSoon": 0,
+          "overdue": 0
+        },
+        "mrr": [
+          {
+            "currency": "ARS",
+            "amount": 25000.0
+          }
+        ],
+        "recurringClients": 1,
+        "churnRate": 0.0,
+        "rates": {
+          "optimistic": 0.0,
+          "expected": 0.0,
+          "pessimistic": 0.03
+        },
+        "projections": [
+          {
+            "currency": "ARS",
+            "mrr": 25000.0,
+            "horizons": [
+              {
+                "months": 3,
+                "optimistic": 75000.0,
+                "expected": 75000.0,
+                "pessimistic": 70589.33
+              },
+              {
+                "months": 6,
+                "optimistic": 150000.0,
+                "expected": 150000.0,
+                "pessimistic": 135014.3
+              },
+              {
+                "months": 12,
+                "optimistic": 300000.0,
+                "expected": 300000.0,
+                "pessimistic": 247477.42
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "mezcla: pack, vuelve, se cae con y sin plan, USD, clases, anulado, nuevo",
+      "today": "2026-11-18",
+      "payments": [
+        {
+          "id": "p017",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2025-08-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p018",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2025-09-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p019",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2025-10-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p020",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2025-11-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p021",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2025-12-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p022",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-01-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p023",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-02-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p024",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-03-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p025",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-04-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p026",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-05-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p027",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-06-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p028",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-07-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p029",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-08-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p030",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-09-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p031",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-10-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p032",
+          "clientId": "ana",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-11-10",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p033",
+          "clientId": "beto",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2025-10-05",
+          "method": "cash",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p034",
+          "clientId": "beto",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2025-11-05",
+          "method": "cash",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p035",
+          "clientId": "beto",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2025-12-05",
+          "method": "cash",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p036",
+          "clientId": "beto",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-01-05",
+          "method": "cash",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p037",
+          "clientId": "beto",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-02-05",
+          "method": "cash",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p038",
+          "clientId": "beto",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-03-05",
+          "method": "cash",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p039",
+          "clientId": "beto",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-04-05",
+          "method": "cash",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p040",
+          "clientId": "beto",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-05-05",
+          "method": "cash",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p041",
+          "clientId": "beto",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-06-05",
+          "method": "cash",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p042",
+          "clientId": "caro",
+          "amount": 18000,
+          "currency": "ARS",
+          "paidCivil": "2025-09-20",
+          "method": "mercadopago",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Online",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p043",
+          "clientId": "caro",
+          "amount": 18000,
+          "currency": "ARS",
+          "paidCivil": "2025-10-20",
+          "method": "mercadopago",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Online",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p044",
+          "clientId": "caro",
+          "amount": 18000,
+          "currency": "ARS",
+          "paidCivil": "2025-11-20",
+          "method": "mercadopago",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Online",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p045",
+          "clientId": "caro",
+          "amount": 18000,
+          "currency": "ARS",
+          "paidCivil": "2025-12-20",
+          "method": "mercadopago",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Online",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p046",
+          "clientId": "caro",
+          "amount": 18000,
+          "currency": "ARS",
+          "paidCivil": "2026-01-20",
+          "method": "mercadopago",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Online",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p047",
+          "clientId": "caro",
+          "amount": 18000,
+          "currency": "ARS",
+          "paidCivil": "2026-02-20",
+          "method": "mercadopago",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Online",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p048",
+          "clientId": "caro",
+          "amount": 18000,
+          "currency": "ARS",
+          "paidCivil": "2026-03-20",
+          "method": "mercadopago",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Online",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p049",
+          "clientId": "caro",
+          "amount": 18000,
+          "currency": "ARS",
+          "paidCivil": "2026-04-20",
+          "method": "mercadopago",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Online",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p050",
+          "clientId": "dani",
+          "amount": 60000,
+          "currency": "ARS",
+          "paidCivil": "2026-01-15",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 3,
+            "classes": null
+          },
+          "planName": "Pack 3",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p051",
+          "clientId": "dani",
+          "amount": 60000,
+          "currency": "ARS",
+          "paidCivil": "2026-04-14",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 3,
+            "classes": null
+          },
+          "planName": "Pack 3",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p052",
+          "clientId": "dani",
+          "amount": 60000,
+          "currency": "ARS",
+          "paidCivil": "2026-07-20",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 3,
+            "classes": null
+          },
+          "planName": "Pack 3",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p053",
+          "clientId": "dani",
+          "amount": 60000,
+          "currency": "ARS",
+          "paidCivil": "2026-10-15",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 3,
+            "classes": null
+          },
+          "planName": "Pack 3",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p054",
+          "clientId": "eli",
+          "amount": 30000,
+          "currency": "ARS",
+          "paidCivil": "2026-02-03",
+          "method": "card",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p055",
+          "clientId": "eli",
+          "amount": 30000,
+          "currency": "ARS",
+          "paidCivil": "2026-08-01",
+          "method": "card",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p056",
+          "clientId": "eli",
+          "amount": 30000,
+          "currency": "ARS",
+          "paidCivil": "2026-09-02",
+          "method": "card",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p057",
+          "clientId": "eli",
+          "amount": 30000,
+          "currency": "ARS",
+          "paidCivil": "2026-10-01",
+          "method": "card",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p058",
+          "clientId": "eli",
+          "amount": 30000,
+          "currency": "ARS",
+          "paidCivil": "2026-11-03",
+          "method": "card",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p059",
+          "clientId": "fede",
+          "amount": 100,
+          "currency": "USD",
+          "paidCivil": "2026-03-01",
+          "method": "other",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Online USD",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p060",
+          "clientId": "fede",
+          "amount": 100,
+          "currency": "USD",
+          "paidCivil": "2026-04-01",
+          "method": "other",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Online USD",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p061",
+          "clientId": "fede",
+          "amount": 100,
+          "currency": "USD",
+          "paidCivil": "2026-05-01",
+          "method": "other",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Online USD",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p062",
+          "clientId": "fede",
+          "amount": 100,
+          "currency": "USD",
+          "paidCivil": "2026-06-01",
+          "method": "other",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Online USD",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p063",
+          "clientId": "fede",
+          "amount": 100,
+          "currency": "USD",
+          "paidCivil": "2026-07-01",
+          "method": "other",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Online USD",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p064",
+          "clientId": "fede",
+          "amount": 100,
+          "currency": "USD",
+          "paidCivil": "2026-08-01",
+          "method": "other",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Online USD",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p065",
+          "clientId": "fede",
+          "amount": 100,
+          "currency": "USD",
+          "paidCivil": "2026-09-01",
+          "method": "other",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Online USD",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p066",
+          "clientId": "fede",
+          "amount": 100,
+          "currency": "USD",
+          "paidCivil": "2026-10-01",
+          "method": "other",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Online USD",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p067",
+          "clientId": "fede",
+          "amount": 100,
+          "currency": "USD",
+          "paidCivil": "2026-11-01",
+          "method": "other",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Online USD",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p068",
+          "clientId": "gabi",
+          "amount": 40000,
+          "currency": "ARS",
+          "paidCivil": "2026-09-10",
+          "method": "cash",
+          "methodNote": null,
+          "covers": {
+            "kind": "classes",
+            "months": null,
+            "classes": 10
+          },
+          "planName": "10 clases",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p069",
+          "clientId": "gabi",
+          "amount": 40000,
+          "currency": "ARS",
+          "paidCivil": "2026-11-02",
+          "method": "cash",
+          "methodNote": null,
+          "covers": {
+            "kind": "classes",
+            "months": null,
+            "classes": 10
+          },
+          "planName": "10 clases",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p070",
+          "clientId": "ana",
+          "amount": 5000,
+          "currency": "ARS",
+          "paidCivil": "2026-11-11",
+          "method": "cash",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": "duplicado",
+          "voided": true
+        },
+        {
+          "id": "p071",
+          "clientId": "hugo",
+          "amount": 25000,
+          "currency": "ARS",
+          "paidCivil": "2026-11-12",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        }
+      ],
+      "billings": [
+        {
+          "coachId": "coach",
+          "clientId": "ana",
+          "planId": "plan-ana",
+          "plan": {
+            "name": "Mensual",
+            "kind": "monthly",
+            "modality": null,
+            "amount": 25000,
+            "currency": "ARS",
+            "periodMonths": 1,
+            "classCount": null,
+            "description": null
+          },
+          "amount": null,
+          "startCivil": null,
+          "nextDueCivil": "2026-12-10",
+          "classesRemaining": null,
+          "reminderDaysBefore": 3,
+          "lastPaymentCivil": null,
+          "lastPaymentAmount": null
+        },
+        {
+          "coachId": "coach",
+          "clientId": "beto",
+          "planId": "plan-beto",
+          "plan": {
+            "name": "Mensual",
+            "kind": "monthly",
+            "modality": null,
+            "amount": 25000,
+            "currency": "ARS",
+            "periodMonths": 1,
+            "classCount": null,
+            "description": null
+          },
+          "amount": null,
+          "startCivil": null,
+          "nextDueCivil": "2026-07-05",
+          "classesRemaining": null,
+          "reminderDaysBefore": 3,
+          "lastPaymentCivil": null,
+          "lastPaymentAmount": null
+        },
+        {
+          "coachId": "coach",
+          "clientId": "caro",
+          "planId": null,
+          "plan": null,
+          "amount": null,
+          "startCivil": null,
+          "nextDueCivil": null,
+          "classesRemaining": null,
+          "reminderDaysBefore": 3,
+          "lastPaymentCivil": null,
+          "lastPaymentAmount": null
+        },
+        {
+          "coachId": "coach",
+          "clientId": "dani",
+          "planId": "plan-dani",
+          "plan": {
+            "name": "Pack 3",
+            "kind": "months_pack",
+            "modality": null,
+            "amount": 60000,
+            "currency": "ARS",
+            "periodMonths": 3,
+            "classCount": null,
+            "description": null
+          },
+          "amount": null,
+          "startCivil": null,
+          "nextDueCivil": "2027-01-14",
+          "classesRemaining": null,
+          "reminderDaysBefore": 3,
+          "lastPaymentCivil": null,
+          "lastPaymentAmount": null
+        },
+        {
+          "coachId": "coach",
+          "clientId": "eli",
+          "planId": "plan-eli",
+          "plan": {
+            "name": "Mensual",
+            "kind": "monthly",
+            "modality": null,
+            "amount": 30000,
+            "currency": "ARS",
+            "periodMonths": 1,
+            "classCount": null,
+            "description": null
+          },
+          "amount": 28000,
+          "startCivil": null,
+          "nextDueCivil": "2026-12-01",
+          "classesRemaining": null,
+          "reminderDaysBefore": 3,
+          "lastPaymentCivil": null,
+          "lastPaymentAmount": null
+        },
+        {
+          "coachId": "coach",
+          "clientId": "fede",
+          "planId": "plan-fede",
+          "plan": {
+            "name": "Online USD",
+            "kind": "monthly",
+            "modality": null,
+            "amount": 100,
+            "currency": "USD",
+            "periodMonths": 1,
+            "classCount": null,
+            "description": null
+          },
+          "amount": null,
+          "startCivil": null,
+          "nextDueCivil": "2026-12-01",
+          "classesRemaining": null,
+          "reminderDaysBefore": 3,
+          "lastPaymentCivil": null,
+          "lastPaymentAmount": null
+        },
+        {
+          "coachId": "coach",
+          "clientId": "gabi",
+          "planId": "plan-gabi",
+          "plan": {
+            "name": "10 clases",
+            "kind": "class_pack",
+            "modality": null,
+            "amount": 40000,
+            "currency": "ARS",
+            "periodMonths": null,
+            "classCount": 10,
+            "description": null
+          },
+          "amount": null,
+          "startCivil": null,
+          "nextDueCivil": null,
+          "classesRemaining": 6,
+          "reminderDaysBefore": 3,
+          "lastPaymentCivil": null,
+          "lastPaymentAmount": null
+        },
+        {
+          "coachId": "coach",
+          "clientId": "hugo",
+          "planId": "plan-hugo",
+          "plan": {
+            "name": "Mensual",
+            "kind": "monthly",
+            "modality": null,
+            "amount": 25000,
+            "currency": "ARS",
+            "periodMonths": 1,
+            "classCount": null,
+            "description": null
+          },
+          "amount": null,
+          "startCivil": null,
+          "nextDueCivil": "2026-11-20",
+          "classesRemaining": null,
+          "reminderDaysBefore": 3,
+          "lastPaymentCivil": null,
+          "lastPaymentAmount": null
+        },
+        {
+          "coachId": "coach",
+          "clientId": "iris",
+          "planId": "plan-iris",
+          "plan": {
+            "name": "Semestral",
+            "kind": "custom",
+            "modality": null,
+            "amount": 90000,
+            "currency": "ARS",
+            "periodMonths": 6,
+            "classCount": null,
+            "description": null
+          },
+          "amount": null,
+          "startCivil": null,
+          "nextDueCivil": "2026-10-01",
+          "classesRemaining": null,
+          "reminderDaysBefore": 3,
+          "lastPaymentCivil": null,
+          "lastPaymentAmount": null
+        },
+        {
+          "coachId": "coach",
+          "clientId": "juan",
+          "planId": "plan-juan",
+          "plan": {
+            "name": "Mensual",
+            "kind": "monthly",
+            "modality": null,
+            "amount": 25000,
+            "currency": "ARS",
+            "periodMonths": 1,
+            "classCount": null,
+            "description": null
+          },
+          "amount": null,
+          "startCivil": null,
+          "nextDueCivil": "2026-09-01",
+          "classesRemaining": null,
+          "reminderDaysBefore": 3,
+          "lastPaymentCivil": null,
+          "lastPaymentAmount": null
+        },
+        {
+          "coachId": "coach",
+          "clientId": "kai",
+          "planId": "plan-kai",
+          "plan": {
+            "name": "Rutina",
+            "kind": "per_routine",
+            "modality": null,
+            "amount": 15000,
+            "currency": "ARS",
+            "periodMonths": null,
+            "classCount": null,
+            "description": null
+          },
+          "amount": null,
+          "startCivil": null,
+          "nextDueCivil": null,
+          "classesRemaining": null,
+          "reminderDaysBefore": 3,
+          "lastPaymentCivil": null,
+          "lastPaymentAmount": null
+        }
+      ],
+      "expected": {
+        "month": "2026-11",
+        "previousMonth": "2026-10",
+        "loadFrom": "2025-09-01",
+        "primaryCurrency": "ARS",
+        "series": [
+          {
+            "month": "2025-12",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 68000.0
+              }
+            ],
+            "payments": 3,
+            "paying": 3,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 3,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 22666.67
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "cash",
+                "amount": 25000.0
+              },
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 25000.0
+              },
+              {
+                "currency": "ARS",
+                "method": "mercadopago",
+                "amount": 18000.0
+              }
+            ]
+          },
+          {
+            "month": "2026-01",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 128000.0
+              }
+            ],
+            "payments": 4,
+            "paying": 4,
+            "newClients": 1,
+            "churned": 0,
+            "activeAtEnd": 4,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 32000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "cash",
+                "amount": 25000.0
+              },
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 85000.0
+              },
+              {
+                "currency": "ARS",
+                "method": "mercadopago",
+                "amount": 18000.0
+              }
+            ]
+          },
+          {
+            "month": "2026-02",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 98000.0
+              }
+            ],
+            "payments": 4,
+            "paying": 4,
+            "newClients": 1,
+            "churned": 0,
+            "activeAtEnd": 5,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 24500.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "cash",
+                "amount": 25000.0
+              },
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 25000.0
+              },
+              {
+                "currency": "ARS",
+                "method": "mercadopago",
+                "amount": 18000.0
+              },
+              {
+                "currency": "ARS",
+                "method": "card",
+                "amount": 30000.0
+              }
+            ]
+          },
+          {
+            "month": "2026-03",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 68000.0
+              },
+              {
+                "currency": "USD",
+                "amount": 100.0
+              }
+            ],
+            "payments": 4,
+            "paying": 4,
+            "newClients": 1,
+            "churned": 0,
+            "activeAtEnd": 6,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 22666.67
+              },
+              {
+                "currency": "USD",
+                "amount": 100.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "cash",
+                "amount": 25000.0
+              },
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 25000.0
+              },
+              {
+                "currency": "ARS",
+                "method": "mercadopago",
+                "amount": 18000.0
+              },
+              {
+                "currency": "USD",
+                "method": "other",
+                "amount": 100.0
+              }
+            ]
+          },
+          {
+            "month": "2026-04",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 128000.0
+              },
+              {
+                "currency": "USD",
+                "amount": 100.0
+              }
+            ],
+            "payments": 5,
+            "paying": 5,
+            "newClients": 0,
+            "churned": 1,
+            "activeAtEnd": 5,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 32000.0
+              },
+              {
+                "currency": "USD",
+                "amount": 100.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "cash",
+                "amount": 25000.0
+              },
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 85000.0
+              },
+              {
+                "currency": "ARS",
+                "method": "mercadopago",
+                "amount": 18000.0
+              },
+              {
+                "currency": "USD",
+                "method": "other",
+                "amount": 100.0
+              }
+            ]
+          },
+          {
+            "month": "2026-05",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 50000.0
+              },
+              {
+                "currency": "USD",
+                "amount": 100.0
+              }
+            ],
+            "payments": 3,
+            "paying": 3,
+            "newClients": 0,
+            "churned": 1,
+            "activeAtEnd": 4,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 25000.0
+              },
+              {
+                "currency": "USD",
+                "amount": 100.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "cash",
+                "amount": 25000.0
+              },
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 25000.0
+              },
+              {
+                "currency": "USD",
+                "method": "other",
+                "amount": 100.0
+              }
+            ]
+          },
+          {
+            "month": "2026-06",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 50000.0
+              },
+              {
+                "currency": "USD",
+                "amount": 100.0
+              }
+            ],
+            "payments": 3,
+            "paying": 3,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 4,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 25000.0
+              },
+              {
+                "currency": "USD",
+                "amount": 100.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "cash",
+                "amount": 25000.0
+              },
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 25000.0
+              },
+              {
+                "currency": "USD",
+                "method": "other",
+                "amount": 100.0
+              }
+            ]
+          },
+          {
+            "month": "2026-07",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 85000.0
+              },
+              {
+                "currency": "USD",
+                "amount": 100.0
+              }
+            ],
+            "payments": 3,
+            "paying": 3,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 4,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 42500.0
+              },
+              {
+                "currency": "USD",
+                "amount": 100.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 85000.0
+              },
+              {
+                "currency": "USD",
+                "method": "other",
+                "amount": 100.0
+              }
+            ]
+          },
+          {
+            "month": "2026-08",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 55000.0
+              },
+              {
+                "currency": "USD",
+                "amount": 100.0
+              }
+            ],
+            "payments": 3,
+            "paying": 3,
+            "newClients": 1,
+            "churned": 1,
+            "activeAtEnd": 4,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 27500.0
+              },
+              {
+                "currency": "USD",
+                "amount": 100.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 25000.0
+              },
+              {
+                "currency": "ARS",
+                "method": "card",
+                "amount": 30000.0
+              },
+              {
+                "currency": "USD",
+                "method": "other",
+                "amount": 100.0
+              }
+            ]
+          },
+          {
+            "month": "2026-09",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 95000.0
+              },
+              {
+                "currency": "USD",
+                "amount": 100.0
+              }
+            ],
+            "payments": 4,
+            "paying": 4,
+            "newClients": 1,
+            "churned": 0,
+            "activeAtEnd": 5,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 31666.67
+              },
+              {
+                "currency": "USD",
+                "amount": 100.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "cash",
+                "amount": 40000.0
+              },
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 25000.0
+              },
+              {
+                "currency": "ARS",
+                "method": "card",
+                "amount": 30000.0
+              },
+              {
+                "currency": "USD",
+                "method": "other",
+                "amount": 100.0
+              }
+            ]
+          },
+          {
+            "month": "2026-10",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 115000.0
+              },
+              {
+                "currency": "USD",
+                "amount": 100.0
+              }
+            ],
+            "payments": 4,
+            "paying": 4,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 5,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 38333.33
+              },
+              {
+                "currency": "USD",
+                "amount": 100.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 85000.0
+              },
+              {
+                "currency": "ARS",
+                "method": "card",
+                "amount": 30000.0
+              },
+              {
+                "currency": "USD",
+                "method": "other",
+                "amount": 100.0
+              }
+            ]
+          },
+          {
+            "month": "2026-11",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 120000.0
+              },
+              {
+                "currency": "USD",
+                "amount": 100.0
+              }
+            ],
+            "payments": 5,
+            "paying": 5,
+            "newClients": 1,
+            "churned": 0,
+            "activeAtEnd": 6,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 30000.0
+              },
+              {
+                "currency": "USD",
+                "amount": 100.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "cash",
+                "amount": 40000.0
+              },
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 50000.0
+              },
+              {
+                "currency": "ARS",
+                "method": "card",
+                "amount": 30000.0
+              },
+              {
+                "currency": "USD",
+                "method": "other",
+                "amount": 100.0
+              }
+            ]
+          }
+        ],
+        "statusCounts": {
+          "upToDate": 6,
+          "dueSoon": 1,
+          "overdue": 3
+        },
+        "mrr": [
+          {
+            "currency": "ARS",
+            "amount": 98000.0
+          },
+          {
+            "currency": "USD",
+            "amount": 100.0
+          }
+        ],
+        "recurringClients": 5,
+        "churnRate": 0.07692307692307693,
+        "rates": {
+          "optimistic": 0.038461538461538464,
+          "expected": 0.07692307692307693,
+          "pessimistic": 0.11538461538461539
+        },
+        "projections": [
+          {
+            "currency": "ARS",
+            "mrr": 98000.0,
+            "horizons": [
+              {
+                "months": 3,
+                "optimistic": 271958.92,
+                "expected": 251044.15,
+                "pessimistic": 231222.23
+              },
+              {
+                "months": 6,
+                "optimistic": 513729.41,
+                "expected": 448497.17,
+                "pessimistic": 391286.01
+              },
+              {
+                "months": 12,
+                "optimistic": 919737.23,
+                "expected": 725948.67,
+                "pessimistic": 578794.64
+              }
+            ]
+          },
+          {
+            "currency": "USD",
+            "mrr": 100.0,
+            "horizons": [
+              {
+                "months": 3,
+                "optimistic": 277.51,
+                "expected": 256.17,
+                "pessimistic": 235.94
+              },
+              {
+                "months": 6,
+                "optimistic": 524.21,
+                "expected": 457.65,
+                "pessimistic": 399.27
+              },
+              {
+                "months": 12,
+                "optimistic": 938.51,
+                "expected": 740.76,
+                "pessimistic": 590.61
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "fin de mes y bisiesto (hoy 29 feb 2028)",
+      "today": "2028-02-29",
+      "payments": [
+        {
+          "id": "p072",
+          "clientId": "lu",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2027-01-31",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p073",
+          "clientId": "lu",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2027-02-28",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p074",
+          "clientId": "lu",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2027-03-31",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p075",
+          "clientId": "lu",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2027-04-30",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p076",
+          "clientId": "lu",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2027-05-31",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p077",
+          "clientId": "lu",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2027-06-30",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p078",
+          "clientId": "lu",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2027-07-31",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p079",
+          "clientId": "lu",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2027-08-31",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p080",
+          "clientId": "lu",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2027-09-30",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p081",
+          "clientId": "lu",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2027-10-31",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p082",
+          "clientId": "lu",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2027-11-30",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p083",
+          "clientId": "lu",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2027-12-31",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p084",
+          "clientId": "lu",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2028-01-31",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p085",
+          "clientId": "lu",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2028-02-29",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": "Mensual",
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p086",
+          "clientId": "mia",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2027-12-31",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p087",
+          "clientId": "mia",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2028-01-31",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        }
+      ],
+      "billings": [
+        {
+          "coachId": "coach",
+          "clientId": "lu",
+          "planId": "plan-lu",
+          "plan": {
+            "name": "monthly",
+            "kind": "monthly",
+            "modality": null,
+            "amount": 20000,
+            "currency": "ARS",
+            "periodMonths": 1,
+            "classCount": null,
+            "description": null
+          },
+          "amount": null,
+          "startCivil": null,
+          "nextDueCivil": "2028-03-31",
+          "classesRemaining": null,
+          "reminderDaysBefore": 3,
+          "lastPaymentCivil": null,
+          "lastPaymentAmount": null
+        },
+        {
+          "coachId": "coach",
+          "clientId": "mia",
+          "planId": null,
+          "plan": null,
+          "amount": null,
+          "startCivil": null,
+          "nextDueCivil": null,
+          "classesRemaining": null,
+          "reminderDaysBefore": 3,
+          "lastPaymentCivil": null,
+          "lastPaymentAmount": null
+        }
+      ],
+      "expected": {
+        "month": "2028-02",
+        "previousMonth": "2028-01",
+        "loadFrom": "2026-12-01",
+        "primaryCurrency": "ARS",
+        "series": [
+          {
+            "month": "2027-03",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "payments": 1,
+            "paying": 1,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 1,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 20000.0
+              }
+            ]
+          },
+          {
+            "month": "2027-04",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "payments": 1,
+            "paying": 1,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 1,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 20000.0
+              }
+            ]
+          },
+          {
+            "month": "2027-05",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "payments": 1,
+            "paying": 1,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 1,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 20000.0
+              }
+            ]
+          },
+          {
+            "month": "2027-06",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "payments": 1,
+            "paying": 1,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 1,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 20000.0
+              }
+            ]
+          },
+          {
+            "month": "2027-07",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "payments": 1,
+            "paying": 1,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 1,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 20000.0
+              }
+            ]
+          },
+          {
+            "month": "2027-08",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "payments": 1,
+            "paying": 1,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 1,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 20000.0
+              }
+            ]
+          },
+          {
+            "month": "2027-09",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "payments": 1,
+            "paying": 1,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 1,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 20000.0
+              }
+            ]
+          },
+          {
+            "month": "2027-10",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "payments": 1,
+            "paying": 1,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 1,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 20000.0
+              }
+            ]
+          },
+          {
+            "month": "2027-11",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "payments": 1,
+            "paying": 1,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 1,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 20000.0
+              }
+            ]
+          },
+          {
+            "month": "2027-12",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 40000.0
+              }
+            ],
+            "payments": 2,
+            "paying": 2,
+            "newClients": 1,
+            "churned": 0,
+            "activeAtEnd": 2,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 40000.0
+              }
+            ]
+          },
+          {
+            "month": "2028-01",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 40000.0
+              }
+            ],
+            "payments": 2,
+            "paying": 2,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 2,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 40000.0
+              }
+            ]
+          },
+          {
+            "month": "2028-02",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "payments": 1,
+            "paying": 1,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 2,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 20000.0
+              }
+            ]
+          }
+        ],
+        "statusCounts": {
+          "upToDate": 1,
+          "dueSoon": 0,
+          "overdue": 0
+        },
+        "mrr": [
+          {
+            "currency": "ARS",
+            "amount": 20000.0
+          }
+        ],
+        "recurringClients": 1,
+        "churnRate": 0.0,
+        "rates": {
+          "optimistic": 0.0,
+          "expected": 0.0,
+          "pessimistic": 0.03
+        },
+        "projections": [
+          {
+            "currency": "ARS",
+            "mrr": 20000.0,
+            "horizons": [
+              {
+                "months": 3,
+                "optimistic": 60000.0,
+                "expected": 60000.0,
+                "pessimistic": 56471.46
+              },
+              {
+                "months": 6,
+                "optimistic": 120000.0,
+                "expected": 120000.0,
+                "pessimistic": 108011.44
+              },
+              {
+                "months": 12,
+                "optimistic": 240000.0,
+                "expected": 240000.0,
+                "pessimistic": 197981.94
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "mucha caída en los últimos 6 meses",
+      "today": "2026-11-30",
+      "payments": [
+        {
+          "id": "p088",
+          "clientId": "n1",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2025-12-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p089",
+          "clientId": "n1",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-01-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p090",
+          "clientId": "n1",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-02-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p091",
+          "clientId": "n1",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-03-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p092",
+          "clientId": "n1",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-04-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p093",
+          "clientId": "n2",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2025-12-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p094",
+          "clientId": "n2",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-01-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p095",
+          "clientId": "n2",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-02-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p096",
+          "clientId": "n2",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-03-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p097",
+          "clientId": "n2",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-04-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p098",
+          "clientId": "n2",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-05-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p099",
+          "clientId": "n3",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2025-12-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p100",
+          "clientId": "n3",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-01-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p101",
+          "clientId": "n3",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-02-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p102",
+          "clientId": "n3",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-03-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p103",
+          "clientId": "n3",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-04-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p104",
+          "clientId": "n3",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-05-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p105",
+          "clientId": "n3",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-06-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p106",
+          "clientId": "n4",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2025-12-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p107",
+          "clientId": "n4",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-01-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p108",
+          "clientId": "n4",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-02-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p109",
+          "clientId": "n4",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-03-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p110",
+          "clientId": "n4",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-04-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p111",
+          "clientId": "n4",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-05-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p112",
+          "clientId": "n4",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-06-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p113",
+          "clientId": "n4",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-07-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p114",
+          "clientId": "n5",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2025-12-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p115",
+          "clientId": "n5",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-01-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p116",
+          "clientId": "n5",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-02-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p117",
+          "clientId": "n5",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-03-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p118",
+          "clientId": "n5",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-04-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p119",
+          "clientId": "n5",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-05-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p120",
+          "clientId": "n5",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-06-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p121",
+          "clientId": "n5",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-07-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p122",
+          "clientId": "n5",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-08-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p123",
+          "clientId": "n6",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2025-12-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p124",
+          "clientId": "n6",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-01-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p125",
+          "clientId": "n6",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-02-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p126",
+          "clientId": "n6",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-03-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p127",
+          "clientId": "n6",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-04-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p128",
+          "clientId": "n6",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-05-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p129",
+          "clientId": "n6",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-06-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p130",
+          "clientId": "n6",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-07-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p131",
+          "clientId": "n6",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-08-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p132",
+          "clientId": "n6",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-09-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p133",
+          "clientId": "n7",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2025-12-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p134",
+          "clientId": "n7",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-01-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p135",
+          "clientId": "n7",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-02-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p136",
+          "clientId": "n7",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-03-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p137",
+          "clientId": "n7",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-04-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p138",
+          "clientId": "n8",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2025-12-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p139",
+          "clientId": "n8",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-01-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p140",
+          "clientId": "n8",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-02-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p141",
+          "clientId": "n8",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-03-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p142",
+          "clientId": "n8",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-04-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p143",
+          "clientId": "n8",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-05-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p144",
+          "clientId": "n9",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2025-12-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p145",
+          "clientId": "n9",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-01-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p146",
+          "clientId": "n9",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-02-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p147",
+          "clientId": "n9",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-03-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p148",
+          "clientId": "n9",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-04-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p149",
+          "clientId": "n9",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-05-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p150",
+          "clientId": "n9",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-06-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p151",
+          "clientId": "n10",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2025-12-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p152",
+          "clientId": "n10",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-01-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p153",
+          "clientId": "n10",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-02-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p154",
+          "clientId": "n10",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-03-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p155",
+          "clientId": "n10",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-04-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p156",
+          "clientId": "n10",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-05-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p157",
+          "clientId": "n10",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-06-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p158",
+          "clientId": "n10",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-07-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p159",
+          "clientId": "n11",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2025-12-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p160",
+          "clientId": "n11",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-01-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p161",
+          "clientId": "n11",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-02-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p162",
+          "clientId": "n11",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-03-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p163",
+          "clientId": "n11",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-04-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p164",
+          "clientId": "n11",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-05-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p165",
+          "clientId": "n11",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-06-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p166",
+          "clientId": "n11",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-07-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p167",
+          "clientId": "n11",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-08-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p168",
+          "clientId": "n11",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-09-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p169",
+          "clientId": "n11",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-10-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        },
+        {
+          "id": "p170",
+          "clientId": "n11",
+          "amount": 20000,
+          "currency": "ARS",
+          "paidCivil": "2026-11-08",
+          "method": "transfer",
+          "methodNote": null,
+          "covers": {
+            "kind": "months",
+            "months": 1,
+            "classes": null
+          },
+          "planName": null,
+          "note": null,
+          "voided": false
+        }
+      ],
+      "billings": [
+        {
+          "coachId": "coach",
+          "clientId": "n1",
+          "planId": null,
+          "plan": null,
+          "amount": null,
+          "startCivil": null,
+          "nextDueCivil": null,
+          "classesRemaining": null,
+          "reminderDaysBefore": 3,
+          "lastPaymentCivil": null,
+          "lastPaymentAmount": null
+        },
+        {
+          "coachId": "coach",
+          "clientId": "n2",
+          "planId": null,
+          "plan": null,
+          "amount": null,
+          "startCivil": null,
+          "nextDueCivil": null,
+          "classesRemaining": null,
+          "reminderDaysBefore": 3,
+          "lastPaymentCivil": null,
+          "lastPaymentAmount": null
+        },
+        {
+          "coachId": "coach",
+          "clientId": "n3",
+          "planId": null,
+          "plan": null,
+          "amount": null,
+          "startCivil": null,
+          "nextDueCivil": null,
+          "classesRemaining": null,
+          "reminderDaysBefore": 3,
+          "lastPaymentCivil": null,
+          "lastPaymentAmount": null
+        },
+        {
+          "coachId": "coach",
+          "clientId": "n4",
+          "planId": null,
+          "plan": null,
+          "amount": null,
+          "startCivil": null,
+          "nextDueCivil": null,
+          "classesRemaining": null,
+          "reminderDaysBefore": 3,
+          "lastPaymentCivil": null,
+          "lastPaymentAmount": null
+        },
+        {
+          "coachId": "coach",
+          "clientId": "n5",
+          "planId": null,
+          "plan": null,
+          "amount": null,
+          "startCivil": null,
+          "nextDueCivil": null,
+          "classesRemaining": null,
+          "reminderDaysBefore": 3,
+          "lastPaymentCivil": null,
+          "lastPaymentAmount": null
+        },
+        {
+          "coachId": "coach",
+          "clientId": "n6",
+          "planId": null,
+          "plan": null,
+          "amount": null,
+          "startCivil": null,
+          "nextDueCivil": null,
+          "classesRemaining": null,
+          "reminderDaysBefore": 3,
+          "lastPaymentCivil": null,
+          "lastPaymentAmount": null
+        },
+        {
+          "coachId": "coach",
+          "clientId": "n7",
+          "planId": null,
+          "plan": null,
+          "amount": null,
+          "startCivil": null,
+          "nextDueCivil": null,
+          "classesRemaining": null,
+          "reminderDaysBefore": 3,
+          "lastPaymentCivil": null,
+          "lastPaymentAmount": null
+        },
+        {
+          "coachId": "coach",
+          "clientId": "n8",
+          "planId": null,
+          "plan": null,
+          "amount": null,
+          "startCivil": null,
+          "nextDueCivil": null,
+          "classesRemaining": null,
+          "reminderDaysBefore": 3,
+          "lastPaymentCivil": null,
+          "lastPaymentAmount": null
+        },
+        {
+          "coachId": "coach",
+          "clientId": "n9",
+          "planId": null,
+          "plan": null,
+          "amount": null,
+          "startCivil": null,
+          "nextDueCivil": null,
+          "classesRemaining": null,
+          "reminderDaysBefore": 3,
+          "lastPaymentCivil": null,
+          "lastPaymentAmount": null
+        },
+        {
+          "coachId": "coach",
+          "clientId": "n10",
+          "planId": null,
+          "plan": null,
+          "amount": null,
+          "startCivil": null,
+          "nextDueCivil": null,
+          "classesRemaining": null,
+          "reminderDaysBefore": 3,
+          "lastPaymentCivil": null,
+          "lastPaymentAmount": null
+        },
+        {
+          "coachId": "coach",
+          "clientId": "n11",
+          "planId": "plan-n11",
+          "plan": {
+            "name": "monthly",
+            "kind": "monthly",
+            "modality": null,
+            "amount": 20000,
+            "currency": "ARS",
+            "periodMonths": 1,
+            "classCount": null,
+            "description": null
+          },
+          "amount": null,
+          "startCivil": null,
+          "nextDueCivil": "2026-12-08",
+          "classesRemaining": null,
+          "reminderDaysBefore": 3,
+          "lastPaymentCivil": null,
+          "lastPaymentAmount": null
+        }
+      ],
+      "expected": {
+        "month": "2026-11",
+        "previousMonth": "2026-10",
+        "loadFrom": "2025-09-01",
+        "primaryCurrency": "ARS",
+        "series": [
+          {
+            "month": "2025-12",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 220000.0
+              }
+            ],
+            "payments": 11,
+            "paying": 11,
+            "newClients": 11,
+            "churned": 0,
+            "activeAtEnd": 11,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 220000.0
+              }
+            ]
+          },
+          {
+            "month": "2026-01",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 220000.0
+              }
+            ],
+            "payments": 11,
+            "paying": 11,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 11,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 220000.0
+              }
+            ]
+          },
+          {
+            "month": "2026-02",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 220000.0
+              }
+            ],
+            "payments": 11,
+            "paying": 11,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 11,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 220000.0
+              }
+            ]
+          },
+          {
+            "month": "2026-03",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 220000.0
+              }
+            ],
+            "payments": 11,
+            "paying": 11,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 11,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 220000.0
+              }
+            ]
+          },
+          {
+            "month": "2026-04",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 220000.0
+              }
+            ],
+            "payments": 11,
+            "paying": 11,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 11,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 220000.0
+              }
+            ]
+          },
+          {
+            "month": "2026-05",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 180000.0
+              }
+            ],
+            "payments": 9,
+            "paying": 9,
+            "newClients": 0,
+            "churned": 2,
+            "activeAtEnd": 9,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 180000.0
+              }
+            ]
+          },
+          {
+            "month": "2026-06",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 140000.0
+              }
+            ],
+            "payments": 7,
+            "paying": 7,
+            "newClients": 0,
+            "churned": 2,
+            "activeAtEnd": 7,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 140000.0
+              }
+            ]
+          },
+          {
+            "month": "2026-07",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 100000.0
+              }
+            ],
+            "payments": 5,
+            "paying": 5,
+            "newClients": 0,
+            "churned": 2,
+            "activeAtEnd": 5,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 100000.0
+              }
+            ]
+          },
+          {
+            "month": "2026-08",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 60000.0
+              }
+            ],
+            "payments": 3,
+            "paying": 3,
+            "newClients": 0,
+            "churned": 2,
+            "activeAtEnd": 3,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 60000.0
+              }
+            ]
+          },
+          {
+            "month": "2026-09",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 40000.0
+              }
+            ],
+            "payments": 2,
+            "paying": 2,
+            "newClients": 0,
+            "churned": 1,
+            "activeAtEnd": 2,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 40000.0
+              }
+            ]
+          },
+          {
+            "month": "2026-10",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "payments": 1,
+            "paying": 1,
+            "newClients": 0,
+            "churned": 1,
+            "activeAtEnd": 1,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 20000.0
+              }
+            ]
+          },
+          {
+            "month": "2026-11",
+            "collected": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "payments": 1,
+            "paying": 1,
+            "newClients": 0,
+            "churned": 0,
+            "activeAtEnd": 1,
+            "avgTicket": [
+              {
+                "currency": "ARS",
+                "amount": 20000.0
+              }
+            ],
+            "byMethod": [
+              {
+                "currency": "ARS",
+                "method": "transfer",
+                "amount": 20000.0
+              }
+            ]
+          }
+        ],
+        "statusCounts": {
+          "upToDate": 1,
+          "dueSoon": 0,
+          "overdue": 0
+        },
+        "mrr": [
+          {
+            "currency": "ARS",
+            "amount": 20000.0
+          }
+        ],
+        "recurringClients": 1,
+        "churnRate": 0.2702702702702703,
+        "rates": {
+          "optimistic": 0.13513513513513514,
+          "expected": 0.2702702702702703,
+          "pessimistic": 0.40540540540540543
+        },
+        "projections": [
+          {
+            "currency": "ARS",
+            "mrr": 20000.0,
+            "horizons": [
+              {
+                "months": 3,
+                "optimistic": 45195.35,
+                "expected": 33016.41,
+                "pessimistic": 23167.04
+              },
+              {
+                "months": 6,
+                "optimistic": 74432.73,
+                "expected": 45846.09,
+                "pessimistic": 28037.09
+              },
+              {
+                "months": 12,
+                "optimistic": 105582.4,
+                "expected": 52768.77,
+                "pessimistic": 29276.05
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "export": {
+    "csvCell": [
+      {
+        "value": "hola",
+        "expected": "hola"
+      },
+      {
+        "value": "",
+        "expected": ""
+      },
+      {
+        "value": null,
+        "expected": ""
+      },
+      {
+        "value": "a,b",
+        "expected": "\"a,b\""
+      },
+      {
+        "value": "di \"hola\"",
+        "expected": "\"di \"\"hola\"\"\""
+      },
+      {
+        "value": "linea\nnueva",
+        "expected": "\"linea\nnueva\""
+      },
+      {
+        "value": "a;b",
+        "expected": "\"a;b\""
+      },
+      {
+        "value": "=SUM(A1)",
+        "expected": "'=SUM(A1)"
+      },
+      {
+        "value": "+54 9 11",
+        "expected": "'+54 9 11"
+      },
+      {
+        "value": "-3",
+        "expected": "'-3"
+      },
+      {
+        "value": "@x",
+        "expected": "'@x"
+      },
+      {
+        "value": "\tx",
+        "expected": "'\tx"
+      },
+      {
+        "value": 25000,
+        "expected": "25000"
+      },
+      {
+        "value": 25000.5,
+        "expected": "25000.5"
+      },
+      {
+        "value": -3,
+        "expected": "-3"
+      },
+      {
+        "value": 0.1,
+        "expected": "0.1"
+      },
+      {
+        "value": 1234567.89,
+        "expected": "1234567.89"
+      }
+    ],
+    "payments": [
+      {
+        "id": "p177",
+        "clientId": "ana",
+        "amount": 25000,
+        "currency": "ARS",
+        "paidCivil": "2026-11-10",
+        "method": "transfer",
+        "methodNote": null,
+        "covers": {
+          "kind": "months",
+          "months": 1,
+          "classes": null
+        },
+        "planName": "Mensual",
+        "note": "nov",
+        "voided": false
+      },
+      {
+        "id": "p178",
+        "clientId": "beto",
+        "amount": 25000.5,
+        "currency": "ARS",
+        "paidCivil": "2026-11-05",
+        "method": "cash",
+        "methodNote": "en mano; recibo",
+        "covers": {
+          "kind": "months",
+          "months": 1,
+          "classes": null
+        },
+        "planName": "Mensual",
+        "note": null,
+        "voided": false
+      },
+      {
+        "id": "p179",
+        "clientId": "ana",
+        "amount": 25000,
+        "currency": "ARS",
+        "paidCivil": "2026-10-10",
+        "method": "transfer",
+        "methodNote": null,
+        "covers": {
+          "kind": "months",
+          "months": 1,
+          "classes": null
+        },
+        "planName": "Mensual",
+        "note": null,
+        "voided": false
+      },
+      {
+        "id": "p180",
+        "clientId": "caro",
+        "amount": 18000,
+        "currency": "ARS",
+        "paidCivil": "2026-10-20",
+        "method": "mercadopago",
+        "methodNote": null,
+        "covers": {
+          "kind": "months",
+          "months": 1,
+          "classes": null
+        },
+        "planName": "Online",
+        "note": "dijo \"gracias\"",
+        "voided": false
+      },
+      {
+        "id": "p181",
+        "clientId": "dani",
+        "amount": 60000,
+        "currency": "ARS",
+        "paidCivil": "2026-10-15",
+        "method": "transfer",
+        "methodNote": null,
+        "covers": {
+          "kind": "months",
+          "months": 3,
+          "classes": null
+        },
+        "planName": "Pack 3",
+        "note": null,
+        "voided": false
+      },
+      {
+        "id": "p182",
+        "clientId": "gabi",
+        "amount": 40000,
+        "currency": "ARS",
+        "paidCivil": "2026-11-02",
+        "method": "cash",
+        "methodNote": null,
+        "covers": {
+          "kind": "classes",
+          "months": null,
+          "classes": 10
+        },
+        "planName": "10 clases",
+        "note": "=HYPERLINK(1)",
+        "voided": false
+      },
+      {
+        "id": "p183",
+        "clientId": "eli",
+        "amount": 30000,
+        "currency": "ARS",
+        "paidCivil": "2026-11-03",
+        "method": "weird",
+        "methodNote": null,
+        "covers": {
+          "kind": "months",
+          "months": 1,
+          "classes": null
+        },
+        "planName": null,
+        "note": null,
+        "voided": false
+      },
+      {
+        "id": "p184",
+        "clientId": "ana",
+        "amount": 5000,
+        "currency": "ARS",
+        "paidCivil": "2026-11-11",
+        "method": "cash",
+        "methodNote": null,
+        "covers": {
+          "kind": "months",
+          "months": 1,
+          "classes": null
+        },
+        "planName": "Mensual",
+        "note": "duplicado\nborrar",
+        "voided": true
+      }
+    ],
+    "filter": [
+      {
+        "filter": {},
+        "expectedIds": [
+          "p184",
+          "p177",
+          "p178",
+          "p183",
+          "p182",
+          "p180",
+          "p181",
+          "p179"
+        ]
+      },
+      {
+        "filter": {
+          "month": "2026-11"
+        },
+        "expectedIds": [
+          "p184",
+          "p177",
+          "p178",
+          "p183",
+          "p182"
+        ]
+      },
+      {
+        "filter": {
+          "clientId": "ana"
+        },
+        "expectedIds": [
+          "p184",
+          "p177",
+          "p179"
+        ]
+      },
+      {
+        "filter": {
+          "planName": "Mensual"
+        },
+        "expectedIds": [
+          "p184",
+          "p177",
+          "p178",
+          "p179"
+        ]
+      },
+      {
+        "filter": {
+          "method": "cash"
+        },
+        "expectedIds": [
+          "p184",
+          "p178",
+          "p182"
+        ]
+      },
+      {
+        "filter": {
+          "method": "other"
+        },
+        "expectedIds": [
+          "p183"
+        ]
+      },
+      {
+        "filter": {
+          "month": "2026-10",
+          "planName": "Mensual"
+        },
+        "expectedIds": [
+          "p179"
+        ]
+      },
+      {
+        "filter": {
+          "month": "2026-12"
+        },
+        "expectedIds": []
+      }
+    ],
+    "planOptions": [
+      "10 clases",
+      "Mensual",
+      "Online",
+      "Pack 3"
+    ],
+    "csv": {
+      "headers": [
+        "Fecha",
+        "Alumno",
+        "Monto",
+        "Moneda",
+        "Medio",
+        "Detalle",
+        "Cubre",
+        "Plan",
+        "Nota",
+        "Anulado"
+      ],
+      "clientNames": {
+        "ana": "Ana Pérez",
+        "beto": "Beto, el de la tarde",
+        "caro": "Caro",
+        "dani": "Dani",
+        "gabi": "Gabi",
+        "eli": "-Eli"
+      },
+      "voidedLabel": "Sí",
+      "coversLabel": "kind + (\" x\" + months|classes when present)  e.g. 'months x3', 'classes x10', 'routine'",
+      "ids": [
+        "p184",
+        "p177",
+        "p178",
+        "p183",
+        "p182",
+        "p180",
+        "p181",
+        "p179"
+      ],
+      "expected": "﻿Fecha,Alumno,Monto,Moneda,Medio,Detalle,Cubre,Plan,Nota,Anulado\r\n2026-11-11,Ana Pérez,5000,ARS,cash,,months x1,Mensual,\"duplicado\nborrar\",Sí\r\n2026-11-10,Ana Pérez,25000,ARS,transfer,,months x1,Mensual,nov,\r\n2026-11-05,\"Beto, el de la tarde\",25000.5,ARS,cash,\"en mano; recibo\",months x1,Mensual,,\r\n2026-11-03,'-Eli,30000,ARS,weird,,months x1,,,\r\n2026-11-02,Gabi,40000,ARS,cash,,classes x10,10 clases,'=HYPERLINK(1),\r\n2026-10-20,Caro,18000,ARS,mercadopago,,months x1,Online,\"dijo \"\"gracias\"\"\",\r\n2026-10-15,Dani,60000,ARS,transfer,,months x3,Pack 3,,\r\n2026-10-10,Ana Pérez,25000,ARS,transfer,,months x1,Mensual,,\r\n"
+    }
+  }
+}

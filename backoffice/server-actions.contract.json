@@ -277,6 +277,11 @@
       "params": "arg"
     },
     {
+      "file": "src/lib/gc-fitness/billing-dashboard-actions.ts",
+      "export": "getBillingDashboardData",
+      "params": ""
+    },
+    {
       "file": "src/lib/gc-fitness/chat-server-actions.ts",
       "export": "deleteTrainerChatMessage",
       "params": "arg"
