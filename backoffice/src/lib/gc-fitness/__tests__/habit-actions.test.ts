@@ -103,6 +103,7 @@ jest.mock("firebase-admin/firestore", () => ({
   FieldValue: {
     serverTimestamp: jest.fn(() => "SERVER_TIMESTAMP_SENTINEL"),
     increment: jest.fn((n: number) => ({ __increment: n })),
+    delete: jest.fn(() => "DELETE_SENTINEL"),
   },
 }));
 
@@ -770,6 +771,68 @@ describe("getHabit", () => {
 
     expect(result.id).toBe("hab-abc");
     expect(result.trainerId).toBe("previous-coach");
+  });
+});
+
+describe("habit quantities (gc-fitness#1648)", () => {
+  beforeEach(() => {
+    mockedGetTokens.mockResolvedValue(fakeTokens({ role: "trainer" }));
+    mockSet.mockResolvedValue(undefined);
+    mockUpdate.mockResolvedValue(undefined);
+  });
+
+  it("Q1 — createHabit writes quantityTarget + quantityUnit (habit stays binary)", async () => {
+    mockGet.mockResolvedValue(fakeUserSnapshot({ exists: true, coachId: ALLOWED_UID }));
+    await createHabit({ ...VALID_BINARY_HABIT_INPUT, quantityTarget: 8, quantityUnit: "glasses" });
+    const payload = mockSet.mock.calls[0][0];
+    expect(payload.type).toBe("binary");
+    expect(payload.quantityTarget).toBe(8);
+    expect(payload.quantityUnit).toBe("glasses");
+  });
+
+  it("Q2 — createHabit without a target writes neither field (and drops a lone unit)", async () => {
+    mockGet.mockResolvedValue(fakeUserSnapshot({ exists: true, coachId: ALLOWED_UID }));
+    await createHabit({ ...VALID_BINARY_HABIT_INPUT, quantityUnit: "steps" });
+    const payload = mockSet.mock.calls[0][0];
+    expect("quantityTarget" in payload).toBe(false);
+    expect("quantityUnit" in payload).toBe(false);
+  });
+
+  it("Q3 — rejects a target outside 1…100000 or not whole BEFORE Firestore", async () => {
+    mockGet.mockResolvedValue(fakeUserSnapshot({ exists: true, coachId: ALLOWED_UID }));
+    for (const bad of [0, 100001, 2.5, -1]) {
+      await expect(
+        createHabit({ ...VALID_BINARY_HABIT_INPUT, quantityTarget: bad, quantityUnit: "glasses" }),
+      ).rejects.toThrow();
+    }
+    await expect(
+      createHabit({ ...VALID_BINARY_HABIT_INPUT, quantityTarget: 8, quantityUnit: "liters" }),
+    ).rejects.toThrow();
+    expect(mockSet).not.toHaveBeenCalled();
+  });
+
+  it("Q4 — updateHabit sets the target, and turning it OFF deletes both fields", async () => {
+    mockGet.mockResolvedValue(
+      fakeHabitSnapshot({ exists: true, trainerId: ALLOWED_UID, type: "binary" }),
+    );
+    await updateHabit(`hab-${ALLOWED_UID}-abc`, {
+      name: { en: "Steps", es: "Pasos" },
+      reminderEnabled: false,
+      quantityTarget: 10000,
+      quantityUnit: "steps",
+    });
+    let patch = mockUpdate.mock.calls[0][0];
+    expect(patch.quantityTarget).toBe(10000);
+    expect(patch.quantityUnit).toBe("steps");
+
+    await updateHabit(`hab-${ALLOWED_UID}-abc`, {
+      name: { en: "Steps", es: "Pasos" },
+      reminderEnabled: false,
+    });
+    patch = mockUpdate.mock.calls[1][0];
+    expect(patch.quantityTarget).toBe("DELETE_SENTINEL");
+    expect(patch.quantityUnit).toBe("DELETE_SENTINEL");
+    expect(Object.values(patch).includes(undefined)).toBe(false);
   });
 });
 

@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { effectiveAmount, reminderText, whatsappShareUrl } from "@/lib/gc-fitness/billing";
+import { noticeDueCivil } from "@/lib/gc-fitness/payment-notice";
 import type { ClientBillingView } from "@/lib/gc-fitness/payments-model";
 
 import { usePaymentLabels } from "./payment-labels";
@@ -27,6 +28,8 @@ interface Props {
   clientFirstName: string;
   coachName: string;
   billing: ClientBillingView | null;
+  /** #1697 — los «Datos de cobro» del coach; van en el texto antes de la despedida. */
+  paymentDetails?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -36,26 +39,36 @@ export function buildReminder(
   coachName: string,
   clientFirstName: string,
   billing: ClientBillingView | null,
+  paymentDetails: string | null = null,
 ): string {
   const amount = effectiveAmount(billing) ?? 0;
+  // #1697 — un plan por clases no tiene vencimiento que recordar (la regla de las apps).
   return reminderText(
     lang,
     coachName,
     clientFirstName,
     amount,
     billing?.plan?.currency ?? "ARS",
-    billing?.nextDueCivil ?? null,
+    noticeDueCivil(billing),
+    paymentDetails,
   );
 }
 
-export function RemindDialog({ clientFirstName, coachName, billing, open, onOpenChange }: Props) {
+export function RemindDialog({
+  clientFirstName,
+  coachName,
+  billing,
+  paymentDetails = null,
+  open,
+  onOpenChange,
+}: Props) {
   const t = useTranslations("payments");
   const { lang } = usePaymentLabels();
   // El texto se arma CADA VEZ que el diálogo se abre (y si el cobro cambia estando abierto).
   // El padre lo abre con `open`, así que Radix nunca llama `onOpenChange(true)`: armarlo sólo
   // al montar dejaba el vencimiento de cuando cargó la página — después de «Registrar pago»
   // la card decía «1 de dic» y el recordatorio seguía en «1 de noviembre».
-  const fresh = buildReminder(lang, coachName, clientFirstName, billing);
+  const fresh = buildReminder(lang, coachName, clientFirstName, billing, paymentDetails);
   const [text, setText] = useState(fresh);
   const [shownFor, setShownFor] = useState<string | null>(open ? fresh : null);
   if (open && shownFor !== fresh) {
@@ -83,7 +96,7 @@ export function RemindDialog({ clientFirstName, coachName, billing, open, onOpen
         <Textarea
           aria-label={t("remindTitle")}
           data-testid="remind-text"
-          rows={4}
+          rows={paymentDetails ? 8 : 4}
           value={text}
           onChange={(e) => setText(e.target.value)}
         />

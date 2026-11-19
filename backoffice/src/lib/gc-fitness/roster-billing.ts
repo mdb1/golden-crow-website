@@ -13,6 +13,12 @@ export interface RosterBilling {
   classBased: boolean;
   planName: string | null;
   nextDueCivil: string | null;
+  /**
+   * gc-fitness #1697 — the whole `client_billing` (plan snapshot, own price, due date) so a row
+   * can open the «Aviso de pago». Set by the roster; optional (rows cached before it, or other
+   * surfaces, simply show no button).
+   */
+  view?: ClientBillingView;
 }
 
 /** null = no plan (or no billing doc). */

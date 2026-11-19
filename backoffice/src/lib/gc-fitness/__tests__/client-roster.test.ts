@@ -736,10 +736,12 @@ describe("listClientsForRoster", () => {
       });
       const rows = await listClientsForRoster();
       const billingOf = (uid: string) => rows.find((r) => r.uid === uid)!.billing;
-      expect(billingOf("late")).toEqual({ state: "overdue", days: 7, classBased: false, planName: "Mensual", nextDueCivil: "2026-06-10" });
-      expect(billingOf("soon")).toEqual({ state: "due_soon", days: 1, classBased: false, planName: "Mensual", nextDueCivil: "2026-06-18" });
+      expect(billingOf("late")).toMatchObject({ state: "overdue", days: 7, classBased: false, planName: "Mensual", nextDueCivil: "2026-06-10" });
+      expect(billingOf("soon")).toMatchObject({ state: "due_soon", days: 1, classBased: false, planName: "Mensual", nextDueCivil: "2026-06-18" });
       expect(billingOf("ok")).toMatchObject({ state: "up_to_date", days: 30 });
-      expect(billingOf("pack")).toEqual({ state: "up_to_date", days: 3, classBased: true, planName: "Pack 8", nextDueCivil: null });
+      expect(billingOf("pack")).toMatchObject({ state: "up_to_date", days: 3, classBased: true, planName: "Pack 8", nextDueCivil: null });
+      // gc-fitness #1697 — the whole billing rides along so the row can open the «Aviso de pago».
+      expect(billingOf("late")?.view).toMatchObject({ clientId: "late", planId: "p", nextDueCivil: "2026-06-10" });
       expect(billingOf("none")).toBeNull();
     });
 

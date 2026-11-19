@@ -10,6 +10,7 @@ import type { PaymentPlan, PaymentsPage } from "@/lib/gc-fitness/payments-model"
 
 import { CollectionsTab } from "./CollectionsTab";
 import { DashboardTab } from "./DashboardTab";
+import { PaymentDetailsEditor } from "./PaymentDetailsEditor";
 import { PaymentHistory } from "./PaymentHistory";
 import { PlansTab } from "./PlansTab";
 import type { ClientOption, CollectionRow } from "./types";
@@ -28,14 +29,18 @@ export function PaymentsClient({ rows, plans, collected, coachName, todayCivil, 
   const t = useTranslations("payments");
   return (
     <Tabs defaultValue="collections" className="gap-4">
-      <TabsList>
-        <TabsTrigger value="dashboard" data-testid="payments-tab-dashboard">
-          {t("dashboard.tab")}
-        </TabsTrigger>
-        <TabsTrigger value="collections">{t("collections.title")}</TabsTrigger>
-        <TabsTrigger value="plans">{t("plans.title")}</TabsTrigger>
-        <TabsTrigger value="history">{t("history.title")}</TabsTrigger>
-      </TabsList>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <TabsList>
+          <TabsTrigger value="dashboard" data-testid="payments-tab-dashboard">
+            {t("dashboard.tab")}
+          </TabsTrigger>
+          <TabsTrigger value="collections">{t("collections.title")}</TabsTrigger>
+          <TabsTrigger value="plans">{t("plans.title")}</TabsTrigger>
+          <TabsTrigger value="history">{t("history.title")}</TabsTrigger>
+        </TabsList>
+        {/* #1697 — «Datos de cobro», lo que sale en el aviso de pago y en el recordatorio. */}
+        <PaymentDetailsEditor />
+      </div>
       <TabsContent value="collections">
         <CollectionsTab rows={rows} plans={plans} collected={collected} coachName={coachName} todayCivil={todayCivil} />
       </TabsContent>

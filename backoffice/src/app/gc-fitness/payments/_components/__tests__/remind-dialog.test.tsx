@@ -72,4 +72,26 @@ describe("RemindDialog", () => {
     const text = (screen.getByTestId("remind-text") as HTMLTextAreaElement).value.replace(/\u00a0/g, " ");
     expect(text).toBe("Hola Cami! Te recuerdo el pago de $ 135.000 que vence el 1 de diciembre. ¡Gracias! — Ana");
   });
+
+  // #1697 — los «Datos de cobro» del coach van antes de la despedida, y llegan DESPUÉS de abrir
+  // (se leen al abrir el diálogo): el texto tiene que rearmarse cuando aparecen.
+  it("incluye los datos de cobro cuando llegan, aunque el diálogo ya esté abierto", () => {
+    const base = (details: string | null) => (
+      <RemindDialog
+        clientFirstName="Cami"
+        coachName="Ana"
+        billing={billing("2026-12-01")}
+        paymentDetails={details}
+        open
+        onOpenChange={() => {}}
+      />
+    );
+    const { rerender } = render(base(null));
+    expect((screen.getByTestId("remind-text") as HTMLTextAreaElement).value).not.toContain("Datos para el pago");
+    rerender(base("Alias: ana.fit"));
+    const text = (screen.getByTestId("remind-text") as HTMLTextAreaElement).value.replace(/\u00a0/g, " ");
+    expect(text).toBe(
+      "Hola Cami! Te recuerdo el pago de $ 135.000 que vence el 1 de diciembre.\n\nDatos para el pago:\nAlias: ana.fit\n\n¡Gracias! — Ana",
+    );
+  });
 });

@@ -193,3 +193,67 @@ describe("listMonthForClients", () => {
     expect(ids).not.toContain("gone-habit:2026-06-10");
   });
 });
+
+// gc-fitness#1648 — a quantity habit's chip carries the day's amount; its status stays binary
+// (a partial day — value false + quantity — is NOT done).
+describe("listMonthForClients — habit quantities (gc-fitness#1648)", () => {
+  beforeEach(() => {
+    const habits = [
+      doc("water", {
+        trainerId: "t1",
+        clientId: "c1",
+        name: { en: "Water" },
+        type: "binary",
+        scheduleType: "recurring",
+        scheduleCadence: "daily",
+        startsOn: "2026-06-01",
+        quantityTarget: 8,
+        quantityUnit: "glasses",
+      }),
+    ];
+    const logs = [
+      doc("water_2026-06-05", { habitId: "water", clientId: "c1", civilDate: "2026-06-05", value: true, quantity: 8 }),
+      doc("water_2026-06-06", { habitId: "water", clientId: "c1", civilDate: "2026-06-06", value: false, quantity: 3 }),
+    ];
+    const query = (name: string): Record<string, unknown> => {
+      const q: Record<string, unknown> = {
+        doc: (id: string) => ({
+          get: async () => ({
+            exists: name === FirestoreCollections.users && id === "c1",
+            get: (f: string) => (f === "coachId" ? "t1" : undefined),
+          }),
+        }),
+        where: () => q,
+        orderBy: () => q,
+        limit: () => q,
+        get: async () =>
+          snap(
+            name === FirestoreCollections.habits
+              ? habits
+              : name === FirestoreCollections.habitLogs
+                ? logs
+                : [],
+          ),
+      };
+      return q;
+    };
+    mockState.db = { collection: query };
+  });
+
+  it("reports logged/target/unit and keeps the done bit on `value`", async () => {
+    const result = await listMonthForClients({
+      monthFirstCivil: "2026-06-01",
+      clientIds: ["c1"],
+      todayCivil: "2026-06-08",
+    });
+    expect(result.habitsByDay["2026-06-05"][0]).toEqual(
+      expect.objectContaining({ status: "done", quantity: { logged: 8, target: 8, unit: "glasses" } }),
+    );
+    expect(result.habitsByDay["2026-06-06"][0]).toEqual(
+      expect.objectContaining({ status: "missed", quantity: { logged: 3, target: 8, unit: "glasses" } }),
+    );
+    expect(result.habitsByDay["2026-06-07"][0]).toEqual(
+      expect.objectContaining({ status: "missed", quantity: { logged: 0, target: 8, unit: "glasses" } }),
+    );
+  });
+});

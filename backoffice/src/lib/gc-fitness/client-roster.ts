@@ -1126,6 +1126,8 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
       const billing = billingByClient.get(c.uid);
       // #535 — surfaced on the roster card / list (payment chip + sort + filter).
       const rosterBilling = toRosterBilling(billing, today);
+      // gc-fitness #1697 — the «Aviso de pago» on the row needs the whole billing.
+      if (rosterBilling && billing) rosterBilling.view = billing;
       const billingOverdue = rosterBilling?.state === "overdue";
       const attention = isPending
         ? { needsAttention: false, reasons: [] as AttentionReason[] }

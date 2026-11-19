@@ -6,6 +6,7 @@
 import { useTranslations } from "next-intl";
 import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 
+import { PaymentNoticeButton } from "@/app/gc-fitness/payments/_components/PaymentNoticeButton";
 import { PaymentStatusChip, usePaymentLabels } from "@/app/gc-fitness/payments/_components/payment-labels";
 import type { ClientRosterRow } from "@/lib/gc-fitness/client-roster";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,10 @@ export function RosterPayment({ row, compact = false }: { row: ClientRosterRow; 
     >
       <PaymentStatusChip state={billing?.state ?? "none"} />
       {detail ? <span className="text-xs tabular-nums text-muted-foreground">{detail}</span> : null}
+      {/* gc-fitness #1697 — «Aviso de pago» right from the roster. */}
+      {billing?.view?.planId ? (
+        <PaymentNoticeButton clientId={row.uid} clientName={row.displayName} billing={billing.view} />
+      ) : null}
     </div>
   );
 }
