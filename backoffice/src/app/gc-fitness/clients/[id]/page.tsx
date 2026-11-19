@@ -65,6 +65,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { ClientHeader } from "./_components/ClientHeader";
+import { clientWeightUnits } from "@/lib/gc-fitness/weight-units";
 import { ClientSettingsDialog } from "./_components/ClientSettingsDialog";
 import { ClientNotesDialog } from "./_components/ClientNotesDialog";
 import { ClientRequestRow } from "./_components/ClientRequestRow";
@@ -196,6 +197,7 @@ export default async function ClientDetailPage({
     timezone?: string;
     heightCm?: number;
     bodyWeightKg?: number;
+    preferences?: unknown;
     progressPhotosRequestedAt?: unknown;
     bodyWeightRequestedAt?: unknown;
     inviteEmailStatus?: string;
@@ -411,7 +413,7 @@ export default async function ClientDetailPage({
       span: "half",
       node: showsChart("personalRecords") ? (
         <Suspense fallback={<WidgetSkeleton title={tSkeleton("personalRecords")} />}>
-          <PersonalRecordsWidget clientId={id} />
+          <PersonalRecordsWidget clientId={id} weightUnits={clientWeightUnits(client)} />
         </Suspense>
       ) : null,
     },
@@ -473,6 +475,7 @@ export default async function ClientDetailPage({
         birthDate={client.birthDate ?? null}
         heightCm={typeof client.heightCm === "number" ? client.heightCm : null}
         bodyWeightKg={latestBodyWeightKg}
+        weightUnits={clientWeightUnits(client)}
         appDevices={appDevices}
         settingsSlot={
           <ClientSettingsDialog

@@ -7,6 +7,7 @@
 // list — no extra fetches.
 
 import { useMemo, useState } from "react";
+import { coachLoadText, type WeightUnits } from "@/lib/gc-fitness/weight-units";
 import { useLocale } from "next-intl";
 import { Trophy } from "lucide-react";
 
@@ -43,9 +44,12 @@ function formatMuscleGroup(group: string): string {
 function recordValue(
   snap: { weightKg: number; reps: number; durationSeconds: number | null },
   metric: "reps" | "time",
+  weightUnits: WeightUnits,
+  locale: string,
 ): string {
   if (metric === "time" && snap.durationSeconds != null) return `${snap.durationSeconds}s`;
-  if (snap.weightKg > 0) return `${snap.weightKg} kg × ${snap.reps}`;
+  // gc-fitness #1646 — never the raw wire value (an lb client stores 61.235 kg).
+  if (snap.weightKg > 0) return `${coachLoadText(snap.weightKg, weightUnits, locale)} × ${snap.reps}`;
   return `${snap.reps} reps`;
 }
 
@@ -69,9 +73,12 @@ function formatAgo(ms: number | null, locale: string, noDate: string): string {
 export function PersonalRecordsClient({
   records,
   labels,
+  weightUnits = "kg",
 }: {
   records: PersonalRecordEntry[];
   labels: PersonalRecordsLabels;
+  /** gc-fitness #1646 — the client's units; lb adds the pounds the client saw. */
+  weightUnits?: WeightUnits;
 }) {
   const locale = useLocale();
   const [muscleGroup, setMuscleGroup] = useState<string>("all");
@@ -173,7 +180,7 @@ export function PersonalRecordsClient({
               <div className="shrink-0 text-right">
                 <p className="flex items-center justify-end gap-1 font-semibold">
                   <Trophy className="h-3.5 w-3.5 text-warning" />
-                  {recordValue(r.current, r.metric)}
+                  {recordValue(r.current, r.metric, weightUnits, locale)}
                 </p>
                 {r.metric === "reps" && r.current.estimatedOneRM > 0 ? (
                   <p className="text-xs text-muted-foreground">
@@ -192,7 +199,7 @@ export function PersonalRecordsClient({
               <p className="mt-1.5 border-t border-dashed border-border pt-1.5 text-xs text-muted-foreground">
                 {labels.previousLabel.replace(
                   "{value}",
-                  recordValue(r.previous, r.metric),
+                  recordValue(r.previous, r.metric, weightUnits, locale),
                 )}
               </p>
             ) : null}
