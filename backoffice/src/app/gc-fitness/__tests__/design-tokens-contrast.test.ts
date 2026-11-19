@@ -130,6 +130,66 @@ describe.each(Object.entries(THEMES))("coach portal tokens — %s theme", (_them
   });
 });
 
+/**
+ * gc-fitness #1637 — the BASE shadcn pairs (text on its surface, label on its fill), in both
+ * themes, for the coach portal skin AND the Pocket Genes root theme it inherits from. Before:
+ * Pocket Genes light 4.0 (white on #007aff, and the blue as text), muted 4.1, destructive 4.2,
+ * eyebrow 3.4; coach portal light 2.7 (white on the gold, the gold as text), destructive 3.6.
+ */
+const PG_DARK = block(':root[data-theme="dark"]');
+const PG_LIGHT = block(':root[data-theme="light"]');
+const SKINS = {
+  "pocket genes dark": { vars: PG_DARK, canvas: [0, 0, 0, 1] as RGBA },
+  "pocket genes light": { vars: PG_LIGHT, canvas: [255, 255, 255, 1] as RGBA },
+  "coach portal dark": { vars: { ...PG_DARK, ...dark }, canvas: [0, 0, 0, 1] as RGBA },
+  "coach portal light": { vars: { ...PG_LIGHT, ...light }, canvas: [255, 255, 255, 1] as RGBA },
+};
+
+/** [text token, surface token]. A translucent surface is composited over the background. */
+const BASE_PAIRS: Array<[string, string]> = [
+  ["foreground", "background"],
+  ["foreground", "card"],
+  ["card-foreground", "card"],
+  ["popover-foreground", "popover"],
+  ["primary-foreground", "primary"],
+  ["secondary-foreground", "secondary"],
+  ["muted-foreground", "muted"],
+  ["muted-foreground", "background"],
+  ["muted-foreground", "card"],
+  ["accent-foreground", "accent"],
+  ["destructive", "background"],
+  ["destructive", "card"],
+  ["sidebar-foreground", "sidebar"],
+  ["sidebar-primary-foreground", "sidebar-primary"],
+  ["eyebrow", "background"],
+  ...["brand", "secondary", "success", "warning", "rose", "destructive", "outline", "violet"].map(
+    (b) => [`badge-${b}-fg`, `badge-${b}-bg`] as [string, string],
+  ),
+];
+
+describe.each(Object.entries(SKINS))("base token pairs — %s", (skin, { vars, canvas }) => {
+  const c = (name: string) => parse(resolve(vars, `--${name}`));
+  const background = over(c("background"), canvas);
+  const surface = (name: string) => (name === "background" ? background : over(c(name), background));
+
+  it.each(BASE_PAIRS)("%s on %s is AA", (fg, bg) => {
+    const back = surface(bg);
+    expectAtLeast(`${skin}: ${fg} on ${bg}`, contrast(over(c(fg), back), back), 4.5);
+  });
+
+  it("the primary colour as TEXT is AA on the canvas and on cards", () => {
+    // The coach portal reads `text-primary` through `--primary-text`; Pocket Genes uses
+    // `--primary` itself.
+    const text = vars["--primary-text"] ? c("primary-text") : c("primary");
+    expectAtLeast(`${skin}: primary text on background`, contrast(text, background), 4.5);
+    expectAtLeast(`${skin}: primary text on card`, contrast(text, surface("card")), 4.5);
+  });
+});
+
+it("the coach portal's text-primary reads the AA text gold", () => {
+  expect(css).toMatch(/\.gc-fitness-theme \.text-primary \{\s*color: var\(--primary-text\);\s*\}/);
+});
+
 it("every token used by the portal is exposed to Tailwind (@theme inline)", () => {
   for (const name of [...TONES.flatMap((t) => [t, `${t}-foreground`, `${t}-soft`]), ...CATEGORIES]) {
     expect(css).toContain(`--color-${name}: var(--${name});`);

@@ -2,7 +2,8 @@ import Link from "next/link";
 import { CalendarPlus, CheckCircle2 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -11,7 +12,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
-import type { UnassignedClientRow } from "@/lib/gc-fitness/coach-attention-actions";
+
+/** A client with nothing assigned in the next 4 days (from the roster's `nothingAssigned`, #535). */
+export interface UnassignedClientRow {
+  uid: string;
+  displayName: string;
+  photoURL: string | null;
+}
 
 interface Props {
   rows: UnassignedClientRow[];
@@ -59,9 +66,13 @@ export async function UnassignedClientsCard({ rows, truncated = false, scanned =
           <ul className="flex flex-col gap-1.5">
             {rows.map((row) => (
               <li key={row.uid}>
+                {/* #535 — `clientIds` (plural) is what the schedule reads; `clientId`
+                    opened an empty calendar. The CTA is a styled span, not a
+                    <button> nested inside the link. */}
                 <Link
-                  href={`/gc-fitness/schedule?clientId=${row.uid}`}
-                  className="flex items-center justify-between gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-muted"
+                  href={`/gc-fitness/schedule?clientIds=${encodeURIComponent(row.uid)}`}
+                  className="flex min-h-12 items-center justify-between gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  data-testid="unassigned-soon-row"
                 >
                   <span className="flex min-w-0 items-center gap-3">
                     <ClientAvatar name={row.displayName} photoURL={row.photoURL} />
@@ -69,14 +80,11 @@ export async function UnassignedClientsCard({ rows, truncated = false, scanned =
                       {row.displayName}
                     </span>
                   </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-full"
-                    tabIndex={-1}
+                  <span
+                    className={cn(buttonVariants({ variant: "outline", size: "sm" }), "rounded-full")}
                   >
                     {t("unassignedSoonAssignCta")}
-                  </Button>
+                  </span>
                 </Link>
               </li>
             ))}

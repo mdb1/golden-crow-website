@@ -30,6 +30,7 @@ import {
 } from "@/lib/gc-fitness/auth-helpers";
 import { adminCanViewClientUnderCoach } from "@/lib/gc-fitness/coachless-user-model";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
+import { readClientUserDoc } from "@/lib/gc-fitness/client-doc-read";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import { civilDateFormat, civilDateToday } from "@/lib/gc-fitness/civil-date";
 import { effectiveSetType, type SetType } from "@/lib/gc-fitness/set-type";
@@ -209,14 +210,11 @@ export async function getClientExerciseProgress(
   timezone: string,
 ): Promise<ClientExerciseProgress> {
   const trainer: CurrentTrainer = await getCurrentTrainer();
-  const db = gcFitnessFirestore();
 
   // Ownership gate at the query layer — only read this client's logs when the
   // logged-in trainer owns them (the page already verifies coachId too).
-  const clientSnap = await db
-    .collection(FirestoreCollections.users)
-    .doc(clientId)
-    .get();
+  // #535 — same request-scoped read as the page's gate.
+  const clientSnap = await readClientUserDoc(clientId);
   if (!clientSnap.exists || clientSnap.get("coachId") !== trainer.uid) {
     return emptyExerciseProgress(clientId, timezone);
   }

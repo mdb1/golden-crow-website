@@ -11,6 +11,7 @@ import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { countOpenReports } from "@/lib/gc-fitness/moderation-actions";
 import { AdminActionForm } from "./_components/admin-action-form";
 import { AdminSubmitButton } from "./_components/admin-submit-button";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -76,6 +77,7 @@ export default async function AdminPage({
   const tUsage = await getTranslations("usageAdmin");
   const t = await getTranslations("admin.home");
   const tc = await getTranslations("admin.common");
+  const tcd = await getTranslations("admin.coachDetail");
   const actionMessage = op && ok === "1" ? tc("actionCompleted", { op }) : null;
 
   return (
@@ -229,6 +231,12 @@ export default async function AdminPage({
                       <Link href={`/gc-fitness/admin/coaches/${coach.uid}`} className="font-medium underline underline-offset-2">
                         {coach.displayName || "—"}
                       </Link>
+                      {/* #541 — `coachDisabled` was loaded into every row and never shown. */}
+                      {coach.coachDisabled ? (
+                        <Badge variant="destructive" className="ml-2" data-testid={`coach-disabled-${coach.uid}`}>
+                          {tcd("access.disabledBadge")}
+                        </Badge>
+                      ) : null}
                       <div className="text-xs text-muted-foreground">{coach.email}</div>
                     </TableCell>
                     <TableCell className="font-mono text-xs">{coach.uid}</TableCell>

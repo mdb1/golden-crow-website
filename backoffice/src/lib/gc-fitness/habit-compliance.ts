@@ -77,6 +77,11 @@ export interface HabitLogRow {
   civilDate: string; // "YYYY-MM-DD"
   value: boolean;
   unit?: string;
+  /**
+   * gc-fitness#1648 — the day's amount of a quantity habit (display only). Compliance NEVER reads
+   * it: `value` stays the done bit (the apps stamp it as `quantity >= quantityTarget`).
+   */
+  quantity?: number;
   loggedAt?: string; // ISO 8601 when the log was tapped (optional in compliance math)
   deleted?: boolean;
   createdAt?: string;

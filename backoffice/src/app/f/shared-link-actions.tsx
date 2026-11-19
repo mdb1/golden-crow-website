@@ -32,13 +32,13 @@
  * de Instagram. Se dice acá en vez de sugerir una cobertura que no existe.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 
-import { APP_STORE_URL, PLAY_STORE_URL } from "@/lib/gc-fitness/social-share-link";
+import { APP_STORE_URL, playStoreUrlWithReferrer } from "@/lib/gc-fitness/social-share-link";
 
 type Platform = "ios" | "android" | "other";
 
-interface Environment {
+export interface Environment {
   platform: Platform;
   /** Un navegador embebido (Instagram, Facebook, TikTok…). */
   inAppBrowser: boolean;
@@ -62,6 +62,37 @@ function detect(): Environment {
   return { platform, inAppBrowser };
 }
 
+/**
+ * El botón de la tienda: a dónde va y si copia el link antes (#1643). Pura, para
+ * testearla sin un navegador.
+ *
+ * - Android: la URL `https` de Play con `referrer=gcf_link=…`, TAMBIÉN adentro de un
+ *   web view — sigue siendo `https` (la lección de #782 es no usar `market://`), y el
+ *   `referrer` viaja igual cuando la página de Play abre la app de Play.
+ * - iOS fuera de un web view: el App Store, copiando el link primero (no hay
+ *   `referrer` en iOS). Adentro del web view esta función no se usa: ahí no hay botón.
+ * - Escritorio: el App Store pelado, sin copiar (nadie instala desde ahí).
+ */
+export function storeLink(
+  environment: Environment,
+  webUrl: string | null,
+): { href: string; copiesLinkFirst: boolean } {
+  if (environment.platform === "android") {
+    return { href: playStoreUrlWithReferrer(webUrl), copiesLinkFirst: false };
+  }
+  return {
+    href: APP_STORE_URL,
+    copiesLinkFirst: environment.platform === "ios" && !environment.inAppBrowser && !!webUrl,
+  };
+}
+
+/** La navegación a la tienda, en un objeto para que el test la observe (jsdom no deja tocar `location`). */
+export const storeNavigation = {
+  go(url: string) {
+    window.location.assign(url);
+  },
+};
+
 interface SharedLinkActionsProps {
   /** `gcfitness://…` — "Abrir en Corvo". `null` esconde el botón. */
   appUrl: string | null;
@@ -80,7 +111,28 @@ export function SharedLinkActions({ appUrl, webUrl }: SharedLinkActionsProps) {
   // neutro y la detección ocurre en el cliente.
   useEffect(() => setEnvironment(detect()), []);
 
-  const storeUrl = environment.platform === "android" ? PLAY_STORE_URL : APP_STORE_URL;
+  const { href: storeUrl, copiesLinkFirst } = storeLink(environment, webUrl);
+
+  /**
+   * #1643 — en iOS el link se pierde al pasar por el App Store (no hay `referrer`).
+   * Se copia al portapapeles ANTES de ir a la tienda, y la app recién instalada le
+   * ofrece pegarlo una vez (`PasteButton`, sin el aviso de pegado). Best effort: sin
+   * permiso o si el portapapeles cuelga, se va a la tienda igual, a lo sumo 800 ms tarde.
+   */
+  function goToStoreCopyingLink(event: MouseEvent<HTMLAnchorElement>) {
+    if (!copiesLinkFirst || !webUrl) return;
+    event.preventDefault();
+    let write: Promise<unknown>;
+    try {
+      write = navigator.clipboard?.writeText(webUrl) ?? Promise.resolve();
+    } catch {
+      write = Promise.resolve();
+    }
+    const timeout = new Promise((resolve) => setTimeout(resolve, 800));
+    void Promise.race([write.catch(() => undefined), timeout]).then(() => {
+      storeNavigation.go(storeUrl);
+    });
+  }
 
   async function copyLink() {
     if (!webUrl) return;
@@ -122,14 +174,23 @@ export function SharedLinkActions({ appUrl, webUrl }: SharedLinkActionsProps) {
           </button>
         </div>
       ) : (
-        <a
-          href={storeUrl}
-          className="rounded-xl border border-neutral-300 px-4 py-3 text-center text-sm font-semibold"
-        >
-          {environment.platform === "android"
-            ? "Descargar en Google Play"
-            : "Descargar en el App Store"}
-        </a>
+        <>
+          <a
+            href={storeUrl}
+            onClick={goToStoreCopyingLink}
+            className="rounded-xl border border-neutral-300 px-4 py-3 text-center text-sm font-semibold"
+          >
+            {environment.platform === "android"
+              ? "Descargar en Google Play"
+              : "Descargar en el App Store"}
+          </a>
+          {copiesLinkFirst ? (
+            <p className="text-xs text-neutral-500">
+              Al tocar, copiamos este link: cuando abras Corvo por primera vez, pegalo
+              para volver acá.
+            </p>
+          ) : null}
+        </>
       )}
     </div>
   );

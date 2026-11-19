@@ -73,6 +73,11 @@ describe("periods", () => {
     expect(p.workouts).toBe(8);
     expect(p.corvoMessages).toBe(10);
     expect(p.acceptance).toBeCloseTo(4 / 6);
+    // #541 — the fixture day has 1 purchase and no renewals / cancellations / expirations.
+    expect(p.premiumPurchases).toBe(2);
+    expect(p.premiumRenewals).toBe(0);
+    expect(p.premiumCancellations).toBe(0);
+    expect(p.premiumExpirations).toBe(0);
   });
 
   it("delta: null without previous data or with 0", () => {

@@ -13,6 +13,7 @@
 import { getCurrentAdmin, getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 import { adminCanViewClientUnderCoach } from "@/lib/gc-fitness/coachless-user-model";
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
+import { readClientUserDoc } from "@/lib/gc-fitness/client-doc-read";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
 import {
   buildPersonalRecords,
@@ -48,12 +49,9 @@ export async function listClientPersonalRecords(
   clientId: string,
 ): Promise<ClientPersonalRecords> {
   const trainer = await getCurrentTrainer();
-  const db = gcFitnessFirestore();
 
-  const clientSnap = await db
-    .collection(FirestoreCollections.users)
-    .doc(clientId)
-    .get();
+  // #535 — same request-scoped read as the page's gate.
+  const clientSnap = await readClientUserDoc(clientId);
   if (!clientSnap.exists || clientSnap.get("coachId") !== trainer.uid) {
     return { clientId, records: [] };
   }

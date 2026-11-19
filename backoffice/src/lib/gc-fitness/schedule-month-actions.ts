@@ -42,6 +42,12 @@ import type { HabitType } from "./habit-schema";
 // set_type-only warmup must be skipped like an is_warmup one).
 import { effectiveSetType } from "./set-type";
 import { isHabitArchivedOn, effectiveIsoWeekdays } from "./habit-schedule";
+import {
+  habitQuantityTarget,
+  habitQuantityUnit,
+  sanitizedQuantity,
+  type HabitQuantityUnit,
+} from "./habit-quantity";
 import { chunkList, mapInBatches } from "./map-in-batches";
 
 const ASSIGNMENTS = FirestoreCollections.workoutAssignments;
@@ -134,6 +140,11 @@ export interface MonthHabitChip {
   clientOwned: boolean;
   /** gc-fitness#1504 — authored by a former coach of this client (see the workout chip). */
   inherited: boolean;
+  /**
+   * gc-fitness#1648 — set only for a quantity habit: the day's logged amount (0 when nothing
+   * live was logged) against its target, rendered as "3 / 8 vasos". Status stays binary.
+   */
+  quantity?: { logged: number; target: number; unit: HabitQuantityUnit };
 }
 
 export interface MonthCalendarPayload {
@@ -1030,7 +1041,15 @@ async function loadMonthForClients(
   const habitsByClient = new Map<string, Array<Record<string, unknown>>>();
   const habitMetaById = new Map<
     string,
-    { name: string; type: HabitType; targetValue: number | undefined; clientOwned: boolean; inherited: boolean }
+    {
+      name: string;
+      type: HabitType;
+      targetValue: number | undefined;
+      clientOwned: boolean;
+      inherited: boolean;
+      quantityTarget: number | null;
+      quantityUnit: HabitQuantityUnit;
+    }
   >();
   for (const doc of habitDocs) {
     const data = doc.data() as Record<string, unknown>;
@@ -1058,6 +1077,8 @@ async function loadMonthForClients(
         typeof data.targetValue === "number" ? (data.targetValue as number) : undefined,
       clientOwned: data.clientOwned === true,
       inherited: assignedBy(data, { coachId: input.viewerUid }) === "former",
+      quantityTarget: habitQuantityTarget(data.quantityTarget),
+      quantityUnit: habitQuantityUnit(data.quantityUnit),
     });
   }
 
@@ -1088,6 +1109,7 @@ async function loadMonthForClients(
         civilDate: civil,
         value: coerceLegacyHabitLogValue(data.value),
         unit: typeof data.unit === "string" ? data.unit : undefined,
+        ...(typeof data.quantity === "number" ? { quantity: data.quantity } : {}),
         deleted: data.deleted === true,
       };
       let byCivil = logByCivilByHabit.get(habitId);
@@ -1131,6 +1153,15 @@ async function loadMonthForClients(
           status,
           clientOwned: meta.clientOwned,
           inherited: meta.inherited,
+          ...(meta.quantityTarget !== null
+            ? {
+                quantity: {
+                  logged: log && log.deleted !== true ? sanitizedQuantity(log.quantity) : 0,
+                  target: meta.quantityTarget,
+                  unit: meta.quantityUnit,
+                },
+              }
+            : {}),
         });
       }
     }

@@ -42,6 +42,7 @@
 //   layer P06-03 + this schema both enforce that immutability).
 
 import { z } from "zod";
+import { HABIT_QUANTITY_MAX_TARGET, HABIT_QUANTITY_UNITS } from "./habit-quantity";
 
 // HabitType enum — binary-only. Mirrors the now-collapsed Swift `HabitType`
 // enum. Locked in `habits.md`.
@@ -133,6 +134,25 @@ const habitBaseShape = z.object({
     )
     .optional(),
   reminderEnabled: z.boolean(),
+  // gc-fitness#1648 — OPTIONAL daily amount (8 vasos / 10.000 pasos). The habit
+  // stays binary: the day is done when the log's `value` is true, which the apps
+  // stamp as `quantity >= quantityTarget`. Bounds mirror firestore.rules
+  // `validHabitQuantity` + `HabitQuantity.target` (habit-quantity.ts).
+  quantityTarget: z.preprocess(
+    (value) =>
+      value === null || value === "" || (typeof value === "number" && Number.isNaN(value))
+        ? undefined
+        : typeof value === "string"
+          ? Number(value)
+          : value,
+    z
+      .number()
+      .int("The daily target must be a whole number.")
+      .min(1, "The daily target must be between 1 and 100,000.")
+      .max(HABIT_QUANTITY_MAX_TARGET, "The daily target must be between 1 and 100,000.")
+      .optional(),
+  ),
+  quantityUnit: z.enum(HABIT_QUANTITY_UNITS).optional(),
   reminderCadence: z.enum(["daily", "weekly", "monthly"]).optional(),
   reminderWeekdays: z
     .array(z.number().int().min(1).max(7))

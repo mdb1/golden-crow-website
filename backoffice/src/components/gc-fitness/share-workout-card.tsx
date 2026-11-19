@@ -63,6 +63,58 @@ const FONT_STACK =
 const CANVAS_WIDTH = 1080;
 const CANVAS_MIN_HEIGHT = 1350;
 
+/**
+ * gc-fitness #1697 — the SAME palette, canvas and backdrop for every share image the
+ * backoffice draws (the «Aviso de pago» card reuses them instead of a second design).
+ */
+export const SHARE_CARD_STYLE = {
+  BG,
+  ACCENT,
+  STAT_NUMBER,
+  SURFACE,
+  CARD_BORDER,
+  DIVIDER,
+  TEXT_PRIMARY,
+  TEXT_SECONDARY,
+  LABEL_GRAY,
+  FONT_STACK,
+  CANVAS_WIDTH,
+  CANVAS_MIN_HEIGHT,
+  /** Black base + vertical lift + amber radial glow behind the header. */
+  backgroundImage: [
+    `radial-gradient(640px 640px at 50% 22%, rgba(217,164,65,0.18), transparent 70%)`,
+    `linear-gradient(to bottom, rgba(255,255,255,0.04), ${BG})`,
+  ].join(", "),
+  logoDataUri: GOLDENCROW_LOGO_DATA_URI,
+} as const;
+
+/**
+ * gc-fitness #1697 — the capture step of this pipeline as a function: decode the inline logo,
+ * measure the laid-out node (dynamic height, ≥ the minimum canvas) and rasterize it at 1080
+ * wide with `html-to-image`, exactly like `ShareCardRenderer.handleShare` does.
+ */
+export async function rasterizeShareCardNode(
+  node: HTMLElement,
+  format: "png" | "jpeg" = "png",
+): Promise<{ dataUrl: string; width: number; height: number }> {
+  const { toPng, toJpeg } = await import("html-to-image");
+  const logoImg = node.querySelector("img");
+  if (logoImg) {
+    try {
+      await logoImg.decode();
+    } catch {
+      /* decode unsupported / already decoded — proceed */
+    }
+  }
+  const height = Math.max(CANVAS_MIN_HEIGHT, Math.ceil(node.scrollHeight));
+  const options = { pixelRatio: 1, width: CANVAS_WIDTH, height };
+  const dataUrl =
+    format === "jpeg"
+      ? await toJpeg(node, { ...options, quality: 0.92, backgroundColor: BG })
+      : await toPng(node, options);
+  return { dataUrl, width: CANVAS_WIDTH, height };
+}
+
 interface Chip {
   /** Pre-formatted chip text ("50 kg × 8" / "45s" / "20"). */
   value: string;
@@ -127,6 +179,16 @@ export interface ShareCardModel {
   downloadFileName: string;
   /** Title passed to navigator.share (the workout/template name). */
   shareTitle: string;
+  /**
+   * gc-fitness #1696 — accent caption above the body (e.g. «La recomendación de Corvo»).
+   * Shown when there are exercise rows or a `note`. Optional: the workout variants omit it.
+   */
+  rowsCaption?: string | null;
+  /**
+   * gc-fitness #1696 — one paragraph after the rows, drawn in the exercise-card surface style
+   * (the «Imagen del mes» recommendation). Optional: the workout variants omit it.
+   */
+  note?: string | null;
 }
 
 /** Up-to-1-decimal, trailing-zero-trimmed kg string ("50", "72.5"). */
@@ -777,6 +839,17 @@ export function ShareAssignmentCard({
   return <ShareCardRenderer model={buildAssignmentModel(assignment, t)} t={t} />;
 }
 
+/**
+ * gc-fitness #1696 — «Imagen del mes» of the coach's billing: the SAME renderer and capture path
+ * as the workout cards (no second image engine). The model comes from
+ * `buildBillingMonthShareModel` (billing-month-share.ts): Corvo's headline and recommendation,
+ * the portal's own numbers.
+ */
+export function ShareBillingMonthCard({ model }: { model: ShareCardModel }) {
+  const t = useTranslations("recentLogs.workoutDetail");
+  return <ShareCardRenderer model={model} t={t} />;
+}
+
 // ---------------------------------------------------------------------------
 // Renderer — ONE hidden 1080-wide node + capture path for both variants
 // ---------------------------------------------------------------------------
@@ -1101,6 +1174,22 @@ function ShareCardRenderer({
             style={{ height: 1, backgroundColor: DIVIDER, margin: "36px 0" }}
           />
 
+          {/* #1696 — caption over the body (shown when there is something under it). */}
+          {model.rowsCaption && (model.exercises.length > 0 || model.note) ? (
+            <div
+              style={{
+                fontSize: 24,
+                fontWeight: 600,
+                letterSpacing: 3,
+                textTransform: "uppercase",
+                color: ACCENT,
+                marginBottom: 16,
+              }}
+            >
+              {model.rowsCaption}
+            </div>
+          ) : null}
+
           {/* Body — exercise cards (complete routine, no cap) */}
           <div
             style={{
@@ -1123,6 +1212,24 @@ function ShareCardRenderer({
                 ))
               ),
             )}
+            {/* #1696 — the note, in the same surface as an exercise card. */}
+            {model.note ? (
+              <div
+                data-share-note=""
+                style={{
+                  backgroundColor: SURFACE,
+                  border: `1px solid ${CARD_BORDER}`,
+                  borderRadius: 24,
+                  padding: "28px 32px",
+                  fontSize: 34,
+                  fontWeight: 500,
+                  lineHeight: 1.35,
+                  color: TEXT_PRIMARY,
+                }}
+              >
+                {model.note}
+              </div>
+            ) : null}
           </div>
 
           {/* Footer band */}

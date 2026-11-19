@@ -277,6 +277,21 @@
       "params": "arg"
     },
     {
+      "file": "src/lib/gc-fitness/billing-ai-actions.ts",
+      "export": "getBillingAIState",
+      "params": ""
+    },
+    {
+      "file": "src/lib/gc-fitness/billing-ai-actions.ts",
+      "export": "runBillingAI",
+      "params": "arg"
+    },
+    {
+      "file": "src/lib/gc-fitness/billing-dashboard-actions.ts",
+      "export": "getBillingDashboardData",
+      "params": ""
+    },
+    {
       "file": "src/lib/gc-fitness/chat-server-actions.ts",
       "export": "deleteTrainerChatMessage",
       "params": "arg"
@@ -400,11 +415,6 @@
       "file": "src/lib/gc-fitness/coach-ai-summary-actions.ts",
       "export": "loadCoachWeeklySummary",
       "params": "arg"
-    },
-    {
-      "file": "src/lib/gc-fitness/coach-attention-actions.ts",
-      "export": "listClientsWithNothingAssignedSoon",
-      "params": ""
     },
     {
       "file": "src/lib/gc-fitness/coach-broadcast-actions.ts",
@@ -852,6 +862,16 @@
       "params": "arg, arg"
     },
     {
+      "file": "src/lib/gc-fitness/payment-details-actions.ts",
+      "export": "getCoachPaymentDetails",
+      "params": ""
+    },
+    {
+      "file": "src/lib/gc-fitness/payment-details-actions.ts",
+      "export": "updateCoachPaymentDetails",
+      "params": "arg"
+    },
+    {
       "file": "src/lib/gc-fitness/payments-actions.ts",
       "export": "assignClientPlan",
       "params": "arg"
@@ -1162,5 +1182,11 @@
       "params": "arg, arg"
     }
   ],
-  "retired": []
+  "retired": [
+    {
+      "file": "src/lib/gc-fitness/coach-attention-actions.ts",
+      "export": "listClientsWithNothingAssignedSoon",
+      "since": "2026-11-18"
+    }
+  ]
 }

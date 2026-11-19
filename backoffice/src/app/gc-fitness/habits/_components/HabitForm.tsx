@@ -54,6 +54,11 @@ import {
   type HabitCreateInput,
 } from "@/lib/gc-fitness/habit-schema";
 import {
+  HABIT_QUANTITY_UNITS,
+  habitQuantityTarget,
+  habitQuantityUnit,
+} from "@/lib/gc-fitness/habit-quantity";
+import {
   addCivilMonths,
   END_DATE_PRESET_MONTHS,
   END_DATE_PRESET_WEEKS,
@@ -182,6 +187,12 @@ function buildDefaults(
     youtubeUrl: passed?.youtubeUrl,
     reminderTime: passed?.reminderTime,
     reminderEnabled: passed?.reminderEnabled ?? false,
+    // gc-fitness#1648 — the daily amount (absent ⇒ a plain yes/no habit).
+    quantityTarget: habitQuantityTarget(passed?.quantityTarget) ?? undefined,
+    quantityUnit:
+      habitQuantityTarget(passed?.quantityTarget) !== null
+        ? habitQuantityUnit(passed?.quantityUnit)
+        : undefined,
     reminderCadence: passed?.reminderCadence ?? "daily",
     reminderWeekdays: passed?.reminderWeekdays,
     reminderDayOfMonth: passed?.reminderDayOfMonth,
@@ -238,6 +249,11 @@ export function HabitForm({
       : // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (zodResolver(habitCreateSchema as any) as unknown as any);
   const initialDefaults = buildDefaults(defaultValues, mode);
+  // gc-fitness#1648 — "Cantidad diaria" toggle. Form-only state: the wire has
+  // no flag, a habit is a quantity habit iff it carries `quantityTarget`.
+  const [quantityEnabled, setQuantityEnabled] = useState(
+    initialDefaults.quantityTarget !== undefined,
+  );
 
   const form = useForm<HabitCreateInput>({
     resolver,
@@ -357,6 +373,17 @@ export function HabitForm({
   ]);
 
   const submit = form.handleSubmit((values) => {
+    const quantityTarget = quantityEnabled
+      ? habitQuantityTarget(
+          typeof values.quantityTarget === "string"
+            ? Number(values.quantityTarget)
+            : values.quantityTarget,
+        )
+      : null;
+    if (quantityEnabled && (quantityTarget === null || !Number.isInteger(Number(values.quantityTarget)))) {
+      form.setError("quantityTarget", { type: "manual", message: t("quantityTargetInvalid") });
+      return;
+    }
     startTransition(async () => {
       setSubmitError(null);
       try {
@@ -389,6 +416,12 @@ export function HabitForm({
         }
         if (values.reminderEnabled && values.reminderTime) {
           cleaned.reminderTime = values.reminderTime;
+        }
+        // gc-fitness#1648 — OFF sends neither field; `updateHabit` then
+        // deletes them from the doc.
+        if (quantityTarget !== null) {
+          cleaned.quantityTarget = quantityTarget;
+          cleaned.quantityUnit = habitQuantityUnit(values.quantityUnit ?? "glasses");
         }
         cleaned.endsOn =
           typeof values.endsOn === "string" && values.endsOn.trim().length > 0
@@ -910,6 +943,109 @@ export function HabitForm({
               />
               <p className="text-xs font-medium text-primary">
                 {t("schedulePreviewCount", { count: previewDates.length })}
+              </p>
+            </div>
+          ) : null}
+        </div>
+
+        {/* gc-fitness#1648 — optional daily amount (8 vasos / 10.000 pasos). */}
+        <div
+          className="flex flex-col gap-3 rounded-card border border-border bg-card p-5 shadow-sm"
+          data-testid="habit-quantity-section"
+        >
+          <FormItem className="flex flex-row items-center gap-3 space-y-0">
+            <FormControl>
+              <Checkbox
+                aria-label={t("quantityToggleLabel")}
+                data-testid="habit-quantity-toggle"
+                checked={quantityEnabled}
+                onCheckedChange={(v) => {
+                  const on = v === true;
+                  setQuantityEnabled(on);
+                  if (on) {
+                    if (form.getValues("quantityTarget") === undefined) {
+                      form.setValue("quantityTarget", 8);
+                    }
+                    if (form.getValues("quantityUnit") === undefined) {
+                      form.setValue("quantityUnit", "glasses");
+                    }
+                  } else {
+                    form.clearErrors("quantityTarget");
+                  }
+                }}
+              />
+            </FormControl>
+            <div className="flex flex-col">
+              <FormLabel className="cursor-pointer">{t("quantityToggleLabel")}</FormLabel>
+              <FormDescription>{t("quantityToggleHint")}</FormDescription>
+            </div>
+          </FormItem>
+
+          {quantityEnabled ? (
+            <div className="grid gap-3 md:grid-cols-3">
+              <FormField
+                control={form.control}
+                name="quantityTarget"
+                render={({ field }) => (
+                  <FormItem className="max-w-[10rem]">
+                    <FormLabel>{t("quantityTargetLabel")}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        inputMode="numeric"
+                        min={1}
+                        max={100000}
+                        step={1}
+                        data-testid="habit-quantity-target"
+                        value={field.value === undefined || field.value === null ? "" : String(field.value)}
+                        onChange={(e) =>
+                          field.onChange(e.target.value === "" ? undefined : Number(e.target.value))
+                        }
+                        onBlur={field.onBlur}
+                        name={field.name}
+                        ref={field.ref}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Controller
+                control={form.control}
+                name="quantityUnit"
+                render={({ field }) => (
+                  <FormItem className="md:col-span-2 max-w-[16rem]">
+                    <FormLabel>{t("quantityUnitLabel")}</FormLabel>
+                    <Select
+                      value={field.value ?? "glasses"}
+                      onValueChange={(v) => field.onChange(v)}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="habit-quantity-unit">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {HABIT_QUANTITY_UNITS.map((unit) => (
+                          <SelectItem key={unit} value={unit}>
+                            {unit === "glasses"
+                              ? t("quantityUnit.glasses")
+                              : unit === "steps"
+                                ? t("quantityUnit.steps")
+                                : unit === "minutes"
+                                  ? t("quantityUnit.minutes")
+                                  : t("quantityUnit.times")}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}
+              />
+              <p className="text-xs text-muted-foreground md:col-span-3">
+                {(form.watch("quantityUnit") ?? "glasses") === "steps"
+                  ? t("quantityStepsHint")
+                  : t("quantityDoneHint")}
               </p>
             </div>
           ) : null}

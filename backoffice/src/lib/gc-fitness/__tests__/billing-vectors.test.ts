@@ -8,7 +8,10 @@ import {
   applyPayment,
   consumeClass,
   defaultCovers,
+  formatBillingAmount,
+  noticeDueDate,
   recordEffect,
+  reminderText,
   revertPayment,
   status,
   voidEffect,
@@ -42,6 +45,18 @@ interface Vectors {
     previous: { paidCivil: string; amount: number } | null;
     expected: unknown;
   }[];
+  reminderText: {
+    name: string;
+    lang: "es" | "en";
+    coachName: string;
+    clientFirstName: string;
+    amount: number;
+    currency: string;
+    dueCivil: string | null;
+    paymentDetails: string | null;
+    expected: string;
+  }[];
+  noticeDueDate: { name: string; lang: "es" | "en"; civil: string; expected: string | null }[];
 }
 
 const v = vectors as unknown as Vectors;
@@ -85,5 +100,17 @@ describe("billing twin vectors (#1644)", () => {
 
   test.each(named(v.voidEffect))("voidEffect: %s", (_n, c) => {
     expect(voidEffect(c.billing, c.covers, c.previous)).toEqual(c.expected);
+  });
+
+  // #1697 — the words are the table's; `{money}` is this platform's own formatter.
+  test.each(named(v.reminderText))("reminderText: %s", (_n, c) => {
+    const money = formatBillingAmount(c.lang, c.amount, c.currency);
+    expect(
+      reminderText(c.lang, c.coachName, c.clientFirstName, c.amount, c.currency, c.dueCivil, c.paymentDetails),
+    ).toBe(c.expected.replace("{money}", money));
+  });
+
+  test.each(named(v.noticeDueDate))("noticeDueDate: %s", (_n, c) => {
+    expect(noticeDueDate(c.civil, c.lang)).toBe(c.expected);
   });
 });

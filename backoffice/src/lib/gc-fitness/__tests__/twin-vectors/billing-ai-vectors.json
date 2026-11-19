@@ -1,0 +1,1098 @@
+{
+  "_comment": "#1696 — THE billing-AI client case table (Swift CoachBillingAIVectorTests, Kotlin CoachBillingAIVectorTest, backoffice billing-ai-vectors.test.ts). `dashboard` indexes twin-vectors/billing-dashboard-vectors.json `dashboard[i]`: compute it, then payload(d) must equal `payload` (money |a-b|<0.005, churnRate 1e-9) and statValue(key,d) must equal `stats[key]`.",
+  "payload": [
+    {
+      "dashboard": 0,
+      "name": "sin pagos ni planes",
+      "payload": {
+        "month": "2026-11",
+        "previousMonth": "2026-10",
+        "currency": "ARS",
+        "current": {
+          "collected": 0,
+          "payments": 0,
+          "paying": 0,
+          "newClients": 0,
+          "churned": 0,
+          "avgTicket": null
+        },
+        "previous": {
+          "collected": 0,
+          "payments": 0,
+          "paying": 0,
+          "newClients": 0,
+          "churned": 0,
+          "avgTicket": null
+        },
+        "mrr": 0,
+        "recurringClients": 0,
+        "churnRate": null,
+        "statusCounts": {
+          "upToDate": 0,
+          "dueSoon": 0,
+          "overdue": 0
+        },
+        "byMethod": [],
+        "projections": [],
+        "series": [
+          {
+            "month": "2025-12",
+            "collected": 0
+          },
+          {
+            "month": "2026-01",
+            "collected": 0
+          },
+          {
+            "month": "2026-02",
+            "collected": 0
+          },
+          {
+            "month": "2026-03",
+            "collected": 0
+          },
+          {
+            "month": "2026-04",
+            "collected": 0
+          },
+          {
+            "month": "2026-05",
+            "collected": 0
+          },
+          {
+            "month": "2026-06",
+            "collected": 0
+          },
+          {
+            "month": "2026-07",
+            "collected": 0
+          },
+          {
+            "month": "2026-08",
+            "collected": 0
+          },
+          {
+            "month": "2026-09",
+            "collected": 0
+          },
+          {
+            "month": "2026-10",
+            "collected": 0
+          },
+          {
+            "month": "2026-11",
+            "collected": 0
+          }
+        ],
+        "otherCurrencies": []
+      },
+      "stats": {
+        "collected": {
+          "kind": "money",
+          "value": 0,
+          "currency": "ARS"
+        },
+        "collectedDelta": {
+          "kind": "none"
+        },
+        "mrr": {
+          "kind": "money",
+          "value": 0,
+          "currency": "ARS"
+        },
+        "paying": {
+          "kind": "count",
+          "value": 0
+        },
+        "newClients": {
+          "kind": "count",
+          "value": 0
+        },
+        "churned": {
+          "kind": "count",
+          "value": 0
+        },
+        "avgTicket": {
+          "kind": "none"
+        },
+        "projection3": {
+          "kind": "none"
+        },
+        "projection6": {
+          "kind": "none"
+        },
+        "projection12": {
+          "kind": "none"
+        }
+      }
+    },
+    {
+      "dashboard": 1,
+      "name": "una alumna mensual al día todo el año",
+      "payload": {
+        "month": "2026-11",
+        "previousMonth": "2026-10",
+        "currency": "ARS",
+        "current": {
+          "collected": 25000.0,
+          "payments": 1,
+          "paying": 1,
+          "newClients": 0,
+          "churned": 0,
+          "avgTicket": 25000.0
+        },
+        "previous": {
+          "collected": 25000.0,
+          "payments": 1,
+          "paying": 1,
+          "newClients": 0,
+          "churned": 0,
+          "avgTicket": 25000.0
+        },
+        "mrr": 25000.0,
+        "recurringClients": 1,
+        "churnRate": 0.0,
+        "statusCounts": {
+          "upToDate": 1,
+          "dueSoon": 0,
+          "overdue": 0
+        },
+        "byMethod": [
+          {
+            "method": "transfer",
+            "amount": 25000.0
+          }
+        ],
+        "projections": [
+          {
+            "months": 3,
+            "optimistic": 75000.0,
+            "expected": 75000.0,
+            "pessimistic": 70589.33
+          },
+          {
+            "months": 6,
+            "optimistic": 150000.0,
+            "expected": 150000.0,
+            "pessimistic": 135014.3
+          },
+          {
+            "months": 12,
+            "optimistic": 300000.0,
+            "expected": 300000.0,
+            "pessimistic": 247477.42
+          }
+        ],
+        "series": [
+          {
+            "month": "2025-12",
+            "collected": 25000.0
+          },
+          {
+            "month": "2026-01",
+            "collected": 25000.0
+          },
+          {
+            "month": "2026-02",
+            "collected": 25000.0
+          },
+          {
+            "month": "2026-03",
+            "collected": 25000.0
+          },
+          {
+            "month": "2026-04",
+            "collected": 25000.0
+          },
+          {
+            "month": "2026-05",
+            "collected": 25000.0
+          },
+          {
+            "month": "2026-06",
+            "collected": 25000.0
+          },
+          {
+            "month": "2026-07",
+            "collected": 25000.0
+          },
+          {
+            "month": "2026-08",
+            "collected": 25000.0
+          },
+          {
+            "month": "2026-09",
+            "collected": 25000.0
+          },
+          {
+            "month": "2026-10",
+            "collected": 25000.0
+          },
+          {
+            "month": "2026-11",
+            "collected": 25000.0
+          }
+        ],
+        "otherCurrencies": []
+      },
+      "stats": {
+        "collected": {
+          "kind": "money",
+          "value": 25000.0,
+          "currency": "ARS"
+        },
+        "collectedDelta": {
+          "kind": "delta",
+          "value": 0.0
+        },
+        "mrr": {
+          "kind": "money",
+          "value": 25000.0,
+          "currency": "ARS"
+        },
+        "paying": {
+          "kind": "count",
+          "value": 1
+        },
+        "newClients": {
+          "kind": "count",
+          "value": 0
+        },
+        "churned": {
+          "kind": "count",
+          "value": 0
+        },
+        "avgTicket": {
+          "kind": "money",
+          "value": 25000.0,
+          "currency": "ARS"
+        },
+        "projection3": {
+          "kind": "money",
+          "value": 75000.0,
+          "currency": "ARS"
+        },
+        "projection6": {
+          "kind": "money",
+          "value": 150000.0,
+          "currency": "ARS"
+        },
+        "projection12": {
+          "kind": "money",
+          "value": 300000.0,
+          "currency": "ARS"
+        }
+      }
+    },
+    {
+      "dashboard": 2,
+      "name": "mezcla: pack, vuelve, se cae con y sin plan, USD, clases, anulado, nuevo",
+      "payload": {
+        "month": "2026-11",
+        "previousMonth": "2026-10",
+        "currency": "ARS",
+        "current": {
+          "collected": 120000.0,
+          "payments": 5,
+          "paying": 5,
+          "newClients": 1,
+          "churned": 0,
+          "avgTicket": 30000.0
+        },
+        "previous": {
+          "collected": 115000.0,
+          "payments": 4,
+          "paying": 4,
+          "newClients": 0,
+          "churned": 0,
+          "avgTicket": 38333.33
+        },
+        "mrr": 98000.0,
+        "recurringClients": 5,
+        "churnRate": 0.0769,
+        "statusCounts": {
+          "upToDate": 6,
+          "dueSoon": 1,
+          "overdue": 3
+        },
+        "byMethod": [
+          {
+            "method": "cash",
+            "amount": 40000.0
+          },
+          {
+            "method": "transfer",
+            "amount": 50000.0
+          },
+          {
+            "method": "card",
+            "amount": 30000.0
+          }
+        ],
+        "projections": [
+          {
+            "months": 3,
+            "optimistic": 271958.92,
+            "expected": 251044.15,
+            "pessimistic": 231222.23
+          },
+          {
+            "months": 6,
+            "optimistic": 513729.41,
+            "expected": 448497.17,
+            "pessimistic": 391286.01
+          },
+          {
+            "months": 12,
+            "optimistic": 919737.23,
+            "expected": 725948.67,
+            "pessimistic": 578794.64
+          }
+        ],
+        "series": [
+          {
+            "month": "2025-12",
+            "collected": 68000.0
+          },
+          {
+            "month": "2026-01",
+            "collected": 128000.0
+          },
+          {
+            "month": "2026-02",
+            "collected": 98000.0
+          },
+          {
+            "month": "2026-03",
+            "collected": 68000.0
+          },
+          {
+            "month": "2026-04",
+            "collected": 128000.0
+          },
+          {
+            "month": "2026-05",
+            "collected": 50000.0
+          },
+          {
+            "month": "2026-06",
+            "collected": 50000.0
+          },
+          {
+            "month": "2026-07",
+            "collected": 85000.0
+          },
+          {
+            "month": "2026-08",
+            "collected": 55000.0
+          },
+          {
+            "month": "2026-09",
+            "collected": 95000.0
+          },
+          {
+            "month": "2026-10",
+            "collected": 115000.0
+          },
+          {
+            "month": "2026-11",
+            "collected": 120000.0
+          }
+        ],
+        "otherCurrencies": [
+          {
+            "currency": "USD",
+            "collected": 100.0,
+            "mrr": 100.0
+          }
+        ]
+      },
+      "stats": {
+        "collected": {
+          "kind": "money",
+          "value": 120000.0,
+          "currency": "ARS"
+        },
+        "collectedDelta": {
+          "kind": "delta",
+          "value": 0.043478260869565216
+        },
+        "mrr": {
+          "kind": "money",
+          "value": 98000.0,
+          "currency": "ARS"
+        },
+        "paying": {
+          "kind": "count",
+          "value": 5
+        },
+        "newClients": {
+          "kind": "count",
+          "value": 1
+        },
+        "churned": {
+          "kind": "count",
+          "value": 0
+        },
+        "avgTicket": {
+          "kind": "money",
+          "value": 30000.0,
+          "currency": "ARS"
+        },
+        "projection3": {
+          "kind": "money",
+          "value": 251044.15,
+          "currency": "ARS"
+        },
+        "projection6": {
+          "kind": "money",
+          "value": 448497.17,
+          "currency": "ARS"
+        },
+        "projection12": {
+          "kind": "money",
+          "value": 725948.67,
+          "currency": "ARS"
+        }
+      }
+    },
+    {
+      "dashboard": 3,
+      "name": "fin de mes y bisiesto (hoy 29 feb 2028)",
+      "payload": {
+        "month": "2028-02",
+        "previousMonth": "2028-01",
+        "currency": "ARS",
+        "current": {
+          "collected": 20000.0,
+          "payments": 1,
+          "paying": 1,
+          "newClients": 0,
+          "churned": 0,
+          "avgTicket": 20000.0
+        },
+        "previous": {
+          "collected": 40000.0,
+          "payments": 2,
+          "paying": 2,
+          "newClients": 0,
+          "churned": 0,
+          "avgTicket": 20000.0
+        },
+        "mrr": 20000.0,
+        "recurringClients": 1,
+        "churnRate": 0.0,
+        "statusCounts": {
+          "upToDate": 1,
+          "dueSoon": 0,
+          "overdue": 0
+        },
+        "byMethod": [
+          {
+            "method": "transfer",
+            "amount": 20000.0
+          }
+        ],
+        "projections": [
+          {
+            "months": 3,
+            "optimistic": 60000.0,
+            "expected": 60000.0,
+            "pessimistic": 56471.46
+          },
+          {
+            "months": 6,
+            "optimistic": 120000.0,
+            "expected": 120000.0,
+            "pessimistic": 108011.44
+          },
+          {
+            "months": 12,
+            "optimistic": 240000.0,
+            "expected": 240000.0,
+            "pessimistic": 197981.94
+          }
+        ],
+        "series": [
+          {
+            "month": "2027-03",
+            "collected": 20000.0
+          },
+          {
+            "month": "2027-04",
+            "collected": 20000.0
+          },
+          {
+            "month": "2027-05",
+            "collected": 20000.0
+          },
+          {
+            "month": "2027-06",
+            "collected": 20000.0
+          },
+          {
+            "month": "2027-07",
+            "collected": 20000.0
+          },
+          {
+            "month": "2027-08",
+            "collected": 20000.0
+          },
+          {
+            "month": "2027-09",
+            "collected": 20000.0
+          },
+          {
+            "month": "2027-10",
+            "collected": 20000.0
+          },
+          {
+            "month": "2027-11",
+            "collected": 20000.0
+          },
+          {
+            "month": "2027-12",
+            "collected": 40000.0
+          },
+          {
+            "month": "2028-01",
+            "collected": 40000.0
+          },
+          {
+            "month": "2028-02",
+            "collected": 20000.0
+          }
+        ],
+        "otherCurrencies": []
+      },
+      "stats": {
+        "collected": {
+          "kind": "money",
+          "value": 20000.0,
+          "currency": "ARS"
+        },
+        "collectedDelta": {
+          "kind": "delta",
+          "value": -0.5
+        },
+        "mrr": {
+          "kind": "money",
+          "value": 20000.0,
+          "currency": "ARS"
+        },
+        "paying": {
+          "kind": "count",
+          "value": 1
+        },
+        "newClients": {
+          "kind": "count",
+          "value": 0
+        },
+        "churned": {
+          "kind": "count",
+          "value": 0
+        },
+        "avgTicket": {
+          "kind": "money",
+          "value": 20000.0,
+          "currency": "ARS"
+        },
+        "projection3": {
+          "kind": "money",
+          "value": 60000.0,
+          "currency": "ARS"
+        },
+        "projection6": {
+          "kind": "money",
+          "value": 120000.0,
+          "currency": "ARS"
+        },
+        "projection12": {
+          "kind": "money",
+          "value": 240000.0,
+          "currency": "ARS"
+        }
+      }
+    },
+    {
+      "dashboard": 4,
+      "name": "mucha caída en los últimos 6 meses",
+      "payload": {
+        "month": "2026-11",
+        "previousMonth": "2026-10",
+        "currency": "ARS",
+        "current": {
+          "collected": 20000.0,
+          "payments": 1,
+          "paying": 1,
+          "newClients": 0,
+          "churned": 0,
+          "avgTicket": 20000.0
+        },
+        "previous": {
+          "collected": 20000.0,
+          "payments": 1,
+          "paying": 1,
+          "newClients": 0,
+          "churned": 1,
+          "avgTicket": 20000.0
+        },
+        "mrr": 20000.0,
+        "recurringClients": 1,
+        "churnRate": 0.2703,
+        "statusCounts": {
+          "upToDate": 1,
+          "dueSoon": 0,
+          "overdue": 0
+        },
+        "byMethod": [
+          {
+            "method": "transfer",
+            "amount": 20000.0
+          }
+        ],
+        "projections": [
+          {
+            "months": 3,
+            "optimistic": 45195.35,
+            "expected": 33016.41,
+            "pessimistic": 23167.04
+          },
+          {
+            "months": 6,
+            "optimistic": 74432.73,
+            "expected": 45846.09,
+            "pessimistic": 28037.09
+          },
+          {
+            "months": 12,
+            "optimistic": 105582.4,
+            "expected": 52768.77,
+            "pessimistic": 29276.05
+          }
+        ],
+        "series": [
+          {
+            "month": "2025-12",
+            "collected": 220000.0
+          },
+          {
+            "month": "2026-01",
+            "collected": 220000.0
+          },
+          {
+            "month": "2026-02",
+            "collected": 220000.0
+          },
+          {
+            "month": "2026-03",
+            "collected": 220000.0
+          },
+          {
+            "month": "2026-04",
+            "collected": 220000.0
+          },
+          {
+            "month": "2026-05",
+            "collected": 180000.0
+          },
+          {
+            "month": "2026-06",
+            "collected": 140000.0
+          },
+          {
+            "month": "2026-07",
+            "collected": 100000.0
+          },
+          {
+            "month": "2026-08",
+            "collected": 60000.0
+          },
+          {
+            "month": "2026-09",
+            "collected": 40000.0
+          },
+          {
+            "month": "2026-10",
+            "collected": 20000.0
+          },
+          {
+            "month": "2026-11",
+            "collected": 20000.0
+          }
+        ],
+        "otherCurrencies": []
+      },
+      "stats": {
+        "collected": {
+          "kind": "money",
+          "value": 20000.0,
+          "currency": "ARS"
+        },
+        "collectedDelta": {
+          "kind": "delta",
+          "value": 0.0
+        },
+        "mrr": {
+          "kind": "money",
+          "value": 20000.0,
+          "currency": "ARS"
+        },
+        "paying": {
+          "kind": "count",
+          "value": 1
+        },
+        "newClients": {
+          "kind": "count",
+          "value": 0
+        },
+        "churned": {
+          "kind": "count",
+          "value": 0
+        },
+        "avgTicket": {
+          "kind": "money",
+          "value": 20000.0,
+          "currency": "ARS"
+        },
+        "projection3": {
+          "kind": "money",
+          "value": 33016.41,
+          "currency": "ARS"
+        },
+        "projection6": {
+          "kind": "money",
+          "value": 45846.09,
+          "currency": "ARS"
+        },
+        "projection12": {
+          "kind": "money",
+          "value": 52768.77,
+          "currency": "ARS"
+        }
+      }
+    },
+    {
+      "dashboard": 5,
+      "name": "bordes: gracia 0 sin plan, pack con saldo abierto, vencimiento corrido a mano",
+      "payload": {
+        "month": "2026-11",
+        "previousMonth": "2026-10",
+        "currency": "ARS",
+        "current": {
+          "collected": 0,
+          "payments": 0,
+          "paying": 0,
+          "newClients": 0,
+          "churned": 0,
+          "avgTicket": null
+        },
+        "previous": {
+          "collected": 0,
+          "payments": 0,
+          "paying": 0,
+          "newClients": 0,
+          "churned": 0,
+          "avgTicket": null
+        },
+        "mrr": 25000.0,
+        "recurringClients": 1,
+        "churnRate": 0.0833,
+        "statusCounts": {
+          "upToDate": 2,
+          "dueSoon": 0,
+          "overdue": 0
+        },
+        "byMethod": [],
+        "projections": [
+          {
+            "months": 3,
+            "optimistic": 68921.8,
+            "expected": 63179.98,
+            "pessimistic": 57763.67
+          },
+          {
+            "months": 6,
+            "optimistic": 129582.36,
+            "expected": 111844.65,
+            "pessimistic": 96460.82
+          },
+          {
+            "months": 12,
+            "optimistic": 229961.96,
+            "expected": 178201.2,
+            "pessimistic": 139751.98
+          }
+        ],
+        "series": [
+          {
+            "month": "2025-12",
+            "collected": 0
+          },
+          {
+            "month": "2026-01",
+            "collected": 25000.0
+          },
+          {
+            "month": "2026-02",
+            "collected": 25000.0
+          },
+          {
+            "month": "2026-03",
+            "collected": 25000.0
+          },
+          {
+            "month": "2026-04",
+            "collected": 25000.0
+          },
+          {
+            "month": "2026-05",
+            "collected": 65000.0
+          },
+          {
+            "month": "2026-06",
+            "collected": 25000.0
+          },
+          {
+            "month": "2026-07",
+            "collected": 25000.0
+          },
+          {
+            "month": "2026-08",
+            "collected": 20000.0
+          },
+          {
+            "month": "2026-09",
+            "collected": 0
+          },
+          {
+            "month": "2026-10",
+            "collected": 0
+          },
+          {
+            "month": "2026-11",
+            "collected": 0
+          }
+        ],
+        "otherCurrencies": []
+      },
+      "stats": {
+        "collected": {
+          "kind": "money",
+          "value": 0,
+          "currency": "ARS"
+        },
+        "collectedDelta": {
+          "kind": "none"
+        },
+        "mrr": {
+          "kind": "money",
+          "value": 25000.0,
+          "currency": "ARS"
+        },
+        "paying": {
+          "kind": "count",
+          "value": 0
+        },
+        "newClients": {
+          "kind": "count",
+          "value": 0
+        },
+        "churned": {
+          "kind": "count",
+          "value": 0
+        },
+        "avgTicket": {
+          "kind": "none"
+        },
+        "projection3": {
+          "kind": "money",
+          "value": 63179.98,
+          "currency": "ARS"
+        },
+        "projection6": {
+          "kind": "money",
+          "value": 111844.65,
+          "currency": "ARS"
+        },
+        "projection12": {
+          "kind": "money",
+          "value": 178201.2,
+          "currency": "ARS"
+        }
+      }
+    }
+  ],
+  "quota": [
+    {
+      "usage": null,
+      "month": "2026-11",
+      "expected": {
+        "analysis": 0,
+        "card": 0
+      }
+    },
+    {
+      "usage": {
+        "month": "2026-11",
+        "analysis": 2,
+        "card": 5
+      },
+      "month": "2026-11",
+      "expected": {
+        "analysis": 2,
+        "card": 5
+      }
+    },
+    {
+      "usage": {
+        "month": "2026-10",
+        "analysis": 5,
+        "card": 5
+      },
+      "month": "2026-11",
+      "expected": {
+        "analysis": 0,
+        "card": 0
+      }
+    },
+    {
+      "usage": {
+        "month": "2026-11",
+        "analysis": -1,
+        "card": 2.7
+      },
+      "month": "2026-11",
+      "expected": {
+        "analysis": 0,
+        "card": 2
+      }
+    }
+  ],
+  "decodeCard": [
+    {
+      "raw": {
+        "headline": "Mes firme",
+        "stats": [
+          "collected",
+          "mrr",
+          "paying"
+        ],
+        "recommendation": "Cobrá los vencidos"
+      },
+      "valid": true
+    },
+    {
+      "raw": {
+        "headline": "Mes firme",
+        "stats": [
+          "collected",
+          "collected",
+          "mrr",
+          "paying"
+        ],
+        "recommendation": "x"
+      },
+      "valid": true,
+      "stats": [
+        "collected",
+        "mrr",
+        "paying"
+      ]
+    },
+    {
+      "raw": {
+        "headline": "Mes firme",
+        "stats": [
+          "collected",
+          "mrr"
+        ],
+        "recommendation": "x"
+      },
+      "valid": false
+    },
+    {
+      "raw": {
+        "headline": "Mes firme",
+        "stats": [
+          "collected",
+          "mrr",
+          "secret"
+        ],
+        "recommendation": "x"
+      },
+      "valid": false
+    },
+    {
+      "raw": {
+        "headline": "  ",
+        "stats": [
+          "collected",
+          "mrr",
+          "paying"
+        ],
+        "recommendation": "x"
+      },
+      "valid": false
+    },
+    {
+      "raw": {
+        "headline": "x",
+        "stats": [
+          "collected",
+          "mrr",
+          "paying"
+        ],
+        "recommendation": ""
+      },
+      "valid": false
+    }
+  ],
+  "errorKind": [
+    {
+      "code": "resource-exhausted",
+      "reason": "quota",
+      "expected": "quota"
+    },
+    {
+      "code": "RESOURCE_EXHAUSTED",
+      "reason": null,
+      "expected": "quota"
+    },
+    {
+      "code": "permission-denied",
+      "reason": null,
+      "expected": "forbidden"
+    },
+    {
+      "code": "unauthenticated",
+      "reason": null,
+      "expected": "forbidden"
+    },
+    {
+      "code": "invalid-argument",
+      "reason": "invalid_metrics",
+      "expected": "invalid_metrics"
+    },
+    {
+      "code": "unavailable",
+      "reason": "upstream",
+      "expected": "unavailable"
+    },
+    {
+      "code": "deadline-exceeded",
+      "reason": "timeout",
+      "expected": "unavailable"
+    },
+    {
+      "code": "internal",
+      "reason": "invalid_output",
+      "expected": "generic"
+    },
+    {
+      "code": null,
+      "reason": null,
+      "expected": "generic"
+    }
+  ]
+}

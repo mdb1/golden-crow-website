@@ -27,6 +27,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
+import { localizedNamePair } from "@/lib/gc-fitness/localized-name";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
@@ -569,9 +570,9 @@ export function TemplatesLibraryClient({
                     : row.tag
                       ? [row.tag]
                       : [];
+                // #535 — coach-language first (it was always English first).
                 const title =
-                  row.name.en ||
-                  row.name.es ||
+                  localizedNamePair(row.name, locale).primary ||
                   (row.__isDraft
                     ? columnsT("draftUntitled")
                     : columnsT("untitled"));
