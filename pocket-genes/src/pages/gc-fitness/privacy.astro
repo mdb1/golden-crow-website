@@ -59,7 +59,7 @@ import { CORVO_HEAD_ASSETS } from '../../data/gcFitnessPublic';
 
       <h2>Health Connect (Android)</h2>
       <p>
-        En Android, Corvo puede conectarse a <strong>Health Connect</strong> para completar dos
+        En Android, Corvo puede conectarse a <strong>Health Connect</strong> para completar tres
         funciones. Es opcional: el resto de la app funciona sin eso, y podés retirar el acceso
         cuando quieras desde Health Connect (o desde Ajustes → Salud → Health Connect dentro de GC
         Fitness, que te lleva ahí).
@@ -76,9 +76,19 @@ import { CORVO_HEAD_ASSETS } from '../../data/gcFitnessPublic';
           (con su mínimo, promedio y máximo) y guardamos esa serie junto a ese entrenamiento,
           visible para vos y para tu entrenador.</li>
       </ul>
+      <p>Y pedimos <strong>acceso de escritura a exactamente dos tipos de dato</strong>, para guardar
+        los entrenamientos que terminás en la app (lo mismo que hacemos con Apple Health en iPhone):</p>
+      <ul>
+        <li><strong>Sesiones de ejercicio</strong> — cada entrenamiento que terminás se guarda como una
+          sesión de fuerza, con el nombre de la rutina y su hora de inicio y fin, para que tus otras
+          apps de fitness también lo cuenten. Un mismo entrenamiento se guarda una sola vez.</li>
+        <li><strong>Calorías activas</strong> — una estimación de las calorías de ese entrenamiento,
+          calculada con su duración y el peso que registraste en la app, guardada junto a él.</li>
+      </ul>
       <p>
-        <strong>Sólo lectura.</strong> Corvo nunca escribe datos en Health Connect ni lee
-        ningún dato de salud además de esos dos tipos.
+        <strong>Nada más.</strong> Corvo no lee ni escribe ningún otro dato de salud además de esos
+        cuatro tipos. Lo que se guarda en Health Connect queda en tu teléfono, bajo tu control: podés
+        verlo y borrarlo desde la app de Health Connect.
       </p>
       <p>
         <strong>Con quién se comparten.</strong> Los datos leídos de Health Connect se comparten
