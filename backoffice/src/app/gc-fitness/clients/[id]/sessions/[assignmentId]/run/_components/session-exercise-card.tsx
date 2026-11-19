@@ -96,6 +96,7 @@ function EditableNumberInput({
   max,
   disabled,
   className,
+  ariaLabel,
 }: {
   value: number;
   onCommit: (next: number) => void;
@@ -103,6 +104,8 @@ function EditableNumberInput({
   max: number;
   disabled?: boolean;
   className?: string;
+  /** #535 — every serie has two of these; without a name a screen reader says "edit text". */
+  ariaLabel: string;
 }) {
   const [draft, setDraft] = useState(String(value));
   const [focused, setFocused] = useState(false);
@@ -121,6 +124,7 @@ function EditableNumberInput({
     <input
       type="text"
       inputMode={inputMode}
+      aria-label={ariaLabel}
       disabled={disabled}
       value={draft}
       onFocus={() => setFocused(true)}
@@ -228,7 +232,8 @@ export function SessionExerciseCard({
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate font-heading text-base font-semibold">
-            {exercise.name.en || exercise.name.es}
+            {/* #535 — Spanish first (the portal's language); it read English first. */}
+            {exercise.name.es || exercise.name.en}
           </p>
           <p className="text-sm text-muted-foreground">
             {rows.length} {rows.length === 1 ? "serie" : "series"} ·{" "}
@@ -248,7 +253,7 @@ export function SessionExerciseCard({
               aria-label="Subir ejercicio"
               disabled={!canMoveUp}
               onClick={() => onMove(-1)}
-              className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+              className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
             >
               <ChevronUp className="h-4 w-4" />
             </button>
@@ -257,7 +262,7 @@ export function SessionExerciseCard({
               aria-label="Bajar ejercicio"
               disabled={!canMoveDown}
               onClick={() => onMove(1)}
-              className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+              className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
             >
               <ChevronDown className="h-4 w-4" />
             </button>
@@ -266,6 +271,7 @@ export function SessionExerciseCard({
             variant="ghost"
             size="icon"
             title="Nota para este cliente"
+            aria-label="Nota para este cliente"
             onClick={() => {
               setDraftNote(coachNote);
               setEditingNote((v) => !v);
@@ -277,6 +283,7 @@ export function SessionExerciseCard({
             variant="ghost"
             size="icon"
             title="Editar ejercicio en otra ventana"
+            aria-label="Editar ejercicio en otra ventana"
             asChild
           >
             {/* Issue #171 — enter at /view, not /edit. Nearly every workout
@@ -308,7 +315,7 @@ export function SessionExerciseCard({
           />
           <p className="text-xs text-muted-foreground">
             Esta nota queda guardada para este cliente y ejercicio, y se
-            reutiliza en futuros workouts donde aparezca el mismo ejercicio.
+            reutiliza en futuros entrenamientos donde aparezca el mismo ejercicio.
           </p>
           <div className="flex gap-2">
             <Button size="sm" onClick={saveNote} disabled={savingNote}>
@@ -332,8 +339,8 @@ export function SessionExerciseCard({
 
       {/* Set table */}
       <div className="mt-4">
-        <div className="grid grid-cols-[2rem_1fr_4.5rem_4.5rem_2.5rem] items-center gap-2 px-1 pb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-          <span>Set</span>
+        <div className="grid grid-cols-[2.5rem_1fr_4.5rem_4.5rem_2.75rem] items-center gap-2 px-1 pb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          <span>Serie</span>
           <span>Anterior</span>
           <span className="text-center">Kg</span>
           <span className="text-center">{isTime ? "Seg" : "Reps"}</span>
@@ -343,7 +350,7 @@ export function SessionExerciseCard({
           {rows.map((row, idx) => (
             <div
               key={row.id}
-              className={`grid grid-cols-[2rem_1fr_4.5rem_4.5rem_2.5rem] items-center gap-2 rounded-lg px-1 py-1 ${
+              className={`grid grid-cols-[2.5rem_1fr_4.5rem_4.5rem_2.75rem] items-center gap-2 rounded-lg px-1 py-1 ${
                 row.done
                   ? "bg-success/10"
                   : idx === highlightNextRow
@@ -359,7 +366,7 @@ export function SessionExerciseCard({
                     title="Cambiar tipo de serie"
                     aria-label={`Tipo de la serie ${idx + 1}: ${SET_TYPE_LABELS_ES[row.setType]}`}
                     className={cn(
-                      "flex h-7 w-7 items-center justify-center rounded-md text-xs font-semibold hover:bg-muted",
+                      "flex h-10 w-10 items-center justify-center rounded-md text-xs font-semibold hover:bg-muted",
                       row.setType === "normal"
                         ? "text-muted-foreground"
                         : cn("font-bold", SET_TYPE_TEXT_CLASS[row.setType]),
@@ -400,7 +407,8 @@ export function SessionExerciseCard({
                 inputMode="decimal"
                 max={2000}
                 disabled={row.done}
-                className="h-8 w-full rounded-md border border-input bg-background px-2 text-center text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
+                ariaLabel={`Kg de la serie ${idx + 1}`}
+                className="h-10 w-full rounded-md border border-input bg-background px-2 text-center text-base outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
               />
               <EditableNumberInput
                 value={isTime ? row.durationSeconds ?? 0 : row.reps}
@@ -410,13 +418,16 @@ export function SessionExerciseCard({
                 inputMode="numeric"
                 max={isTime ? 86_400 : 100}
                 disabled={row.done}
-                className="h-8 w-full rounded-md border border-input bg-background px-2 text-center text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
+                ariaLabel={`${isTime ? "Segundos" : "Repeticiones"} de la serie ${idx + 1}`}
+                className="h-10 w-full rounded-md border border-input bg-background px-2 text-center text-base outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
               />
               <button
                 type="button"
                 onClick={() => onToggleDone(idx)}
                 title={row.done ? "Desmarcar" : "Marcar como hecha"}
-                className={`flex h-8 w-8 items-center justify-center rounded-full border transition-colors ${
+                aria-label={`${row.done ? "Desmarcar" : "Marcar como hecha"} la serie ${idx + 1}`}
+                aria-pressed={row.done}
+                className={`flex h-10 w-10 items-center justify-center rounded-full border transition-colors ${
                   row.done
                     ? "border-success bg-success text-success-foreground"
                     : "border-border text-muted-foreground hover:border-success hover:text-success"

@@ -14,6 +14,8 @@ import { zonedWallClockInstant } from "./zoned-instant";
 
 const CHECKLIST_COLLECTION = "coach_checklist";
 const MAX_CHECKLIST_ITEMS = 50;
+/** Ceiling for OPEN reminders (they are never auto-archived). */
+const MAX_OPEN_CHECKLIST_ITEMS = 300;
 
 /** Reminder recurrence — "none" is a one-off (default). */
 export type ChecklistRecurrence = "none" | "daily" | "weekly" | "monthly";
@@ -151,13 +153,26 @@ export async function listCoachChecklistItems(): Promise<CoachChecklistItem[]> {
     getCurrentTrainer(),
     getTrainerTimezone(),
   ]);
-  const snap = await checklistCollection(trainer.uid)
-    .orderBy("dueAt", "asc")
-    .limit(MAX_CHECKLIST_ITEMS)
-    .get();
+  // golden-crow-website#535 — the open items and the recently completed ones are
+  // two reads. It used to be ONE `orderBy(dueAt).limit(50)` over everything: once
+  // 50 old completed reminders piled up, every NEW open item fell past the limit
+  // and silently vanished from the checklist AND the dashboard widget.
+  //   · open: equality on `completed` (single-field index, no composite needed),
+  //     sorted in memory — a coach never has hundreds of OPEN reminders.
+  //   · latest 50 by due date (any state): the «hechos» under the list, plus any
+  //     legacy doc written without a `completed` field (equality skips those).
+  const col = checklistCollection(trainer.uid);
+  const [openSnap, recentSnap] = await Promise.all([
+    col.where("completed", "==", false).limit(MAX_OPEN_CHECKLIST_ITEMS).get(),
+    col.orderBy("dueAt", "desc").limit(MAX_CHECKLIST_ITEMS).get(),
+  ]);
+  const seen = new Set<string>();
+  const docs = [...openSnap.docs, ...recentSnap.docs].filter(
+    (d) => (seen.has(d.id) ? false : (seen.add(d.id), true)),
+  );
 
   // Each row carries its linked client UIDs; names are resolved below.
-  const rows = snap.docs.map((doc) => {
+  const rows = docs.map((doc) => {
     const data = doc.data() as Record<string, unknown>;
     // New docs store `clientIds: string[]`; legacy docs stored a single
     // `clientId` — read both so old reminders keep their link.
@@ -207,9 +222,14 @@ export async function listCoachChecklistItems(): Promise<CoachChecklistItem[]> {
     }));
   }
 
+  // Open first; within each group by due date (no date last).
   return rows
     .map((r) => r.item)
-    .sort((a, b) => Number(a.completed) - Number(b.completed));
+    .sort(
+      (a, b) =>
+        Number(a.completed) - Number(b.completed) ||
+        (a.dueAt ?? "\uffff").localeCompare(b.dueAt ?? "\uffff"),
+    );
 }
 
 export type PendingChecklistBucket = "overdue" | "today";

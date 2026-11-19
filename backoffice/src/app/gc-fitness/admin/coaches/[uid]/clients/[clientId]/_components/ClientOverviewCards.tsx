@@ -17,6 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { ClientAdminOverview } from "@/lib/gc-fitness/admin-client-overview";
+import type { KnownSubscriptionEventType } from "@/lib/gc-fitness/admin-client-overview-model";
 import { daysAgo, type LastActivityKind } from "@/lib/gc-fitness/admin-coach-overview-model";
 import type { BillingState, PaymentCovers } from "@/lib/gc-fitness/billing";
 import { formatAppDevice } from "@/lib/gc-fitness/client-app-devices";
@@ -316,5 +317,94 @@ export function ClientRelationshipCards({ overview }: { overview: ClientAdminOve
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// ── #541: subscription history (RevenueCat) + social ────────────────────────────
+
+export function ClientSubscriptionHistoryCard({ overview }: { overview: ClientAdminOverview }) {
+  const t = useTranslations("admin.clientDetail.overview.subscriptionHistory");
+  const lang = langOf(useLocale());
+  const events = overview.subscriptionEvents;
+  // Literal keys (checked by i18n-literal-keys.test).
+  const label: Record<KnownSubscriptionEventType, string> = {
+    INITIAL_PURCHASE: t("types.INITIAL_PURCHASE"),
+    RENEWAL: t("types.RENEWAL"),
+    CANCELLATION: t("types.CANCELLATION"),
+    UNCANCELLATION: t("types.UNCANCELLATION"),
+    EXPIRATION: t("types.EXPIRATION"),
+    BILLING_ISSUE: t("types.BILLING_ISSUE"),
+    PRODUCT_CHANGE: t("types.PRODUCT_CHANGE"),
+    NON_RENEWING_PURCHASE: t("types.NON_RENEWING_PURCHASE"),
+    SUBSCRIPTION_PAUSED: t("types.SUBSCRIPTION_PAUSED"),
+    TRANSFER: t("types.TRANSFER"),
+  };
+  const variant = (k: KnownSubscriptionEventType | null) =>
+    k === "INITIAL_PURCHASE" || k === "RENEWAL" || k === "UNCANCELLATION" || k === "NON_RENEWING_PURCHASE"
+      ? "success"
+      : k === "CANCELLATION" || k === "EXPIRATION" || k === "BILLING_ISSUE"
+        ? "destructive"
+        : "secondary";
+  return (
+    <Card size="sm" data-testid="client-subscription-history">
+      <CardHeader>
+        <CardTitle>{t("title")}</CardTitle>
+        <CardDescription>{t("description")}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {!events ? (
+          <p className="text-sm text-muted-foreground">{t("unavailable")}</p>
+        ) : events.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t("empty")}</p>
+        ) : (
+          <ul className="space-y-1 text-sm">
+            {events.map((e) => (
+              <li key={e.id} className="flex items-center justify-between gap-3" data-testid={`client-rc-event-${e.id}`}>
+                <Badge variant={variant(e.known)}>{e.known ? label[e.known] : e.type}</Badge>
+                <span className="text-xs text-muted-foreground">
+                  {instantLabel(lang, e.receivedAtISO, overview.timezone, true)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+export function ClientSocialCard({ overview }: { overview: ClientAdminOverview }) {
+  const t = useTranslations("admin.clientDetail.overview.social");
+  const s = overview.social;
+  const n = (v: number | null) => (v === null ? "—" : v);
+  return (
+    <Card size="sm" data-testid="client-social-card">
+      <CardHeader>
+        <CardTitle>{t("title")}</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-x-8 sm:grid-cols-2">
+        {!s ? (
+          <p className="text-sm text-muted-foreground">{t("none")}</p>
+        ) : (
+          <>
+            <Field label={t("handle")}>{s.handle ? `@${s.handle}` : "—"}</Field>
+            <Field label={t("visibility")}>{s.visibility ?? "—"}</Field>
+            <Field label={t("followers")} testId="client-social-followers">
+              {n(s.followers)}
+            </Field>
+            <Field label={t("following")}>{n(s.following)}</Field>
+            <Field label={t("publicRoutines")}>{n(s.publicRoutines)}</Field>
+            <Field label={t("challenges")} testId="client-social-challenges">
+              {n(s.challenges)}
+            </Field>
+            {s.suspended ? (
+              <Field label={t("status")}>
+                <Badge variant="destructive">{t("suspended")}</Badge>
+              </Field>
+            ) : null}
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }

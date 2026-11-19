@@ -150,7 +150,7 @@ export const WIKI_GROUPS: WikiGroup[] = [
         id: "agenda-asignaciones",
         title: { es: "Agenda y asignaciones", en: "Schedule & assignments" },
         description: {
-          es: "Programá entrenamientos en la agenda y asignáselos a tus clientes, incluyendo recurrencias.",
+          es: "Agendá entrenamientos en la agenda y asignáselos a tus clientes, incluyendo recurrencias.",
           en: "Schedule workouts on the calendar and assign them to your clients, including recurring ones.",
         },
         loomId: "bd5a237e34e44bcfba23cdee1a224d71",
@@ -346,7 +346,7 @@ export const WIKI_FAQ: WikiFaq[] = [
       en: "How does weight pre-fill work for my clients?",
     },
     answer: {
-      es: "La primera vez que el cliente hace un ejercicio, la app le muestra los pesos que planificaste vos (los del entrenamiento). Una vez que registra ese entrenamiento, en las siguientes sesiones la app le muestra sus propios últimos pesos registrados, no los planificados.\n\nCuando cambiás los pesos de un entrenamiento —editándolo y eligiendo “actualizar ocurrencias”, o con un ajuste puntual por asignación— el cliente vuelve a ver tu nuevo plan UNA vez, con un aviso de que el coach actualizó la rutina. Después de que lo registra, vuelve a recordar sus propios pesos.\n\nEn resumen: gana siempre la intención más reciente. Si tocaste el plan después de su última carga, ve tu plan; si no, ve lo último que levantó.",
+      es: "La primera vez que el cliente hace un ejercicio, la app le muestra los pesos que planificaste vos (los del entrenamiento). Una vez que registra ese entrenamiento, en los siguientes entrenamientos la app le muestra sus propios últimos pesos registrados, no los planificados.\n\nCuando cambiás los pesos de un entrenamiento —editándolo y eligiendo “actualizar ocurrencias”, o con un ajuste puntual por asignación— el cliente vuelve a ver tu nuevo plan UNA vez, con un aviso de que el coach actualizó la rutina. Después de que lo registra, vuelve a recordar sus propios pesos.\n\nEn resumen: gana siempre la intención más reciente. Si tocaste el plan después de su última carga, ve tu plan; si no, ve lo último que levantó.",
       en: "The first time a client does an exercise, the app shows the weights you planned (the workout's prescribed weights). Once they log that workout, in later sessions the app shows their own last logged weights instead of the planned ones.\n\nWhen you change a workout's weights — editing it and choosing “update occurrences”, or making a per-assignment adjustment — the client sees your new plan ONCE, with a notice that the coach updated the routine. After they log it, it goes back to remembering their own weights.\n\nIn short: the most recent intent wins. If you touched the plan after their last log, they see your plan; otherwise they see what they last lifted.",
     },
   },
@@ -401,18 +401,18 @@ export const WIKI_FAQ: WikiFaq[] = [
       en: "How does the Apple Watch integration work?",
     },
     answer: {
-      es: "El cliente puede hacer todo el entrenamiento desde el Apple Watch: ver el entrenamiento del día, registrar series y repeticiones, y usar el temporizador de descanso, sin tocar el teléfono durante la sesión.\n\nAhora bien, el reloj le pasa los datos al iPhone. Por eso, al terminar, el cliente tiene que abrir la app de iPhone para que el entrenamiento termine de sincronizarse y quede guardado (es el iPhone el que confirma y guarda el entrenamiento final). Si solo usa el reloj y nunca abre el iPhone, el entrenamiento puede quedar pendiente de sincronizar y no te va a aparecer todavía en el portal.",
+      es: "El cliente puede hacer todo el entrenamiento desde el Apple Watch: ver el entrenamiento del día, registrar series y repeticiones, y usar el temporizador de descanso, sin tocar el teléfono durante el entrenamiento.\n\nAhora bien, el reloj le pasa los datos al iPhone. Por eso, al terminar, el cliente tiene que abrir la app de iPhone para que el entrenamiento termine de sincronizarse y quede guardado (es el iPhone el que confirma y guarda el entrenamiento final). Si solo usa el reloj y nunca abre el iPhone, el entrenamiento puede quedar pendiente de sincronizar y no te va a aparecer todavía en el portal.",
       en: "The client can do the whole workout from the Apple Watch: see the day's workout, log sets and reps, and use the rest timer, without touching the phone during the session.\n\nThat said, the watch hands the data off to the iPhone. So when they finish, the client needs to open the iPhone app for the workout to finish syncing and be saved (the iPhone is what confirms and stores the final workout). If they only use the watch and never open the iPhone, the workout may stay pending sync and won't show up in your portal yet.",
     },
   },
   {
     id: "faq-editar-recurrencia",
     question: {
-      es: "Edité un entrenamiento recurrente: ¿afecta a las sesiones que el cliente ya hizo?",
+      es: "Edité un entrenamiento recurrente: ¿afecta a los entrenamientos que el cliente ya hizo?",
       en: "I edited a recurring workout — does it affect sessions the client already did?",
     },
     answer: {
-      es: "No. Cuando editás un entrenamiento recurrente y elegís “actualizar ocurrencias”, los cambios se aplican a las sesiones futuras (de la ocurrencia que estás viendo en adelante), no a las que el cliente ya completó. Las sesiones ya registradas quedan tal cual se hicieron, como historial.\n\nSi solo querés cambiar una sesión puntual, podés editar esa asignación sin tocar el resto de la serie.",
+      es: "No. Cuando editás un entrenamiento recurrente y elegís “actualizar ocurrencias”, los cambios se aplican a los entrenamientos futuros (de la ocurrencia que estás viendo en adelante), no a las que el cliente ya completó. Los entrenamientos ya registrados quedan tal cual se hicieron, como historial.\n\nSi solo querés cambiar un entrenamiento puntual, podés editar esa asignación sin tocar el resto de la recurrencia.",
       en: "No. When you edit a recurring workout and choose “update occurrences”, the changes apply to future sessions (from the occurrence you're viewing onward), not to ones the client already completed. Already-logged sessions stay exactly as they were done, as history.\n\nIf you only want to change a single session, you can edit that one assignment without touching the rest of the series.",
     },
   },
@@ -434,7 +434,7 @@ export const WIKI_FAQ: WikiFaq[] = [
       en: "What are the “standard” library exercises and workouts for?",
     },
     answer: {
-      es: "La biblioteca incluye contenido estándar compartido (ejercicios y plantillas de entrenamiento ya armados) para que no tengas que empezar de cero. Ese contenido es de solo lectura: no se puede editar directamente.\n\nSi querés partir de una plantilla estándar y adaptarla, usá “Duplicar”: eso crea una copia tuya, editable, que podés modificar y asignar sin afectar el original compartido.",
+      es: "La biblioteca incluye contenido estándar compartido (ejercicios y rutinas ya armadas) para que no tengas que empezar de cero. Ese contenido es de solo lectura: no se puede editar directamente.\n\nSi querés partir de una rutina estándar y adaptarla, usá “Duplicar”: eso crea una copia tuya, editable, que podés modificar y asignar sin afectar el original compartido.",
       en: "The library includes shared standard content (ready-made exercises and workout templates) so you don't have to start from scratch. That content is read-only — it can't be edited directly.\n\nIf you want to start from a standard template and adapt it, use “Duplicate”: that creates your own editable copy, which you can modify and assign without affecting the shared original.",
     },
   },

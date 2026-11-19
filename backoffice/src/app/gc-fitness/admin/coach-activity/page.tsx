@@ -17,13 +17,21 @@ import {
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { listRecentCoachActivity, type CoachActivityRow } from "@/lib/gc-fitness/admin-actions";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
+import { listCoachOptionsForAdmin } from "@/lib/gc-fitness/admin-actions";
+import { listCoachActivityLogForAdmin } from "@/lib/gc-fitness/admin-coach-activity-reader";
+import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
+import { CoachActivityLogTable } from "./_components/CoachActivityLogTable";
 
 // Tab title: "Corvo - <adminPanel>" (issue #170).
 export const generateMetadata = () => sectionMetadata("adminPanel");
 
 export const dynamic = "force-dynamic";
 
-export default async function CoachActivityPage() {
+export default async function CoachActivityPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   try {
     await getCurrentAdmin();
   } catch (err) {
@@ -34,7 +42,16 @@ export default async function CoachActivityPage() {
     throw err;
   }
 
-  const rows = await listRecentCoachActivity(160);
+  const sp = await searchParams;
+  const coachFilter = typeof sp.coach === "string" && sp.coach.trim() ? sp.coach.trim() : null;
+  // #541 — the real `coach_activity` log first; the reconstructed stream (which also has
+  // client first logins) stays below it. Each fails soft on its own.
+  const [rows, logRows, coaches, timezone] = await Promise.all([
+    listRecentCoachActivity(160),
+    listCoachActivityLogForAdmin({ coachUid: coachFilter, limit: 150 }).catch(() => null),
+    listCoachOptionsForAdmin().catch(() => []),
+    getTrainerTimezone(),
+  ]);
   const t = await getTranslations("admin.coachActivity");
   const tc = await getTranslations("admin.common");
   // #513 — the row's `summary` is an English sentence built in lib/; the page
@@ -75,6 +92,38 @@ export default async function CoachActivityPage() {
           </Button>
         }
       />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl">{t("log.title")}</CardTitle>
+          <CardDescription>{t("log.description")}</CardDescription>
+          <form method="get" className="flex flex-wrap items-center gap-2 pt-2">
+            <select
+              name="coach"
+              defaultValue={coachFilter ?? ""}
+              aria-label={t("log.filter")}
+              className="h-9 rounded-md border bg-background px-2 text-sm"
+            >
+              <option value="">{t("log.allCoaches")}</option>
+              {coaches.map((c) => (
+                <option key={c.uid} value={c.uid}>
+                  {c.displayName || c.email}
+                </option>
+              ))}
+            </select>
+            <button type="submit" className="h-9 rounded-md border px-3 text-sm hover:bg-muted">
+              {t("log.apply")}
+            </button>
+          </form>
+        </CardHeader>
+        <CardContent className="p-0">
+          {logRows ? (
+            <CoachActivityLogTable rows={logRows} timezone={timezone} />
+          ) : (
+            <p className="px-6 pb-6 text-sm text-muted-foreground">{t("log.unavailable")}</p>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

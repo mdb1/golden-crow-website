@@ -33,12 +33,10 @@ const loads = {
   roster: deferred<unknown[]>(),
   pulse: deferred<unknown>(),
   checklist: deferred<unknown[]>(),
-  unassigned: deferred<unknown>(),
 };
 const mockRoster = jest.fn(() => loads.roster.promise);
 const mockPulse = jest.fn(() => loads.pulse.promise);
 const mockChecklist = jest.fn(() => loads.checklist.promise);
-const mockUnassigned = jest.fn(() => loads.unassigned.promise);
 jest.mock("@/lib/gc-fitness/client-roster", () => ({
   listClientsForRoster: () => mockRoster(),
 }));
@@ -47,9 +45,6 @@ jest.mock("@/lib/gc-fitness/coach-pulse-actions", () => ({
 }));
 jest.mock("@/lib/gc-fitness/coach-checklist-actions", () => ({
   listPendingChecklistItems: () => mockChecklist(),
-}));
-jest.mock("@/lib/gc-fitness/coach-attention-actions", () => ({
-  listClientsWithNothingAssignedSoon: () => mockUnassigned(),
 }));
 
 import GCFitnessDashboardPage from "../page";
@@ -62,19 +57,17 @@ beforeEach(() => {
   loads.roster = deferred();
   loads.pulse = deferred();
   loads.checklist = deferred();
-  loads.unassigned = deferred();
   jest.spyOn(console, "error").mockImplementation(() => {});
 });
 
 afterEach(() => jest.restoreAllMocks());
 
-it("starts all four card loaders before any of them resolves", async () => {
+it("starts all the card loaders before any of them resolves", async () => {
   const page = GCFitnessDashboardPage({ searchParams: Promise.resolve({}) });
   await flush();
   expect(mockRoster).toHaveBeenCalledTimes(1);
   expect(mockPulse).toHaveBeenCalledTimes(1);
   expect(mockChecklist).toHaveBeenCalledTimes(1);
-  expect(mockUnassigned).toHaveBeenCalledTimes(1);
 
   loads.roster.resolve([]);
   loads.pulse.resolve({
@@ -87,7 +80,6 @@ it("starts all four card loaders before any of them resolves", async () => {
     customExerciseCount: 0,
   });
   loads.checklist.resolve([]);
-  loads.unassigned.resolve({ rows: [], truncated: false, scanned: 0 });
   await expect(page).resolves.toBeTruthy();
 });
 
@@ -96,7 +88,6 @@ it("a failing loader degrades only its card (the page still renders)", async () 
   loads.roster.resolve([]);
   loads.pulse.reject(new Error("index building"));
   loads.checklist.resolve([]);
-  loads.unassigned.reject(new Error("boom"));
   await expect(page).resolves.toBeTruthy();
 });
 
@@ -147,7 +138,6 @@ it("the attention tile counts every flagged client, not only the inactive ones",
   ]);
   loads.pulse.reject(new Error("skip"));
   loads.checklist.resolve([]);
-  loads.unassigned.resolve({ rows: [], truncated: false, scanned: 0 });
 
   const tile = findByProp(await page, "href", "/gc-fitness/clients?filter=attention");
   expect(tile?.props?.value).toBe(2);
@@ -158,13 +148,24 @@ it("the attention tile counts every flagged client, not only the inactive ones",
   expect((list?.props?.rows as Array<{ row: { uid: string } }>).map((r) => r.row.uid)).toEqual(["b", "a"]); // nothingAssigned outranks overduePayment
 });
 
-it("passes the truncation of the 'nothing assigned' scan to its card", async () => {
+it("«Sin nada asignado» lists the roster's nothingAssigned clients (#535)", async () => {
+  const now = new Date().toISOString();
+  const row = (uid: string, reasons: string[]) => ({
+    uid,
+    displayName: uid.toUpperCase(),
+    photoURL: null,
+    source: "active",
+    lastActivityAt: now,
+    lastActivityKind: "workout",
+    thisWeekComplianceRatio: 1,
+    needsAttention: reasons.length > 0,
+    needsAttentionReasons: reasons,
+  });
   const page = GCFitnessDashboardPage({ searchParams: Promise.resolve({}) });
-  loads.roster.resolve([]);
+  loads.roster.resolve([row("b", ["nothingAssigned"]), row("a", ["inactive", "nothingAssigned"]), row("c", [])]);
   loads.pulse.reject(new Error("skip"));
   loads.checklist.resolve([]);
-  loads.unassigned.resolve({ rows: [], truncated: true, scanned: 150 });
 
-  const card = findByProp(await page, "truncated", true);
-  expect(card?.props?.scanned).toBe(150);
+  const card = findByProp(await page, "truncated", false);
+  expect((card?.props?.rows as Array<{ uid: string }>).map((r) => r.uid)).toEqual(["a", "b"]);
 });

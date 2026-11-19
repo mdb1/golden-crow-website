@@ -3,6 +3,7 @@ import { getLocale, getMessages } from "next-intl/server";
 import type { Metadata } from "next";
 
 import { BodyThemeScope } from "@/components/gc-fitness/body-theme-scope";
+import { CoachSurfaceScope } from "@/components/gc-fitness/coach-surface-scope";
 import { ChatNotificationListener } from "@/components/gc-fitness/chat-notification-listener";
 import { FirebaseTelemetryInit } from "@/components/gc-fitness/firebase-telemetry-init";
 import { GCFitnessShell } from "@/components/gc-fitness/gc-fitness-shell";
@@ -71,6 +72,7 @@ export default async function GCFitnessLayout({
       <FirebaseTelemetryInit />
       <TimezoneSync />
       <BodyThemeScope />
+      <CoachSurfaceScope />
       <div className="gc-fitness-theme">
         {/* #382 — a redeploy rotates every Server Action ID, so a tab opened
             before it can no longer save. This watches for that error and offers

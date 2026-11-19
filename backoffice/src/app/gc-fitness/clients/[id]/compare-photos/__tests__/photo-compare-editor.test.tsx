@@ -58,7 +58,7 @@ jest.mock("next/navigation", () => ({
   useSearchParams: () => searchParams,
 }));
 
-import { ProgressPhotoCompareEditor } from "../photo-compare-editor";
+import { ProgressPhotoCompareEditor, beforeAfterLabels } from "../photo-compare-editor";
 
 const TZ = "America/Argentina/Buenos_Aires";
 
@@ -421,5 +421,13 @@ describe("ProgressPhotoCompareEditor — nothing to compare", () => {
     const panel = screen.getByText("before").closest("div");
     expect(panel).not.toBeNull();
     expect(within(panel as HTMLElement).getByText("May 1, 2026")).toBeInTheDocument();
+  });
+});
+
+// #535 — these words are DRAWN into the JPG the coach sends; they were always English.
+describe("beforeAfterLabels", () => {
+  it("follows the coach language", () => {
+    expect(beforeAfterLabels("es")).toEqual({ before: "Antes", after: "Después" });
+    expect(beforeAfterLabels("en")).toEqual({ before: "Before", after: "After" });
   });
 });

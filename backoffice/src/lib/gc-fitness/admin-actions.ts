@@ -9,7 +9,7 @@ import {
   revokeSessions,
   revokeSessionsIfBackofficeRoleLost,
 } from "@/lib/gc-fitness/session-revocation";
-import { emailMatchesQuery, normalizeSearchQuery } from "@/lib/gc-fitness/admin-user-search";
+import { normalizeSearchQuery, userMatchesQuery } from "@/lib/gc-fitness/admin-user-search";
 import { toActionFailure, type ActionResult } from "@/lib/gc-fitness/action-result";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { planChatCoachRepoint } from "@/lib/gc-fitness/chat-coach-repoint";
@@ -280,7 +280,7 @@ export async function searchUsersByEmailForAdmin(
     .get();
 
   const matches = snap.docs
-    .filter((doc) => emailMatchesQuery(doc.get("email"), q))
+    .filter((doc) => userMatchesQuery(doc.get("email"), doc.get("displayName"), q))
     .sort((a, b) =>
       String(a.get("email") ?? "").localeCompare(String(b.get("email") ?? "")),
     )
@@ -1227,6 +1227,12 @@ export interface AdminClientHabitRow {
   scheduleType: string | null;
   reminderEnabled: boolean;
   deleted: boolean;
+  /** #541 — archived FROM this civil day (`archivedOn`), null = not archived. */
+  archivedOn: string | null;
+  /** #541 — closed past archive periods (`archivedPeriods`). */
+  archivedPeriods: number;
+  /** #541 — the client created it themselves (#400). */
+  clientOwned: boolean;
 }
 
 /**
@@ -1526,9 +1532,16 @@ export async function listClientHabitsForAdmin(
           typeof data.scheduleType === "string" ? data.scheduleType : null,
         reminderEnabled: data.reminderEnabled === true,
         deleted: data.deleted === true,
+        archivedOn: typeof data.archivedOn === "string" && data.archivedOn.length > 0 ? data.archivedOn : null,
+        archivedPeriods: Array.isArray(data.archivedPeriods) ? data.archivedPeriods.length : 0,
+        clientOwned: data.clientOwned === true,
       };
     })
-    .sort((a, b) => Number(a.deleted) - Number(b.deleted));
+    // Active first, then archived, then deleted.
+    .sort(
+      (a, b) =>
+        Number(a.deleted) - Number(b.deleted) || Number(a.archivedOn !== null) - Number(b.archivedOn !== null),
+    );
 }
 
 const deactivateClientSchema = z.object({

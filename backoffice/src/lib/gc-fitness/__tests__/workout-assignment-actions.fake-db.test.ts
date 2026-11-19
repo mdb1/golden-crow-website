@@ -431,6 +431,13 @@ describe("read-side aggregations (today = 2026-06-15 UTC)", () => {
   it("countTemplateAssignments collapses a series to 1 and ignores past-only templates/other coaches", async () => {
     // t-own: S1 (1) + done-future (1) + a2-one (1) = 3 ; t-std: std-one (1)
     await expect(countTemplateAssignments()).resolves.toEqual({ "t-own": 3, "t-std": 1 });
+    // golden-crow-website#535 — past assignments are not even READ any more (the
+    // pill only counts today/future): the query is bounded at today.
+    const assignmentQueries = db.queries.filter((q) => q.collection === "workout_assignments");
+    expect(assignmentQueries).toHaveLength(1);
+    expect(assignmentQueries[0].filters).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: "scheduledFor", op: ">=" })]),
+    );
   });
 
   it("listWorkoutAssignmentGroups groups by template then client, most clients first", async () => {
