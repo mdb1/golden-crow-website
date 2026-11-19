@@ -5,6 +5,7 @@
 // twins. A drift means the twins diverged — fix the implementation.
 
 import { formatRpe, normalizedRpe, rirFromRpe, rpeField } from "../set-effort";
+import vectors from "./twin-vectors/set-effort-vectors.json";
 
 describe("normalizedRpe", () => {
   it.each([
@@ -65,5 +66,35 @@ describe("formatRpe", () => {
   it("uses the locale's decimal separator for halves", () => {
     expect(formatRpe(8.5, "es")).toBe("8,5");
     expect(formatRpe(8.5, "en")).toBe("8.5");
+  });
+});
+
+// ── Shared vectors (`twin-vectors/set-effort-vectors.json`, pinned copy of
+// gc-fitness `twin-vectors/`) — the SAME file Swift and Kotlin run. The coach
+// always reads RPE, so only the RPE display cases apply here.
+
+describe("set-effort twin vectors", () => {
+  it.each(vectors.normalizedRpe.map((c) => [JSON.stringify(c.raw), c.raw, c.expected] as const))(
+    "normalizedRpe(%s)",
+    (_label, raw, expected) => {
+      expect(normalizedRpe(raw)).toBe(expected ?? undefined);
+      expect(rpeField(raw)).toEqual(expected === null ? {} : { rpe: expected });
+    },
+  );
+
+  it.each(
+    vectors.display
+      .filter((c) => c.mode === "rpe")
+      .map((c) => [c.rpe, c.locale, c.expected] as const),
+  )("formatRpe(%s, %s)", (rpe, locale, expected) => {
+    expect(formatRpe(rpe, locale)).toBe(expected);
+  });
+
+  it.each(
+    vectors.display
+      .filter((c) => c.mode === "rir")
+      .map((c) => [c.rpe, c.locale, c.expected] as const),
+  )("RIR of %s in %s", (rpe, locale, expected) => {
+    expect(formatRpe(rirFromRpe(rpe), locale)).toBe(expected);
   });
 });
