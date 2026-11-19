@@ -1944,6 +1944,16 @@ export async function editAssignmentExercises(
       } else {
         delete merged.setTypesBySet;
       }
+      // gc-fitness #1649 — the cardio distance signal rides `...current`; it
+      // only means something on a time exercise, and a removed set must not
+      // leave its target behind (missing entry = no target).
+      const currentDistance = (merged as { distanceBySetMeters?: unknown })
+        .distanceBySetMeters;
+      if (metric !== "time") {
+        delete merged.distanceBySetMeters;
+      } else if (Array.isArray(currentDistance) && currentDistance.length > repsBySet.length) {
+        merged.distanceBySetMeters = currentDistance.slice(0, repsBySet.length);
+      }
       return merged;
     },
     );

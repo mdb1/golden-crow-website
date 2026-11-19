@@ -28,6 +28,8 @@ export const sessionSetLogSchema = z.object({
   isWarmup: z.boolean(),
   clientLoggedAt: isoDateSchema,
   durationSeconds: z.number().int().min(1).max(86_400).nullish(),
+  // gc-fitness #1649 — logged cardio distance (meters), kept when present.
+  distanceMeters: z.number().positive().max(1_000_000).nullish(),
   // quick-260714-m57 (#403) — optional richer set type. Writers keep
   // isWarmup === (setType === "warmup") in sync (see live-workout-types).
   setType: z.enum(SET_TYPES).nullish(),
@@ -70,6 +72,8 @@ export const sessionExerciseSnapshotSchema = z.object({
   metric: z.enum(["reps", "time"]).nullish(),
   durationBySetSeconds: z.array(z.number().int().min(1).max(86_400)).max(20).nullish(),
   durationSeconds: z.number().int().min(1).max(86_400).nullish(),
+  // gc-fitness #1649 — cardio distance targets (meters); present = tracked.
+  distanceBySetMeters: z.array(z.number().min(0).max(1_000_000)).max(20).nullish(),
 });
 
 export const finalizeSessionSchema = z.object({

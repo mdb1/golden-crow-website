@@ -285,6 +285,18 @@ export function normalizeTemplateSubmission(
         // template-form-save.test.tsx → "emits '' for a blank group".
         order: idx + 1,
       };
+      // gc-fitness #1649 — cardio distance targets (meters). Kept only when
+      // the row tracks distance (array present) AND is not explicitly reps;
+      // trailing "no target" zeros are trimmed so `[]` = tracked, no targets.
+      const distance = normalizeDistanceBySetMeters(
+        ex.distanceBySetMeters,
+        canonicalLen,
+      );
+      if (distance && ex.metric !== "reps") {
+        normalizedExercise.distanceBySetMeters = distance;
+      } else {
+        delete normalizedExercise.distanceBySetMeters;
+      }
       if (hasNonNormalTypes) {
         normalizedExercise.setTypesBySet = alignedTypes;
       } else {
@@ -297,6 +309,26 @@ export function normalizeTemplateSubmission(
     }),
   };
   return normalized;
+}
+
+/**
+ * gc-fitness #1649 — `distanceBySetMeters` as saved: null when distance is not
+ * tracked (field absent); otherwise whole meters 0…1 000 000 truncated to the set
+ * count with trailing zeros (= "no target") trimmed, so `[]` means "tracked, no
+ * targets". Non-finite entries become 0 (positional, like set types).
+ */
+export function normalizeDistanceBySetMeters(
+  raw: unknown,
+  setCount: number,
+): number[] | null {
+  if (!Array.isArray(raw)) return null;
+  const out = raw.slice(0, Math.max(0, setCount)).map((v) =>
+    typeof v === "number" && Number.isFinite(v)
+      ? Math.min(1_000_000, Math.max(0, Math.round(v)))
+      : 0,
+  );
+  while (out.length > 0 && out[out.length - 1] === 0) out.pop();
+  return out;
 }
 
 /** Every distinct tag across the trainer's templates (legacy `tag` included). */

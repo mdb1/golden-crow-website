@@ -127,6 +127,15 @@ const metricSchema = z.enum(["reps", "time"]).default("reps");
 // Defaults to `true` so every legacy exercise keeps showing the weight column.
 const tracksWeightSchema = z.boolean().default(true);
 
+// gc-fitness #1649 — Authoring DEFAULT for cardio (rowing, running, bike, sled):
+// `true` = the exercise is logged as TIME + DISTANCE. Only meaningful with
+// `metric: "time"` (the metric enum stays CLOSED reps|time on purpose — an old
+// app would coerce an unknown "distance" metric to reps × kg). When the trainer
+// drops the exercise into a template it seeds `metric: "time"` +
+// `distanceBySetMeters: []`, the per-set wire signal the apps read. Optional:
+// absent = false (every legacy exercise).
+const tracksDistanceSchema = z.boolean().optional();
+
 // #1307 — fraction (0–1, steps of 0.05) of the athlete's body weight this
 // exercise counts toward VOLUME. Optional: absent ⇒ resolved at finalize from
 // equipment + primary muscle (`resolveBodyweightLoadFactor`). `null` on an
@@ -239,6 +248,7 @@ export const exerciseSchema = z.object({
   version: z.number().int().min(1).default(1),
   metric: metricSchema,
   tracksWeight: tracksWeightSchema,
+  tracksDistance: tracksDistanceSchema,
   bodyweightLoadFactor: bodyweightLoadFactorSchema,
 });
 

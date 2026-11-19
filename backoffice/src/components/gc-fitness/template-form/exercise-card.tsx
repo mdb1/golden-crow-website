@@ -42,6 +42,7 @@ import { parseDecimalInput } from "@/lib/gc-fitness/decimal-input";
 import { supersetAccentFor } from "./superset-accents";
 import { weightArrayAfterClear } from "./template-form-model";
 import { InfoTooltip } from "./info-tooltip";
+import { DistanceTargetInput } from "./distance-target-input";
 import type { SortableListeners } from "./sortable-exercise-row";
 import type { TemplateFormController } from "./use-template-form-controller";
 
@@ -120,6 +121,17 @@ export function TemplateExerciseCard({
   const isNoWeight =
     Array.isArray(watchedWeightBySet) &&
     watchedWeightBySet.length === 0;
+  // gc-fitness #1649 — cardio (time + distance). `distanceBySetMeters` present
+  // (any length, `[]` included) = the row logs distance; only honoured with an
+  // effective "time" metric. Entries are TARGET meters (0 = no target).
+  const distancePath = `exercises.${index}.distanceBySetMeters` as const;
+  const watchedDistanceBySet = form.watch(distancePath);
+  const isDistance =
+    effectiveMetric === "time" && Array.isArray(watchedDistanceBySet);
+  // The distance grid adds one column; an inline template keeps the legacy
+  // Tailwind grids byte-identical for every non-cardio row.
+  const distanceGridColumns = (withAction: boolean) =>
+    `52px minmax(0,1fr)${isNoWeight ? "" : " minmax(0,1fr)"} minmax(0,1fr)${withAction ? " 28px" : ""}`;
   const supersetMembership = getSupersetMembership(
     watchedExercises,
     index,
@@ -251,13 +263,17 @@ export function TemplateExerciseCard({
           <button
             type="button"
             tabIndex={-1}
-            onClick={() =>
+            onClick={() => {
               form.setValue(
                 `exercises.${index}.metric` as const,
                 "reps",
                 { shouldDirty: true },
-              )
-            }
+              );
+              // gc-fitness #1649 — reps never logs distance.
+              form.setValue(distancePath, undefined as unknown as number[], {
+                shouldDirty: true,
+              });
+            }}
             className={cn(
               "inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs font-medium",
               effectiveMetric === "reps"
@@ -332,6 +348,33 @@ export function TemplateExerciseCard({
           >
             {t("noWeightToggle")}
           </button>
+          {/* gc-fitness #1649 — "Distancia" toggle (time rows only). ON writes
+              `distanceBySetMeters: []` (tracked, no targets) and shows the
+              per-set km column; OFF drops the field. */}
+          {effectiveMetric === "time" ? (
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-pressed={isDistance}
+              title={t("distanceToggleHint")}
+              data-testid={`template-distance-toggle-${index}`}
+              onClick={() =>
+                form.setValue(
+                  distancePath,
+                  (isDistance ? undefined : []) as unknown as number[],
+                  { shouldDirty: true },
+                )
+              }
+              className={cn(
+                "inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs font-medium",
+                isDistance
+                  ? "border-foreground bg-foreground text-background"
+                  : "border-border/70 bg-background text-foreground hover:border-foreground/30",
+              )}
+            >
+              {t("distanceToggle")}
+            </button>
+          ) : null}
         </div>
 
         {/* Sets / Rest. Reps is defined per-set
@@ -581,10 +624,17 @@ export function TemplateExerciseCard({
               <div
                 className={cn(
                   "grid items-center gap-2 px-1",
-                  isNoWeight
-                    ? "grid-cols-[52px_minmax(0,1fr)] sm:grid-cols-[84px_minmax(140px,1fr)]"
-                    : "grid-cols-[52px_minmax(0,1fr)_minmax(0,1fr)] sm:grid-cols-[84px_minmax(140px,1fr)_minmax(140px,1fr)]",
+                  isDistance
+                    ? undefined
+                    : isNoWeight
+                      ? "grid-cols-[52px_minmax(0,1fr)] sm:grid-cols-[84px_minmax(140px,1fr)]"
+                      : "grid-cols-[52px_minmax(0,1fr)_minmax(0,1fr)] sm:grid-cols-[84px_minmax(140px,1fr)_minmax(140px,1fr)]",
                 )}
+                style={
+                  isDistance
+                    ? { gridTemplateColumns: distanceGridColumns(false) }
+                    : undefined
+                }
               >
                 <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                   {t("setHeader")}
@@ -595,6 +645,11 @@ export function TemplateExerciseCard({
                 {!isNoWeight ? (
                   <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                     {t("weightKgShort")}
+                  </span>
+                ) : null}
+                {isDistance ? (
+                  <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    {t("distanceHeader")}
                   </span>
                 ) : null}
               </div>
@@ -650,10 +705,17 @@ export function TemplateExerciseCard({
                       "grid items-center gap-2 rounded-md border border-border/60 bg-muted/20 p-2",
                       // 260610-j67 — drop the weight column from
                       // the set-row grid when "Sin peso" is on.
-                      isNoWeight
-                        ? "grid-cols-[52px_minmax(0,1fr)_28px] sm:grid-cols-[84px_minmax(140px,1fr)_28px]"
-                        : "grid-cols-[52px_minmax(0,1fr)_minmax(0,1fr)_28px] sm:grid-cols-[84px_minmax(140px,1fr)_minmax(140px,1fr)_28px]",
+                      isDistance
+                        ? undefined
+                        : isNoWeight
+                          ? "grid-cols-[52px_minmax(0,1fr)_28px] sm:grid-cols-[84px_minmax(140px,1fr)_28px]"
+                          : "grid-cols-[52px_minmax(0,1fr)_minmax(0,1fr)_28px] sm:grid-cols-[84px_minmax(140px,1fr)_minmax(140px,1fr)_28px]",
                     )}
+                    style={
+                      isDistance
+                        ? { gridTemplateColumns: distanceGridColumns(true) }
+                        : undefined
+                    }
                   >
                     {/* quick-260714-m57 (#403) — the set-number
                         cell is the type picker trigger: Normal /
@@ -983,6 +1045,30 @@ export function TemplateExerciseCard({
                       }}
                       aria-label={t("setWeightAria", { count: setIdx + 1 })}
                     />
+                    ) : null}
+                    {isDistance ? (
+                      <DistanceTargetInput
+                        meters={
+                          Array.isArray(watchedDistanceBySet)
+                            ? watchedDistanceBySet[setIdx]
+                            : undefined
+                        }
+                        locale={ctrl.locale}
+                        setKey={setKey}
+                        placeholder={t("setDistancePlaceholder")}
+                        ariaLabel={t("setDistanceAria", { count: setIdx + 1 })}
+                        onCommit={(meters) => {
+                          const current = Array.isArray(watchedDistanceBySet)
+                            ? [...watchedDistanceBySet]
+                            : [];
+                          while (current.length <= setIdx) current.push(0);
+                          current[setIdx] = meters;
+                          while (current.length > 0 && !(current[current.length - 1] > 0)) {
+                            current.pop();
+                          }
+                          form.setValue(distancePath, current, { shouldDirty: true });
+                        }}
+                      />
                     ) : null}
                     {/* Copy-to-all affordance on Serie 1 — propagates
                         its current primary value (reps OR duration)

@@ -12,6 +12,7 @@ import { useLocale } from "next-intl";
 import { Trophy } from "lucide-react";
 
 import type { PersonalRecordEntry } from "@/lib/gc-fitness/personal-records";
+import { coachDistanceText } from "@/lib/gc-fitness/distance-format";
 import {
   Select,
   SelectContent,
@@ -42,11 +43,15 @@ function formatMuscleGroup(group: string): string {
 /** Compact record value: duration for time PRs, "{w} kg × {r}" for weighted,
  * "{r} reps" for bodyweight. */
 function recordValue(
-  snap: { weightKg: number; reps: number; durationSeconds: number | null },
-  metric: "reps" | "time",
+  snap: { weightKg: number; reps: number; durationSeconds: number | null; distanceMeters?: number | null },
+  metric: "reps" | "time" | "distance",
   weightUnits: WeightUnits,
   locale: string,
 ): string {
+  // gc-fitness #1649 — cardio PR: km (plus the miles an lb client saw).
+  if (metric === "distance" && snap.distanceMeters != null && snap.distanceMeters > 0) {
+    return coachDistanceText(snap.distanceMeters, weightUnits, locale);
+  }
   if (metric === "time" && snap.durationSeconds != null) return `${snap.durationSeconds}s`;
   // gc-fitness #1646 — never the raw wire value (an lb client stores 61.235 kg).
   if (snap.weightKg > 0) return `${coachLoadText(snap.weightKg, weightUnits, locale)} × ${snap.reps}`;

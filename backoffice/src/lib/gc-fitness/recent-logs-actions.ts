@@ -23,6 +23,7 @@ import {
 import { coachVisibleClientName } from "./client-name";
 import { resolveExerciseDocsById } from "./exercise-resolution";
 import { flattenLogPRs, previousRecordsByExercise } from "./personal-records";
+import { readDistanceMeters } from "./distance-format";
 import { isHabitScheduledOn } from "./habit-schedule";
 import { getTrainerTimezone } from "./trainer-timezone";
 // quick-260714-m57 (#403) — effective per-set type (setType ?? is_warmup) for
@@ -241,7 +242,14 @@ export interface WorkoutLogDetail {
       reps: number;
       estimatedOneRM: number;
       durationSeconds: number | null;
+      /** gc-fitness #1649 — meters when the beaten record was a distance PR. */
+      distanceMeters?: number | null;
     } | null;
+    /**
+     * gc-fitness #1649 — logged cardio distance in meters (wire
+     * `distance_meters`); null on every non-cardio set.
+     */
+    distanceMeters?: number | null;
     /** Snapshot superset label (e.g. "A"); null for standalone exercises. */
     supersetGroup: string | null;
     /** #1197 — stamped FULL body weight (wire `bodyweight_kg`); null when absent. */
@@ -2177,7 +2185,13 @@ async function buildWorkoutLogDetail(
   // runs when the log actually has PRs (keeps the extra read off non-PR logs).
   const prPrevBySetLogId = new Map<
     string,
-    { weightKg: number; reps: number; estimatedOneRM: number; durationSeconds: number | null }
+    {
+      weightKg: number;
+      reps: number;
+      estimatedOneRM: number;
+      durationSeconds: number | null;
+      distanceMeters?: number | null;
+    }
   >();
   if (rawPrs.length > 0) {
     const clientId = typeof data.clientId === "string" ? data.clientId : "";
@@ -2215,6 +2229,7 @@ async function buildWorkoutLogDetail(
             reps: prev.reps,
             estimatedOneRM: prev.estimatedOneRM,
             durationSeconds: prev.durationSeconds,
+            distanceMeters: prev.distanceMeters ?? null,
           });
         }
       }
@@ -2281,6 +2296,8 @@ async function buildWorkoutLogDetail(
       // above. Null when the set was reps-based or pre-26-04 (no field
       // on the doc).
       durationSeconds,
+      // gc-fitness #1649 — forgiving: only a positive finite distance survives.
+      distanceMeters: readDistanceMeters(set.distance_meters ?? set.distanceMeters),
       // Wire field is `completed_at` (iOS); keep `completedAt` as a legacy fallback.
       completedAt: asIso(set.completed_at ?? set.completedAt),
       // 260529-mrp — the share card excludes warmups from Volumen / Series /

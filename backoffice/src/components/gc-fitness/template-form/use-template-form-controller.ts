@@ -158,6 +158,15 @@ export function useTemplateFormController({
     }
     return s;
   }, [exerciseLibrary]);
+  // gc-fitness #1649 — cardio exercises (metric time + tracksDistance) seed
+  // `distanceBySetMeters: []` on add: the per-set signal the apps read.
+  const exerciseDistanceById = useMemo(() => {
+    const s = new Set<string>();
+    for (const ex of exerciseLibrary ?? []) {
+      if (ex.metric === "time" && ex.tracksDistance === true) s.add(ex.id);
+    }
+    return s;
+  }, [exerciseLibrary]);
   const watchedExercises =
     useWatch({ control: form.control, name: "exercises" }) ?? [];
   // Fixed A/B/C pills + any existing labels, and once the highest visible
@@ -455,6 +464,13 @@ export function useTemplateFormController({
     }
     if (nextDurations !== undefined) {
       form.setValue(durationPath, nextDurations, { shouldDirty: true });
+    }
+    // gc-fitness #1649 — distance targets: truncate removed sets, never pad
+    // (a missing entry = no target) and never drop the tracked-`[]` signal.
+    const distancePath = `exercises.${index}.distanceBySetMeters` as const;
+    const rawDistance = form.getValues(distancePath);
+    if (Array.isArray(rawDistance) && rawDistance.length > safeSets) {
+      form.setValue(distancePath, rawDistance.slice(0, safeSets), { shouldDirty: true });
     }
     // quick-260714-m57 (#403) — keep setTypesBySet aligned with the set
     // count: pad new sets with "normal", truncate removed ones. Only when
@@ -763,6 +779,15 @@ export function useTemplateFormController({
         // weight column starts hidden (the trainer can still flip it per row).
         ...(exerciseNoWeightById.has(exerciseId)
           ? { weightBySetKg: [] as number[] }
+          : {}),
+        // gc-fitness #1649 — cardio: distance tracked (no targets yet) and a
+        // 10-minute default duration instead of the 60 s plank baseline.
+        ...(exerciseDistanceById.has(exerciseId)
+          ? {
+              distanceBySetMeters: [] as number[],
+              durationSeconds: 600,
+              durationBySetSeconds: [600, 600, 600],
+            }
           : {}),
       })),
     );
