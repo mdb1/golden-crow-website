@@ -63,6 +63,58 @@ const FONT_STACK =
 const CANVAS_WIDTH = 1080;
 const CANVAS_MIN_HEIGHT = 1350;
 
+/**
+ * gc-fitness #1697 — the SAME palette, canvas and backdrop for every share image the
+ * backoffice draws (the «Aviso de pago» card reuses them instead of a second design).
+ */
+export const SHARE_CARD_STYLE = {
+  BG,
+  ACCENT,
+  STAT_NUMBER,
+  SURFACE,
+  CARD_BORDER,
+  DIVIDER,
+  TEXT_PRIMARY,
+  TEXT_SECONDARY,
+  LABEL_GRAY,
+  FONT_STACK,
+  CANVAS_WIDTH,
+  CANVAS_MIN_HEIGHT,
+  /** Black base + vertical lift + amber radial glow behind the header. */
+  backgroundImage: [
+    `radial-gradient(640px 640px at 50% 22%, rgba(217,164,65,0.18), transparent 70%)`,
+    `linear-gradient(to bottom, rgba(255,255,255,0.04), ${BG})`,
+  ].join(", "),
+  logoDataUri: GOLDENCROW_LOGO_DATA_URI,
+} as const;
+
+/**
+ * gc-fitness #1697 — the capture step of this pipeline as a function: decode the inline logo,
+ * measure the laid-out node (dynamic height, ≥ the minimum canvas) and rasterize it at 1080
+ * wide with `html-to-image`, exactly like `ShareCardRenderer.handleShare` does.
+ */
+export async function rasterizeShareCardNode(
+  node: HTMLElement,
+  format: "png" | "jpeg" = "png",
+): Promise<{ dataUrl: string; width: number; height: number }> {
+  const { toPng, toJpeg } = await import("html-to-image");
+  const logoImg = node.querySelector("img");
+  if (logoImg) {
+    try {
+      await logoImg.decode();
+    } catch {
+      /* decode unsupported / already decoded — proceed */
+    }
+  }
+  const height = Math.max(CANVAS_MIN_HEIGHT, Math.ceil(node.scrollHeight));
+  const options = { pixelRatio: 1, width: CANVAS_WIDTH, height };
+  const dataUrl =
+    format === "jpeg"
+      ? await toJpeg(node, { ...options, quality: 0.92, backgroundColor: BG })
+      : await toPng(node, options);
+  return { dataUrl, width: CANVAS_WIDTH, height };
+}
+
 interface Chip {
   /** Pre-formatted chip text ("50 kg × 8" / "45s" / "20"). */
   value: string;

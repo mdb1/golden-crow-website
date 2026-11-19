@@ -847,6 +847,16 @@
       "params": "arg, arg"
     },
     {
+      "file": "src/lib/gc-fitness/payment-details-actions.ts",
+      "export": "getCoachPaymentDetails",
+      "params": ""
+    },
+    {
+      "file": "src/lib/gc-fitness/payment-details-actions.ts",
+      "export": "updateCoachPaymentDetails",
+      "params": "arg"
+    },
+    {
       "file": "src/lib/gc-fitness/payments-actions.ts",
       "export": "assignClientPlan",
       "params": "arg"

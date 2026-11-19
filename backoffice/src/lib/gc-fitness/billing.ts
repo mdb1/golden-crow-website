@@ -322,7 +322,12 @@ function formatDueDate(lang: "es" | "en", civil: string): string | null {
   }).format(date);
 }
 
-/** Texto que el coach comparte por WhatsApp / share sheet (sin push al alumno). */
+/**
+ * Texto que el coach comparte por WhatsApp / share sheet (sin push al cliente). #1697 — con
+ * `paymentDetails` (los «Datos de cobro» del coach) el texto los lleva antes de la despedida;
+ * vacío o en blanco = el texto de siempre. Gemelo de Swift/Kotlin `Billing.reminderText`
+ * (twin-vectors `reminderText`).
+ */
 export function reminderText(
   lang: "es" | "en",
   coachName: string,
@@ -330,15 +335,53 @@ export function reminderText(
   amount: number,
   currency: string,
   dueCivil?: string | null,
+  paymentDetails?: string | null,
 ): string {
   const money = formatBillingAmount(lang, amount, currency);
   const due = dueCivil ? formatDueDate(lang, dueCivil) : null;
+  const details = normalizedPaymentDetails(paymentDetails);
   if (lang === "es") {
     const dueClause = due ? `que vence el ${due}` : "pendiente";
-    return `Hola ${clientFirstName}! Te recuerdo el pago de ${money} ${dueClause}. ¡Gracias! — ${coachName}`;
+    const head = `Hola ${clientFirstName}! Te recuerdo el pago de ${money} ${dueClause}.`;
+    if (!details) return `${head} ¡Gracias! — ${coachName}`;
+    return `${head}\n\nDatos para el pago:\n${details}\n\n¡Gracias! — ${coachName}`;
   }
   const dueClause = due ? `due on ${due}` : "that is pending";
-  return `Hi ${clientFirstName}! A reminder about your ${money} payment ${dueClause}. Thanks! — ${coachName}`;
+  const head = `Hi ${clientFirstName}! A reminder about your ${money} payment ${dueClause}.`;
+  if (!details) return `${head} Thanks! — ${coachName}`;
+  return `${head}\n\nPayment details:\n${details}\n\nThanks! — ${coachName}`;
+}
+
+/** #1697 — el tope del texto libre «Datos de cobro» (la regla de `users/{uid}` lo repite). */
+export const PAYMENT_DETAILS_MAX_LENGTH = 500;
+
+/**
+ * #1697 — los «Datos de cobro» como salen en el aviso y en el recordatorio: CRLF → LF, sin
+ * espacios al final de cada línea y sin blancos alrededor. En blanco = null.
+ */
+export function normalizedPaymentDetails(raw: string | null | undefined): string | null {
+  if (raw == null) return null;
+  const joined = raw
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/\s+$/u, ""))
+    .join("\n")
+    .trim();
+  return joined.length > 0 ? joined : null;
+}
+
+/** #1697 — «16 de noviembre de 2026» / «November 16, 2026»: la fecha del aviso de pago. */
+export function noticeDueDate(civil: string, lang: "es" | "en"): string | null {
+  const ymd = parseCivilYMD(civil);
+  if (!ymd) return null;
+  const date = new Date(Date.UTC(ymd.year, ymd.month - 1, ymd.day, 12));
+  return new Intl.DateTimeFormat(lang === "es" ? "es-AR" : "en-US", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
 }
 
 /** Link de WhatsApp con el texto ya escrito (el coach elige el contacto). */

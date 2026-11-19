@@ -11,6 +11,7 @@ import { getTranslations } from "next-intl/server";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
+import { PaymentNoticeButton } from "@/app/gc-fitness/payments/_components/PaymentNoticeButton";
 import { PaymentStatusChip } from "@/app/gc-fitness/payments/_components/payment-labels";
 import type { ClientRosterRow } from "@/lib/gc-fitness/client-roster";
 
@@ -61,11 +62,11 @@ export async function PaymentsDueCard({ due, anyPlan }: { due: PaymentsDue; anyP
         ) : (
           <ul className="flex flex-col divide-y divide-border">
             {shown.map((row) => (
-              <li key={row.uid}>
+              <li key={row.uid} className="flex items-center gap-1">
                 <Link
                   href={`/gc-fitness/clients/${row.uid}/pagos`}
                   data-testid="payments-due-row"
-                  className="flex min-h-12 items-center justify-between gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex min-h-12 min-w-0 flex-1 items-center justify-between gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <span className="flex min-w-0 items-center gap-3">
                     <ClientAvatar name={row.displayName} photoURL={row.photoURL} />
@@ -76,6 +77,10 @@ export async function PaymentsDueCard({ due, anyPlan }: { due: PaymentsDue; anyP
                   </span>
                   <PaymentStatusChip state={row.billing!.state} />
                 </Link>
+                {/* gc-fitness #1697 — beside the link, never inside it (no button in an <a>). */}
+                {row.billing?.view?.planId ? (
+                  <PaymentNoticeButton clientId={row.uid} clientName={row.displayName} billing={row.billing.view} />
+                ) : null}
               </li>
             ))}
           </ul>
