@@ -234,6 +234,41 @@ describe("WorkoutLogDetailView — reps vs time exercises", () => {
   });
 });
 
+describe("WorkoutLogDetailView — a client who uses pounds (gc-fitness #1646)", () => {
+  it("keeps kg for the coach and adds the lb the client typed, everywhere a load shows", () => {
+    renderDetail(
+      detail({
+        clientUnits: "lb",
+        sets: [
+          // «135 lb» typed in the app is stored as 61.235 kg (kgFromInput, to the gram).
+          set({ index: 1, setLogId: "s1", weight: 61.235, reps: 5 }),
+          set({
+            index: 2,
+            setLogId: "s2",
+            weight: 102.058,
+            reps: 5,
+            isPR: true,
+            prEstimatedOneRM: 119,
+            prPrevious: { weightKg: 61.235, reps: 5, estimatedOneRM: 71.4, durationSeconds: null },
+          }),
+        ],
+      }),
+    );
+
+    const block = exerciseBlock("Bench Press");
+    // Never the raw «61.235 kg» the wire carries.
+    expect(within(block).getByText("61.24 kg (135 lb)")).toBeInTheDocument();
+    expect(screen.getByText("Top: 102.06 kg (225 lb)")).toBeInTheDocument();
+    expect(screen.getByText(/prev 61\.24 kg \(135 lb\) × 5/)).toBeInTheDocument();
+  });
+
+  it("a kg client sees no lb at all", () => {
+    renderDetail(detail({ clientUnits: "kg", sets: [set({ weight: 61.25 })] }));
+    expect(screen.getByText("61.25 kg")).toBeInTheDocument();
+    expect(screen.queryByText(/lb\)/)).not.toBeInTheDocument();
+  });
+});
+
 describe("WorkoutLogDetailView — rest is derived from the gaps", () => {
   it("has no rest on the first set and the real gap afterwards", () => {
     renderDetail(
@@ -439,6 +474,61 @@ describe("WorkoutLogDetailView — set types (#403)", () => {
     expect(screen.getByLabelText("Al fallo")).toHaveTextContent("F");
     // Exactly two badges — a "normal" badge would make every row noisy.
     expect(screen.queryByLabelText("Normal")).not.toBeInTheDocument();
+  });
+});
+
+describe("WorkoutLogDetailView — per-set RPE (gc-fitness #1623)", () => {
+  it("shows the RPE on the set that logged it and nothing on the others", () => {
+    renderDetail(
+      detail({
+        sets: [
+          set({ index: 1, setLogId: "s1", rpe: 8 }),
+          set({ index: 2, setLogId: "s2", rpe: 8.5 }),
+          set({ index: 3, setLogId: "s3" }),
+        ],
+      }),
+    );
+
+    const rows = within(exerciseBlock("Bench Press")).getAllByRole("row");
+    // header + 3 sets
+    expect(rows).toHaveLength(4);
+    expect(within(rows[1]).getByTestId("set-rpe")).toHaveTextContent("RPE 8");
+    // Half steps keep their decimal; RIR (= 10 − RPE) rides in the label.
+    expect(within(rows[2]).getByTestId("set-rpe")).toHaveTextContent("RPE 8.5");
+    expect(
+      within(rows[2]).getByLabelText("RPE 8.5 (RIR 1.5)"),
+    ).toBeInTheDocument();
+    // No RPE logged → no chrome at all (layout unchanged).
+    expect(within(rows[3]).queryByTestId("set-rpe")).not.toBeInTheDocument();
+    expect(rows[3]).not.toHaveTextContent("RPE");
+  });
+
+  it("renders the RPE on a time-only block, which has no weight column", () => {
+    renderDetail(
+      detail({
+        sets: [
+          set({
+            exerciseId: "ex-plank",
+            exerciseName: "Plank",
+            metric: "time",
+            reps: null,
+            weight: null,
+            durationSeconds: 45,
+            rpe: 9,
+          }),
+        ],
+      }),
+    );
+
+    expect(
+      within(exerciseBlock("Plank")).getByTestId("set-rpe"),
+    ).toHaveTextContent("RPE 9");
+  });
+
+  it("shows no RPE anywhere on a workout that never logged one", () => {
+    renderDetail(detail());
+
+    expect(screen.queryByTestId("set-rpe")).not.toBeInTheDocument();
   });
 });
 

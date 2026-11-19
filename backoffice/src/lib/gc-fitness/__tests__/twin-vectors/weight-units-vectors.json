@@ -1,0 +1,51 @@
+{
+  "description": "#1646 — kg / lb. The WIRE IS ALWAYS KILOGRAMS (weight_kg, weightBySetKg, body weight, PRs, volume); lb is display/input only, converted at the edges with ONE rounding policy. OUT: displayValue = kg × 2.2046226218; loadNumber prints kg with up to 2 decimals and lb with 1 (half away from zero on the binary double, trailing zeros dropped, app-language separator, no grouping). IN: kgFromInput(lb) = lb ÷ 2.2046226218 rounded half away from zero to the gram (3 decimals); kg passes through unchanged. Plates/warm-ups in lb are computed in lb (bar + plates in lb) and converted back with kgFromInput. Runners: GCFitnessCoreTests/WeightUnitsVectorTests.swift, android/core WeightUnitsVectorTest.kt, backoffice __tests__/weight-units.test.ts.",
+  "kgFromInput": [
+    { "value": 135, "units": "lb", "expected": 61.235 },
+    { "value": 45, "units": "lb", "expected": 20.412 },
+    { "value": 225, "units": "lb", "expected": 102.058 },
+    { "value": 2.5, "units": "lb", "expected": 1.134 },
+    { "value": 0, "units": "lb", "expected": 0 },
+    { "value": 1102.3, "units": "lb", "expected": 499.995 },
+    { "value": 187.5, "units": "lb", "expected": 85.049 },
+    { "value": 132.3, "units": "lb", "expected": 60.01 },
+    { "value": 100, "units": "kg", "expected": 100 },
+    { "value": 61.25, "units": null, "expected": 61.25 },
+    { "value": 61.25, "units": "LB", "expected": 27.783 }
+  ],
+  "loadNumber": [
+    { "kg": 61.25, "units": "kg", "locale": "en-US", "expected": "61.25" },
+    { "kg": 61.25, "units": "kg", "locale": "es-AR", "expected": "61,25" },
+    { "kg": 80, "units": "kg", "locale": "es-AR", "expected": "80" },
+    { "kg": 82.5, "units": null, "locale": "en-US", "expected": "82.5" },
+    { "kg": 61.235, "units": "kg", "locale": "en-US", "expected": "61.24" },
+    { "kg": 1.005, "units": "kg", "locale": "en-US", "expected": "1" },
+    { "kg": 100.125, "units": "kg", "locale": "es-AR", "expected": "100,13" },
+    { "kg": 61.235, "units": "lb", "locale": "en-US", "expected": "135" },
+    { "kg": 61.25, "units": "lb", "locale": "es-AR", "expected": "135" },
+    { "kg": 60, "units": "lb", "locale": "es-AR", "expected": "132,3" },
+    { "kg": 80, "units": "lb", "locale": "en-US", "expected": "176.4" },
+    { "kg": 1.134, "units": "lb", "locale": "en-US", "expected": "2.5" },
+    { "kg": 500, "units": "lb", "locale": "en-US", "expected": "1102.3" },
+    { "kg": 0, "units": "lb", "locale": "en-US", "expected": "0" }
+  ],
+  "lbRoundTrip": {
+    "description": "Every lb value typed with ≤ 1 decimal reads back identical: loadNumber(kgFromInput(typed, lb), lb, en-US) == typed.",
+    "typed": ["2.5", "5", "45", "95", "132.3", "135", "137.5", "185", "187.5", "225", "315", "405", "1102.3"]
+  },
+  "plateLoadout": [
+    { "totalKg": 61.235, "units": "lb", "bar": 45, "plates": [45, 35, 25, 10, 5, 2.5], "perSide": [45], "achieved": 135, "remainder": 0, "isBelowBar": false },
+    { "totalKg": 102.058, "units": "lb", "bar": 45, "plates": [45, 35, 25, 10, 5, 2.5], "perSide": [45, 45], "achieved": 225, "remainder": 0, "isBelowBar": false },
+    { "totalKg": 62.369, "units": "lb", "bar": 45, "plates": [45, 35, 25, 10, 5, 2.5], "perSide": [45], "achieved": 135, "remainder": 2.5, "isBelowBar": false },
+    { "totalKg": 15, "units": "lb", "bar": 45, "plates": [45, 35, 25, 10, 5, 2.5], "perSide": [], "achieved": 45, "remainder": 0, "isBelowBar": true },
+    { "totalKg": 100, "units": "kg", "bar": 20, "plates": [25, 20, 15, 10, 5, 2.5, 1.25], "perSide": [25, 15], "achieved": 100, "remainder": 0, "isBelowBar": false }
+  ],
+  "warmup": [
+    { "workingKg": 102.058, "units": "lb", "bar": 45, "roundingStep": 5, "expected": [{ "display": "45", "reps": 10 }, { "display": "90", "reps": 5 }, { "display": "135", "reps": 3 }, { "display": "180", "reps": 2 }] },
+    { "workingKg": 100, "units": "kg", "bar": 20, "roundingStep": 2.5, "expected": [{ "display": "20", "reps": 10 }, { "display": "40", "reps": 5 }, { "display": "60", "reps": 3 }, { "display": "80", "reps": 2 }] }
+  ],
+  "plateDefaults": {
+    "kg": { "bar": 20, "plates": [25, 20, 15, 10, 5, 2.5, 1.25], "storageKeySuffix": "" },
+    "lb": { "bar": 45, "plates": [45, 35, 25, 10, 5, 2.5], "storageKeySuffix": ".lb" }
+  }
+}
