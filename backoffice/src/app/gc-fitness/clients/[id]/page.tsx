@@ -100,6 +100,8 @@ import {
   type ClientInviteStatus,
 } from "./_components/ClientInviteCard";
 import { UnlinkClientButton } from "./_components/UnlinkClientButton";
+import { ClientStatusStrip } from "./_components/ClientStatusStrip";
+import { readClientUserDoc } from "@/lib/gc-fitness/client-doc-read";
 import { ClientSummaryCard } from "./_components/ClientSummaryCard";
 // #1347 — «Resumen de la semana (IA)», read-only, coach-visible data only.
 import { CoachWeeklySummaryCard } from "./_components/CoachWeeklySummaryCard";
@@ -182,10 +184,7 @@ export default async function ClientDetailPage({
   // also enforce this). notFound() — NOT redirect — keeps the URL surface
   // uniform: a missing client and a wrong-trainer-client are
   // indistinguishable to the caller.
-  const clientSnap = await db
-    .collection(FirestoreCollections.users)
-    .doc(id)
-    .get();
+  const clientSnap = await readClientUserDoc(id); // #535 — shared with the loaders below
   if (!clientSnap.exists) notFound();
   const client = clientSnap.data() as {
     displayName?: string;
@@ -494,6 +493,15 @@ export default async function ClientDetailPage({
         }
       />
 
+      {/* #535 — what the coach opens this page to check, before anything else. */}
+      <Suspense fallback={<div className="h-[88px] animate-pulse rounded-[1.25rem] border border-border bg-card" aria-busy="true" />}>
+        <ClientStatusStrip
+          clientId={id}
+          coachId={trainer.uid}
+          billingTodayCivil={civilDateToday(await getTrainerTimezone())}
+        />
+      </Suspense>
+
       {/* #502 — sticky section nav. Sections are anchors (not hidden tabs): the
           order below IS the nav order, and `/clients/<id>#<section>` deep-links. */}
       <ClientSectionNav
@@ -506,13 +514,17 @@ export default async function ClientDetailPage({
 
       <section id="resumen" aria-label={sectionLabel("resumen")} className="flex scroll-mt-16 flex-col gap-6">
         <ClientCalendarPeek clientId={id} initialPayload={calendarPeek} />
-        <ClientSummaryCard
-          clientId={id}
-          clientName={displayName}
-          coachId={trainer.uid}
-          timezone={timezone}
-          goals={goals}
-        />
+        {/* #535 — async (4 queries + a nutrition load): streamed, so it no longer
+            holds back the whole profile. */}
+        <Suspense fallback={<WidgetSkeleton title={tSkeleton("summary")} />}>
+          <ClientSummaryCard
+            clientId={id}
+            clientName={displayName}
+            coachId={trainer.uid}
+            timezone={timezone}
+            goals={goals}
+          />
+        </Suspense>
         <CoachWeeklySummaryCard clientId={id} initial={aiSummary} />
       </section>
 

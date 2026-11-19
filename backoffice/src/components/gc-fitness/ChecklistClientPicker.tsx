@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
 import { cn } from "@/lib/utils";
+import { NoClientsHint } from "@/components/gc-fitness/no-clients-hint";
 
 export interface ChecklistClientOption {
   uid: string;
@@ -96,9 +97,7 @@ export function ChecklistClientPicker({
       </div>
       <div className="max-h-56 overflow-y-auto rounded-card border border-border bg-card p-3">
         {clients.length === 0 ? (
-          <p className="px-3 py-2 text-sm text-muted-foreground">
-            No hay clientes.
-          </p>
+          <NoClientsHint message="No hay clientes." className="px-3 py-2" />
         ) : filtered.length === 0 ? (
           <p className="px-3 py-2 text-sm text-muted-foreground">
             Sin resultados.

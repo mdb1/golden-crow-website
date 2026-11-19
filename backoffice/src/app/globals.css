@@ -1462,3 +1462,17 @@
 .gc-fitness-theme .text-primary {
   color: var(--primary-text);
 }
+
+/* golden-crow-website#535 — touch targets on the COACH screens (see
+   components/gc-fitness/coach-surface-scope.tsx). Only on coarse pointers, only
+   where <body> carries data-coach-surface: desktop and the admin screens keep
+   the Button sizes exactly as they are. */
+@media (pointer: coarse) {
+  body[data-coach-surface] [data-slot="button"]:is([data-size="xs"], [data-size="sm"], [data-size="default"], [data-size="lg"]) {
+    min-height: 2.5rem;
+  }
+  body[data-coach-surface] [data-slot="button"]:is([data-size="icon-xs"], [data-size="icon-sm"], [data-size="icon"], [data-size="icon-lg"]) {
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+  }
+}

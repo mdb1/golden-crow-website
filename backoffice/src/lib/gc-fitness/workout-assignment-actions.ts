@@ -2259,6 +2259,32 @@ export async function listAssignmentsForTrainerDay(
 }
 
 /**
+ * golden-crow-website#535 — the coach's assignments scheduled today or later.
+ * Both readers below only ever use those, but read EVERY assignment the coach
+ * ever made (it grows forever: a year of three workouts a week for 30 clients is
+ * ~4.7k docs per Biblioteca load). The `(trainerId, scheduledFor)` composite is
+ * live in production (coach-pulse uses it); if it ever fails, fall back to the
+ * old unbounded read — the callers' `scheduledFor < today` filter keeps the
+ * result identical either way. Not exported: not a Server Action.
+ */
+async function todayOrLaterAssignments(
+  db: FirebaseFirestore.Firestore,
+  trainerUid: string,
+  today: string,
+) {
+  try {
+    return await db
+      .collection(ASSIGNMENTS)
+      .where("trainerId", "==", trainerUid)
+      .where("scheduledFor", ">=", today)
+      .get();
+  } catch (err) {
+    console.error("[gc-fitness/assignments] windowed read failed — unbounded fallback", err);
+    return db.collection(ASSIGNMENTS).where("trainerId", "==", trainerUid).get();
+  }
+}
+
+/**
  * Map of `templateId` → number of assignment series scheduled today or later,
  * scoped to this trainer. A recurring assignment counts as ONE (collapsed by
  * `seriesId`); past-only assignments are ignored. Powers the "N asignaciones"
@@ -2275,10 +2301,7 @@ export async function countTemplateAssignments(): Promise<
   const tz = await getTrainerTimezone();
   const today = civilDateFormat(new Date(), tz);
   const db = gcFitnessFirestore();
-  const snap = await db
-    .collection(ASSIGNMENTS)
-    .where("trainerId", "==", trainer.uid)
-    .get();
+  const snap = await todayOrLaterAssignments(db, trainer.uid, today);
   // #1503 — the "N asignaciones" pill counts only clients the coach STILL coaches.
   const inScope = await clientInScopePredicate(db, trainer.uid);
   const assignments: AssignmentForUsage[] = snap.docs
@@ -2326,10 +2349,7 @@ export async function listWorkoutAssignmentGroups(): Promise<
   const trainer = await getCurrentTrainer();
   const db = gcFitnessFirestore();
   const today = civilDateFormat(new Date(), await getTrainerTimezone());
-  const snap = await db
-    .collection(ASSIGNMENTS)
-    .where("trainerId", "==", trainer.uid)
-    .get();
+  const snap = await todayOrLaterAssignments(db, trainer.uid, today);
 
   // #1503 — the "Asignaciones" view lists only clients the coach STILL coaches.
   const inScope = await clientInScopePredicate(db, trainer.uid);

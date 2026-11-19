@@ -38,11 +38,17 @@ import {
 } from "./coachless-user-model";
 import { FirestoreCollections } from "./collections";
 import { comparePaymentsDesc, decodeBilling, decodePayment } from "./payments-model";
+import {
+  decodeSubscriptionEvents,
+  type ClientSocialSummary,
+  type SubscriptionEvent,
+} from "./admin-client-overview-model";
 
 type Raw = Record<string, unknown>;
 
 const PAYMENTS_LIMIT = 50;
 const GOALS_LIMIT = 100;
+const RC_EVENTS_LIMIT = 50;
 
 export interface ClientAdminOverview {
   timezone: string;
@@ -76,6 +82,10 @@ export interface ClientAdminOverview {
     reports: number;
   } | null;
   chat: ReturnType<typeof summarizeChat>;
+  /** #541 — RevenueCat webhook events for this user (newest first, ≤ 50). */
+  subscriptionEvents: SubscriptionEvent[] | null;
+  /** #541 — social layer. */
+  social: ClientSocialSummary | null;
 }
 
 async function safe<T>(p: Promise<T>, fallback: T): Promise<T> {
@@ -167,6 +177,24 @@ export async function loadClientAdminOverview(
       safe(db.collection(FirestoreCollections.chats).doc(clientId).get(), null),
     ]);
 
+  // #541 — subscription history + social. Equality-only queries / counts: no new index.
+  const count = (q: FirebaseFirestore.Query) =>
+    safe(
+      q
+        .count()
+        .get()
+        .then((c) => c.data().count),
+      null as number | null,
+    );
+  const [rcSnap, socialSnap, followers, following, publicRoutines, challenges] = await Promise.all([
+    safe(db.collection("revenuecat_events").where("appUserId", "==", clientId).limit(RC_EVENTS_LIMIT).get(), null),
+    safe(db.collection(FirestoreCollections.socialProfiles).doc(clientId).get(), null),
+    count(db.collection("social_follows").where("followeeUid", "==", clientId)),
+    count(db.collection("social_follows").where("followerUid", "==", clientId)),
+    count(db.collection(FirestoreCollections.publicRoutines).where("authorUid", "==", clientId)),
+    count(db.collection(FirestoreCollections.socialChallenges).where("memberUids", "array-contains", clientId)),
+  ]);
+
   const stats = statsSnap?.exists ? decodeClientStats(statsSnap.data() as Raw) : null;
   const ai = aiSnap?.exists ? (aiSnap.data() as Raw) : null;
   const thread = ai ? decodeThread(clientId, ai) : null;
@@ -239,5 +267,19 @@ export async function loadClientAdminOverview(
         }
       : null,
     chat: chatSnap?.exists ? summarizeChat(chatSnap.data() as Raw, coachUid, clientId) : null,
+    subscriptionEvents: rcSnap ? decodeSubscriptionEvents(rcSnap.docs.map((d) => ({ id: d.id, data: d.data() as Raw }))) : null,
+    social:
+      socialSnap?.exists || followers || following || publicRoutines || challenges
+        ? {
+            hasProfile: socialSnap?.exists === true,
+            handle: typeof socialSnap?.get("handle") === "string" ? (socialSnap.get("handle") as string) : null,
+            visibility: typeof socialSnap?.get("visibility") === "string" ? (socialSnap.get("visibility") as string) : null,
+            suspended: socialSnap?.get("suspended") === true,
+            followers,
+            following,
+            publicRoutines,
+            challenges,
+          }
+        : null,
   };
 }

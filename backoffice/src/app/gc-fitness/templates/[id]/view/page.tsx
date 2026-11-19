@@ -12,7 +12,8 @@
 // `isStandard` / tags / description fields.
 
 import { redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
+import { localizedNamePair } from "@/lib/gc-fitness/localized-name";
 
 import {
   getCurrentTrainer,
@@ -59,6 +60,7 @@ function readTags(data: Record<string, unknown>): string[] {
 
 export default async function ViewTemplatePage({ params }: PageParams) {
   const t = await getTranslations("templates.viewPage");
+  const locale = await getLocale();
   let _trainer: CurrentTrainer;
   try {
     _trainer = await getCurrentTrainer();
@@ -105,11 +107,16 @@ export default async function ViewTemplatePage({ params }: PageParams) {
 
   const nameEn = template.name.en?.trim() ?? "";
   const nameEs = template.name.es?.trim() ?? "";
-  const primaryName = nameEn || nameEs || id;
-  const secondaryName = nameEs && nameEs !== nameEn ? nameEs : null;
+  // #535 — coach-language first (it was always English first).
+  const { primary, secondary } = localizedNamePair({ en: nameEn, es: nameEs }, locale);
+  const primaryName = primary || id;
+  const secondaryName = secondary;
 
   const descriptionText =
-    description?.en?.trim() || description?.es?.trim() || null;
+    localizedNamePair(
+      { en: description?.en ?? null, es: description?.es ?? null },
+      locale,
+    ).primary || null;
 
   return (
     <div className="mx-auto flex w-full min-w-0 max-w-4xl flex-col gap-6 px-4 py-8 sm:px-6">
@@ -197,7 +204,7 @@ export default async function ViewTemplatePage({ params }: PageParams) {
               return (
                 <div
                   key={`${exercise.index}-${exercise.exerciseId}`}
-                  className="flex items-center gap-3 px-4 py-3.5 sm:px-5"
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3.5 sm:flex-nowrap sm:px-5"
                 >
                   <span className="w-5 shrink-0 text-sm font-medium text-muted-foreground">
                     {exercise.index + 1}
@@ -216,7 +223,9 @@ export default async function ViewTemplatePage({ params }: PageParams) {
                       </p>
                     ) : null}
                   </div>
-                  <p className="shrink-0 text-right text-sm text-muted-foreground">
+                  {/* #535 — on a phone the prescription wraps under the name instead
+                      of squeezing it to a few characters. */}
+                  <p className="basis-full pl-8 text-sm text-muted-foreground sm:basis-auto sm:shrink-0 sm:pl-0 sm:text-right">
                     <span className="font-medium text-foreground">
                       {prescription}
                     </span>

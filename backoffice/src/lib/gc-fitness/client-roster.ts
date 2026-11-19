@@ -51,7 +51,7 @@ import { coerceLegacyHabitLogValue } from "./habit-compliance";
 import { isHabitNotDeleted } from "./habit-visibility";
 import { effectiveIsoWeekdays, isHabitScheduledOn } from "./habit-schedule";
 import { civilDateAddDays, civilDateToday } from "./civil-date";
-import { status as billingStatus } from "./billing";
+import { toRosterBilling, type RosterBilling } from "./roster-billing";
 import { decodeBilling } from "./payments-model";
 import { getTrainerTimezone } from "./trainer-timezone";
 import { loadNutritionRosterSummaries } from "./nutrition-roster";
@@ -197,16 +197,6 @@ export interface ClientRosterRow {
   workoutsScheduledThisMonth: number;
   /** Goal counts on `/client_goals` bucketed by horizon. */
   goalsCount: { short: number; medium: number; long: number };
-}
-
-/** #535 — what the roster shows about a client's payments. */
-export interface RosterBilling {
-  state: "overdue" | "due_soon" | "up_to_date";
-  /** Days overdue / until due; for class packs, classes left. */
-  days: number;
-  classBased: boolean;
-  planName: string | null;
-  nextDueCivil: string | null;
 }
 
 function toIsoMaybe(value: unknown): string | null {
@@ -1134,32 +1124,9 @@ export async function listClientsForRoster(): Promise<ClientRosterRow[]> {
       // logged activity yet by definition, so the inactivity predicate
       // would always fire — that's noise, not a real signal.
       const billing = billingByClient.get(c.uid);
-      const billingState = billing
-        ? billingStatus(
-            {
-              planId: billing.planId,
-              plan: billing.plan,
-              startCivil: billing.startCivil,
-              nextDueCivil: billing.nextDueCivil,
-              classesRemaining: billing.classesRemaining,
-              reminderDaysBefore: billing.reminderDaysBefore,
-            },
-            today,
-          )
-        : null;
-      const billingOverdue = billingState?.state === "overdue";
       // #535 — surfaced on the roster card / list (payment chip + sort + filter).
-      const rosterBilling: RosterBilling | null =
-        billing && billingState && billingState.state !== "none"
-          ? {
-              state: billingState.state,
-              days: billingState.days,
-              classBased:
-                billing.plan?.kind === "class_pack" || billing.plan?.kind === "per_class",
-              planName: billing.plan?.name ?? null,
-              nextDueCivil: billing.nextDueCivil,
-            }
-          : null;
+      const rosterBilling = toRosterBilling(billing, today);
+      const billingOverdue = rosterBilling?.state === "overdue";
       const attention = isPending
         ? { needsAttention: false, reasons: [] as AttentionReason[] }
         : clientNeedsAttention({

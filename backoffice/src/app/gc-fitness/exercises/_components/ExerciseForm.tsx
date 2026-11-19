@@ -27,6 +27,7 @@ import { noteIfStaleDeployment } from "@/lib/gc-fitness/stale-deployment";
 import { formDraftKey, useFormDraft } from "@/lib/gc-fitness/use-form-draft";
 import { FormDraftRestoredNotice } from "@/components/gc-fitness/form-draft-restored-notice";
 import { useTranslations, useLocale } from "next-intl";
+import { useVocabularyLabels } from "./use-vocabulary-labels";
 
 import {
   Form,
@@ -191,9 +192,9 @@ export function ExerciseForm({
   const t = useTranslations("exercises.form");
   // 26-09 — translated labels for the muscle-group / equipment option lists
   // (the canonical vocabulary values are lowercase English identifiers).
-  const tVocab = useTranslations("exercises.vocabulary");
-  const formatMuscleLabel = (key: string) => tVocab(`muscle.${key}`);
-  const formatEquipmentLabel = (key: string) => tVocab(`equipment.${key}`);
+  const vocab = useVocabularyLabels();
+  const formatMuscleLabel = vocab.muscle;
+  const formatEquipmentLabel = vocab.equipment;
   const [pending, startTransition] = useTransition();
 
   // 260529 — useExercisesQuery is now a one-shot read (no live listener), so
