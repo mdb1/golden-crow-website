@@ -23,7 +23,7 @@ import { CORVO_HEAD_ASSETS } from '../../data/gcFitnessPublic';
           método de inicio de sesión (Google o Apple).</li>
         <li><strong>Datos de entrenamiento y salud:</strong> entrenamientos registrados (series,
           repeticiones, pesos, duraciones), hábitos y su cumplimiento, métricas corporales que
-          cargues (peso, altura), récords personales y objetivos.</li>
+          cargues (peso, altura y medidas como cintura, cadera o % de grasa), récords personales y objetivos.</li>
         <li><strong>Fotos de progreso:</strong> las fotos que subas voluntariamente para tu
           seguimiento visual.</li>
         <li><strong>Mensajes:</strong> el chat con tu entrenador (texto, fotos y notas de voz) y,
@@ -52,19 +52,21 @@ import { CORVO_HEAD_ASSETS } from '../../data/gcFitnessPublic';
         <li>Diagnóstico y mejora: informes de fallos y analítica de uso del producto.</li>
       </ul>
       <p>
-        En iOS, si lo autorizás, la app escribe tus entrenamientos en Apple Health y lee datos como
-        frecuencia cardíaca, energía activa y pasos para mostrarlos en la app. Esos datos de Apple
+        En iOS, si lo autorizás, la app escribe tus entrenamientos y el peso que registrás en Apple
+        Health, y lee datos como frecuencia cardíaca, energía activa, pasos y peso corporal para
+        mostrarlos en la app (los pesajes de otras fuentes, como una balanza, se suman a tu historial
+        de peso). Esos datos de Apple
         Health se procesan en tu dispositivo y no se usan con fines publicitarios.
       </p>
 
       <h2>Health Connect (Android)</h2>
       <p>
-        En Android, Corvo puede conectarse a <strong>Health Connect</strong> para completar tres
-        funciones. Es opcional: el resto de la app funciona sin eso, y podés retirar el acceso
+        En Android, Corvo puede conectarse a <strong>Health Connect</strong> para completar cuatro
+        funciones (pasos, pulsaciones, peso corporal y guardar tus entrenamientos). Es opcional: el resto de la app funciona sin eso, y podés retirar el acceso
         cuando quieras desde Health Connect (o desde Ajustes → Salud → Health Connect dentro de GC
         Fitness, que te lleva ahí).
       </p>
-      <p>Pedimos <strong>acceso de lectura a exactamente dos tipos de dato</strong>, y a ningún otro:</p>
+      <p>Pedimos <strong>acceso de lectura a exactamente tres tipos de dato</strong>, y a ningún otro:</p>
       <ul>
         <li><strong>Pasos</strong> — la cantidad de pasos de cada día. Los usamos para dibujar el
           gráfico de Pasos en tu pestaña Progreso, y guardamos el total diario en tu propio registro
@@ -75,19 +77,26 @@ import { CORVO_HEAD_ASSETS } from '../../data/gcFitnessPublic';
           usamos para dibujar la línea de frecuencia cardíaca en el resumen de ese entrenamiento
           (con su mínimo, promedio y máximo) y guardamos esa serie junto a ese entrenamiento,
           visible para vos y para tu entrenador.</li>
+        <li><strong>Peso</strong> — los pesajes que otras fuentes (por ejemplo, una balanza
+          inteligente) guardan en Health Connect. Los sumamos a tu historial de peso en tu pestaña
+          Progreso, visible para vos y para tu entrenador. No importamos los pesajes que escribió
+          Corvo, para no duplicarlos.</li>
       </ul>
-      <p>Y pedimos <strong>acceso de escritura a exactamente dos tipos de dato</strong>, para guardar
-        los entrenamientos que terminás en la app (lo mismo que hacemos con Apple Health en iPhone):</p>
+      <p>Y pedimos <strong>acceso de escritura a exactamente tres tipos de dato</strong>, para guardar
+        los entrenamientos que terminás y el peso que cargás en la app (lo mismo que hacemos con Apple
+        Health en iPhone):</p>
       <ul>
         <li><strong>Sesiones de ejercicio</strong> — cada entrenamiento que terminás se guarda como una
           sesión de fuerza, con el nombre de la rutina y su hora de inicio y fin, para que tus otras
           apps de fitness también lo cuenten. Un mismo entrenamiento se guarda una sola vez.</li>
         <li><strong>Calorías activas</strong> — una estimación de las calorías de ese entrenamiento,
           calculada con su duración y el peso que registraste en la app, guardada junto a él.</li>
+        <li><strong>Peso</strong> — el peso corporal que cargás a mano en Corvo, para que tu
+          historial quede en un solo lugar.</li>
       </ul>
       <p>
         <strong>Nada más.</strong> Corvo no lee ni escribe ningún otro dato de salud además de esos
-        cuatro tipos. Lo que se guarda en Health Connect queda en tu teléfono, bajo tu control: podés
+        seis tipos. Lo que se guarda en Health Connect queda en tu teléfono, bajo tu control: podés
         verlo y borrarlo desde la app de Health Connect.
       </p>
       <p>
@@ -98,8 +107,8 @@ import { CORVO_HEAD_ASSETS } from '../../data/gcFitnessPublic';
         tercero.</strong> No los transferimos a ninguna red de publicidad ni de analítica.
       </p>
       <p>
-        <strong>Retención y borrado.</strong> Los totales de pasos y las series de pulsaciones de
-        los entrenamientos se conservan junto con el resto de tus datos de entrenamiento mientras tu
+        <strong>Retención y borrado.</strong> Los totales de pasos, las series de pulsaciones de
+        los entrenamientos y los pesajes importados se conservan junto con el resto de tus datos de entrenamiento mientras tu
         cuenta esté activa, y se borran con ella cuando eliminás tu cuenta (Ajustes → Eliminar
         cuenta). Retirar el permiso de Health Connect detiene de inmediato cualquier lectura
         posterior; para borrar además lo ya almacenado, eliminá tu cuenta o escribinos a
