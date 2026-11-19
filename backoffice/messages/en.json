@@ -2420,6 +2420,7 @@
       "prPreviousLabel": "prev {value}",
       "exerciseSetCount": "{count, plural, one {# set} other {# sets}}",
       "exerciseTopWeight": "Top: {weight} kg",
+      "exerciseTopLoad": "Top: {load}",
       "exerciseNoWeight": "No weight logged",
       "shareButton": "Share image",
       "shareDownloadButton": "Download image",

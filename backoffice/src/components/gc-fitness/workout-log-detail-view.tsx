@@ -33,14 +33,18 @@ import {
 } from "@/lib/gc-fitness/set-type";
 // gc-fitness #1623 — per-set effort (RPE) logged by the client.
 import { formatRpe, rirFromRpe } from "@/lib/gc-fitness/set-effort";
+// gc-fitness #1646 — the coach reads kg; a client who uses lb also gets the lb they typed.
+import { coachLoadText, type WeightUnits } from "@/lib/gc-fitness/weight-units";
 
 /** Compact "previous PR" value for the PR row: duration for time PRs, else
  * "{weight} kg × {reps}" (issue #405). */
 function prPreviousText(
   prev: NonNullable<WorkoutLogDetail["sets"][number]["prPrevious"]>,
+  clientUnits: WeightUnits | undefined,
+  locale: string,
 ): string {
   if (prev.durationSeconds !== null) return `${prev.durationSeconds}s`;
-  return `${prev.weightKg} kg × ${prev.reps}`;
+  return `${coachLoadText(prev.weightKg, clientUnits, locale)} × ${prev.reps}`;
 }
 
 // Stable HSL palette — assigns each distinct exerciseId a recognisable
@@ -243,7 +247,7 @@ export function WorkoutLogDetailView({ detail }: { detail: WorkoutLogDetail }) {
                         </span>
                         <span>
                           {group.topWeight !== null
-                            ? t("exerciseTopWeight", { weight: group.topWeight })
+                            ? t("exerciseTopLoad", { load: coachLoadText(group.topWeight, detail.clientUnits, locale) })
                             : t("exerciseNoWeight")}
                         </span>
                       </div>
@@ -308,7 +312,7 @@ export function WorkoutLogDetailView({ detail }: { detail: WorkoutLogDetail }) {
                                     {set.isPR && set.prPrevious ? (
                                       <span className="whitespace-nowrap text-[10px] text-muted-foreground">
                                         {t("prPreviousLabel", {
-                                          value: prPreviousText(set.prPrevious),
+                                          value: prPreviousText(set.prPrevious, detail.clientUnits, locale),
                                         })}
                                       </span>
                                     ) : null}
@@ -329,7 +333,7 @@ export function WorkoutLogDetailView({ detail }: { detail: WorkoutLogDetail }) {
                                 {!isTimeGroup ? (
                                   <td className="py-2 pr-3">
                                     {!isTimeSet && set.weight !== null
-                                      ? `${set.weight} ${t("weightUnit")}`
+                                      ? coachLoadText(set.weight, detail.clientUnits, locale)
                                       : t("emptyDash")}
                                     <SetRpe rpe={set.rpe} locale={locale} />
                                   </td>

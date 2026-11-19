@@ -31,6 +31,7 @@ import { effectiveSetType, type SetType } from "./set-type";
 // gc-fitness #1623 — per-set RPE (forgiving read, TS twin of mobile).
 import { rpeField } from "./set-effort";
 import { wireSetLoadInputs } from "./live-workout-volume";
+import { clientWeightUnits, type WeightUnits } from "./weight-units";
 // #949 follow-up — the nutrition row's "X de Y" counts one day of marks. Shared
 // with the admin feed rather than recomputed: the two surfaces describing the
 // same document with different denominators is exactly how this row shipped
@@ -144,6 +145,9 @@ export interface WorkoutLogDetail {
    *  this zone — the page is a server component, so a missing timeZone renders
    *  in the Vercel host tz (UTC). */
   clientTimezone: string;
+  /** gc-fitness #1646 — the client's weight units (`users/{clientId}.preferences.units`,
+   *  absent ⇒ kg). Weights stay kg on the wire; the view adds the lb the client saw. */
+  clientUnits?: WeightUnits;
   /** Coach (logged-in trainer) display name for the share card sub-line.
    *  Resolved from `/users/{trainerId}.displayName`. Null when unavailable
    *  — never a raw UID (the share card omits the coach segment gracefully). */
@@ -2106,6 +2110,7 @@ async function buildWorkoutLogDetail(
   const clientTimezone =
     (typeof storedClientTz === "string" && storedClientTz) ||
     (await getTrainerTimezone());
+  const clientUnits = clientWeightUnits({ preferences: clientSnap.get("preferences") });
 
   // 260529-ltm — the logged-in trainer IS the coach. Resolve their
   // displayName for the share card sub-line. Degrade to null (never a raw
@@ -2318,6 +2323,7 @@ async function buildWorkoutLogDetail(
     clientId,
     clientName,
     clientTimezone,
+    clientUnits,
     coachName,
     heartRate,
     workoutName,

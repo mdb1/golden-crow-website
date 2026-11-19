@@ -2420,6 +2420,7 @@
       "prPreviousLabel": "ant. {value}",
       "exerciseSetCount": "{count, plural, one {# serie} other {# series}}",
       "exerciseTopWeight": "Tope: {weight} kg",
+      "exerciseTopLoad": "Tope: {load}",
       "exerciseNoWeight": "Sin peso registrado",
       "shareButton": "Compartir imagen",
       "shareDownloadButton": "Descargar imagen",
