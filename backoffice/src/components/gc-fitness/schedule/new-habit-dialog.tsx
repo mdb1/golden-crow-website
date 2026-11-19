@@ -358,7 +358,21 @@ function ExistingHabitPicker({
                 </Button>
               </>
             ) : (
-              <span>Todavía no tenés hábitos guardados.</span>
+              // #535 — an empty picker offers the way out right here.
+              <>
+                <span>Todavía no tenés hábitos guardados.</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                  onClick={() => onCreateNew("")}
+                  data-testid="habit-picker-create-first"
+                >
+                  <Plus className="h-4 w-4" />
+                  Crear hábito
+                </Button>
+              </>
             )}
           </li>
         ) : (

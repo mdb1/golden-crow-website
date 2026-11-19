@@ -204,6 +204,21 @@ describe("CollectionsTab", () => {
     expect(screen.getAllByTestId(/^payments-row-/)).toHaveLength(1);
     expect(screen.getByTestId("payments-row-d")).toHaveTextContent("Due in 2 days");
   });
+
+  // golden-crow-website#535 — search by name; a filter with no match says so
+  // (it used to leave a header-only table).
+  it("busca por nombre y avisa cuando nada coincide", async () => {
+    render(
+      <CollectionsTab rows={rows} plans={plans} collected={[]} coachName="Ana" todayCivil="2026-11-11" />,
+    );
+    await userEvent.type(screen.getByTestId("payments-search"), "car");
+    expect(screen.getAllByTestId(/^payments-row-/).map((r) => r.getAttribute("data-testid"))).toEqual(["payments-row-c"]);
+    await userEvent.clear(screen.getByTestId("payments-search"));
+    await userEvent.click(screen.getByTestId("payments-counter-due_soon"));
+    await userEvent.type(screen.getByTestId("payments-search"), "ana");
+    expect(screen.queryAllByTestId(/^payments-row-/)).toHaveLength(0);
+    expect(screen.getByTestId("payments-no-matches")).toHaveTextContent("No client matches the search or filter.");
+  });
 });
 
 describe("PaymentHistory", () => {

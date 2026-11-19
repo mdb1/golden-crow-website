@@ -12,7 +12,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
-import type { UnassignedClientRow } from "@/lib/gc-fitness/coach-attention-actions";
+
+/** A client with nothing assigned in the next 4 days (from the roster's `nothingAssigned`, #535). */
+export interface UnassignedClientRow {
+  uid: string;
+  displayName: string;
+  photoURL: string | null;
+}
 
 interface Props {
   rows: UnassignedClientRow[];

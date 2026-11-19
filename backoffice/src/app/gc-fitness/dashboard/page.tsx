@@ -30,7 +30,6 @@ import {
 import { listClientsForRoster } from "@/lib/gc-fitness/client-roster";
 import { lastActionMessageKey } from "@/lib/gc-fitness/last-activity-kind";
 import { getCoachPulse } from "@/lib/gc-fitness/coach-pulse-actions";
-import { listClientsWithNothingAssignedSoon } from "@/lib/gc-fitness/coach-attention-actions";
 import { listPendingChecklistItems } from "@/lib/gc-fitness/coach-checklist-actions";
 import { safe } from "@/lib/gc-fitness/safe-load";
 
@@ -78,14 +77,15 @@ export default async function GCFitnessDashboardPage({
   // to be awaited one after another, so the page waited for the SUM of the
   // four round-trips instead of the slowest one. Each loader re-checks auth;
   // `getCurrentTrainer` is per-request cached (#491), so that costs nothing.
-  const [rosterResult, pulseResult, checklistResult, unassignedResult, tDashboard, tNav] =
+  // #535 — «Sin nada asignado» comes from the roster (its `nothingAssigned`
+  // reason, same 4-day window, in each CLIENT's zone, uncapped) instead of a 4th
+  // loader that re-read every client's assignments + habits (capped at 150).
+  const [rosterResult, pulseResult, checklistResult, tDashboard, tNav] =
     await Promise.all([
       safe("client roster", () => listClientsForRoster()),
       safe("coach pulse", () => getCoachPulse()),
       // Overdue + due-today checklist items for the dashboard widget.
       safe("coach checklist", () => listPendingChecklistItems()),
-      // 260612-e9t (#245): active clients with nothing assigned in the next 4 days.
-      safe("unassigned clients", () => listClientsWithNothingAssignedSoon()),
       getTranslations("dashboard"),
       getTranslations("nav"),
     ]);
@@ -102,7 +102,7 @@ export default async function GCFitnessDashboardPage({
     customExerciseCount: 0,
   };
   const pendingChecklist = checklistResult ?? [];
-  const unassignedSoon = unassignedResult ?? { rows: [], truncated: false, scanned: 0 };
+  const unassignedSoon = unassignedFromRoster(roster);
 
   // Literal keys (the i18n-literal-keys gate checks them against the catalog).
   const lastActionLabels = {
@@ -367,4 +367,13 @@ function parsePage(raw?: string): number {
   const parsed = Number(raw);
   if (!Number.isFinite(parsed) || parsed < 1) return 1;
   return Math.floor(parsed);
+}
+
+/** #535 — the «Sin nada asignado esta semana» rows, from the roster's reason. */
+function unassignedFromRoster(roster: Awaited<ReturnType<typeof listClientsForRoster>>) {
+  const rows = roster
+    .filter((c) => c.source === "active" && c.needsAttentionReasons.includes("nothingAssigned"))
+    .map((c) => ({ uid: c.uid, displayName: c.displayName, photoURL: c.photoURL }))
+    .sort((a, b) => a.displayName.localeCompare(b.displayName, undefined, { sensitivity: "base" }));
+  return { rows, truncated: false, scanned: roster.length };
 }

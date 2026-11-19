@@ -160,12 +160,12 @@ export function ProgressPhotoCompareEditor({
           }}
         />
         <FormSelect
-          aria-label="Before"
-          placeholder="Before"
+          aria-label={beforeAfterLabels(locale).before}
+          placeholder={beforeAfterLabels(locale).before}
           className="w-auto data-[size=default]:h-10"
           value={beforeId}
           onValueChange={selectBefore}
-          options={[{ value: "", label: "Before" }, ...angled.map((p) => ({
+          options={[{ value: "", label: beforeAfterLabels(locale).before }, ...angled.map((p) => ({
             value: p.id,
             label: photoDisplayDate(p, timezone, locale),
             // #308 — offered only when something is strictly later than it.
@@ -175,12 +175,12 @@ export function ProgressPhotoCompareEditor({
           }))]}
         />
         <FormSelect
-          aria-label="After"
-          placeholder="After"
+          aria-label={beforeAfterLabels(locale).after}
+          placeholder={beforeAfterLabels(locale).after}
           className="w-auto data-[size=default]:h-10"
           value={afterId}
           onValueChange={setAfterId}
-          options={[{ value: "", label: "After" }, ...angled.map((p) => {
+          options={[{ value: "", label: beforeAfterLabels(locale).after }, ...angled.map((p) => {
             const elapsed = beforeYMD ? elapsedFromBefore(beforeYMD, p, timezone) : null;
             const label = elapsed
               ? `${photoDisplayDate(p, timezone, locale)} (${formatElapsed(elapsed, locale)})`
@@ -252,8 +252,8 @@ export function ProgressPhotoCompareEditor({
           {mode === "slider" ? (
             <>
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                <AdjustCard title="Before" t={beforeT} onScale={(v) => setBeforeT((x) => ({ ...x, scale: v }))} onReset={() => setBeforeT({ scale: 1, x: 0, y: 0 })} />
-                <AdjustCard title="After" t={afterT} onScale={(v) => setAfterT((x) => ({ ...x, scale: v }))} onReset={() => setAfterT({ scale: 1, x: 0, y: 0 })} />
+                <AdjustCard title={beforeAfterLabels(locale).before} t={beforeT} onScale={(v) => setBeforeT((x) => ({ ...x, scale: v }))} onReset={() => setBeforeT({ scale: 1, x: 0, y: 0 })} />
+                <AdjustCard title={beforeAfterLabels(locale).after} t={afterT} onScale={(v) => setAfterT((x) => ({ ...x, scale: v }))} onReset={() => setAfterT({ scale: 1, x: 0, y: 0 })} />
               </div>
               <div ref={sliderContainerRef} className="relative mx-auto h-[calc(100vh-22rem)] min-h-[420px] w-full max-w-[1200px] overflow-hidden rounded-md border bg-muted">
                 <MovableImage url={after.url} alt="after" t={afterT} onDragStart={(e) => onDragStart("after", e)} onDragMove={onDragMove} onDragEnd={onDragEnd} />
@@ -362,6 +362,18 @@ function elapsedFromBefore(
 /** Renders an elapsed span as a short parenthetical: "1 mes", "~2 meses",
  * "3 semanas", "5 días" (es) / "1 month", "~2 months" … (en). Twin of the
  * iOS `compare.elapsed.*` / Android `compare_elapsed_*` string tables. */
+/**
+ * #535 — the labels of the comparison. They are DRAWN into the JPG the coach sends
+ * to the client, so they must be in the coach's language (they were "Before"/"After"
+ * for everyone). Same locale switch as `formatElapsed` below; the rest of this
+ * screen's copy moves to the catalog with the i18n pass.
+ */
+export function beforeAfterLabels(locale: string): { before: string; after: string } {
+  return locale.toLowerCase().startsWith("es")
+    ? { before: "Antes", after: "Después" }
+    : { before: "Before", after: "After" };
+}
+
 function formatElapsed(elapsed: PhotoCompareElapsed, locale: string): string {
   const es = locale.toLowerCase().startsWith("es");
   const one = elapsed.value === 1;
@@ -449,7 +461,7 @@ async function exportSideBySideJpg({
     width: panelWidth,
     height: panelHeight,
     label: photoDisplayDate(before, timezone, locale),
-    title: "Before",
+    title: beforeAfterLabels(locale).before,
     footerHeight,
     radius: cornerRadius,
     logoImg,
@@ -464,7 +476,7 @@ async function exportSideBySideJpg({
     width: panelWidth,
     height: panelHeight,
     label: photoDisplayDate(after, timezone, locale),
-    title: "After",
+    title: beforeAfterLabels(locale).after,
     footerHeight,
     radius: cornerRadius,
     logoImg,
@@ -592,12 +604,12 @@ async function exportSliderSnapshotJpg({
   ctx.font = "700 40px system-ui, -apple-system, sans-serif";
   const labelY = panelY + panelH + 30;
   ctx.textAlign = "left";
-  ctx.fillText("Before", panelX, labelY);
+  ctx.fillText(beforeAfterLabels(locale).before, panelX, labelY);
   ctx.font = "500 26px system-ui, -apple-system, sans-serif";
   ctx.fillText(beforeLabel, panelX, labelY + 32);
   ctx.textAlign = "right";
   ctx.font = "700 40px system-ui, -apple-system, sans-serif";
-  ctx.fillText("After", afterEdgeX, labelY);
+  ctx.fillText(beforeAfterLabels(locale).after, afterEdgeX, labelY);
   ctx.font = "500 26px system-ui, -apple-system, sans-serif";
   ctx.fillText(afterLabel, afterEdgeX, labelY + 32);
 

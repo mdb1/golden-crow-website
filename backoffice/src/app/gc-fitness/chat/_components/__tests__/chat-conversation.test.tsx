@@ -451,3 +451,21 @@ describe("ChatConversation — a pending client", () => {
     expect(screen.getByText("Hola coach")).toBeInTheDocument();
   });
 });
+
+// golden-crow-website#535 — the header name opens the client's profile, and
+// the message actions are not hover-only on touch screens.
+describe("ChatConversation — header and touch (#535)", () => {
+  it("the client's name links to their profile", () => {
+    renderThread([[message()]]);
+    expect(screen.getByTestId("chat-partner-profile-link")).toHaveAttribute(
+      "href",
+      `/gc-fitness/clients/${encodeURIComponent(CLIENT)}`,
+    );
+  });
+
+  it("message actions stay visible on a coarse pointer", () => {
+    renderThread([[message()]]);
+    const reply = screen.getAllByRole("button").find((b) => b.className.includes("pointer-coarse:opacity-70"));
+    expect(reply).toBeDefined();
+  });
+});

@@ -77,11 +77,13 @@ export default async function ClientPaymentsPage({
   });
 
   const t = await getTranslations("payments");
+  // #535 — fail-soft per read, like the profile's payments card: one failing read
+  // (the history, say) used to throw the whole page into the error boundary.
   const [billing, plans, history, coachName, timezone] = await Promise.all([
-    getClientBilling(id),
-    listPaymentPlans(),
-    listClientPayments({ clientId: id }),
-    getCoachDisplayName(),
+    getClientBilling(id).catch(() => null),
+    listPaymentPlans().catch(() => []),
+    listClientPayments({ clientId: id }).catch(() => ({ payments: [], nextCursor: null })),
+    getCoachDisplayName().catch(() => ""),
     getTrainerTimezone(),
   ]);
   const todayCivil = civilDateToday(timezone);

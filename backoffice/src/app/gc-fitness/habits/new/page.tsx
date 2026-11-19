@@ -5,6 +5,7 @@
 // photo/demo link immediately and assign the template later from the library.
 
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import { getCurrentTrainer } from "@/lib/gc-fitness/auth-helpers";
 import { NewHabitClient } from "./client";
@@ -24,16 +25,15 @@ export default async function NewHabitPage() {
     throw err;
   });
 
+  // #535 — the heading and subtitle were hardcoded English.
+  const t = await getTranslations("habits.newPage");
   return (
     <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">
       <div className="flex flex-col gap-1">
         <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          New habit
+          {t("title")}
         </h1>
-        <p className="text-sm text-muted-foreground">
-          Create a reusable habit template, add its photo or demo link, and
-          assign it to clients later from the library.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
       </div>
       <NewHabitClient trainerUid={trainer.uid} />
     </div>
