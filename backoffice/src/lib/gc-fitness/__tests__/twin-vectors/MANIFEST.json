@@ -2,6 +2,8 @@
   "_comment": "#1644 — PINNED copies of gc-fitness twin vectors. Do NOT edit by hand: change the canonical file in gc-fitness (twin-vectors/ or .planning/…) and run `scripts/check-twin-vectors.py --sync --website <this checkout>` there. twin-vectors.test.ts checks every copy against these hashes.",
   "files": {
     "assigned-by.json": "a54157c792966da8a4b05c28d97b3928d7f9298a765c123177f9c4dc02868e53",
+    "billing-ai-vectors.json": "032683ec01bc0a67f4ac22a7a487eb097c239dfb6e54ff4eecaa137894f30093",
+    "billing-dashboard-vectors.json": "b873c77f364548ff234fc22acd124e459e98e7404a790d897a4dac6d87983502",
     "billing-vectors.json": "4f13bf5b73550edaa031fa1c9a23371d03e4e9bf71f1bed40453d464c941b452",
     "challenge_standings_vector.json": "803a03489afc5f568570166458f34907e7609811bf1078c97213614ddc209eb7",
     "civil-date-vectors.json": "459e5f39f742cda4b83ed4e767475dd4725b2ae43ab826ec1deeb8c0aa2abac1",
