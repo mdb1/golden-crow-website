@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Atomic banner kit — live assembly</title>
+<link rel="stylesheet" href="implementation/banner.css">
+<style>
+:root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#f5f4f7;color:#1c1725;font-family:Arial,Helvetica,sans-serif}.page{max-width:1400px;margin:auto;padding:32px}header{display:flex;justify-content:space-between;align-items:end;gap:24px;margin-bottom:20px}h1{font-size:25px;margin:6px 0}.eyebrow{font-size:11px;letter-spacing:2px;font-weight:700;color:#864780}p{line-height:1.5;max-width:810px;font-size:14px;margin:8px 0;color:#655f6b}.controls{display:flex;flex-wrap:wrap;gap:14px;align-items:end;padding:16px;background:white;border:1px solid #e5e0e8;border-radius:14px;margin-bottom:22px}label{display:flex;gap:5px;flex-direction:column;font-size:11px;font-weight:700}input{font:inherit;font-size:14px;padding:8px;border:1px solid #ddd5df;border-radius:7px}input[type=color]{height:36px;padding:3px;width:60px}#name{width:210px}#width{width:90px}.controls button{height:36px;padding:0 12px;font-weight:700;color:#40223c;border:1px solid #d9cbd8;background:#fff4fd;border-radius:8px;cursor:pointer}.stage-wrap{max-width:100%;margin:0 auto 28px}.note{background:#fff;border-radius:12px;padding:18px;border:1px solid #e5e0e8;font-size:13px;line-height:1.65}code{background:#f1edf2;padding:2px 5px;border-radius:4px}.links{display:flex;gap:20px;flex-wrap:wrap;margin:20px 0}a{color:#93218b}#action-result{font-weight:700;color:#8f1788}@media(max-width:700px){.page{padding:12px}header{display:block}}
+</style>
+</head>
+<body>
+<main class="page">
+<header><div><span class="eyebrow">93 INDEPENDENT GRAPHIC PRIMITIVES</span><h1>Atomic banner kit</h1><p>This is an assembly example, not a flattened banner or a phone image. Every casing, screen, card, glyph, surface, reflection and shadow is a separate layer. All text is editable.</p></div></header>
+<div class="controls">
+<label>Accent<input id="accent" type="color" value="#ff00ff"></label>
+<label>Company / display name<input id="name" type="text" value="Tu marca"></label>
+<label>Canvas width<input id="width" type="number" min="320" max="1280" value="1024"></label>
+<button data-color="#ff00ff">Source magenta</button><button data-color="#17bd32">Green preview</button><button data-color="#247cf2">Blue preview</button><button data-color="#ff731f">Orange preview</button>
+</div>
+<div id="stage-wrap" class="stage-wrap" style="width:1024px"><div id="banner"></div></div>
+<div class="note"><strong>What is editable:</strong> the company name, title, description, labels, prices, accent color, and every primitive position. Nothing inside the SVG assets contains a brand, label, price or phone screen. The default source accent is saturated magenta; the renderer replaces <code>currentColor</code> directly, leaving white highlights and neutral hardware intact. The logical canvas is always <strong>1024 × 500</strong>.<br><span id="action-result" aria-live="polite"></span></div>
+<div class="links"><a href="catalog.html">View every individual component</a><a href="exploded.html">Inspect the separate device layers</a><a href="INSTRUCTIONS.txt">Implementation and placement instructions</a><a href="manifest.json">Asset manifest</a></div>
+</main>
+<script src="implementation/asset-library.js"></script>
+<script src="implementation/banner.js"></script>
+<script>
+const api=mountAtomicBanner('#banner');
+window.bannerAPI=api;
+const accent=document.querySelector('#accent');
+const name=document.querySelector('#name');
+accent.addEventListener('input',()=>api.update({accent:accent.value}));
+name.addEventListener('input',()=>api.update({companyName:name.value}));
+document.querySelectorAll('[data-color]').forEach(button=>button.addEventListener('click',()=>{accent.value=button.dataset.color;api.update({accent:accent.value});}));
+document.querySelector('#width').addEventListener('input',event=>{const value=Math.max(320,Math.min(1280,Number(event.target.value)||1024));document.querySelector('#stage-wrap').style.width=`${value}px`;});
+document.querySelector('#banner').addEventListener('atomic-banner:action',()=>{document.querySelector('#action-result').textContent='Action event received. Attach your existing request flow to onAction; no URL is invented by this demo.';});
+</script>
+</body>
+</html>

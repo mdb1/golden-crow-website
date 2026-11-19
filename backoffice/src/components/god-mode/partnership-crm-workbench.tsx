@@ -787,6 +787,8 @@ function crmLocalText(language: AppLanguage, key: string) {
     "Usage unavailable": "Uso no disponible",
     "Last confirmed": "Última confirmación",
     "Verify usage": "Verificar uso",
+    "Select search and filter criteria to load CRM results.": "Seleccioná los criterios de búsqueda y filtro para cargar los resultados del CRM.",
+    "Loading CRM index…": "Cargando el índice del CRM…",
     "Pre-filters and CRM index": "Filtros previos e índice del CRM",
     "Apply and load results": "Aplicar y cargar resultados",
     "Load index": "Cargar índice",
@@ -4326,6 +4328,8 @@ function VisualFiltersDialog({
   snapshot,
   filters,
   activeListFilters,
+  needsCriteria,
+  filterForm,
   loading,
   error,
   refreshing,
@@ -4341,6 +4345,8 @@ function VisualFiltersDialog({
   snapshot: PartnershipCrmSnapshot | null;
   filters?: PartnershipCrmVisualFilters;
   activeListFilters: ListFilters;
+  needsCriteria: boolean;
+  filterForm: React.ReactNode;
   loading: boolean;
   error: unknown;
   refreshing: boolean;
@@ -4434,8 +4440,8 @@ function VisualFiltersDialog({
         <DialogHeader className="shrink-0 gap-3 pr-10 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <DialogTitle>{crmText("Pre-filters and CRM index")}</DialogTitle>
-            <DialogDescription className="sr-only">
-              {t("Select visual filter segments before applying.")}
+            <DialogDescription className={needsCriteria ? undefined : "sr-only"}>
+              {needsCriteria ? crmText("Select search and filter criteria to load CRM results.") : t("Select visual filter segments before applying.")}
             </DialogDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2 self-start">
@@ -4494,23 +4500,25 @@ function VisualFiltersDialog({
               aria-label={crmText("CRM index snapshot")}
               className="mb-4 grid gap-3 rounded-xl border border-border/80 bg-background/60 p-4"
             >
-              <div className="grid gap-2 sm:grid-cols-3">
-                {[
-                  [crmText("All CRM items"), snapshot.totals.all],
-                  [crmText("Organizations"), snapshot.totals.organizations],
-                  [crmText("Professionals"), snapshot.totals.professionals],
-                ].map(([label, value]) => (
-                  <div
-                    key={String(label)}
-                    className="rounded-lg border border-border/70 bg-muted/35 px-3 py-2"
-                  >
-                    <p className="text-xs text-muted-foreground">{label}</p>
-                    <p className="mt-1 text-xl font-semibold tabular-nums">
-                      {value}
-                    </p>
-                  </div>
-                ))}
-              </div>
+              {snapshot.totals.all > 0 && (
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {[
+                    [crmText("All CRM items"), snapshot.totals.all],
+                    [crmText("Organizations"), snapshot.totals.organizations],
+                    [crmText("Professionals"), snapshot.totals.professionals],
+                  ].map(([label, value]) => (
+                    <div
+                      key={String(label)}
+                      className="rounded-lg border border-border/70 bg-muted/35 px-3 py-2"
+                    >
+                      <p className="text-xs text-muted-foreground">{label}</p>
+                      <p className="mt-1 text-xl font-semibold tabular-nums">
+                        {value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
               <dl className="grid gap-x-4 gap-y-2 text-xs text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
                 <div>
                   <dt>{crmText("Last full refresh")}</dt>
@@ -4599,7 +4607,7 @@ function VisualFiltersDialog({
             <ErrorBanner>{crmText("Unable to load the CRM index.")}</ErrorBanner>
           ) : null}
 
-          {loading && !hasBuiltSnapshot ? (
+          {filterForm ?? (loading && !hasBuiltSnapshot ? (
             <div className="grid gap-4">
               {Array.from({ length: 4 }).map((_, index) => (
                 <Skeleton key={index} className="h-64 rounded-xl" />
@@ -4621,19 +4629,21 @@ function VisualFiltersDialog({
                 />
               ))}
             </div>
-          )}
+          ))}
         </div>
 
-        <DialogFooter className="shrink-0 border-t border-border/80 pt-4">
-          <Button
-            type="button"
-            className="w-full sm:w-auto"
-            disabled={applyDisabled || !canApplySelectedSegments}
-            onClick={applySelectedSegments}
-          >
-            {crmText("Apply and load results")}
-          </Button>
-        </DialogFooter>
+        {!filterForm && (
+          <DialogFooter className="shrink-0 border-t border-border/80 pt-4">
+            <Button
+              type="button"
+              className="w-full sm:w-auto"
+              disabled={applyDisabled || !canApplySelectedSegments}
+              onClick={applySelectedSegments}
+            >
+              {crmText("Apply and load results")}
+            </Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -8373,7 +8383,7 @@ export function PartnershipCrmWorkbench() {
   const [sentEmailLogOpen, setSentEmailLogOpen] = useState(false);
   const [sentEmailLogReadBlocked, setSentEmailLogReadBlocked] = useState(false);
   const [visualFiltersOpen, setVisualFiltersOpen] = useState(false);
-  const snapshotWasConsultedRef = useRef(false);
+  const promptedTargetRef = useRef<PartnershipCrmTargetKind | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [importRulesOpen, setImportRulesOpen] = useState(false);
   const [importPreview, setImportPreview] =
@@ -9094,9 +9104,8 @@ export function PartnershipCrmWorkbench() {
       sdkFetch<PartnershipCrmSnapshotResponse>(CRM_SNAPSHOT_ENDPOINT, {
         cache: "no-store",
       }),
-    enabled: false,
     retry: false,
-    refetchOnMount: false,
+    refetchOnMount: "always",
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     staleTime: Number.POSITIVE_INFINITY,
@@ -9129,13 +9138,6 @@ export function PartnershipCrmWorkbench() {
     },
   });
 
-  function refetchSnapshotIfConsulted() {
-    if (!snapshotWasConsultedRef.current) {
-      return;
-    }
-
-    void snapshotQuery.refetch();
-  }
   const compatibilityTargetQuery = useQuery({
     queryKey: [
       ORGANIZATIONS_QUERY_KEY,
@@ -9630,7 +9632,7 @@ export function PartnershipCrmWorkbench() {
       if (!target) {
         return;
       }
-      refetchSnapshotIfConsulted();
+      void snapshotQuery.refetch();
       setOrganizationDialog(null);
       replaceTargetsInCachedPages([target]);
       if (variables.mode === "edit") {
@@ -9688,7 +9690,7 @@ export function PartnershipCrmWorkbench() {
         return;
       }
 
-      refetchSnapshotIfConsulted();
+      void snapshotQuery.refetch();
       replaceTargetsInCachedPages([target]);
       markTargetActivitiesStale(targetKind, [target.id]);
       setStatusChangeErrorDetails(null);
@@ -9813,7 +9815,7 @@ export function PartnershipCrmWorkbench() {
         { method: "DELETE" },
       ),
     onSuccess: (_result, organizationId) => {
-      refetchSnapshotIfConsulted();
+      void snapshotQuery.refetch();
       setDeleteTarget(null);
       setSelectedTargetIds((current) => {
         if (!current.has(organizationId)) {
@@ -9878,7 +9880,7 @@ export function PartnershipCrmWorkbench() {
     onSuccess: ({ attemptedIds, successfulIds, failure }) => {
       const deletedIds = new Set(successfulIds);
       if (successfulIds.length > 0) {
-        refetchSnapshotIfConsulted();
+        void snapshotQuery.refetch();
       }
       setDeleteSelectedOpen(false);
       setSelectedTargetIds((current) => {
@@ -10159,7 +10161,7 @@ export function PartnershipCrmWorkbench() {
         previousTarget?.status === "new" &&
         target.status === "contacted"
       ) {
-        refetchSnapshotIfConsulted();
+        void snapshotQuery.refetch();
       }
       sentEmailDetailsRef.current.set(
         result.sentEmailLog.id,
@@ -10490,7 +10492,7 @@ export function PartnershipCrmWorkbench() {
       body: JSON.stringify(requestPayload),
     });
     if (result.summary.created > 0 || result.summary.updated > 0) {
-      refetchSnapshotIfConsulted();
+      void snapshotQuery.refetch();
     }
 
     importing = saveImportSession({
@@ -11083,6 +11085,16 @@ export function PartnershipCrmWorkbench() {
       ]),
     ) as PartnershipCrmStatusCounts;
   }, [organizations, visualFilters]);
+  const hasPipelineCounts = PIPELINE_STATUSES.some((status) => statusCounts[status] > 0);
+  const needsCriteria = !hasPipelineCounts && !snapshotQuery.isFetching && !snapshotQuery.isPending;
+  useEffect(() => {
+    if (!needsCriteria) {
+      promptedTargetRef.current = null;
+    } else if (promptedTargetRef.current !== targetKind) {
+      promptedTargetRef.current = targetKind;
+      setVisualFiltersOpen(true);
+    }
+  }, [needsCriteria, targetKind]);
   const activityLogBadge = !selectedOrganization
     ? targetKind === "professionals"
       ? t("No professional selected")
@@ -11154,14 +11166,9 @@ export function PartnershipCrmWorkbench() {
     setListRequestVersion((current) => current + 1);
   }
 
-  function applyDraftFilters() {
-    requestTargetPage({ ...filters });
-  }
-
   function setVisualFiltersDialogOpen(open: boolean) {
     setVisualFiltersOpen(open);
-    if (open) {
-      snapshotWasConsultedRef.current = true;
+    if (open && snapshotQuery.isError) {
       void snapshotQuery.refetch();
     }
   }
@@ -11529,6 +11536,103 @@ export function PartnershipCrmWorkbench() {
     }
   }
 
+  const showDialogForm = visualFiltersOpen && !snapshotQuery.isFetching &&
+    !Object.values(visualFilters?.facets ?? {}).some((facet) => facet.total > 0);
+  const filterForm = (
+    <form
+      className={cn(
+        "grid gap-3 rounded-xl border border-border/80 bg-background/60 p-3",
+        showDialogForm ? "sm:grid-cols-2" : "lg:grid-cols-[minmax(220px,1fr)_180px_180px_160px_160px_auto]",
+      )}
+      onSubmit={(event) => {
+        event.preventDefault();
+        setVisualFiltersOpen(false);
+        requestTargetPage({ ...filters });
+      }}
+    >
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={filters.query}
+          onChange={(event) =>
+            resetCursorsForFilterChange({ query: event.target.value })
+          }
+          placeholder={
+            targetKind === "professionals"
+              ? crmLocalText(language, "Name prefix or exact email")
+              : crmLocalText(
+                  language,
+                  "Name prefix or exact contact email",
+                )
+          }
+          className="pl-8"
+        />
+      </div>
+      <Select
+        value={filters.status}
+        onValueChange={(value) =>
+          resetCursorsForFilterChange({
+            status: value as ListFilters["status"],
+          })
+        }
+      >
+        <SelectTrigger className="w-full">
+          <Filter className="h-3.5 w-3.5" />
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className="crm-control-dropdown">
+          <SelectItem value="all">{t("All statuses")}</SelectItem>
+          {CRM_STATUS_OPTIONS.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {t(option.label)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <CrmCategorySelect
+        id="crm-category-filter"
+        value={filters.category}
+        onChange={(category) => resetCursorsForFilterChange({ category })}
+        language={language}
+        mode="filter"
+        audience={targetKind}
+      />
+      <CrmCountrySelect
+        id="crm-country-filter"
+        value={filters.country}
+        onChange={(country) => resetCursorsForFilterChange({ country })}
+        language={language}
+        mode="filter"
+      />
+      <Select
+        value={filters.linkedInState}
+        onValueChange={(value) =>
+          resetCursorsForFilterChange({
+            linkedInState: value as ListFilters["linkedInState"],
+          })
+        }
+      >
+        <SelectTrigger className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className="crm-control-dropdown">
+          <SelectItem value="all">{t("All LinkedIn")}</SelectItem>
+          <SelectItem value="has_linkedin">{t("Has LinkedIn")}</SelectItem>
+          <SelectItem value="missing_linkedin">
+            {t("Missing LinkedIn")}
+          </SelectItem>
+        </SelectContent>
+      </Select>
+      <Button
+        type="submit"
+        disabled={organizationQuery.isFetching || freshActionsDisabled}
+      >
+        <Search className="h-3.5 w-3.5" />
+        {crmLocalText(language, "Apply filters")}
+      </Button>
+    </form>
+  );
+
   return (
     <section className="glass-panel crm-control-surface flex flex-col gap-5 px-4 py-4 md:px-5">
       <CrmTargetSegmentedControl
@@ -11691,94 +11795,7 @@ export function PartnershipCrmWorkbench() {
         />
       ) : null}
 
-      <form
-        className="grid gap-3 rounded-xl border border-border/80 bg-background/60 p-3 lg:grid-cols-[minmax(220px,1fr)_180px_180px_160px_160px_auto]"
-        onSubmit={(event) => {
-          event.preventDefault();
-          applyDraftFilters();
-        }}
-      >
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={filters.query}
-            onChange={(event) =>
-              resetCursorsForFilterChange({ query: event.target.value })
-            }
-            placeholder={
-              targetKind === "professionals"
-                ? crmLocalText(language, "Name prefix or exact email")
-                : crmLocalText(
-                    language,
-                    "Name prefix or exact contact email",
-                  )
-            }
-            className="pl-8"
-          />
-        </div>
-        <Select
-          value={filters.status}
-          onValueChange={(value) =>
-            resetCursorsForFilterChange({
-              status: value as ListFilters["status"],
-            })
-          }
-        >
-          <SelectTrigger className="w-full">
-            <Filter className="h-3.5 w-3.5" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="crm-control-dropdown">
-            <SelectItem value="all">{t("All statuses")}</SelectItem>
-            {CRM_STATUS_OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {t(option.label)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <CrmCategorySelect
-          id="crm-category-filter"
-          value={filters.category}
-          onChange={(category) => resetCursorsForFilterChange({ category })}
-          language={language}
-          mode="filter"
-          audience={targetKind}
-        />
-        <CrmCountrySelect
-          id="crm-country-filter"
-          value={filters.country}
-          onChange={(country) => resetCursorsForFilterChange({ country })}
-          language={language}
-          mode="filter"
-        />
-        <Select
-          value={filters.linkedInState}
-          onValueChange={(value) =>
-            resetCursorsForFilterChange({
-              linkedInState: value as ListFilters["linkedInState"],
-            })
-          }
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="crm-control-dropdown">
-            <SelectItem value="all">{t("All LinkedIn")}</SelectItem>
-            <SelectItem value="has_linkedin">{t("Has LinkedIn")}</SelectItem>
-            <SelectItem value="missing_linkedin">
-              {t("Missing LinkedIn")}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        <Button
-          type="submit"
-          disabled={organizationQuery.isFetching || freshActionsDisabled}
-        >
-          <Search className="h-3.5 w-3.5" />
-          {crmLocalText(language, "Apply filters")}
-        </Button>
-      </form>
+      {!showDialogForm && filterForm}
       <p
         data-testid="crm-server-filter-note"
         className="-mt-2 text-xs text-muted-foreground"
@@ -11812,38 +11829,42 @@ export function PartnershipCrmWorkbench() {
               "xl:flex xl:min-h-0 xl:flex-col xl:overflow-visible xl:pr-2",
           )}
         >
-          <div className="grid items-start gap-2 sm:grid-cols-5">
-            {PIPELINE_STATUSES.map((status) => {
-              const tone = pipelineStatusTone(
-                status,
-                filters.status === status,
-              );
+          {hasPipelineCounts ? (
+            <div className="grid items-start gap-2 sm:grid-cols-5">
+              {PIPELINE_STATUSES.map((status) => {
+                const tone = pipelineStatusTone(
+                  status,
+                  filters.status === status,
+                );
 
-              return (
-                <button
-                  key={status}
-                  type="button"
-                  onClick={() => {
-                    const nextFilters = { ...filters, status };
-                    setFilters(nextFilters);
-                    requestTargetPage(nextFilters);
-                  }}
-                  disabled={freshActionsDisabled}
-                  className={cn(
-                    "h-16 self-start rounded-xl border px-3 py-2 text-left transition-colors",
-                    tone.card,
-                  )}
-                >
-                  <p className={cn("text-xs font-medium", tone.label)}>
-                    {t(statusLabel(status))}
-                  </p>
-                  <p className={cn("mt-1 text-lg font-semibold", tone.count)}>
-                    {statusCounts[status]}
-                  </p>
-                </button>
-              );
-            })}
-          </div>
+                return (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => {
+                      const nextFilters = { ...filters, status };
+                      setFilters(nextFilters);
+                      requestTargetPage(nextFilters);
+                    }}
+                    disabled={freshActionsDisabled}
+                    className={cn(
+                      "h-16 self-start rounded-xl border px-3 py-2 text-left transition-colors",
+                      tone.card,
+                    )}
+                  >
+                    <p className={cn("text-xs font-medium", tone.label)}>
+                      {t(statusLabel(status))}
+                    </p>
+                    <p className={cn("mt-1 text-lg font-semibold", tone.count)}>
+                      {statusCounts[status]}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <EmptyState>{crmLocalText(language, needsCriteria ? "Select search and filter criteria to load CRM results." : "Loading CRM index…")}</EmptyState>
+          )}
           <p className="text-xs text-muted-foreground">
             {crmLocalText(
               language,
@@ -12707,6 +12728,8 @@ export function PartnershipCrmWorkbench() {
         snapshot={crmSnapshot}
         filters={visualFilters}
         activeListFilters={filters}
+        needsCriteria={needsCriteria}
+        filterForm={showDialogForm ? filterForm : null}
         loading={snapshotQuery.isFetching}
         error={snapshotQuery.error}
         refreshing={refreshSnapshotMutation.isPending}

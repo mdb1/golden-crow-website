@@ -1,0 +1,365 @@
+ATOMIC BANNER COMPONENT KIT
+Version 1.0 — 1024 × 500 logical artboard — magenta source accent #FF00FF
+
+WHAT THIS PACKAGE IS
+
+This is a source component library with a demonstrative, editable web assembly.
+It is not a flattened scene, a whole-phone image, or a branded campaign.
+The 93 source SVG graphics contain no visible text, prices, company names or
+company logos. Their PNG counterparts are transparent raster exports of the
+same primitives. Captions on catalogue pages are outside the actual assets.
+
+The included preview is a reusable vector reconstruction of the banner's
+composition and layering, not a pixel-identical extraction of the generated
+reference. Gradients provide dimensional shading, but the reference's exact
+raster textures and generated letterforms are not reproduced. The typography
+uses the available browser/system fonts; no font files are included.
+
+The critical difference from the rejected deliverables is granularity:
+a phone is a DOM group assembled from separate physical and interface parts.
+A feature card is a blank surface plus a separate pattern, text and crown.
+A floating tile is separate depth, face, specular layer and symbol.
+A price panel contains no number. A pill contains no label or crown.
+
+QUICK START
+
+1. Extract the ZIP without changing the folder structure.
+2. Open index.html to test the assembled example. It has a name field, a color
+   picker, and width controls. No external image or font request is required.
+3. Open catalog.html to inspect and obtain each separate SVG or PNG.
+4. Open exploded.html to inspect the independent device sublayers.
+5. Integrate individual assets using implementation/components.js, or use the
+   optional implementation/banner.js assembly as a starting point.
+
+Folder structure:
+  assets/svg/                         93 independent SVG primitives
+  assets/png/                         93 transparent PNG exports
+  implementation/asset-library.js     SVG source definitions and metadata
+  implementation/components.js       Standalone primitive renderer
+  implementation/components.d.ts     TypeScript declarations for primitive API
+  implementation/banner.js           Optional data-driven assembly example
+  implementation/banner.css          Styles for that example
+  implementation/recolor-raster.js   Recolor a magenta PNG without a hue filter
+  implementation/example-config.js   Editable brand/content configuration
+  manifest.json                      Asset size, role, filename and purpose
+  placement.json                     All instances in the example, including UI
+  PLACEMENT.txt                      Readable exact placement table
+  qa.json                            Automated browser checks
+  index.html                         Live generic banner example
+  catalog.html                       Full asset catalogue
+  exploded.html                      Device anatomy view
+  previews/                          Non-production proof images
+
+Do not use a preview screenshot as a production component. The screenshots
+exist only to show how the independent parts can be assembled.
+
+1. THE SOURCE COLOR SYSTEM
+
+All accent shapes use currentColor with a default of #FF00FF. This is pure
+saturated magenta, not gray and not green. Source highlights are white with
+alpha; shadows are black with alpha. White screen surfaces and dark physical
+bezels intentionally remain neutral.
+
+Use the SVG primitives for the most direct theming. Set currentColor at the
+SVG root. That changes the accent while retaining its white/black shading.
+Do not desaturate the whole asset. Do not use a global hue-rotation, multiply,
+or color blend mode on all phone layers. Those change neutral surfaces too.
+
+An external SVG loaded with an ordinary <img> cannot inherit the page's
+currentColor into that SVG document. Use the supplied inline renderer,
+inline the SVG safely, or recolor the PNG once before use.
+
+Standalone primitive example:
+
+  <div id="tile" style="position:relative;width:120px;height:120px"></div>
+  <script src="implementation/asset-library.js"></script>
+  <script src="implementation/components.js"></script>
+  <script>
+    const color = '#ff00ff';
+    mountAtomicPart('#tile', 'tile-extrusion', {
+      x: 0, y: 0, width: 120, height: 120, zIndex: 1, color
+    });
+    mountAtomicPart('#tile', 'tile-face', {
+      x: 0, y: 0, width: 120, height: 120, zIndex: 2, color
+    });
+    mountAtomicPart('#tile', 'tile-specular', {
+      x: 0, y: 0, width: 120, height: 120, zIndex: 3, color: '#ffffff'
+    });
+    mountAtomicPart('#tile', 'icon-heart-pulse', {
+      x: 27, y: 27, width: 56, height: 56, zIndex: 4, color: '#ffffff'
+    });
+  </script>
+
+The result is one assembled tile, but it remains four separately replaceable
+components. Replace the symbol without regenerating the tile's material.
+
+For PNGs, implementation/recolor-raster.js exports:
+
+  const blob = await recolorMagentaPng('assets/png/orb-diffuse.png', '#247cf2');
+  const url = URL.createObjectURL(blob);
+  imageElement.src = url;
+
+Revoke the object URL when the image is no longer needed. Remote images must
+permit CORS pixel access. A local Blob/File or same-origin image is preferable.
+
+The PNG recolorer uses the source magenta's color contribution, rather than
+painting over every pixel. It preserves the original alpha and leaves neutral
+pixels alone. Its source assumption is the kit's #FF00FF plus white/black
+shading; do not apply it to arbitrary colored photographs.
+
+Transparency outside an object is actual PNG alpha. Checkerboards appear only
+on catalogue pages; they are not inside the files.
+
+2. FIXED ASPECT RATIO — DO NOT RE-FLOW THE DESIGN
+
+The logical banner is exactly 1024 × 500, or 256:125 / 2.048:1.
+The earlier 1792 × 1024 blueprint was not the required proportion. Do not use it.
+
+At a rendered width W:
+  scale = W / 1024
+  rendered height = 500 × scale
+  rendered x = logical x × scale
+  rendered y = logical y × scale
+
+Keep one 1024 × 500 artboard and scale that entire artboard once. All text,
+borders, glow extents, icons, shadows and rotations travel with it.
+
+Do not scale the phones independently at responsive breakpoints. Do not use
+space-between to redistribute the left-column blocks. Do not permit a mobile
+media query to turn the banner into a tall card if the requested fixed ratio
+must be retained. If a separate mobile design is needed, define a new layout
+rather than silently changing this one.
+
+The included renderer uses ResizeObserver on the host and sets one outer
+transform: scale(hostWidth / 1024), with transform-origin: 0 0.
+The host uses aspect-ratio: 256 / 125 and clips the artboard at its edges.
+
+The positions below refer to logical pixels, before this outer scaling.
+
+3. EACH DEVICE IS A LOCAL COMPOSITION
+
+Local device artboard: 240 × 450.
+All full-size physical device layers use exactly that viewBox.
+DO NOT trim their transparent margins. Those margins provide alignment.
+
+Base physical stack, back to front:
+  device-occlusion-shadow    at -20,-12 size 280×480  local z 0
+  device-casing-depth       at   0,  0 size 240×450  local z 1
+  device-frame-metal        at   0,  0 size 240×450  local z 2
+  device-bezel              at   0,  0 size 240×450  local z 3
+  device-screen-base        at   0,  0 size 240×450  local z 4
+  device-volume-keys        at   0,  0 size 240×450  local z 6
+  device-power-key          at   0,  0 size 240×450  local z 6
+
+Then construct interface content as independent objects, local z 8–15.
+Finally add:
+  device-screen-reflection  at 0,0 size 240×450      local z 18, opacity .35
+  device-rim-highlight      at 0,0 size 240×450      local z 19
+
+Independent hardware details:
+  camera island       x82  y23  w64  h18
+  earpiece            x95  y30  w25  h4
+  camera lens         x130 y28  w8   h8
+  time text           x29  y27  w27  h12
+  cellular icon       x176 y29  w11  h7
+  Wi-Fi icon          x189 y29  w10  h7
+  battery icon        x201 y29  w11  h6
+  home indicator      x80  y421 w76  h3.3
+
+The time is real text, not an image. The same applies to the company name.
+No complete phone PNG is included among the production source assets.
+
+4. DEVICE PLACEMENT IN THE BANNER
+
+All three devices reuse those local components.
+Transforms use transform-origin: 0 0 and the following literal order:
+  transform: rotate(angle) scale(localScale)
+
+The local scale is applied within the rotation. Do not additionally rotate
+the layer PNGs or SVGs inside the device group.
+
+  rear-left    x468 y152 localScale .79 angle -10deg global z20
+  rear-right   x813 y122 localScale .76 angle  10deg global z21
+  front        x635 y45  localScale .91 angle   5deg global z30
+
+For coordinate conversion inside a device:
+  globalX = groupX + s × (localX × cos(a) - localY × sin(a))
+  globalY = groupY + s × (localX × sin(a) + localY × cos(a))
+
+Apply the banner's outer responsive scale after these transforms.
+
+All device controls and UI stay in the device-local coordinate system. Do not
+position screen cards directly against the global banner after rotating a phone.
+
+5. UI IS SEPARATE FROM THE DEVICE AND FROM ITS TEXT
+
+Central phone:
+  brand tile           x26 y55  w24  h24
+  independent symbol  x31 y61  w12  h12
+  company-name text   x52 y61  w130 h17
+  notification disc   x188 y56 w20  h20
+  bell glyph          x193 y61 w10  h10
+  feature surface     x26 y88  w184 h74
+  feature pattern     x26 y88  w184 h74
+  feature eyebrow     x37 y99  w140 h9
+  feature title       x37 y113 w148 h36
+  crown glyph         x180 y136 w20 h20
+
+Four central rows start at y173, y225, y277 and y329.
+Each row is a repeated recipe, not an image containing fixed text:
+  shadow              x16 y(rowY-7) w204 h72
+  blank surface       x26 y(rowY)   w184 h48
+  icon chip           x34 y(rowY+9) w28  h28
+  glyph               x40 y(rowY+15)w16  h16
+  title text          x70 y(rowY+12)w111 h14
+  placeholder line    x70 y(rowY+29)w64  h3.6
+  chevron             x191 y(rowY+18)w8 h8
+
+Central navigation surface: x26 y388 w184 h30.
+The three navigation glyphs are independent at x46, x108, x167, y396, 15×15.
+
+Rear-phone rows use the same recipe, with starting y102, y164, y226.
+Rear headings and arrows are real text plus independent icons, not an asset.
+
+All screen headings, row labels, feature text, the time, and company name can
+be configured in implementation/example-config.js. Screen cards do not require
+new illustrations when labels or company information change.
+
+6. BLANK PILLS, PRICE SURFACES AND CROWNS
+
+Every surface is empty. Place the content on top as HTML/SVG text and icons.
+The surface names do not imply that they contain the text in their names.
+
+Featured badge:
+  surface-badge-pill   x48 y59 w226 h36 z49
+  surface-icon-disc    x59 y64 w26  h26 z50
+  icon-crown-solid    x65 y70 w14  h14 z51
+  live label          x99 y71 w166 h16 z52
+
+Feature pills:
+  pill 1 x48  y316 w119 h37
+  pill 2 x175 y316 w134 h37
+  pill 3 x317 y316 w142 h37
+  each icon is x(pillX+12), y326, 16×16
+  each label begins x(pillX+37), y328
+
+Pricing:
+  old amount          x61 y389 w99 h35, real text
+  strike asset        x57 y399 w100 h16
+  old billing label   x64 y430 w94 h16, real text
+  local glow          x133 y343 w350 h144 z47
+  shadow-panel        x148 y354 w320 h124 z48
+  price surface       x169 y369 w278 h88 z49
+  surface rim         x169 y369 w278 h88 z50
+  NOW chip            x187 y397 w72 h28 z51
+  NOW text            x187 y405 w72 h16 z52
+  current amount      x273 y378 w163 h58 z52
+  current unit        x278 y434 w140 h15 z52
+
+CTA parent button: x832 y405 w164 h48, global z70.
+Its surface, glyph, label and chevron are separate children.
+Keep it a real button or a real link. The demo dispatches an action event when
+no onAction callback is supplied. Attach the existing application request flow;
+do not invent a navigation destination.
+
+7. FLOATING ELEMENTS AND FLOORS
+
+Floating tile local artboard: 120 × 120.
+Assemble tile-shadow, tile-extrusion, tile-face (or tile-face-neutral),
+tile-specular, then one independent glyph.
+
+Accent tile parent: x500 y51 size120×120, rotate(-15deg) scale(80/120).
+Neutral tile parent: x891 y42 size120×120, rotate(16deg) scale(77/120).
+These TWO tile groups use transform-origin: 50% 50%, unlike the device groups.
+Do not interchange their transform-origin rules.
+
+Each sphere is a separate orb-diffuse + orb-rim + orb-specular recipe.
+Place its optional orb-halo at -10% offset and 120% size.
+Example sphere bounding squares: (466,106,32), (462,356,47), (984,355,23).
+The diffuse sphere's visible circle has inset padding; do not trim that padding
+independently from the specular and rim assets.
+
+The ribbon is TWO files, ribbon-fill and ribbon-highlight, with matching
+220 × 390 local viewBoxes. Place both in the same rectangle, x880 y210 150×260.
+Never bake the ribbon into the phone or background.
+
+Floor assembly:
+  floor-light-pool          x430 y368 w610 h160 z6
+  floor-platform-fill       x437 y376 w580 h145 z7
+  floor-platform-rim        x437 y376 w580 h145 z8
+  floor-contact-shadow      x500 y409 w470 h90  z9
+  floor-reflection-streak A x560 y421 w72  h95  z10
+  floor-reflection-streak B x742 y432 w60  h72  z10
+  floor-reflection-oval     x655 y451 w246 h47  z10
+
+Keep reflected light below the devices. Do not put a global glow on the entire
+banner or use the floor as a large solid pedestal.
+
+8. LIVE CONTENT AND ARBITRARY COMPANY NAMES
+
+The production graphics contain zero names. The demo defaults to 'Tu marca'.
+companyName is the full supplied company name. companyDisplayName is an
+optional explicitly supplied shorter display form. There is no automatic
+abbreviation, uppercase conversion or truncation.
+
+The main headline region has a fixed width and height. The renderer reduces
+font size and permits wrapping within that region. The header on each phone
+uses a separate smaller fit. Typical short and long names are tested in qa.json.
+Unlimited text cannot remain equally large in a fixed box. For very long legal
+names, supply an approved companyDisplayName rather than silently clipping or
+inventing an abbreviation. Font availability affects text metrics.
+
+brandLogoUrl can use an approved actual logo. The generic heart symbol is a
+placeholder icon, not a claim to be any company's logo. The logo image is not
+hue-shifted or redrawn. A user-supplied logo may introduce additional colors;
+the source primitives remain monochromatic.
+
+Use textContent when assigning user-provided strings. The supplied renderer
+already does this. Do not interpolate arbitrary names into raw HTML.
+
+9. LOAD THE OPTIONAL GENERIC BANNER
+
+  <link rel="stylesheet" href="implementation/banner.css">
+  <div id="banner"></div>
+  <script src="implementation/asset-library.js"></script>
+  <script src="implementation/banner.js"></script>
+  <script>
+    const banner = mountAtomicBanner('#banner', {
+      accent: '#ff00ff',
+      companyName: 'Tu marca',
+      previousPrice: '99.99',
+      currentPrice: '59.99',
+      onAction: () => document.dispatchEvent(new Event('request-brand-app'))
+    });
+    banner.update({ companyName: 'Otra marca', accent: '#247cf2' });
+  </script>
+
+The banner is an EXAMPLE composed from primitives. Using it is optional.
+For a different composition, use components.js to place individual parts.
+Neither the library nor the assets require a preassembled phone image.
+
+10. VALIDATION AND IMPORTANT LIMITATIONS
+
+Check the SVG and PNG source files, not the preview JPGs. Every production
+file is one primitive. All source assets are text-free. The only saturated
+source accent is magenta; black shadows and white highlights have explicit
+roles and should not be replaced with flat gray placeholders.
+
+Default source geometry is not cropped to its painted pixels. In particular,
+all device layers must retain their shared canvas for registration.
+
+The same complete layout should measure 1024×500 at full size and 512×250 at
+half width. Transform the artboard once. Do not remeasure source coordinates
+against a screenshot that contains white webpage margins.
+
+SVG definition IDs need to be unique when multiple instances are inlined.
+Both supplied renderers prefix gradient, clipping and filter IDs per instance.
+Do not copy raw SVG snippets into one document without that prefix step.
+
+No remote network requests, licensed font files, invented official logos,
+whole-phone production images or rasterized company-name graphics are included.
+A modern browser with SVG, Canvas 2D, ResizeObserver and aspect-ratio support
+is assumed. PNG raster output is supplied for simpler image-only integration.
+The SVG implementation is the primary editable source.
+
+Always recolor from the original magenta PNG, not a previously recolored PNG. Cache the recolored result by source filename and target hex color.

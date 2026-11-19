@@ -1,0 +1,241 @@
+EXACT EXAMPLE INSTANCE MAP
+Logical banner coordinates: 1024 x 500. Local device coordinates: 240 x 450.
+Root parent: banner. Device parts use their device parent local coordinates.
+For group transforms, use the explicit scale, rotation and origin; do not multiply z values.
+
+GROUPS
+rear-left: x=468 y=152 width=240 height=450 scale=0.79 rotation=-10deg origin=0 0 z=20
+rear-right: x=813 y=122 width=240 height=450 scale=0.76 rotation=10deg origin=0 0 z=21
+front: x=635 y=45 width=240 height=450 scale=0.91 rotation=5deg origin=0 0 z=30
+floating-tile-accent: x=500 y=51 width=120 height=120 scale=0.6666666666666666 rotation=-15deg origin=50% 50% z=45
+floating-tile-neutral: x=891 y=42 width=120 height=120 scale=0.6416666666666667 rotation=16deg origin=50% 50% z=45
+
+ALL INSTANCES
+TYPE | PARENT | ASSET OR TEXT | X | Y | W | H | Z | EXTRA
+asset | banner | background-base | 0 | 0 | 1024 | 500 | 0 | color=var(--accent) opacity=1 rotation=0
+asset | banner | background-depth | 0 | 0 | 1024 | 500 | 1 | color=var(--accent) opacity=1 rotation=0
+asset | banner | background-corner-shade | 0 | 60 | 700 | 440 | 2 | color=black opacity=0.65 rotation=0
+asset | banner | background-bloom | 260 | -110 | 720 | 480 | 3 | color=white opacity=0.65 rotation=0
+asset | banner | background-edge-curve | 845 | -38 | 270 | 470 | 4 | color=#ff00ff opacity=0.66 rotation=0
+asset | banner | background-bottom-wave | 40 | 400 | 940 | 130 | 4 | color=white opacity=0.6 rotation=0
+asset | banner | background-corner-arc | -180 | 310 | 320 | 320 | 4 | color=white opacity=0.6 rotation=0
+asset | banner | floor-light-pool | 430 | 368 | 610 | 160 | 6 | color=#ff00ff opacity=0.85 rotation=0
+asset | banner | floor-platform-fill | 437 | 376 | 580 | 145 | 7 | color=#ff00ff opacity=0.95 rotation=0
+asset | banner | floor-platform-rim | 437 | 376 | 580 | 145 | 8 | color=white opacity=0.65 rotation=0
+asset | banner | floor-contact-shadow | 500 | 409 | 470 | 90 | 9 | color=black opacity=0.55 rotation=0
+asset | banner | floor-reflection-streak | 560 | 421 | 72 | 95 | 10 | color=white opacity=0.65 rotation=0
+asset | banner | floor-reflection-streak | 742 | 432 | 60 | 72 | 10 | color=white opacity=0.8 rotation=0
+asset | banner | floor-reflection-oval | 655 | 451 | 246 | 47 | 10 | color=#ff00ff opacity=0.7 rotation=0
+asset | banner | ribbon-fill | 880 | 210 | 150 | 260 | 11 | color=#ff00ff opacity=0.6 rotation=0
+asset | banner | ribbon-highlight | 880 | 210 | 150 | 260 | 12 | color=white opacity=0.75 rotation=0
+asset | rear-left | device-occlusion-shadow | -20 | -12 | 280 | 480 | 0 | color=black opacity=0.6 rotation=0
+asset | rear-left | device-casing-depth | 0 | 0 | 240 | 450 | 1 | color=var(--accent) opacity=1 rotation=0
+asset | rear-left | device-frame-metal | 0 | 0 | 240 | 450 | 2 | color=var(--accent) opacity=1 rotation=0
+asset | rear-left | device-bezel | 0 | 0 | 240 | 450 | 3 | color=var(--accent) opacity=1 rotation=0
+asset | rear-left | device-screen-base | 0 | 0 | 240 | 450 | 4 | color=var(--accent) opacity=1 rotation=0
+asset | rear-left | device-volume-keys | 0 | 0 | 240 | 450 | 6 | color=var(--accent) opacity=1 rotation=0
+asset | rear-left | device-power-key | 0 | 0 | 240 | 450 | 6 | color=var(--accent) opacity=1 rotation=0
+asset | rear-left | device-camera-island | 82 | 23 | 64 | 18 | 14 | color=var(--accent) opacity=1 rotation=0
+asset | rear-left | device-earpiece | 95 | 30 | 25 | 4 | 15 | color=var(--accent) opacity=1 rotation=0
+asset | rear-left | device-camera-lens | 130 | 28 | 8 | 8 | 15 | color=var(--accent) opacity=1 rotation=0
+text | rear-left | 9:41 | 29 | 27 | 27 | 12 | 15 | font=7.3 weight=700
+asset | rear-left | status-cellular | 176 | 29 | 11 | 7 | 15 | color=#11191a opacity=1 rotation=0
+asset | rear-left | status-wifi | 189 | 29 | 10 | 7 | 15 | color=#11191a opacity=1 rotation=0
+asset | rear-left | status-battery | 201 | 29 | 11 | 6 | 15 | color=#11191a opacity=1 rotation=0
+asset | rear-left | surface-navigation-bar | 26 | 388 | 184 | 30 | 12 | color=var(--accent) opacity=1 rotation=0
+asset | rear-left | icon-heart-pulse | 46 | 396 | 15 | 15 | 13 | color=#ff00ff opacity=1 rotation=0
+asset | rear-left | icon-box | 108 | 396 | 15 | 15 | 13 | color=#9babb2 opacity=1 rotation=0
+asset | rear-left | icon-users | 167 | 396 | 15 | 15 | 13 | color=#9babb2 opacity=1 rotation=0
+asset | rear-left | device-home-indicator | 80 | 421 | 76 | 3.3 | 15 | color=#11191a opacity=1 rotation=0
+asset | rear-left | icon-arrow-back | 30 | 63 | 14 | 14 | 13 | color=#11191a opacity=1 rotation=0
+text | rear-left | Mis servicios | 52 | 64 | 130 | 18 | 13 | font=11.7 weight=800
+asset | rear-left | icon-search | 192 | 64 | 13 | 13 | 13 | color=#11191a opacity=1 rotation=0
+asset | rear-left | shadow-ui-row | 16 | 95 | 204 | 72 | 8 | color=black opacity=0.75 rotation=0
+asset | rear-left | surface-ui-row | 26 | 102 | 184 | 48 | 9 | color=var(--accent) opacity=1 rotation=0
+asset | rear-left | surface-icon-chip | 34 | 111 | 28 | 28 | 10 | color=var(--accent) opacity=1 rotation=0
+asset | rear-left | icon-dna | 40 | 117 | 16 | 16 | 11 | color=#4d0e54 opacity=1 rotation=0
+text | rear-left | Análisis genéticos | 70 | 114 | 111 | 14 | 12 | font=8.7 weight=700
+asset | rear-left | surface-status-line | 70 | 131 | 64 | 3.6 | 11 | color=var(--accent) opacity=1 rotation=0
+asset | rear-left | icon-chevron-right | 191 | 120 | 8 | 8 | 12 | color=#ff00ff opacity=1 rotation=0
+asset | rear-left | shadow-ui-row | 16 | 157 | 204 | 72 | 8 | color=black opacity=0.75 rotation=0
+asset | rear-left | surface-ui-row | 26 | 164 | 184 | 48 | 9 | color=var(--accent) opacity=1 rotation=0
+asset | rear-left | surface-icon-chip | 34 | 173 | 28 | 28 | 10 | color=var(--accent) opacity=1 rotation=0
+asset | rear-left | icon-heart-pulse | 40 | 179 | 16 | 16 | 11 | color=#4d0e54 opacity=1 rotation=0
+text | rear-left | Seguimiento | 70 | 176 | 111 | 14 | 12 | font=8.7 weight=700
+asset | rear-left | surface-status-line | 70 | 193 | 64 | 3.6 | 11 | color=var(--accent) opacity=1 rotation=0
+asset | rear-left | icon-chevron-right | 191 | 182 | 8 | 8 | 12 | color=#ff00ff opacity=1 rotation=0
+asset | rear-left | shadow-ui-row | 16 | 219 | 204 | 72 | 8 | color=black opacity=0.75 rotation=0
+asset | rear-left | surface-ui-row | 26 | 226 | 184 | 48 | 9 | color=var(--accent) opacity=1 rotation=0
+asset | rear-left | surface-icon-chip | 34 | 235 | 28 | 28 | 10 | color=var(--accent) opacity=1 rotation=0
+asset | rear-left | icon-report | 40 | 241 | 16 | 16 | 11 | color=#4d0e54 opacity=1 rotation=0
+text | rear-left | Resultados | 70 | 238 | 111 | 14 | 12 | font=8.7 weight=700
+asset | rear-left | surface-status-line | 70 | 255 | 64 | 3.6 | 11 | color=var(--accent) opacity=1 rotation=0
+asset | rear-left | icon-chevron-right | 191 | 244 | 8 | 8 | 12 | color=#ff00ff opacity=1 rotation=0
+asset | rear-left | device-screen-reflection | 0 | 0 | 240 | 450 | 18 | color=white opacity=0.35 rotation=0
+asset | rear-left | device-rim-highlight | 0 | 0 | 240 | 450 | 19 | color=var(--accent) opacity=1 rotation=0
+asset | rear-right | device-occlusion-shadow | -20 | -12 | 280 | 480 | 0 | color=black opacity=0.6 rotation=0
+asset | rear-right | device-casing-depth | 0 | 0 | 240 | 450 | 1 | color=var(--accent) opacity=1 rotation=0
+asset | rear-right | device-frame-metal | 0 | 0 | 240 | 450 | 2 | color=var(--accent) opacity=1 rotation=0
+asset | rear-right | device-bezel | 0 | 0 | 240 | 450 | 3 | color=var(--accent) opacity=1 rotation=0
+asset | rear-right | device-screen-base | 0 | 0 | 240 | 450 | 4 | color=var(--accent) opacity=1 rotation=0
+asset | rear-right | device-volume-keys | 0 | 0 | 240 | 450 | 6 | color=var(--accent) opacity=1 rotation=0
+asset | rear-right | device-power-key | 0 | 0 | 240 | 450 | 6 | color=var(--accent) opacity=1 rotation=0
+asset | rear-right | device-camera-island | 82 | 23 | 64 | 18 | 14 | color=var(--accent) opacity=1 rotation=0
+asset | rear-right | device-earpiece | 95 | 30 | 25 | 4 | 15 | color=var(--accent) opacity=1 rotation=0
+asset | rear-right | device-camera-lens | 130 | 28 | 8 | 8 | 15 | color=var(--accent) opacity=1 rotation=0
+text | rear-right | 9:41 | 29 | 27 | 27 | 12 | 15 | font=7.3 weight=700
+asset | rear-right | status-cellular | 176 | 29 | 11 | 7 | 15 | color=#11191a opacity=1 rotation=0
+asset | rear-right | status-wifi | 189 | 29 | 10 | 7 | 15 | color=#11191a opacity=1 rotation=0
+asset | rear-right | status-battery | 201 | 29 | 11 | 6 | 15 | color=#11191a opacity=1 rotation=0
+asset | rear-right | surface-navigation-bar | 26 | 388 | 184 | 30 | 12 | color=var(--accent) opacity=1 rotation=0
+asset | rear-right | icon-heart-pulse | 46 | 396 | 15 | 15 | 13 | color=#ff00ff opacity=1 rotation=0
+asset | rear-right | icon-box | 108 | 396 | 15 | 15 | 13 | color=#9babb2 opacity=1 rotation=0
+asset | rear-right | icon-users | 167 | 396 | 15 | 15 | 13 | color=#9babb2 opacity=1 rotation=0
+asset | rear-right | device-home-indicator | 80 | 421 | 76 | 3.3 | 15 | color=#11191a opacity=1 rotation=0
+asset | rear-right | icon-arrow-back | 30 | 63 | 14 | 14 | 13 | color=#11191a opacity=1 rotation=0
+text | rear-right | Productos | 52 | 64 | 130 | 18 | 13 | font=11.7 weight=800
+asset | rear-right | icon-search | 192 | 64 | 13 | 13 | 13 | color=#11191a opacity=1 rotation=0
+asset | rear-right | shadow-ui-row | 16 | 95 | 204 | 72 | 8 | color=black opacity=0.75 rotation=0
+asset | rear-right | surface-ui-row | 26 | 102 | 184 | 48 | 9 | color=var(--accent) opacity=1 rotation=0
+asset | rear-right | surface-icon-chip | 34 | 111 | 28 | 28 | 10 | color=var(--accent) opacity=1 rotation=0
+asset | rear-right | icon-box | 40 | 117 | 16 | 16 | 11 | color=#4d0e54 opacity=1 rotation=0
+text | rear-right | Kits de salud | 70 | 114 | 111 | 14 | 12 | font=8.7 weight=700
+asset | rear-right | surface-status-line | 70 | 131 | 64 | 3.6 | 11 | color=var(--accent) opacity=1 rotation=0
+asset | rear-right | icon-chevron-right | 191 | 120 | 8 | 8 | 12 | color=#ff00ff opacity=1 rotation=0
+asset | rear-right | shadow-ui-row | 16 | 157 | 204 | 72 | 8 | color=black opacity=0.75 rotation=0
+asset | rear-right | surface-ui-row | 26 | 164 | 184 | 48 | 9 | color=var(--accent) opacity=1 rotation=0
+asset | rear-right | surface-icon-chip | 34 | 173 | 28 | 28 | 10 | color=var(--accent) opacity=1 rotation=0
+asset | rear-right | icon-capsule | 40 | 179 | 16 | 16 | 11 | color=#4d0e54 opacity=1 rotation=0
+text | rear-right | Productos | 70 | 176 | 111 | 14 | 12 | font=8.7 weight=700
+asset | rear-right | surface-status-line | 70 | 193 | 64 | 3.6 | 11 | color=var(--accent) opacity=1 rotation=0
+asset | rear-right | icon-chevron-right | 191 | 182 | 8 | 8 | 12 | color=#ff00ff opacity=1 rotation=0
+asset | rear-right | shadow-ui-row | 16 | 219 | 204 | 72 | 8 | color=black opacity=0.75 rotation=0
+asset | rear-right | surface-ui-row | 26 | 226 | 184 | 48 | 9 | color=var(--accent) opacity=1 rotation=0
+asset | rear-right | surface-icon-chip | 34 | 235 | 28 | 28 | 10 | color=var(--accent) opacity=1 rotation=0
+asset | rear-right | icon-bell | 40 | 241 | 16 | 16 | 11 | color=#4d0e54 opacity=1 rotation=0
+text | rear-right | Novedades | 70 | 238 | 111 | 14 | 12 | font=8.7 weight=700
+asset | rear-right | surface-status-line | 70 | 255 | 64 | 3.6 | 11 | color=var(--accent) opacity=1 rotation=0
+asset | rear-right | icon-chevron-right | 191 | 244 | 8 | 8 | 12 | color=#ff00ff opacity=1 rotation=0
+asset | rear-right | device-screen-reflection | 0 | 0 | 240 | 450 | 18 | color=white opacity=0.35 rotation=0
+asset | rear-right | device-rim-highlight | 0 | 0 | 240 | 450 | 19 | color=var(--accent) opacity=1 rotation=0
+asset | front | device-occlusion-shadow | -20 | -12 | 280 | 480 | 0 | color=black opacity=0.6 rotation=0
+asset | front | device-casing-depth | 0 | 0 | 240 | 450 | 1 | color=var(--accent) opacity=1 rotation=0
+asset | front | device-frame-metal | 0 | 0 | 240 | 450 | 2 | color=var(--accent) opacity=1 rotation=0
+asset | front | device-bezel | 0 | 0 | 240 | 450 | 3 | color=var(--accent) opacity=1 rotation=0
+asset | front | device-screen-base | 0 | 0 | 240 | 450 | 4 | color=var(--accent) opacity=1 rotation=0
+asset | front | device-volume-keys | 0 | 0 | 240 | 450 | 6 | color=var(--accent) opacity=1 rotation=0
+asset | front | device-power-key | 0 | 0 | 240 | 450 | 6 | color=var(--accent) opacity=1 rotation=0
+asset | front | device-camera-island | 82 | 23 | 64 | 18 | 14 | color=var(--accent) opacity=1 rotation=0
+asset | front | device-earpiece | 95 | 30 | 25 | 4 | 15 | color=var(--accent) opacity=1 rotation=0
+asset | front | device-camera-lens | 130 | 28 | 8 | 8 | 15 | color=var(--accent) opacity=1 rotation=0
+text | front | 9:41 | 29 | 27 | 27 | 12 | 15 | font=7.3 weight=700
+asset | front | status-cellular | 176 | 29 | 11 | 7 | 15 | color=#11191a opacity=1 rotation=0
+asset | front | status-wifi | 189 | 29 | 10 | 7 | 15 | color=#11191a opacity=1 rotation=0
+asset | front | status-battery | 201 | 29 | 11 | 6 | 15 | color=#11191a opacity=1 rotation=0
+asset | front | surface-navigation-bar | 26 | 388 | 184 | 30 | 12 | color=var(--accent) opacity=1 rotation=0
+asset | front | icon-heart-pulse | 46 | 396 | 15 | 15 | 13 | color=#ff00ff opacity=1 rotation=0
+asset | front | icon-box | 108 | 396 | 15 | 15 | 13 | color=#9babb2 opacity=1 rotation=0
+asset | front | icon-users | 167 | 396 | 15 | 15 | 13 | color=#9babb2 opacity=1 rotation=0
+asset | front | device-home-indicator | 80 | 421 | 76 | 3.3 | 15 | color=#11191a opacity=1 rotation=0
+asset | front | tile-face | 26 | 55 | 24 | 24 | 12 | color=var(--accent) opacity=1 rotation=0
+asset | front | icon-heart-pulse | 31 | 61 | 12 | 12 | 13 | color=white opacity=1 rotation=0
+text | front | Tu marca | 52 | 61 | 130 | 17 | 13 | font=9 weight=800
+asset | front | surface-icon-disc | 188 | 56 | 20 | 20 | 12 | color=#82918a opacity=0.3 rotation=0
+asset | front | icon-bell | 193 | 61 | 10 | 10 | 13 | color=#17071b opacity=1 rotation=0
+asset | front | shadow-ui-row | 17 | 83 | 202 | 93 | 8 | color=black opacity=0.6 rotation=0
+asset | front | surface-ui-feature | 26 | 88 | 184 | 74 | 10 | color=var(--accent) opacity=1 rotation=0
+asset | front | surface-ui-feature-pattern | 26 | 88 | 184 | 74 | 11 | color=var(--accent) opacity=1 rotation=0
+text | front | PARA TU COMUNIDAD | 37 | 99 | 140 | 9 | 12 | font=5.6 weight=700
+text | front | Todo tu mundo, / en una app | 37 | 113 | 148 | 36 | 12 | font=12.7 weight=800
+asset | front | icon-crown-outline | 180 | 136 | 20 | 20 | 13 | color=white opacity=1 rotation=0
+asset | front | shadow-ui-row | 16 | 166 | 204 | 72 | 8 | color=black opacity=0.75 rotation=0
+asset | front | surface-ui-row | 26 | 173 | 184 | 48 | 9 | color=var(--accent) opacity=1 rotation=0
+asset | front | surface-icon-chip | 34 | 182 | 28 | 28 | 10 | color=var(--accent) opacity=1 rotation=0
+asset | front | icon-stethoscope | 40 | 188 | 16 | 16 | 11 | color=#4d0e54 opacity=1 rotation=0
+text | front | Mis servicios | 70 | 185 | 111 | 14 | 12 | font=8.7 weight=700
+asset | front | surface-status-line | 70 | 202 | 64 | 3.6 | 11 | color=var(--accent) opacity=1 rotation=0
+asset | front | icon-chevron-right | 191 | 191 | 8 | 8 | 12 | color=#ff00ff opacity=1 rotation=0
+asset | front | shadow-ui-row | 16 | 218 | 204 | 72 | 8 | color=black opacity=0.75 rotation=0
+asset | front | surface-ui-row | 26 | 225 | 184 | 48 | 9 | color=var(--accent) opacity=1 rotation=0
+asset | front | surface-icon-chip | 34 | 234 | 28 | 28 | 10 | color=var(--accent) opacity=1 rotation=0
+asset | front | icon-box | 40 | 240 | 16 | 16 | 11 | color=#4d0e54 opacity=1 rotation=0
+text | front | Productos | 70 | 237 | 111 | 14 | 12 | font=8.7 weight=700
+asset | front | surface-status-line | 70 | 254 | 64 | 3.6 | 11 | color=var(--accent) opacity=1 rotation=0
+asset | front | icon-chevron-right | 191 | 243 | 8 | 8 | 12 | color=#ff00ff opacity=1 rotation=0
+asset | front | shadow-ui-row | 16 | 270 | 204 | 72 | 8 | color=black opacity=0.75 rotation=0
+asset | front | surface-ui-row | 26 | 277 | 184 | 48 | 9 | color=var(--accent) opacity=1 rotation=0
+asset | front | surface-icon-chip | 34 | 286 | 28 | 28 | 10 | color=var(--accent) opacity=1 rotation=0
+asset | front | icon-calendar | 40 | 292 | 16 | 16 | 11 | color=#4d0e54 opacity=1 rotation=0
+text | front | Turnos online | 70 | 289 | 111 | 14 | 12 | font=8.7 weight=700
+asset | front | surface-status-line | 70 | 306 | 64 | 3.6 | 11 | color=var(--accent) opacity=1 rotation=0
+asset | front | icon-chevron-right | 191 | 295 | 8 | 8 | 12 | color=#ff00ff opacity=1 rotation=0
+asset | front | shadow-ui-row | 16 | 322 | 204 | 72 | 8 | color=black opacity=0.75 rotation=0
+asset | front | surface-ui-row | 26 | 329 | 184 | 48 | 9 | color=var(--accent) opacity=1 rotation=0
+asset | front | surface-icon-chip | 34 | 338 | 28 | 28 | 10 | color=var(--accent) opacity=1 rotation=0
+asset | front | icon-megaphone | 40 | 344 | 16 | 16 | 11 | color=#4d0e54 opacity=1 rotation=0
+text | front | Novedades | 70 | 341 | 111 | 14 | 12 | font=8.7 weight=700
+asset | front | surface-status-line | 70 | 358 | 64 | 3.6 | 11 | color=var(--accent) opacity=1 rotation=0
+asset | front | icon-chevron-right | 191 | 347 | 8 | 8 | 12 | color=#ff00ff opacity=1 rotation=0
+asset | front | device-screen-reflection | 0 | 0 | 240 | 450 | 18 | color=white opacity=0.35 rotation=0
+asset | front | device-rim-highlight | 0 | 0 | 240 | 450 | 19 | color=var(--accent) opacity=1 rotation=0
+asset | floating-tile-accent | tile-shadow | -12 | -12 | 144 | 144 | 0 | color=black opacity=0.65 rotation=0
+asset | floating-tile-accent | tile-extrusion | 0 | 0 | 120 | 120 | 1 | color=#ff00ff opacity=1 rotation=0
+asset | floating-tile-accent | tile-face | 0 | 0 | 120 | 120 | 2 | color=var(--accent) opacity=1 rotation=0
+asset | floating-tile-accent | tile-specular | 0 | 0 | 120 | 120 | 3 | color=var(--accent) opacity=1 rotation=0
+asset | floating-tile-accent | icon-heart-pulse | 27 | 27 | 56 | 56 | 4 | color=white opacity=1 rotation=0
+asset | floating-tile-neutral | tile-shadow | -12 | -12 | 144 | 144 | 0 | color=black opacity=0.65 rotation=0
+asset | floating-tile-neutral | tile-extrusion | 0 | 0 | 120 | 120 | 1 | color=#f0f3ed opacity=1 rotation=0
+asset | floating-tile-neutral | tile-face-neutral | 0 | 0 | 120 | 120 | 2 | color=var(--accent) opacity=1 rotation=0
+asset | floating-tile-neutral | tile-specular | 0 | 0 | 120 | 120 | 3 | color=var(--accent) opacity=1 rotation=0
+asset | floating-tile-neutral | icon-spark-cluster | 27 | 27 | 56 | 56 | 4 | color=#17071b opacity=1 rotation=0
+asset | banner | orb-halo | 462.8 | 102.8 | 38.4 | 38.4 | 40 | color=#ff00ff opacity=0.55 rotation=0
+asset | banner | orb-diffuse | 466 | 106 | 32 | 32 | 41 | color=var(--accent) opacity=1 rotation=0
+asset | banner | orb-rim | 466 | 106 | 32 | 32 | 42 | color=var(--accent) opacity=1 rotation=0
+asset | banner | orb-specular | 466 | 106 | 32 | 32 | 43 | color=var(--accent) opacity=1 rotation=0
+asset | banner | orb-halo | 457.3 | 351.3 | 56.4 | 56.4 | 41 | color=#ff00ff opacity=0.55 rotation=0
+asset | banner | orb-diffuse | 462 | 356 | 47 | 47 | 42 | color=var(--accent) opacity=1 rotation=0
+asset | banner | orb-rim | 462 | 356 | 47 | 47 | 43 | color=var(--accent) opacity=1 rotation=0
+asset | banner | orb-specular | 462 | 356 | 47 | 47 | 44 | color=var(--accent) opacity=1 rotation=0
+asset | banner | orb-halo | 981.7 | 352.7 | 27.599999999999998 | 27.599999999999998 | 42 | color=#ff00ff opacity=0.55 rotation=0
+asset | banner | orb-diffuse | 984 | 355 | 23 | 23 | 43 | color=var(--accent) opacity=1 rotation=0
+asset | banner | orb-rim | 984 | 355 | 23 | 23 | 44 | color=var(--accent) opacity=1 rotation=0
+asset | banner | orb-specular | 984 | 355 | 23 | 23 | 45 | color=var(--accent) opacity=1 rotation=0
+asset | banner | sparkle-soft-glow | 811.5 | 25.5 | 30 | 30 | 44 | color=var(--accent) opacity=1 rotation=0
+asset | banner | sparkle-rounded-cross | 819 | 33 | 15 | 15 | 45 | color=var(--accent) opacity=1 rotation=0
+asset | banner | sparkle-soft-glow | 973.5 | 229.5 | 30 | 30 | 44 | color=var(--accent) opacity=1 rotation=0
+asset | banner | sparkle-rounded-cross | 981 | 237 | 15 | 15 | 45 | color=var(--accent) opacity=1 rotation=0
+asset | banner | sparkle-soft-glow | 475.5 | 325.5 | 18 | 18 | 44 | color=var(--accent) opacity=1 rotation=0
+asset | banner | sparkle-rounded-cross | 480 | 330 | 9 | 9 | 45 | color=var(--accent) opacity=1 rotation=0
+asset | banner | light-edge-glint | 618 | 29 | 53 | 53 | 44 | color=white opacity=0.75 rotation=0
+asset | banner | light-soft-spot | 737 | 434 | 46 | 46 | 44 | color=white opacity=0.5 rotation=0
+asset | banner | surface-badge-pill | 48 | 59 | 226 | 36 | 49 | color=var(--accent) opacity=1 rotation=0
+asset | banner | surface-icon-disc | 59 | 64 | 26 | 26 | 50 | color=var(--accent) opacity=1 rotation=0
+asset | banner | icon-crown-solid | 65 | 70 | 14 | 14 | 51 | color=#17071b opacity=1 rotation=0
+text | banner | SERVICIO DESTACADO | 99 | 71 | 166 | 16 | 52 | font=12.4 weight=800
+text | banner | La app de | 46 | 113 | 414 | 82 | 50 | font=70 weight=900
+text | banner | Tu marca | 47 | 188 | 421 | 59 | 50 | font=54 weight=900
+text | banner | Subimos tu propia app al store, exclusiva para tus servicios y productos. | 48 | 258 | 420 | 48 | 50 | font=18 weight=500
+asset | banner | surface-pill | 48 | 316 | 119 | 37 | 49 | color=var(--accent) opacity=1 rotation=0
+asset | banner | icon-phone | 60 | 326 | 16 | 16 | 51 | color=#17071b opacity=1 rotation=0
+text | banner | App propia | 85 | 328 | 75 | 15 | 52 | font=12 weight=700
+asset | banner | surface-pill | 175 | 316 | 134 | 37 | 49 | color=var(--accent) opacity=1 rotation=0
+asset | banner | icon-stethoscope | 187 | 326 | 16 | 16 | 51 | color=#17071b opacity=1 rotation=0
+text | banner | Tus servicios | 212 | 328 | 90 | 15 | 52 | font=12 weight=700
+asset | banner | surface-pill | 317 | 316 | 142 | 37 | 49 | color=var(--accent) opacity=1 rotation=0
+asset | banner | icon-box | 329 | 326 | 16 | 16 | 51 | color=#17071b opacity=1 rotation=0
+text | banner | Tus productos | 354 | 328 | 98 | 15 | 52 | font=12 weight=700
+text | banner | 99.99 | 61 | 389 | 99 | 35 | 50 | font=31 weight=700
+asset | banner | surface-price-strike | 57 | 399 | 100 | 16 | 51 | color=#ff8cff opacity=1 rotation=0
+text | banner | USD / MES | 64 | 430 | 94 | 16 | 51 | font=10.3 weight=700
+asset | banner | panel-local-glow | 133 | 343 | 350 | 144 | 47 | color=#ff00ff opacity=0.55 rotation=0
+asset | banner | shadow-panel | 148 | 354 | 320 | 124 | 48 | color=black opacity=0.35 rotation=0
+asset | banner | surface-price-panel | 169 | 369 | 278 | 88 | 49 | color=var(--accent) opacity=1 rotation=0
+asset | banner | surface-panel-rim | 169 | 369 | 278 | 88 | 50 | color=var(--accent) opacity=1 rotation=0
+asset | banner | surface-now-chip | 187 | 397 | 72 | 28 | 51 | color=var(--accent) opacity=1 rotation=0
+text | banner | AHORA | 187 | 405 | 72 | 16 | 52 | font=11.7 weight=800
+text | banner | 59.99 | 273 | 378 | 163 | 58 | 52 | font=52 weight=900
+text | banner | USD / MES | 278 | 434 | 140 | 15 | 52 | font=11.4 weight=800
+asset | action | surface-cta | 0 | 0 | 164 | 48 | 0 | color=var(--accent) opacity=1 rotation=0
+asset | action | icon-spark-cluster | 18 | 15 | 20 | 20 | 1 | color=#17071b opacity=1 rotation=0
+text | action | Crear mi app | 46 | 17 | 98 | 20 | 2 | font=13.1 weight=800
+asset | action | icon-chevron-right | 142 | 19 | 10 | 10 | 2 | color=#17071b opacity=1 rotation=0
