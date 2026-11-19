@@ -59,7 +59,7 @@ import { CORVO_HEAD_ASSETS } from '../../../data/gcFitnessPublic';
 
       <h2>Health Connect (Android)</h2>
       <p>
-        On Android, Corvo can connect to <strong>Health Connect</strong> to complete two
+        On Android, Corvo can connect to <strong>Health Connect</strong> to complete three
         features. This is optional: the rest of the app works without it, and you can withdraw
         access at any time from within Health Connect (or from Settings → Health → Health Connect
         inside Corvo, which takes you there).
@@ -74,9 +74,19 @@ import { CORVO_HEAD_ASSETS } from '../../../data/gcFitnessPublic';
           on that workout's summary (with its minimum, average and maximum) and we store that
           series alongside that workout, visible to you and to your coach.</li>
       </ul>
+      <p>And we request <strong>write access to exactly two record types</strong>, to save the
+        workouts you finish in the app (the same thing we do with Apple Health on iPhone):</p>
+      <ul>
+        <li><strong>Exercise sessions</strong> — each workout you finish is saved as a strength-training
+          session, with the routine's name and its start and end time, so your other fitness apps
+          count it too. A workout is saved only once.</li>
+        <li><strong>Active calories burned</strong> — an estimate of the calories of that workout,
+          computed from its duration and the body weight you logged in the app, saved alongside it.</li>
+      </ul>
       <p>
-        <strong>Read-only.</strong> Corvo never writes data to Health Connect, and never reads
-        any health data other than the two record types above.
+        <strong>Nothing else.</strong> Corvo never reads or writes any health data other than those
+        four record types. What is saved to Health Connect stays on your phone, under your control:
+        you can review and delete it from the Health Connect app.
       </p>
       <p>
         <strong>Sharing.</strong> Data read from Health Connect is shared only with the coach
