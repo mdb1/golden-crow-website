@@ -31,6 +31,8 @@ import {
   SET_TYPE_LABELS_ES,
   SET_TYPE_LETTERS,
 } from "@/lib/gc-fitness/set-type";
+// gc-fitness #1623 — per-set effort (RPE) logged by the client.
+import { formatRpe, rirFromRpe } from "@/lib/gc-fitness/set-effort";
 
 /** Compact "previous PR" value for the PR row: duration for time PRs, else
  * "{weight} kg × {reps}" (issue #405). */
@@ -318,12 +320,18 @@ export function WorkoutLogDetailView({ detail }: { detail: WorkoutLogDetail }) {
                                       ? `${set.durationSeconds}s`
                                       : t("emptyDash")
                                     : (set.reps ?? t("emptyDash"))}
+                                  {/* #1623 — on a time-only block there is no
+                                      weight column, so the RPE rides here. */}
+                                  {isTimeGroup ? (
+                                    <SetRpe rpe={set.rpe} locale={locale} />
+                                  ) : null}
                                 </td>
                                 {!isTimeGroup ? (
                                   <td className="py-2 pr-3">
                                     {!isTimeSet && set.weight !== null
                                       ? `${set.weight} ${t("weightUnit")}`
                                       : t("emptyDash")}
+                                    <SetRpe rpe={set.rpe} locale={locale} />
                                   </td>
                                 ) : null}
                                 <td className="py-2 pr-3 text-muted-foreground">
@@ -348,6 +356,29 @@ export function WorkoutLogDetailView({ detail }: { detail: WorkoutLogDetail }) {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/**
+ * gc-fitness #1623 — muted "RPE 8" next to a logged set. The coach always sees
+ * RPE (RIR is a client-only display mode); RIR goes in the tooltip. Renders
+ * NOTHING when the set has no RPE so the row layout is unchanged.
+ */
+function SetRpe({ rpe, locale }: { rpe: number | undefined; locale: string }) {
+  const t = useTranslations("recentLogs.workoutDetail");
+  if (rpe === undefined) return null;
+  const value = formatRpe(rpe, locale);
+  const rir = formatRpe(rirFromRpe(rpe), locale);
+  const title = t("setRpeTitle", { value, rir });
+  return (
+    <span
+      data-testid="set-rpe"
+      title={title}
+      aria-label={title}
+      className="ml-1.5 whitespace-nowrap text-xs text-muted-foreground tabular-nums"
+    >
+      {t("setRpe", { value })}
+    </span>
   );
 }
 

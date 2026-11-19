@@ -2410,6 +2410,8 @@
       "emptyDash": "-",
       "rpeTitle": "Esfuerzo (RPE)",
       "rpeValue": "{value} / 10",
+      "setRpe": "RPE {value}",
+      "setRpeTitle": "RPE {value} (RIR {rir})",
       "rpeNotReported": "El cliente no reportó esfuerzo.",
       "athleteNotesTitle": "Notas del cliente",
       "noAthleteNotes": "Sin notas del cliente.",
