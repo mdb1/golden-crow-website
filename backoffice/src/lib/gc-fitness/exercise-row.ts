@@ -118,6 +118,12 @@ export interface ExerciseRow {
    * weight) so every legacy exercise keeps the weight column.
    */
   tracksWeight?: boolean;
+  /**
+   * gc-fitness #1649 — cardio authoring default (time + distance). The template
+   * builder reads this on ADD to seed `metric: "time"` + `distanceBySetMeters: []`.
+   * Only an explicit `true` opts in.
+   */
+  tracksDistance?: boolean;
 }
 
 /**
@@ -229,6 +235,8 @@ export function snapToRow(d: ExerciseDocLike): ExerciseRow {
     // Phase 26-09 — bodyweight default; only an explicit `false` opts out of
     // the weight column (legacy docs without the field track weight).
     tracksWeight: data.tracksWeight === false ? false : true,
+    // gc-fitness #1649 — only an explicit `true` (with metric time) is cardio.
+    tracksDistance: data.metric === "time" && data.tracksDistance === true,
   };
 }
 

@@ -8,7 +8,10 @@
 // sequence over time — the newest PR is the current record and the one before
 // it is the "previous PR" the coach wants to see (issue #405 part a).
 
-export type PRMetric = "reps" | "time";
+import { readDistanceMeters } from "./distance-format";
+
+// gc-fitness #1649 — "distance" = a cardio PR (longest single-set distance).
+export type PRMetric = "reps" | "time" | "distance";
 
 /** One raw PR row flattened from a workout_logs `prs[]` entry. */
 export interface RawPersonalRecord {
@@ -18,6 +21,8 @@ export interface RawPersonalRecord {
   estimatedOneRM: number;
   /** Present (seconds) only for time-based PRs (plank, wall-sit); else null. */
   durationSeconds: number | null;
+  /** gc-fitness #1649 — meters, only for distance (cardio) PRs; else null/absent. */
+  distanceMeters?: number | null;
   setLogId: string;
   /** Epoch ms when the PR was achieved, or null when the doc lacks a date. */
   achievedAtMs: number | null;
@@ -29,6 +34,8 @@ export interface PRSnapshot {
   reps: number;
   estimatedOneRM: number;
   durationSeconds: number | null;
+  /** gc-fitness #1649 — meters for distance PRs. */
+  distanceMeters?: number | null;
   achievedAtMs: number | null;
 }
 
@@ -102,6 +109,7 @@ export function flattenLogPRs(logData: Record<string, unknown>): RawPersonalReco
       reps: prNumeric(pr.reps),
       estimatedOneRM: prNumeric(pr.estimated_one_rm ?? pr.estimatedOneRM),
       durationSeconds,
+      distanceMeters: readDistanceMeters(pr.distance_meters ?? pr.distanceMeters),
       setLogId,
       achievedAtMs: prToMs(pr.achieved_at ?? pr.achievedAt) ?? logFallbackMs,
     });
@@ -131,13 +139,18 @@ export function filterPrLogsToRoster<T extends { clientId?: unknown }>(
   );
 }
 
-function metricOf(pr: { durationSeconds: number | null }): PRMetric {
+function metricOf(pr: { durationSeconds: number | null; distanceMeters?: number | null }): PRMetric {
+  // gc-fitness #1649 — distance wins: a cardio PR also carries its duration
+  // (so old apps show it as a harmless time PR) but it was decided on meters.
+  if (pr.distanceMeters != null && pr.distanceMeters > 0) return "distance";
   return pr.durationSeconds != null && pr.durationSeconds > 0 ? "time" : "reps";
 }
 
 /** Sort magnitude for a PR — duration for time PRs, else Epley e1RM. */
 function magnitude(pr: RawPersonalRecord): number {
-  return metricOf(pr) === "time" ? pr.durationSeconds ?? 0 : pr.estimatedOneRM;
+  const metric = metricOf(pr);
+  if (metric === "distance") return pr.distanceMeters ?? 0;
+  return metric === "time" ? pr.durationSeconds ?? 0 : pr.estimatedOneRM;
 }
 
 function toSnapshot(pr: RawPersonalRecord): PRSnapshot {
@@ -146,6 +159,7 @@ function toSnapshot(pr: RawPersonalRecord): PRSnapshot {
     reps: pr.reps,
     estimatedOneRM: pr.estimatedOneRM,
     durationSeconds: pr.durationSeconds,
+    distanceMeters: pr.distanceMeters ?? null,
     achievedAtMs: pr.achievedAtMs,
   };
 }

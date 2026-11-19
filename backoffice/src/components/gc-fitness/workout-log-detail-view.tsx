@@ -35,6 +35,7 @@ import {
 import { formatRpe, rirFromRpe } from "@/lib/gc-fitness/set-effort";
 // gc-fitness #1646 — the coach reads kg; a client who uses lb also gets the lb they typed.
 import { coachLoadText, type WeightUnits } from "@/lib/gc-fitness/weight-units";
+import { coachDistanceText } from "@/lib/gc-fitness/distance-format";
 
 /** Compact "previous PR" value for the PR row: duration for time PRs, else
  * "{weight} kg × {reps}" (issue #405). */
@@ -43,6 +44,9 @@ function prPreviousText(
   clientUnits: WeightUnits | undefined,
   locale: string,
 ): string {
+  if (prev.distanceMeters != null && prev.distanceMeters > 0) {
+    return coachDistanceText(prev.distanceMeters, clientUnits, locale);
+  }
   if (prev.durationSeconds !== null) return `${prev.durationSeconds}s`;
   return `${coachLoadText(prev.weightKg, clientUnits, locale)} × ${prev.reps}`;
 }
@@ -324,6 +328,12 @@ export function WorkoutLogDetailView({ detail }: { detail: WorkoutLogDetail }) {
                                       ? `${set.durationSeconds}s`
                                       : t("emptyDash")
                                     : (set.reps ?? t("emptyDash"))}
+                                  {/* gc-fitness #1649 — cardio: time · distance. */}
+                                  {isTimeSet && set.distanceMeters != null && set.distanceMeters > 0 ? (
+                                    <span data-testid="set-distance">
+                                      {` · ${coachDistanceText(set.distanceMeters, detail.clientUnits, locale)}`}
+                                    </span>
+                                  ) : null}
                                   {/* #1623 — on a time-only block there is no
                                       weight column, so the RPE rides here. */}
                                   {isTimeGroup ? (

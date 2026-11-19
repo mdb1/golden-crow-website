@@ -39,6 +39,8 @@ export interface SessionSetLog {
   clientLoggedAt: string;
   /** Seconds, time-based sets only (plank/wall-sit/dead-hang). */
   durationSeconds?: number | null;
+  /** gc-fitness #1649 — logged cardio distance in meters (wire `distance_meters`). */
+  distanceMeters?: number | null;
   /**
    * quick-260714-m57 (#403) — optional richer set type (warmup / failure /
    * dropset). Wire: `set_type` (snake_case sibling of `is_warmup`). Writers
@@ -99,6 +101,8 @@ export interface SessionExercise {
   durationBySetSeconds?: number[] | null;
   /** Fallback duration (time exercises), seconds. */
   durationSeconds?: number | null;
+  /** gc-fitness #1649 — cardio distance targets (meters); present = tracked. */
+  distanceBySetMeters?: number[] | null;
   /** Video URL (gs:// or https) from the exercise library — resolved in UI. */
   mediaURL?: string | null;
   /** Preview/thumbnail (often the animated GIF). */

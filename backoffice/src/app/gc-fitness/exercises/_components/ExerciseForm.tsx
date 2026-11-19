@@ -170,6 +170,9 @@ function buildDefaults(
     // legacy "reps × weight" behavior; `false` authors the exercise as
     // "reps without weight" (seeds the template "Sin peso" sentinel on add).
     tracksWeight: passed?.tracksWeight ?? true,
+    // gc-fitness #1649 — cardio default (metric time + distance). Always a
+    // boolean so the Admin SDK never sees `undefined`.
+    tracksDistance: passed?.tracksDistance === true,
     // #1307 — explicit body-weight fraction (0–1) or null = follow the
     // equipment/muscle suggestion.
     bodyweightLoadFactor:
@@ -530,6 +533,7 @@ export function ExerciseForm({
               - "Reps × Weight"  → metric:"reps", tracksWeight:true
               - "Reps (no weight)" → metric:"reps", tracksWeight:false  (#14)
               - "Time (sec)"     → metric:"time", tracksWeight:true
+              - "Time + distance" → metric:"time", tracksDistance:true (#1649)
             `tracksWeight:false` is the bodyweight authoring default that seeds
             the template "Sin peso" sentinel (weightBySetKg:[]) on add — the
             wire contract iOS/Android already honor. Renders in create + edit;
@@ -541,7 +545,12 @@ export function ExerciseForm({
             const tracksWeight = form.watch("tracksWeight") !== false;
             const isRepsWeighted = field.value === "reps" && tracksWeight;
             const isRepsNoWeight = field.value === "reps" && !tracksWeight;
-            const isTime = field.value === "time";
+            // gc-fitness #1649 — cardio is metric "time" + tracksDistance.
+            const tracksDistance = form.watch("tracksDistance") === true;
+            const isTime = field.value === "time" && !tracksDistance;
+            const isCardio = field.value === "time" && tracksDistance;
+            const setDistance = (on: boolean) =>
+              form.setValue("tracksDistance", on, { shouldDirty: true });
             const chipClass = (active: boolean) =>
               `inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                 active
@@ -561,6 +570,7 @@ export function ExerciseForm({
                         form.setValue("tracksWeight", true, {
                           shouldDirty: true,
                         });
+                        setDistance(false);
                       }}
                       className={chipClass(isRepsWeighted)}
                       aria-pressed={isRepsWeighted}
@@ -575,6 +585,7 @@ export function ExerciseForm({
                         form.setValue("tracksWeight", false, {
                           shouldDirty: true,
                         });
+                        setDistance(false);
                       }}
                       className={chipClass(isRepsNoWeight)}
                       aria-pressed={isRepsNoWeight}
@@ -589,11 +600,27 @@ export function ExerciseForm({
                         form.setValue("tracksWeight", true, {
                           shouldDirty: true,
                         });
+                        setDistance(false);
                       }}
                       className={chipClass(isTime)}
                       aria-pressed={isTime}
                     >
                       {t("metricTimeCta")}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isView}
+                      onClick={() => {
+                        field.onChange("time");
+                        form.setValue("tracksWeight", true, {
+                          shouldDirty: true,
+                        });
+                        setDistance(true);
+                      }}
+                      className={chipClass(isCardio)}
+                      aria-pressed={isCardio}
+                    >
+                      {t("metricDistanceCta")}
                     </button>
                   </div>
                 </FormControl>

@@ -222,6 +222,13 @@ async function buildSessionExercises(
         durationBySetSeconds: numArrayOrNull(e.durationBySetSeconds),
         durationSeconds:
           typeof e.durationSeconds === "number" ? e.durationSeconds : null,
+        // gc-fitness #1649 — carried so coach edits never drop the signal.
+        // NOT numArrayOrNull: an EMPTY array is the "tracked, no targets" signal.
+        distanceBySetMeters: Array.isArray(e.distanceBySetMeters)
+          ? (e.distanceBySetMeters as unknown[]).map((n) =>
+              typeof n === "number" && Number.isFinite(n) && n > 0 ? n : 0,
+            )
+          : null,
         mediaURL,
         thumbnailURL,
       };
@@ -243,6 +250,13 @@ function wireSetToSession(s: Record<string, unknown>): SessionSetLog {
     clientLoggedAt: toIso(s.client_logged_at) ?? new Date(0).toISOString(),
     durationSeconds:
       typeof s.duration_seconds === "number" ? s.duration_seconds : null,
+    // gc-fitness #1649 — forgiving: only a positive finite distance survives.
+    distanceMeters:
+      typeof s.distance_meters === "number" &&
+      Number.isFinite(s.distance_meters) &&
+      s.distance_meters > 0
+        ? s.distance_meters
+        : null,
     // quick-260714-m57 (#403) — forgiving decode: unknown/absent/"normal"
     // wire strings coerce to null (effective type then falls back to
     // is_warmup, matching the iOS/Android twins).
@@ -289,6 +303,10 @@ function sessionSetToWire(s: SessionSetLog): Record<string, unknown> {
   // Firestore rejects `undefined`; iOS omits the field on reps-based sets.
   if (typeof s.durationSeconds === "number" && s.durationSeconds > 0) {
     wire.duration_seconds = s.durationSeconds;
+  }
+  // gc-fitness #1649 — omitted when absent (non-cardio sets stay byte-identical).
+  if (typeof s.distanceMeters === "number" && s.distanceMeters > 0) {
+    wire.distance_meters = s.distanceMeters;
   }
   // #1197 — omitted when absent (pre-#1197 docs stay byte-identical).
   if (typeof s.bodyweightKg === "number" && s.bodyweightKg > 0) {
@@ -961,6 +979,8 @@ async function enrichEditedExercises(
     }
     if (e.metric) out.metric = e.metric;
     if (e.durationBySetSeconds) out.durationBySetSeconds = e.durationBySetSeconds;
+    // gc-fitness #1649 — `[]` is meaningful (tracked, no targets): keep it.
+    if (Array.isArray(e.distanceBySetMeters)) out.distanceBySetMeters = e.distanceBySetMeters;
     if (typeof e.durationSeconds === "number") {
       out.durationSeconds = e.durationSeconds;
     }
