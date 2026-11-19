@@ -10,6 +10,11 @@
 
 import { readDistanceMeters } from "./distance-format";
 
+/** gc-fitness #1649 — `{ distanceMeters }` only when there is one. */
+function distanceField(meters: number | null): { distanceMeters?: number } {
+  return meters != null && meters > 0 ? { distanceMeters: meters } : {};
+}
+
 // gc-fitness #1649 — "distance" = a cardio PR (longest single-set distance).
 export type PRMetric = "reps" | "time" | "distance";
 
@@ -109,7 +114,8 @@ export function flattenLogPRs(logData: Record<string, unknown>): RawPersonalReco
       reps: prNumeric(pr.reps),
       estimatedOneRM: prNumeric(pr.estimated_one_rm ?? pr.estimatedOneRM),
       durationSeconds,
-      distanceMeters: readDistanceMeters(pr.distance_meters ?? pr.distanceMeters),
+      // gc-fitness #1649 — spread: non-distance PRs keep their exact legacy shape.
+      ...distanceField(readDistanceMeters(pr.distance_meters ?? pr.distanceMeters)),
       setLogId,
       achievedAtMs: prToMs(pr.achieved_at ?? pr.achievedAt) ?? logFallbackMs,
     });
@@ -159,7 +165,7 @@ function toSnapshot(pr: RawPersonalRecord): PRSnapshot {
     reps: pr.reps,
     estimatedOneRM: pr.estimatedOneRM,
     durationSeconds: pr.durationSeconds,
-    distanceMeters: pr.distanceMeters ?? null,
+    ...distanceField(pr.distanceMeters ?? null),
     achievedAtMs: pr.achievedAtMs,
   };
 }

@@ -135,7 +135,7 @@ describe("distance PRs", () => {
         { exerciseId: "row", set_log_id: "c", weight_kg: 0, reps: 0, estimated_one_rm: 0, duration_seconds: 60, distance_meters: -1, achieved_at: new Date(500) },
       ],
     });
-    expect(rows.map((r) => r.distanceMeters)).toEqual([2000, 2500, null]);
+    expect(rows.map((r) => r.distanceMeters ?? null)).toEqual([2000, 2500, null]);
     const [entry] = buildPersonalRecords(rows.slice(0, 2), meta);
     expect(entry.metric).toBe("distance");
     expect(entry.current.distanceMeters).toBe(2500);
