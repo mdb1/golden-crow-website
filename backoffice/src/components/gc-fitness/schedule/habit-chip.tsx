@@ -1,8 +1,9 @@
 "use client";
 
 import { CheckCircle2, Circle, History, User, XCircle } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
+import { formatHabitQuantityProgress } from "@/lib/gc-fitness/habit-quantity";
 import type { MonthHabitChip } from "@/lib/gc-fitness/schedule-month-actions";
 import { cn } from "@/lib/utils";
 
@@ -67,11 +68,21 @@ export function HabitChip({
   onClick?: () => void;
   title?: string;
 }) {
-  const chipTitle = title ?? habit.habitName;
+  const locale = useLocale();
+  // gc-fitness#1648 — a quantity habit shows the day's amount ("3 / 8 vasos").
+  const progress = habit.quantity
+    ? formatHabitQuantityProgress(habit.quantity.logged, habit.quantity.target, habit.quantity.unit, locale)
+    : null;
+  const chipTitle = title ?? (progress ? `${habit.habitName} · ${progress}` : habit.habitName);
   const content = (
     <>
       <HabitStatusGlyph status={habit.status} />
       <span className="min-w-0 max-w-full truncate">{habit.habitName}</span>
+      {progress ? (
+        <span className="shrink-0 tabular-nums opacity-80" data-testid="habit-chip-quantity">
+          {progress}
+        </span>
+      ) : null}
       {habit.clientOwned ? <ClientOwnedBadge /> : null}
       {habit.inherited ? <InheritedBadge /> : null}
     </>
