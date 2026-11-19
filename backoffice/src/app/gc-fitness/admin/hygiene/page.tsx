@@ -10,6 +10,7 @@ import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { listDataHygienePage, type DataHygienePage } from "@/lib/gc-fitness/data-hygiene-actions";
 
 import { DataHygieneFeed } from "./DataHygieneFeed";
+import { ScanCoverage } from "./ScanCoverage";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
 // Tab title: "Corvo - <adminPanel>" (issue #170).
@@ -92,6 +93,10 @@ export default async function DataHygienePage({
           {t("aboutBody")}
         </CardContent>
       </Card>
+
+      {initialPage.coverage ? (
+        <ScanCoverage coverage={initialPage.coverage} scanLimit={initialPage.scanLimit ?? 120} />
+      ) : null}
 
       <DataHygieneFeed initialPage={initialPage} loadError={loadError} />
     </div>

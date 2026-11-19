@@ -7,6 +7,7 @@
 
 import Image from "next/image";
 import { redirect } from "next/navigation";
+import { getLocale, getTranslations } from "next-intl/server";
 import { Dumbbell } from "lucide-react";
 
 import {
@@ -54,6 +55,11 @@ export default async function ViewExercisePage({ params }: PageParams) {
   }
 
   const { id } = await params;
+  // #535 — this page was hardcoded English ("Exercise details", "Coaching tips")
+  // and only ever showed the EN instructions; now it follows the coach's language,
+  // falling back to the other one when a translation is missing.
+  const [t, locale] = await Promise.all([getTranslations("exercises.viewPage"), getLocale()]);
+  const esFirst = locale.startsWith("es");
   const db = gcFitnessFirestore();
   const snap = await db.collection("exercises").doc(id).get();
   if (!snap.exists) {
@@ -123,21 +129,27 @@ export default async function ViewExercisePage({ params }: PageParams) {
       en?: string[] | null;
       es?: string[] | null;
     } | null;
-  const stepsEn = Array.isArray(rawInstructions?.en)
-    ? rawInstructions!.en!.filter(
-        (s): s is string => typeof s === "string" && s.trim().length > 0,
-      )
-    : [];
+  const cleanSteps = (list: unknown): string[] =>
+    Array.isArray(list)
+      ? list.filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+      : [];
+  const stepsPrimary = cleanSteps(esFirst ? rawInstructions?.es : rawInstructions?.en);
+  const stepsEn =
+    stepsPrimary.length > 0
+      ? stepsPrimary
+      : cleanSteps(esFirst ? rawInstructions?.en : rawInstructions?.es);
 
   // 14-02 — Pull the EN tips text for the read-only header section below.
   // The trainer surface is EN-only per 260522-orr; ES is iOS-only for v1.
-  const tipsEn = tipsDefault.en.trim();
+  const tipsEn =
+    (esFirst ? tipsDefault.es : tipsDefault.en).trim() ||
+    (esFirst ? tipsDefault.en : tipsDefault.es).trim();
 
   return (
     <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">
       <div className="flex flex-col gap-1">
         <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          Exercise details
+          {t("title")}
         </h1>
       </div>
 
@@ -146,7 +158,7 @@ export default async function ViewExercisePage({ params }: PageParams) {
       <div className="flex flex-col gap-6">
         <div
           aria-hidden="true"
-          className="flex h-[108px] w-[192px] items-center justify-center overflow-hidden rounded-md border border-border bg-muted/40 text-muted-foreground"
+          className="flex aspect-video w-full max-w-[192px] items-center justify-center overflow-hidden rounded-md border border-border bg-muted/40 text-muted-foreground"
         >
           {previewHref ? (
             // `unoptimized={!!previewHref}` is INTENTIONAL: signed Storage
@@ -168,7 +180,7 @@ export default async function ViewExercisePage({ params }: PageParams) {
         {stepsEn.length > 0 ? (
           <div className="flex flex-col gap-2">
             <h2 className="text-sm font-semibold text-foreground">
-              Instructions
+              {t("instructions")}
             </h2>
             <ol className="list-decimal space-y-2 pl-6 text-sm text-foreground">
               {stepsEn.map((step, idx) => (
@@ -178,7 +190,7 @@ export default async function ViewExercisePage({ params }: PageParams) {
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
-            No instructions available.
+            {t("noInstructions")}
           </p>
         )}
 
@@ -186,7 +198,7 @@ export default async function ViewExercisePage({ params }: PageParams) {
         {tipsEn.length > 0 && (
           <div className="flex flex-col gap-2">
             <h2 className="text-sm font-semibold text-foreground">
-              Coaching tips
+              {t("tips")}
             </h2>
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
               {tipsEn}

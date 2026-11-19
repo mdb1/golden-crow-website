@@ -59,7 +59,7 @@
     "clientsSection": "Clients",
     "clientsSectionDescription": "Coach roster + per-client deep view.",
     "contentSection": "Content",
-    "contentSectionDescription": "Workout templates, habits, exercise library.",
+    "contentSectionDescription": "Routines, habits, exercise library.",
     "engagementSection": "Engagement",
     "engagementSectionDescription": "Chat inbox + coach settings.",
     "adminSection": "Admin",
@@ -68,7 +68,7 @@
     "recentLogsDescription": "Cross-client recent habit/workout activity feed.",
     "myActivityDescription": "Coach-authored actions across programming, notes and chat.",
     "notificationsDescription": "Recurring workout/habit renewals, birthdays, and recent client activations.",
-    "workoutsDescription": "Workout-template authoring + assignments.",
+    "workoutsDescription": "Routine authoring + assignments.",
     "habitsDescription": "Habit CRUD + per-client assignment.",
     "exercisesDescription": "Exercise library + GIF management.",
     "chatDescription": "Coach inbox + per-client message threads.",
@@ -95,7 +95,9 @@
     "signOut": "Sign out",
     "themeDark": "Dark theme",
     "themeLight": "Light theme",
-    "coachPortal": "Coach Portal"
+    "coachPortal": "Coach Portal",
+    "openMenu": "Open menu",
+    "unreadChatsAria": "{count, plural, one {# unread message} other {# unread messages}} — open chat"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -151,7 +153,7 @@
     "openRecentClientActivity": "View recent client activity",
     "cards": {
       "clients": "Clients",
-      "templates": "Workout templates",
+      "templates": "Routines",
       "exercises": "Exercises",
       "chats": "Conversations"
     },
@@ -159,7 +161,7 @@
       "clientsTitle": "Clients",
       "clientsDescription": "Attach app users and open each client workspace.",
       "scheduleTitle": "Schedule",
-      "scheduleDescription": "Assign workout templates to a client calendar.",
+      "scheduleDescription": "Assign routines to a client calendar.",
       "workoutsTitle": "Workouts",
       "workoutsDescription": "Create reusable routines for assignments.",
       "libraryTitle": "Library",
@@ -435,7 +437,8 @@
         "personalRecords": "Personal records",
         "dailySteps": "Daily steps",
         "nutrition": "Nutrition",
-        "payments": "Payments"
+        "payments": "Payments",
+        "summary": "Summary"
       },
       "personalRecords": {
         "title": "Personal records",
@@ -977,7 +980,16 @@
         "pagos": "Payments",
         "progreso": "Progress",
         "chat": "Chat"
-      }
+      },
+      "statusStrip": {
+        "lastActivity": "Last activity",
+        "habits": "Habits (7 d)",
+        "missedWorkouts": "Missed workouts (7 d)",
+        "payment": "Payment",
+        "notComputed": "No data yet: open Clients to compute it.",
+        "noHabitsScheduled": "No habits this week"
+      },
+      "trendRangeAria": "Time range"
     },
     "invite": {
       "statusSent": "Invitation sent",
@@ -1043,19 +1055,22 @@
       "label": "View",
       "cards": "Cards",
       "list": "List"
+    },
+    "emptyPicker": {
+      "cta": "Add a client"
     }
   },
   "templates": {
-    "title": "Workout templates",
-    "newTemplate": "New template",
-    "editTemplate": "Edit template",
+    "title": "Routines",
+    "newTemplate": "New routine",
+    "editTemplate": "Edit routine",
     "newPage": {
-      "title": "New workout template",
+      "title": "New routine",
       "subtitle": "Pick a tag, add exercises, prescribe sets / reps / rest, and save."
     },
     "empty": {
-      "headline": "No templates yet",
-      "body": "Create your first workout template."
+      "headline": "No routines yet",
+      "body": "Create your first routine."
     },
     "columns": {
       "name": "Name",
@@ -1087,17 +1102,17 @@
       "setsTimeLabel": "{sets} × {seconds}s",
       "backCta": "Back",
       "duplicateCta": "Duplicate",
-      "duplicatedToast": "Template duplicated.",
+      "duplicatedToast": "Routine duplicated.",
       "duplicateFailedToast": "Couldn't duplicate. Please try again."
     },
     "editPage": {
-      "title": "Edit template",
+      "title": "Edit routine",
       "subtitlePrefix": "Changes save when you click ",
       "subtitleCta": "Save",
-      "subtitleSuffix": ". If this template is already scheduled, you'll be asked whether to push the update to those workouts.",
+      "subtitleSuffix": ". If this routine is already scheduled, you'll be asked whether to push the update to those workouts.",
       "propagateDialog": {
         "title": "Apply changes to existing schedules?",
-        "summary": "The template was saved. It's currently scheduled for {sessions, plural, one {<strong># upcoming workout</strong>} other {<strong># upcoming workouts</strong>}} across {clients, plural, one {<strong># client</strong>} other {<strong># clients</strong>}}.",
+        "summary": "The routine was saved. It's currently scheduled for {sessions, plural, one {<strong># upcoming workout</strong>} other {<strong># upcoming workouts</strong>}} across {clients, plural, one {<strong># client</strong>} other {<strong># clients</strong>}}.",
         "explainer": "Notes and structure (sets, reps, rest, order) always update on those days. Completed and in-progress workouts are never modified.",
         "clientLine": "{name} — {sessions, plural, one {# workout} other {# workouts}} (next {next})",
         "pushWeightsLabel": "Also update clients' weights",
@@ -1110,29 +1125,29 @@
       }
     },
     "list": {
-      "pageHeading": "Workout Templates",
-      "pageSubtitle": "Author push / pull / legs templates and assign them from the schedule view.",
-      "newTemplateCta": "New template",
-      "generateCta": "Template Generator",
+      "pageHeading": "Routines",
+      "pageSubtitle": "Author push / pull / legs routines and assign them from the schedule view.",
+      "newTemplateCta": "New routine",
+      "generateCta": "Routine generator",
       "filterPlaceholder": "Filter by name or tag",
-      "loadError": "Couldn't load templates.",
+      "loadError": "Couldn't load routines.",
       "loadErrorDescription": "Check your connection and try again.",
       "loading": "Loading…",
-      "emptyHeadline": "No templates yet.",
-      "emptySubtitle": "Author your first workout template to start assigning it to clients.",
+      "emptyHeadline": "No routines yet.",
+      "emptySubtitle": "Author your first routine to start assigning it to clients.",
       "filteredEmptyHeadline": "No matches.",
       "filteredEmptySubtitle": "Try a different name or tag, or clear the filter.",
       "pagination": "Page {current} of {total}",
       "previous": "Previous",
       "next": "Next",
-      "deleteDialogTitle": "Delete this template?",
+      "deleteDialogTitle": "Delete this routine?",
       "deleteDialogBody": "Existing assignments keep their snapshot — they will not be affected. This is a soft-delete and can be reversed later.",
       "deleteDialogCancel": "Cancel",
       "deleting": "Deleting…",
       "deleteDialogConfirm": "Delete",
-      "deletedToast": "Template deleted.",
+      "deletedToast": "Routine deleted.",
       "deleteFailedToast": "Couldn't delete.",
-      "duplicatedToast": "Template duplicated.",
+      "duplicatedToast": "Routine duplicated.",
       "duplicateFailedToast": "Couldn't duplicate. Please try again.",
       "tabAll": "All",
       "tabAssignments": "Assignments",
@@ -1170,11 +1185,11 @@
       },
       "tagsLabel": "Tags",
       "tagsPlaceholder": "Type a tag and press Enter (e.g. Legs, Back)",
-      "tagsHint": "You can add multiple tags to a template. Use them later to filter the list quickly.",
+      "tagsHint": "You can add multiple tags to a routine. Use them later to filter the list quickly.",
       "tagsSuggestionsLabel": "Suggestions",
       "tagsRemoveAria": "Remove tag {tag}",
       "endsOnLabel": "End date (optional)",
-      "endsOnHint": "Leave empty if this template never expires.",
+      "endsOnHint": "Leave empty if this routine never expires.",
       "endDatePreset": "{months, plural, one {# month} other {# months}}",
       "exercises": "Exercises",
       "exercisesCount": "{count}/30",
@@ -1244,14 +1259,14 @@
       "addExercise": "Add exercise",
       "cancel": "Cancel",
       "saving": "Saving…",
-      "createCta": "Create template",
+      "createCta": "Create routine",
       "saveCta": "Save changes",
-      "createdToast": "Template created.",
-      "savedToast": "Template saved.",
+      "createdToast": "Routine created.",
+      "savedToast": "Routine saved.",
       "saveFailed": "Couldn't save.",
       "submitErrorsHeadline": "Fix these before saving:",
       "submitErrorExercisePrefix": "Exercise #{index}",
-      "discardDialogTitle": "Leave this template?",
+      "discardDialogTitle": "Leave this routine?",
       "discardDialogBody": "You can leave and come back later — the draft stays saved in this browser. Discarding deletes the changes.",
       "discardDialogConfirm": "Discard changes",
       "discardDialogKeepEditing": "Keep editing",
@@ -1414,7 +1429,12 @@
     },
     "compliance": {
       "scheduledInfo": "Percentage of scheduled days completed since the habit started (days before the start date and non-scheduled days don't count).",
-      "scheduledInfoLabel": "How compliance is calculated"
+      "scheduledInfoLabel": "How compliance is calculated",
+      "summary": "Compliance summary",
+      "sevenDay": "7-day compliance",
+      "thirtyDay": "30-day compliance",
+      "empty": "No compliance data yet.",
+      "sparklineAria": "Compliance over the last {count} days"
     },
     "columns": {
       "client": "Client",
@@ -1597,6 +1617,10 @@
       },
       "schedulePreviewHeading": "Calendar preview",
       "schedulePreviewCount": "{count, plural, =0 {No active days yet} one {# active day highlighted} other {# active days highlighted}}"
+    },
+    "newPage": {
+      "title": "New habit",
+      "subtitle": "Create a reusable habit, add its photo or demo link, and assign it to clients later from the library."
     }
   },
   "exercises": {
@@ -1757,7 +1781,9 @@
       "mineOnlyLabel": "Created by me",
       "allLabel": "All",
       "clearAria": "Clear filters",
-      "clearCta": "Clear filters"
+      "clearCta": "Clear filters",
+      "sourceStandardOption": "Library",
+      "sourceCustomOption": "Mine"
     },
     "multiSelect": {
       "removeAria": "Remove {label}",
@@ -1843,6 +1869,12 @@
       "description": "Run this in your terminal where the GIF lives:",
       "afterHint": "Then upload the resulting MP4.",
       "dismiss": "Got it"
+    },
+    "viewPage": {
+      "title": "Exercise details",
+      "instructions": "Instructions",
+      "noInstructions": "This exercise has no instructions yet.",
+      "tips": "Coaching tips"
     }
   },
   "chat": {
@@ -2053,9 +2085,9 @@
     },
     "bulk": {
       "title": "Bulk Assign",
-      "subtitle": "Pick a template + a date + multiple clients. Confirm the list before submitting — all assignments commit atomically.",
+      "subtitle": "Pick a routine + a date + multiple clients. Confirm the list before submitting — all assignments commit atomically.",
       "backToSchedule": "Back to schedule",
-      "emptyHint": "You don't have any clients yet. Add a client first, then come back to bulk-assign a template.",
+      "emptyHint": "You don't have any clients yet. Add a client first, then come back to bulk-assign a routine.",
       "emptyCta": "Manage clients"
     },
     "weekGrid": {
@@ -2065,7 +2097,7 @@
       "loadErrorPrefix": "Couldn't load the schedule.",
       "loadErrorFallback": "Try again.",
       "loading": "Loading…",
-      "assignTemplateCta": "Assign template",
+      "assignTemplateCta": "Assign routine",
       "removeWorkoutAria": "Remove {name}",
       "untitledTemplate": "(untitled)",
       "daysShort": {
@@ -2079,11 +2111,11 @@
       }
     },
     "bulkAssign": {
-      "templateAndDate": "Template + Date",
-      "templateLabel": "Template",
-      "templatePlaceholder": "Choose a template",
+      "templateAndDate": "Routine + Date",
+      "templateLabel": "Routine",
+      "templatePlaceholder": "Choose a routine",
       "templateLoading": "Loading…",
-      "createTemplate": "Create template",
+      "createTemplate": "Create routine",
       "dayLabel": "Day",
       "scheduledFor": "Scheduled for {date}",
       "timeLabel": "Time",
@@ -2100,12 +2132,12 @@
       "overCapMessage": "Selected {count} clients — the hard cap is {cap} per submit. Uncheck some to continue.",
       "reviewSingular": "Review {count} assignment",
       "reviewPlural": "Review {count} assignments",
-      "errorPickTemplate": "Pick a template first.",
+      "errorPickTemplate": "Pick a routine first.",
       "errorKeepOne": "Keep at least one client checked.",
       "errorBulkFailed": "Bulk assign failed.",
       "successSingular": "Assigned to {count} client.",
       "successPlural": "Assigned to {count} clients.",
-      "unknownTemplate": "(unknown template)",
+      "unknownTemplate": "(unknown routine)",
       "modeLabel": "Frequency",
       "modeOnce": "One-time",
       "modeWeekly": "Weekly recurring",
@@ -2149,12 +2181,12 @@
       "recurrenceHint": "Each of the {count, plural, one {# client} other {# clients}} gets a recurring series starting {start}."
     },
     "assignModal": {
-      "title": "Assign a workout template",
-      "description": "Pick a template and confirm the day. Snapshot is frozen at submit time — editing the template later won't change this assignment.",
-      "templateLabel": "Template",
-      "templatePlaceholder": "Choose a template",
+      "title": "Assign a routine",
+      "description": "Pick a routine and confirm the day. Snapshot is frozen at submit time — editing the routine later won't change this assignment.",
+      "templateLabel": "Routine",
+      "templatePlaceholder": "Choose a routine",
       "templateLoading": "Loading…",
-      "createTemplate": "Create template",
+      "createTemplate": "Create routine",
       "modeLabel": "Assignment mode",
       "modeOnce": "One-time",
       "modeWeekly": "Weekly recurring",
@@ -2186,9 +2218,9 @@
       "meetingNotesLabel": "Meeting notes",
       "meetingNotesPlaceholder": "Zoom / Meet link, instructions, prep notes...",
       "exerciseOverridesTitle": "Per-client workout overrides",
-      "exerciseOverridesHint": "Optional: customize this assignment only (template stays unchanged).",
-      "exerciseOverridesLoading": "Loading template exercise details…",
-      "exerciseOverridesEmpty": "No exercises in this template.",
+      "exerciseOverridesHint": "Optional: customize this assignment only (routine stays unchanged).",
+      "exerciseOverridesLoading": "Loading routine exercise details…",
+      "exerciseOverridesEmpty": "No exercises in this routine.",
       "exerciseOverridesSets": "Sets",
       "exerciseOverridesReps": "Reps",
       "exerciseOverridesRest": "Rest between sets (sec)",
@@ -2210,13 +2242,13 @@
       "supersetLabel": "Superset {group}",
       "supersetGroupRoundRest": "Superset rest (sec)",
       "supersetGroupAfterRest": "Rest after the superset (sec)",
-      "errorTemplateDetailFallback": "Could not load template details.",
+      "errorTemplateDetailFallback": "Could not load routine details.",
       "cancel": "Cancel",
       "assigning": "Assigning…",
       "submit": "Assign",
-      "errorPickTemplate": "Pick a template first.",
+      "errorPickTemplate": "Pick a routine first.",
       "errorFallback": "Assignment failed.",
-      "successOnce": "Template assigned.",
+      "successOnce": "Routine assigned.",
       "successRecurring": "Recurring assignment created ({count} workouts).",
       "recurrencePreviewCount": "{count, plural, =0 {No dates match yet} one {# date highlighted on the calendar} other {# dates highlighted on the calendar}}"
     },
@@ -3006,7 +3038,9 @@
     "createPlan": "Create plan",
     "newPlanOption": "+ New plan",
     "removePlan": "Remove plan",
-    "assignNoPlansHint": "You haven't created any plans yet. Create one here and it's selected for this client."
+    "assignNoPlansHint": "You haven't created any plans yet. Create one here and it's selected for this client.",
+    "searchClients": "Search client",
+    "noMatches": "No client matches the search or filter."
   },
   "admin": {
     "common": {
@@ -3374,7 +3408,10 @@
         "on": "On",
         "off": "Off",
         "deleted": "deleted",
-        "active": "active"
+        "active": "active",
+        "archivedSince": "Archived since {date}",
+        "clientOwned": "client's own",
+        "archivedPeriods": "{count, plural, one {paused # time} other {paused # times}}"
       },
       "photos": {
         "title": "Progress photos",
@@ -3425,7 +3462,37 @@
           "reports": "Reported answers",
           "none": "Never used Corvo."
         },
-        "progressTitle": "Progress"
+        "progressTitle": "Progress",
+        "subscriptionHistory": {
+          "title": "Subscription history",
+          "description": "RevenueCat events the webhook received (last 50).",
+          "empty": "No purchases or subscription events.",
+          "unavailable": "The history could not be read.",
+          "types": {
+            "INITIAL_PURCHASE": "Purchase",
+            "RENEWAL": "Renewal",
+            "CANCELLATION": "Turned off renewal",
+            "UNCANCELLATION": "Turned renewal back on",
+            "EXPIRATION": "Expired",
+            "BILLING_ISSUE": "Billing issue",
+            "PRODUCT_CHANGE": "Plan change",
+            "NON_RENEWING_PURCHASE": "Non-renewing purchase",
+            "SUBSCRIPTION_PAUSED": "Paused",
+            "TRANSFER": "Transferred"
+          }
+        },
+        "social": {
+          "title": "Social",
+          "none": "No social activity.",
+          "handle": "Handle",
+          "visibility": "Visibility",
+          "followers": "Followers",
+          "following": "Following",
+          "publicRoutines": "Published routines",
+          "challenges": "Challenges",
+          "status": "Status",
+          "suspended": "Suspended"
+        }
       }
     },
     "nutrition": {
@@ -3616,6 +3683,37 @@
         "workoutAssignedNamed": "Assigned workout: {name}",
         "clientPreProvisioned": "Pre-provisioned a pending client",
         "clientFirstLogin": "Client completed first login"
+      },
+      "log": {
+        "title": "Coach action log",
+        "description": "Every action the portal records (assignments, habits, nutrition, notes, photo and weight requests, clients added, edited rests…), newest first. Bulk actions show as one row.",
+        "filter": "Filter by coach",
+        "allCoaches": "All coaches",
+        "apply": "Filter",
+        "unavailable": "The log could not be read.",
+        "empty": "No recorded actions.",
+        "deleted": "Deleted",
+        "group": "{count} clients",
+        "col": {
+          "when": "When",
+          "coach": "Coach",
+          "kind": "Type",
+          "what": "What",
+          "client": "Client"
+        },
+        "kinds": {
+          "workout_template": "Routine",
+          "exercise": "Exercise",
+          "workout_assignment": "Assignment",
+          "workout_rest_edited": "Edited rests",
+          "habit_assignment": "Habit",
+          "note": "Note",
+          "progress_photo_request": "Requested photos",
+          "weight_request": "Requested weight",
+          "client_added": "Client added",
+          "nutrition_plan": "Nutrition plan",
+          "nutrition_library": "Nutrition library"
+        }
       }
     },
     "hygiene": {
@@ -3651,7 +3749,12 @@
       "loadMore": "Load more",
       "updatedAt": "Updated at: {date}",
       "deleteConfirm": "Delete this record ({kind}) from Firestore?",
-      "delete": "Delete from DB"
+      "delete": "Delete from DB",
+      "coverage": {
+        "capped": "{count, plural, one {# collection hit} other {# collections hit}} the {limit}-document scan limit: documents beyond it were NOT checked, so an empty result there does not mean it is clean.",
+        "complete": "Every scanned collection was read completely.",
+        "cut": "cut at the limit"
+      }
     },
     "appConfig": {
       "title": "App Version",
@@ -3679,6 +3782,25 @@
         "tooLarge": "Too large.",
         "dottedVersion": "Use a dotted version like 1.2.0 (or leave blank).",
         "httpUrl": "Must be an http(s) URL (or leave blank)."
+      },
+      "distribution": {
+        "title": "Installed versions",
+        "description": "Per platform: how many people run each build (each person's newest device, from its push token). It is an upper bound: someone who uninstalled keeps their last token.",
+        "capped": "Read {count} tokens (the cap): the numbers are partial.",
+        "users": "{count, plural, one {# person} other {# people}}",
+        "blockedNow": "The current minBuild ({minBuild}) already blocks {count}.",
+        "gateOff": "No gate (minBuild 0).",
+        "simulate": "Try minBuild",
+        "wouldBlock": "Would block {count} (+ {unknown} with no known version, which are old builds).",
+        "empty": "No registered devices.",
+        "blocked": "blocked",
+        "unknown": "No version (before #785)",
+        "unavailable": "The version distribution could not be read.",
+        "col": {
+          "build": "Build",
+          "version": "Version",
+          "users": "People"
+        }
       }
     },
     "moderation": {
@@ -4130,7 +4252,10 @@
       "premium": "Premium purchases",
       "reports": "Corvo replies reported",
       "vsPrevious": "{delta} vs previous period",
-      "noPrevious": "No previous period to compare"
+      "noPrevious": "No previous period to compare",
+      "premiumDetail": "{renewals, plural, one {# renewal} other {# renewals}}",
+      "premiumChurn": "Premium churn",
+      "premiumChurnDetail": "{cancellations} cancellations · {expirations} expirations"
     },
     "charts": {
       "activity": {

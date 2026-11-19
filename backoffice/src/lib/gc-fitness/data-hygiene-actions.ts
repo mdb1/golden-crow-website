@@ -45,11 +45,33 @@ export interface DataHygieneRow {
   source?: string | null;
 }
 
+/** #541 — how much of each collection the scan actually looked at. */
+export interface DataHygieneCoverage {
+  collection: string;
+  scanned: number;
+  /** The scan stopped at SCAN_LIMIT: docs beyond it were NOT checked. */
+  capped: boolean;
+}
+
 export interface DataHygienePage {
   rows: DataHygieneRow[];
   nextOffset: number | null;
   hasMore: boolean;
   summary: Record<DataHygieneKind, number>;
+  /** #541 — optional so an older open tab's page shape still type-checks. */
+  coverage?: DataHygieneCoverage[];
+  scanLimit?: number;
+}
+
+/** Records one scanned snapshot (per collection; the users scan repeats per loader). */
+function recordCoverage(
+  coverage: Map<string, DataHygieneCoverage>,
+  collection: string,
+  snap: { size: number },
+): void {
+  const prev = coverage.get(collection);
+  if (prev && prev.scanned >= snap.size) return;
+  coverage.set(collection, { collection, scanned: snap.size, capped: snap.size >= SCAN_LIMIT });
 }
 
 function toIso(value: unknown): string | null {
@@ -177,9 +199,10 @@ async function hardDeleteQueryDocs(
   return snap.size;
 }
 
-async function loadUserAnomalies(): Promise<DataHygieneRow[]> {
+async function loadUserAnomalies(coverage: Map<string, DataHygieneCoverage>): Promise<DataHygieneRow[]> {
   const db = gcFitnessFirestore();
   const usersSnap = await db.collection(FirestoreCollections.users).limit(SCAN_LIMIT).get();
+  recordCoverage(coverage, FirestoreCollections.users, usersSnap);
   const liveByUid = new Map<string, { role: string | null; deleted: boolean } | null>();
   for (const doc of usersSnap.docs) {
     liveByUid.set(doc.id, {
@@ -249,12 +272,13 @@ async function loadUserAnomalies(): Promise<DataHygieneRow[]> {
   return rows;
 }
 
-async function loadChatAnomalies(): Promise<DataHygieneRow[]> {
+async function loadChatAnomalies(coverage: Map<string, DataHygieneCoverage>): Promise<DataHygieneRow[]> {
   const db = gcFitnessFirestore();
   const [chatsSnap, usersSnap] = await Promise.all([
     db.collection(FirestoreCollections.chats).limit(SCAN_LIMIT).get(),
     db.collection(FirestoreCollections.users).limit(SCAN_LIMIT).get(),
   ]);
+  recordCoverage(coverage, FirestoreCollections.chats, chatsSnap);
 
   const userMap = new Map<string, Record<string, unknown> | null>();
   for (const doc of usersSnap.docs) {
@@ -317,7 +341,7 @@ async function loadChatAnomalies(): Promise<DataHygieneRow[]> {
   return rows;
 }
 
-async function loadPhotoAnomalies(): Promise<DataHygieneRow[]> {
+async function loadPhotoAnomalies(coverage: Map<string, DataHygieneCoverage>): Promise<DataHygieneRow[]> {
   const db = gcFitnessFirestore();
   const [photosSnap, usersSnap] = await Promise.all([
     db.collection(FirestoreCollections.progressPhotos).limit(SCAN_LIMIT).get(),
@@ -327,6 +351,7 @@ async function loadPhotoAnomalies(): Promise<DataHygieneRow[]> {
   for (const doc of usersSnap.docs) {
     userMap.set(doc.id, doc.data() as Record<string, unknown>);
   }
+  recordCoverage(coverage, FirestoreCollections.progressPhotos, photosSnap);
 
   // Pre-resolve every photo's Storage existence IN PARALLEL (bounded) before
   // building rows. Sequential `.exists()` calls dominated the scan wall-clock
@@ -400,7 +425,7 @@ async function loadPhotoAnomalies(): Promise<DataHygieneRow[]> {
   return rows;
 }
 
-async function loadWorkoutAnomalies(): Promise<DataHygieneRow[]> {
+async function loadWorkoutAnomalies(coverage: Map<string, DataHygieneCoverage>): Promise<DataHygieneRow[]> {
   const db = gcFitnessFirestore();
   const [templatesSnap, assignmentsSnap, logsSnap, exercisesSnap, usersSnap] = await Promise.all([
     db.collection(FirestoreCollections.workoutTemplates).limit(SCAN_LIMIT).get(),
@@ -409,11 +434,28 @@ async function loadWorkoutAnomalies(): Promise<DataHygieneRow[]> {
     db.collection(FirestoreCollections.exercises).limit(SCAN_LIMIT).get(),
     db.collection(FirestoreCollections.users).limit(SCAN_LIMIT).get(),
   ]);
+  recordCoverage(coverage, FirestoreCollections.workoutTemplates, templatesSnap);
+  recordCoverage(coverage, FirestoreCollections.workoutAssignments, assignmentsSnap);
+  recordCoverage(coverage, FirestoreCollections.workoutLogs, logsSnap);
+  recordCoverage(coverage, FirestoreCollections.exercises, exercisesSnap);
 
   const userMap = new Map<string, Record<string, unknown> | null>();
   for (const doc of usersSnap.docs) {
     userMap.set(doc.id, doc.data() as Record<string, unknown>);
   }
+
+  // #541 — a log's assignment is checked against the scanned 120 first, then by a point
+  // read: the old scanned-only check called every assignment past the cap "missing" —
+  // and this page has a purge button.
+  const assignmentIds = new Map<string, boolean>(assignmentsSnap.docs.map((d) => [d.id, true]));
+  const assignmentExists = async (id: string): Promise<boolean> => {
+    const known = assignmentIds.get(id);
+    if (known !== undefined) return known;
+    if (isReservedId(id)) return true;
+    const snap = await db.collection(FirestoreCollections.workoutAssignments).doc(id).get();
+    assignmentIds.set(id, snap.exists);
+    return snap.exists;
+  };
 
   const rows: DataHygieneRow[] = [];
 
@@ -511,20 +553,22 @@ async function loadWorkoutAnomalies(): Promise<DataHygieneRow[]> {
     }
     if (!clientId) {
       issues.push("Missing clientId");
-    } else if (isReservedId(clientId)) {
-      // System sentinel owner — not an anomaly.
-    } else if (!userMap.has(clientId)) {
-      issues.push("Client doc missing");
-    } else if (userMap.get(clientId)?.role !== "client") {
-      issues.push("Client doc has the wrong role");
+    } else {
+      // #541 — resolve beyond the 120 scanned users (a point read on a miss): the old
+      // `userMap.has` check flagged every client past the first 120 docs as "missing".
+      const clientDoc = await resolveUserRef(db, userMap, clientId);
+      if (clientDoc !== "reserved") {
+        if (!clientDoc) {
+          issues.push("Client doc missing");
+        } else if (clientDoc.role !== "client") {
+          issues.push("Client doc has the wrong role");
+        }
+      }
     }
     if (!assignmentId) {
       issues.push("Missing assignmentId");
-    } else {
-      const assignmentExists = assignmentsSnap.docs.some((assignment) => assignment.id === assignmentId);
-      if (!assignmentExists) {
-        issues.push("Assignment doc missing");
-      }
+    } else if (!(await assignmentExists(assignmentId))) {
+      issues.push("Assignment doc missing");
     }
     if (issues.length === 0) continue;
     rows.push({
@@ -552,12 +596,16 @@ async function loadWorkoutAnomalies(): Promise<DataHygieneRow[]> {
     if (source === "trainer") {
       if (!ownerId) {
         issues.push("Missing ownerId");
-      } else if (isReservedId(ownerId)) {
-        // System/standard-library sentinel owner — not an anomaly.
-      } else if (!userMap.has(ownerId)) {
-        issues.push("Trainer doc missing");
-      } else if (userMap.get(ownerId)?.role !== "trainer") {
-        issues.push("Trainer doc has the wrong role");
+      } else {
+        // #541 — same beyond-the-scan resolution as the other owner checks.
+        const ownerDoc = await resolveUserRef(db, userMap, ownerId);
+        if (ownerDoc !== "reserved") {
+          if (!ownerDoc) {
+            issues.push("Trainer doc missing");
+          } else if (ownerDoc.role !== "trainer") {
+            issues.push("Trainer doc has the wrong role");
+          }
+        }
       }
     }
     if (issues.length === 0) continue;
@@ -577,19 +625,21 @@ async function loadWorkoutAnomalies(): Promise<DataHygieneRow[]> {
   return rows;
 }
 
-async function loadAllDataHygieneRows(): Promise<DataHygieneRow[]> {
+async function loadAllDataHygieneRows(): Promise<{ rows: DataHygieneRow[]; coverage: DataHygieneCoverage[] }> {
+  const coverage = new Map<string, DataHygieneCoverage>();
   const [users, chats, photos, workouts] = await Promise.all([
-    loadUserAnomalies(),
-    loadChatAnomalies(),
-    loadPhotoAnomalies(),
-    loadWorkoutAnomalies(),
+    loadUserAnomalies(coverage),
+    loadChatAnomalies(coverage),
+    loadPhotoAnomalies(coverage),
+    loadWorkoutAnomalies(coverage),
   ]);
 
-  return [...users, ...chats, ...photos, ...workouts].sort((a, b) => {
+  const rows = [...users, ...chats, ...photos, ...workouts].sort((a, b) => {
     const ta = a.sortAtISO ?? "";
     const tb = b.sortAtISO ?? "";
     return tb.localeCompare(ta) || a.kind.localeCompare(b.kind) || a.id.localeCompare(b.id);
   });
+  return { rows, coverage: [...coverage.values()].sort((a, b) => a.collection.localeCompare(b.collection)) };
 }
 
 export async function listDataHygienePage(
@@ -597,7 +647,7 @@ export async function listDataHygienePage(
   pageSize = PAGE_SIZE,
 ): Promise<DataHygienePage> {
   await getCurrentAdmin();
-  const rows = await loadAllDataHygieneRows();
+  const { rows, coverage } = await loadAllDataHygieneRows();
   const clampedOffset = Math.max(0, Number.isFinite(offset) ? Math.floor(offset) : 0);
   const clampedPageSize = Math.max(1, Math.min(50, Math.floor(pageSize)));
   const pageRows = rows.slice(clampedOffset, clampedOffset + clampedPageSize);
@@ -607,6 +657,8 @@ export async function listDataHygienePage(
     nextOffset: nextOffset < rows.length ? nextOffset : null,
     hasMore: nextOffset < rows.length,
     summary: summarize(rows),
+    coverage,
+    scanLimit: SCAN_LIMIT,
   };
 }
 

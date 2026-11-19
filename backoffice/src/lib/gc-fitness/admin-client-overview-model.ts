@@ -94,3 +94,64 @@ export function summarizeChat(
     unreadByClient: n(unread[clientId]),
   };
 }
+
+// ── #541: subscription history + social ─────────────────────────────────────────
+
+/** RevenueCat webhook types the admin labels; anything else shows its raw type. */
+export const SUBSCRIPTION_EVENT_TYPES = [
+  "INITIAL_PURCHASE",
+  "RENEWAL",
+  "CANCELLATION",
+  "UNCANCELLATION",
+  "EXPIRATION",
+  "BILLING_ISSUE",
+  "PRODUCT_CHANGE",
+  "NON_RENEWING_PURCHASE",
+  "SUBSCRIPTION_PAUSED",
+  "TRANSFER",
+] as const;
+export type KnownSubscriptionEventType = (typeof SUBSCRIPTION_EVENT_TYPES)[number];
+
+export interface SubscriptionEvent {
+  id: string;
+  type: string;
+  known: KnownSubscriptionEventType | null;
+  receivedAtISO: string | null;
+}
+
+function isoOfStamp(v: unknown): string | null {
+  if (v && typeof (v as { toDate?: () => Date }).toDate === "function") return (v as { toDate: () => Date }).toDate().toISOString();
+  if (typeof v === "string") return v;
+  return null;
+}
+
+/**
+ * `revenuecat_events/{event.id}` = `{ type, appUserId, receivedAt }` (gc-fitness
+ * `handleEvent.ts`) — the webhook's idempotency marker, which is also the only purchase
+ * history we keep. Newest first; `TEST` events (RevenueCat dashboard pings) are dropped.
+ */
+export function decodeSubscriptionEvents(docs: Array<{ id: string; data: Record<string, unknown> }>): SubscriptionEvent[] {
+  return docs
+    .map(({ id, data }) => {
+      const type = typeof data.type === "string" ? data.type : "UNKNOWN";
+      return {
+        id,
+        type,
+        known: (SUBSCRIPTION_EVENT_TYPES as readonly string[]).includes(type) ? (type as KnownSubscriptionEventType) : null,
+        receivedAtISO: isoOfStamp(data.receivedAt),
+      };
+    })
+    .filter((e) => e.type !== "TEST")
+    .sort((a, b) => (b.receivedAtISO ?? "").localeCompare(a.receivedAtISO ?? "") || a.id.localeCompare(b.id));
+}
+
+export interface ClientSocialSummary {
+  hasProfile: boolean;
+  handle: string | null;
+  visibility: string | null;
+  suspended: boolean;
+  followers: number | null;
+  following: number | null;
+  publicRoutines: number | null;
+  challenges: number | null;
+}

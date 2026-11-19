@@ -402,11 +402,6 @@
       "params": "arg"
     },
     {
-      "file": "src/lib/gc-fitness/coach-attention-actions.ts",
-      "export": "listClientsWithNothingAssignedSoon",
-      "params": ""
-    },
-    {
       "file": "src/lib/gc-fitness/coach-broadcast-actions.ts",
       "export": "sendCoachBroadcast",
       "params": "arg, arg"
@@ -1172,5 +1167,11 @@
       "params": "arg, arg"
     }
   ],
-  "retired": []
+  "retired": [
+    {
+      "file": "src/lib/gc-fitness/coach-attention-actions.ts",
+      "export": "listClientsWithNothingAssignedSoon",
+      "since": "2026-11-18"
+    }
+  ]
 }

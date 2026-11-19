@@ -228,6 +228,10 @@ export interface PeriodTotals {
   /** applied / resolved (applied + dismissed + failed + expired); null without resolved proposals. */
   acceptance: number | null;
   premiumPurchases: number;
+  /** #541 — the other three RevenueCat counters `computeUsageDaily` already rolls up. */
+  premiumRenewals: number;
+  premiumCancellations: number;
+  premiumExpirations: number;
   reports: number;
 }
 
@@ -248,6 +252,9 @@ export function periodTotals(days: UsageDay[]): PeriodTotals {
     corvoUserDays: sum((d) => d.corvo.users),
     acceptance: resolved > 0 ? applied / resolved : null,
     premiumPurchases: sum((d) => d.premium.purchases),
+    premiumRenewals: sum((d) => d.premium.renewals),
+    premiumCancellations: sum((d) => d.premium.cancellations),
+    premiumExpirations: sum((d) => d.premium.expirations),
     reports: sum((d) => d.corvo.reports),
   };
 }

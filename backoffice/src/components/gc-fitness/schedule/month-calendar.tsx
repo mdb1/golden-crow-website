@@ -25,6 +25,7 @@
 // mutation invalidates it.
 
 import Link from "next/link";
+import { NoClientsHint } from "@/components/gc-fitness/no-clients-hint";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
@@ -1083,9 +1084,10 @@ export function MonthCalendar({
       />
 
       {clients.length === 0 ? (
-        <p className="rounded-card border border-dashed p-6 text-center text-sm text-muted-foreground">
-          No tenés clientes activos todavía.
-        </p>
+        <NoClientsHint
+          message="No tenés clientes activos todavía."
+          className="rounded-card border border-dashed p-6"
+        />
       ) : null}
     </div>
   );
