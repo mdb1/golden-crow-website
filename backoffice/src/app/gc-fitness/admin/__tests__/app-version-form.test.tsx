@@ -86,7 +86,7 @@ function payload() {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockUpdate.mockResolvedValue(undefined);
+  mockUpdate.mockResolvedValue({ ok: true });
 });
 
 describe("AppVersionForm — the gate value", () => {
@@ -240,7 +240,8 @@ describe("AppVersionForm — what the admin is told", () => {
   });
 
   it("surfaces the server's message and does NOT claim it saved", async () => {
-    mockUpdate.mockRejectedValue(new Error("Forbidden"));
+    // #513 — the refusal is RETURNED (ActionResult), never thrown.
+    mockUpdate.mockResolvedValue({ ok: false, error: "Forbidden" });
     const { user } = renderForm();
 
     await save(user);

@@ -43,8 +43,8 @@ export interface NutritionComplianceGridProps {
  * shared.
  */
 const CELL_STYLE: Record<NutritionCellState, { glyph: string; className: string }> = {
-  done: { glyph: "✓", className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" },
-  missed: { glyph: "✕", className: "bg-rose-500/15 text-rose-700 dark:text-rose-400" },
+  done: { glyph: "✓", className: "bg-success/15 text-success" },
+  missed: { glyph: "✕", className: "bg-danger/15 text-danger" },
   unmarked: { glyph: "·", className: "bg-muted text-muted-foreground" },
   future: { glyph: "", className: "bg-transparent text-muted-foreground/40" },
   noPlan: { glyph: "", className: "bg-transparent text-muted-foreground/40" },

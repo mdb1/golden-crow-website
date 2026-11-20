@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 
 import { formatClientActivityDate } from "@/lib/gc-fitness/client-activity-time";
 import type { ProgressPhotoRow } from "@/lib/gc-fitness/progress-photo-actions";
+import { FormSelect } from "@/components/gc-fitness/form-select";
 
 export function ProgressPhotoCompare({
   photos,
@@ -34,39 +35,44 @@ export function ProgressPhotoCompare({
   return (
     <div className="rounded-md border p-3">
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <select
-          className="h-9 rounded-md border bg-background px-2 text-sm"
+        <FormSelect
+          className="w-auto data-[size=default]:h-9"
           value={angle}
-          onChange={(event) => setAngle(event.target.value as typeof angle)}
-        >
-          <option value="front">{t("front")}</option>
-          <option value="side">{t("side")}</option>
-          <option value="back">{t("back")}</option>
-        </select>
-        <select
-          className="h-9 rounded-md border bg-background px-2 text-sm"
+          onValueChange={(v) => setAngle(v as typeof angle)}
+          options={[
+            { value: "front", label: t("front") },
+            { value: "side", label: t("side") },
+            { value: "back", label: t("back") },
+          ]}
+        />
+        <FormSelect
+          className="w-auto data-[size=default]:h-9"
+          aria-label={t("before")}
           value={beforeId}
-          onChange={(event) => setBeforeId(event.target.value)}
-        >
-          <option value="">{t("before")}</option>
-          {angled.map((photo) => (
-            <option key={photo.id} value={photo.id}>
-              {photo.checkInDate ?? dateLabel(photo, timezone)}
-            </option>
-          ))}
-        </select>
-        <select
-          className="h-9 rounded-md border bg-background px-2 text-sm"
+          onValueChange={setBeforeId}
+          placeholder={t("before")}
+          options={[
+            { value: "", label: t("before") },
+            ...angled.map((photo) => ({
+              value: photo.id,
+              label: photo.checkInDate ?? dateLabel(photo, timezone),
+            })),
+          ]}
+        />
+        <FormSelect
+          className="w-auto data-[size=default]:h-9"
+          aria-label={t("after")}
           value={afterId}
-          onChange={(event) => setAfterId(event.target.value)}
-        >
-          <option value="">{t("after")}</option>
-          {angled.map((photo) => (
-            <option key={photo.id} value={photo.id}>
-              {photo.checkInDate ?? dateLabel(photo, timezone)}
-            </option>
-          ))}
-        </select>
+          onValueChange={setAfterId}
+          placeholder={t("after")}
+          options={[
+            { value: "", label: t("after") },
+            ...angled.map((photo) => ({
+              value: photo.id,
+              label: photo.checkInDate ?? dateLabel(photo, timezone),
+            })),
+          ]}
+        />
       </div>
 
       {before?.url && after?.url ? (

@@ -8,6 +8,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
+import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
@@ -52,15 +53,24 @@ export function CollectionsTab({ rows, plans, collected, coachName, todayCivil }
   const t = useTranslations("payments");
   const labels = usePaymentLabels();
   const [filter, setFilter] = useState<Filter>("all");
+  // #535 — with 30+ clients the coach looks for ONE name.
+  const [query, setQuery] = useState("");
 
   const counts: Record<BillingState, number> = { overdue: 0, due_soon: 0, up_to_date: 0, none: 0 };
   for (const row of rows) counts[row.status.state] += 1;
-  const visible = sortCollectionRows(filter === "all" ? rows : rows.filter((r) => r.status.state === filter));
+  const needle = query.trim().toLowerCase();
+  const visible = sortCollectionRows(
+    rows.filter(
+      (r) =>
+        (filter === "all" || r.status.state === filter) &&
+        (!needle || r.name.toLowerCase().includes(needle)),
+    ),
+  );
 
   const counters: Array<{ state: BillingState; tone: string }> = [
-    { state: "overdue", tone: "text-red-700 dark:text-red-300" },
-    { state: "due_soon", tone: "text-amber-700 dark:text-amber-300" },
-    { state: "up_to_date", tone: "text-emerald-700 dark:text-emerald-300" },
+    { state: "overdue", tone: "text-status-overdue" },
+    { state: "due_soon", tone: "text-status-due" },
+    { state: "up_to_date", tone: "text-status-ok" },
     { state: "none", tone: "text-muted-foreground" },
   ];
 
@@ -93,10 +103,27 @@ export function CollectionsTab({ rows, plans, collected, coachName, todayCivil }
         </div>
       </div>
 
+      {rows.length > 0 ? (
+        <Input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={t("searchClients")}
+          aria-label={t("searchClients")}
+          className="h-11 rounded-full sm:max-w-xs"
+          data-testid="payments-search"
+        />
+      ) : null}
+
       <Card>
         <CardContent className="p-0">
           {rows.length === 0 ? (
             <p className="p-6 text-sm text-muted-foreground">{t("noClients")}</p>
+          ) : visible.length === 0 ? (
+            // #535 — a filter / search with no match used to leave a header-only table.
+            <p className="p-6 text-sm text-muted-foreground" data-testid="payments-no-matches">
+              {t("noMatches")}
+            </p>
           ) : (
             <Table>
               <TableHeader>

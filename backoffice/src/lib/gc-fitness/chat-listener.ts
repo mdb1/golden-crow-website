@@ -33,24 +33,40 @@
 // the inbox sort order after a send.
 //
 // REFETCH CADENCE (V1 fallback for live updates):
-//   - Inbox: 120s background poll + refetch on window focus (0z9 / COST-RD1-B
-//     — slowed from 30s to cut inbox Server-Action read volume 4×; the
-//     window-focus refetch keeps the unread badge feeling instant whenever the
-//     trainer actually looks at the tab).
-//   - Active conversation: 10s background poll (override below) — keeps the
-//     trainer's right pane tight while they're actively typing.
+//   - Inbox: 120s poll WHILE THE TAB IS VISIBLE + refetch on window focus
+//     (0z9 / COST-RD1-B slowed it from 30s; #501 stopped it in hidden tabs —
+//     it ran on every gc-fitness route, 200 chats per call, even with the tab
+//     in the background all day). The focus refetch keeps the badge instant
+//     when the trainer comes back.
+//   - Active conversation: 10s poll of the NEWEST page only, visible tab only
+//     (#501). The infinite query itself never polls: React Query refetches an
+//     infinite query page by page, so a coach who scrolled back 10 pages paid
+//     10 Server Action reads of 50 messages every 10 seconds. The poller
+//     fetches page 1 and merges it into the cache (`mergeNewestPage`).
+//
+// After a SEND, call `refreshNewestChatPage(queryClient, chatId)` (one page),
+// and invalidate the inbox with `exact: true` — a prefix invalidation of
+// CHATS_BASE_KEY also matches every open thread's infinite query and refetches
+// all its pages.
 //
 // CONTRACT NOTE: This file is OWNED BY PLAN 08-11. It mounts inside a
 // `'use client'` component and calls the gc-fitness Server Actions via
 // next's "use server" boundary.
 
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+  type InfiniteData,
+  type QueryClient,
+} from "@tanstack/react-query";
 
 import {
   fetchMessages,
   listChatsForTrainer,
 } from "./chat-server-actions";
 import type { ChatRow, MessageRow } from "./chat-schema";
+import { CHAT_PAGE_SIZE, mergeNewestPage } from "./chat-newest-page";
 
 export type { ChatRow, MessageRow } from "./chat-schema";
 
@@ -81,9 +97,41 @@ export function useTrainerChats(enabled: boolean = true) {
     // 10s so a focus refetch within the window is still deduped.
     staleTime: 10_000,
     refetchInterval: 120_000,
-    refetchIntervalInBackground: true,
+    // #501 — no polling from a hidden tab; focus refetch covers the return.
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
   });
+}
+
+/** The open thread's infinite query (every page loaded so far). */
+export function chatMessagesKey(chatId: string | null) {
+  return [...CHATS_BASE_KEY, chatId, "messages", "infinite"] as const;
+}
+
+/** The newest-page poller of a thread (#501). Invalidate THIS after a send. */
+export function chatNewestPageKey(chatId: string | null) {
+  return [...CHATS_BASE_KEY, chatId, "messages", "newest"] as const;
+}
+
+/**
+ * Fetch the newest page of `chatId` and merge it into the infinite cache.
+ * One Server Action call regardless of how many pages are loaded.
+ */
+export async function refreshNewestChatPage(
+  queryClient: QueryClient,
+  chatId: string,
+): Promise<MessageRow[]> {
+  const fresh = await fetchMessages(chatId, CHAT_PAGE_SIZE, null);
+  queryClient.setQueryData<InfiniteData<MessageRow[], string | null>>(
+    chatMessagesKey(chatId),
+    (prev) => {
+      if (!prev || prev.pages.length === 0) return prev;
+      const first = mergeNewestPage(prev.pages[0], fresh);
+      if (first === prev.pages[0]) return prev;
+      return { ...prev, pages: [first, ...prev.pages.slice(1)] };
+    },
+  );
+  return fresh;
 }
 
 /**
@@ -101,12 +149,20 @@ export function useTrainerChats(enabled: boolean = true) {
  * client; see chat/page.tsx).
  */
 export function useChatMessages(chatId: string | null) {
-  return useInfiniteQuery<MessageRow[], Error>({
-    queryKey: [...CHATS_BASE_KEY, chatId, "messages", "infinite"],
+  const queryClient = useQueryClient();
+  const infinite = useInfiniteQuery<MessageRow[], Error>({
+    queryKey: chatMessagesKey(chatId),
     queryFn: ({ pageParam }) =>
-      chatId ? fetchMessages(chatId, 50, (pageParam as string | null | undefined) ?? null) : Promise.resolve([]),
+      chatId
+        ? fetchMessages(chatId, CHAT_PAGE_SIZE, (pageParam as string | null | undefined) ?? null)
+        : Promise.resolve([]),
     enabled: chatId !== null,
-    refetchInterval: 10_000,
+    // #501 — never refetch every page on a timer or on focus: the newest-page
+    // poller below is the live update. An explicit invalidation of this key
+    // (delete / reaction on an older message) still reloads it whole.
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    staleTime: Number.POSITIVE_INFINITY,
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => {
       if (!lastPage.length) return undefined;
@@ -114,4 +170,22 @@ export function useChatMessages(chatId: string | null) {
       return first.createdAt ?? undefined;
     },
   });
+
+  // Starts once the first page is in the cache (otherwise it would duplicate
+  // the initial load). `refetchIntervalInBackground: false` pauses it while the
+  // tab is hidden; returning to the tab refetches it immediately.
+  useQuery<MessageRow[]>({
+    queryKey: chatNewestPageKey(chatId),
+    queryFn: () => (chatId ? refreshNewestChatPage(queryClient, chatId) : Promise.resolve([])),
+    enabled: chatId !== null && infinite.isSuccess,
+    refetchInterval: 10_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    // The first run would re-fetch what the infinite query just loaded.
+    initialData: [],
+    initialDataUpdatedAt: () => Date.now(),
+    staleTime: 9_000,
+  });
+
+  return infinite;
 }

@@ -7,10 +7,12 @@
 // list — no extra fetches.
 
 import { useMemo, useState } from "react";
+import { coachLoadText, type WeightUnits } from "@/lib/gc-fitness/weight-units";
 import { useLocale } from "next-intl";
 import { Trophy } from "lucide-react";
 
 import type { PersonalRecordEntry } from "@/lib/gc-fitness/personal-records";
+import { coachDistanceText } from "@/lib/gc-fitness/distance-format";
 import {
   Select,
   SelectContent,
@@ -41,11 +43,18 @@ function formatMuscleGroup(group: string): string {
 /** Compact record value: duration for time PRs, "{w} kg × {r}" for weighted,
  * "{r} reps" for bodyweight. */
 function recordValue(
-  snap: { weightKg: number; reps: number; durationSeconds: number | null },
-  metric: "reps" | "time",
+  snap: { weightKg: number; reps: number; durationSeconds: number | null; distanceMeters?: number | null },
+  metric: "reps" | "time" | "distance",
+  weightUnits: WeightUnits,
+  locale: string,
 ): string {
+  // gc-fitness #1649 — cardio PR: km (plus the miles an lb client saw).
+  if (metric === "distance" && snap.distanceMeters != null && snap.distanceMeters > 0) {
+    return coachDistanceText(snap.distanceMeters, weightUnits, locale);
+  }
   if (metric === "time" && snap.durationSeconds != null) return `${snap.durationSeconds}s`;
-  if (snap.weightKg > 0) return `${snap.weightKg} kg × ${snap.reps}`;
+  // gc-fitness #1646 — never the raw wire value (an lb client stores 61.235 kg).
+  if (snap.weightKg > 0) return `${coachLoadText(snap.weightKg, weightUnits, locale)} × ${snap.reps}`;
   return `${snap.reps} reps`;
 }
 
@@ -69,9 +78,12 @@ function formatAgo(ms: number | null, locale: string, noDate: string): string {
 export function PersonalRecordsClient({
   records,
   labels,
+  weightUnits = "kg",
 }: {
   records: PersonalRecordEntry[];
   labels: PersonalRecordsLabels;
+  /** gc-fitness #1646 — the client's units; lb adds the pounds the client saw. */
+  weightUnits?: WeightUnits;
 }) {
   const locale = useLocale();
   const [muscleGroup, setMuscleGroup] = useState<string>("all");
@@ -172,8 +184,8 @@ export function PersonalRecordsClient({
               </div>
               <div className="shrink-0 text-right">
                 <p className="flex items-center justify-end gap-1 font-semibold">
-                  <Trophy className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                  {recordValue(r.current, r.metric)}
+                  <Trophy className="h-3.5 w-3.5 text-warning" />
+                  {recordValue(r.current, r.metric, weightUnits, locale)}
                 </p>
                 {r.metric === "reps" && r.current.estimatedOneRM > 0 ? (
                   <p className="text-xs text-muted-foreground">
@@ -192,7 +204,7 @@ export function PersonalRecordsClient({
               <p className="mt-1.5 border-t border-dashed border-border pt-1.5 text-xs text-muted-foreground">
                 {labels.previousLabel.replace(
                   "{value}",
-                  recordValue(r.previous, r.metric),
+                  recordValue(r.previous, r.metric, weightUnits, locale),
                 )}
               </p>
             ) : null}

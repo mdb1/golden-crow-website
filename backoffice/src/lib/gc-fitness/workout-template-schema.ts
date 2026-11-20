@@ -162,6 +162,20 @@ export const exerciseRefSchema = z
       .max(10, "Maximum 10 duration entries.")
       .optional(),
 
+    // gc-fitness #1649 — cardio distance, ALWAYS meters on the wire.
+    // absent = distance not tracked; present (any length, `[]` included) =
+    // the set logs time + distance. Entry i > 0 = target meters for set i;
+    // 0 / missing = no target. Only honoured with an effective metric "time".
+    distanceBySetMeters: z
+      .array(
+        z
+          .number()
+          .min(0, "Distance cannot be negative.")
+          .max(1_000_000, "Distance max is 1000 km."),
+      )
+      .max(10, "Maximum 10 distance entries.")
+      .optional(),
+
     // 26-01 — Exercise-level duration fallback (analog of reps). Used
     // when durationBySetSeconds is absent / empty / shorter than `sets`.
     durationSeconds: z

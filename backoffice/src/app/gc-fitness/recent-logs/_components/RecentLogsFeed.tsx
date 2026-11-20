@@ -3,7 +3,7 @@
 import type { ComponentType } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Apple,
   CalendarPlus,
@@ -43,6 +43,30 @@ import {
 } from "@/lib/gc-fitness/recent-logs-time";
 
 const PAGE_SIZE = 20;
+
+// golden-crow-website#535 — the feed opens with NO client selected on purpose
+// (260531-fwc: every selected client costs ~8 queries per page), but that meant
+// re-picking the same clients on EVERY visit. The last selection is remembered per
+// browser and restored on open. Storage can be blocked: every access is guarded.
+export const RECENT_LOGS_SELECTION_KEY = "gc-fitness.recent-logs.clients";
+
+function readSavedSelection(): string[] {
+  try {
+    const raw = window.localStorage.getItem(RECENT_LOGS_SELECTION_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSelection(ids: Set<string>) {
+  try {
+    window.localStorage.setItem(RECENT_LOGS_SELECTION_KEY, JSON.stringify(Array.from(ids)));
+  } catch {
+    // ignore
+  }
+}
 
 interface Props {
   logs: RecentLogRow[];
@@ -105,12 +129,16 @@ export function RecentLogsFeed({
   const [cursor, setCursor] = useState<string | null>(initialCursor);
   const [hasMore, setHasMore] = useState<boolean>(initialHasMore);
   const [loading, setLoading] = useState(false);
+  // #535 — a failed page used to leave the old rows (or nothing) with no message.
+  const [loadError, setLoadError] = useState(false);
 
   // Re-fetch page 1 whenever a filter changes (translates the filter to the
   // server-side client / type scope so pagination + filtering compose).
   async function applyFilters(nextClientIds: Set<string>, nextType: string) {
     setSelectedClientIds(new Set(nextClientIds));
     setTypeFilter(nextType);
+    setLoadError(false);
+    saveSelection(nextClientIds);
     if (nextClientIds.size === 0) {
       setRows([]);
       setCursor(null);
@@ -128,10 +156,26 @@ export function RecentLogsFeed({
       setRows(res.logs);
       setCursor(res.nextCursor);
       setHasMore(res.hasMore);
+    } catch (err) {
+      console.error("[gc-fitness/recent-logs] page load failed", err);
+      setRows([]);
+      setHasMore(false);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
   }
+
+  // Restore the last selection once (only ids still on the roster).
+  const restored = useRef(false);
+  useEffect(() => {
+    if (restored.current) return;
+    restored.current = true;
+    const known = new Set(clients.map((c) => c.id));
+    const saved = readSavedSelection().filter((id) => known.has(id));
+    if (saved.length > 0) void applyFilters(new Set(saved), "all");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function loadMore() {
     if (!hasMore || loading) return;
@@ -150,6 +194,9 @@ export function RecentLogsFeed({
       });
       setCursor(res.nextCursor ?? cursor);
       setHasMore(res.nextCursor ? res.hasMore : false);
+    } catch (err) {
+      console.error("[gc-fitness/recent-logs] next page failed", err);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -311,7 +358,22 @@ export function RecentLogsFeed({
       </Card>
 
       <div className="flex flex-col gap-2">
-        {filtered.length === 0 ? (
+        {loadError ? (
+          <Card data-testid="recent-logs-error">
+            <CardContent className="flex flex-col items-center gap-3 py-8 text-center text-sm text-muted-foreground">
+              <p role="alert">{tCommon("errorGeneric")}</p>
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-full"
+                onClick={() => void applyFilters(selectedClientIds, typeFilter)}
+              >
+                {tCommon("retry")}
+              </Button>
+            </CardContent>
+          </Card>
+        ) : null}
+        {filtered.length === 0 && !loadError ? (
           <Card>
             <CardContent className="py-10 text-center text-sm text-muted-foreground">
               {selectedClientIds.size === 0 ? t("pickClients") : t("noLogs")}
@@ -387,7 +449,7 @@ function RecentLogItem({
           openProfile();
         }
       }}
-      className="group flex cursor-pointer flex-wrap items-start gap-x-3 gap-y-2 rounded-[1.25rem] border border-border bg-card px-4 py-3 transition-colors hover:border-primary/30 hover:bg-accent/40 sm:flex-nowrap"
+      className="group flex cursor-pointer flex-wrap items-start gap-x-3 gap-y-2 rounded-card border border-border bg-card px-4 py-3 transition-colors hover:border-primary/30 hover:bg-accent/40 sm:flex-nowrap"
     >
       <ClientAvatar name={row.clientName} photoURL={row.clientPhotoURL} size="md" />
       <div className="min-w-0 flex-1 basis-[calc(100%-3.5rem)] sm:basis-auto">

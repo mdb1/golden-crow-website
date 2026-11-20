@@ -2,7 +2,8 @@ import Link from "next/link";
 import { CalendarPlus, CheckCircle2 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -11,10 +12,20 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ClientAvatar } from "@/components/gc-fitness/ClientAvatar";
-import type { UnassignedClientRow } from "@/lib/gc-fitness/coach-attention-actions";
+
+/** A client with nothing assigned in the next 4 days (from the roster's `nothingAssigned`, #535). */
+export interface UnassignedClientRow {
+  uid: string;
+  displayName: string;
+  photoURL: string | null;
+}
 
 interface Props {
   rows: UnassignedClientRow[];
+  /** #513 — the coach has more active clients than were checked. */
+  truncated?: boolean;
+  /** How many active clients were checked (shown when `truncated`). */
+  scanned?: number;
 }
 
 /**
@@ -24,7 +35,7 @@ interface Props {
  * trainer can assign immediately. Renders an "all caught up" empty state when
  * everyone is covered. Server component (read-only).
  */
-export async function UnassignedClientsCard({ rows }: Props) {
+export async function UnassignedClientsCard({ rows, truncated = false, scanned = 0 }: Props) {
   const t = await getTranslations("dashboard");
 
   return (
@@ -35,20 +46,33 @@ export async function UnassignedClientsCard({ rows }: Props) {
           {t("unassignedSoonTitle")}
         </CardTitle>
         <CardDescription>{t("unassignedSoonSubtitle")}</CardDescription>
+        {truncated ? (
+          // #513 — say the list is partial instead of silently dropping the
+          // clients past the cap (same wording idea as the apps, #1588).
+          <p className="text-xs text-muted-foreground" data-testid="unassigned-soon-truncated">
+            {t("unassignedSoonTruncated", { count: scanned })}
+          </p>
+        ) : null}
       </CardHeader>
       <CardContent>
         {rows.length === 0 ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <CheckCircle2 className="size-4 text-emerald-500" />
-            {t("unassignedSoonEmpty")}
+            <CheckCircle2 className="size-4 text-success" />
+            {truncated
+              ? t("unassignedSoonEmptyTruncated", { count: scanned })
+              : t("unassignedSoonEmpty")}
           </div>
         ) : (
           <ul className="flex flex-col gap-1.5">
             {rows.map((row) => (
               <li key={row.uid}>
+                {/* #535 — `clientIds` (plural) is what the schedule reads; `clientId`
+                    opened an empty calendar. The CTA is a styled span, not a
+                    <button> nested inside the link. */}
                 <Link
-                  href={`/gc-fitness/schedule?clientId=${row.uid}`}
-                  className="flex items-center justify-between gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-muted"
+                  href={`/gc-fitness/schedule?clientIds=${encodeURIComponent(row.uid)}`}
+                  className="flex min-h-12 items-center justify-between gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  data-testid="unassigned-soon-row"
                 >
                   <span className="flex min-w-0 items-center gap-3">
                     <ClientAvatar name={row.displayName} photoURL={row.photoURL} />
@@ -56,14 +80,11 @@ export async function UnassignedClientsCard({ rows }: Props) {
                       {row.displayName}
                     </span>
                   </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-full"
-                    tabIndex={-1}
+                  <span
+                    className={cn(buttonVariants({ variant: "outline", size: "sm" }), "rounded-full")}
                   >
                     {t("unassignedSoonAssignCta")}
-                  </Button>
+                  </span>
                 </Link>
               </li>
             ))}

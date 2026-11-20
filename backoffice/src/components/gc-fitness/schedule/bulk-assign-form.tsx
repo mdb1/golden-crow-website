@@ -1,4 +1,5 @@
 "use client";
+import { NoClientsHint } from "@/components/gc-fitness/no-clients-hint";
 
 // bulk-assign-form.tsx
 //
@@ -19,7 +20,7 @@
 //     yet (per CONTEXT.md §Specifics line 165 — confirm-before-write).
 //   - On confirm, the FINAL subset (post-uncheck) is what gets written.
 //   - Success toast: "Assigned to N clients" (the actual N count from the
-//     Server-Action response). Redirect to /schedule?clientId=<first>.
+//     Server-Action response). Redirect to /schedule?clientIds=<first>.
 //   - Error toast: surfaces the verbatim error message from the Server
 //     Action — no UID lists (T-04-24).
 
@@ -65,6 +66,8 @@ const RECURRENCE_PREVIEW_CLASS =
 interface BulkAssignFormProps {
   clients: ClientRosterEntry[];
   trainerTimezone?: string;
+  /** #500 — clients preselected via `?clients=` (roster «Asignar rutina»). */
+  initialSelectedUids?: readonly string[];
 }
 
 // 260612-e9t (#175): same cadence vocabulary the single-client
@@ -104,6 +107,7 @@ function formatLocalDateToCivil(date: Date): string {
 export function BulkAssignForm({
   clients,
   trainerTimezone,
+  initialSelectedUids,
 }: BulkAssignFormProps) {
   const t = useTranslations("schedule.bulkAssign");
   const router = useRouter();
@@ -119,7 +123,9 @@ export function BulkAssignForm({
   );
   const [scheduledTime, setScheduledTime] = useState<string>("");
   const [meetingNotes, setMeetingNotes] = useState<string>("");
-  const [selectedUids, setSelectedUids] = useState<Set<string>>(new Set());
+  const [selectedUids, setSelectedUids] = useState<Set<string>>(
+    () => new Set(initialSelectedUids ?? []),
+  );
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -297,7 +303,8 @@ export function BulkAssignForm({
       // Navigate to the first client's schedule view to give the trainer
       // an immediate "here's what you just wrote" surface.
       const firstClientId = finalClientIds[0];
-      router.push(`/gc-fitness/schedule?clientId=${firstClientId}`);
+      // #535 — the schedule reads `clientIds` (plural); `clientId` opened an empty calendar.
+      router.push(`/gc-fitness/schedule?clientIds=${encodeURIComponent(firstClientId)}`);
     } catch (err) {
       const message = err instanceof Error
         ? localizeBulkAssignError(err.message)
@@ -546,7 +553,7 @@ export function BulkAssignForm({
         </CardHeader>
         <CardContent>
           {clients.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("noClients")}</p>
+            <NoClientsHint message={t("noClients")} className="py-2" />
           ) : (
             <div className="max-h-96 overflow-auto rounded border">
               <table className="w-full min-w-[28rem] text-sm">

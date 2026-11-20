@@ -168,11 +168,18 @@ describe("the calendar, as the new coach", () => {
 
 describe("inherited work for the new coach", () => {
   it.each([
-    ["moveAssignment", () => moveAssignment({ id: "old-future", newScheduledFor: "2026-06-22", scope: "one" })],
     ["editAssignmentScheduledFor", () => editAssignmentScheduledFor("old-future", { scheduledFor: "2026-06-22" })],
     ["deleteAssignment", () => deleteAssignment("old-future")],
   ])("%s refuses a former coach's workout and writes nothing", async (_name, run) => {
     await expect(run()).rejects.toThrow("Not your assignment.");
+    expect(db.writes).toEqual([]);
+  });
+
+  // #513 — moveAssignment RETURNS its refusal (ActionResult) instead of throwing.
+  it("moveAssignment refuses a former coach's workout and writes nothing", async () => {
+    await expect(
+      moveAssignment({ id: "old-future", newScheduledFor: "2026-06-22", scope: "one" }),
+    ).resolves.toEqual({ ok: false, error: "Not your assignment." });
     expect(db.writes).toEqual([]);
   });
 

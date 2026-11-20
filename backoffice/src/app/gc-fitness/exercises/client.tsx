@@ -307,7 +307,7 @@ export function ExerciseLibraryClient({
             className={cn(
               "inline-flex min-h-9 items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
               sortByUsage
-                ? "bg-violet-100 text-violet-700 ring-1 ring-violet-300 dark:bg-violet-400/15 dark:text-violet-300"
+                ? "bg-highlight-soft text-highlight ring-1 ring-highlight/40"
                 : "bg-muted/70 text-muted-foreground hover:text-foreground",
             )}
           >
@@ -322,7 +322,7 @@ export function ExerciseLibraryClient({
           </Alert>
         )}
 
-        <div className="min-w-0 overflow-x-auto rounded-[1.25rem] border border-border bg-card shadow-sm">
+        <div className="min-w-0 overflow-x-auto rounded-card border border-border bg-card shadow-sm">
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (

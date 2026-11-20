@@ -35,7 +35,9 @@ import { recordClientPayment } from "@/lib/gc-fitness/payments-actions";
 import { noteIfStaleDeployment } from "@/lib/gc-fitness/stale-deployment";
 import { cn } from "@/lib/utils";
 
-import { SELECT_CLASS, usePaymentLabels } from "./payment-labels";
+import { FormSelect } from "@/components/gc-fitness/form-select";
+
+import { usePaymentLabels } from "./payment-labels";
 
 interface Props {
   clientId: string;
@@ -61,6 +63,12 @@ function initialState(billing: ClientBillingView | null, todayCivil: string) {
   };
 }
 
+function newPaymentRequestId(): string {
+  return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
 export function RecordPaymentDialog({ clientId, clientName, billing, todayCivil, open, onOpenChange }: Props) {
   const t = useTranslations("payments");
   const labels = usePaymentLabels();
@@ -68,6 +76,10 @@ export function RecordPaymentDialog({ clientId, clientName, billing, todayCivil,
   const [pending, startTransition] = useTransition();
   const [form, setForm] = useState(() => initialState(billing, todayCivil));
   const [error, setError] = useState<string | null>(null);
+  // #487: one idempotency key per dialog session — a retry after a network error or a
+  // double submit lands on the same payment doc instead of recording it twice. A new
+  // key is minted only on open and after a successful record.
+  const [requestId, setRequestId] = useState(newPaymentRequestId);
 
   // Rearmar el formulario en CADA apertura. El padre lo abre con `open`, así que Radix nunca
   // llama `onOpenChange(true)`: resetear ahí dejaba los datos de cuando cargó la página (tras
@@ -78,6 +90,7 @@ export function RecordPaymentDialog({ clientId, clientName, billing, todayCivil,
     if (open) {
       setForm(initialState(billing, todayCivil));
       setError(null);
+      setRequestId(newPaymentRequestId());
     }
   }
 
@@ -114,11 +127,13 @@ export function RecordPaymentDialog({ clientId, clientName, billing, todayCivil,
             classes: form.coversKind === "classes" && hasCount && count > 0 ? count : null,
           },
           note: form.note,
+          requestId,
         });
         if (!result.ok) {
           setError(result.error);
           return;
         }
+        setRequestId(newPaymentRequestId());
         toast.success(t("recorded"));
         onOpenChange(false);
         router.refresh();
@@ -207,18 +222,13 @@ export function RecordPaymentDialog({ clientId, clientName, billing, todayCivil,
           <div className="grid grid-cols-[1fr_6rem] gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="payment-covers">{t("covers.title")}</Label>
-              <select
+              <FormSelect
                 id="payment-covers"
-                className={SELECT_CLASS}
                 value={form.coversKind}
-                onChange={(e) => setForm({ ...form, coversKind: e.target.value as PaymentCoversKind })}
-              >
-                {PAYMENT_COVERS_KINDS.map((kind) => (
-                  <option key={kind} value={kind}>
-                    {coversLabelFor(kind)}
-                  </option>
-                ))}
-              </select>
+                onValueChange={(v) => setForm({ ...form, coversKind: v as PaymentCoversKind })}
+                className="data-[size=default]:h-9"
+                options={PAYMENT_COVERS_KINDS.map((kind) => ({ value: kind, label: coversLabelFor(kind) }))}
+              />
             </div>
             {form.coversKind === "months" || form.coversKind === "classes" ? (
               <div className="grid gap-1.5">

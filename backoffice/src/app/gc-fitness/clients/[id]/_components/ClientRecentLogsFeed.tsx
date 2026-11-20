@@ -71,25 +71,25 @@ const CATEGORY_LABEL_KEY: Record<RecentLogRow["category"], string> = {
 
 const CATEGORY_TONE: Record<RecentLogRow["category"], string> = {
   workout:
-    "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300",
+    "border-category-4/25 bg-category-4/10 text-category-4",
   habit:
-    "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300",
+    "border-category-3/25 bg-category-3/10 text-category-3",
   reschedule:
-    "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300",
+    "border-category-1/25 bg-category-1/10 text-category-1",
   assignment:
-    "border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-300",
+    "border-category-9/25 bg-category-9/10 text-category-9",
   reminder:
-    "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-300",
+    "border-category-8/25 bg-category-8/10 text-category-8",
   photo:
-    "border-pink-200 bg-pink-50 text-pink-700 dark:border-pink-900 dark:bg-pink-950/40 dark:text-pink-300",
+    "border-category-5/25 bg-category-5/10 text-category-5",
   nutrition:
-    "border-lime-200 bg-lime-50 text-lime-700 dark:border-lime-900 dark:bg-lime-950/40 dark:text-lime-300",
+    "border-category-10/25 bg-category-10/10 text-category-10",
   weight:
-    "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-300",
+    "border-category-6/25 bg-category-6/10 text-category-6",
   signup:
-    "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-300",
+    "border-category-2/25 bg-category-2/10 text-category-2",
   profile:
-    "border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-900 dark:bg-cyan-950/40 dark:text-cyan-300",
+    "border-category-7/25 bg-category-7/10 text-category-7",
 };
 
 interface Props {
@@ -246,7 +246,7 @@ export function ClientRecentLogsFeed({
                   {row.forCivilDate ? (
                     <Badge
                       variant="outline"
-                      className="gap-1 border-amber-200 bg-amber-50 px-1.5 py-0 text-[10px] font-normal text-amber-700 [&>svg]:size-3 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+                      className="gap-1 border-warning/25 bg-warning-soft px-1.5 py-0 text-[10px] font-normal text-warning [&>svg]:size-3"
                     >
                       <CalendarClock />
                       {tf("forDay", {

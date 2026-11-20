@@ -39,6 +39,42 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  /* #505 — semantic + categorical tokens of the gc-fitness coach portal.
+     Values live in `.gc-fitness-theme` (dark) and its light override below;
+     outside the portal these resolve to nothing on purpose. */
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-soft: var(--info-soft);
+  --color-highlight: var(--highlight);
+  --color-highlight-foreground: var(--highlight-foreground);
+  --color-highlight-soft: var(--highlight-soft);
+  --color-status-ok: var(--status-ok);
+  --color-status-ok-soft: var(--status-ok-soft);
+  --color-status-due: var(--status-due);
+  --color-status-due-soft: var(--status-due-soft);
+  --color-status-overdue: var(--status-overdue);
+  --color-status-overdue-soft: var(--status-overdue-soft);
+  --color-category-1: var(--category-1);
+  --color-category-2: var(--category-2);
+  --color-category-3: var(--category-3);
+  --color-category-4: var(--category-4);
+  --color-category-5: var(--category-5);
+  --color-category-6: var(--category-6);
+  --color-category-7: var(--category-7);
+  --color-category-8: var(--category-8);
+  --color-category-9: var(--category-9);
+  --color-category-10: var(--category-10);
+  /* #505 — the portal's large-card radius (was `rounded-[1.25rem]` ×64). */
+  --radius-card: 1.25rem;
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -123,15 +159,15 @@
   --card-foreground: #0f1728;
   --popover: rgba(255, 255, 255, 0.98);
   --popover-foreground: #0f1728;
-  --primary: #007aff;
+  --primary: #0066cc;
   --primary-foreground: #ffffff;
   --secondary: #ececf1;
   --secondary-foreground: #172334;
   --muted: #f2f2f7;
-  --muted-foreground: #6a7688;
+  --muted-foreground: #5b6576;
   --accent: rgba(0, 122, 255, 0.1);
   --accent-foreground: #133258;
-  --destructive: #e53935;
+  --destructive: #c62828;
   --border: rgba(15, 23, 40, 0.22);
   --input: rgba(255, 255, 255, 0.98);
   --ring: rgba(0, 122, 255, 0.55);
@@ -142,13 +178,13 @@
   --chart-5: #4e8fbb;
   --sidebar: rgba(250, 251, 255, 0.94);
   --sidebar-foreground: #132033;
-  --sidebar-primary: #007aff;
+  --sidebar-primary: #0066cc;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: rgba(0, 122, 255, 0.08);
   --sidebar-accent-foreground: #11335a;
   --sidebar-border: rgba(15, 23, 40, 0.2);
   --sidebar-ring: rgba(0, 122, 255, 0.55);
-  --eyebrow: rgba(91, 109, 135, 0.78);
+  --eyebrow: rgba(74, 88, 110, 0.95);
   --ambient-glow-top-left: rgba(0, 122, 255, 0.14);
   --ambient-glow-top-right: rgba(224, 76, 115, 0.08);
   --ambient-glow-bottom: rgba(95, 174, 106, 0.08);
@@ -238,6 +274,9 @@
     --border: rgba(255, 255, 255, 0.09);
     --input: #1a1e26;
     --ring: rgba(211, 168, 78, 0.6);
+    /* gc-fitness #1637 — the gold as TEXT (`text-primary`). On the dark canvas it is the gold
+       itself (8.6:1); the light theme overrides it (see the end of this file). */
+    --primary-text: var(--primary);
 
     /* #1070 (épica #1067) — la rampa del heatmap de músculos.
        CÁLIDA a propósito: rojo → naranja → ámbar, variando en LUMINANCIA además
@@ -250,6 +289,48 @@
     --gc-heat-mid: #d9a441;
     --gc-heat-low: rgba(217, 164, 65, 0.4);
     --gc-heat-none: rgba(255, 255, 255, 0.3);
+
+    /* #505 — semantic tones (dark). Each `--X` is text-safe (AA ≥ 4.5:1) on
+       --card and --background, and on its own `--X-soft` tint; `--X-foreground`
+       is the ink for text on a solid `bg-X` fill. Checked by
+       src/app/gc-fitness/__tests__/design-tokens-contrast.test.ts. */
+    --success: #4ade80;
+    --success-foreground: #052e16;
+    --success-soft: rgba(74, 222, 128, 0.16);
+    --warning: #fbbf24;
+    --warning-foreground: #1f1300;
+    --warning-soft: rgba(251, 191, 36, 0.16);
+    --danger: #ff6b7d;
+    --danger-foreground: #2a0509;
+    --danger-soft: rgba(255, 107, 125, 0.16);
+    --info: #7dd3fc;
+    --info-foreground: #04213a;
+    --info-soft: rgba(125, 211, 252, 0.16);
+    --highlight: #c4b5fd;
+    --highlight-foreground: #1e1040;
+    --highlight-soft: rgba(196, 181, 253, 0.16);
+    /* gc-fitness #1636 — shared status trio (al día / vence / vencido). The
+       iOS / Android design systems mirror these exact values. */
+    --status-ok: var(--success);
+    --status-ok-soft: var(--success-soft);
+    --status-due: var(--warning);
+    --status-due-soft: var(--warning-soft);
+    --status-overdue: var(--danger);
+    --status-overdue-soft: var(--danger-soft);
+    /* Categorical palette (clients in the calendar, exercises in a log,
+       superset groups, activity-feed categories). Order = hue order of the
+       palettes it replaced: amber, sky, emerald, violet, rose, orange, cyan,
+       indigo, teal, lime. Text-safe on --card, used for text/dots/tints. */
+    --category-1: #fcd34d;
+    --category-2: #7dd3fc;
+    --category-3: #6ee7b7;
+    --category-4: #c4b5fd;
+    --category-5: #fda4af;
+    --category-6: #fdba74;
+    --category-7: #67e8f9;
+    --category-8: #a5b4fc;
+    --category-9: #5eead4;
+    --category-10: #bef264;
     --chart-1: #d3a84e;
     /* #480 — 7 distinct categorical colors for the muscle-group charts (one
        overlaid line per coarse group). Tuned for legibility on the dark canvas
@@ -290,7 +371,7 @@
     --popover: #ffffff;
     --popover-foreground: #1b2336;
     --primary: #c3982e;
-    --primary-foreground: #ffffff;
+    --primary-foreground: #1b1205;
     --secondary: #eef0f4;
     --secondary-foreground: #1b2336;
     --muted: #f1f2f5;
@@ -300,10 +381,15 @@
     --muted-foreground: #4a5365;
     --accent: rgba(195, 152, 46, 0.12);
     --accent-foreground: #6b5210;
-    --destructive: #e5484d;
+    --destructive: #c4262e;
     --border: rgba(27, 35, 54, 0.1);
     --input: #f4f5f7;
     --ring: rgba(195, 152, 46, 0.5);
+    /* gc-fitness #1637 — the mustard gold is a FILL: as text on white it is 2.7:1, so
+       `text-primary` reads this darker gold instead (5.0:1 on white, same hex as the apps'
+       `AccentTextColor` / `ACCENT_TEXT`). The label ON a gold fill is the dark ink of
+       `--primary-foreground` (#1b1205, 6.2:1; white was 2.7:1). */
+    --primary-text: #8c6418;
     --chart-1: #c3982e;
     /* #480 — muscle-group categorical palette, darkened for legibility on the
        light canvas (white cards). Yellow/teal are deepened so they don't wash
@@ -321,7 +407,7 @@
     /* Inactive nav / labels: darkened a touch for legibility. */
     --sidebar-foreground: #4d5667;
     --sidebar-primary: #c3982e;
-    --sidebar-primary-foreground: #ffffff;
+    --sidebar-primary-foreground: #1b1205;
     --sidebar-accent: rgba(27, 35, 54, 0.05);
     --sidebar-accent-foreground: #1b2336;
     --sidebar-border: rgba(27, 35, 54, 0.07);
@@ -340,6 +426,34 @@
     --gc-heat-mid: #d9a441;
     --gc-heat-low: rgba(217, 164, 65, 0.4);
     --gc-heat-none: rgba(0, 0, 0, 0.3);
+
+    /* #505 — semantic tones (light). Deeper than the Tailwind 500s they
+       replace so text stays AA on white cards, the grey canvas and the tints. */
+    --success: #106a2f;
+    --success-foreground: #ffffff;
+    --success-soft: rgba(16, 106, 47, 0.12);
+    --warning: #8f4700;
+    --warning-foreground: #ffffff;
+    --warning-soft: rgba(143, 71, 0, 0.12);
+    --danger: #a81c12;
+    --danger-foreground: #ffffff;
+    --danger-soft: rgba(168, 28, 18, 0.12);
+    --info: #035e93;
+    --info-foreground: #ffffff;
+    --info-soft: rgba(3, 94, 147, 0.12);
+    --highlight: #6d28d9;
+    --highlight-foreground: #ffffff;
+    --highlight-soft: rgba(109, 40, 217, 0.12);
+    --category-1: #8f4700;
+    --category-2: #035e93;
+    --category-3: #036649;
+    --category-4: #6d28d9;
+    --category-5: #a80f35;
+    --category-6: #a13708;
+    --category-7: #0b6479;
+    --category-8: #4338ca;
+    --category-9: #0b6660;
+    --category-10: #3f670b;
   }
 
   .gc-fitness-theme .gc-shell-bg {
@@ -464,6 +578,51 @@
   .gc-fitness-theme .gc-pill-tab[data-active="false"]:hover {
     background: color-mix(in srgb, var(--foreground) 5%, transparent);
     color: var(--foreground);
+  }
+
+  /* golden-crow-website#530 — data-viz tokens of /gc-fitness/admin/usage. The 8-slot
+     categorical order + steps are the dataviz reference palette, VALIDATED (adjacent CVD
+     ΔE ≥ 8.4, normal-vision ≥ 19.3) against this app's cards: dark #181b22 (all ≥ 3:1) and
+     light #ffffff (slots 3/4/5 < 3:1 → every chart ships a legend + a table view). Dark
+     default (the base tokens are dark); light under html[data-theme="light"]. The `--viz-seq-*`
+     ramp is the retention heatmap: one hue (blue), near-zero recedes to the surface. */
+  .usage-viz {
+    --viz-surface: var(--card);
+    --viz-1: #3987e5;
+    --viz-2: #d95926;
+    --viz-3: #199e70;
+    --viz-4: #c98500;
+    --viz-5: #d55181;
+    --viz-6: #008300;
+    --viz-7: #9085e9;
+    --viz-8: #e66767;
+    --viz-grid: rgba(255, 255, 255, 0.08);
+    --viz-seq-0: transparent;
+    --viz-seq-1: #104281;
+    --viz-seq-2: #184f95;
+    --viz-seq-3: #256abf;
+    --viz-seq-4: #3987e5;
+    --viz-seq-5: #6da7ec;
+    --viz-seq-ink-low: #f4f7fb;
+    --viz-seq-ink-high: #061018;
+  }
+  html[data-theme="light"] .usage-viz {
+    --viz-1: #2a78d6;
+    --viz-2: #eb6834;
+    --viz-3: #1baf7a;
+    --viz-4: #eda100;
+    --viz-5: #e87ba4;
+    --viz-6: #008300;
+    --viz-7: #6250d6;
+    --viz-8: #e34948;
+    --viz-grid: rgba(15, 23, 40, 0.08);
+    --viz-seq-1: #cde2fb;
+    --viz-seq-2: #9ec5f4;
+    --viz-seq-3: #6da7ec;
+    --viz-seq-4: #2a78d6;
+    --viz-seq-5: #184f95;
+    --viz-seq-ink-low: #1b2336;
+    --viz-seq-ink-high: #ffffff;
   }
 
   .glass-panel {
@@ -1293,5 +1452,27 @@
 
   .publisher-app-instructions-download::after {
     display: none;
+  }
+}
+
+/* gc-fitness #1637 — `text-primary` in the coach portal is the AA text gold
+   (`--primary-text`), not the fill gold. Unlayered on purpose: it has to win over the
+   Tailwind utility, which lives in a cascade layer. `bg-primary` / borders keep the fill.
+   Checked by src/app/gc-fitness/__tests__/design-tokens-contrast.test.ts. */
+.gc-fitness-theme .text-primary {
+  color: var(--primary-text);
+}
+
+/* golden-crow-website#535 — touch targets on the COACH screens (see
+   components/gc-fitness/coach-surface-scope.tsx). Only on coarse pointers, only
+   where <body> carries data-coach-surface: desktop and the admin screens keep
+   the Button sizes exactly as they are. */
+@media (pointer: coarse) {
+  body[data-coach-surface] [data-slot="button"]:is([data-size="xs"], [data-size="sm"], [data-size="default"], [data-size="lg"]) {
+    min-height: 2.5rem;
+  }
+  body[data-coach-surface] [data-slot="button"]:is([data-size="icon-xs"], [data-size="icon-sm"], [data-size="icon"], [data-size="icon-lg"]) {
+    min-width: 2.5rem;
+    min-height: 2.5rem;
   }
 }

@@ -4,8 +4,9 @@
 //   gc-fitness/iOS/Packages/GCFitnessCore/…/Billing.swift
 //   gc-fitness/android/core/…/Billing.kt
 //   gc-fitness/functions/src/billing/billing.ts
-// Los cuatro lados implementan la MISMA semántica (spec común de #1540) y tienen la
-// misma tabla de casos en sus tests. Un cambio acá sin el cambio allá hace que el
+// Los cuatro lados implementan la MISMA semántica (spec común de #1540) y corren la MISMA
+// tabla de casos: `__tests__/twin-vectors/billing-vectors.json`, copia fijada del archivo único de
+// gc-fitness `twin-vectors/` (#1644; drift: `scripts/check-twin-vectors.py` allá). Un cambio acá sin el cambio allá hace que el
 // backoffice diga «Vencido» y el teléfono del coach «Al día» para el mismo alumno.
 //
 // Todo es puro: fechas como strings civiles `YYYY-MM-DD`, sin `Date` del host ni zona
@@ -186,6 +187,75 @@ export function consumeClass(billing: Pick<BillingLike, "classesRemaining">): nu
   return Math.max(0, (billing.classesRemaining ?? 0) - 1);
 }
 
+/** gc-fitness #1659 — los cuatro campos de `client_billing` que mueve registrar / anular. */
+export interface BillingPaymentEffect {
+  nextDueCivil: string | null;
+  classesRemaining: number | null;
+  lastPaymentCivil: string | null;
+  lastPaymentAmount: number | null;
+}
+
+/** Un billing con su último pago (lo que leen `recordEffect` / `voidEffect`). */
+export type BillingWithLastPayment = BillingLike & {
+  lastPaymentCivil: string | null;
+  lastPaymentAmount: number | null;
+};
+
+function hasPlan(billing: Pick<BillingLike, "planId" | "plan">): boolean {
+  return billing.planId != null || billing.plan != null;
+}
+
+/**
+ * gc-fitness #1659 — lo que registrar un pago le hace al billing, la MISMA regla en la web y
+ * las dos apps (iOS `Billing.recordEffect`, Android `Billing.recordEffect`; tabla de casos
+ * compartida):
+ *   - sin billing ⇒ se crea uno sin plan: sin vencimiento ni saldo, sólo el último pago;
+ *   - billing SIN plan ⇒ vencimiento y saldo quedan como están;
+ *   - con plan ⇒ `applyPayment`;
+ *   - el último pago pasa a ser éste salvo que ya haya uno con fecha POSTERIOR (un pago
+ *     cargado con fecha vieja no pisa el más nuevo; a igual fecha gana el nuevo).
+ */
+export function recordEffect(
+  billing: BillingWithLastPayment | null,
+  covers: PaymentCovers,
+  paidCivil: string,
+  amount: number,
+): BillingPaymentEffect {
+  if (!billing) {
+    return { nextDueCivil: null, classesRemaining: null, lastPaymentCivil: paidCivil, lastPaymentAmount: amount };
+  }
+  const schedule = hasPlan(billing)
+    ? applyPayment(billing, covers, paidCivil)
+    : { nextDueCivil: billing.nextDueCivil, classesRemaining: billing.classesRemaining };
+  const isNewest = (billing.lastPaymentCivil ?? "") <= paidCivil;
+  return {
+    ...schedule,
+    lastPaymentCivil: isNewest ? paidCivil : billing.lastPaymentCivil,
+    lastPaymentAmount: isNewest ? amount : billing.lastPaymentAmount,
+  };
+}
+
+/**
+ * gc-fitness #1659 — lo que anular el ÚLTIMO pago vigente le hace al billing (si no era el
+ * último, el billing no se revierte). Con plan ⇒ `revertPayment`; sin plan, vencimiento y
+ * saldo quedan como están. El último pago pasa a ser `previous` (el vigente anterior) o ninguno.
+ */
+export function voidEffect(
+  billing: BillingLike,
+  covers: PaymentCovers | null,
+  previous: { paidCivil: string; amount: number } | null,
+): BillingPaymentEffect {
+  const schedule =
+    hasPlan(billing) && covers
+      ? revertPayment(billing, covers)
+      : { nextDueCivil: billing.nextDueCivil, classesRemaining: billing.classesRemaining };
+  return {
+    ...schedule,
+    lastPaymentCivil: previous ? previous.paidCivil : null,
+    lastPaymentAmount: previous ? previous.amount : null,
+  };
+}
+
 /**
  * Qué cubre por defecto un pago según el tipo de plan (el prellenado de «Registrar
  * pago»): mensual ⇒ 1 mes; pack ⇒ N meses; clases ⇒ classCount.
@@ -252,7 +322,12 @@ function formatDueDate(lang: "es" | "en", civil: string): string | null {
   }).format(date);
 }
 
-/** Texto que el coach comparte por WhatsApp / share sheet (sin push al alumno). */
+/**
+ * Texto que el coach comparte por WhatsApp / share sheet (sin push al cliente). #1697 — con
+ * `paymentDetails` (los «Datos de cobro» del coach) el texto los lleva antes de la despedida;
+ * vacío o en blanco = el texto de siempre. Gemelo de Swift/Kotlin `Billing.reminderText`
+ * (twin-vectors `reminderText`).
+ */
 export function reminderText(
   lang: "es" | "en",
   coachName: string,
@@ -260,15 +335,53 @@ export function reminderText(
   amount: number,
   currency: string,
   dueCivil?: string | null,
+  paymentDetails?: string | null,
 ): string {
   const money = formatBillingAmount(lang, amount, currency);
   const due = dueCivil ? formatDueDate(lang, dueCivil) : null;
+  const details = normalizedPaymentDetails(paymentDetails);
   if (lang === "es") {
     const dueClause = due ? `que vence el ${due}` : "pendiente";
-    return `Hola ${clientFirstName}! Te recuerdo el pago de ${money} ${dueClause}. ¡Gracias! — ${coachName}`;
+    const head = `Hola ${clientFirstName}! Te recuerdo el pago de ${money} ${dueClause}.`;
+    if (!details) return `${head} ¡Gracias! — ${coachName}`;
+    return `${head}\n\nDatos para el pago:\n${details}\n\n¡Gracias! — ${coachName}`;
   }
   const dueClause = due ? `due on ${due}` : "that is pending";
-  return `Hi ${clientFirstName}! A reminder about your ${money} payment ${dueClause}. Thanks! — ${coachName}`;
+  const head = `Hi ${clientFirstName}! A reminder about your ${money} payment ${dueClause}.`;
+  if (!details) return `${head} Thanks! — ${coachName}`;
+  return `${head}\n\nPayment details:\n${details}\n\nThanks! — ${coachName}`;
+}
+
+/** #1697 — el tope del texto libre «Datos de cobro» (la regla de `users/{uid}` lo repite). */
+export const PAYMENT_DETAILS_MAX_LENGTH = 500;
+
+/**
+ * #1697 — los «Datos de cobro» como salen en el aviso y en el recordatorio: CRLF → LF, sin
+ * espacios al final de cada línea y sin blancos alrededor. En blanco = null.
+ */
+export function normalizedPaymentDetails(raw: string | null | undefined): string | null {
+  if (raw == null) return null;
+  const joined = raw
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/\s+$/u, ""))
+    .join("\n")
+    .trim();
+  return joined.length > 0 ? joined : null;
+}
+
+/** #1697 — «16 de noviembre de 2026» / «November 16, 2026»: la fecha del aviso de pago. */
+export function noticeDueDate(civil: string, lang: "es" | "en"): string | null {
+  const ymd = parseCivilYMD(civil);
+  if (!ymd) return null;
+  const date = new Date(Date.UTC(ymd.year, ymd.month - 1, ymd.day, 12));
+  return new Intl.DateTimeFormat(lang === "es" ? "es-AR" : "en-US", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
 }
 
 /** Link de WhatsApp con el texto ya escrito (el coach elige el contacto). */

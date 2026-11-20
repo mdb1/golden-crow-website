@@ -110,7 +110,7 @@ function templatePicker() {
   // accessible name, so `getByRole("combobox", { name: ... })` misses it.
   const picker = screen
     .getAllByRole("combobox")
-    .find((el) => /Choose a template|Push Day|Pull Day/i.test(el.textContent ?? ""));
+    .find((el) => /Choose a routine|Push Day|Pull Day/i.test(el.textContent ?? ""));
   if (!picker) throw new Error("template picker combobox not found");
   return picker;
 }
@@ -188,7 +188,7 @@ describe("AssignTemplateModal — one-time", () => {
       timezone: "America/Argentina/Buenos_Aires",
       exerciseOverrides: undefined,
     });
-    expect(mockToastSuccess).toHaveBeenCalledWith("Template assigned.");
+    expect(mockToastSuccess).toHaveBeenCalledWith("Routine assigned.");
     expect(onAssigned).toHaveBeenCalledTimes(1);
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });

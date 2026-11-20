@@ -20,11 +20,15 @@
 
 import Link from "next/link";
 import {
+  appDeviceLabels,
   formatAppDevice,
   type ClientAppDevice,
 } from "@/lib/gc-fitness/client-app-devices";
 import { Apple, ArrowLeft, MessagesSquare } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+
+// gc-fitness #1646 — kg for the coach, plus lb when the client uses pounds.
+import { coachLoadText, type WeightUnits } from "@/lib/gc-fitness/weight-units";
 
 import type { ReactNode } from "react";
 
@@ -42,6 +46,8 @@ export interface ClientHeaderProps {
   birthDate: string | null;
   heightCm?: number | null;
   bodyWeightKg?: number | null;
+  /** gc-fitness #1646 — the client's weight units (`preferences.units`, absent ⇒ kg). */
+  weightUnits?: WeightUnits;
   /**
    * #785 — which app build(s) the client is on, one badge per device. Read from
    * the push-token subcollection every signed-in device writes; empty for a
@@ -68,18 +74,24 @@ export function ClientHeader({
   birthDate,
   heightCm,
   bodyWeightKg,
+  weightUnits = "kg",
   appDevices = [],
   settingsSlot,
   notesSlot,
 }: ClientHeaderProps) {
   const t = useTranslations("clients.detail");
+  const locale = useLocale();
   const tNav = useTranslations("nav");
   const tCommon = useTranslations("common");
+  const tDevice = useTranslations("common.appDevice");
+  const deviceLabels = appDeviceLabels((key, values) =>
+    key === "unknownPlatform" ? tDevice("unknownPlatform") : tDevice("unknownVersion", values),
+  );
   const heightValue =
     typeof heightCm === "number" ? `${heightCm.toFixed(1)} cm` : tCommon("emDash");
   const weightValue =
     typeof bodyWeightKg === "number"
-      ? `${bodyWeightKg.toFixed(1)} kg`
+      ? coachLoadText(bodyWeightKg, weightUnits, locale)
       : tCommon("emDash");
   const cleanDisplayName = displayName.trim();
   const cleanAppDisplayName = appDisplayName.trim();
@@ -133,7 +145,7 @@ export function ClientHeader({
                   key={`${device.platform}-${device.appVersion ?? "?"}-${index}`}
                   variant="outline"
                 >
-                  {formatAppDevice(device)}
+                  {formatAppDevice(device, deviceLabels)}
                 </Badge>
               ))}
             </div>

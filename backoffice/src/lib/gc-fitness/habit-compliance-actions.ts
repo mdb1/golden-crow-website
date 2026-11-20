@@ -124,6 +124,9 @@ export async function fetchHabitCompliance(
     scheduleMonthDays?: number[];
     skippedDates?: string[];
     weekdayFormat?: string;
+    // gc-fitness#1622 — archive state: archived days leave the denominator.
+    archivedOn?: string;
+    archivedPeriods?: string[];
   };
   if (habit.trainerId !== trainer.uid) {
     throw new Error("Not your habit.");
@@ -148,6 +151,8 @@ export async function fetchHabitCompliance(
     scheduleDayOfMonth: habit.scheduleDayOfMonth,
     scheduleMonthDays: habit.scheduleMonthDays,
     skippedDates: habit.skippedDates,
+    archivedOn: habit.archivedOn,
+    archivedPeriods: habit.archivedPeriods,
   };
 
   // 2) Compute the 30-day civil-date window.

@@ -695,7 +695,7 @@ describe("classifyAuditRecord — #713 routine edits are identifiable", () => {
   it("says which kind of edit it was, since the snapshot diff is elided", () => {
     const byClient = classifyAuditRecord(routineEdit, { count: 1, dates: [] });
     expect(byClient.actorUid).toBe(CLIENT);
-    expect(byClient.meta).toContain("pesos y repes registrados en el entreno");
+    expect(byClient.meta).toContain("pesos y repes registrados en el entrenamiento");
 
     const byCoach = classifyAuditRecord(
       record({
@@ -717,7 +717,7 @@ describe("classifyAuditRecord — #713 routine edits are identifiable", () => {
       count: 12,
       dates: ["20260807", "20261030"],
     });
-    expect(event.meta).toContain("pesos y repes registrados en el entreno");
+    expect(event.meta).toContain("pesos y repes registrados en el entrenamiento");
     expect(event.meta.some((m) => m.includes("2026-08-07"))).toBe(true);
   });
 });

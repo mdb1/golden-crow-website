@@ -1,0 +1,22 @@
+{
+  "_comment": "#1644 — PINNED copies of gc-fitness twin vectors. Do NOT edit by hand: change the canonical file in gc-fitness (twin-vectors/ or .planning/…) and run `scripts/check-twin-vectors.py --sync --website <this checkout>` there. twin-vectors.test.ts checks every copy against these hashes.",
+  "files": {
+    "assigned-by.json": "a54157c792966da8a4b05c28d97b3928d7f9298a765c123177f9c4dc02868e53",
+    "billing-ai-vectors.json": "032683ec01bc0a67f4ac22a7a487eb097c239dfb6e54ff4eecaa137894f30093",
+    "billing-dashboard-vectors.json": "b873c77f364548ff234fc22acd124e459e98e7404a790d897a4dac6d87983502",
+    "billing-vectors.json": "4f13bf5b73550edaa031fa1c9a23371d03e4e9bf71f1bed40453d464c941b452",
+    "challenge_standings_vector.json": "803a03489afc5f568570166458f34907e7609811bf1078c97213614ddc209eb7",
+    "civil-date-vectors.json": "459e5f39f742cda4b83ed4e767475dd4725b2ae43ab826ec1deeb8c0aa2abac1",
+    "client-attention-cases.json": "a7edca33bb74b0f70fc4196f3fb8529a6f4d4976b54dd72e32583ce22e1abbbb",
+    "distance-format-vectors.json": "4bc206b31b580a7dd5a358fe4ea177582860179ab035175a55a4858eb1d6fa2b",
+    "habit-compliance.json": "c604d754b3caedb2073baebe8a16312cea568f69141fd5935116dbb3e6f431b0",
+    "habit-quantity-vectors.json": "15f207f9393ba6d155459419b9343bd485f09e67b0306a96e98426cc8b6cae8a",
+    "habit-schedule-vectors.json": "c583b5f46faec3d79e9e77fb2b0bba9f7bb22461b59c8e67ed85db517c6f9790",
+    "nutrition-ai-vectors.json": "220a56b4654f04ef2c6e4691092b973e4ce12204ee83fab1589ab686fa3eac70",
+    "nutrition-coach.json": "23fc885e6a8030801343875e63afa02f25d23e818f3facb7f8994a5ec1c7ebf8",
+    "nutrition-plan-resolution-vectors.json": "285d5ef19d33294bdc51c49368cd5bc7b3a5cd98c64bc274f291c00cad773868",
+    "recurrence-expansion.json": "eb7f3d00e87ad12bbefad9af236a1e6fcca9b1c5290554c801d67c3bc521c75d",
+    "set-effort-vectors.json": "6fba1bfb9bc733b71c2e5bddb11a8f7d6c299c14b38f24ddc8803b4fd10de368",
+    "weight-units-vectors.json": "139c19ffaf3ba0c20336d5ce5954cb45beed5c3e65e7e0fcf0e6edc145f8d03f"
+  }
+}

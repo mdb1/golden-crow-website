@@ -1,0 +1,36 @@
+{
+  "description": "#1623 — optional per-set effort. Wire: workout_logs.sets[].rpe (number, RPE 6–10 in 0.5 steps; absent = not logged, never null). RIR is a DISPLAY mode only: RIR = 10 − RPE. users.preferences.setEffort = 'rpe' | 'rir' (absent / unknown / 'off' ⇒ off). FORGIVING READ: non-number / non-finite ⇒ absent; rounded to the nearest 0.5; outside 6…10 after rounding ⇒ absent. Runners: GCFitnessCoreTests/SetEffortTests.swift (SetEffort + SetLog decode), android/core SetEffortTest.kt (SetEffort + SetLog.fromMap), backoffice __tests__/set-effort.test.ts (normalizedRpe / rpeField / formatRpe — RPE cases only, the coach always reads RPE).",
+  "normalizedRpe": [
+    { "raw": null, "expected": null },
+    { "raw": 8, "expected": 8 },
+    { "raw": 8.5, "expected": 8.5 },
+    { "raw": 7.3, "expected": 7.5 },
+    { "raw": 7.2, "expected": 7 },
+    { "raw": 10.2, "expected": 10 },
+    { "raw": 5.9, "expected": 6 },
+    { "raw": 5.7, "expected": null },
+    { "raw": 11, "expected": null },
+    { "raw": 0, "expected": null },
+    { "raw": -8, "expected": null },
+    { "raw": "hard", "expected": null },
+    { "raw": "8", "expected": null },
+    { "raw": true, "expected": null }
+  ],
+  "display": [
+    { "rpe": 8, "mode": "rpe", "locale": "en-US", "expected": "8" },
+    { "rpe": 8.5, "mode": "rpe", "locale": "en-US", "expected": "8.5" },
+    { "rpe": 8.5, "mode": "rpe", "locale": "es-AR", "expected": "8,5" },
+    { "rpe": 10, "mode": "rpe", "locale": "es-AR", "expected": "10" },
+    { "rpe": 8, "mode": "rir", "locale": "en-US", "expected": "2" },
+    { "rpe": 10, "mode": "rir", "locale": "en-US", "expected": "0" },
+    { "rpe": 7.5, "mode": "rir", "locale": "es-AR", "expected": "2,5" },
+    { "rpe": 6, "mode": "rir", "locale": "es-AR", "expected": "4" }
+  ],
+  "modeWire": [
+    { "raw": null, "expected": "off" },
+    { "raw": "bogus", "expected": "off" },
+    { "raw": "off", "expected": "off" },
+    { "raw": "rpe", "expected": "rpe" },
+    { "raw": "rir", "expected": "rir" }
+  ]
+}

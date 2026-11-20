@@ -1,8 +1,9 @@
 "use client";
 
 import { CheckCircle2, Circle, History, User, XCircle } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
+import { formatHabitQuantityProgress } from "@/lib/gc-fitness/habit-quantity";
 import type { MonthHabitChip } from "@/lib/gc-fitness/schedule-month-actions";
 import { cn } from "@/lib/utils";
 
@@ -13,16 +14,16 @@ function habitChipClass(status: MonthHabitChip["status"]): string {
   if (status === "scheduled")
     return "border-border bg-card text-muted-foreground";
   if (status === "done")
-    return "border-emerald-500/50 bg-emerald-500/15 text-emerald-900 dark:text-emerald-200";
-  return "border-rose-400/40 bg-rose-500/10 text-rose-900 dark:text-rose-200";
+    return "border-success/50 bg-success/15 text-success";
+  return "border-danger/40 bg-danger/10 text-danger";
 }
 
 function HabitStatusGlyph({ status }: { status: MonthHabitChip["status"] }) {
   if (status === "done") {
-    return <CheckCircle2 className="size-2.5 text-emerald-600 dark:text-emerald-400" />;
+    return <CheckCircle2 className="size-2.5 text-success" />;
   }
   if (status === "missed") {
-    return <XCircle className="size-2.5 text-rose-600 dark:text-rose-400" />;
+    return <XCircle className="size-2.5 text-danger" />;
   }
   return <Circle className="size-2.5 opacity-60" />;
 }
@@ -67,11 +68,21 @@ export function HabitChip({
   onClick?: () => void;
   title?: string;
 }) {
-  const chipTitle = title ?? habit.habitName;
+  const locale = useLocale();
+  // gc-fitness#1648 — a quantity habit shows the day's amount ("3 / 8 vasos").
+  const progress = habit.quantity
+    ? formatHabitQuantityProgress(habit.quantity.logged, habit.quantity.target, habit.quantity.unit, locale)
+    : null;
+  const chipTitle = title ?? (progress ? `${habit.habitName} · ${progress}` : habit.habitName);
   const content = (
     <>
       <HabitStatusGlyph status={habit.status} />
       <span className="min-w-0 max-w-full truncate">{habit.habitName}</span>
+      {progress ? (
+        <span className="shrink-0 tabular-nums opacity-80" data-testid="habit-chip-quantity">
+          {progress}
+        </span>
+      ) : null}
       {habit.clientOwned ? <ClientOwnedBadge /> : null}
       {habit.inherited ? <InheritedBadge /> : null}
     </>

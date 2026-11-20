@@ -82,7 +82,7 @@ export function ClientChartsSection({
   const visibleSlots = slots.filter((slot) => slot.node !== null);
 
   return (
-    <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
+    <section className="rounded-card border border-border bg-card p-5 shadow-sm">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="flex items-center gap-2 font-medium">

@@ -70,9 +70,9 @@ describe("ActivityFeedList", () => {
       />,
     );
 
-    // 01:30Z del 1/8 = 22:30 del 31/7 en Buenos Aires ⇒ va bajo "Hoy · 2026-07-31".
-    expect(screen.getByText(/Hoy · 2026-07-31/)).toBeInTheDocument();
-    expect(screen.queryByText(/2026-08-01/)).not.toBeInTheDocument();
+    // 01:30Z del 1/8 = 22:30 del 31/7 en Buenos Aires ⇒ va bajo "Hoy".
+    expect(screen.getByRole("heading", { name: /^Today/ })).toBeInTheDocument();
+    expect(screen.queryByText(/Aug 1/)).not.toBeInTheDocument();
   });
 
   it("sin timeZone se comporta como antes (UTC), que es el default de getTrainerTimezone", () => {
@@ -93,7 +93,9 @@ describe("ActivityFeedList", () => {
       "href",
       "/gc-fitness/admin/coach-less-users/solo1",
     );
-    expect(screen.getByText("terminó un workout")).toBeInTheDocument();
+    // #513 — the model's Spanish title renders in the viewer's language (the
+    // test harness runs next-intl in English).
+    expect(screen.getByText("finished a workout")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Full Body A" })).toHaveAttribute(
       "href",
       "/gc-fitness/admin/coaches/solo1/clients/solo1/workouts/log-1",
@@ -101,14 +103,24 @@ describe("ActivityFeedList", () => {
     expect(screen.getByText("20:37")).toBeInTheDocument();
   });
 
+  it("renders an UNKNOWN title verbatim (a newer writer's sentence)", () => {
+    render(
+      <ActivityFeedList
+        events={[event({ id: "e1", actor: null, title: "Algo nuevo que nadie mapeó" })]}
+        today="2026-07-31"
+      />,
+    );
+    expect(screen.getByText("Algo nuevo que nadie mapeó")).toBeInTheDocument();
+  });
+
   it("still offers a link when the event has no name to show", () => {
     render(
       <ActivityFeedList events={[event({ id: "e1", subject: null })]} today="2026-07-31" />,
     );
-    expect(screen.getByRole("link", { name: "ver detalle" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "view detail" })).toBeInTheDocument();
   });
 
-  it("groups by UTC day with Hoy / Ayer headers", () => {
+  it("groups by UTC day with Hoy / Ayer / «Lunes 16 nov» headers", () => {
     render(
       <ActivityFeedList
         events={[
@@ -119,9 +131,9 @@ describe("ActivityFeedList", () => {
         today="2026-07-31"
       />,
     );
-    expect(screen.getByText(/Hoy · 2026-07-31/)).toBeInTheDocument();
-    expect(screen.getByText(/Ayer · 2026-07-30/)).toBeInTheDocument();
-    expect(screen.getByText("2026-07-28")).toBeInTheDocument();
+    const headings = screen.getAllByRole("heading").map((h) => h.textContent);
+    expect(headings).toEqual(["Today1 event", "Yesterday1 event", "Tuesday, Jul 281 event"]);
+    expect(screen.queryByText(/2026-07-28/)).not.toBeInTheDocument();
   });
 
   it("shows the recurrence count and the folded-in routine update", () => {

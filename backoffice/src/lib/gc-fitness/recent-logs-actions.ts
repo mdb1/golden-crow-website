@@ -23,12 +23,16 @@ import {
 import { coachVisibleClientName } from "./client-name";
 import { resolveExerciseDocsById } from "./exercise-resolution";
 import { flattenLogPRs, previousRecordsByExercise } from "./personal-records";
+import { readDistanceMeters } from "./distance-format";
 import { isHabitScheduledOn } from "./habit-schedule";
 import { getTrainerTimezone } from "./trainer-timezone";
 // quick-260714-m57 (#403) — effective per-set type (setType ?? is_warmup) for
 // the "Detalle de series" badges + warmup exclusions.
 import { effectiveSetType, type SetType } from "./set-type";
+// gc-fitness #1623 — per-set RPE (forgiving read, TS twin of mobile).
+import { rpeField } from "./set-effort";
 import { wireSetLoadInputs } from "./live-workout-volume";
+import { clientWeightUnits, type WeightUnits } from "./weight-units";
 // #949 follow-up — the nutrition row's "X de Y" counts one day of marks. Shared
 // with the admin feed rather than recomputed: the two surfaces describing the
 // same document with different denominators is exactly how this row shipped
@@ -142,6 +146,9 @@ export interface WorkoutLogDetail {
    *  this zone — the page is a server component, so a missing timeZone renders
    *  in the Vercel host tz (UTC). */
   clientTimezone: string;
+  /** gc-fitness #1646 — the client's weight units (`users/{clientId}.preferences.units`,
+   *  absent ⇒ kg). Weights stay kg on the wire; the view adds the lb the client saw. */
+  clientUnits?: WeightUnits;
   /** Coach (logged-in trainer) display name for the share card sub-line.
    *  Resolved from `/users/{trainerId}.displayName`. Null when unavailable
    *  — never a raw UID (the share card omits the coach segment gracefully). */
@@ -216,6 +223,11 @@ export interface WorkoutLogDetail {
      * consistent with `isWarmup` (`isWarmup === (setType === "warmup")`).
      */
     setType: SetType;
+    /**
+     * gc-fitness #1623 — per-set effort (wire `rpe`), normalized through
+     * `normalizedRpe` (0.5 steps, 6–10). Absent when not logged or invalid.
+     */
+    rpe?: number;
     /** True when this set matches a PR row in the parent workout log's prs[]. */
     isPR: boolean;
     /** Stored Epley estimated 1RM (kg) when isPR === true. */
@@ -230,7 +242,14 @@ export interface WorkoutLogDetail {
       reps: number;
       estimatedOneRM: number;
       durationSeconds: number | null;
+      /** gc-fitness #1649 — meters when the beaten record was a distance PR. */
+      distanceMeters?: number | null;
     } | null;
+    /**
+     * gc-fitness #1649 — logged cardio distance in meters (wire
+     * `distance_meters`); null on every non-cardio set.
+     */
+    distanceMeters?: number | null;
     /** Snapshot superset label (e.g. "A"); null for standalone exercises. */
     supersetGroup: string | null;
     /** #1197 — stamped FULL body weight (wire `bodyweight_kg`); null when absent. */
@@ -1284,7 +1303,7 @@ async function buildRecentLogs(params: {
         scheduledFor ? `Para ${formatCivilDateEsAr(scheduledFor)}` : null,
         plannedExercises > 0
           ? `${plannedExercises} ejercicio${plannedExercises === 1 ? "" : "s"}`
-          : "Entreno libre (lo arma mientras entrena)",
+          : "Entrenamiento libre (lo arma mientras entrena)",
       ]
         .filter(Boolean)
         .join(" · "),
@@ -2099,6 +2118,7 @@ async function buildWorkoutLogDetail(
   const clientTimezone =
     (typeof storedClientTz === "string" && storedClientTz) ||
     (await getTrainerTimezone());
+  const clientUnits = clientWeightUnits({ preferences: clientSnap.get("preferences") });
 
   // 260529-ltm — the logged-in trainer IS the coach. Resolve their
   // displayName for the share card sub-line. Degrade to null (never a raw
@@ -2165,7 +2185,13 @@ async function buildWorkoutLogDetail(
   // runs when the log actually has PRs (keeps the extra read off non-PR logs).
   const prPrevBySetLogId = new Map<
     string,
-    { weightKg: number; reps: number; estimatedOneRM: number; durationSeconds: number | null }
+    {
+      weightKg: number;
+      reps: number;
+      estimatedOneRM: number;
+      durationSeconds: number | null;
+      distanceMeters?: number | null;
+    }
   >();
   if (rawPrs.length > 0) {
     const clientId = typeof data.clientId === "string" ? data.clientId : "";
@@ -2203,6 +2229,7 @@ async function buildWorkoutLogDetail(
             reps: prev.reps,
             estimatedOneRM: prev.estimatedOneRM,
             durationSeconds: prev.durationSeconds,
+            distanceMeters: prev.distanceMeters ?? null,
           });
         }
       }
@@ -2269,6 +2296,8 @@ async function buildWorkoutLogDetail(
       // above. Null when the set was reps-based or pre-26-04 (no field
       // on the doc).
       durationSeconds,
+      // gc-fitness #1649 — forgiving: only a positive finite distance survives.
+      distanceMeters: readDistanceMeters(set.distance_meters ?? set.distanceMeters),
       // Wire field is `completed_at` (iOS); keep `completedAt` as a legacy fallback.
       completedAt: asIso(set.completed_at ?? set.completedAt),
       // 260529-mrp — the share card excludes warmups from Volumen / Series /
@@ -2277,6 +2306,9 @@ async function buildWorkoutLogDetail(
       // excluded too (sync invariant holds by construction).
       isWarmup: setTypeEffective === "warmup",
       setType: setTypeEffective,
+      // gc-fitness #1623 — forgiving read; spread so an absent RPE leaves no
+      // key (the payload crosses the RSC boundary as a plain object).
+      ...rpeField(set.rpe),
       isPR: Boolean(pr),
       prEstimatedOneRM: pr?.estimatedOneRM ?? null,
       prPrevious: pr ? (prPrevBySetLogId.get(setLogId) ?? null) : null,
@@ -2308,6 +2340,7 @@ async function buildWorkoutLogDetail(
     clientId,
     clientName,
     clientTimezone,
+    clientUnits,
     coachName,
     heartRate,
     workoutName,

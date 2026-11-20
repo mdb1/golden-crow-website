@@ -18,7 +18,11 @@ jest.mock("@/lib/gc-fitness/auth-helpers", () => ({
 }));
 
 const mockRevalidatePath = jest.fn();
-jest.mock("next/cache", () => ({ revalidatePath: (p: string) => mockRevalidatePath(p) }));
+const mockRevalidateTag = jest.fn();
+jest.mock("next/cache", () => ({
+  revalidatePath: (p: string) => mockRevalidatePath(p),
+  revalidateTag: (tag: string, profile: unknown) => mockRevalidateTag(tag, profile),
+}));
 const mockRedirect = jest.fn();
 jest.mock("next/navigation", () => ({ redirect: (url: string) => mockRedirect(url) }));
 
@@ -101,7 +105,8 @@ function expectRedirectFor(kind: string) {
 describe("purgeDataHygieneItem — gate + validation", () => {
   it("rejects a non-admin (Forbidden) before reading the form or writing", async () => {
     mockGetCurrentAdmin.mockRejectedValueOnce(new Error("Forbidden"));
-    await expect(purgeDataHygieneItem(form({ kind: "log", id: "log:l1" }))).rejects.toThrow("Forbidden");
+    // #513 — returned as ActionResult, not thrown.
+    await expect(purgeDataHygieneItem(form({ kind: "log", id: "log:l1" }))).resolves.toEqual({ ok: false, error: "Forbidden" });
     expectNothingHappened();
   });
 
@@ -110,14 +115,15 @@ describe("purgeDataHygieneItem — gate + validation", () => {
     ["missing id", { kind: "log" }],
     ["empty both", {}],
   ])("rejects %s", async (_l, fields) => {
-    await expect(purgeDataHygieneItem(form(fields))).rejects.toThrow("Missing purge target.");
+    await expect(purgeDataHygieneItem(form(fields))).resolves.toEqual({ ok: false, error: "Missing purge target." });
     expectNothingHappened();
   });
 
   it("rejects an unsupported kind", async () => {
-    await expect(purgeDataHygieneItem(form({ kind: "users", id: "u1" }))).rejects.toThrow(
-      "Unsupported purge kind: users",
-    );
+    await expect(purgeDataHygieneItem(form({ kind: "users", id: "u1" }))).resolves.toEqual({
+      ok: false,
+      error: "Unsupported purge kind: users",
+    });
     expectNothingHappened();
   });
 });
@@ -149,11 +155,12 @@ describe("purgeDataHygieneItem — per kind", () => {
     expectRedirectFor("user");
   });
 
-  it("user: a failing cascade propagates and skips the redirect", async () => {
+  it("user: a failing cascade is returned and skips the redirect", async () => {
     mockDeleteClientCascade.mockRejectedValueOnce(new Error("cascade failed"));
-    await expect(purgeDataHygieneItem(form({ kind: "user", id: "client-A1" }))).rejects.toThrow(
-      "cascade failed",
-    );
+    await expect(purgeDataHygieneItem(form({ kind: "user", id: "client-A1" }))).resolves.toEqual({
+      ok: false,
+      error: "cascade failed",
+    });
     expect(mockRedirect).not.toHaveBeenCalled();
   });
 
@@ -218,6 +225,8 @@ describe("purgeDataHygieneItem — per kind", () => {
   it("exercise → deletes that exercise only", async () => {
     await purgeDataHygieneItem(form({ kind: "exercise", id: "exercise:e2" }));
     expect(db.writes).toEqual([{ op: "delete", path: "exercises/e2" }]);
+    // #495 — the shared catalog is cached; the purge must drop it immediately.
+    expect(mockRevalidateTag).toHaveBeenCalledWith("gc-fitness:standard-exercises", { expire: 0 });
     expectRedirectFor("exercise");
   });
 

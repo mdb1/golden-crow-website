@@ -1,0 +1,543 @@
+{
+  "_comment": "#1245 (C9) — shared habit-compliance vector. Generated from the BACKOFFICE `computeAdherence` (golden-crow-website backoffice/src/lib/gc-fitness/habit-compliance.ts, which delegates to habit-schedule.ts `isHabitScheduledOn`). Swift `HabitStreakCalculator.computeAdherenceRatio` and Kotlin `HabitStreakCalculator.computeAdherenceRatio` must reproduce `expected` over [today - (windowDays - 1), today] in `timezone`. Identical copies in iOS GCFitnessCoreTests/Fixtures and android/core/src/test/resources — the tests check they match byte for byte.",
+  "cases": [
+    {
+      "name": "daily, started before the window, 5 of 7 done",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "daily",
+        "startsOn": "2026-08-01"
+      },
+      "logs": [
+        {
+          "civilDate": "2026-09-01",
+          "value": true
+        },
+        {
+          "civilDate": "2026-09-02",
+          "value": true
+        },
+        {
+          "civilDate": "2026-09-04",
+          "value": true
+        },
+        {
+          "civilDate": "2026-09-05",
+          "value": true
+        },
+        {
+          "civilDate": "2026-09-07",
+          "value": true
+        }
+      ],
+      "today": "2026-09-07",
+      "windowDays": 7,
+      "timezone": "America/Argentina/Buenos_Aires",
+      "expected": {
+        "ratio": 0.7142857142857143,
+        "scheduledDays": 7,
+        "completedScheduled": 5
+      }
+    },
+    {
+      "name": "daily, starts inside the window: days before startsOn are not scheduled",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "daily",
+        "startsOn": "2026-05-05"
+      },
+      "logs": [
+        {
+          "civilDate": "2026-05-06",
+          "value": true
+        },
+        {
+          "civilDate": "2026-05-07",
+          "value": true
+        },
+        {
+          "civilDate": "2026-05-08",
+          "value": true
+        },
+        {
+          "civilDate": "2026-05-09",
+          "value": true
+        },
+        {
+          "civilDate": "2026-05-10",
+          "value": true
+        }
+      ],
+      "today": "2026-05-10",
+      "windowDays": 30,
+      "timezone": "America/Argentina/Buenos_Aires",
+      "expected": {
+        "ratio": 0.8333333333333334,
+        "scheduledDays": 6,
+        "completedScheduled": 5
+      }
+    },
+    {
+      "name": "missing cadence and scheduleType read as daily recurring",
+      "habit": {
+        "startsOn": "2026-09-01"
+      },
+      "logs": [
+        {
+          "civilDate": "2026-09-03",
+          "value": true
+        }
+      ],
+      "today": "2026-09-05",
+      "windowDays": 5,
+      "timezone": "UTC",
+      "expected": {
+        "ratio": 0.2,
+        "scheduledDays": 5,
+        "completedScheduled": 1
+      }
+    },
+    {
+      "name": "weekly ISO Mon/Wed/Fri over two weeks, 4 of 6",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "weekly",
+        "scheduleWeekdays": [
+          1,
+          3,
+          5
+        ],
+        "startsOn": "2026-08-01"
+      },
+      "logs": [
+        {
+          "civilDate": "2026-09-07",
+          "value": true
+        },
+        {
+          "civilDate": "2026-09-09",
+          "value": true
+        },
+        {
+          "civilDate": "2026-09-14",
+          "value": true
+        },
+        {
+          "civilDate": "2026-09-18",
+          "value": true
+        },
+        {
+          "civilDate": "2026-09-08",
+          "value": true
+        }
+      ],
+      "today": "2026-09-20",
+      "windowDays": 14,
+      "timezone": "America/Argentina/Buenos_Aires",
+      "expected": {
+        "ratio": 0.6666666666666666,
+        "scheduledDays": 6,
+        "completedScheduled": 4
+      }
+    },
+    {
+      "name": "weekly ISO Sunday is 7",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "weekly",
+        "scheduleWeekdays": [
+          7
+        ],
+        "startsOn": "2026-08-03"
+      },
+      "logs": [
+        {
+          "civilDate": "2026-09-13",
+          "value": true
+        },
+        {
+          "civilDate": "2026-09-20",
+          "value": true
+        }
+      ],
+      "today": "2026-09-20",
+      "windowDays": 21,
+      "timezone": "America/Argentina/Buenos_Aires",
+      "expected": {
+        "ratio": 0.6666666666666666,
+        "scheduledDays": 3,
+        "completedScheduled": 2
+      }
+    },
+    {
+      "name": "legacy Sun=1 weekdays, disambiguated by a Sunday startsOn",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "weekly",
+        "scheduleWeekdays": [
+          1
+        ],
+        "startsOn": "2026-09-06"
+      },
+      "logs": [
+        {
+          "civilDate": "2026-09-06",
+          "value": true
+        },
+        {
+          "civilDate": "2026-09-13",
+          "value": true
+        },
+        {
+          "civilDate": "2026-09-14",
+          "value": true
+        }
+      ],
+      "today": "2026-09-20",
+      "windowDays": 21,
+      "timezone": "America/Argentina/Buenos_Aires",
+      "expected": {
+        "ratio": 0.6666666666666666,
+        "scheduledDays": 3,
+        "completedScheduled": 2
+      }
+    },
+    {
+      "name": "ambiguous weekdays without startsOn stay ISO",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "weekly",
+        "scheduleWeekdays": [
+          1
+        ]
+      },
+      "logs": [
+        {
+          "civilDate": "2026-09-14",
+          "value": true
+        },
+        {
+          "civilDate": "2026-09-13",
+          "value": true
+        }
+      ],
+      "today": "2026-09-20",
+      "windowDays": 14,
+      "timezone": "UTC",
+      "expected": {
+        "ratio": 0.5,
+        "scheduledDays": 2,
+        "completedScheduled": 1
+      }
+    },
+    {
+      "name": "zero-based Sunday fallback for a stray 0",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "weekly",
+        "scheduleWeekdays": [
+          0
+        ]
+      },
+      "logs": [
+        {
+          "civilDate": "2026-09-13",
+          "value": true
+        }
+      ],
+      "today": "2026-09-20",
+      "windowDays": 14,
+      "timezone": "UTC",
+      "expected": {
+        "ratio": 0.5,
+        "scheduledDays": 2,
+        "completedScheduled": 1
+      }
+    },
+    {
+      "name": "monthly days 1 and 15 across a month boundary",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "monthly",
+        "scheduleMonthDays": [
+          1,
+          15
+        ],
+        "startsOn": "2026-01-01"
+      },
+      "logs": [
+        {
+          "civilDate": "2026-09-01",
+          "value": true
+        },
+        {
+          "civilDate": "2026-09-15",
+          "value": true
+        },
+        {
+          "civilDate": "2026-08-20",
+          "value": true
+        }
+      ],
+      "today": "2026-10-02",
+      "windowDays": 45,
+      "timezone": "America/Argentina/Buenos_Aires",
+      "expected": {
+        "ratio": 0.6666666666666666,
+        "scheduledDays": 3,
+        "completedScheduled": 2
+      }
+    },
+    {
+      "name": "monthly legacy scheduleDayOfMonth",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "monthly",
+        "scheduleDayOfMonth": 10,
+        "startsOn": "2026-01-01"
+      },
+      "logs": [
+        {
+          "civilDate": "2026-08-10",
+          "value": true
+        }
+      ],
+      "today": "2026-09-30",
+      "windowDays": 60,
+      "timezone": "UTC",
+      "expected": {
+        "ratio": 0.5,
+        "scheduledDays": 2,
+        "completedScheduled": 1
+      }
+    },
+    {
+      "name": "one-time habit inside the window, done",
+      "habit": {
+        "scheduleType": "one-time",
+        "startsOn": "2026-09-10"
+      },
+      "logs": [
+        {
+          "civilDate": "2026-09-10",
+          "value": true
+        },
+        {
+          "civilDate": "2026-09-11",
+          "value": true
+        }
+      ],
+      "today": "2026-09-20",
+      "windowDays": 30,
+      "timezone": "America/Argentina/Buenos_Aires",
+      "expected": {
+        "ratio": 1,
+        "scheduledDays": 1,
+        "completedScheduled": 1
+      }
+    },
+    {
+      "name": "skipped dates leave the denominator, and a log on one does not count",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "daily",
+        "startsOn": "2026-09-01",
+        "skippedDates": [
+          "2026-09-03",
+          "2026-09-05"
+        ]
+      },
+      "logs": [
+        {
+          "civilDate": "2026-09-01",
+          "value": true
+        },
+        {
+          "civilDate": "2026-09-02",
+          "value": true
+        },
+        {
+          "civilDate": "2026-09-03",
+          "value": true
+        },
+        {
+          "civilDate": "2026-09-06",
+          "value": true
+        }
+      ],
+      "today": "2026-09-07",
+      "windowDays": 7,
+      "timezone": "America/Argentina/Buenos_Aires",
+      "expected": {
+        "ratio": 0.6,
+        "scheduledDays": 5,
+        "completedScheduled": 3
+      }
+    },
+    {
+      "name": "endsOn inside the window",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "daily",
+        "startsOn": "2026-09-01",
+        "endsOn": "2026-09-04"
+      },
+      "logs": [
+        {
+          "civilDate": "2026-09-02",
+          "value": true
+        },
+        {
+          "civilDate": "2026-09-04",
+          "value": true
+        },
+        {
+          "civilDate": "2026-09-06",
+          "value": true
+        }
+      ],
+      "today": "2026-09-07",
+      "windowDays": 7,
+      "timezone": "UTC",
+      "expected": {
+        "ratio": 0.5,
+        "scheduledDays": 4,
+        "completedScheduled": 2
+      }
+    },
+    {
+      "name": "deleted, false and duplicate logs",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "daily",
+        "startsOn": "2026-09-01"
+      },
+      "logs": [
+        {
+          "civilDate": "2026-09-01",
+          "value": true,
+          "deleted": true
+        },
+        {
+          "civilDate": "2026-09-02",
+          "value": false
+        },
+        {
+          "civilDate": "2026-09-03",
+          "value": true
+        },
+        {
+          "civilDate": "2026-09-03",
+          "value": true
+        },
+        {
+          "civilDate": "2026-09-04",
+          "value": true,
+          "deleted": false
+        }
+      ],
+      "today": "2026-09-04",
+      "windowDays": 4,
+      "timezone": "UTC",
+      "expected": {
+        "ratio": 0.5,
+        "scheduledDays": 4,
+        "completedScheduled": 2
+      }
+    },
+    {
+      "name": "starts after today: nothing scheduled",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "daily",
+        "startsOn": "2026-10-10"
+      },
+      "logs": [],
+      "today": "2026-10-02",
+      "windowDays": 30,
+      "timezone": "America/Argentina/Buenos_Aires",
+      "expected": {
+        "ratio": 0,
+        "scheduledDays": 0,
+        "completedScheduled": 0
+      }
+    },
+    {
+      "name": "no logs: zero over every scheduled day",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "weekly",
+        "scheduleWeekdays": [
+          2,
+          4
+        ],
+        "startsOn": "2026-09-01"
+      },
+      "logs": [],
+      "today": "2026-09-30",
+      "windowDays": 30,
+      "timezone": "America/Argentina/Buenos_Aires",
+      "expected": {
+        "ratio": 0,
+        "scheduledDays": 9,
+        "completedScheduled": 0
+      }
+    },
+    {
+      "name": "window across a DST change",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "daily",
+        "startsOn": "2026-10-01"
+      },
+      "logs": [
+        {
+          "civilDate": "2026-10-31",
+          "value": true
+        },
+        {
+          "civilDate": "2026-11-01",
+          "value": true
+        },
+        {
+          "civilDate": "2026-11-02",
+          "value": true
+        }
+      ],
+      "today": "2026-11-03",
+      "windowDays": 5,
+      "timezone": "America/New_York",
+      "expected": {
+        "ratio": 0.6,
+        "scheduledDays": 5,
+        "completedScheduled": 3
+      }
+    },
+    {
+      "name": "leap day",
+      "habit": {
+        "scheduleType": "recurring",
+        "scheduleCadence": "daily",
+        "startsOn": "2028-01-01"
+      },
+      "logs": [
+        {
+          "civilDate": "2028-02-28",
+          "value": true
+        },
+        {
+          "civilDate": "2028-02-29",
+          "value": true
+        }
+      ],
+      "today": "2028-03-01",
+      "windowDays": 3,
+      "timezone": "UTC",
+      "expected": {
+        "ratio": 0.6666666666666666,
+        "scheduledDays": 3,
+        "completedScheduled": 2
+      }
+    }
+  ]
+}

@@ -208,6 +208,13 @@ export const recordPaymentInputSchema = z.object({
   methodNote: optionalText(120),
   covers: coversSchema,
   note: optionalText(500),
+  /** #487: idempotency key, one per open of the "Registrar pago" dialog. A retry or a
+   *  double submit with the same key records the payment ONCE. Optional so an older
+   *  open tab (no key) keeps working across the deploy. */
+  requestId: z
+    .string()
+    .regex(/^[A-Za-z0-9-]{8,64}$/)
+    .nullish(),
 });
 export type RecordPaymentInput = z.input<typeof recordPaymentInputSchema>;
 
@@ -351,7 +358,7 @@ export function monthBounds(month: string): { start: string; end: string } {
 
 // ── CSV ──────────────────────────────────────────────────────────────────────────
 
-function csvCell(value: string | number | null | undefined): string {
+export function csvCell(value: string | number | null | undefined): string {
   const s = value == null ? "" : String(value);
   // Una celda que empieza con = + - @ se ejecuta como fórmula en una planilla.
   const safe = /^[=+\-@\t\r]/.test(s) && typeof value !== "number" ? `'${s}` : s;

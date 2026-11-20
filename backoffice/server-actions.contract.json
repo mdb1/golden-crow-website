@@ -63,6 +63,16 @@
     },
     {
       "file": "src/app/gc-fitness/admin/coaches/[uid]/actions.ts",
+      "export": "disableCoachAction",
+      "params": "arg"
+    },
+    {
+      "file": "src/app/gc-fitness/admin/coaches/[uid]/actions.ts",
+      "export": "reactivateCoachAction",
+      "params": "arg"
+    },
+    {
+      "file": "src/app/gc-fitness/admin/coaches/[uid]/actions.ts",
       "export": "removePendingAction",
       "params": "arg"
     },
@@ -104,6 +114,11 @@
     {
       "file": "src/lib/gc-fitness/activity-feed-actions.ts",
       "export": "listActivityFeed",
+      "params": "optional"
+    },
+    {
+      "file": "src/lib/gc-fitness/activity-feed-actions.ts",
+      "export": "listActivityFeedPage",
       "params": "optional"
     },
     {
@@ -248,8 +263,33 @@
     },
     {
       "file": "src/lib/gc-fitness/ai-coach-admin-actions.ts",
+      "export": "loadCorvoDashboardForReports",
+      "params": "arg"
+    },
+    {
+      "file": "src/lib/gc-fitness/ai-coach-admin-actions.ts",
       "export": "loadCorvoReportContext",
       "params": "arg, arg"
+    },
+    {
+      "file": "src/lib/gc-fitness/ai-coach-admin-actions.ts",
+      "export": "setCorvoReportTriage",
+      "params": "arg"
+    },
+    {
+      "file": "src/lib/gc-fitness/billing-ai-actions.ts",
+      "export": "getBillingAIState",
+      "params": ""
+    },
+    {
+      "file": "src/lib/gc-fitness/billing-ai-actions.ts",
+      "export": "runBillingAI",
+      "params": "arg"
+    },
+    {
+      "file": "src/lib/gc-fitness/billing-dashboard-actions.ts",
+      "export": "getBillingDashboardData",
+      "params": ""
     },
     {
       "file": "src/lib/gc-fitness/chat-server-actions.ts",
@@ -377,9 +417,9 @@
       "params": "arg"
     },
     {
-      "file": "src/lib/gc-fitness/coach-attention-actions.ts",
-      "export": "listClientsWithNothingAssignedSoon",
-      "params": ""
+      "file": "src/lib/gc-fitness/coach-broadcast-actions.ts",
+      "export": "sendCoachBroadcast",
+      "params": "arg, arg"
     },
     {
       "file": "src/lib/gc-fitness/coach-challenge-actions.ts",
@@ -429,6 +469,11 @@
     {
       "file": "src/lib/gc-fitness/coach-pulse-actions.ts",
       "export": "getCoachPulse",
+      "params": ""
+    },
+    {
+      "file": "src/lib/gc-fitness/command-palette-actions.ts",
+      "export": "getCommandPaletteIndex",
       "params": ""
     },
     {
@@ -817,6 +862,16 @@
       "params": "arg, arg"
     },
     {
+      "file": "src/lib/gc-fitness/payment-details-actions.ts",
+      "export": "getCoachPaymentDetails",
+      "params": ""
+    },
+    {
+      "file": "src/lib/gc-fitness/payment-details-actions.ts",
+      "export": "updateCoachPaymentDetails",
+      "params": "arg"
+    },
+    {
       "file": "src/lib/gc-fitness/payments-actions.ts",
       "export": "assignClientPlan",
       "params": "arg"
@@ -959,6 +1014,11 @@
     {
       "file": "src/lib/gc-fitness/schedule-month-actions.ts",
       "export": "moveAssignment",
+      "params": "arg"
+    },
+    {
+      "file": "src/lib/gc-fitness/usage-actions.ts",
+      "export": "loadUsageDashboard",
       "params": "arg"
     },
     {
@@ -1127,5 +1187,11 @@
       "params": "arg, arg"
     }
   ],
-  "retired": []
+  "retired": [
+    {
+      "file": "src/lib/gc-fitness/coach-attention-actions.ts",
+      "export": "listClientsWithNothingAssignedSoon",
+      "since": "2026-11-18"
+    }
+  ]
 }

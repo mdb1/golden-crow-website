@@ -10,6 +10,8 @@
 // coach's roster column and client profile use, so the surfaces cannot print
 // different adherence figures for the same week.
 
+import { useTranslations } from "next-intl";
+
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -33,41 +35,42 @@ export function AdminNutritionCard({
   /** `null` when the loader failed — the card says so instead of claiming "no plan". */
   nutrition: AdminClientNutrition | null;
 }) {
+  const t = useTranslations("admin.nutrition");
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-xl">Nutrition</CardTitle>
+        <CardTitle className="text-xl">{t("title")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {nutrition === null ? (
-          <p className="text-sm text-muted-foreground">Couldn&apos;t load nutrition.</p>
+          <p className="text-sm text-muted-foreground">{t("loadFailed")}</p>
         ) : (
           <>
             <div className="flex flex-wrap items-center gap-3">
               {nutrition.hasActivePlan ? (
-                <Badge variant="success">active phase</Badge>
+                <Badge variant="success">{t("activePhase")}</Badge>
               ) : nutrition.neverHadPlan ? (
-                <Badge variant="secondary">no plan yet</Badge>
+                <Badge variant="secondary">{t("noPlanYet")}</Badge>
               ) : (
                 /* The state this card exists for: they HAD a phase and nobody loaded the
                    next one. Invisible on every other column. */
-                <Badge variant="destructive">no active phase</Badge>
+                <Badge variant="destructive">{t("noActivePhase")}</Badge>
               )}
               {nutrition.activePlanName ? (
                 <span className="text-sm">{nutrition.activePlanName}</span>
               ) : null}
               {nutrition.activePlanEndsOn ? (
                 <span className="text-xs text-muted-foreground">
-                  ends {nutrition.activePlanEndsOn}
+                  {t("ends", { date: nutrition.activePlanEndsOn })}
                 </span>
               ) : null}
               <span className="text-sm text-muted-foreground">
                 {/* `null` is NOT 0. Null means nobody asked anything of this client in the
                     window; zero means they were asked and did not comply. Printing the first
                     as "0%" sends an operator to have the wrong conversation. */}
-                7-day adherence:{" "}
+                {t("adherence")}{" "}
                 {nutrition.percent7d === null ? (
-                  <span title="Nothing was asked in the last 7 days">n/a</span>
+                  <span title={t("notApplicableTitle")}>{t("notApplicable")}</span>
                 ) : (
                   `${nutrition.percent7d}%`
                 )}
@@ -75,17 +78,17 @@ export function AdminNutritionCard({
             </div>
 
             {nutrition.phases.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No nutrition phases yet.</p>
+              <p className="text-sm text-muted-foreground">{t("noPhases")}</p>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Phase</TableHead>
-                      <TableHead>By</TableHead>
-                      <TableHead>Starts</TableHead>
-                      <TableHead>Ends</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead>{t("phase")}</TableHead>
+                      <TableHead>{t("by")}</TableHead>
+                      <TableHead>{t("starts")}</TableHead>
+                      <TableHead>{t("endsColumn")}</TableHead>
+                      <TableHead>{t("status")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -93,22 +96,22 @@ export function AdminNutritionCard({
                       <TableRow key={phase.id}>
                         <TableCell>{phase.name || "—"}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">
-                          {phase.source === "self" ? "client (self)" : "coach"}
+                          {phase.source === "self" ? t("bySelf") : t("byCoach")}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {phase.startsOn}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {/* Open-ended is a real, intentional shape — not missing data. */}
-                          {phase.endsOn ?? "open-ended"}
+                          {phase.endsOn ?? t("openEnded")}
                         </TableCell>
                         <TableCell>
                           {phase.deleted ? (
-                            <Badge variant="secondary">deleted</Badge>
+                            <Badge variant="secondary">{t("deleted")}</Badge>
                           ) : phase.ended ? (
-                            <Badge variant="secondary">ended</Badge>
+                            <Badge variant="secondary">{t("ended")}</Badge>
                           ) : (
-                            <Badge variant="success">active</Badge>
+                            <Badge variant="success">{t("active")}</Badge>
                           )}
                         </TableCell>
                       </TableRow>

@@ -88,7 +88,7 @@ export function CoachWeeklySummaryCard({
 
   return (
     <section
-      className="rounded-[1.25rem] border border-border bg-card p-5 shadow-sm"
+      className="rounded-card border border-border bg-card p-5 shadow-sm"
       data-testid="coach-ai-summary-card"
     >
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">

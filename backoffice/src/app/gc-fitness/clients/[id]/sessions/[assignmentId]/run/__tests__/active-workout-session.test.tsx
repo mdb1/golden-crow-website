@@ -244,7 +244,7 @@ describe("ActiveWorkoutSession — cancelling", () => {
     // client-detail flow, so the Next router is never used here.
     expect(mockPush).not.toHaveBeenCalled();
     expect(mockToastSuccess).toHaveBeenCalledWith(
-      "Entrenamiento cancelado · volvió a programado",
+      "Entrenamiento cancelado · volvió a agendado",
     );
   });
 

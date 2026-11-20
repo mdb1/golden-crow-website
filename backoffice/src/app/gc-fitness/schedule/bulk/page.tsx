@@ -19,13 +19,21 @@ import { listClients } from "@/lib/gc-fitness/client-roster";
 import { ScheduleQueryProvider } from "../providers";
 import { BulkAssignForm } from "@/components/gc-fitness/schedule/bulk-assign-form";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
+import {
+  BULK_SCHEDULE_CLIENTS_PARAM,
+  parsePreselectedClients,
+} from "@/lib/gc-fitness/coach-broadcast-model";
 
 // Tab title: "Corvo - <schedule>" (issue #170).
 export const generateMetadata = () => sectionMetadata("schedule");
 
 export const dynamic = "force-dynamic";
 
-export default async function BulkAssignPage() {
+export default async function BulkAssignPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   try {
     await getCurrentTrainer();
   } catch (err) {
@@ -47,6 +55,14 @@ export default async function BulkAssignPage() {
   } catch {
     rosterFailed = true;
   }
+  // #500 — `?clients=uid1,uid2` preselects (from the roster's «Asignar
+  // rutina»). Filtered to this coach's own roster: a hand-edited URL can't
+  // preselect anyone else (the action re-checks ownership anyway).
+  const params = (await searchParams) ?? {};
+  const initialSelectedUids = parsePreselectedClients(
+    params[BULK_SCHEDULE_CLIENTS_PARAM],
+    clients.filter((c) => !c.pendingProvisioning).map((c) => c.uid),
+  );
   const t = await getTranslations("schedule.bulk");
   const tCommon = await getTranslations("common");
 
@@ -91,7 +107,10 @@ export default async function BulkAssignPage() {
         </Card>
       ) : (
         <ScheduleQueryProvider>
-          <BulkAssignForm clients={clients} />
+          <BulkAssignForm
+            clients={clients}
+            initialSelectedUids={initialSelectedUids}
+          />
         </ScheduleQueryProvider>
       )}
     </div>

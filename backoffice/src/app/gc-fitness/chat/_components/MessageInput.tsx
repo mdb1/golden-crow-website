@@ -42,7 +42,7 @@ import {
   sendTrainerMessage,
   uploadTrainerChatAttachment,
 } from "@/lib/gc-fitness/chat-server-actions";
-import { CHATS_BASE_KEY } from "@/lib/gc-fitness/chat-listener";
+import { CHATS_BASE_KEY, chatNewestPageKey } from "@/lib/gc-fitness/chat-listener";
 import { buildReplyQuote } from "@/lib/gc-fitness/chat-reply";
 import type { MessageRow } from "@/lib/gc-fitness/chat-schema";
 
@@ -210,10 +210,9 @@ export function MessageInput({
     },
     onSuccess: () => {
       // Refresh the active thread + the inbox sort order.
-      void queryClient.invalidateQueries({
-        queryKey: [...CHATS_BASE_KEY, chatId, "messages", "infinite"],
-      });
-      void queryClient.invalidateQueries({ queryKey: CHATS_BASE_KEY });
+      // #501 — one page (the newest), not every page loaded; the inbox exact.
+      void queryClient.invalidateQueries({ queryKey: chatNewestPageKey(chatId) });
+      void queryClient.invalidateQueries({ queryKey: CHATS_BASE_KEY, exact: true });
       setText("");
       clearPendingImage();
       onCancelReply?.();
@@ -320,10 +319,8 @@ export function MessageInput({
           voicePath: uploaded.storagePath,
           voiceDurationMs: duration,
         });
-        void queryClient.invalidateQueries({
-          queryKey: [...CHATS_BASE_KEY, chatId, "messages", "infinite"],
-        });
-        void queryClient.invalidateQueries({ queryKey: CHATS_BASE_KEY });
+        void queryClient.invalidateQueries({ queryKey: chatNewestPageKey(chatId) });
+        void queryClient.invalidateQueries({ queryKey: CHATS_BASE_KEY, exact: true });
         requestAnimationFrame(() => textareaRef.current?.focus());
       } catch (err) {
         const message = err instanceof Error ? err.message : t("errorFallback");
@@ -599,7 +596,7 @@ export function MessageInput({
         </button>
       </div>
       {disabled ? (
-        <p className="text-xs text-amber-700" role="status">
+        <p className="text-xs text-warning" role="status">
           {t("pendingClientBlocked")}
         </p>
       ) : null}

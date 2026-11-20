@@ -7,6 +7,11 @@
 // civil-date pre-fill comes from the day cell that opened the modal — the
 // trainer can change it via shadcn Calendar before submitting.
 //
+// #507 — split by responsibility: the pure draft/override/recurrence model is
+// `lib/gc-fitness/assign-template-overrides.ts`; the picker, the cadence
+// controls and the per-exercise editor live in `./assign-template/`. This file
+// keeps the state, the effects and the submit fork.
+//
 // CIVIL-DATE CONTRACT (Pitfall 1):
 //   - The shadcn Calendar uses `react-day-picker`'s `mode="single"` with a
 //     Date object — internally it's wall-clock midnight in the user's local
@@ -29,42 +34,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Check, ChevronsUpDown, Copy, Plus } from "lucide-react";
-import {
-  Command,
-  CommandEmpty,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import { cn } from "@/lib/utils";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Plus } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  SET_TYPES,
-  SET_TYPE_LABELS_ES,
-  SET_TYPE_LETTERS,
-  SET_TYPE_TEXT_CLASS,
-  plannedSetType,
-  setDisplayLabels,
-  type SetType,
-} from "@/lib/gc-fitness/set-type";
-import {
-  alignSetTypes,
-  setTypesDiffer,
-} from "@/lib/gc-fitness/assignment-set-types";
 
 import {
   assignTemplate,
@@ -72,41 +43,31 @@ import {
 } from "@/lib/gc-fitness/workout-assignment-actions";
 import { getWorkoutTemplateForAssignment } from "@/lib/gc-fitness/workout-template-actions";
 import { useWorkoutTemplates } from "@/lib/gc-fitness/workout-templates-listener";
-import { ExercisePreviewThumb } from "@/components/gc-fitness/exercise-preview-thumb";
-import {
-  addCivilMonths,
-  END_DATE_PRESET_MONTHS,
-  inferEndDatePresetMonths,
-} from "@/lib/gc-fitness/end-date-presets";
+import { addCivilMonths } from "@/lib/gc-fitness/end-date-presets";
 import {
   expandRecurrenceDates,
   type ExpandableRecurrence,
 } from "@/lib/gc-fitness/recurrence-expansion";
-import { parseDecimalInput } from "@/lib/gc-fitness/decimal-input";
+import {
+  buildAssignRecurrence,
+  buildExerciseOverrides,
+  formatLocalDateToCivil,
+  parseCivilToLocalDate,
+  seedOverrideDrafts,
+  toggleWeekdayIn,
+  type AssignMode,
+  type AssignOverrideDrafts,
+} from "@/lib/gc-fitness/assign-template-overrides";
+
+import { AssignExerciseOverrideCard } from "./assign-template/exercise-override-card";
+import { AssignRecurrenceFields } from "./assign-template/recurrence-fields";
+import { AssignTemplatePicker } from "./assign-template/template-picker";
 
 // #294 — class applied to every day cell the recurrence will land on, so the
 // trainer previews the series on the calendar before submitting. The anchor
 // (selected) day keeps its solid `selected` styling on top of this.
 const RECURRENCE_PREVIEW_CLASS =
   "rounded-md bg-primary/15 font-semibold text-primary";
-
-/**
- * One editable prescribed set inside the assign modal.
- *
- * #582 — the per-set TYPE lives on the row, NOT in a sibling `setTypes[]` array
- * (the shape the assignment EDIT dialog uses). The modal mutates `setRows`
- * inline at five call sites (per-field edit, remove, append, copy-to-all,
- * metric flip); a parallel array would have to be re-synced at every one of
- * them, and a missed sync is exactly the misalignment this issue is about —
- * the warm-up marker sliding onto the wrong set. Embedding it makes
- * add/remove correct by construction.
- */
-interface AssignSetRow {
-  reps: string;
-  kg: string;
-  duration?: string;
-  type: SetType;
-}
 
 interface AssignTemplateModalProps {
   open: boolean;
@@ -118,43 +79,6 @@ interface AssignTemplateModalProps {
   onAssigned?: () => void;
 }
 
-/** "YYYY-MM-DD" → local-time Date at midnight (no UTC shift). */
-function parseCivilToLocalDate(civil: string): Date {
-  const [y, m, d] = civil.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
-/** local-time Date → "YYYY-MM-DD" using the local-time y/m/d parts. */
-function formatLocalDateToCivil(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-function restMinutesHint(rawSeconds: string): string {
-  const seconds = Number(rawSeconds);
-  if (!Number.isFinite(seconds) || seconds <= 0) return "";
-  if (seconds % 60 === 0) {
-    const minutes = seconds / 60;
-    return `${minutes} min`;
-  }
-  if (seconds > 60) {
-    return `${Math.round((seconds / 60) * 10) / 10} min`;
-  }
-  return "";
-}
-
-const WEEKDAY_KEYS = [
-  "sunday",
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-] as const;
-
 export function AssignTemplateModal({
   open,
   onOpenChange,
@@ -164,7 +88,20 @@ export function AssignTemplateModal({
   onAssigned,
 }: AssignTemplateModalProps) {
   const t = useTranslations("schedule.assignModal");
-  const { data: templates, isLoading: templatesLoading } = useWorkoutTemplates();
+  const {
+    data: templates,
+    isLoading: templatesLoading,
+    refetch: refetchTemplates,
+  } = useWorkoutTemplates();
+  // #535 — «Crear rutina» opens the editor in a NEW tab, so this dialog keeps the
+  // client, date and recurrence the coach already chose; when they come back to
+  // this tab the list refetches and the new routine is there to pick.
+  useEffect(() => {
+    if (!open) return;
+    const onFocus = () => void refetchTemplates();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [open, refetchTemplates]);
 
   const [templateId, setTemplateId] = useState<string>("");
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
@@ -173,8 +110,7 @@ export function AssignTemplateModal({
   const [scheduledTime, setScheduledTime] = useState<string>("");
   const [meetingNotes, setMeetingNotes] = useState<string>("");
   // Plan 21-04b: four cadence modes + monthly (added 26-05).
-  type Mode = "once" | "weekly" | "daily" | "everyN" | "monthly";
-  const [mode, setMode] = useState<Mode>("once");
+  const [mode, setMode] = useState<AssignMode>("once");
   // Plan 21-04: multi-weekday recurrence — Set seeded with the cell's weekday.
   const [recurringWeekdays, setRecurringWeekdays] = useState<Set<number>>(
     () => new Set([parseCivilToLocalDate(defaultDate).getDay()]),
@@ -192,36 +128,9 @@ export function AssignTemplateModal({
   > | null>(null);
   const [templateDetailLoading, setTemplateDetailLoading] = useState(false);
   const [templateDetailError, setTemplateDetailError] = useState<string | null>(null);
-  // Per-exercise edit buffer. `setRows` is one entry per prescribed set —
-  // each carries its own reps + kg buffer, mirroring the authoring form's
-  // per-set table. `sets` is derived from setRows.length on commit; the
-  // trainer adds/removes rows via the +/- buttons rather than retyping a
-  // count input. Notes + rest_seconds stay exercise-level.
-  //
-  // 26-03 — `duration` is additive (optional) on each row. Populated only
-  // when the effective metric for that exercise is "time"; otherwise it
-  // remains undefined and the submit-time transform omits
-  // `durationBySetSeconds` from the override.
-  const [overrideDrafts, setOverrideDrafts] = useState<
-    Record<
-      number,
-      {
-        rest_seconds: string;
-        transition_rest_seconds: string;
-        notes: string;
-        setRows: AssignSetRow[];
-        // 260610-j67 (issue #159) — "Sin peso" intent. Seeded from the source
-        // template exercise's hasExplicitNoWeightPrescription; ON → the
-        // override writes weightBySetKg: [] + hides the kg column.
-        noWeight: boolean;
-        // The trainer can switch an exercise between reps- and time-based at
-        // assignment time. Undefined → inherit the template/exercise metric;
-        // set → the chosen metric. The override emits `metric` + per-set
-        // duration when this differs from the template's effective metric.
-        metric?: "reps" | "time";
-      }
-    >
-  >({});
+  // Per-exercise edit buffer (one draft per template exercise; see
+  // `AssignOverrideDraft` for the shape and why set types live on the rows).
+  const [overrideDrafts, setOverrideDrafts] = useState<AssignOverrideDrafts>({});
   const [submitting, setSubmitting] = useState(false);
 
   // Reset the local form state when the modal opens with a new defaultDate.
@@ -270,84 +179,7 @@ export function AssignTemplateModal({
         if (cancelled) return;
         setTemplateDetail(detail);
         setOverrideDrafts(
-          detail.exercises.reduce<Record<number, {
-            rest_seconds: string;
-            transition_rest_seconds: string;
-            notes: string;
-            setRows: AssignSetRow[];
-            noWeight: boolean;
-            metric?: "reps" | "time";
-          }>>((acc, exercise) => {
-            // Reconstruct one row per prescribed set. Pull reps from
-            // repsBySet[i] if present, otherwise from the exercise-level
-            // `reps` fallback. Same for kg from weightBySetKg[i]. The
-            // canonical row count is the MAX of (sets, repsBySet.length,
-            // weightBySetKg.length) so a desync at the source — like the
-            // "sets=1 but weightBySetKg=[24,24,23]" template the operator
-            // ran into — surfaces here as all 3 rows instead of silently
-            // collapsing back to 1.
-            const repsBySet = Array.isArray(exercise.repsBySet)
-              ? exercise.repsBySet
-              : [];
-            const weightBySetKg = Array.isArray(exercise.weightBySetKg)
-              ? exercise.weightBySetKg
-              : [];
-            // 26-03 — Per-set duration source (time exercises only).
-            const durationBySetSeconds = Array.isArray(
-              exercise.durationBySetSeconds,
-            )
-              ? exercise.durationBySetSeconds
-              : [];
-            const rowCount = Math.min(
-              10,
-              Math.max(
-                exercise.sets ?? 1,
-                repsBySet.length,
-                weightBySetKg.length,
-                durationBySetSeconds.length,
-                1,
-              ),
-            );
-            // 26-03 — effective metric per PATTERNS.md §17 + Shared 1.
-            // Cascade: template metric ?? source exercise metric ?? "reps".
-            const exerciseEffectiveMetric: "reps" | "time" =
-              exercise.metric ?? exercise.sourceMetric ?? "reps";
-            const setRows = Array.from({ length: rowCount }, (_, i) => ({
-              reps: String(
-                Number.isFinite(repsBySet[i])
-                  ? repsBySet[i]
-                  : exercise.reps ?? 0,
-              ),
-              kg: Number.isFinite(weightBySetKg[i])
-                ? String(weightBySetKg[i])
-                : "",
-              // #582 — seed from the template's prescription. Short / missing /
-              // unknown entries coerce to "normal" (forgiving decode), and the
-              // row count above may exceed the array, so this always yields a
-              // type for every row.
-              type: plannedSetType(i, exercise.setTypesBySet),
-              ...(exerciseEffectiveMetric === "time"
-                ? {
-                    duration: String(
-                      Number.isFinite(durationBySetSeconds[i])
-                        ? durationBySetSeconds[i]
-                        : exercise.durationSeconds ?? 60,
-                    ),
-                  }
-                : {}),
-            }));
-            acc[exercise.index] = {
-              rest_seconds: String(exercise.rest_seconds),
-              transition_rest_seconds: String(
-                exercise.transition_rest_seconds ?? 60,
-              ),
-              notes: exercise.notes ?? "",
-              setRows,
-              // 260610-j67 — seed the no-weight intent from the template.
-              noWeight: exercise.hasExplicitNoWeightPrescription === true,
-            };
-            return acc;
-          }, {}),
+          seedOverrideDrafts(detail.exercises),
         );
       } catch (error) {
         if (cancelled) return;
@@ -366,195 +198,10 @@ export function AssignTemplateModal({
     };
   }, [templateId, t]);
 
-  const exerciseOverrides = useMemo(() => {
-    if (!templateDetail) return [];
-    return templateDetail.exercises
-      .map((exercise) => {
-        const draft = overrideDrafts[exercise.index];
-        if (!draft) return null;
-
-        // 26-03 — effective metric per PATTERNS.md §17 + Shared 1.
-        // The trainer's per-assignment toggle (draft.metric) wins over the
-        // template's metric; falls back to template ?? source ?? "reps".
-        const templateMetric: "reps" | "time" =
-          exercise.metric ?? exercise.sourceMetric ?? "reps";
-        const effectiveMetric: "reps" | "time" =
-          draft.metric ?? templateMetric;
-        const changedMetric = effectiveMetric !== templateMetric;
-
-        // setRows → reps[] + kg[] + sets count, cleaning non-finite entries.
-        const repsBySet = draft.setRows
-          .map((row) => Number(row.reps))
-          .map((n) => (Number.isFinite(n) ? Math.max(0, Math.min(50, Math.round(n))) : NaN));
-        const weightBySetKg = draft.setRows
-          .map((row) => row.kg.trim())
-          // #451 — "62,5" (es keyboard) is 62.5, not NaN → 0 kg.
-          .map((raw) => (raw === "" ? NaN : parseDecimalInput(raw)))
-          .map((n) => (Number.isFinite(n) ? Math.max(0, Math.min(500, n)) : NaN));
-        // 26-03 — Parallel duration cleanup (5..1800 clamp). Only used
-        // when the effective metric is "time"; we still compute it
-        // unconditionally so a metric flip mid-draft doesn't drop the
-        // values the trainer just typed.
-        const durationBySetSeconds = draft.setRows
-          .map((row) => (row.duration ?? "").trim())
-          .map((raw) => (raw === "" ? NaN : Number(raw)))
-          .map((n) =>
-            Number.isFinite(n) ? Math.max(5, Math.min(1800, Math.round(n))) : NaN,
-          );
-
-        const validRepsLen = repsBySet.filter((n) => Number.isFinite(n)).length;
-        const validDurationLen = durationBySetSeconds.filter((n) =>
-          Number.isFinite(n),
-        ).length;
-        // Set-count basis follows the primary metric: count the populated
-        // duration entries on time exercises, populated reps entries on
-        // reps exercises.
-        const primaryValidLen =
-          effectiveMetric === "time" ? validDurationLen : validRepsLen;
-        const finalSets = Math.max(
-          1,
-          Math.min(10, primaryValidLen || draft.setRows.length),
-        );
-        const finalRepsBySet = repsBySet
-          .slice(0, finalSets)
-          .map((n) => (Number.isFinite(n) ? n : 0));
-        const finalWeightsRaw = weightBySetKg.slice(0, finalSets);
-        // 260610-j67 (issue #159) — when "Sin peso" is on, force no weights
-        // (`weightBySetKg: []`). Otherwise an empty kg field means 0kg,
-        // not a reps-only prescription.
-        const finalWeights = draft.noWeight
-          ? []
-          : Array.from({ length: finalSets }, (_, i) =>
-              Number.isFinite(finalWeightsRaw[i]) ? finalWeightsRaw[i] : 0,
-            );
-        // 26-03 — Final duration array for time exercises.
-        const finalDurationBySetSeconds = durationBySetSeconds
-          .slice(0, finalSets)
-          .map((n) => (Number.isFinite(n) ? n : 60));
-        // #582 — per-set types, always exactly `finalSets` long (rows beyond
-        // the draft pad to "normal"), so a set the coach REMOVED can't leave a
-        // trailing entry that slides the markers on the surviving rows.
-        const finalSetTypes = alignSetTypes(
-          draft.setRows.map((row) => row.type),
-          finalSets,
-        );
-
-        const nextRest = Number(draft.rest_seconds);
-        const nextTransitionRest = Number(draft.transition_rest_seconds);
-        const nextNotes = draft.notes.trim();
-
-        const baseRepsBySet = Array.isArray(exercise.repsBySet) ? exercise.repsBySet : [];
-        const baseWeightBySetKg = Array.isArray(exercise.weightBySetKg)
-          ? exercise.weightBySetKg
-          : [];
-        const baseDurationBySetSeconds = Array.isArray(
-          exercise.durationBySetSeconds,
-        )
-          ? exercise.durationBySetSeconds
-          : [];
-
-        const changedSets = finalSets !== exercise.sets;
-        const changedReps =
-          finalRepsBySet[0] !== undefined && finalRepsBySet[0] !== exercise.reps;
-        const changedRepsBySet =
-          finalRepsBySet.length !== baseRepsBySet.length ||
-          finalRepsBySet.some((v, i) => v !== baseRepsBySet[i]);
-        // #451 — a template with NO weight prescription (legacy doc, empty
-        // array, not the explicit "Sin peso") seeds blank kg cells. Blank cells
-        // the coach never filled are "still no weights", not an explicit
-        // [0, 0, 0] prescription — so they are not a change.
-        const untouchedNoWeights =
-          !draft.noWeight &&
-          baseWeightBySetKg.length === 0 &&
-          draft.setRows.every((row) => row.kg.trim() === "");
-        const changedWeights =
-          !untouchedNoWeights &&
-          (finalWeights.length !== baseWeightBySetKg.length ||
-            finalWeights.some((v, i) => v !== baseWeightBySetKg[i]));
-        // #582 — compare against the template's array COERCED to the final set
-        // count, so "the coach deleted a set" registers as a change even when
-        // no picker was opened: the inherited array is then the wrong length
-        // and every marker after the deleted row is off by one.
-        const baseSetTypes = alignSetTypes(exercise.setTypesBySet, finalSets);
-        const changedSetTypes = setTypesDiffer(finalSetTypes, baseSetTypes);
-        const changedRest =
-          Number.isFinite(nextRest) && nextRest !== exercise.rest_seconds;
-        const changedTransitionRest =
-          Number.isFinite(nextTransitionRest) &&
-          nextTransitionRest !== (exercise.transition_rest_seconds ?? 60);
-        const changedNotes = nextNotes !== (exercise.notes ?? "").trim();
-        // 26-03 — Duration change detection (only relevant when time).
-        const changedDurations =
-          effectiveMetric === "time" &&
-          (finalDurationBySetSeconds.length !== baseDurationBySetSeconds.length ||
-            finalDurationBySetSeconds.some(
-              (v, i) => v !== baseDurationBySetSeconds[i],
-            ));
-
-        if (
-          !changedSets &&
-          !changedReps &&
-          !changedRepsBySet &&
-          !changedWeights &&
-          !changedRest &&
-          !changedTransitionRest &&
-          !changedNotes &&
-          !changedDurations &&
-          !changedMetric &&
-          !changedSetTypes
-        ) {
-          return null;
-        }
-        return {
-          index: exercise.index,
-          ...(changedSets ? { sets: finalSets } : {}),
-          // 26-03 — For reps exercises keep writing `reps` + `repsBySet`
-          // as today. For time exercises we do NOT write reps at all —
-          // PATTERNS.md §17: "do NOT write both arrays for the same
-          // exercise."
-          ...(effectiveMetric === "reps" && changedReps
-            ? { reps: Math.max(0, Math.min(50, Math.round(finalRepsBySet[0] ?? 0))) }
-            : {}),
-          ...(effectiveMetric === "reps" && changedRepsBySet
-            ? { repsBySet: finalRepsBySet }
-            : {}),
-          ...(changedWeights ? { weightBySetKg: finalWeights } : {}),
-          ...(changedRest
-            ? { rest_seconds: Math.max(0, Math.min(600, Math.round(nextRest))) }
-            : {}),
-          ...(changedTransitionRest
-            ? {
-                transition_rest_seconds: Math.max(
-                  0,
-                  Math.min(600, Math.round(nextTransitionRest)),
-                ),
-              }
-            : {}),
-          ...(changedNotes ? { notes: nextNotes } : {}),
-          // #582 — the server realigns to the final set count and DROPS the
-          // key when everything came out normal, so an inherited array can't
-          // outlive an all-normal prescription.
-          ...(changedSetTypes ? { setTypesBySet: finalSetTypes } : {}),
-          // Emit the chosen metric when the trainer flipped reps↔time so the
-          // assignment snapshot carries the new metric (consumers branch on it).
-          ...(changedMetric ? { metric: effectiveMetric } : {}),
-          // 26-03 — Duration override write (time exercises only). Also writes
-          // on a reps→time flip (base durations are empty → changedDurations).
-          // durationSeconds is the exercise-level fallback (the time analog of
-          // `reps`) so the snapshot satisfies "metric=time needs a duration".
-          ...(effectiveMetric === "time" && (changedDurations || changedMetric)
-            ? {
-                durationBySetSeconds: finalDurationBySetSeconds,
-                durationSeconds: finalDurationBySetSeconds[0] ?? 60,
-              }
-            : {}),
-        };
-      })
-      .filter(
-        (item): item is NonNullable<typeof item> =>
-          item !== null,
-      );
-  }, [overrideDrafts, templateDetail]);
+  const exerciseOverrides = useMemo(
+    () => buildExerciseOverrides(templateDetail, overrideDrafts),
+    [overrideDrafts, templateDetail],
+  );
 
   // #294 — civil dates the recurrence will land on, for the calendar preview.
   // Mirrors the rule built in `onSubmit` and expands it with the SAME
@@ -563,23 +210,11 @@ export function AssignTemplateModal({
   // no extra highlight (just the single selected day).
   const previewDates = useMemo<Date[]>(() => {
     if (mode === "once") return [];
-    let recurrence: ExpandableRecurrence;
-    if (mode === "daily") {
-      recurrence = { kind: "daily" };
-    } else if (mode === "everyN") {
-      recurrence = { kind: "every_n_days", everyN: recurringEveryN };
-    } else if (mode === "monthly") {
-      recurrence = {
-        kind: "monthly",
-        dayOfMonth: parseCivilToLocalDate(civilDate).getDate(),
-      };
-    } else {
-      const weekdays = Array.from(recurringWeekdays).sort((a, b) => a - b);
-      recurrence =
-        weekdays.length === 1
-          ? { kind: "weekly", weekday: weekdays[0] }
-          : { kind: "weekly_days", weekdays };
-    }
+    const recurrence: ExpandableRecurrence = buildAssignRecurrence(mode, {
+      civilDate,
+      recurringWeekdays,
+      recurringEveryN,
+    });
     const dates = expandRecurrenceDates(
       recurrence,
       civilDate,
@@ -595,82 +230,9 @@ export function AssignTemplateModal({
     recurringEndDate,
   ]);
 
-  function copyFirstSetToAll(exerciseIndex: number, metric: "reps" | "time") {
-    setOverrideDrafts((prev) => {
-      const cur = prev[exerciseIndex];
-      const first = cur?.setRows[0];
-      if (!cur || !first || cur.setRows.length <= 1) return prev;
-      const next = cur.setRows.map((row, index) => {
-        if (index === 0) return row;
-        // #582 — `...row` keeps each row's own `type`. Copying the first
-        // set's TYPE is deliberately NOT part of "copiar a todas": set 1 is
-        // very often the warm-up, and turning every set into a warm-up is
-        // never what the coach means by copying the prescription.
-        return {
-          ...row,
-          reps: first.reps,
-          kg: first.kg,
-          ...(metric === "time" ? { duration: first.duration ?? "60" } : {}),
-        };
-      });
-      return {
-        ...prev,
-        [exerciseIndex]: { ...cur, setRows: next },
-      };
-    });
-  }
-
-  /** #582 — swap ONE row's per-set type (Hevy picker in the `#` column). */
-  function setRowType(exerciseIndex: number, setIdx: number, type: SetType) {
-    setOverrideDrafts((prev) => {
-      const cur = prev[exerciseIndex];
-      if (!cur) return prev;
-      const next = cur.setRows.map((row, i) =>
-        i === setIdx ? { ...row, type } : row,
-      );
-      return { ...prev, [exerciseIndex]: { ...cur, setRows: next } };
-    });
-  }
-
-  // Flip an exercise between reps- and time-based at assignment time. When
-  // switching to "time", seed each set row's `duration` (so the seconds inputs
-  // start populated instead of empty); `fallbackDuration` is the template's
-  // exercise-level duration when present, else 60s.
-  function setExerciseMetric(
-    exerciseIndex: number,
-    metric: "reps" | "time",
-    fallbackDuration: number,
-  ) {
-    setOverrideDrafts((prev) => {
-      const cur = prev[exerciseIndex];
-      if (!cur) return prev;
-      const setRows =
-        metric === "time"
-          ? cur.setRows.map((row) => ({
-              ...row,
-              duration: row.duration ?? String(fallbackDuration),
-            }))
-          : cur.setRows;
-      return {
-        ...prev,
-        [exerciseIndex]: { ...cur, metric, setRows },
-      };
-    });
-  }
-
   function toggleWeekday(idx: number) {
-    setRecurringWeekdays((prev) => {
-      const next = new Set(prev);
-      if (next.has(idx)) {
-        // Don't let the trainer unselect the last one — at least one weekday
-        // must remain selected.
-        if (next.size === 1) return next;
-        next.delete(idx);
-      } else {
-        next.add(idx);
-      }
-      return next;
-    });
+    // At least one weekday must remain selected.
+    setRecurringWeekdays((prev) => toggleWeekdayIn(prev, idx));
   }
 
   async function onSubmit() {
@@ -695,28 +257,11 @@ export function AssignTemplateModal({
         toast.success(t("successOnce"));
       } else {
         // Plan 21-04b: build the canonical recurrence rule based on the mode.
-        let recurrence:
-          | { kind: "daily" }
-          | { kind: "weekly"; weekday: number }
-          | { kind: "weekly_days"; weekdays: number[] }
-          | { kind: "every_n_days"; everyN: number }
-          | { kind: "monthly"; dayOfMonth: number };
-        if (mode === "daily") {
-          recurrence = { kind: "daily" };
-        } else if (mode === "everyN") {
-          recurrence = { kind: "every_n_days", everyN: recurringEveryN };
-        } else if (mode === "monthly") {
-          recurrence = {
-            kind: "monthly",
-            dayOfMonth: parseCivilToLocalDate(civilDate).getDate(),
-          };
-        } else {
-          const weekdays = Array.from(recurringWeekdays).sort((a, b) => a - b);
-          recurrence =
-            weekdays.length === 1
-              ? { kind: "weekly", weekday: weekdays[0] }
-              : { kind: "weekly_days", weekdays };
-        }
+        const recurrence = buildAssignRecurrence(mode, {
+          civilDate,
+          recurringWeekdays,
+          recurringEveryN,
+        });
         const result = await assignTemplateRecurring({
           templateId,
           clientId,
@@ -757,287 +302,47 @@ export function AssignTemplateModal({
             <div className="flex items-center justify-between gap-2">
               <label className="text-sm font-medium">{t("templateLabel")}</label>
               <Button asChild variant="outline" size="sm" className="h-8 shrink-0 gap-1 rounded-full px-2.5 text-xs">
-                <Link href="/gc-fitness/templates/new">
+                <Link href="/gc-fitness/templates/new" target="_blank" rel="noopener">
                   <Plus className="h-3.5 w-3.5" />
                   {t("createTemplate")}
                 </Link>
               </Button>
             </div>
-            {/* 260529 scroll fix — the template/routine picker now renders
-                INLINE in the dialog body instead of a portaled Popover.
-                Radix Popover portals its content to document.body, which
-                sits OUTSIDE the Dialog's react-remove-scroll shard, so the
-                wheel/touch scroll on the cmdk list was swallowed and long
-                routine lists couldn't be scrolled. An in-flow disclosure
-                panel lives inside DialogContent's allowed scroll region, so
-                CommandList's own overflow scrolls normally. The routines
-                already load — this was purely the scroll lock. */}
-            <button
-              type="button"
-              role="combobox"
-              aria-expanded={templatePickerOpen}
-              onClick={() => setTemplatePickerOpen((prev) => !prev)}
-              className="flex h-9 w-full items-center justify-between gap-2 rounded-md border bg-background px-3 text-sm"
-            >
-              <span
-                className={cn(
-                  "truncate",
-                  !templateId && "text-muted-foreground",
-                )}
-              >
-                {(() => {
-                  const sel = (templates ?? []).find(
-                    (x) => x.id === templateId,
-                  );
-                  if (sel)
-                    return `${sel.name.en}${sel.tag ? ` · ${sel.tag}` : ""}`;
-                  return templatesLoading
-                    ? t("templateLoading")
-                    : t("templatePlaceholder");
-                })()}
-              </span>
-              <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
-            </button>
-            {templatePickerOpen ? (
-              <div className="rounded-md border bg-popover text-popover-foreground shadow-sm">
-                <Command shouldFilter={false}>
-                  <CommandInput
-                    value={templateSearch}
-                    onValueChange={setTemplateSearch}
-                    placeholder="Buscar por nombre o tag…"
-                  />
-                  <CommandList className="max-h-[min(45vh,320px)]">
-                    {(() => {
-                      const list = templates ?? [];
-                      const needle = templateSearch.trim().toLowerCase();
-                      const filtered = needle
-                        ? list.filter((tpl) => {
-                            const tags = Array.isArray(tpl.tags)
-                              ? tpl.tags
-                              : tpl.tag
-                                ? [tpl.tag]
-                                : [];
-                            return `${tpl.name.en} ${tpl.name.es} ${tags.join(" ")}`
-                              .toLowerCase()
-                              .includes(needle);
-                          })
-                        : list;
-                      if (filtered.length === 0) {
-                        return (
-                          <CommandEmpty>
-                            {templatesLoading ? t("templateLoading") : "Sin resultados."}
-                          </CommandEmpty>
-                        );
-                      }
-                      return filtered.map((tpl) => {
-                        const tags =
-                          Array.isArray(tpl.tags) && tpl.tags.length
-                            ? tpl.tags
-                            : tpl.tag
-                              ? [tpl.tag]
-                              : [];
-                        const selected = tpl.id === templateId;
-                        return (
-                          <CommandItem
-                            key={tpl.id}
-                            value={tpl.id}
-                            onSelect={() => {
-                              setTemplateId(tpl.id);
-                              setTemplatePickerOpen(false);
-                              setTemplateSearch("");
-                            }}
-                            className="flex items-center gap-2"
-                          >
-                            <Check
-                              className={cn(
-                                "size-4 shrink-0",
-                                selected ? "opacity-100" : "opacity-0",
-                              )}
-                            />
-                            <span className="min-w-0 flex-1 truncate">
-                              {tpl.name.en}
-                            </span>
-                            {tags.length ? (
-                              <span className="shrink-0 text-xs text-muted-foreground">
-                                {tags.join(" · ")}
-                              </span>
-                            ) : null}
-                          </CommandItem>
-                        );
-                      });
-                    })()}
-                  </CommandList>
-                </Command>
-              </div>
-            ) : null}
+            {/* 260529 scroll fix — rendered INLINE, not in a portaled Popover
+                (see template-picker.tsx). */}
+            <AssignTemplatePicker
+              templates={templates}
+              templatesLoading={templatesLoading}
+              templateId={templateId}
+              templatePickerOpen={templatePickerOpen}
+              templateSearch={templateSearch}
+              onToggle={() => setTemplatePickerOpen((prev) => !prev)}
+              onTemplateSearchChange={setTemplateSearch}
+              onSelect={(id) => {
+                setTemplateId(id);
+                setTemplatePickerOpen(false);
+                setTemplateSearch("");
+              }}
+            />
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">{t("modeLabel")}</label>
-              <Select
-                value={mode}
-                onValueChange={(value) => setMode(value as Mode)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="once">{t("modeOnce")}</SelectItem>
-                  <SelectItem value="weekly">{t("modeWeekly")}</SelectItem>
-                  <SelectItem value="daily">{t("modeDaily")}</SelectItem>
-                  <SelectItem value="everyN">{t("modeEveryN")}</SelectItem>
-                  <SelectItem value="monthly">{t("modeMonthly")}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {mode === "weekly" ? (
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">{t("repeatOnLabel")}</label>
-              <div className="flex flex-wrap gap-2">
-                {WEEKDAY_KEYS.map((key, idx) => {
-                  const active = recurringWeekdays.has(idx);
-                  return (
-                    <Button
-                      key={key}
-                      type="button"
-                      variant={active ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => toggleWeekday(idx)}
-                      aria-pressed={active}
-                    >
-                      {t(`weekdays.${key}`).slice(0, 3)}
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
-
-          {mode === "everyN" ? (
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium" htmlFor="every-n-input">
-                {t("repeatEveryNLabel")}
-              </label>
-              <input
-                id="every-n-input"
-                type="number"
-                min={2}
-                max={30}
-                value={recurringEveryNDraft}
-                onChange={(event) => {
-                  const raw = event.target.value;
-                  setRecurringEveryNDraft(raw);
-                  if (raw.trim() === "") return;
-                  const next = Number(raw);
-                  if (!Number.isFinite(next)) return;
-                  setRecurringEveryN(Math.max(2, Math.min(30, next)));
-                }}
-                onBlur={() => {
-                  if (recurringEveryNDraft.trim() === "") {
-                    setRecurringEveryNDraft(String(recurringEveryN));
-                    return;
-                  }
-                  const next = Number(recurringEveryNDraft);
-                  if (!Number.isFinite(next)) {
-                    setRecurringEveryNDraft(String(recurringEveryN));
-                    return;
-                  }
-                  const normalized = Math.max(2, Math.min(30, next));
-                  setRecurringEveryN(normalized);
-                  setRecurringEveryNDraft(String(normalized));
-                }}
-                className="h-10 w-24 rounded-md border bg-background px-3 text-sm"
-              />
-              <p className="text-xs text-muted-foreground">
-                {t("repeatEveryNHint", { n: recurringEveryN })}
-              </p>
-            </div>
-          ) : null}
-
-          {mode === "monthly" ? (
-            <div className="flex flex-col gap-1.5">
-              <p className="text-xs text-muted-foreground">
-                {t("repeatMonthlyHint", {
-                  day: parseCivilToLocalDate(civilDate).getDate(),
-                })}
-              </p>
-            </div>
-          ) : null}
-
-          {mode !== "once" ? (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="flex items-center gap-2">
-                <input
-                  id="recurring-end-enabled"
-                  type="checkbox"
-                  checked={recurringEndEnabled}
-                  onChange={(event) => {
-                    const next = event.target.checked;
-                    setRecurringEndEnabled(next);
-                    if (next) {
-                      const preset = recurringEndPresetMonths ?? 3;
-                      setRecurringEndPresetMonths(preset);
-                      setRecurringEndDate(addCivilMonths(civilDate, preset));
-                    }
-                  }}
-                  className="h-4 w-4 rounded border"
-                />
-                <label htmlFor="recurring-end-enabled" className="text-sm">
-                  {t("setEndDate")}
-                </label>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium">{t("endDateLabel")}</label>
-                <div className="flex flex-wrap gap-2">
-                  {END_DATE_PRESET_MONTHS.map((months) => {
-                    const active =
-                      recurringEndEnabled &&
-                      recurringEndPresetMonths === months &&
-                      recurringEndDate === addCivilMonths(civilDate, months);
-                    return (
-                      <Button
-                        key={months}
-                        type="button"
-                        variant={active ? "default" : "outline"}
-                        size="sm"
-                        className="rounded-full"
-                        aria-pressed={active}
-                        onClick={() => {
-                          setRecurringEndEnabled(true);
-                          setRecurringEndPresetMonths(months);
-                          setRecurringEndDate(addCivilMonths(civilDate, months));
-                        }}
-                      >
-                        {t("endDatePreset", { months })}
-                      </Button>
-                    );
-                  })}
-                </div>
-                <input
-                  type="date"
-                  value={recurringEndDate}
-                  disabled={!recurringEndEnabled}
-                  min={civilDate}
-                  onChange={(event) => {
-                    const next = event.target.value;
-                    setRecurringEndDate(next);
-                    setRecurringEndPresetMonths(
-                      inferEndDatePresetMonths(civilDate, next),
-                    );
-                  }}
-                  className="h-10 rounded-md border bg-background px-3 text-sm disabled:opacity-50"
-                />
-                <p className="text-xs text-muted-foreground">
-                  {recurringEndEnabled
-                    ? t("endDateHintWithEnd")
-                    : t("endDateHintNoEnd")}
-                </p>
-              </div>
-            </div>
-          ) : null}
+          <AssignRecurrenceFields
+            civilDate={civilDate}
+            mode={mode}
+            setMode={setMode}
+            recurringWeekdays={recurringWeekdays}
+            toggleWeekday={toggleWeekday}
+            recurringEveryN={recurringEveryN}
+            setRecurringEveryN={setRecurringEveryN}
+            recurringEveryNDraft={recurringEveryNDraft}
+            setRecurringEveryNDraft={setRecurringEveryNDraft}
+            recurringEndEnabled={recurringEndEnabled}
+            setRecurringEndEnabled={setRecurringEndEnabled}
+            recurringEndDate={recurringEndDate}
+            setRecurringEndDate={setRecurringEndDate}
+            recurringEndPresetMonths={recurringEndPresetMonths}
+            setRecurringEndPresetMonths={setRecurringEndPresetMonths}
+          />
 
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium">{t("dayLabel")}</label>
@@ -1104,512 +409,16 @@ export function AssignTemplateModal({
             {templateDetail?.exercises.map((exercise, idx) => {
               const draft = overrideDrafts[exercise.index];
               if (!draft) return null;
-              // 26-03 — effective metric cascade per PATTERNS.md §17.
-              // Drives the SEGUNDOS↔REPS header swap + per-row input
-              // field bind below. The trainer's per-assignment toggle
-              // (draft.metric) wins over the template's metric.
-              const effectiveMetric: "reps" | "time" =
-                draft.metric ?? exercise.metric ?? exercise.sourceMetric ?? "reps";
-              const group = exercise.supersetGroup ?? null;
-              const prevGroup =
-                idx > 0
-                  ? templateDetail.exercises[idx - 1].supersetGroup ?? null
-                  : null;
-              const nextGroup =
-                idx < templateDetail.exercises.length - 1
-                  ? templateDetail.exercises[idx + 1].supersetGroup ?? null
-                  : null;
-              const isSupersetStart = group !== null && group !== prevGroup;
-              const isInSuperset =
-                group !== null && (group === prevGroup || group === nextGroup);
-              // D10 — group-level rest for superset members. Round rest + after
-              // rest are single fields shown once on the block start and written
-              // through to EVERY member's draft (D1/D2). The displayed value is
-              // the block's LAST member (canonical group rest).
-              const supersetMemberIdxs = isInSuperset
-                ? templateDetail.exercises
-                    .filter((e) => (e.supersetGroup ?? null) === group)
-                    .map((e) => e.index)
-                : [];
-              const lastMemberIdx =
-                supersetMemberIdxs[supersetMemberIdxs.length - 1];
-              const groupRoundRestValue =
-                lastMemberIdx !== undefined
-                  ? overrideDrafts[lastMemberIdx]?.rest_seconds ?? ""
-                  : "";
-              const groupAfterRestValue =
-                lastMemberIdx !== undefined
-                  ? overrideDrafts[lastMemberIdx]?.transition_rest_seconds ?? ""
-                  : "";
-              const writeGroupRest = (
-                fieldKey: "rest_seconds" | "transition_rest_seconds",
-                value: string,
-              ) =>
-                setOverrideDrafts((prev) => {
-                  const next = { ...prev };
-                  for (const mi of supersetMemberIdxs) {
-                    next[mi] = { ...next[mi], [fieldKey]: value };
-                  }
-                  return next;
-                });
               return (
-                <div
+                <AssignExerciseOverrideCard
                   key={`${exercise.exerciseId}-${exercise.index}`}
-                  className={
-                    isInSuperset
-                      ? "rounded-md border border-amber-500/40 bg-amber-50/40 p-3 dark:border-amber-400/40 dark:bg-amber-950/20"
-                      : "rounded-md border border-border/60 bg-background/60 p-3"
-                  }
-                >
-                  {isSupersetStart ? (
-                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
-                      {t("supersetLabel", { group })}
-                    </p>
-                  ) : null}
-                  {/* D10 — single group rest editor per superset block (round
-                      rest + after-superset rest), write-through to all members. */}
-                  {isSupersetStart ? (
-                    <div className="mb-3 grid gap-2 sm:grid-cols-2">
-                      <label className="text-[11px] font-medium text-amber-800 dark:text-amber-200">
-                        <span className="block truncate">
-                          {t("supersetGroupRoundRest")}
-                        </span>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          value={groupRoundRestValue}
-                          onChange={(event) =>
-                            writeGroupRest("rest_seconds", event.target.value)
-                          }
-                          className="mt-1 h-8 w-full rounded-md border bg-background px-2 text-sm text-foreground"
-                        />
-                        <span className="mt-0.5 block h-3 text-[10px] font-normal text-muted-foreground">
-                          {restMinutesHint(groupRoundRestValue)}
-                        </span>
-                      </label>
-                      <label className="text-[11px] font-medium text-amber-800 dark:text-amber-200">
-                        <span className="block truncate">
-                          {t("supersetGroupAfterRest")}
-                        </span>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          value={groupAfterRestValue}
-                          onChange={(event) =>
-                            writeGroupRest(
-                              "transition_rest_seconds",
-                              event.target.value,
-                            )
-                          }
-                          className="mt-1 h-8 w-full rounded-md border bg-background px-2 text-sm text-foreground"
-                        />
-                        <span className="mt-0.5 block h-3 text-[10px] font-normal text-muted-foreground">
-                          {restMinutesHint(groupAfterRestValue)}
-                        </span>
-                      </label>
-                    </div>
-                  ) : null}
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <ExercisePreviewThumb
-                        src={exercise.previewUrl}
-                        alt={exercise.exerciseName}
-                        width={32}
-                        height={32}
-                      />
-                      <p className="min-w-0 break-words text-sm font-medium">{exercise.exerciseName}</p>
-                      {group ? (
-                        <span className="inline-flex h-5 items-center rounded-full bg-amber-500/20 px-2 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-400/20 dark:text-amber-200">
-                          {group}
-                        </span>
-                      ) : null}
-                      {/* 260610-j67 (issue #159) — "Sin peso" toggle. ON →
-                          override writes weightBySetKg: [] + hides the kg
-                          column for this exercise on the assignment. */}
-                      <button
-                        type="button"
-                        tabIndex={-1}
-                        aria-pressed={draft.noWeight}
-                        onClick={() =>
-                          setOverrideDrafts((prev) => ({
-                            ...prev,
-                            [exercise.index]: {
-                              ...prev[exercise.index],
-                              noWeight: !prev[exercise.index].noWeight,
-                            },
-                          }))
-                        }
-                        className={`inline-flex h-6 shrink-0 items-center gap-1 rounded-md border px-2 text-[11px] font-medium ${
-                          draft.noWeight
-                            ? "border-foreground bg-foreground text-background"
-                            : "border-border/70 bg-background text-foreground hover:border-foreground/30"
-                        }`}
-                      >
-                        {t("exerciseOverridesNoWeight")}
-                      </button>
-                      {/* Reps↔time toggle — lets the trainer switch this
-                          exercise to time-based (seconds/holds, e.g. for
-                          stretches) at assignment time, regardless of the
-                          template's metric. */}
-                      <div className="inline-flex shrink-0 items-center gap-1">
-                        <button
-                          type="button"
-                          tabIndex={-1}
-                          aria-pressed={effectiveMetric === "reps"}
-                          onClick={() =>
-                            setExerciseMetric(
-                              exercise.index,
-                              "reps",
-                              exercise.durationSeconds ?? 60,
-                            )
-                          }
-                          className={`inline-flex h-6 items-center rounded-md border px-2 text-[11px] font-medium ${
-                            effectiveMetric === "reps"
-                              ? "border-foreground bg-foreground text-background"
-                              : "border-border/70 bg-background text-foreground hover:border-foreground/30"
-                          }`}
-                        >
-                          {t("exerciseOverridesMetricReps")}
-                        </button>
-                        <button
-                          type="button"
-                          tabIndex={-1}
-                          aria-pressed={effectiveMetric === "time"}
-                          onClick={() =>
-                            setExerciseMetric(
-                              exercise.index,
-                              "time",
-                              exercise.durationSeconds ?? 60,
-                            )
-                          }
-                          className={`inline-flex h-6 items-center rounded-md border px-2 text-[11px] font-medium ${
-                            effectiveMetric === "time"
-                              ? "border-foreground bg-foreground text-background"
-                              : "border-border/70 bg-background text-foreground hover:border-foreground/30"
-                          }`}
-                        >
-                          {t("exerciseOverridesMetricTime")}
-                        </button>
-                      </div>
-                    </div>
-                    {/* D10 — superset members edit rest at the group level
-                        (above); hide the per-member rest field. */}
-                    {isInSuperset ? null : (
-                    <div className="min-w-0 sm:w-[16rem]">
-                      <label className="min-w-0 text-[11px] font-medium text-muted-foreground">
-                        <span className="block truncate">{t("exerciseOverridesRest")}</span>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          value={draft.rest_seconds}
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            setOverrideDrafts((prev) => ({
-                              ...prev,
-                              [exercise.index]: {
-                                ...prev[exercise.index],
-                                rest_seconds: value,
-                              },
-                            }));
-                          }}
-                          className="mt-1 h-8 w-full rounded-md border bg-background px-2 text-sm text-foreground"
-                        />
-                        <span className="mt-0.5 block h-3 text-[10px] font-normal text-muted-foreground">
-                          {restMinutesHint(draft.rest_seconds)}
-                        </span>
-                      </label>
-                    </div>
-                    )}
-                  </div>
-                  {/* Per-set table — one row per prescribed set. Mirrors the
-                      authoring form so the trainer assigns by editing the
-                      exact (reps × kg) prescription set-by-set rather than
-                      typing a comma-joined string. */}
-                  <div className="mt-2 flex flex-col gap-1.5">
-                    {/* 260610-j67 — when "Sin peso" is on, drop the kg column
-                        from both the header and per-set grids. */}
-                    <div
-                      className={
-                        draft.noWeight
-                          ? "grid grid-cols-[24px_minmax(52px,1fr)_40px] items-center gap-2 px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:grid-cols-[28px_minmax(80px,1fr)_max-content]"
-                          : "grid grid-cols-[24px_minmax(52px,1fr)_minmax(52px,1fr)_40px] items-center gap-2 px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content]"
-                      }
-                    >
-                      <span>{t("exerciseOverridesSetHeader")}</span>
-                      <span>
-                        {effectiveMetric === "time"
-                          ? t("exerciseOverridesSeconds")
-                          : t("exerciseOverridesReps")}
-                      </span>
-                      {!draft.noWeight ? (
-                        <span>{t("exerciseOverridesWeightHeader")}</span>
-                      ) : null}
-                      <span aria-hidden="true" />
-                    </div>
-                    {draft.setRows.map((row, setIdx) => (
-                      <div
-                        key={`${exercise.exerciseId}-set-${setIdx + 1}`}
-                        className={
-                          draft.noWeight
-                            ? "grid grid-cols-[24px_minmax(52px,1fr)_40px] items-center gap-2 sm:grid-cols-[28px_minmax(80px,1fr)_max-content]"
-                            : "grid grid-cols-[24px_minmax(52px,1fr)_minmax(52px,1fr)_40px] items-center gap-2 sm:grid-cols-[28px_minmax(80px,1fr)_minmax(80px,1fr)_max-content]"
-                        }
-                      >
-                        {/* #582 — the `#` cell is the per-set type picker, same
-                            control the assignment EDIT dialog and the template
-                            form use. Hevy label: a colored letter for
-                            warm-up/fallo/drop, otherwise a number counting ONLY
-                            normal sets. */}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              type="button"
-                              tabIndex={-1}
-                              aria-label={`Tipo de la serie ${setIdx + 1}: ${SET_TYPE_LABELS_ES[row.type]}`}
-                              title="Cambiar tipo de serie"
-                              className={cn(
-                                "inline-flex h-7 w-7 items-center justify-center rounded-md text-xs hover:bg-muted",
-                                row.type === "normal"
-                                  ? "text-muted-foreground"
-                                  : cn("font-bold", SET_TYPE_TEXT_CLASS[row.type]),
-                              )}
-                            >
-                              {
-                                setDisplayLabels(
-                                  draft.setRows.map((r) => r.type),
-                                )[setIdx]
-                              }
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start">
-                            {SET_TYPES.map((type) => (
-                              <DropdownMenuItem
-                                key={type}
-                                onSelect={() =>
-                                  setRowType(exercise.index, setIdx, type)
-                                }
-                                className={cn(
-                                  "gap-2",
-                                  type === row.type && "bg-muted",
-                                )}
-                              >
-                                <span
-                                  className={cn(
-                                    "w-4 text-center font-semibold",
-                                    SET_TYPE_TEXT_CLASS[type],
-                                  )}
-                                >
-                                  {SET_TYPE_LETTERS[type] ?? "#"}
-                                </span>
-                                {SET_TYPE_LABELS_ES[type]}
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                        {/* 26-03 — Primary input branches on effectiveMetric.
-                            Time exercises bind to row.duration (5..1800
-                            placeholder 60); reps stays as today. */}
-                        {effectiveMetric === "time" ? (
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            value={row.duration ?? ""}
-                            onChange={(event) => {
-                              const value = event.target.value;
-                              setOverrideDrafts((prev) => {
-                                const cur = prev[exercise.index];
-                                const next = cur.setRows.map((r, i) =>
-                                  i === setIdx ? { ...r, duration: value } : r,
-                                );
-                                return {
-                                  ...prev,
-                                  [exercise.index]: { ...cur, setRows: next },
-                                };
-                              });
-                            }}
-                            placeholder="60"
-                            className="h-9 rounded-md border bg-background px-2 text-sm"
-                            aria-label={`Duración serie ${setIdx + 1} en segundos`}
-                          />
-                        ) : (
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            value={row.reps}
-                            onChange={(event) => {
-                              const value = event.target.value;
-                              setOverrideDrafts((prev) => {
-                                const cur = prev[exercise.index];
-                                const next = cur.setRows.map((r, i) =>
-                                  i === setIdx ? { ...r, reps: value } : r,
-                                );
-                                return {
-                                  ...prev,
-                                  [exercise.index]: { ...cur, setRows: next },
-                                };
-                              });
-                            }}
-                            placeholder={t("exerciseOverridesRepsPlaceholder")}
-                            className="h-9 rounded-md border bg-background px-2 text-sm"
-                          />
-                        )}
-                        {/* 260610-j67 — hide the kg input when "Sin peso". */}
-                        {!draft.noWeight ? (
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            value={row.kg}
-                            onChange={(event) => {
-                              const value = event.target.value;
-                              // #451 — accept "62,5" and "62.5"; drop a
-                              // keystroke that makes the cell unparseable so
-                              // garbage can't reach the payload as 0 kg.
-                              if (
-                                value.trim() !== "" &&
-                                !Number.isFinite(parseDecimalInput(value))
-                              ) {
-                                return;
-                              }
-                              setOverrideDrafts((prev) => {
-                                const cur = prev[exercise.index];
-                                const next = cur.setRows.map((r, i) =>
-                                  i === setIdx ? { ...r, kg: value } : r,
-                                );
-                                return {
-                                  ...prev,
-                                  [exercise.index]: { ...cur, setRows: next },
-                                };
-                              });
-                            }}
-                            placeholder={t("exerciseOverridesKgPlaceholder")}
-                            className="h-9 rounded-md border bg-background px-2 text-sm"
-                          />
-                        ) : null}
-                        <div className="flex items-center justify-end gap-1">
-                          {setIdx === 0 ? (
-                            <button
-                              type="button"
-                              onClick={() => copyFirstSetToAll(exercise.index, effectiveMetric)}
-                              disabled={draft.setRows.length <= 1}
-                              tabIndex={-1}
-                              className="inline-flex h-7 w-9 items-center justify-center rounded-md border border-border/70 bg-background px-2 text-xs font-medium text-foreground hover:border-foreground/30 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:justify-start"
-                              title={t("exerciseOverridesCopyToAll")}
-                            >
-                              <Copy className="h-3.5 w-3.5 sm:hidden" />
-                              <span className="hidden sm:inline">
-                                {t("exerciseOverridesCopyToAll")}
-                              </span>
-                            </button>
-                          ) : null}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOverrideDrafts((prev) => {
-                                const cur = prev[exercise.index];
-                                if (cur.setRows.length <= 1) return prev;
-                                const next = cur.setRows.filter((_, i) => i !== setIdx);
-                                return {
-                                  ...prev,
-                                  [exercise.index]: { ...cur, setRows: next },
-                                };
-                              });
-                            }}
-                            disabled={draft.setRows.length <= 1}
-                            tabIndex={-1}
-                            aria-label={t("exerciseOverridesRemoveSet", { index: setIdx + 1 })}
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-muted-foreground hover:border-border hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setOverrideDrafts((prev) => {
-                          const cur = prev[exercise.index];
-                          if (cur.setRows.length >= 10) return prev;
-                          // New row carries the previous row's values as a
-                          // sensible default — common case is +1 set with
-                          // same prescription as the prior set. 26-03
-                          // additionally seeds `duration` when the
-                          // effective metric is "time" so the new row
-                          // surfaces a usable number instead of an empty
-                          // string.
-                          const last = cur.setRows[cur.setRows.length - 1];
-                          const newRow: AssignSetRow = {
-                            reps: last?.reps ?? "0",
-                            kg: last?.kg ?? "",
-                            // #582 — an appended set is NORMAL, never the
-                            // previous row's type: inheriting it would turn
-                            // "+ agregar serie" after a warm-up into a second
-                            // warm-up. Values carry over, the type does not.
-                            type: "normal",
-                          };
-                          if (effectiveMetric === "time") {
-                            newRow.duration = last?.duration ?? "60";
-                          }
-                          const next = [...cur.setRows, newRow];
-                          return {
-                            ...prev,
-                            [exercise.index]: { ...cur, setRows: next },
-                          };
-                        });
-                      }}
-                      disabled={draft.setRows.length >= 10}
-                      tabIndex={-1}
-                      className="mt-1 inline-flex h-7 items-center gap-1 self-start rounded-md border border-border/70 bg-background px-2 text-xs font-medium text-foreground hover:border-foreground/30 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      + {t("exerciseOverridesAddSet")}
-                    </button>
-                  </div>
-                  <textarea
-                    value={draft.notes}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setOverrideDrafts((prev) => ({
-                        ...prev,
-                        [exercise.index]: { ...prev[exercise.index], notes: value },
-                      }));
-                    }}
-                    placeholder={t("exerciseOverridesNotesPlaceholder")}
-                    className="mt-2 min-h-16 w-full rounded-md border bg-background px-2 py-2 text-sm"
-                  />
-                  {/* Transition rest sits below the coach notes — the client
-                      sees it after finishing this exercise. Superset members
-                      edit the after-superset rest at the group level (D10). */}
-                  {isInSuperset ? null : (
-                  <label className="mt-3 block rounded-md border border-amber-400/50 bg-amber-50/60 p-3 text-[11px] font-medium text-amber-800 shadow-sm dark:border-amber-300/35 dark:bg-amber-950/20 dark:text-amber-200">
-                    <span className="block">{t("exerciseOverridesTransitionRest")}</span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={draft.transition_rest_seconds}
-                      onChange={(event) => {
-                        const value = event.target.value;
-                        setOverrideDrafts((prev) => ({
-                          ...prev,
-                          [exercise.index]: {
-                            ...prev[exercise.index],
-                            transition_rest_seconds: value,
-                          },
-                        }));
-                      }}
-                      className="mt-1 h-9 w-full rounded-md border border-amber-300/70 bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50 dark:border-amber-300/40"
-                    />
-                    <span className="mt-1 block text-[10px] font-normal text-amber-700/80 dark:text-amber-200/80">
-                      {restMinutesHint(draft.transition_rest_seconds)}
-                    </span>
-                  </label>
-                  )}
-                </div>
+                  exercise={exercise}
+                  idx={idx}
+                  exercises={templateDetail.exercises}
+                  draft={draft}
+                  overrideDrafts={overrideDrafts}
+                  setOverrideDrafts={setOverrideDrafts}
+                />
               );
             })}
           </div>

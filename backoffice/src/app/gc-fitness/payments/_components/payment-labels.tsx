@@ -116,10 +116,10 @@ export function usePaymentLabels() {
 }
 
 const CHIP_CLASS: Record<BillingState, string> = {
-  up_to_date: "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200",
-  due_soon: "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200",
-  overdue: "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200",
-  none: "border-zinc-200 bg-zinc-50 text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300",
+  up_to_date: "border-status-ok/25 bg-status-ok-soft text-status-ok",
+  due_soon: "border-status-due/25 bg-status-due-soft text-status-due",
+  overdue: "border-status-overdue/25 bg-status-overdue-soft text-status-overdue",
+  none: "border-border bg-muted text-muted-foreground",
 };
 
 /** Chip de estado: verde (al día) · ámbar (vence pronto) · rojo (vencido) · gris (sin plan). */
@@ -137,6 +137,4 @@ export function PaymentStatusChip({ state, className }: { state: BillingState; c
   );
 }
 
-/** `<select>` nativo con el estilo de los inputs (testeable sin portales). */
-export const SELECT_CLASS =
-  "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50";
+

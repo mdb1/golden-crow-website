@@ -1,0 +1,1664 @@
+{
+  "_comment": "#1644 — THE nutrition-plan resolution table (#913): `plansOverlapping` (the phase strip) and the assign-time planner `NutritionPlanOverlap.edits` (trim / supersede / deferStart — never two plans active on one civil day). `activePlan` (which plan is in force on a day, with its tie-break) lives in twin-vectors/nutrition-ai-vectors.json and every twin runs it from there. ONE file, read by Swift (NutritionPlanResolutionVectorTests), Kotlin (NutritionPlanResolutionVectorTest) and the backoffice nutrition-plan-resolution.ts (pinned copy, drift-checked by scripts/check-twin-vectors.py); functions has no planner (it only resolves the active plan). Plans are full nutrition_plans docs so every decoder (Codable / fromMap) runs on them.",
+  "overlapping": [
+    {
+      "name": "un rango que cruza dos fases",
+      "plans": [
+        {
+          "id": "a",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan a",
+            "en": "Plan a"
+          },
+          "startsOn": "2026-08-01",
+          "endsOn": "2026-08-31",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        },
+        {
+          "id": "b",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan b",
+            "en": "Plan b"
+          },
+          "startsOn": "2026-09-01",
+          "endsOn": null,
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        },
+        {
+          "id": "c",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan c",
+            "en": "Plan c"
+          },
+          "startsOn": "2026-06-01",
+          "endsOn": "2026-06-30",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ],
+          "deleted": true
+        },
+        {
+          "id": "d",
+          "clientId": "u1",
+          "trainerId": "u1",
+          "source": "self",
+          "name": {
+            "es": "Plan d",
+            "en": "Plan d"
+          },
+          "startsOn": "2026-07-01",
+          "endsOn": "2026-07-15",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        }
+      ],
+      "start": "2026-08-15",
+      "end": "2026-09-10",
+      "expectedIds": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "name": "el plan propio y la fase del coach, en orden de inicio",
+      "plans": [
+        {
+          "id": "a",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan a",
+            "en": "Plan a"
+          },
+          "startsOn": "2026-08-01",
+          "endsOn": "2026-08-31",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        },
+        {
+          "id": "b",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan b",
+            "en": "Plan b"
+          },
+          "startsOn": "2026-09-01",
+          "endsOn": null,
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        },
+        {
+          "id": "c",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan c",
+            "en": "Plan c"
+          },
+          "startsOn": "2026-06-01",
+          "endsOn": "2026-06-30",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ],
+          "deleted": true
+        },
+        {
+          "id": "d",
+          "clientId": "u1",
+          "trainerId": "u1",
+          "source": "self",
+          "name": {
+            "es": "Plan d",
+            "en": "Plan d"
+          },
+          "startsOn": "2026-07-01",
+          "endsOn": "2026-07-15",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        }
+      ],
+      "start": "2026-07-10",
+      "end": "2026-08-01",
+      "expectedIds": [
+        "d",
+        "a"
+      ]
+    },
+    {
+      "name": "un hueco entre fases",
+      "plans": [
+        {
+          "id": "a",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan a",
+            "en": "Plan a"
+          },
+          "startsOn": "2026-08-01",
+          "endsOn": "2026-08-31",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        },
+        {
+          "id": "b",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan b",
+            "en": "Plan b"
+          },
+          "startsOn": "2026-09-01",
+          "endsOn": null,
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        },
+        {
+          "id": "c",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan c",
+            "en": "Plan c"
+          },
+          "startsOn": "2026-06-01",
+          "endsOn": "2026-06-30",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ],
+          "deleted": true
+        },
+        {
+          "id": "d",
+          "clientId": "u1",
+          "trainerId": "u1",
+          "source": "self",
+          "name": {
+            "es": "Plan d",
+            "en": "Plan d"
+          },
+          "startsOn": "2026-07-01",
+          "endsOn": "2026-07-15",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        }
+      ],
+      "start": "2026-07-16",
+      "end": "2026-07-31",
+      "expectedIds": []
+    },
+    {
+      "name": "la fase abierta cubre cualquier futuro",
+      "plans": [
+        {
+          "id": "a",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan a",
+            "en": "Plan a"
+          },
+          "startsOn": "2026-08-01",
+          "endsOn": "2026-08-31",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        },
+        {
+          "id": "b",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan b",
+            "en": "Plan b"
+          },
+          "startsOn": "2026-09-01",
+          "endsOn": null,
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        },
+        {
+          "id": "c",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan c",
+            "en": "Plan c"
+          },
+          "startsOn": "2026-06-01",
+          "endsOn": "2026-06-30",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ],
+          "deleted": true
+        },
+        {
+          "id": "d",
+          "clientId": "u1",
+          "trainerId": "u1",
+          "source": "self",
+          "name": {
+            "es": "Plan d",
+            "en": "Plan d"
+          },
+          "startsOn": "2026-07-01",
+          "endsOn": "2026-07-15",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        }
+      ],
+      "start": "2027-01-01",
+      "end": "2027-02-01",
+      "expectedIds": [
+        "b"
+      ]
+    },
+    {
+      "name": "rango invertido",
+      "plans": [
+        {
+          "id": "a",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan a",
+            "en": "Plan a"
+          },
+          "startsOn": "2026-08-01",
+          "endsOn": "2026-08-31",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        },
+        {
+          "id": "b",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan b",
+            "en": "Plan b"
+          },
+          "startsOn": "2026-09-01",
+          "endsOn": null,
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        },
+        {
+          "id": "c",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan c",
+            "en": "Plan c"
+          },
+          "startsOn": "2026-06-01",
+          "endsOn": "2026-06-30",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ],
+          "deleted": true
+        },
+        {
+          "id": "d",
+          "clientId": "u1",
+          "trainerId": "u1",
+          "source": "self",
+          "name": {
+            "es": "Plan d",
+            "en": "Plan d"
+          },
+          "startsOn": "2026-07-01",
+          "endsOn": "2026-07-15",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        }
+      ],
+      "start": "2026-09-10",
+      "end": "2026-08-15",
+      "expectedIds": []
+    },
+    {
+      "name": "los borrados no cuentan",
+      "plans": [
+        {
+          "id": "a",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan a",
+            "en": "Plan a"
+          },
+          "startsOn": "2026-08-01",
+          "endsOn": "2026-08-31",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        },
+        {
+          "id": "b",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan b",
+            "en": "Plan b"
+          },
+          "startsOn": "2026-09-01",
+          "endsOn": null,
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        },
+        {
+          "id": "c",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan c",
+            "en": "Plan c"
+          },
+          "startsOn": "2026-06-01",
+          "endsOn": "2026-06-30",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ],
+          "deleted": true
+        },
+        {
+          "id": "d",
+          "clientId": "u1",
+          "trainerId": "u1",
+          "source": "self",
+          "name": {
+            "es": "Plan d",
+            "en": "Plan d"
+          },
+          "startsOn": "2026-07-01",
+          "endsOn": "2026-07-15",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        }
+      ],
+      "start": "2026-06-10",
+      "end": "2026-06-20",
+      "expectedIds": []
+    },
+    {
+      "name": "borde: el último día de una fase",
+      "plans": [
+        {
+          "id": "a",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan a",
+            "en": "Plan a"
+          },
+          "startsOn": "2026-08-01",
+          "endsOn": "2026-08-31",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        },
+        {
+          "id": "b",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan b",
+            "en": "Plan b"
+          },
+          "startsOn": "2026-09-01",
+          "endsOn": null,
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        },
+        {
+          "id": "c",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan c",
+            "en": "Plan c"
+          },
+          "startsOn": "2026-06-01",
+          "endsOn": "2026-06-30",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ],
+          "deleted": true
+        },
+        {
+          "id": "d",
+          "clientId": "u1",
+          "trainerId": "u1",
+          "source": "self",
+          "name": {
+            "es": "Plan d",
+            "en": "Plan d"
+          },
+          "startsOn": "2026-07-01",
+          "endsOn": "2026-07-15",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        }
+      ],
+      "start": "2026-07-15",
+      "end": "2026-07-15",
+      "expectedIds": [
+        "d"
+      ]
+    },
+    {
+      "name": "borde: el día del corte pertenece a la fase nueva",
+      "plans": [
+        {
+          "id": "a",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan a",
+            "en": "Plan a"
+          },
+          "startsOn": "2026-08-01",
+          "endsOn": "2026-08-31",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        },
+        {
+          "id": "b",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan b",
+            "en": "Plan b"
+          },
+          "startsOn": "2026-09-01",
+          "endsOn": null,
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        },
+        {
+          "id": "c",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan c",
+            "en": "Plan c"
+          },
+          "startsOn": "2026-06-01",
+          "endsOn": "2026-06-30",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ],
+          "deleted": true
+        },
+        {
+          "id": "d",
+          "clientId": "u1",
+          "trainerId": "u1",
+          "source": "self",
+          "name": {
+            "es": "Plan d",
+            "en": "Plan d"
+          },
+          "startsOn": "2026-07-01",
+          "endsOn": "2026-07-15",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        }
+      ],
+      "start": "2026-09-01",
+      "end": "2026-09-01",
+      "expectedIds": [
+        "b"
+      ]
+    },
+    {
+      "name": "borde: el día antes del corte",
+      "plans": [
+        {
+          "id": "a",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan a",
+            "en": "Plan a"
+          },
+          "startsOn": "2026-08-01",
+          "endsOn": "2026-08-31",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        },
+        {
+          "id": "b",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan b",
+            "en": "Plan b"
+          },
+          "startsOn": "2026-09-01",
+          "endsOn": null,
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        },
+        {
+          "id": "c",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan c",
+            "en": "Plan c"
+          },
+          "startsOn": "2026-06-01",
+          "endsOn": "2026-06-30",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ],
+          "deleted": true
+        },
+        {
+          "id": "d",
+          "clientId": "u1",
+          "trainerId": "u1",
+          "source": "self",
+          "name": {
+            "es": "Plan d",
+            "en": "Plan d"
+          },
+          "startsOn": "2026-07-01",
+          "endsOn": "2026-07-15",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        }
+      ],
+      "start": "2026-08-31",
+      "end": "2026-08-31",
+      "expectedIds": [
+        "a"
+      ]
+    },
+    {
+      "name": "todo el año",
+      "plans": [
+        {
+          "id": "a",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan a",
+            "en": "Plan a"
+          },
+          "startsOn": "2026-08-01",
+          "endsOn": "2026-08-31",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        },
+        {
+          "id": "b",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan b",
+            "en": "Plan b"
+          },
+          "startsOn": "2026-09-01",
+          "endsOn": null,
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        },
+        {
+          "id": "c",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan c",
+            "en": "Plan c"
+          },
+          "startsOn": "2026-06-01",
+          "endsOn": "2026-06-30",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ],
+          "deleted": true
+        },
+        {
+          "id": "d",
+          "clientId": "u1",
+          "trainerId": "u1",
+          "source": "self",
+          "name": {
+            "es": "Plan d",
+            "en": "Plan d"
+          },
+          "startsOn": "2026-07-01",
+          "endsOn": "2026-07-15",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        }
+      ],
+      "start": "2026-01-01",
+      "end": "2026-12-31",
+      "expectedIds": [
+        "d",
+        "a",
+        "b"
+      ]
+    }
+  ],
+  "overlapEdits": [
+    {
+      "name": "la fase vigente abierta se recorta el día antes",
+      "existing": [
+        {
+          "id": "a",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan a",
+            "en": "Plan a"
+          },
+          "startsOn": "2026-08-01",
+          "endsOn": null,
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        }
+      ],
+      "newStartsOn": "2026-09-01",
+      "newEndsOn": null,
+      "expected": [
+        {
+          "planId": "a",
+          "action": {
+            "kind": "trim",
+            "endsOn": "2026-08-31"
+          }
+        }
+      ]
+    },
+    {
+      "name": "una fase ya cerrada antes no se toca",
+      "existing": [
+        {
+          "id": "a",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan a",
+            "en": "Plan a"
+          },
+          "startsOn": "2026-08-01",
+          "endsOn": "2026-08-31",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        }
+      ],
+      "newStartsOn": "2026-09-01",
+      "newEndsOn": null,
+      "expected": []
+    },
+    {
+      "name": "una fase que termina justo el día del corte se recorta",
+      "existing": [
+        {
+          "id": "a",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan a",
+            "en": "Plan a"
+          },
+          "startsOn": "2026-08-01",
+          "endsOn": "2026-09-01",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        }
+      ],
+      "newStartsOn": "2026-09-01",
+      "newEndsOn": null,
+      "expected": [
+        {
+          "planId": "a",
+          "action": {
+            "kind": "trim",
+            "endsOn": "2026-08-31"
+          }
+        }
+      ]
+    },
+    {
+      "name": "una fase futura en cola queda reemplazada por una nueva abierta",
+      "existing": [
+        {
+          "id": "q",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan q",
+            "en": "Plan q"
+          },
+          "startsOn": "2026-10-01",
+          "endsOn": "2026-10-31",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        }
+      ],
+      "newStartsOn": "2026-09-01",
+      "newEndsOn": null,
+      "expected": [
+        {
+          "planId": "q",
+          "action": {
+            "kind": "supersede"
+          }
+        }
+      ]
+    },
+    {
+      "name": "una fase futura contenida en la nueva queda reemplazada",
+      "existing": [
+        {
+          "id": "q",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan q",
+            "en": "Plan q"
+          },
+          "startsOn": "2026-10-01",
+          "endsOn": "2026-10-31",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        }
+      ],
+      "newStartsOn": "2026-09-01",
+      "newEndsOn": "2026-12-31",
+      "expected": [
+        {
+          "planId": "q",
+          "action": {
+            "kind": "supersede"
+          }
+        }
+      ]
+    },
+    {
+      "name": "una fase futura que sobrevive a la nueva corre su inicio",
+      "existing": [
+        {
+          "id": "q",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan q",
+            "en": "Plan q"
+          },
+          "startsOn": "2026-10-01",
+          "endsOn": null,
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        }
+      ],
+      "newStartsOn": "2026-09-01",
+      "newEndsOn": "2026-10-15",
+      "expected": [
+        {
+          "planId": "q",
+          "action": {
+            "kind": "deferStart",
+            "startsOn": "2026-10-16"
+          }
+        }
+      ]
+    },
+    {
+      "name": "una fase posterior a la nueva no se toca",
+      "existing": [
+        {
+          "id": "l",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan l",
+            "en": "Plan l"
+          },
+          "startsOn": "2027-01-01",
+          "endsOn": null,
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        }
+      ],
+      "newStartsOn": "2026-09-01",
+      "newEndsOn": "2026-12-31",
+      "expected": []
+    },
+    {
+      "name": "los borrados no se tocan",
+      "existing": [
+        {
+          "id": "x",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan x",
+            "en": "Plan x"
+          },
+          "startsOn": "2026-08-01",
+          "endsOn": null,
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ],
+          "deleted": true
+        }
+      ],
+      "newStartsOn": "2026-09-01",
+      "newEndsOn": null,
+      "expected": []
+    },
+    {
+      "name": "un plan sin id no se puede editar",
+      "existing": [
+        {
+          "id": null,
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan None",
+            "en": "Plan None"
+          },
+          "startsOn": "2026-08-01",
+          "endsOn": null,
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        }
+      ],
+      "newStartsOn": "2026-09-01",
+      "newEndsOn": null,
+      "expected": []
+    },
+    {
+      "name": "el propio del cliente se cierra en el mismo lote, en orden de inicio",
+      "existing": [
+        {
+          "id": "q",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan q",
+            "en": "Plan q"
+          },
+          "startsOn": "2026-10-01",
+          "endsOn": "2026-10-31",
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        },
+        {
+          "id": "s",
+          "clientId": "u1",
+          "trainerId": "u1",
+          "source": "self",
+          "name": {
+            "es": "Plan s",
+            "en": "Plan s"
+          },
+          "startsOn": "2026-08-01",
+          "endsOn": null,
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        }
+      ],
+      "newStartsOn": "2026-09-01",
+      "newEndsOn": null,
+      "expected": [
+        {
+          "planId": "s",
+          "action": {
+            "kind": "trim",
+            "endsOn": "2026-08-31"
+          }
+        },
+        {
+          "planId": "q",
+          "action": {
+            "kind": "supersede"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mismo inicio: la nueva reemplaza a la vieja",
+      "existing": [
+        {
+          "id": "s",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan s",
+            "en": "Plan s"
+          },
+          "startsOn": "2026-09-01",
+          "endsOn": null,
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        }
+      ],
+      "newStartsOn": "2026-09-01",
+      "newEndsOn": null,
+      "expected": [
+        {
+          "planId": "s",
+          "action": {
+            "kind": "supersede"
+          }
+        }
+      ]
+    },
+    {
+      "name": "el corte el 1 de marzo recorta al 28 de febrero",
+      "existing": [
+        {
+          "id": "a",
+          "clientId": "u1",
+          "trainerId": "coach",
+          "source": "coach",
+          "name": {
+            "es": "Plan a",
+            "en": "Plan a"
+          },
+          "startsOn": "2026-01-01",
+          "endsOn": null,
+          "targets": {
+            "kcal": 2000
+          },
+          "meals": [
+            {
+              "mealId": "meal-a",
+              "name": {
+                "es": "Desayuno",
+                "en": "Breakfast"
+              },
+              "moment": "breakfast",
+              "order": 0
+            }
+          ]
+        }
+      ],
+      "newStartsOn": "2026-03-01",
+      "newEndsOn": null,
+      "expected": [
+        {
+          "planId": "a",
+          "action": {
+            "kind": "trim",
+            "endsOn": "2026-02-28"
+          }
+        }
+      ]
+    },
+    {
+      "name": "sin planes no hay ediciones",
+      "existing": [],
+      "newStartsOn": "2026-09-01",
+      "newEndsOn": null,
+      "expected": []
+    }
+  ]
+}

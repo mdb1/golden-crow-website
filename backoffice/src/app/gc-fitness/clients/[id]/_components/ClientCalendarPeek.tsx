@@ -142,7 +142,14 @@ export function ClientCalendarPeek({
     scope: "one" | "future" | "all";
   }) {
     try {
-      const { movedCount } = await moveAssignment(input);
+      // #513 — the action RETURNS its failure (ActionResult); only a network
+      // or programmer error still lands in the catch.
+      const result = await moveAssignment(input);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      const { movedCount } = result;
       toast.success(
         movedCount === 1
           ? "Workout movido"
@@ -161,6 +168,13 @@ export function ClientCalendarPeek({
     const chip = dragChip;
     setDragChip(null);
     if (!chip) return;
+    requestMove(chip, targetDay);
+  }
+
+  // The ONE move path — shared by the drop above and the detail dialog's
+  // "Mover a fecha…" (#513, same as the Agenda's #493). Same-day is a no-op;
+  // a recurring chip asks for the scope first.
+  function requestMove(chip: MonthWorkoutChip, targetDay: string) {
     if (chip.scheduledFor === targetDay) return;
     if (chip.seriesId && chip.recurrenceKind && chip.recurrenceKind !== "single") {
       setPendingMove({ chip, newDate: targetDay });
@@ -370,6 +384,14 @@ export function ClientCalendarPeek({
           // Refresh the currently-viewed week so an edit/delete reflects here.
           void loadAnchor(peek.anchorCivil);
         }}
+        // #513 — keyboard/touch alternative to dragging, same as the Agenda.
+        // The dialog itself hides the control for read-only (self-assigned /
+        // inherited) workouts.
+        onMoveTo={(newDate) => {
+          const chip = findWorkoutChip(peek.calendar.workoutsByDay, detailAssignmentId);
+          setDetailAssignmentId(null);
+          if (chip) requestMove(chip, newDate);
+        }}
       />
     ) : null}
    </QueryClientProvider>
@@ -462,15 +484,26 @@ function itemIcon(item: PeekItem) {
 
 function itemClassName(item: PeekItem): string {
   if (item.status === "completed") {
-    return "border-emerald-500/40 bg-emerald-500/10 text-emerald-900 dark:text-emerald-200";
+    return "border-success/40 bg-success/10 text-success";
   }
   if (item.status === "missed") {
-    return "border-rose-400/40 bg-rose-500/10 text-rose-900 dark:text-rose-200";
+    return "border-danger/40 bg-danger/10 text-danger";
   }
   if (item.status === "started") {
-    return "border-sky-500/40 bg-sky-500/10 text-sky-900 dark:text-sky-200";
+    return "border-info/40 bg-info/10 text-info";
   }
   return "border-border bg-muted/40 text-foreground";
+}
+
+function findWorkoutChip(
+  workoutsByDay: Record<string, MonthWorkoutChip[]>,
+  id: string,
+): MonthWorkoutChip | null {
+  for (const chips of Object.values(workoutsByDay)) {
+    const hit = chips.find((c) => c.id === id);
+    if (hit) return hit;
+  }
+  return null;
 }
 
 function civilDaysInRange(startCivil: string, endCivil: string): string[] {

@@ -251,7 +251,7 @@ export function QuickRepliesForm({ initialReplies }: QuickRepliesFormProps) {
           </Button>
           <div className="flex items-center gap-2">
             {savedAt && !pending && !form.formState.isDirty ? (
-              <span className="text-xs text-emerald-700">{t("savedInline")}</span>
+              <span className="text-xs text-success">{t("savedInline")}</span>
             ) : null}
             <Button type="submit" disabled={pending || !form.formState.isDirty}>
             {pending ? t("saving") : t("save")}

@@ -12,10 +12,11 @@
 // is preserved.
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
+  CalendarClock,
   Download,
   History,
   MessageCircle,
@@ -73,6 +74,14 @@ interface WorkoutDetailDialogProps {
    * mutation resolves. Parent invalidates the calendar query in response.
    */
   onDeleted: () => void;
+  /**
+   * #493 — keyboard/touch alternative to dragging the chip on the calendar.
+   * When provided (and the workout is the coach's), the dialog offers
+   * "Mover a fecha…"; the parent runs the SAME move path the drag uses
+   * (same-day no-op, recurrence scope prompt, toast + refetch). Omitted →
+   * the control is hidden (surfaces without a move path).
+   */
+  onMoveTo?: (newDate: string) => void;
 }
 
 const STATUS_LABEL: Record<AssignmentDetail["status"], string> = {
@@ -85,8 +94,8 @@ const STATUS_LABEL: Record<AssignmentDetail["status"], string> = {
 const STATUS_TONE: Record<AssignmentDetail["status"], string> = {
   scheduled: "bg-muted text-muted-foreground",
   started: "bg-muted text-muted-foreground",
-  completed: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300",
-  missed: "bg-rose-500/15 text-rose-800 dark:text-rose-300",
+  completed: "bg-success/15 text-success",
+  missed: "bg-danger/15 text-danger",
 };
 
 function recurrenceLabel(recurrence: Record<string, unknown> | null): string | null {
@@ -112,6 +121,7 @@ export function WorkoutDetailDialog({
   onOpenChange,
   assignmentId,
   onDeleted,
+  onMoveTo,
 }: WorkoutDetailDialogProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -253,6 +263,14 @@ export function WorkoutDetailDialog({
             ) : null}
           </div>
 
+          {data && onMoveTo && !isReadOnly ? (
+            <MoveToDateControl
+              key={data.id}
+              currentDate={data.scheduledFor}
+              onMove={onMoveTo}
+            />
+          ) : null}
+
           <DialogFooter className="gap-2 sm:gap-2">
             <Button
               variant="ghost"
@@ -362,6 +380,107 @@ export function WorkoutDetailDialog({
 }
 
 /**
+ * #493 — "Mover a fecha…": a native date input (keyboard, touch and screen
+ * reader friendly — the platform picker) so a workout can be moved without
+ * HTML5 drag. Collapsed by default; expanding focuses the input, Esc/Cancel
+ * collapses and returns focus to the trigger. Picking the current day is a
+ * no-op (same guard as dropping a chip back on its own cell).
+ */
+function MoveToDateControl({
+  currentDate,
+  onMove,
+}: {
+  currentDate: string;
+  onMove: (newDate: string) => void;
+}) {
+  const t = useTranslations("schedule.workoutDetail");
+  const [expanded, setExpanded] = useState(false);
+  const [value, setValue] = useState(currentDate);
+  const inputId = useId();
+  const hintId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (expanded) inputRef.current?.focus();
+  }, [expanded]);
+
+  const isValid = /^\d{4}-\d{2}-\d{2}$/.test(value);
+  const isSameDay = value === currentDate;
+
+  function collapse() {
+    setExpanded(false);
+    setValue(currentDate);
+    // Return focus to the trigger once it re-mounts.
+    requestAnimationFrame(() => triggerRef.current?.focus());
+  }
+
+  if (!expanded) {
+    return (
+      <div className="flex">
+        <Button
+          ref={triggerRef}
+          type="button"
+          variant="outline"
+          size="sm"
+          className="gap-1"
+          aria-expanded={false}
+          onClick={() => setExpanded(true)}
+        >
+          <CalendarClock className="size-4" />
+          {t("moveToDate")}
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      className="flex flex-col gap-2 rounded-lg border bg-muted/40 p-3 sm:flex-row sm:items-end"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!isValid || isSameDay) return;
+        onMove(value);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          // Keep Esc from closing the whole dialog: it collapses the picker.
+          e.stopPropagation();
+          collapse();
+        }
+      }}
+    >
+      <div className="flex flex-1 flex-col gap-1">
+        <label htmlFor={inputId} className="text-sm font-medium">
+          {t("moveDateLabel")}
+        </label>
+        <input
+          ref={inputRef}
+          id={inputId}
+          type="date"
+          required
+          value={value}
+          aria-describedby={hintId}
+          onChange={(e) => setValue(e.target.value)}
+          className="h-11 rounded-md border bg-background px-3 text-sm"
+        />
+        <p id={hintId} className="text-xs text-muted-foreground">
+          {isSameDay ? t("moveSameDay") : t("moveDateHint")}
+        </p>
+      </div>
+      <div className="flex gap-2">
+        <Button type="button" variant="ghost" onClick={collapse}>
+          {t("moveCancel")}
+        </Button>
+        <Button type="submit" disabled={!isValid || isSameDay}>
+          {t("moveConfirm")}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/**
  * Renders the "Compartir imagen" share card in the dialog header, choosing the
  * variant the way iOS does:
  *   - completed assignment → share the LOGGED actuals (ShareWorkoutCard) once
@@ -453,7 +572,7 @@ function DetailBody({ data }: { data: AssignmentDetail }) {
       {data.meetingNotes ? (
         <section className="rounded-lg border bg-background p-3 text-sm">
           <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Notas de sesión
+            Notas del entrenamiento
           </p>
           <p className="whitespace-pre-wrap">{data.meetingNotes}</p>
         </section>
@@ -493,19 +612,19 @@ function DetailBody({ data }: { data: AssignmentDetail }) {
                   key={`${ex.exerciseId}-${ex.index}`}
                   className={
                     ex.supersetGroup
-                      ? "rounded-md border border-amber-500/40 bg-amber-50/40 p-3 dark:border-amber-400/40 dark:bg-amber-950/20"
+                      ? "rounded-md border border-warning/40 bg-warning-soft p-3"
                       : "rounded-md border bg-background p-3"
                   }
                 >
                   {isSupersetStart ? (
-                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-warning">
                       Superserie {ex.supersetGroup}
                     </p>
                   ) : null}
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-medium">{ex.exerciseName}</p>
                     {ex.supersetGroup ? (
-                      <span className="inline-flex h-5 items-center rounded-full bg-amber-500/20 px-2 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-400/20 dark:text-amber-200">
+                      <span className="inline-flex h-5 items-center rounded-full bg-warning/20 px-2 text-[10px] font-semibold uppercase tracking-wide text-warning">
                         {ex.supersetGroup}
                       </span>
                     ) : null}
@@ -518,7 +637,7 @@ function DetailBody({ data }: { data: AssignmentDetail }) {
                   ) : null}
                   {/* D10 — one group rest line for the whole superset block. */}
                   {isBlockEnd && groupRoundRest !== null ? (
-                    <p className="mt-2 text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                    <p className="mt-2 text-[10px] font-medium text-warning">
                       Descanso de la superserie: {groupRoundRest}s
                     </p>
                   ) : null}
@@ -543,14 +662,13 @@ function ExerciseSetTable({
 }) {
   // 26-03 — Widen row shape for the time branch per PATTERNS.md §18.
   // The header column + the body cell both swap between Reps and Seg
-  // based on `ex.metric`. Hardcoded Spanish strings match the file's
-  // existing convention (this dialog is not yet `t()`-translated; the
-  // 26-07 i18n pass will lift them into messages/{es,en}.json).
+  // based on `ex.metric` (translated: schedule.workoutDetail.sets*Header).
   // 260610-j67 (issue #159) — when the exercise carries the explicit
   // no-weight sentinel (weightBySetKg was an empty array = reps-only /
   // bodyweight), drop the Peso column entirely so the detail reads reps-only
   // with NO "kg" label. Legacy (nil) + weighted exercises keep the column.
   const noWeight = ex.metric === "time" || ex.hasExplicitNoWeightPrescription;
+  const t = useTranslations("schedule.workoutDetail");
   // #582 — planned per-set types + Hevy display labels, the twin of iOS
   // `WorkoutAssignmentDetailView.setRows` (SetType.planned → SetTypeDisplay
   // .labels). Non-normal sets render their colored letter INSTEAD of a number,
@@ -578,9 +696,10 @@ function ExerciseSetTable({
         className={`grid ${gridCols} gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground`}
       >
         <span>#</span>
-        {/* TODO(26-07): i18n for Reps/Seg header */}
-        <span>{ex.metric === "time" ? "Seg" : "Reps"}</span>
-        {!noWeight ? <span>Peso</span> : null}
+        <span>
+          {ex.metric === "time" ? t("setsSecondsHeader") : t("setsRepsHeader")}
+        </span>
+        {!noWeight ? <span>{t("setsWeightHeader")}</span> : null}
       </div>
       {rows.map((row) => (
         <div

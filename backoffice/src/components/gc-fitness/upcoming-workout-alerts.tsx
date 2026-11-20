@@ -128,7 +128,7 @@ export function UpcomingWorkoutAlerts({ timezone }: { timezone: string }) {
   if (visible.length === 0 && permission === "granted") return null;
 
   return (
-    <section className="rounded-[1.25rem] border border-border/60 bg-card p-4 shadow-sm">
+    <section className="rounded-card border border-border/60 bg-card p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="gc-page-title text-lg">Próximos entrenamientos</h2>
         {permission !== "granted" ? (

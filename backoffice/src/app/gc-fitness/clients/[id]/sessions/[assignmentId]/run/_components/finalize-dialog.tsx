@@ -60,7 +60,7 @@ export function FinalizeDialog({
         <DialogHeader>
           <DialogTitle>Finalizar entrenamiento</DialogTitle>
           <DialogDescription>
-            Se guardará esta sesión como completada.
+            Se guardará este entrenamiento como completado.
           </DialogDescription>
         </DialogHeader>
 
@@ -76,7 +76,7 @@ export function FinalizeDialog({
                 <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-border/60 p-3">
                   <RadioGroupItem value="session" id="mode-session" className="mt-0.5" />
                   <span>
-                    <span className="block text-sm font-medium">Solo esta sesión</span>
+                    <span className="block text-sm font-medium">Solo este entrenamiento</span>
                     <span className="block text-xs text-muted-foreground">
                       No cambia las recurrencias futuras.
                     </span>
@@ -108,12 +108,12 @@ export function FinalizeDialog({
           ) : null}
 
           <div className="space-y-1.5">
-            <Label htmlFor="finalize-notes">Notas de la sesión (opcional)</Label>
+            <Label htmlFor="finalize-notes">Notas del entrenamiento (opcional)</Label>
             <Textarea
               id="finalize-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Cómo fue la sesión, observaciones…"
+              placeholder="Cómo fue el entrenamiento, observaciones…"
               rows={3}
               maxLength={2000}
             />

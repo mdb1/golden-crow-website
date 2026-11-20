@@ -46,13 +46,19 @@ import userEvent from "@testing-library/user-event";
 import React from "react";
 
 import type { ProgressPhotoRow } from "@/lib/gc-fitness/progress-photo-actions";
+import {
+  chooseFormSelectValue,
+  closeFormSelect,
+  isFormSelectOptionDisabled,
+  openFormSelect,
+} from "@/lib/test-utils/form-select";
 
 let searchParams = new URLSearchParams("");
 jest.mock("next/navigation", () => ({
   useSearchParams: () => searchParams,
 }));
 
-import { ProgressPhotoCompareEditor } from "../photo-compare-editor";
+import { ProgressPhotoCompareEditor, beforeAfterLabels } from "../photo-compare-editor";
 
 const TZ = "America/Argentina/Buenos_Aires";
 
@@ -79,6 +85,8 @@ const MIDDLE = photo({ id: "may", checkInDate: "2026-05-01" });
 const OLDEST = photo({ id: "mar", checkInDate: "2026-03-01" });
 const THREE = [NEWEST, MIDDLE, OLDEST];
 
+let user: ReturnType<typeof userEvent.setup>;
+
 function renderEditor(photos: ProgressPhotoRow[], query = "") {
   searchParams = new URLSearchParams(query);
   render(
@@ -88,64 +96,78 @@ function renderEditor(photos: ProgressPhotoRow[], query = "") {
       clientName="Ana Gomez"
     />,
   );
-  return { user: userEvent.setup() };
+  user = userEvent.setup();
+  return { user };
 }
 
 /**
- * The three selects carry no label, so they are identified by an option only
- * they can have — indexing `getAllByRole("combobox")` blindly is the trap that
- * already cost time on the exercise pickers.
+ * The three pickers are the portal's FormSelect (#505 — Radix, not a native
+ * <select>), named "Angle" / "Before" / "After". Indexing
+ * `getAllByRole("combobox")` blindly is the trap that already cost time on
+ * the exercise pickers, so they are always found by name.
  */
-function selectNamed(kind: "angle" | "before" | "after"): HTMLSelectElement {
-  const marker = kind === "angle" ? "Front" : kind === "before" ? "Before" : "After";
-  const node = screen
-    .getAllByRole("combobox")
-    .find((el) =>
-      Array.from(el.querySelectorAll("option")).some(
-        (opt) => opt.textContent === marker,
-      ),
-    );
-  if (!node) throw new Error(`${kind} select not found`);
-  return node as HTMLSelectElement;
+const PICKER_NAME = { angle: "Angle", before: "Before", after: "After" } as const;
+
+function picker(kind: "angle" | "before" | "after"): HTMLElement {
+  return screen.getByRole("combobox", { name: PICKER_NAME[kind] });
 }
 
-/** The option for `photoId` inside one of the pickers. */
-function optionFor(kind: "before" | "after", photoId: string): HTMLOptionElement {
-  const opt = selectNamed(kind).querySelector<HTMLOptionElement>(
-    `option[value="${photoId}"]`,
-  );
-  if (!opt) throw new Error(`no ${kind} option for ${photoId}`);
-  return opt;
+/**
+ * What the coach sees for `photoId` in one of the pickers: opens the listbox,
+ * reads the option, closes it again. `null` when the photo is not offered.
+ */
+async function findOption(
+  kind: "before" | "after",
+  photoId: string,
+): Promise<{ disabled: boolean; textContent: string } | null> {
+  const listbox = await openFormSelect(user, picker(kind));
+  const opt = listbox.querySelector<HTMLElement>(`[role="option"][data-value="${photoId}"]`);
+  const found = opt
+    ? { disabled: isFormSelectOptionDisabled(opt), textContent: opt.textContent ?? "" }
+    : null;
+  await closeFormSelect(user);
+  return found;
+}
+
+/** Like `findOption`, but the photo MUST be offered. */
+async function optionFor(kind: "before" | "after", photoId: string) {
+  const found = await findOption(kind, photoId);
+  if (!found) throw new Error(`no ${kind} option for ${photoId}`);
+  return found;
+}
+
+function choose(kind: "angle" | "before" | "after", value: string) {
+  return chooseFormSelectValue(user, picker(kind), value);
 }
 
 function selectedIds(): { before: string; after: string } {
   return {
-    before: selectNamed("before").value,
-    after: selectNamed("after").value,
+    before: picker("before").getAttribute("data-value") ?? "",
+    after: picker("after").getAttribute("data-value") ?? "",
   };
 }
 
 describe("ProgressPhotoCompareEditor — which photos the pickers offer", () => {
-  it("opens on the two most recent photos: newest as AFTER, next as BEFORE", () => {
+  it("opens on the two most recent photos: newest as AFTER, next as BEFORE", async () => {
     renderEditor(THREE);
 
     expect(selectedIds()).toEqual({ before: "may", after: "jun" });
   });
 
-  it("refuses the NEWEST photo as 'before' (#435 rule 3)", () => {
+  it("refuses the NEWEST photo as 'before' (#435 rule 3)", async () => {
     // Falls out of the symmetric rule (#308): nothing is strictly later than
     // the newest photo, so it is never offered.
     renderEditor(THREE);
 
-    expect(optionFor("before", "jun")).toBeDisabled();
-    expect(optionFor("before", "may")).toBeEnabled();
-    expect(optionFor("before", "mar")).toBeEnabled();
+    expect((await optionFor("before", "jun")).disabled).toBe(true);
+    expect((await optionFor("before", "may")).disabled).toBe(false);
+    expect((await optionFor("before", "mar")).disabled).toBe(false);
   });
 
-  it("refuses the OLDEST photo as 'after' (#435 rule 4)", () => {
+  it("refuses the OLDEST photo as 'after' (#435 rule 4)", async () => {
     renderEditor(THREE);
 
-    expect(optionFor("after", "mar")).toBeDisabled();
+    expect((await optionFor("after", "mar")).disabled).toBe(true);
   });
 
   it("refuses an 'after' that is not STRICTLY later than the before (#435 rule 1)", async () => {
@@ -156,12 +178,12 @@ describe("ProgressPhotoCompareEditor — which photos the pickers offer", () => 
     const maySame = photo({ id: "may-2", checkInDate: "2026-05-01" });
     const { user } = renderEditor([NEWEST, MIDDLE, maySame, april, OLDEST]);
 
-    await user.selectOptions(selectNamed("before"), "may");
+    await choose("before", "may");
 
-    expect(optionFor("after", "jun")).toBeEnabled(); // strictly later
-    expect(optionFor("after", "may-2")).toBeDisabled(); // same civil day
-    expect(optionFor("after", "apr")).toBeDisabled(); // earlier
-    expect(optionFor("after", "mar")).toBeDisabled(); // earlier AND oldest
+    expect((await optionFor("after", "jun")).disabled).toBe(false); // strictly later
+    expect((await optionFor("after", "may-2")).disabled).toBe(true); // same civil day
+    expect((await optionFor("after", "apr")).disabled).toBe(true); // earlier
+    expect((await optionFor("after", "mar")).disabled).toBe(true); // earlier AND oldest
   });
 
   it("skips a same-day sibling when seeding the default 'before' (#308)", async () => {
@@ -183,9 +205,9 @@ describe("ProgressPhotoCompareEditor — which photos the pickers offer", () => 
     const sameDay = photo({ id: "jun-2", checkInDate: "2026-06-01" });
     renderEditor([NEWEST, sameDay, MIDDLE, OLDEST]);
 
-    expect(optionFor("before", "jun")).toBeDisabled();
-    expect(optionFor("before", "jun-2")).toBeDisabled();
-    expect(optionFor("before", "may")).toBeEnabled();
+    expect((await optionFor("before", "jun")).disabled).toBe(true);
+    expect((await optionFor("before", "jun-2")).disabled).toBe(true);
+    expect((await optionFor("before", "may")).disabled).toBe(false);
   });
 
   it("refuses an UNDATED photo as a 'before' (#308)", async () => {
@@ -198,32 +220,28 @@ describe("ProgressPhotoCompareEditor — which photos the pickers offer", () => 
       OLDEST,
     ]);
 
-    expect(optionFor("before", "undated")).toBeDisabled();
+    expect((await optionFor("before", "undated")).disabled).toBe(true);
   });
 
-  it("leaves out photos of another angle", () => {
+  it("leaves out photos of another angle", async () => {
     renderEditor([NEWEST, photo({ id: "side-1", angle: "side" }), MIDDLE, OLDEST]);
 
-    expect(
-      selectNamed("before").querySelector('option[value="side-1"]'),
-    ).toBeNull();
+    expect(await findOption("before", "side-1")).toBeNull();
   });
 
-  it("leaves out photos with no URL — they cannot be compared", () => {
+  it("leaves out photos with no URL — they cannot be compared", async () => {
     // A row whose signed URL failed to mint still comes back from the loader.
     renderEditor([NEWEST, photo({ id: "broken", url: null }), MIDDLE, OLDEST]);
 
-    expect(
-      selectNamed("after").querySelector('option[value="broken"]'),
-    ).toBeNull();
+    expect(await findOption("after", "broken")).toBeNull();
   });
 
-  it("treats a photo with no angle as a FRONT photo", () => {
+  it("treats a photo with no angle as a FRONT photo", async () => {
     // Legacy rows predate the angle field; dropping them would empty the
     // comparator for clients who only ever uploaded from the old app.
     renderEditor([photo({ id: "legacy", angle: null, checkInDate: "2026-07-01" }), MIDDLE]);
 
-    expect(optionFor("after", "legacy")).toBeInTheDocument();
+    expect(await findOption("after", "legacy")).not.toBeNull();
   });
 });
 
@@ -243,7 +261,7 @@ describe("ProgressPhotoCompareEditor — moving one half of the pair", () => {
     // before → jun, the SAME civil day as the after: the pair stops being
     // valid, so the after jumps to the newest photo instead of sitting there
     // backwards with both selects still showing a date.
-    await user.selectOptions(selectNamed("before"), "jun");
+    await choose("before", "jun");
 
     expect(selectedIds()).toEqual({ before: "jun", after: "jul" });
   });
@@ -255,7 +273,7 @@ describe("ProgressPhotoCompareEditor — moving one half of the pair", () => {
       "before=mar&after=may",
     );
 
-    await user.selectOptions(selectNamed("before"), "jun");
+    await choose("before", "jun");
 
     expect(selectedIds()).toEqual({ before: "jun", after: "jul" });
   });
@@ -263,7 +281,7 @@ describe("ProgressPhotoCompareEditor — moving one half of the pair", () => {
   it("leaves a still-valid after alone", async () => {
     const { user } = renderEditor(THREE);
 
-    await user.selectOptions(selectNamed("before"), "mar");
+    await choose("before", "mar");
 
     expect(selectedIds()).toEqual({ before: "mar", after: "jun" });
   });
@@ -278,7 +296,7 @@ describe("ProgressPhotoCompareEditor — switching angle", () => {
     const backOld = photo({ id: "back-mar", angle: "back", checkInDate: "2026-03-10" });
     const { user } = renderEditor([NEWEST, backNew, MIDDLE, backOld, OLDEST]);
 
-    await user.selectOptions(selectNamed("angle"), "back");
+    await choose("angle", "back");
 
     expect(selectedIds()).toEqual({ before: "back-mar", after: "back-jun" });
   });
@@ -293,7 +311,7 @@ describe("ProgressPhotoCompareEditor — switching angle", () => {
     ];
     const { user } = renderEditor([NEWEST, ...back, MIDDLE]);
 
-    await user.selectOptions(selectNamed("angle"), "back");
+    await choose("angle", "back");
 
     expect(selectedIds()).toEqual({ before: "back-mar", after: "back-jun-a" });
   });
@@ -302,19 +320,19 @@ describe("ProgressPhotoCompareEditor — switching angle", () => {
     const onlyBack = photo({ id: "back-1", angle: "back", checkInDate: "2026-04-01" });
     const { user } = renderEditor([NEWEST, onlyBack, MIDDLE]);
 
-    await user.selectOptions(selectNamed("angle"), "back");
+    await choose("angle", "back");
 
     // Same photo on both sides is not a comparison — and the pickers say so:
     // it is simultaneously the newest (disabled as before) and the oldest
     // (disabled as after).
     expect(selectedIds()).toEqual({ before: "back-1", after: "back-1" });
-    expect(optionFor("before", "back-1")).toBeDisabled();
-    expect(optionFor("after", "back-1")).toBeDisabled();
+    expect((await optionFor("before", "back-1")).disabled).toBe(true);
+    expect((await optionFor("after", "back-1")).disabled).toBe(true);
   });
 });
 
 describe("ProgressPhotoCompareEditor — the URL seeds the pair", () => {
-  it("honours ?angle=, ?before= and ?after=", () => {
+  it("honours ?angle=, ?before= and ?after=", async () => {
     // The client-detail page deep-links into a specific comparison; ignoring
     // the params would silently reset it to the two most recent photos.
     //
@@ -336,7 +354,7 @@ describe("ProgressPhotoCompareEditor — the URL seeds the pair", () => {
 });
 
 describe("ProgressPhotoCompareEditor — the dates it prints", () => {
-  it("labels an option by its checkInDate, NOT by the upload instant", () => {
+  it("labels an option by its checkInDate, NOT by the upload instant", async () => {
     // `checkInDate` is a civil date: it must not be shifted by anyone's
     // timezone. The upload instant here is the previous UTC day on purpose.
     renderEditor([
@@ -348,17 +366,17 @@ describe("ProgressPhotoCompareEditor — the dates it prints", () => {
       MIDDLE,
     ]);
 
-    expect(optionFor("after", "jun").textContent).toContain("June 1, 2026");
+    expect((await optionFor("after", "jun")).textContent).toContain("June 1, 2026");
   });
 
-  it("falls back to the takenAt instant in the CLIENT's timezone", () => {
+  it("falls back to the takenAt instant in the CLIENT's timezone", async () => {
     // 2026-06-01T02:00Z is still May 31 in Buenos Aires (UTC-3).
     renderEditor([
       photo({ id: "no-checkin", checkInDate: null, takenAt: "2026-06-01T02:00:00.000Z" }),
       MIDDLE,
     ]);
 
-    expect(optionFor("after", "no-checkin").textContent).toContain("May 31");
+    expect((await optionFor("after", "no-checkin")).textContent).toContain("May 31");
   });
 
   it("tells the coach how much time each candidate covers", async () => {
@@ -370,22 +388,22 @@ describe("ProgressPhotoCompareEditor — the dates it prints", () => {
       photo({ id: "may", checkInDate: "2026-05-01" }),
     ]);
 
-    await user.selectOptions(selectNamed("before"), "jun04");
+    await choose("before", "jun04");
 
-    expect(optionFor("after", "jun08").textContent).toContain("(4 days)");
-    expect(optionFor("after", "jun15").textContent).toContain("(~1 week)");
-    expect(optionFor("after", "aug").textContent).toContain("(~1 month)");
+    expect((await optionFor("after", "jun08")).textContent).toContain("(4 days)");
+    expect((await optionFor("after", "jun15")).textContent).toContain("(~1 week)");
+    expect((await optionFor("after", "aug")).textContent).toContain("(~1 month)");
   });
 });
 
 describe("ProgressPhotoCompareEditor — nothing to compare", () => {
-  it("says so instead of rendering half a comparison", () => {
+  it("says so instead of rendering half a comparison", async () => {
     renderEditor([]);
 
     expect(screen.getByText("Seleccioná fotos para comparar.")).toBeInTheDocument();
   });
 
-  it("renders the two panels once a valid pair resolves", () => {
+  it("renders the two panels once a valid pair resolves", async () => {
     renderEditor(THREE);
 
     // Slider is the default mode; both images are on screen.
@@ -403,5 +421,13 @@ describe("ProgressPhotoCompareEditor — nothing to compare", () => {
     const panel = screen.getByText("before").closest("div");
     expect(panel).not.toBeNull();
     expect(within(panel as HTMLElement).getByText("May 1, 2026")).toBeInTheDocument();
+  });
+});
+
+// #535 — these words are DRAWN into the JPG the coach sends; they were always English.
+describe("beforeAfterLabels", () => {
+  it("follows the coach language", () => {
+    expect(beforeAfterLabels("es")).toEqual({ before: "Antes", after: "Después" });
+    expect(beforeAfterLabels("en")).toEqual({ before: "Before", after: "After" });
   });
 });

@@ -322,7 +322,7 @@ export function useLiveSession(
         setStatus("active");
       } catch (err) {
         if (cancelled) return;
-        setErrorMessage(err instanceof Error ? err.message : "No se pudo iniciar la sesión.");
+        setErrorMessage(err instanceof Error ? err.message : "No se pudo iniciar el entrenamiento.");
         setStatus("error");
       }
     })();

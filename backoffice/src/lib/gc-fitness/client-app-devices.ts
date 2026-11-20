@@ -115,19 +115,47 @@ export function projectAppDevices(
 }
 
 /**
+ * The two words of `formatAppDevice` that are not brand names (#513). Callers
+ * build them from next-intl's `common.appDevice` with `appDeviceLabels(t)`;
+ * the default keeps the historical Spanish for callers without a translator.
+ */
+export interface AppDeviceLabels {
+  unknownPlatform: string;
+  unknownVersion: (platform: string) => string;
+}
+
+const SPANISH_APP_DEVICE_LABELS: AppDeviceLabels = {
+  unknownPlatform: "Desconocido",
+  unknownVersion: (platform) => `${platform} · versión desconocida`,
+};
+
+/** Labels from a translator scoped to `common.appDevice`. */
+export function appDeviceLabels(
+  t: (key: "unknownPlatform" | "unknownVersion", values?: { platform: string }) => string,
+): AppDeviceLabels {
+  return {
+    unknownPlatform: t("unknownPlatform"),
+    unknownVersion: (platform) => t("unknownVersion", { platform }),
+  };
+}
+
+/**
  * "iOS 1.3.0 (42)" — one device, for a profile line.
  *
  * A device with no version says so rather than looking current: the whole point
  * of the field is spotting who is behind.
  */
-export function formatAppDevice(device: ClientAppDevice): string {
+export function formatAppDevice(
+  device: ClientAppDevice,
+  labels: AppDeviceLabels = SPANISH_APP_DEVICE_LABELS,
+): string {
   const platform =
     device.platform === "ios"
       ? "iOS"
       : device.platform === "android"
         ? "Android"
-        : "Desconocido";
-  if (!device.appVersion) return `${platform} · versión desconocida`;
+        : labels.unknownPlatform;
+  if (!device.appVersion) return labels.unknownVersion(platform);
   return device.appBuild
     ? `${platform} ${device.appVersion} (${device.appBuild})`
     : `${platform} ${device.appVersion}`;
