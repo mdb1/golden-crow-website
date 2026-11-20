@@ -19,11 +19,6 @@ const copy = isEnglish
 <PocketGenesPublicLayout title={`${copy.title} | Pocket Genes`} description={copy.description} canonicalPath="/pocket-genes/book-with-us">
   <main class="pg-support-booking" id="main">
     <div class="pg-container">
-      <header class="pg-support-booking-header">
-        <h1>{copy.title}</h1>
-        <p>{copy.description}</p>
-      </header>
-
       <ClientBookingWidget
         context="pocket-genes-support"
         brandName="Pocket Genes"
@@ -39,23 +34,5 @@ const copy = isEnglish
     min-height: calc(100svh - 142px);
     padding: clamp(38px, 6vw, 80px) 0 clamp(52px, 8vw, 110px);
     background: radial-gradient(ellipse at 0 0, #fcebf3 0, transparent 52%), var(--pg-bg);
-  }
-
-  .pg-support-booking-header {
-    margin-bottom: clamp(24px, 4vw, 38px);
-  }
-
-  .pg-support-booking-header h1 {
-    margin: 0;
-    color: var(--pg-ink);
-    font-size: clamp(2.15rem, 5vw, 4rem);
-    line-height: 1.06;
-    letter-spacing: -0.055em;
-  }
-
-  .pg-support-booking-header p {
-    margin: 12px 0 0;
-    color: var(--pg-ink-soft);
-    font-size: clamp(1rem, 2vw, 1.16rem);
   }
 </style>

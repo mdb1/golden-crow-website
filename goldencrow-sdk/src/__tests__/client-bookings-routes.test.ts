@@ -186,7 +186,13 @@ describe("POST /client-bookings (public)", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(mockSendGmailMessage).toHaveBeenCalledTimes(2);
     expect(mockSendGmailMessage).toHaveBeenCalledWith(expect.objectContaining({ to: "federico@goldencrowvs.com" }), expect.anything());
-    expect(mockSendGmailMessage).toHaveBeenCalledWith(expect.objectContaining({ to: "ada@example.com" }), expect.anything());
+    expect(mockSendGmailMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "ada@example.com",
+        html: expect.stringContaining("Golden Crow Venture Studio"),
+      }),
+      expect.anything(),
+    );
     expect(mockRecordClientBookingWebhookNotification).toHaveBeenCalledWith(
       "booking-1",
       { status: "skipped", reason: "not_configured" },
@@ -309,7 +315,27 @@ describe("support bookings", () => {
       reason: "billing",
       form: { fullName: "Ada Lovelace", email: "da@example.com", whatsapp: "123456789", companyName: "" },
     }), { origin: undefined });
-    expect(mockSendGmailMessage).toHaveBeenCalledWith(expect.objectContaining({ to: "da@example.com", subject: "Tu reserva está confirmada" }), expect.anything());
+    expect(mockSendGmailMessage).toHaveBeenCalledTimes(2);
+    const [host, attendee] = mockSendGmailMessage.mock.calls.map(([message]) => message);
+    expect(host).toMatchObject({
+      to: "federico@goldencrowvs.com",
+      text: expect.stringContaining("Reserva: booking-1"),
+      html: expect.stringContaining('href="https://golden-crow-backoffice.vercel.app/god-mode/bookings"'),
+    });
+    expect(attendee).toMatchObject({
+      to: "da@example.com",
+      subject: "Tu reserva está confirmada",
+      text: expect.stringContaining("Motivo: Facturación"),
+      html: expect.stringContaining('href="mailto:federico@goldencrowvs.com"'),
+    });
+    for (const message of [host, attendee]) {
+      expect(message.html).toContain("Pocket Genes");
+      expect(message.html).toContain("#2d1b69");
+      expect(message.html).toContain("Soporte de Pocket Genes");
+      expect(message.html).toContain("09:00");
+      expect(message.html).toContain("Facturación");
+      expect(message.html).toContain("booking-1");
+    }
     expect(mockRecordClientBookingEmailNotification).toHaveBeenCalledWith("booking-1", { attendee: "delivered", host: "delivered" });
   });
 
@@ -359,11 +385,15 @@ describe("support bookings", () => {
 
   it("reserves on behalf of the authenticated publisher despite identity fields supplied by the caller", async () => {
     currentContext = publisher;
-    mockGetPublisherBookingContact.mockResolvedValue({ fullName: "Ada Lovelace", email: publisher.email, companyName: "Analytical Engines" });
+    mockGetPublisherBookingContact.mockResolvedValue({
+      fullName: "Ada <Lovelace>",
+      email: publisher.email,
+      companyName: "Analytical & Engines",
+    });
     const response = await fastify.inject({
       method: "POST",
       url: "/admin/publisher-support-bookings",
-      payload: { ...validSupportSlot(), email: "spoof@example.com", publisherUid: "somebody-else" },
+      payload: { ...validSupportSlot(), locale: "en-US", email: "spoof@example.com", publisherUid: "somebody-else" },
     });
 
     expect(response.statusCode).toBe(201);
@@ -371,7 +401,20 @@ describe("support bookings", () => {
       kind: "publisher_support",
       form: expect.objectContaining({ email: publisher.email }),
     }), { publisherUid: publisher.uid, origin: undefined });
-    expect(mockSendGmailMessage).toHaveBeenCalledWith(expect.objectContaining({ to: publisher.email }), expect.anything());
+    const [host, attendee] = mockSendGmailMessage.mock.calls.map(([message]) => message);
+    expect(host.html).toContain("Ada &lt;Lovelace&gt;");
+    expect(host.html).toContain("Analytical &amp; Engines");
+    expect(host.html).toContain("Facturación");
+    expect(attendee).toMatchObject({
+      to: publisher.email,
+      subject: "Your booking is confirmed",
+      text: expect.stringContaining("Reason: Billing"),
+    });
+    expect(attendee.html).toContain("Ada &lt;Lovelace&gt;");
+    expect(attendee.html).toContain("Pocket Genes support");
+    expect(attendee.html).toContain("Billing");
+    expect(attendee.html).not.toContain("<Lovelace>");
+    expect(attendee.html).not.toContain("/god-mode/bookings");
   });
 
   it("keeps an accepted booking when attendee email fails", async () => {
