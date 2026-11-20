@@ -108,6 +108,9 @@ const ANONYMOUS_ROUTES = [
   "POST /discover/publisher-favicon",
   "POST /discover/publisher-requests",
   "POST /client-bookings",
+  "GET /client-bookings/availability",
+  "HEAD /client-bookings/availability",
+  "POST /support-bookings",
   "POST /service-transactions/:transactionId/notify-owner",
   // Session-public client-credentials exchange for a signed, notification-only
   // Bearer token. Its handler authenticates the API client credentials.

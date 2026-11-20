@@ -18,6 +18,7 @@ import {
   PUBLISHER_PORTAL_LOGIN_ROUTE,
   PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE,
   PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE,
+  PUBLISHER_PORTAL_SUPPORT_BOOKINGS_ROUTE,
 } from "@/lib/publisher-portal-routes";
 
 function titleForPath(pathname: string, language: "en" | "es") {
@@ -44,6 +45,13 @@ function titleForPath(pathname: string, language: "en" | "es") {
     pathname.startsWith(`${PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE}/`)
   ) {
     return appText(language, "Service Requests");
+  }
+
+  if (
+    pathname === PUBLISHER_PORTAL_SUPPORT_BOOKINGS_ROUTE ||
+    pathname.startsWith(`${PUBLISHER_PORTAL_SUPPORT_BOOKINGS_ROUTE}/`)
+  ) {
+    return appText(language, "Support bookings");
   }
 
   if (

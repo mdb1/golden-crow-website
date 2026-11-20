@@ -8,6 +8,7 @@ interface Props {
   eventTitle?: string;
   brandName?: string;
   emphasizeBrandName?: boolean;
+  logoSrc?: string;
 }
 
 const lang = (Astro.currentLocale || defaultLang) as Lang;
@@ -17,6 +18,7 @@ const {
   eventTitle = isEnglish ? 'Consultation Call' : 'Llamada de Consultoría',
   brandName = 'Golden Crow Venture Studio',
   emphasizeBrandName = true,
+  logoSrc = '/logo1024.webp',
 } = Astro.props;
 const sdkUrl =
   import.meta.env.PUBLIC_GOLDENCROW_SDK_URL || 'https://golden-crow-sdk.vercel.app';
@@ -41,6 +43,11 @@ const baseCopy = isEnglish
       timeZoneLabel: 'GMT-03:00 America/Buenos_Aires (GMT-3)',
       selectTimeLabel: 'Available times',
       selectedDateFallback: 'Select a date',
+      loadingTimes: 'Checking availability…',
+      noTimes: 'No times are available this month. Try another month.',
+      availabilityError: 'We could not load available times.',
+      retry: 'Try again',
+      slotTaken: 'That time was just booked. Please choose another.',
       submitLabel: 'Schedule meeting',
       submittingLabel: 'Scheduling...',
       errorMessage: 'We could not schedule the meeting. Please try again.',
@@ -73,6 +80,11 @@ const baseCopy = isEnglish
       timeZoneLabel: 'GMT-03:00 America/Buenos_Aires (GMT-3)',
       selectTimeLabel: 'Horarios disponibles',
       selectedDateFallback: 'Seleccioná una fecha',
+      loadingTimes: 'Buscando horarios disponibles…',
+      noTimes: 'No hay horarios disponibles este mes. Probá con otro mes.',
+      availabilityError: 'No pudimos cargar los horarios disponibles.',
+      retry: 'Reintentar',
+      slotTaken: 'Ese horario ya fue reservado. Elegí otro, por favor.',
       submitLabel: 'Agendar reunión',
       submittingLabel: 'Agendando...',
       errorMessage: 'No pudimos agendar la reunión. Intentá nuevamente.',
@@ -88,7 +100,8 @@ const baseCopy = isEnglish
     };
 
 const isPocketGenesJoinUs = context === 'pocket-genes-join-us';
-const copy =
+const isPocketGenesSupport = context === 'pocket-genes-support';
+const joinCopy =
   !isEnglish && isPocketGenesJoinUs
     ? {
         ...baseCopy,
@@ -115,6 +128,54 @@ const copy =
         companyRequired: false,
       }
     : baseCopy;
+const copy = isPocketGenesSupport
+  ? {
+      ...joinCopy,
+      ...(isEnglish
+        ? {
+            detailsTitle: 'Your details',
+            successTitle: 'Thanks for booking!',
+            successBody: 'Your time is reserved. We’ll email you the meeting details.',
+            submitLabel: 'Book meeting',
+            submittingLabel: 'Booking…',
+            fullNameLabel: 'Full name',
+            fullNamePlaceholder: 'Your first and last name',
+            emailLabel: 'Email address',
+            emailPlaceholder: 'Your email address',
+            whatsappLabel: 'WhatsApp number',
+            whatsappPlaceholder: 'Your number including country code',
+            companyLabel: 'Organization or institution (optional)',
+            companyPlaceholder: 'Organization name, if applicable',
+          }
+        : {
+            duration: '30 minutos',
+            logoAlt: 'Logo de Pocket Genes',
+            detailsTitle: 'Dejanos tus datos',
+            successTitle: '¡Gracias por reservar!',
+            successBody: 'Tu horario está reservado. Te vamos a enviar por correo los detalles de la reunión.',
+            submitLabel: 'Reservar reunión',
+            submittingLabel: 'Reservando…',
+            fullNameLabel: 'Nombre completo',
+            fullNamePlaceholder: 'Tu nombre y apellido',
+            emailLabel: 'Correo electrónico',
+            emailPlaceholder: 'Tu correo electrónico',
+            whatsappLabel: 'Número de WhatsApp',
+            whatsappPlaceholder: 'Tu número con código de país',
+            companyLabel: 'Organización o institución (opcional)',
+            companyPlaceholder: 'Nombre de la organización, si corresponde',
+          }),
+      companyRequired: false,
+    }
+  : joinCopy;
+const supportReasons = [
+  { value: 'account_access', label: isEnglish ? 'Account access' : 'Acceso a la cuenta' },
+  { value: 'publishing', label: isEnglish ? 'Publishing and content' : 'Publicaciones y contenido' },
+  { value: 'app_configuration', label: isEnglish ? 'App setup and configuration' : 'Configuración de la app' },
+  { value: 'services_and_transactions', label: isEnglish ? 'Services and transactions' : 'Servicios y transacciones' },
+  { value: 'billing', label: isEnglish ? 'Billing' : 'Facturación' },
+  { value: 'technical_issue', label: isEnglish ? 'Technical issue' : 'Problema técnico' },
+  { value: 'other', label: isEnglish ? 'Other' : 'Otro' },
+];
 
 const weekdayLabels = isEnglish
   ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -132,7 +193,7 @@ const renderedBrandName = emphasizeBrandName ? formatBrandText(copy.brandName) :
 >
   <article class="booking-shell">
     <aside class="booking-summary">
-      <img class="booking-logo" src="/logo1024.webp" alt={copy.logoAlt} />
+      <img class="booking-logo" src={logoSrc} alt={copy.logoAlt} width="78" height="78" />
       <p class="booking-brand" set:html={renderedBrandName} />
       <h3>{copy.eventTitle}</h3>
       <div class="booking-meta">
@@ -175,7 +236,7 @@ const renderedBrandName = emphasizeBrandName ? formatBrandText(copy.brandName) :
       </button>
 
       <div class="booking-panel is-active" data-booking-panel="calendar">
-        <h3>{copy.calendarTitle}</h3>
+        <h3 tabindex="-1">{copy.calendarTitle}</h3>
         <div class="booking-calendar-layout">
           <div class="booking-calendar-area">
             <div class="booking-month-row">
@@ -184,7 +245,7 @@ const renderedBrandName = emphasizeBrandName ? formatBrandText(copy.brandName) :
                   <path d="m15 18-6-6 6-6"></path>
                 </svg>
               </button>
-              <strong data-month-label></strong>
+              <strong data-month-label aria-live="polite"></strong>
               <button type="button" data-next-month aria-label={copy.nextMonth}>
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="m9 18 6-6-6-6"></path>
@@ -200,13 +261,26 @@ const renderedBrandName = emphasizeBrandName ? formatBrandText(copy.brandName) :
               <span>{copy.timeZoneLabel}</span>
             </div>
           </div>
-          <div class="booking-times" aria-label={copy.selectTimeLabel} data-times-list></div>
+          <div class="booking-time-area">
+            <p class="booking-availability-status" data-availability-status role="status">{copy.loadingTimes}</p>
+            <button class="booking-retry" type="button" data-availability-retry hidden>{copy.retry}</button>
+            <div class="booking-times" role="group" aria-label={copy.selectTimeLabel} data-times-list></div>
+          </div>
         </div>
       </div>
 
       <div class="booking-panel" data-booking-panel="form" hidden>
-        <h3>{copy.detailsTitle}</h3>
+        <h3 tabindex="-1">{copy.detailsTitle}</h3>
         <form class="booking-form" data-booking-form>
+          {isPocketGenesSupport && (
+            <label>
+              <span>{isEnglish ? 'Reason' : 'Motivo'}</span>
+              <select name="reason" required>
+                <option value="">{isEnglish ? 'Select a reason' : 'Seleccioná un motivo'}</option>
+                {supportReasons.map(({ value, label }) => <option value={value}>{label}</option>)}
+              </select>
+            </label>
+          )}
           <label>
             <span>{copy.fullNameLabel}</span>
             <input name="fullName" type="text" autocomplete="name" maxlength="120" placeholder={copy.fullNamePlaceholder} required />
@@ -217,7 +291,7 @@ const renderedBrandName = emphasizeBrandName ? formatBrandText(copy.brandName) :
           </label>
           <label>
             <span>{copy.whatsappLabel}</span>
-            <input name="whatsapp" type="tel" autocomplete="tel" maxlength="50" placeholder={copy.whatsappPlaceholder} required />
+            <input name="whatsapp" type="tel" autocomplete="tel" minlength="5" maxlength="50" placeholder={copy.whatsappPlaceholder} required />
           </label>
           <label>
             <span>{copy.companyLabel}</span>
@@ -231,17 +305,19 @@ const renderedBrandName = emphasizeBrandName ? formatBrandText(copy.brandName) :
       </div>
 
       <div class="booking-panel booking-success-panel" data-booking-panel="success" hidden>
+        {isPocketGenesSupport && <span class="booking-success-burst" aria-hidden="true"></span>}
         <div class="booking-success-mark" aria-hidden="true">
           <svg viewBox="0 0 24 24">
             <path d="M20 6 9 17l-5-5"></path>
           </svg>
         </div>
-        <h3>{copy.successTitle}</h3>
+        <h3 tabindex="-1">{copy.successTitle}</h3>
         <p>{copy.successBody}</p>
         <div class="booking-success-details">
           <span>{copy.duration}</span>
           <span data-success-date></span>
           <span data-success-time></span>
+          {isPocketGenesSupport && <span data-success-reason></span>}
           <span>{copy.timeZoneLabel}</span>
         </div>
       </div>
@@ -251,79 +327,36 @@ const renderedBrandName = emphasizeBrandName ? formatBrandText(copy.brandName) :
 
 <script>
   const BOOKING_TIMEZONE = 'America/Argentina/Buenos_Aires';
-  const SLOT_TIMES = [
-    '09:00',
-    '09:30',
-    '10:00',
-    '10:30',
-    '11:00',
-    '11:30',
-    '12:00',
-    '12:30',
-    '13:00',
-    '13:30',
-    '14:00',
-    '14:30',
-    '15:00',
-    '15:30',
-    '16:00',
-    '16:30',
-    '17:00',
-  ];
-  const POCKET_GENES_CONTEXT_PREFIX = 'pocket-genes';
-  const POCKET_GENES_SLOT_FILTER_SEED_PREFIX = 'pocket-genes-booking';
-  const SLOT_FILTER_START_MINUTES = 11 * 60;
-  const SLOT_FILTER_END_MINUTES = 17 * 60;
-  const HIDDEN_SLOT_RATIO = 0.5;
+  const BOOKING_DURATION_MINUTES = 30;
+  const SUPPORT_CONTEXT = 'pocket-genes-support';
 
-  function getBuenosAiresToday() {
+  type BookingStep = 'calendar' | 'form' | 'success';
+  type Availability = Record<string, string[]>;
+
+  function utcDate(year: number, monthIndex: number, day: number) {
+    return new Date(Date.UTC(year, monthIndex, day, 12));
+  }
+
+  function buenosAiresToday() {
     const parts = new Intl.DateTimeFormat('en-US', {
       timeZone: BOOKING_TIMEZONE,
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
     }).formatToParts(new Date());
-    const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-    return utcDate(Number(byType.year), Number(byType.month) - 1, Number(byType.day));
+    const byType = Object.fromEntries(parts.map(({ type, value }) => [type, Number(value)]));
+    return utcDate(byType.year, byType.month - 1, byType.day);
   }
 
-  function utcDate(year, monthIndex, day) {
-    return new Date(Date.UTC(year, monthIndex, day, 12, 0, 0));
+  function dateKey(date: Date) {
+    return date.toISOString().slice(0, 10);
   }
 
-  function addDays(date, count) {
-    return utcDate(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + count);
+  function monthKey(date: Date) {
+    return dateKey(date).slice(0, 7);
   }
 
-  function dateKey(date) {
-    const year = date.getUTCFullYear();
-    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(date.getUTCDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-
-  function isSameDate(a, b) {
-    return dateKey(a) === dateKey(b);
-  }
-
-  function isBefore(a, b) {
-    return dateKey(a) < dateKey(b);
-  }
-
-  function isBusinessDay(date) {
-    const day = date.getUTCDay();
-    return day >= 1 && day <= 5;
-  }
-
-  function firstAvailableDate(minDate) {
-    let cursor = minDate;
-    while (!isBusinessDay(cursor)) {
-      cursor = addDays(cursor, 1);
-    }
-    return cursor;
-  }
-
-  function formatMonth(date, localeTag) {
+  function formatMonth(date: Date, localeTag: string) {
     const formatted = new Intl.DateTimeFormat(localeTag, {
       month: 'long',
       year: 'numeric',
@@ -332,189 +365,138 @@ const renderedBrandName = emphasizeBrandName ? formatBrandText(copy.brandName) :
     return formatted.charAt(0).toUpperCase() + formatted.slice(1);
   }
 
-  function formatDate(date, localeTag) {
+  function formatDate(key: string, localeTag: string) {
     return new Intl.DateTimeFormat(localeTag, {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
       year: 'numeric',
       timeZone: 'UTC',
-    }).format(date);
+    }).format(new Date(`${key}T12:00:00Z`));
   }
 
-  function formatTime(time) {
-    const [hourText, minute] = time.split(':');
-    const hour = Number(hourText);
-    const period = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = ((hour + 11) % 12) + 1;
-    return `${String(displayHour).padStart(2, '0')}:${minute} ${period}`;
+  function formatTime(time: string, localeTag: string) {
+    return new Intl.DateTimeFormat(localeTag, {
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: 'UTC',
+    }).format(new Date(`2000-01-01T${time}:00Z`));
   }
 
-  function addMinutesToTime(time, minutesToAdd) {
+  function addMinutesToTime(time: string, minutesToAdd: number) {
     const [hour, minute] = time.split(':').map(Number);
     const total = hour * 60 + minute + minutesToAdd;
-    const nextHour = Math.floor(total / 60);
-    const nextMinute = total % 60;
-    return `${String(nextHour).padStart(2, '0')}:${String(nextMinute).padStart(2, '0')}`;
+    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
   }
 
-  function timeToMinutes(time) {
-    const [hour, minute] = time.split(':').map(Number);
-    return hour * 60 + minute;
-  }
-
-  function isSlotInDeterministicFilterWindow(time) {
-    const minutes = timeToMinutes(time);
-    return minutes >= SLOT_FILTER_START_MINUTES && minutes <= SLOT_FILTER_END_MINUTES;
-  }
-
-  function hashStringToSeed(value) {
-    let hash = 2166136261;
-    for (let index = 0; index < value.length; index += 1) {
-      hash ^= value.charCodeAt(index);
-      hash = Math.imul(hash, 16777619);
-    }
-    return hash >>> 0;
-  }
-
-  function createSeededRandom(seed) {
-    let value = seed >>> 0;
-    return () => {
-      value = (value + 0x6d2b79f5) >>> 0;
-      let randomValue = value;
-      randomValue = Math.imul(randomValue ^ (randomValue >>> 15), randomValue | 1);
-      randomValue ^= randomValue + Math.imul(randomValue ^ (randomValue >>> 7), randomValue | 61);
-      return ((randomValue ^ (randomValue >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-
-  function shuffleWithSeed(values, seed) {
-    const shuffled = [...values];
-    const random = createSeededRandom(seed);
-    for (let index = shuffled.length - 1; index > 0; index -= 1) {
-      const swapIndex = Math.floor(random() * (index + 1));
-      [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
-    }
-    return shuffled;
-  }
-
-  function toBuenosAiresIso(dayKey, time) {
+  function toBuenosAiresIso(dayKey: string, time: string) {
     return new Date(`${dayKey}T${time}:00-03:00`).toISOString();
   }
 
-  function initBookingWidget(root) {
+  function initBookingWidget(root: HTMLElement) {
     if (root.dataset.bookingReady === 'true') return;
     root.dataset.bookingReady = 'true';
 
     const copy = JSON.parse(root.dataset.copy || '{}');
-    const sdkUrl = root.dataset.sdkUrl || 'https://golden-crow-sdk.vercel.app';
+    const localeTag = copy.localeTag || 'en-US';
+    const sdkUrl = (root.dataset.sdkUrl || 'https://golden-crow-sdk.vercel.app').replace(/\/$/, '');
     const context = root.dataset.context || 'general';
-    const normalizedContext = context.toLowerCase();
-    const normalizedPath = window.location.pathname.toLowerCase();
-    const shouldFilterPocketGenesSlots =
-      normalizedContext.startsWith(POCKET_GENES_CONTEXT_PREFIX) ||
-      /(^|\/)pocket-genes(\/|$)/.test(normalizedPath);
-    const minDate = firstAvailableDate(addDays(getBuenosAiresToday(), 1));
-    let selectedDate = minDate;
-    let selectedTime = SLOT_TIMES[0];
-    let viewDate = utcDate(selectedDate.getUTCFullYear(), selectedDate.getUTCMonth(), 1);
+    const isSupport = context === SUPPORT_CONTEXT;
+    const today = buenosAiresToday();
+    let firstDay = utcDate(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + 1);
+    while (firstDay.getUTCDay() === 0 || firstDay.getUTCDay() === 6) {
+      firstDay = utcDate(firstDay.getUTCFullYear(), firstDay.getUTCMonth(), firstDay.getUTCDate() + 1);
+    }
+    const firstMonth = monthKey(firstDay);
+    let viewDate = utcDate(firstDay.getUTCFullYear(), firstDay.getUTCMonth(), 1);
+    let selectedDate = '';
+    let selectedTime = '';
+    let availability: Availability = {};
+    let pendingAvailability: AbortController | undefined;
 
-    const panels = Array.from(root.querySelectorAll('[data-booking-panel]'));
-    const backButton = root.querySelector('[data-booking-back]');
-    const monthLabel = root.querySelector('[data-month-label]');
-    const daysGrid = root.querySelector('[data-days-grid]');
-    const timesList = root.querySelector('[data-times-list]');
-    const form = root.querySelector('[data-booking-form]');
-    const submitButton = root.querySelector('[data-booking-submit]');
-    const error = root.querySelector('[data-booking-error]');
-    const summaryDate = root.querySelector('[data-summary-date]');
-    const summaryTime = root.querySelector('[data-summary-time]');
-    const summaryTimeRow = root.querySelector('[data-summary-time-row]');
-    const successDate = root.querySelector('[data-success-date]');
-    const successTime = root.querySelector('[data-success-time]');
+    const panels = Array.from(root.querySelectorAll<HTMLElement>('[data-booking-panel]'));
+    const backButton = root.querySelector<HTMLButtonElement>('[data-booking-back]');
+    const previousButton = root.querySelector<HTMLButtonElement>('[data-prev-month]');
+    const nextButton = root.querySelector<HTMLButtonElement>('[data-next-month]');
+    const monthLabel = root.querySelector<HTMLElement>('[data-month-label]');
+    const daysGrid = root.querySelector<HTMLElement>('[data-days-grid]');
+    const timesList = root.querySelector<HTMLElement>('[data-times-list]');
+    const availabilityStatus = root.querySelector<HTMLElement>('[data-availability-status]');
+    const availabilityRetry = root.querySelector<HTMLButtonElement>('[data-availability-retry]');
+    const form = root.querySelector<HTMLFormElement>('[data-booking-form]');
+    const submitButton = root.querySelector<HTMLButtonElement>('[data-booking-submit]');
+    const error = root.querySelector<HTMLElement>('[data-booking-error]');
+    const summaryDate = root.querySelector<HTMLElement>('[data-summary-date]');
+    const summaryTime = root.querySelector<HTMLElement>('[data-summary-time]');
+    const summaryTimeRow = root.querySelector<HTMLElement>('[data-summary-time-row]');
+    const successDate = root.querySelector<HTMLElement>('[data-success-date]');
+    const successTime = root.querySelector<HTMLElement>('[data-success-time]');
+    const successReason = root.querySelector<HTMLElement>('[data-success-reason]');
 
-    function setStep(step) {
-      panels.forEach((panel) => {
-        const isActive = panel.getAttribute('data-booking-panel') === step;
-        panel.toggleAttribute('hidden', !isActive);
-        panel.classList.toggle('is-active', isActive);
-      });
-      backButton?.toggleAttribute('hidden', step === 'calendar');
+    function setStep(step: BookingStep, focus = true) {
       root.dataset.step = step;
-    }
-
-    function availableSlotTimesForDate(date) {
-      if (!shouldFilterPocketGenesSlots) return SLOT_TIMES;
-
-      const dateSeed = hashStringToSeed(`${POCKET_GENES_SLOT_FILTER_SEED_PREFIX}:${dateKey(date)}`);
-      const candidateSlots = SLOT_TIMES.filter(isSlotInDeterministicFilterWindow);
-      const hiddenSlotCount = Math.round(candidateSlots.length * HIDDEN_SLOT_RATIO);
-      const hiddenSlots = new Set(
-        shuffleWithSeed(candidateSlots, dateSeed).slice(0, hiddenSlotCount),
-      );
-      const availableSlots = SLOT_TIMES.filter((time) => !hiddenSlots.has(time));
-
-      return availableSlots.length > 0 ? availableSlots : SLOT_TIMES;
-    }
-
-    function ensureSelectedTimeIsAvailable() {
-      const availableSlots = availableSlotTimesForDate(selectedDate);
-      if (!availableSlots.includes(selectedTime)) {
-        selectedTime = availableSlots[0] || SLOT_TIMES[0];
+      for (const panel of panels) {
+        const isActive = panel.dataset.bookingPanel === step;
+        panel.hidden = !isActive;
+        panel.classList.toggle('is-active', isActive);
+        if (isActive && focus) panel.querySelector('h3')?.focus();
       }
-      return availableSlots;
+      if (backButton) backButton.hidden = step === 'calendar';
     }
 
     function updateSummary(includeTime = false) {
-      const dayText = formatDate(selectedDate, copy.localeTag || 'en-US');
-      const endTime = addMinutesToTime(selectedTime, 30);
+      const dayText = selectedDate ? formatDate(selectedDate, localeTag) : copy.selectedDateFallback;
+      const timeText = includeTime && selectedTime
+        ? `${formatTime(selectedTime, localeTag)} – ${formatTime(addMinutesToTime(selectedTime, BOOKING_DURATION_MINUTES), localeTag)}`
+        : '';
       if (summaryDate) summaryDate.textContent = dayText;
-      if (summaryTime) summaryTime.textContent = `${formatTime(selectedTime)} - ${formatTime(endTime)}`;
-      summaryTimeRow?.toggleAttribute('hidden', !includeTime);
+      if (summaryTime) summaryTime.textContent = timeText;
+      if (summaryTimeRow) summaryTimeRow.hidden = !timeText;
       if (successDate) successDate.textContent = dayText;
-      if (successTime) successTime.textContent = `${formatTime(selectedTime)} - ${formatTime(endTime)}`;
+      if (successTime) successTime.textContent = timeText;
     }
 
     function renderCalendar() {
       if (!daysGrid || !monthLabel) return;
-      monthLabel.textContent = formatMonth(viewDate, copy.localeTag || 'en-US');
-      daysGrid.textContent = '';
+      monthLabel.textContent = formatMonth(viewDate, localeTag);
+      if (previousButton) previousButton.disabled = monthKey(viewDate) <= firstMonth;
+      daysGrid.replaceChildren();
 
       const year = viewDate.getUTCFullYear();
       const month = viewDate.getUTCMonth();
-      const firstDay = utcDate(year, month, 1);
-      const leadingBlanks = firstDay.getUTCDay();
+      const leadingBlanks = utcDate(year, month, 1).getUTCDay();
       const daysInMonth = utcDate(year, month + 1, 0).getUTCDate();
 
-      for (let i = 0; i < leadingBlanks; i += 1) {
+      for (let index = 0; index < leadingBlanks; index += 1) {
         const blank = document.createElement('span');
         blank.className = 'booking-day is-empty';
         daysGrid.appendChild(blank);
       }
 
       for (let day = 1; day <= daysInMonth; day += 1) {
-        const date = utcDate(year, month, day);
-        const available = !isBefore(date, minDate) && isBusinessDay(date);
+        const key = dateKey(utcDate(year, month, day));
+        const available = Boolean(availability[key]?.length);
         const element = document.createElement(available ? 'button' : 'span');
         element.className = 'booking-day';
         element.textContent = String(day);
-        if (!available) {
-          element.classList.add('is-disabled');
-        } else {
-          element.setAttribute('type', 'button');
-          element.setAttribute('aria-label', formatDate(date, copy.localeTag || 'en-US'));
-          if (isSameDate(date, selectedDate)) {
-            element.classList.add('is-selected');
-            element.setAttribute('aria-pressed', 'true');
-          } else {
-            element.setAttribute('aria-pressed', 'false');
-          }
+        if (element instanceof HTMLButtonElement) {
+          element.type = 'button';
+          element.setAttribute('aria-label', formatDate(key, localeTag));
+          element.classList.toggle('is-selected', key === selectedDate);
+          element.setAttribute('aria-pressed', String(key === selectedDate));
           element.addEventListener('click', () => {
-            selectedDate = date;
-            updateSummary(false);
-            renderCalendar();
+            selectedDate = key;
+            selectedTime = '';
+            for (const dateButton of daysGrid.querySelectorAll('button')) {
+              const isSelected = dateButton === element;
+              dateButton.classList.toggle('is-selected', isSelected);
+              dateButton.setAttribute('aria-pressed', String(isSelected));
+            }
+            updateSummary();
             renderTimes();
           });
+        } else {
+          element.classList.add('is-disabled');
         }
         daysGrid.appendChild(element);
       }
@@ -522,130 +504,206 @@ const renderedBrandName = emphasizeBrandName ? formatBrandText(copy.brandName) :
 
     function renderTimes() {
       if (!timesList) return;
-      timesList.textContent = '';
-      ensureSelectedTimeIsAvailable().forEach((time) => {
+      timesList.replaceChildren();
+      for (const time of availability[selectedDate] ?? []) {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'booking-time-button';
-        button.textContent = formatTime(time);
+        button.textContent = formatTime(time, localeTag);
         button.addEventListener('click', () => {
           selectedTime = time;
           updateSummary(true);
           setStep('form');
         });
         timesList.appendChild(button);
-      });
+      }
     }
 
-    root.querySelector('[data-prev-month]')?.addEventListener('click', () => {
-      const previous = utcDate(viewDate.getUTCFullYear(), viewDate.getUTCMonth() - 1, 1);
-      if (previous.getUTCFullYear() < minDate.getUTCFullYear()) return;
-      if (
-        previous.getUTCFullYear() === minDate.getUTCFullYear() &&
-        previous.getUTCMonth() < minDate.getUTCMonth()
-      ) {
-        return;
+    function showAvailabilityStatus(message = '', allowRetry = false) {
+      if (availabilityStatus) {
+        availabilityStatus.textContent = message;
+        availabilityStatus.hidden = !message;
       }
-      viewDate = previous;
-      renderCalendar();
-    });
+      if (availabilityRetry) availabilityRetry.hidden = !allowRetry;
+    }
 
-    root.querySelector('[data-next-month]')?.addEventListener('click', () => {
-      viewDate = utcDate(viewDate.getUTCFullYear(), viewDate.getUTCMonth() + 1, 1);
+    async function loadAvailability(message?: string) {
+      pendingAvailability?.abort();
+      const controller = new AbortController();
+      pendingAvailability = controller;
+      const month = monthKey(viewDate);
+      availability = {};
+      selectedTime = '';
+      showAvailabilityStatus(message || copy.loadingTimes);
       renderCalendar();
-    });
+      renderTimes();
 
+      try {
+        const query = new URLSearchParams({ month, context });
+        const response = await fetch(`${sdkUrl}/client-bookings/availability?${query}`, {
+          credentials: 'omit',
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error('Availability request failed');
+        const result = await response.json() as { month: string; slotsByDate: Availability };
+        if (controller.signal.aborted) return;
+        if (result.month !== month || !result.slotsByDate) throw new Error('Invalid availability response');
+
+        availability = result.slotsByDate;
+        const availableDates = Object.keys(availability).filter((date) => availability[date].length).sort();
+        if (!availability[selectedDate]?.length) selectedDate = availableDates[0] || '';
+        showAvailabilityStatus(selectedDate ? message : copy.noTimes);
+      } catch {
+        if (controller.signal.aborted) return;
+        availability = {};
+        selectedDate = '';
+        showAvailabilityStatus(copy.availabilityError, true);
+      }
+
+      renderCalendar();
+      renderTimes();
+      updateSummary();
+    }
+
+    function changeMonth(amount: number) {
+      const next = utcDate(viewDate.getUTCFullYear(), viewDate.getUTCMonth() + amount, 1);
+      if (monthKey(next) < firstMonth) return;
+      viewDate = next;
+      selectedDate = '';
+      updateSummary();
+      void loadAvailability();
+    }
+
+    previousButton?.addEventListener('click', () => changeMonth(-1));
+    nextButton?.addEventListener('click', () => changeMonth(1));
+    availabilityRetry?.addEventListener('click', () => { void loadAvailability(); });
     backButton?.addEventListener('click', () => {
-      if (root.dataset.step === 'success') {
-        setStep('calendar');
-        updateSummary(false);
-        return;
-      }
+      const wasSuccess = root.dataset.step === 'success';
       setStep('calendar');
-      updateSummary(false);
+      updateSummary();
+      if (wasSuccess) void loadAvailability();
     });
 
     form?.addEventListener('submit', async (event) => {
       event.preventDefault();
-      if (!(form instanceof HTMLFormElement) || !form.reportValidity()) return;
-
-      const data = new FormData(form);
-      const dayKey = dateKey(selectedDate);
-      const availableSlots = availableSlotTimesForDate(selectedDate);
-      if (!availableSlots.includes(selectedTime)) {
-        selectedTime = availableSlots[0] || SLOT_TIMES[0];
-        updateSummary(false);
-        renderTimes();
+      if (submitButton?.disabled || !form.reportValidity()) return;
+      if (!availability[selectedDate]?.includes(selectedTime)) {
         setStep('calendar');
+        void loadAvailability(copy.slotTaken);
         return;
       }
-      const endTime = addMinutesToTime(selectedTime, 30);
-      const payload = {
-        source: {
-          context,
-          locale: copy.locale || document.documentElement.lang || 'en',
-          pageUrl: window.location.href,
-          path: window.location.pathname,
-          referrer: document.referrer || undefined,
-        },
-        event: {
-          title: copy.eventTitle,
-          durationMinutes: 30,
-          timezone: BOOKING_TIMEZONE,
-          timezoneLabel: copy.timeZoneLabel,
-          date: dayKey,
-          startTime: selectedTime,
-          endTime,
-          startsAt: toBuenosAiresIso(dayKey, selectedTime),
-          endsAt: toBuenosAiresIso(dayKey, endTime),
-        },
-        form: {
-          fullName: String(data.get('fullName') || ''),
-          email: String(data.get('email') || ''),
-          whatsapp: String(data.get('whatsapp') || ''),
-          companyName: String(data.get('companyName') || ''),
-        },
-      };
 
-      error?.toggleAttribute('hidden', true);
+      const data = new FormData(form);
+      const locale = copy.locale || document.documentElement.lang || 'en';
+      const formData = {
+        fullName: String(data.get('fullName') || '').trim(),
+        email: String(data.get('email') || '').trim(),
+        whatsapp: String(data.get('whatsapp') || '').trim(),
+        companyName: String(data.get('companyName') || '').trim(),
+      };
+      const day = selectedDate;
+      const startTime = selectedTime;
+      const endTime = addMinutesToTime(startTime, BOOKING_DURATION_MINUTES);
+      const payload = isSupport
+        ? {
+            ...formData,
+            companyName: formData.companyName || undefined,
+            date: day,
+            startTime,
+            reason: String(data.get('reason') || ''),
+            locale,
+          }
+        : {
+            source: {
+              context,
+              locale,
+              pageUrl: window.location.href,
+              path: window.location.pathname,
+              referrer: document.referrer || undefined,
+            },
+            event: {
+              title: copy.eventTitle,
+              durationMinutes: BOOKING_DURATION_MINUTES,
+              timezone: BOOKING_TIMEZONE,
+              timezoneLabel: copy.timeZoneLabel,
+              date: day,
+              startTime,
+              endTime,
+              startsAt: toBuenosAiresIso(day, startTime),
+              endsAt: toBuenosAiresIso(day, endTime),
+            },
+            form: formData,
+          };
+
+      if (error) error.hidden = true;
+      if (backButton) backButton.disabled = true;
       if (submitButton) {
-        submitButton.setAttribute('disabled', 'true');
+        submitButton.disabled = true;
         submitButton.textContent = copy.submittingLabel;
       }
 
       try {
-        const response = await fetch(`${sdkUrl.replace(/\/$/, '')}/client-bookings`, {
+        const endpoint = isSupport ? 'support-bookings' : 'client-bookings';
+        const response = await fetch(`${sdkUrl}/${endpoint}`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify(payload),
           credentials: 'omit',
         });
 
+        if (response.status === 409) {
+          setStep('calendar');
+          updateSummary();
+          void loadAvailability(copy.slotTaken);
+          return;
+        }
         if (!response.ok) {
-          throw new Error(`Booking request failed with ${response.status}`);
+          const result = !isSupport && response.status === 502
+            ? await response.json().catch(() => null)
+            : null;
+          if (result?.status !== 'notification_failed' || typeof result.bookingId !== 'string' || !result.bookingId.trim()) {
+            throw new Error('Booking request failed');
+          }
         }
 
+        if (successReason) {
+          successReason.textContent = form.querySelector<HTMLSelectElement>('[name="reason"]')?.selectedOptions[0]?.textContent || '';
+        }
         updateSummary(true);
         setStep('success');
         form.reset();
       } catch {
-        error?.toggleAttribute('hidden', false);
+        if (error) error.hidden = false;
       } finally {
+        if (backButton) backButton.disabled = false;
         if (submitButton) {
-          submitButton.removeAttribute('disabled');
+          submitButton.disabled = false;
           submitButton.textContent = copy.submitLabel;
         }
       }
     });
 
-    updateSummary(false);
-    renderCalendar();
-    renderTimes();
-    setStep('calendar');
+    updateSummary();
+    setStep('calendar', false);
+    void loadAvailability();
   }
 
   function initBookingWidgets() {
-    document.querySelectorAll('[data-client-booking-widget]').forEach(initBookingWidget);
+    const widgets = document.querySelectorAll<HTMLElement>('[data-client-booking-widget]');
+    if (!('IntersectionObserver' in window)) {
+      widgets.forEach(initBookingWidget);
+      return;
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      for (const { target, isIntersecting } of entries) {
+        if (!isIntersecting || !(target instanceof HTMLElement)) continue;
+        observer.unobserve(target);
+        initBookingWidget(target);
+      }
+    }, { rootMargin: '200px' });
+    widgets.forEach((widget) => observer.observe(widget));
   }
 
   if (document.readyState === 'loading') {
@@ -704,6 +762,11 @@ const renderedBrandName = emphasizeBrandName ? formatBrandText(copy.brandName) :
     background: #000000;
   }
 
+  .client-booking-widget[data-context="pocket-genes-support"] .booking-logo {
+    border-radius: 20px;
+    background: #fff0f5;
+  }
+
   .booking-brand {
     margin: 0;
     color: #6b7280;
@@ -752,12 +815,14 @@ const renderedBrandName = emphasizeBrandName ? formatBrandText(copy.brandName) :
 
   .booking-main {
     position: relative;
+    isolation: isolate;
     min-width: 0;
     padding: clamp(24px, 3vw, 40px);
   }
 
   .booking-back {
     position: absolute;
+    z-index: 1;
     top: 22px;
     left: 22px;
     display: inline-flex;
@@ -792,6 +857,10 @@ const renderedBrandName = emphasizeBrandName ? formatBrandText(copy.brandName) :
     font-size: clamp(1.35rem, 2.2vw, 1.75rem);
     line-height: 1.15;
     letter-spacing: 0;
+  }
+
+  .booking-panel h3:focus {
+    outline: none;
   }
 
   .client-booking-widget[data-step="form"] .booking-panel[data-booking-panel="form"] h3 {
@@ -938,6 +1007,34 @@ const renderedBrandName = emphasizeBrandName ? formatBrandText(copy.brandName) :
     max-height: 460px;
     overflow: auto;
     padding-right: 8px;
+  }
+
+  .booking-time-area {
+    min-width: 0;
+  }
+
+  .booking-availability-status {
+    margin: 0 0 12px;
+    color: #46556f;
+    font-size: 0.9rem;
+  }
+
+  .booking-retry {
+    min-height: 44px;
+    margin-bottom: 12px;
+    padding: 0 14px;
+    border: 1px solid #2563eb;
+    border-radius: 6px;
+    background: white;
+    color: #1d4ed8;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .booking-month-row button:disabled {
+    opacity: 0.32;
+    cursor: default;
   }
 
   :global(.booking-time-button) {
@@ -1089,6 +1186,42 @@ const renderedBrandName = emphasizeBrandName ? formatBrandText(copy.brandName) :
     padding: 9px 13px;
     font-size: 0.9rem;
     font-weight: 700;
+  }
+
+  .booking-success-burst {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: #08764d;
+    pointer-events: none;
+    animation: booking-success-burst 720ms cubic-bezier(0.76, 0, 0.24, 1) both;
+  }
+
+  .client-booking-widget[data-context="pocket-genes-support"] .booking-success-panel > :not(.booking-success-burst) {
+    animation: booking-success-content 420ms ease 250ms both;
+  }
+
+  .client-booking-widget[data-context="pocket-genes-support"] .booking-success-panel h3,
+  .client-booking-widget[data-context="pocket-genes-support"] .booking-success-panel p {
+    margin: 0;
+    color: #fff;
+  }
+
+  @keyframes booking-success-burst {
+    from { clip-path: circle(0 at 50% 50%); }
+    to { clip-path: circle(75% at 50% 50%); }
+  }
+
+  @keyframes booking-success-content {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .booking-success-burst,
+    .client-booking-widget[data-context="pocket-genes-support"] .booking-success-panel > :not(.booking-success-burst) {
+      animation: none;
+    }
   }
 
   @container (max-width: 980px) {

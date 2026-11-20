@@ -18,6 +18,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useAppLanguage } from "@/components/app-language-provider";
+import { BookingCalendarAction } from "@/components/god-mode/booking-calendar-action";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,9 +33,10 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { sdkFetch } from "@/lib/sdk-client";
-import type {
-  ClientBookingRecord,
-  ClientBookingsResponse,
+import {
+  SUPPORT_BOOKING_REASON_LABELS,
+  type ClientBookingRecord,
+  type ClientBookingsResponse,
 } from "@/lib/client-bookings";
 import { appText, type AppLanguage } from "@/lib/language";
 import { cn } from "@/lib/utils";
@@ -298,7 +300,6 @@ function buildCalendarQueryPath(monthKey: string) {
   const params = new URLSearchParams({
     view: "calendar",
     month: monthKey,
-    limit: "250",
     archived: "false",
   });
 
@@ -329,9 +330,18 @@ function buildListQueryPath(
   return `/admin/client-bookings?${params.toString()}`;
 }
 
-function useAcknowledgeBooking() {
+function useInvalidateBookings() {
   const queryClient = useQueryClient();
+  return () => {
+    void queryClient.invalidateQueries({
+      queryKey: [CALENDAR_BOOKINGS_QUERY_KEY],
+    });
+    void queryClient.invalidateQueries({ queryKey: [LIST_BOOKINGS_QUERY_KEY] });
+  };
+}
 
+function useAcknowledgeBooking() {
+  const invalidateBookings = useInvalidateBookings();
   return useMutation({
     mutationFn: (bookingId: string) =>
       sdkFetch<{ booking: ClientBookingRecord }>(
@@ -341,18 +351,12 @@ function useAcknowledgeBooking() {
           body: JSON.stringify({ ack: true }),
         },
       ),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: [CALENDAR_BOOKINGS_QUERY_KEY],
-      });
-      queryClient.invalidateQueries({ queryKey: [LIST_BOOKINGS_QUERY_KEY] });
-    },
+    onSuccess: invalidateBookings,
   });
 }
 
 function useArchiveBooking() {
-  const queryClient = useQueryClient();
-
+  const invalidateBookings = useInvalidateBookings();
   return useMutation({
     mutationFn: (bookingId: string) =>
       sdkFetch<{ booking: ClientBookingRecord }>(
@@ -362,13 +366,54 @@ function useArchiveBooking() {
           body: JSON.stringify({ archived: true }),
         },
       ),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: [CALENDAR_BOOKINGS_QUERY_KEY],
-      });
-      queryClient.invalidateQueries({ queryKey: [LIST_BOOKINGS_QUERY_KEY] });
-    },
+    onSuccess: invalidateBookings,
   });
+}
+
+function getBookingKindLabel(
+  booking: ClientBookingRecord,
+  language: AppLanguage,
+) {
+  if (booking.kind === "publisher_support") {
+    return appText(language, "Publisher support");
+  }
+  if (booking.kind === "public_support") {
+    return appText(language, "Public support");
+  }
+  return appText(language, "Consultation");
+}
+
+function getCalendarMeetingTime(
+  booking: ClientBookingRecord,
+  language: AppLanguage,
+) {
+  return `${formatDateKey(booking.event.date, language)} · ${formatTimeRange(booking)}`;
+}
+
+function BookingEmailAlerts({
+  notification,
+  language,
+}: {
+  notification: ClientBookingRecord["emailNotification"];
+  language: AppLanguage;
+}) {
+  const t = (text: string) => appText(language, text);
+  const alerts = [
+    notification?.host === "failed" && t("Host notification failed"),
+    notification?.host === "unknown" && t("Host notification unverified"),
+    notification?.attendee === "failed" && t("Attendee confirmation failed"),
+    notification?.attendee === "unknown" && t("Attendee confirmation unverified"),
+  ].filter((alert): alert is string => typeof alert === "string");
+
+  if (!alerts.length) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {alerts.map((alert) => (
+        <Badge key={alert} variant="warning">{alert}</Badge>
+      ))}
+    </div>
+  );
 }
 
 function EmptyState({ children }: { children: React.ReactNode }) {
@@ -386,6 +431,7 @@ function BookingInfoCard({
   isArchiving,
   onAcknowledge,
   onArchive,
+  onCalendarCreated,
   allowArchive,
 }: {
   booking: ClientBookingRecord;
@@ -394,6 +440,7 @@ function BookingInfoCard({
   isArchiving: boolean;
   onAcknowledge: (bookingId: string) => void;
   onArchive: (bookingId: string) => void;
+  onCalendarCreated: () => void;
   allowArchive: boolean;
 }) {
   const t = (text: string) => appText(language, text);
@@ -432,6 +479,15 @@ function BookingInfoCard({
           <p className="mt-1 text-sm text-muted-foreground">
             {booking.form.companyName || t("No company provided")}
           </p>
+          <Badge variant="outline" className="mt-2">
+            {getBookingKindLabel(booking, language)}
+          </Badge>
+          {booking.reason ? (
+            <p className="mt-2 text-sm text-foreground">
+              <span className="font-medium">{t("Reason")}</span>{" · "}
+              {SUPPORT_BOOKING_REASON_LABELS[booking.reason][language]}
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-col items-start gap-2 sm:items-end">
           <Badge
@@ -470,6 +526,21 @@ function BookingInfoCard({
             </Button>
           ) : null}
         </div>
+      </div>
+
+      <div className="mt-4 empty:hidden">
+        <BookingCalendarAction
+          booking={booking}
+          language={language}
+          meetingTime={getCalendarMeetingTime(booking, language)}
+          onCreated={onCalendarCreated}
+        />
+      </div>
+      <div className="mt-3 empty:hidden">
+        <BookingEmailAlerts
+          notification={booking.emailNotification}
+          language={language}
+        />
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -579,6 +650,7 @@ function ClientBookingsList({
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
+  const invalidateBookings = useInvalidateBookings();
   const ackMutation = useAcknowledgeBooking();
   const archiveMutation = useArchiveBooking();
   const isNewOnly = ack === false;
@@ -612,13 +684,6 @@ function ClientBookingsList({
                 ? t("New booking requests")
                 : t("All booking requests")}
           </h2>
-          <p className="text-sm text-muted-foreground">
-            {isArchivedOnly
-              ? t("Archived requests only.")
-              : isNewOnly
-                ? t("Unacknowledged requests only.")
-                : t("Unacknowledged first, then latest.")}
-          </p>
         </div>
         <Button
           type="button"
@@ -674,9 +739,11 @@ function ClientBookingsList({
                 <TableHead>{t("Meeting")}</TableHead>
                 <TableHead>{t("Contact")}</TableHead>
                 <TableHead>{t("Company")}</TableHead>
+                <TableHead>{t("Reason")}</TableHead>
                 <TableHead>{t("Source")}</TableHead>
                 <TableHead>{t("Requested")}</TableHead>
                 <TableHead>{t("Status")}</TableHead>
+                <TableHead>Google Calendar</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -720,9 +787,14 @@ function ClientBookingsList({
                       {booking.form.companyName || "—"}
                     </TableCell>
                     <TableCell className="whitespace-normal">
-                      <div>{booking.source.context}</div>
+                      {booking.reason
+                        ? SUPPORT_BOOKING_REASON_LABELS[booking.reason][language]
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="whitespace-normal">
+                      <div>{getBookingKindLabel(booking, language)}</div>
                       <div className="text-xs text-muted-foreground">
-                        {booking.source.locale}
+                        {booking.source.context} · {booking.source.locale}
                       </div>
                     </TableCell>
                     <TableCell className="whitespace-normal text-muted-foreground">
@@ -738,6 +810,10 @@ function ClientBookingsList({
                         {booking.archived ? (
                           <Badge variant="outline">{t("Archived")}</Badge>
                         ) : null}
+                        <BookingEmailAlerts
+                          notification={booking.emailNotification}
+                          language={language}
+                        />
                         {!booking.ack && !booking.archived ? (
                           <Button
                             type="button"
@@ -765,6 +841,14 @@ function ClientBookingsList({
                           </Button>
                         ) : null}
                       </div>
+                    </TableCell>
+                    <TableCell className="whitespace-normal">
+                      <BookingCalendarAction
+                        booking={booking}
+                        language={language}
+                        meetingTime={getCalendarMeetingTime(booking, language)}
+                        onCreated={invalidateBookings}
+                      />
                     </TableCell>
                   </TableRow>
                 );
@@ -806,6 +890,7 @@ function ClientBookingsList({
 export function ClientBookingsWorkbench() {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
+  const invalidateBookings = useInvalidateBookings();
   const ackMutation = useAcknowledgeBooking();
   const archiveMutation = useArchiveBooking();
   const [view, setView] = useState<BookingView>("calendar");
@@ -854,14 +939,9 @@ export function ClientBookingsWorkbench() {
         className="gap-5"
       >
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-700 dark:text-amber-200">
-              GOD MODE ACTIONS
-            </p>
-            <h2 className="mt-1 font-heading text-xl font-semibold text-foreground">
-              {t("See all bookings")}
-            </h2>
-          </div>
+          <h2 className="font-heading text-xl font-semibold text-foreground">
+            {t("Bookings")}
+          </h2>
           <div className="flex flex-wrap items-center gap-2">
             <HeaderUnclutterButton />
             <TabsList className="w-fit">
@@ -1081,14 +1161,9 @@ export function ClientBookingsWorkbench() {
 
             <aside className="rounded-2xl border border-border/80 bg-background/60 p-4">
               <div className="mb-4 flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    {t("Selected day")}
-                  </p>
-                  <h3 className="mt-1 font-heading text-lg font-semibold text-foreground">
-                    {formatDateKey(effectiveSelectedDate, language)}
-                  </h3>
-                </div>
+                <h3 className="font-heading text-lg font-semibold text-foreground">
+                  {formatDateKey(effectiveSelectedDate, language)}
+                </h3>
                 <Badge variant={selectedNeedsAttention ? "warning" : "outline"}>
                   {selectedBookings.length}
                 </Badge>
@@ -1119,6 +1194,7 @@ export function ClientBookingsWorkbench() {
                       onArchive={(bookingId) =>
                         archiveMutation.mutate(bookingId)
                       }
+                      onCalendarCreated={invalidateBookings}
                       allowArchive
                     />
                   ))}

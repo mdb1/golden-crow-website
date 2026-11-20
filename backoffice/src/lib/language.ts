@@ -2893,6 +2893,27 @@ const SPANISH_TEXT: Record<string, string> = {
   "Umbrella Organization": "Organización paraguas",
   "Research Center": "Centro de investigación",
   "Client bookings": "Reuniones solicitadas",
+  "Support bookings": "Reservas de soporte",
+  "New support booking": "Nueva reserva de soporte",
+  "Choose an available time and a reason to help us prepare for your meeting.":
+    "Elegí un horario disponible y contanos el motivo para que podamos preparar la reunión.",
+  "View your meetings with the Pocket Genes team and book a time to get help.":
+    "Consultá tus reuniones con el equipo de Pocket Genes y reservá un horario para recibir ayuda.",
+  "Publisher support": "Soporte a publicadores",
+  "Public support": "Soporte público",
+  Consultation: "Consulta",
+  Reason: "Motivo",
+  "Create Google Calendar meeting": "Crear reunión en Google Calendar",
+  "Google Calendar will email an invitation to the attendee.":
+    "Google Calendar le enviará una invitación por correo a la persona que reservó.",
+  "Create and invite": "Crear y enviar invitación",
+  "Creating meeting...": "Creando reunión...",
+  "Open Google Calendar": "Abrir Google Calendar",
+  "Open Google Meet": "Abrir Google Meet",
+  "Host notification failed": "Falló el aviso al anfitrión",
+  "Host notification unverified": "Envío al anfitrión sin verificar",
+  "Attendee confirmation failed": "Falló la confirmación al asistente",
+  "Attendee confirmation unverified": "Envío al asistente sin verificar",
   "Calendar and list review for consultation requests.":
     "Revisión en calendario y lista de solicitudes de reunión.",
   "All booking requests": "Todas las solicitudes de reunión",
