@@ -8,7 +8,7 @@ import { CORVO_HEAD_ASSETS } from '../../../data/gcFitnessPublic';
     <div class="legal-container">
       <p class="legal-lang"><a href="/gc-fitness/privacy">Versión en español</a></p>
       <h1>Privacy Policy — Corvo</h1>
-      <p class="legal-updated">Effective date: October 13, 2026</p>
+      <p class="legal-updated">Effective date: November 20, 2026</p>
 
       <p>
         This policy describes how Golden Crow ("we") handles your personal data when you use the
@@ -26,9 +26,9 @@ import { CORVO_HEAD_ASSETS } from '../../../data/gcFitnessPublic';
           personal records, and goals.</li>
         <li><strong>Progress photos:</strong> photos you voluntarily upload for visual
           tracking.</li>
-        <li><strong>Messages:</strong> your chat with your coach (text, photos, and voice notes)
-          and, if you use the social features, direct messages with other people (text
-          only).</li>
+        <li><strong>Messages:</strong> your chat with your coach (text, photos, and voice notes),
+          your conversation with Corvo (text and the photos you attach) and, if you use the social
+          features, direct messages with other people (text only).</li>
         <li><strong>Social features (optional):</strong> your public profile (@handle, name, photo,
           and bio), who you follow and who follows you, follow requests, who you've blocked, the
           routines you publish, your comments, likes and saved routines, and the reports you send.
@@ -149,7 +149,8 @@ import { CORVO_HEAD_ASSETS } from '../../../data/gcFitnessPublic';
         uses <strong>Claude</strong>, an artificial intelligence model by <strong>Anthropic</strong>.
       </p>
       <ul>
-        <li><strong>What is sent to Anthropic:</strong> your messages to the AI Coach and the
+        <li><strong>What is sent to Anthropic:</strong> your messages to the AI Coach (including
+          the photos you attach, see <a href="#ai-coach-attached-photos">below</a>) and the
           account data needed to answer them: workouts, personal records, body weight, habits,
           routines, schedule and nutrition. Your email, location and any non-public data about other
           people are <strong>not</strong> sent. Neither are your progress photos, unless you turn on
@@ -190,6 +191,36 @@ import { CORVO_HEAD_ASSETS } from '../../../data/gcFitnessPublic';
           disorder, it does not analyze the photos and recommends seeing a professional.</li>
         <li><strong>You can revoke it at any time</strong> from the same place. From then on Corvo
           cannot see your photos again.</li>
+      </ul>
+
+      <h3 id="ai-coach-attached-photos">Photos you send Corvo and voice dictation</h3>
+      <p>
+        You can attach a photo to a message for Corvo (for example, your meal or your form on an
+        exercise) and dictate your messages instead of typing them. Both are optional.
+      </p>
+      <ul>
+        <li><strong>Photos — what is stored:</strong> the photo you pick is uploaded to your account
+          (on Google Firebase, our infrastructure provider), downsized, to show it in your
+          conversation. Only you can see it: your trainer has no access to it.</li>
+        <li><strong>Photos — what is sent and to whom:</strong> to answer that message, our server
+          downscales it (at most 1 megapixel), strips its metadata (such as location or device) and
+          sends it only to <strong>Anthropic</strong>, which acts as a data processor. It is sent
+          only with the message you attached it to: in later answers Corvo no longer sees it. No
+          other third party receives it.</li>
+        <li><strong>Photos — what Corvo does with them:</strong> with a meal, it describes what it
+          sees and gives approximate estimates; with your form, it suggests adjustments. If the
+          photo shows your body, the same rules as the progress-photo analysis apply: it does not
+          judge your body or appearance or estimate body-fat percentages or clinical numbers, and it
+          does not identify people.</li>
+        <li><strong>Photos — deletion:</strong> they are deleted when you delete the conversation
+          (AI Coach → ⋯ → Delete conversation) and when you delete your account.</li>
+        <li><strong>Voice dictation:</strong> it uses your phone's speech recognition (Apple on
+          iPhone, Google on Android), which turns your voice into text on the device whenever the
+          phone supports it; otherwise the system may process it on Apple's or Google's servers
+          under their own policies. Corvo does not record or store audio and none reaches us: we only
+          receive the text you choose to send, like any other message. To dictate, the app asks for
+          microphone permission (and, on iPhone, speech recognition), which you can withdraw in the
+          phone's settings.</li>
       </ul>
 
       <p id="coach-ai-summary">
