@@ -36,6 +36,8 @@ import {
   PartnerEmailTemplateVariantSchema,
   PartnerEmailSendInputSchema,
   PartnerEmailHistoryQuerySchema,
+  MeetingInvitationPurposeSchema,
+  PartnerMeetingSlotSchema,
   listPartnerEmailHistory,
   getPartnerEmailHistory,
   previewPartnerEmail,
@@ -44,6 +46,12 @@ import {
 
 const ParamsSchema = z.object({ partnerId: PartnerIdSchema }).strict();
 const ROUTE = "/admin/connected-partners";
+const EmailPreviewQuerySchema = z.object({
+  language: PartnerEmailLanguageSchema.default("es"),
+  templateVariant: z.enum(["1", "2", "3"]).default("1")
+    .transform((value) => value === "3" ? (3 as const) : value === "2" ? (2 as const) : (1 as const)),
+}).strict();
+const InvitationPreviewQuerySchema = EmailPreviewQuerySchema.extend({ purpose: MeetingInvitationPurposeSchema });
 const CsvBodySchema = z
   .object({
     csv: z
@@ -185,23 +193,26 @@ export async function connectedPartnersRoutes(
     {
       schema: {
         params: ParamsSchema,
-        querystring: z
-          .object({
-            language: PartnerEmailLanguageSchema.default("es"),
-            templateVariant: z.enum(["1", "2", "3"]).default("1")
-              .transform((value) => value === "3" ? (3 as const) : value === "2" ? (2 as const) : (1 as const)),
-          })
-          .strict(),
+        querystring: z.union([
+          EmailPreviewQuerySchema,
+          InvitationPreviewQuerySchema,
+          InvitationPreviewQuerySchema.extend(PartnerMeetingSlotSchema.shape),
+        ]),
       },
     },
     async (request, reply) => {
       reply.header("Cache-Control", "no-store");
+      const query = request.query;
+      const invitation = "purpose" in query
+        ? { meetingSlot: "date" in query ? { date: query.date, startTime: query.startTime } : undefined }
+        : undefined;
       return previewPartnerEmail(
         request.adminContext!,
         request.params.partnerId,
-        request.query.language,
+        query.language,
         undefined,
-        request.query.templateVariant,
+        query.templateVariant,
+        invitation,
       );
     },
   );

@@ -9,7 +9,7 @@ import { PartnerEmailMessageDialog } from "./partner-email-history-dialog";
 import { PARTNERS_API_ROUTE } from "@/lib/connected-partners";
 import {
   PARTNER_EMAIL_HISTORY_QUERY_KEY,
-  PARTNER_EMAIL_TEMPLATE_OPTIONS,
+  partnerHistoryTemplateLabel,
   type PartnerEmailHistoryPage,
   type PartnerEmailHistoryRecord,
 } from "@/lib/partner-email";
@@ -98,9 +98,7 @@ export function PartnerContactHistory({ partnerId }: { partnerId: string }) {
       {emails.length > 0 && (
         <ul className="divide-y overflow-hidden rounded-lg border">
           {emails.map((email) => {
-            const template = PARTNER_EMAIL_TEMPLATE_OPTIONS.find(
-              (option) => option.key === email.templateVariant,
-            );
+            const template = partnerHistoryTemplateLabel(email);
             const date = email.sentAt ?? email.updatedAt;
             return (
               <li key={email.requestId}>
@@ -120,7 +118,7 @@ export function PartnerContactHistory({ partnerId }: { partnerId: string }) {
                     <span className="flex items-center gap-x-2 text-[11px] leading-4 text-muted-foreground">
                       <span className="min-w-0 truncate">
                         {template
-                          ? t(template.label)
+                          ? t(template)
                           : t("Template not recorded")}
                       </span>
                       <time dateTime={date} className="shrink-0 whitespace-nowrap">

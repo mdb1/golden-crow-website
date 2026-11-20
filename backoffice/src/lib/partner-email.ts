@@ -9,6 +9,11 @@ export const PARTNER_EMAIL_TEMPLATE_OPTIONS = [
   { key: 1, label: "Template 2", detail: "More detail" },
   { key: 2, label: "Template 3", detail: "Short and direct" },
 ] as const;
+export const PARTNER_MEETING_TEMPLATE_OPTIONS = [
+  { key: 3, label: "Template 1", detail: "Support consultation" },
+  { key: 1, label: "Template 2", detail: "Portal walkthrough" },
+  { key: 2, label: "Template 3", detail: "Follow-up meeting" },
+] as const;
 export type PartnerEmailTemplateVariant =
   (typeof PARTNER_EMAIL_TEMPLATE_OPTIONS)[number]["key"];
 export const DEFAULT_PARTNER_EMAIL_TEMPLATE_VARIANT =
@@ -20,6 +25,7 @@ export type PartnerEmailBannerBrand = {
   contextHash: string;
 };
 export type PartnerEmailBannerInput = { contextHash: string; dataUrl: string };
+export type PartnerMeetingSlot = { date: string; startTime: string };
 
 export type PartnerEmailPreview = {
   partnerId: string;
@@ -35,6 +41,7 @@ export type PartnerEmailPreview = {
   language: PartnerEmailLanguage;
   templateVariant: PartnerEmailTemplateVariant;
   previewHash: string;
+  meetingSlot?: PartnerMeetingSlot;
   accessCodeExpiresAt?: string;
   accessCodeUnavailableReason?: string;
   bannerBrand?: PartnerEmailBannerBrand;
@@ -46,6 +53,8 @@ export type PartnerEmailSendInput = {
   templateVariant: PartnerEmailTemplateVariant;
   previewHash: string;
   requestId: string;
+  purpose?: "meetingInvitation";
+  meetingSlot?: PartnerMeetingSlot;
   banner?: PartnerEmailBannerInput;
 };
 
@@ -67,6 +76,7 @@ export type PartnerEmailHistoryRecord = {
   category: PartnerSection | null;
   language: PartnerEmailLanguage;
   templateVariant: PartnerEmailTemplateVariant | null;
+  purpose?: "meetingInvitation";
   status: PartnerEmailSendResult["status"];
   createdAt: string;
   updatedAt: string;
@@ -76,6 +86,13 @@ export type PartnerEmailHistoryRecord = {
   accessKeyOmitted: boolean;
   messageText?: string | null;
 };
+export function partnerHistoryTemplateLabel(email: PartnerEmailHistoryRecord) {
+  if (email.purpose === "meetingInvitation") {
+    return PARTNER_MEETING_TEMPLATE_OPTIONS.find((option) => option.key === email.templateVariant)?.detail;
+  }
+  return PARTNER_EMAIL_TEMPLATE_OPTIONS.find((option) => option.key === email.templateVariant)?.label;
+}
+
 export type PartnerEmailHistoryPage = {
   emails: PartnerEmailHistoryRecord[];
   nextCursor: string | null;

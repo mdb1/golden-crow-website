@@ -17,6 +17,8 @@ import { AdminRepositoryError } from "./admin-errors.js";
 import { getPartner } from "./connected-partners.repository.js";
 import { partnerPublisherStoredAccessKey } from "./publisher-portal-credentials.repository.js";
 import { partnerPublisherAccessCode } from "./publisher-access-code.repository.js";
+import { resolvePartnerMeetingSlot } from "./partner-meeting-slot.repository.js";
+import type { PartnerMeetingSlot } from "../lib/client-booking-schedule.js";
 import {
   PartnerEmailBannerInputSchema,
   partnerBannerAttachment,
@@ -31,15 +33,27 @@ export const PartnerEmailTemplateVariantSchema = z.union([
   z.literal(2),
   z.literal(3),
 ]);
-export const PartnerEmailSendInputSchema = z
-  .object({
-    language: PartnerEmailLanguageSchema,
-    templateVariant: PartnerEmailTemplateVariantSchema.default(1),
-    previewHash: z.string().regex(/^[a-f0-9]{64}$/),
-    requestId: z.uuid(),
+export const MeetingInvitationPurposeSchema = z.literal("meetingInvitation");
+export const PartnerMeetingSlotSchema = z.object({
+  date: z.iso.date(),
+  startTime: z.string().regex(/^(09|10|11):(00|30)$/),
+}).strict();
+const PartnerEmailCommandSchema = z.object({
+  language: PartnerEmailLanguageSchema,
+  templateVariant: PartnerEmailTemplateVariantSchema.default(1),
+  previewHash: z.string().regex(/^[a-f0-9]{64}$/),
+  requestId: z.uuid(),
+}).strict();
+export const PartnerEmailSendInputSchema = z.union([
+  PartnerEmailCommandSchema.extend({
     banner: PartnerEmailBannerInputSchema.optional(),
-  })
-  .strict();
+    purpose: z.undefined().optional(),
+  }),
+  PartnerEmailCommandSchema.extend({
+    purpose: MeetingInvitationPurposeSchema,
+    meetingSlot: PartnerMeetingSlotSchema,
+  }),
+]);
 const HistorySnapshotSchema = z
   .object({
     partnerName: z.string().min(1).max(180),
@@ -50,8 +64,10 @@ const HistorySnapshotSchema = z
     accessKeyOmitted: z.boolean(),
   })
   .strict();
-const StoredSendSchema = PartnerEmailSendInputSchema.omit({ banner: true })
+const StoredSendSchema = PartnerEmailCommandSchema
   .extend({
+    purpose: MeetingInvitationPurposeSchema.optional(),
+    meetingSlot: PartnerMeetingSlotSchema.optional(),
     partnerId: PartnerIdSchema,
     to: z.email(),
     status: z.enum(["sending", "sent", "unknown", "failed"]),
@@ -89,6 +105,7 @@ const HISTORY_SUMMARY_FIELDS = [
   "partnerId",
   "language",
   "templateVariant",
+  "purpose",
   "previewHash",
   "to",
   "status",
@@ -107,6 +124,7 @@ export type PartnerEmailHistoryRecord = Pick<
   | "requestId"
   | "partnerId"
   | "language"
+  | "purpose"
   | "to"
   | "status"
   | "createdAt"
@@ -157,6 +175,10 @@ function requireSameRequest(
     record.previewHash !== input.previewHash ||
     record.language !== input.language ||
     record.templateVariant !== input.templateVariant ||
+    record.purpose !== input.purpose ||
+    (input.purpose === "meetingInvitation" &&
+      (record.meetingSlot?.date !== input.meetingSlot.date ||
+        record.meetingSlot?.startTime !== input.meetingSlot.startTime)) ||
     record.requestId !== input.requestId
   )
     throw new AdminRepositoryError(
@@ -206,6 +228,7 @@ function historyRecord(
     requestId: record.requestId,
     partnerId: record.partnerId,
     language: record.language,
+    ...(record.purpose ? { purpose: record.purpose } : {}),
     templateVariant: record.templateVariant ?? null,
     to: record.to,
     status: record.status,
@@ -305,20 +328,21 @@ export async function previewPartnerEmail(
   language: "es" | "en" = "es",
   banner?: PartnerEmailBannerInput,
   templateVariant: PartnerEmailTemplateVariant = 1,
+  invitation?: { meetingSlot?: PartnerMeetingSlot },
 ): Promise<PartnerEmailPreview> {
   requireGodMode(context);
   const parsedLanguage = PartnerEmailLanguageSchema.parse(language);
   const parsedVariant =
     PartnerEmailTemplateVariantSchema.parse(templateVariant);
   const partner = await getPartner(context, partnerId);
-  const base = buildConnectedPartnerEmail(
+  const base = invitation ? undefined : buildConnectedPartnerEmail(
     partner,
     parsedLanguage,
     undefined,
     undefined,
     parsedVariant,
   );
-  if (base.category === "noOrganization") {
+  if (base?.category === "noOrganization") {
     if (banner)
       throw new AdminRepositoryError(
         "This partner does not have a publisher banner.",
@@ -331,6 +355,16 @@ export async function previewPartnerEmail(
     ? null
     : await partnerPublisherAccessCode(context, partner);
   const accessKey = storedAccessKey ?? accessCode?.accessKey;
+  if (!base) {
+    if (!accessKey)
+      throw new AdminRepositoryError(
+        "An active publisher account linked to this partner is required to send a meeting invitation.",
+        409,
+      );
+    const slot = await resolvePartnerMeetingSlot(invitation?.meetingSlot);
+    const preview = buildConnectedPartnerEmail(partner, parsedLanguage, accessKey, undefined, parsedVariant, slot);
+    return accessCode ? { ...preview, accessCodeExpiresAt: accessCode.expiresAt } : preview;
+  }
   const kind =
     partner.linkedApp?.publisherKind ??
     (partner.linkedOrganization ? "organization" : "individual");
@@ -428,13 +462,15 @@ export async function sendPartnerEmail(
       context,
       partnerId,
       input.language,
-      input.banner,
+      input.purpose === "meetingInvitation" ? undefined : input.banner,
       input.templateVariant,
+      input.purpose === "meetingInvitation" ? { meetingSlot: input.meetingSlot } : undefined,
     );
   } catch (error) {
     if (error instanceof AdminRepositoryError && error.statusCode === 409)
       throw new AdminRepositoryError(
-        "Partner connections changed. Generate a new email preview before sending.",
+        input.purpose === "meetingInvitation" ? error.message :
+          "Partner connections changed. Generate a new email preview before sending.",
         412,
       );
     throw error;
@@ -472,6 +508,9 @@ export async function sendPartnerEmail(
       requestId: input.requestId,
       language: input.language,
       templateVariant: input.templateVariant,
+      ...(input.purpose === "meetingInvitation"
+        ? { purpose: input.purpose, meetingSlot: input.meetingSlot }
+        : {}),
       previewHash: input.previewHash,
       partnerId,
       to: preview.to,

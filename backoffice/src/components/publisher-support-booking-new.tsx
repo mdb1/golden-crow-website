@@ -140,15 +140,23 @@ function bookingCalendarBounds() {
   return { earliest, today };
 }
 
-export function PublisherSupportBookingNew({ identity }: { identity: SdkSessionIdentity }) {
+export function PublisherSupportBookingNew({
+  identity,
+  requestedSlot,
+}: {
+  identity: SdkSessionIdentity;
+  requestedSlot?: Slot;
+}) {
   const { language } = useAppLanguage();
   const router = useRouter();
   const copy = COPY[language];
   const [bounds] = useState(bookingCalendarBounds);
-  const [month, setMonth] = useState(bounds.earliest);
-  const [preferredDate, setPreferredDate] = useState<string>();
-  const [slot, setSlot] = useState<Slot>();
-  const [reason, setReason] = useState<SupportBookingReason | "">("");
+  const [month, setMonth] = useState(() => requestedSlot && requestedSlot.date >= calendarDateKey(bounds.earliest)
+    ? calendarDate(requestedSlot.date)
+    : bounds.earliest);
+  const [preferredDate, setPreferredDate] = useState(requestedSlot?.date);
+  const [selection, setSelection] = useState<Slot | "invitation" | undefined>(requestedSlot ? "invitation" : undefined);
+  const [reason, setReason] = useState<SupportBookingReason | "">(requestedSlot ? "other" : "");
   const [whatsapp, setWhatsapp] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
@@ -165,8 +173,13 @@ export function PublisherSupportBookingNew({ identity }: { identity: SdkSessionI
     ),
   });
 
-  const availabilityLoading = availability.isPending || (submissionError === "conflict" && availability.isFetching);
+  const checkingInvitation = selection === "invitation" && !availability.isFetchedAfterMount;
+  const availabilityLoading = availability.isPending || checkingInvitation || (submissionError === "conflict" && availability.isFetching);
   const slotsByDate = availabilityLoading ? undefined : availability.data?.slotsByDate;
+  const invitedSlotAvailable = requestedSlot && availability.isSuccess &&
+    slotsByDate?.[requestedSlot.date]?.includes(requestedSlot.startTime);
+  const slot = selection === "invitation" ? (invitedSlotAvailable ? requestedSlot : undefined) : selection;
+  const invitationUnavailable = selection === "invitation" && availability.isSuccess && !checkingInvitation && !slot;
   const selectedDate = preferredDate && slotsByDate?.[preferredDate]?.length
     ? preferredDate
     : Object.keys(slotsByDate ?? {}).filter((date) => slotsByDate?.[date]?.length).sort()[0];
@@ -177,13 +190,13 @@ export function PublisherSupportBookingNew({ identity }: { identity: SdkSessionI
   }
 
   function chooseTime(date: string, startTime: string) {
-    setSlot({ date, startTime });
+    setSelection({ date, startTime });
     setSubmissionError(undefined);
     focusStepTitle();
   }
 
   function changeTime() {
-    setSlot(undefined);
+    setSelection(undefined);
     setSubmissionError(undefined);
     focusStepTitle();
   }
@@ -191,6 +204,7 @@ export function PublisherSupportBookingNew({ identity }: { identity: SdkSessionI
   async function submitBooking(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!slot || !reason || submitting) return;
+    setSelection(slot);
     setSubmitting(true);
     setSubmissionError(undefined);
 
@@ -214,7 +228,7 @@ export function PublisherSupportBookingNew({ identity }: { identity: SdkSessionI
     } catch (error) {
       const status = error instanceof SdkRequestError ? error.status : undefined;
       if (status === 409) {
-        setSlot(undefined);
+        setSelection(undefined);
         setSubmissionError("conflict");
         void availability.refetch();
         focusStepTitle();
@@ -337,7 +351,13 @@ export function PublisherSupportBookingNew({ identity }: { identity: SdkSessionI
                 <Alert variant="destructive" className="space-y-1">
                   <AlertTitle>{copy[submissionError]}</AlertTitle>
                   {submissionError === "sessionError" ? (
-                    <Link className="w-fit font-medium underline" href={`${PUBLISHER_PORTAL_LOGIN_ROUTE}?callbackUrl=${encodeURIComponent(PUBLISHER_PORTAL_SUPPORT_BOOKING_NEW_ROUTE)}`}>
+                    <Link
+                      className="w-fit font-medium underline"
+                      href={{
+                        pathname: PUBLISHER_PORTAL_LOGIN_ROUTE,
+                        query: { callbackUrl: `${PUBLISHER_PORTAL_SUPPORT_BOOKING_NEW_ROUTE}?${new URLSearchParams(slot)}` },
+                      }}
+                    >
                       {copy.signIn}
                     </Link>
                   ) : null}
@@ -353,7 +373,7 @@ export function PublisherSupportBookingNew({ identity }: { identity: SdkSessionI
           </div>
         ) : (
           <div className="space-y-4">
-            {submissionError === "conflict" ? (
+            {submissionError === "conflict" || invitationUnavailable ? (
               <Alert variant="destructive"><AlertTitle>{copy.conflict}</AlertTitle></Alert>
             ) : null}
             <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,0.92fr)]">
@@ -364,6 +384,7 @@ export function PublisherSupportBookingNew({ identity }: { identity: SdkSessionI
                   month={month}
                   onMonthChange={(nextMonth) => {
                     setMonth(nextMonth);
+                    setSelection(undefined);
                     setSubmissionError(undefined);
                   }}
                   today={bounds.today}
@@ -373,7 +394,10 @@ export function PublisherSupportBookingNew({ identity }: { identity: SdkSessionI
                   labels={{ labelPrevious: () => copy.previousMonth, labelNext: () => copy.nextMonth }}
                   selected={selectedDate ? calendarDate(selectedDate) : undefined}
                   onSelect={(day) => {
-                    if (day) setPreferredDate(calendarDateKey(day));
+                    if (day) {
+                      setSelection(undefined);
+                      setPreferredDate(calendarDateKey(day));
+                    }
                   }}
                   disabled={(day) => !slotsByDate?.[calendarDateKey(day)]?.length}
                   className="w-full bg-transparent p-0 [--cell-size:--spacing(10)]"

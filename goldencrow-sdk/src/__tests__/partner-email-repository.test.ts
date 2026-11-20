@@ -147,6 +147,10 @@ jest.mock("../lib/gmail-mailer.js", () => ({
   ...jest.requireActual("../lib/gmail-mailer.js"),
   sendGmailMessage: jest.fn(),
 }));
+jest.mock("../repositories/client-bookings.repository.js", () => ({
+  listClientBookingAvailability: jest.fn(),
+}));
+import { listClientBookingAvailability } from "../repositories/client-bookings.repository.js";
 
 import {
   GmailDeliveryOutcomeUnknownError,
@@ -359,6 +363,77 @@ describe("publisher email access-token fallback", () => {
       });
     return id;
   }
+
+  it("sends only the reviewed invitation, preserves its slot through login, and deduplicates a delivery replay", async () => {
+    jest.useFakeTimers({ now: Date.now(), doNotFake: ["nextTick", "setImmediate", "setTimeout", "queueMicrotask"] });
+    linkAccount("individual");
+    const meetingSlot = { date: "2026-11-12", startTime: "09:30" };
+    const calendar = {
+      month: "2026-11",
+      timezone: "America/Argentina/Buenos_Aires",
+      slotsByDate: { [meetingSlot.date]: [meetingSlot.startTime] },
+    };
+    const availability = jest.mocked(listClientBookingAvailability);
+    availability.mockResolvedValue(calendar);
+    const app = await server();
+    const path = `/admin/connected-partners/${partnerId}`;
+    try {
+      const previewResponse = await app.inject({
+        method: "GET",
+        url: `${path}/email-preview?purpose=meetingInvitation&language=es&templateVariant=2`,
+      });
+      expect(previewResponse.statusCode).toBe(200);
+      const preview = previewResponse.json();
+      expect(preview.meetingSlot).toEqual(meetingSlot);
+      expect(preview.bannerBrand).toBeUndefined();
+      expect(preview.html).toContain("pg-email-cta");
+      expect(preview.text).toContain("09:30");
+      const login = new URL(preview.ctaUrl);
+      expect(login.pathname).toBe("/publisher-portal/login");
+      expect(login.searchParams.get("email")).toBe(partner.email);
+      expect(login.searchParams.get("accessKey")).toMatch(/^pgp1\./);
+      const callback = new URL(login.searchParams.get("callbackUrl")!, login);
+      expect(callback.pathname).toBe("/publisher-portal/support-bookings/new");
+      expect(Object.fromEntries(callback.searchParams)).toEqual(meetingSlot);
+      const pinned = new URLSearchParams({ purpose: "meetingInvitation", language: "en", templateVariant: "3", ...meetingSlot });
+      const alternate = await app.inject({ method: "GET", url: `${path}/email-preview?${pinned}` });
+      expect(alternate.json()).toMatchObject({ language: "en", templateVariant: 3, meetingSlot });
+      const command = {
+        requestId, language: "es", purpose: "meetingInvitation",
+        templateVariant: 2, previewHash: preview.previewHash, meetingSlot,
+      };
+      availability.mockResolvedValueOnce({ ...calendar, slotsByDate: {} });
+      const send = () => app.inject({ method: "POST", url: `${path}/email`, payload: command });
+      expect((await send()).statusCode).toBe(412);
+      expect(sendGmailMessage).not.toHaveBeenCalled();
+      expect(mockDocs.has(requestPath)).toBe(false);
+      expect((await send()).json().status).toBe("sent");
+      availability.mockClear();
+      expect((await send()).json().status).toBe("sent");
+      expect(availability).not.toHaveBeenCalled();
+      expect(sendGmailMessage).toHaveBeenCalledTimes(1);
+      expect(sendGmailMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ html: preview.html, text: preview.text }),
+        expect.any(Object),
+      );
+      expect(JSON.stringify(mockDocs.get(requestPath))).not.toContain(login.searchParams.get("accessKey")!);
+      const history = await getPartnerEmailHistory(context, requestId);
+      expect(history.messageText).toContain("09:30");
+      expect(history.purpose).toBe("meetingInvitation");
+      expect((await listPartnerEmailHistory(context, { partnerId })).emails[0]?.purpose).toBe("meetingInvitation");
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("requires a matching active publisher account for meeting invitations", async () => {
+    linkAccount("organization");
+    mockDocs.get("user_roles/ana@example.com")!.isActive = false;
+    await expect(previewPartnerEmail(context, partnerId, "en", undefined, 1, {}))
+      .rejects.toMatchObject({ statusCode: 409 });
+    expect(listClientBookingAvailability).not.toHaveBeenCalled();
+    expect(sendGmailMessage).not.toHaveBeenCalled();
+  });
 
   it("previews and sends the short live organization name without changing the publisher record", async () => {
     const id = linkAccount("organization");
@@ -574,6 +649,7 @@ it.each(["x-icon", "vnd.microsoft.icon"])(
 );
 beforeEach(() => {
   mockDocs.clear();
+  jest.mocked(listClientBookingAvailability).mockReset();
   mockDocs.set(partnerPath, { ...partner });
   mockReads.length = 0;
   mockQueries.length = 0;
@@ -1159,6 +1235,7 @@ it.each(["sent", "sending", "unknown", "failed"] as const)(
     delete stored.historySnapshot;
     delete stored.templateVariant;
     const { emails } = await listPartnerEmailHistory(context);
+    expect(emails[0]).not.toHaveProperty("purpose");
     expect(emails[0]).toMatchObject({
       requestId: id,
       status,

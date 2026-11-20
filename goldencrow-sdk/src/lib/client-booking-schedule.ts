@@ -3,6 +3,8 @@ export const CLIENT_BOOKING_TIMEZONE_LABEL = "Buenos Aires (GMT−3)";
 export const CLIENT_BOOKING_DURATION_MINUTES = 30;
 export const SUPPORT_BOOKING_CONTEXT = "pocket-genes-support";
 
+export type PartnerMeetingSlot = { date: string; startTime: string };
+
 export const SUPPORT_BOOKING_REASONS = {
   account_access: { en: "Account access", es: "Acceso a la cuenta" },
   publishing: { en: "Publishing and content", es: "Publicaciones y contenido" },
@@ -74,7 +76,7 @@ export function clientBookingSlotTimes(date: string, context: string, path?: str
   return SLOT_TIMES.filter((time) => !hidden.has(time));
 }
 
-function todayInBookingTimezone(now: Date) {
+export function todayInBookingTimezone(now: Date) {
   const parts = BOOKING_DATE_FORMATTER.formatToParts(now);
   const part = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((entry) => entry.type === type)?.value;

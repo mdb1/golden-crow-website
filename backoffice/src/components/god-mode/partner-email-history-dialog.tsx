@@ -26,7 +26,7 @@ import {
 } from "@/lib/connected-partners";
 import {
   PARTNER_EMAIL_HISTORY_QUERY_KEY,
-  PARTNER_EMAIL_TEMPLATE_OPTIONS,
+  partnerHistoryTemplateLabel,
   type PartnerEmailHistoryPage,
   type PartnerEmailHistoryRecord,
 } from "@/lib/partner-email";
@@ -127,9 +127,7 @@ function HistoryEmail({ email }: { email: PartnerEmailHistoryRecord }) {
   const [expanded, setExpanded] = useState(false);
   const detail = useRecordedPartnerEmail(email, expanded);
   const status = STATUSES[email.status];
-  const template = PARTNER_EMAIL_TEMPLATE_OPTIONS.find(
-    (option) => option.key === email.templateVariant,
-  );
+  const template = partnerHistoryTemplateLabel(email);
   const category = [...PARTNER_SECTIONS, ...PARTNER_INDIVIDUAL_SECTIONS].find(
     (section) => section.key === email.category,
   )?.label;
@@ -152,7 +150,7 @@ function HistoryEmail({ email }: { email: PartnerEmailHistoryRecord }) {
       </div>
       <div className="flex flex-wrap gap-2">
         {category && <Badge variant="outline">{t(category)}</Badge>}
-        {template && <Badge variant="violet">{t(template.label)}</Badge>}
+        {template && <Badge variant="violet">{t(template)}</Badge>}
         <Badge variant="secondary">
           {email.language === "es" ? "Español" : "English"}
         </Badge>
@@ -348,9 +346,7 @@ export function PartnerEmailMessageDialog({
   const t = (text: string) => appText(language, text);
   const detail = useRecordedPartnerEmail(email, true);
   const date = email.sentAt ?? email.updatedAt;
-  const template = PARTNER_EMAIL_TEMPLATE_OPTIONS.find(
-    (option) => option.key === email.templateVariant,
-  );
+  const template = partnerHistoryTemplateLabel(email);
   return (
     <Dialog
       open
@@ -373,7 +369,7 @@ export function PartnerEmailMessageDialog({
             ["Recipient", email.to],
             [
               "Email template",
-              template ? t(template.label) : t("Not recorded"),
+              template ? t(template) : t("Not recorded"),
             ],
             [
               "Date",

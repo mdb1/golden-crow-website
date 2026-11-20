@@ -311,7 +311,10 @@ describe("publisher portal login", () => {
     expect(signInWithEmailAndPassword).toHaveBeenCalledTimes(1);
   });
 
-  it("automatically exchanges a publisher code and completes the usual session handoff", async () => {
+  it.each([
+    "/publisher-portal/app/new",
+    "/publisher-portal/support-bookings/new?date=2026-11-24&startTime=09%3A30",
+  ])("automatically exchanges a publisher code and preserves the destination %s", async (callback) => {
     const key = `pgp1.${"a".repeat(300)}.signature`;
     fetchMock
       .mockResolvedValueOnce(jsonResponse({ customToken: "firebase-custom-token" }))
@@ -325,7 +328,8 @@ describe("publisher portal login", () => {
     } } as never);
     jest.mocked(signIn).mockResolvedValueOnce({ ok: true, status: 200, error: null, url: null });
     jest.spyOn(console, "error").mockImplementation(() => {}); // jsdom cannot perform the final navigation.
-    window.history.replaceState(null, "", `/publisher-portal/login?email=publisher%40example.com&accessKey=${encodeURIComponent(key)}&callbackUrl=%2Fpublisher-portal%2Fapp%2Fnew`);
+    const query = new URLSearchParams({ email: "publisher@example.com", accessKey: key, callbackUrl: callback });
+    window.history.replaceState(null, "", `/publisher-portal/login?${query}`);
     render(<LoginExperience surface="publisher-portal" initialEmail="publisher@example.com" initialAccessKey={key} />);
     expect(screen.queryByRole("button", { name: "Acceder al portal" })).toBeNull();
     await waitFor(() => expect(signInWithCustomToken).toHaveBeenCalledWith(expect.anything(), "firebase-custom-token"));
@@ -336,7 +340,7 @@ describe("publisher portal login", () => {
     expect(screen.queryByLabelText("Clave de acceso")).toBeNull();
     expect(signInWithEmailAndPassword).not.toHaveBeenCalled();
     expect(new URL(window.location.href).searchParams.has("accessKey")).toBe(false);
-    expect(new URL(window.location.href).searchParams.get("callbackUrl")).toBe("/publisher-portal/app/new");
+    expect(new URL(window.location.href).searchParams.get("callbackUrl")).toBe(callback);
   });
 
   it("shows the form after an expired link and allows a manual retry without repeating the automatic attempt", async () => {
