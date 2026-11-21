@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -16,14 +16,11 @@ import {
   type CollisionDetection,
   type KeyboardCoordinateGetter,
 } from "@dnd-kit/core";
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQueryClient,
-  type InfiniteData,
-} from "@tanstack/react-query";
+import { useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRightLeft,
+  ChevronLeft,
+  ChevronRight,
   Building2,
   GripVertical,
   Loader2,
@@ -46,7 +43,8 @@ import {
   partnerBoardStage,
   type Partner,
   type PartnerBoardStage,
-  type PartnersPage,
+  PARTNER_PAGE_SIZE,
+  type PartnerSectionPage,
 } from "@/lib/connected-partners";
 import { appText } from "@/lib/language";
 import { sdkFetch } from "@/lib/sdk-client";
@@ -55,6 +53,47 @@ import { cn } from "@/lib/utils";
 const BOARD_QUERY_KEY = [...PARTNERS_QUERY_KEY, "board"] as const;
 const boardCollisionDetection: CollisionDetection = (args) =>
   args.pointerCoordinates ? pointerWithin(args) : closestCenter(args);
+type ColumnHistory = { index: number; cursors: Array<string | null> };
+
+async function loadBoardColumn(
+  stage: PartnerBoardStage,
+  cursor: string | null,
+  signal: AbortSignal,
+): Promise<PartnerSectionPage> {
+  const items = new Map<string, Partner>();
+  let nextCursor = cursor;
+  const visited = new Set<string>();
+  // An API response bounds the source scan, not the number of matches available
+  // in a stage. Continue sparse scans until this column is full or exhausted.
+  do {
+    signal.throwIfAborted();
+    const params = new URLSearchParams({
+      stage,
+      limit: String(PARTNER_PAGE_SIZE - items.size),
+    });
+    if (nextCursor) params.set("cursor", nextCursor);
+    const page = await sdkFetch<PartnerSectionPage>(
+      `${PARTNERS_API_ROUTE}/board?${params}`,
+      { signal },
+    );
+    signal.throwIfAborted();
+    for (const partner of page.items) items.set(partner.id, partner);
+    nextCursor = page.nextCursor;
+    if (nextCursor) {
+      if (visited.has(nextCursor) || nextCursor === cursor)
+        throw new Error(
+          "Could not continue loading partners. Please try again.",
+        );
+      visited.add(nextCursor);
+    }
+  } while (items.size < PARTNER_PAGE_SIZE && nextCursor);
+  return {
+    items: [...items.values()].slice(0, PARTNER_PAGE_SIZE),
+    nextCursor,
+    scanIncomplete: false,
+  };
+}
+
 const STAGE_COLORS: Record<PartnerBoardStage, string> = {
   noOrganization: "bg-slate-400",
   organizationWithoutApp: "bg-sky-500",
@@ -276,35 +315,38 @@ export function PartnersBoard({
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: boardKeyboardCoordinates }),
   );
-  const query = useInfiniteQuery({
-    queryKey: BOARD_QUERY_KEY,
-    initialPageParam: "",
-    queryFn: ({ pageParam, signal }) =>
-      sdkFetch<PartnersPage>(
-        pageParam
-          ? `${PARTNERS_API_ROUTE}?${new URLSearchParams({ cursor: pageParam })}`
-          : PARTNERS_API_ROUTE,
-        { signal },
-      ),
-    getNextPageParam: (page) => page.nextCursor ?? undefined,
-    staleTime: Infinity,
-    refetchOnWindowFocus: false,
-    retry: false,
+  const [histories, setHistories] = useState<
+    Partial<Record<PartnerBoardStage, ColumnHistory>>
+  >({});
+  const columns = useQueries({
+    queries: PARTNER_BOARD_STAGES.map(({ key: stage }) => {
+      const history = histories[stage] ?? { index: 0, cursors: [null] };
+      const cursor = history.cursors[history.index] ?? null;
+      return {
+        queryKey: [...BOARD_QUERY_KEY, stage, history.index, cursor],
+        queryFn: ({ signal }: { signal: AbortSignal }) =>
+          loadBoardColumn(stage, cursor, signal),
+        staleTime: Infinity,
+        refetchOnWindowFocus: false,
+        retry: false,
+      };
+    }),
   });
-  const partners = useMemo(
-    () =>
-      Array.from(
-        new Map(
-          (query.data?.pages ?? [])
-            .flatMap((page) => page.items)
-            .map((partner) => [partner.id, partner]),
-        ).values(),
-      ),
-    [query.data],
-  );
+  const partners = [
+    ...new Map(
+      columns
+        .flatMap((column) => column.data?.items ?? [])
+        .map((partner) => [partner.id, partner]),
+    ).values(),
+  ];
+  const fetching = columns.some((column) => column.isFetching);
   const mutation = useMutation({
-    onMutate: () =>
-      client.cancelQueries({ queryKey: BOARD_QUERY_KEY, exact: true }),
+    onMutate: ({ partner, stage }) =>
+      Promise.all(
+        [...new Set([partnerBoardStage(partner), stage])].map((affected) =>
+          client.cancelQueries({ queryKey: [...BOARD_QUERY_KEY, affected] }),
+        ),
+      ),
     mutationFn: ({
       partner,
       stage,
@@ -316,30 +358,64 @@ export function PartnersBoard({
         `${PARTNERS_API_ROUTE}/${encodeURIComponent(partner.id)}/board-stage`,
         { method: "PATCH", body: JSON.stringify({ boardStage: stage }) },
       ),
-    onSuccess: ({ partner }) => {
-      client.setQueryData<InfiniteData<PartnersPage, string>>(
-        BOARD_QUERY_KEY,
-        (current) =>
-          current
-            ? {
-                ...current,
-                pages: current.pages.map((page) => ({
-                  ...page,
-                  items: page.items.map((item) =>
-                    item.id === partner.id ? partner : item,
-                  ),
-                })),
-              }
-            : current,
-      );
+    onSuccess: async ({ partner }, variables) => {
       client.setQueryData([...PARTNERS_QUERY_KEY, "detail", partner.id], {
         partner,
       });
+      const source = partnerBoardStage(variables.partner);
+      client.setQueriesData<PartnerSectionPage>(
+        { queryKey: [...BOARD_QUERY_KEY, source] },
+        (page) =>
+          page
+            ? {
+                ...page,
+                items: page.items.filter((item) => item.id !== partner.id),
+              }
+            : page,
+      );
+      // Refill the vacated source slot and reload the destination's own window.
+      // Neither column can exceed its 20-ticket page after a move.
+      await Promise.all(
+        [...new Set([source, variables.stage])].map((stage) =>
+          client.invalidateQueries({ queryKey: [...BOARD_QUERY_KEY, stage] }),
+        ),
+      );
+    },
+    onError: async (_error, variables) => {
+      await Promise.all(
+        [
+          ...new Set([partnerBoardStage(variables.partner), variables.stage]),
+        ].map((stage) =>
+          client.refetchQueries({
+            queryKey: [...BOARD_QUERY_KEY, stage],
+            type: "active",
+            predicate: (query) => query.state.status === "pending",
+          }),
+        ),
+      );
     },
     onSettled: () => {
       movingRef.current = false;
     },
   });
+  function changePage(
+    stage: PartnerBoardStage,
+    index: number,
+    cursor?: string,
+  ) {
+    setHistories((current) => {
+      const previous = current[stage] ?? { index: 0, cursors: [null] };
+      return {
+        ...current,
+        [stage]: {
+          index,
+          cursors: cursor
+            ? [...previous.cursors.slice(0, index), cursor]
+            : previous.cursors,
+        },
+      };
+    });
+  }
   function move(partner: Partner, stage: PartnerBoardStage) {
     if (movingRef.current || partnerBoardStage(partner) === stage) return;
     movingRef.current = true;
@@ -364,39 +440,15 @@ export function PartnersBoard({
           type="button"
           variant="ghost"
           size="sm"
-          disabled={query.isFetching || mutation.isPending}
-          onClick={() => void query.refetch()}
+          disabled={fetching || mutation.isPending}
+          onClick={() => {
+            void Promise.all(columns.map((column) => column.refetch()));
+          }}
         >
-          <RefreshCw
-            className={cn("size-3.5", query.isFetching && "animate-spin")}
-          />
+          <RefreshCw className={cn("size-3.5", fetching && "animate-spin")} />
           {t("Refresh")}
         </Button>
       </div>
-      {query.isPending && (
-        <p
-          role="status"
-          className="flex items-center gap-2 text-sm text-muted-foreground"
-        >
-          <Loader2 className="size-4 animate-spin" />
-          {t("Loading partners...")}
-        </p>
-      )}
-      {query.isError && (
-        <div role="alert" className="space-y-2 text-sm text-destructive">
-          <p>{t("Could not load partners.")}</p>
-          <Button
-            variant="outline"
-            onClick={() =>
-              void (query.isFetchNextPageError
-                ? query.fetchNextPage()
-                : query.refetch())
-            }
-          >
-            {t("Retry")}
-          </Button>
-        </div>
-      )}
       {mutation.isPending && (
         <p role="status" className="text-xs text-muted-foreground">
           {t("Saving stage...")}
@@ -432,10 +484,13 @@ export function PartnersBoard({
               detailId && "min-w-[1000px]",
             )}
           >
-            {PARTNER_BOARD_STAGES.map((stage) => {
-              const tickets = partners.filter(
-                (partner) => partnerBoardStage(partner) === stage.key,
-              );
+            {PARTNER_BOARD_STAGES.map((stage, index) => {
+              const column = columns[index];
+              const tickets = column.data?.items ?? [];
+              const history = histories[stage.key] ?? {
+                index: 0,
+                cursors: [null],
+              };
               return (
                 <BoardColumn
                   key={stage.key}
@@ -443,6 +498,31 @@ export function PartnersBoard({
                   label={t(stage.label)}
                   count={tickets.length}
                 >
+                  {column.isPending && (
+                    <p
+                      role="status"
+                      className="flex items-center gap-1 text-xs text-muted-foreground"
+                    >
+                      <Loader2 className="size-3 animate-spin" />
+                      {t("Loading partners...")}
+                    </p>
+                  )}
+                  {column.isError && (
+                    <div
+                      role="alert"
+                      className="space-y-1 text-xs text-destructive"
+                    >
+                      <p>{t("Could not load partners.")}</p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={column.isFetching || mutation.isPending}
+                        onClick={() => void column.refetch()}
+                      >
+                        {t("Retry")}
+                      </Button>
+                    </div>
+                  )}
                   {tickets.map((partner) => (
                     <BoardTicket
                       key={partner.id}
@@ -454,6 +534,49 @@ export function PartnersBoard({
                       onMove={move}
                     />
                   ))}
+                  {(history.index > 0 || column.data?.nextCursor) && (
+                    <nav
+                      aria-label={`${t("Partner pagination")}: ${t(stage.label)}`}
+                      className="flex items-center justify-between gap-1 pt-2"
+                    >
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={t("Previous page")}
+                        disabled={
+                          column.isFetching ||
+                          mutation.isPending ||
+                          history.index === 0
+                        }
+                        onClick={() => changePage(stage.key, history.index - 1)}
+                      >
+                        <ChevronLeft className="size-3.5" />
+                      </Button>
+                      <span className="text-[10px] text-muted-foreground">
+                        {t("Page")} {history.index + 1}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={t("Next page")}
+                        disabled={
+                          column.isFetching ||
+                          mutation.isPending ||
+                          !column.data?.nextCursor
+                        }
+                        onClick={() => {
+                          if (column.data?.nextCursor)
+                            changePage(
+                              stage.key,
+                              history.index + 1,
+                              column.data.nextCursor,
+                            );
+                        }}
+                      >
+                        <ChevronRight className="size-3.5" />
+                      </Button>
+                    </nav>
+                  )}
                 </BoardColumn>
               );
             })}
@@ -472,18 +595,6 @@ export function PartnersBoard({
           ) : null}
         </DragOverlay>
       </DndContext>
-      {query.hasNextPage && (
-        <Button
-          variant="outline"
-          disabled={query.isFetching || mutation.isPending}
-          onClick={() => void query.fetchNextPage()}
-        >
-          {query.isFetchingNextPage && (
-            <Loader2 className="size-4 animate-spin" />
-          )}
-          {t("Load more")}
-        </Button>
-      )}
     </div>
   );
 }

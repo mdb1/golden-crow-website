@@ -14,6 +14,10 @@ export type PartnerBoardStage = z.infer<typeof PartnerBoardStageSchema>;
 export const PartnerBoardStageInputSchema = z
   .object({ boardStage: PartnerBoardStageSchema })
   .strict();
+export const PartnerBoardCursorSchema = z
+  .string()
+  .max(1024)
+  .regex(/^pb1\.[A-Za-z0-9_-]+$/);
 
 export const PartnerIdSchema = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 export const PartnerLinkIdSchema = z

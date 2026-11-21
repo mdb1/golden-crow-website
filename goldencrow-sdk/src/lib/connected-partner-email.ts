@@ -7,6 +7,8 @@ import { ENV } from "../config/env.js";
 import { AdminRepositoryError } from "../repositories/admin-errors.js";
 import { partnerSection } from "./partner-section.js";
 import { PARTNER_EMAIL_FROM_EMAIL } from "./partner-email-delivery.js";
+import type { PartnerMeetingSlot } from "./client-booking-schedule.js";
+import { partnerMeetingInvitationCopy } from "./partner-meeting-invitation-copy.js";
 import {
   PARTNER_BANNER_CONTENT_ID,
   partnerEmailDisplayName,
@@ -42,6 +44,7 @@ export type PartnerEmailPreview = {
   accessCodeUnavailableReason?: string;
   bannerBrand?: PartnerEmailBannerBrand;
   banner?: PartnerEmailBannerInput;
+  meetingSlot?: PartnerMeetingSlot;
 };
 
 const JOIN_URL = "https://goldencrowvs.com/pocket-genes/join-us/new/";
@@ -134,11 +137,12 @@ export function buildConnectedPartnerEmail(
     banner?: PartnerEmailBannerInput;
   },
   templateVariant: PartnerEmailTemplateVariant = 1,
+  meetingSlot?: PartnerMeetingSlot,
 ): PartnerEmailPreview {
   const category = partnerSection(partner);
-  const copy = emailCopy(
-    partner, category, language, templateVariant, presentation?.brand.name,
-  );
+  const copy = meetingSlot
+    ? partnerMeetingInvitationCopy(language, templateVariant, meetingSlot)
+    : emailCopy(partner, category, language, templateVariant, presentation?.brand.name);
   const ctaUrl = copy.callback
     ? publisherLoginUrl(copy.callback, partner.email, accessKey)
     : JOIN_URL;
@@ -196,6 +200,7 @@ ${ctaHtml}
     category,
     language,
     templateVariant,
+    ...(meetingSlot ? { meetingSlot } : {}),
   };
   // Bind both exact rendered content and current publisher/app identity. Historical
   // snapshots cannot authorize an email or decide which stage it describes.

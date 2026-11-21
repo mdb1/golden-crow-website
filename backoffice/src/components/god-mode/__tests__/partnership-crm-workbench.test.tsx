@@ -297,11 +297,15 @@ function renderWorkbench(
   options: {
     autoLoad?: boolean;
     authoritativeUsageMock?: boolean;
+    snapshotMock?: boolean;
     injectActionUsage?: boolean;
   } = {},
 ) {
   const currentImplementation = jest.mocked(sdkFetch).getMockImplementation();
   jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
+    if (path === "/admin/partnership-crm/snapshot" && !options.snapshotMock) {
+      return { snapshot: indexedCrmSnapshot };
+    }
     if (
       path === "/admin/partnership-crm/daily-usage/page-load" &&
       !options.authoritativeUsageMock
@@ -521,12 +525,12 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     )).toBe(false);
   });
 
-  it("loads no CRM data until the operator explicitly applies or loads", async () => {
+  it("loads the index but no target rows until the operator explicitly applies or loads", async () => {
     const user = userEvent.setup();
     renderWorkbench("en", { autoLoad: false });
 
     await waitFor(() => {
-      expect(sdkFetch).toHaveBeenCalledTimes(1);
+      expect(sdkFetch).toHaveBeenCalledTimes(2);
     });
     expect(sdkFetch).toHaveBeenCalledWith(
       "/admin/partnership-crm/daily-usage/page-load",
@@ -540,7 +544,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       screen.getByPlaceholderText("Name prefix or exact contact email"),
       "genome",
     );
-    expect(sdkFetch).toHaveBeenCalledTimes(1);
+    expect(sdkFetch).toHaveBeenCalledTimes(2);
     expect(screen.getByTestId("crm-server-filter-note").textContent).toContain(
       "Category and country match the primary stored value by prefix",
     );
@@ -576,7 +580,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       "ada@genomelab.example",
     );
 
-    expect(sdkFetch).toHaveBeenCalledTimes(1);
+    expect(sdkFetch).toHaveBeenCalledTimes(2);
     await user.click(screen.getByRole("button", { name: "Apply filters" }));
 
     await waitFor(() => {
@@ -787,7 +791,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
   });
 
   it("locks fresh CRM actions when the daily counter reaches 100", async () => {
-    jest.mocked(sdkFetch).mockResolvedValueOnce({
+    jest.mocked(sdkFetch).mockResolvedValue({
       usage: {
         surface: "crm",
         used: 100,
@@ -822,7 +826,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
   });
 
   it("hard-locks at 100 percent even when response metadata says unlocked", async () => {
-    jest.mocked(sdkFetch).mockResolvedValueOnce({
+    jest.mocked(sdkFetch).mockResolvedValue({
       usage: {
         surface: "crm",
         used: 100,
@@ -855,7 +859,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
   });
 
   it("fails closed when quota usage is fractional", async () => {
-    jest.mocked(sdkFetch).mockResolvedValueOnce({
+    jest.mocked(sdkFetch).mockResolvedValue({
       usage: {
         surface: "crm",
         used: 1.5,
@@ -1241,7 +1245,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     const resetAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
     const confirmedAt = new Date(Date.now() - 1000).toISOString();
     cacheCrmDailyUsage({ used: 17, resetAt, confirmedAt });
-    jest.mocked(sdkFetch).mockRejectedValueOnce(
+    jest.mocked(sdkFetch).mockRejectedValue(
       new Error("Usage service unavailable"),
     );
 
@@ -1434,7 +1438,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
   });
 
   it("fails closed when page-load verification returns invalid usage", async () => {
-    jest.mocked(sdkFetch).mockResolvedValueOnce({
+    jest.mocked(sdkFetch).mockResolvedValue({
       usage: {
         surface: "crm",
         used: 1,
@@ -1556,7 +1560,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         "disabled",
         false,
       );
-      expect(jest.mocked(sdkFetch).mock.calls[1]).toEqual([
+      expect(jest.mocked(sdkFetch).mock.calls.at(-1)).toEqual([
         "/admin/partnership-crm/daily-usage?surface=crm",
         { cache: "no-store" },
       ]);
@@ -1871,7 +1875,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(partnerBadge.className).not.toContain("success");
 
     const partnerPipelineCard = screen.getByRole("button", {
-      name: /Partner\s+1/,
+      name: /Partner\s+2/,
     });
     expect(partnerPipelineCard.className).toContain("bg-indigo-100");
     expect(partnerPipelineCard.className).not.toContain("teal");
@@ -4955,6 +4959,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
 
     jest.mocked(sdkFetch).mockImplementation(async (path) => {
       const stringPath = String(path);
+      if (stringPath === "/admin/partnership-crm/snapshot") return { snapshot: null };
       if (stringPath.includes("/activities")) {
         return { activities: [] };
       }
@@ -4979,8 +4984,13 @@ describe("PartnershipCrmWorkbench list pager", () => {
       };
     });
 
-    renderWorkbench();
+    renderWorkbench("en", { snapshotMock: true, autoLoad: false });
 
+    await screen.findByRole("dialog");
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("Select search and filter criteria to load CRM results.")).toBeTruthy();
+    await userEvent.type(within(dialog).getByPlaceholderText("Name prefix or exact contact email"), "Genome");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Apply filters" }));
     await waitFor(() => {
       expect(screen.getByText("Genome Page Row 1")).toBeTruthy();
     });
@@ -5027,9 +5037,10 @@ describe("PartnershipCrmWorkbench list pager", () => {
       return { organizations: [organization], nextCursor: undefined };
     });
 
-    renderWorkbench();
+    renderWorkbench("en", { snapshotMock: true });
     await screen.findByText(organization.name);
 
+    expect(screen.getByRole("button", { name: /New\s+229/ })).toBeTruthy();
     await user.click(
       screen.getByRole("button", { name: "Pre-filters and CRM index" }),
     );
@@ -5083,6 +5094,32 @@ describe("PartnershipCrmWorkbench list pager", () => {
     ]);
   });
 
+  it("opens criteria selection for an empty indexed pipeline without displaying zero cards", async () => {
+    const emptyFacets = Object.fromEntries(
+      Object.entries(indexedCrmSnapshot.targets.organizations.facets).map(([key]) => [
+        key, { key, total: 0, buckets: [] },
+      ]),
+    );
+    jest.mocked(sdkFetch).mockResolvedValue({
+      snapshot: {
+        ...indexedCrmSnapshot,
+        totals: { all: 0, organizations: 0, professionals: 0 },
+        targets: {
+          ...indexedCrmSnapshot.targets,
+          organizations: { targetKind: "organizations", facets: emptyFacets },
+        },
+      },
+    });
+    renderWorkbench("en", { autoLoad: false, snapshotMock: true });
+
+    const dialog = await screen.findByRole("dialog", { name: "Pre-filters and CRM index" });
+    expect(within(dialog).getByText("Select search and filter criteria to load CRM results.")).toBeTruthy();
+    expect(within(dialog).queryByText("All CRM items")).toBeNull();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("button", { name: /New\s+0/ })).toBeNull();
+    expect(screen.getByText("Select search and filter criteria to load CRM results.")).toBeTruthy();
+  });
+
   it("does not present an unbuilt failed pointer as an authoritative snapshot", async () => {
     const user = userEvent.setup();
     const failedPointer: PartnershipCrmSnapshot = {
@@ -5104,12 +5141,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
       return { organizations: [organization], nextCursor: undefined };
     });
 
-    renderWorkbench();
-    await screen.findByText(organization.name);
-    await user.click(
-      screen.getByRole("button", { name: "Pre-filters and CRM index" }),
-    );
-
+    renderWorkbench("en", { snapshotMock: true, autoLoad: false });
     const dialog = await screen.findByRole("dialog", {
       name: "Pre-filters and CRM index",
     });
@@ -5130,6 +5162,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
     ).toHaveProperty("disabled", true);
 
     await user.keyboard("{Escape}");
+    await user.click(screen.getByTestId("crm-explicit-load"));
     expect(
       await screen.findByRole("button", { name: /New\s+1/ }),
     ).toBeTruthy();
@@ -5150,7 +5183,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
       return { organizations: [organization], nextCursor: undefined };
     });
 
-    renderWorkbench();
+    renderWorkbench("en", { snapshotMock: true });
     await screen.findByText(organization.name);
     await user.click(
       screen.getByRole("button", { name: "Pre-filters and CRM index" }),
@@ -5215,7 +5248,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
       };
     });
 
-    renderWorkbench();
+    renderWorkbench("en", { snapshotMock: true });
     await screen.findByText(organization.name);
     await user.click(
       screen.getByRole("button", { name: "Pre-filters and CRM index" }),
@@ -5293,14 +5326,9 @@ describe("PartnershipCrmWorkbench list pager", () => {
     renderWorkbench("en", {
       autoLoad: false,
       authoritativeUsageMock: true,
+      snapshotMock: true,
     });
     await screen.findByText("Daily limit reached");
-
-    const preFiltersButton = screen.getByRole("button", {
-      name: "Pre-filters and CRM index",
-    });
-    expect(preFiltersButton).toHaveProperty("disabled", false);
-    await user.click(preFiltersButton);
 
     const dialog = await screen.findByRole("dialog", {
       name: "Pre-filters and CRM index",

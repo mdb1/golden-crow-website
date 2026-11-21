@@ -4,6 +4,7 @@ import {
   BadgeCheck,
   BookOpenText,
   BriefcaseBusiness,
+  CalendarPlus,
   ClipboardList,
   FileText,
   type LucideIcon,
@@ -22,6 +23,7 @@ import {
   PUBLISHER_PORTAL_DISCOVER_FEED_ENTRIES_ROUTE,
   PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE,
   PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE,
+  PUBLISHER_PORTAL_SUPPORT_BOOKING_NEW_ROUTE,
   publisherPortalAppRoute,
   publisherPortalFeedEntriesByStatusRoute,
   publisherPortalFeedEntryCreateRoute,
@@ -54,6 +56,9 @@ type QuickAccessCardProps = {
   disabled?: boolean;
   tone: "primary" | "secondary" | "neutral";
 };
+
+const accountCellClassName =
+  "block rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm transition hover:border-violet-300 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2";
 
 function QuickAccessCard({
   icon: Icon,
@@ -363,7 +368,7 @@ export function PublisherPortalHome({
         <Link
           href={PUBLISHER_PORTAL_ACCOUNT_ROUTE}
           aria-label="Abrir Mi cuenta"
-          className="block rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm transition hover:border-violet-300 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+          className={accountCellClassName}
         >
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-center gap-3">
@@ -382,6 +387,19 @@ export function PublisherPortalHome({
             <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-800">
               <BadgeCheck className="size-3.5" />
               {roleLabel}
+            </span>
+          </div>
+        </Link>
+        <Link
+          href={PUBLISHER_PORTAL_SUPPORT_BOOKING_NEW_ROUTE}
+          className={cn(accountCellClassName, "mt-3")}
+        >
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
+              <CalendarPlus className="size-5" aria-hidden="true" />
+            </span>
+            <span className="text-sm font-semibold text-foreground">
+              Agendar una reunión de soporte con el equipo de Pocket Genes
             </span>
           </div>
         </Link>

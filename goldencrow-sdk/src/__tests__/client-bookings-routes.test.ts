@@ -10,18 +10,33 @@ import { buildRouteServer, makeAdminContext } from "./support/route-harness.js";
 const mockAcknowledgeClientBooking = jest.fn();
 const mockArchiveClientBooking = jest.fn();
 const mockCreateClientBooking = jest.fn();
+const mockGetPublisherBookingContact = jest.fn();
+const mockListClientBookingAvailability = jest.fn();
 const mockListClientBookingsForCalendarMonth = jest.fn();
 const mockListClientBookingsPage = jest.fn();
+const mockListPublisherBookingsPage = jest.fn();
+const mockRecordClientBookingEmailNotification = jest.fn();
 const mockRecordClientBookingWebhookNotification = jest.fn();
+const mockSendGmailMessage = jest.fn();
 
 jest.mock("../repositories/client-bookings.repository.js", () => ({
   acknowledgeClientBooking: mockAcknowledgeClientBooking,
   archiveClientBooking: mockArchiveClientBooking,
   createClientBooking: mockCreateClientBooking,
+  getPublisherBookingContact: mockGetPublisherBookingContact,
+  listClientBookingAvailability: mockListClientBookingAvailability,
   listClientBookingsForCalendarMonth: mockListClientBookingsForCalendarMonth,
   listClientBookingsPage: mockListClientBookingsPage,
+  listPublisherBookingsPage: mockListPublisherBookingsPage,
+  publisherBookingScope: jest.requireActual("../repositories/client-bookings.repository.js").publisherBookingScope,
+  recordClientBookingEmailNotification: mockRecordClientBookingEmailNotification,
   recordClientBookingWebhookNotification:
     mockRecordClientBookingWebhookNotification,
+}));
+
+jest.mock("../lib/gmail-mailer.js", () => ({
+  ...jest.requireActual("../lib/gmail-mailer.js"),
+  sendGmailMessage: mockSendGmailMessage,
 }));
 
 jest.mock("../config/env.js", () => ({
@@ -75,6 +90,8 @@ beforeEach(async () => {
   currentContext = undefined;
   fetchSpy = jest.spyOn(globalThis, "fetch");
   mockCreateClientBooking.mockResolvedValue({ id: "booking-1" });
+  mockSendGmailMessage.mockResolvedValue(undefined);
+  mockRecordClientBookingEmailNotification.mockResolvedValue(undefined);
   mockRecordClientBookingWebhookNotification.mockResolvedValue(undefined);
   const { clientBookingsRoutes } = await import(
     "../routes/client-bookings.routes.js"
@@ -114,6 +131,7 @@ describe("POST /client-bookings (public)", () => {
     expect(response.statusCode).toBe(400);
     expect(mockCreateClientBooking).not.toHaveBeenCalled();
     expect(fetchSpy).not.toHaveBeenCalled();
+    expect(mockSendGmailMessage).not.toHaveBeenCalled();
   });
 
   // BUG (validation, defense in depth): OptionalUrlSchema is `z.string().url()`,
@@ -166,6 +184,15 @@ describe("POST /client-bookings (public)", () => {
     expect(stored.source.referrer).toBeUndefined();
     expect(meta).toEqual({ origin: "https://goldencrowvs.com" });
     expect(fetchSpy).not.toHaveBeenCalled();
+    expect(mockSendGmailMessage).toHaveBeenCalledTimes(2);
+    expect(mockSendGmailMessage).toHaveBeenCalledWith(expect.objectContaining({ to: "federico@goldencrowvs.com" }), expect.anything());
+    expect(mockSendGmailMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "ada@example.com",
+        html: expect.stringContaining("Golden Crow Venture Studio"),
+      }),
+      expect.anything(),
+    );
     expect(mockRecordClientBookingWebhookNotification).toHaveBeenCalledWith(
       "booking-1",
       { status: "skipped", reason: "not_configured" },
@@ -242,6 +269,165 @@ describe("POST /client-bookings (public)", () => {
 
     expect(response.statusCode).toBe(201);
     expect(response.body).not.toContain("firestore down");
+  });
+});
+
+describe("support bookings", () => {
+  const publisher = makeAdminContext({
+    uid: "publisher-a",
+    email: "publisher@example.com",
+    role: "organization_publisher",
+    organizationId: "organization-a",
+    canAccessBackoffice: false,
+    canAccessPublisherPortal: true,
+  });
+
+  function validSupportSlot() {
+    const date = new Date();
+    date.setUTCDate(date.getUTCDate() + 7);
+    while (date.getUTCDay() === 0 || date.getUTCDay() === 6) {
+      date.setUTCDate(date.getUTCDate() + 1);
+    }
+    return { date: date.toISOString().slice(0, 10), startTime: "09:00", reason: "billing", locale: "es" };
+  }
+
+  it("lists anonymous availability without returning booking records", async () => {
+    mockListClientBookingAvailability.mockResolvedValue({ month: "2026-12", slotsByDate: {} });
+    const response = await fastify.inject({ method: "GET", url: "/client-bookings/availability?month=2026-12" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["cache-control"]).toBe("no-store");
+    expect(mockListClientBookingAvailability).toHaveBeenCalledWith("2026-12", "pocket-genes-support", undefined);
+    expect(response.json()).toEqual({ month: "2026-12", slotsByDate: {} });
+  });
+
+  it("stores an anonymous support booking with an optional organization and sends both emails", async () => {
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/support-bookings",
+      payload: { ...validSupportSlot(), fullName: "Ada Lovelace", email: "da@example.com", whatsapp: "123456789" },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toEqual({ status: "ok", bookingId: "booking-1" });
+    expect(mockCreateClientBooking).toHaveBeenCalledWith(expect.objectContaining({
+      kind: "public_support",
+      reason: "billing",
+      form: { fullName: "Ada Lovelace", email: "da@example.com", whatsapp: "123456789", companyName: "" },
+    }), { origin: undefined });
+    expect(mockSendGmailMessage).toHaveBeenCalledTimes(2);
+    const [host, attendee] = mockSendGmailMessage.mock.calls.map(([message]) => message);
+    expect(host).toMatchObject({
+      to: "federico@goldencrowvs.com",
+      text: expect.stringContaining("Reserva: booking-1"),
+      html: expect.stringContaining('href="https://golden-crow-backoffice.vercel.app/god-mode/bookings"'),
+    });
+    expect(attendee).toMatchObject({
+      to: "da@example.com",
+      subject: "Tu reserva está confirmada",
+      text: expect.stringContaining("Motivo: Facturación"),
+      html: expect.stringContaining('href="mailto:federico@goldencrowvs.com"'),
+    });
+    for (const message of [host, attendee]) {
+      expect(message.html).toContain("Pocket Genes");
+      expect(message.html).toContain("#2d1b69");
+      expect(message.html).toContain("Soporte de Pocket Genes");
+      expect(message.html).toContain("09:00");
+      expect(message.html).toContain("Facturación");
+      expect(message.html).toContain("booking-1");
+    }
+    expect(mockRecordClientBookingEmailNotification).toHaveBeenCalledWith("booking-1", { attendee: "delivered", host: "delivered" });
+  });
+
+  it("requires one of the preset reasons", async () => {
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/support-bookings",
+      payload: { ...validSupportSlot(), reason: "arbitrary email text", fullName: "Ada Lovelace", email: "da@example.com", whatsapp: "123456789" },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(mockCreateClientBooking).not.toHaveBeenCalled();
+    expect(mockSendGmailMessage).not.toHaveBeenCalled();
+  });
+
+  it("passes through a slot conflict without sending confirmations", async () => {
+    mockCreateClientBooking.mockRejectedValueOnce(new AdminRepositoryError("This slot is unavailable", 409));
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/support-bookings",
+      payload: { ...validSupportSlot(), fullName: "Ada Lovelace", email: "da@example.com", whatsapp: "123456789" },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(mockSendGmailMessage).not.toHaveBeenCalled();
+  });
+
+  it("requires an authenticated, linked publisher for publisher history", async () => {
+    const url = "/admin/publisher-support-bookings";
+    expect((await fastify.inject({ method: "GET", url })).statusCode).toBe(401);
+    currentContext = { ...publisher, organizationId: undefined };
+    expect((await fastify.inject({ method: "GET", url })).statusCode).toBe(403);
+    expect(mockListPublisherBookingsPage).not.toHaveBeenCalled();
+  });
+
+  it("lists history only for the authenticated publisher", async () => {
+    currentContext = publisher;
+    mockListPublisherBookingsPage.mockResolvedValue({ bookings: [] });
+    const response = await fastify.inject({
+      method: "GET",
+      url: "/admin/publisher-support-bookings?limit=20&cursor=booking-1&publisherUid=somebody-else",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(mockListPublisherBookingsPage).toHaveBeenCalledWith("publisher-a", { limit: 20, cursor: "booking-1" });
+  });
+
+  it("reserves on behalf of the authenticated publisher despite identity fields supplied by the caller", async () => {
+    currentContext = publisher;
+    mockGetPublisherBookingContact.mockResolvedValue({
+      fullName: "Ada <Lovelace>",
+      email: publisher.email,
+      companyName: "Analytical & Engines",
+    });
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/admin/publisher-support-bookings",
+      payload: { ...validSupportSlot(), locale: "en-US", email: "spoof@example.com", publisherUid: "somebody-else" },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(mockCreateClientBooking).toHaveBeenCalledWith(expect.objectContaining({
+      kind: "publisher_support",
+      form: expect.objectContaining({ email: publisher.email }),
+    }), { publisherUid: publisher.uid, origin: undefined });
+    const [host, attendee] = mockSendGmailMessage.mock.calls.map(([message]) => message);
+    expect(host.html).toContain("Ada &lt;Lovelace&gt;");
+    expect(host.html).toContain("Analytical &amp; Engines");
+    expect(host.html).toContain("Facturación");
+    expect(attendee).toMatchObject({
+      to: publisher.email,
+      subject: "Your booking is confirmed",
+      text: expect.stringContaining("Reason: Billing"),
+    });
+    expect(attendee.html).toContain("Ada &lt;Lovelace&gt;");
+    expect(attendee.html).toContain("Pocket Genes support");
+    expect(attendee.html).toContain("Billing");
+    expect(attendee.html).not.toContain("<Lovelace>");
+    expect(attendee.html).not.toContain("/god-mode/bookings");
+  });
+
+  it("keeps an accepted booking when attendee email fails", async () => {
+    mockSendGmailMessage.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("Gmail rejected"));
+    const response = await fastify.inject({
+      method: "POST",
+      url: "/support-bookings",
+      payload: { ...validSupportSlot(), fullName: "Ada Lovelace", email: "da@example.com", whatsapp: "123456789" },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(mockRecordClientBookingEmailNotification).toHaveBeenCalledWith("booking-1", { attendee: "failed", host: "delivered" });
+    expect(response.body).not.toContain("Gmail rejected");
   });
 });
 

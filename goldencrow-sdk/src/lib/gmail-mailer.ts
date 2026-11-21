@@ -24,6 +24,7 @@ type GmailSendOptions = {
   sendAsEmail?: string;
   fallbackSignatureHtml?: string;
   preferFallbackSignature?: boolean;
+  signal?: AbortSignal;
 };
 
 type TokenResponse = {
@@ -379,6 +380,7 @@ async function refreshAccessToken(options: GmailSendOptions = {}) {
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
+    ...(options.signal ? { signal: options.signal } : {}),
     body: new URLSearchParams({
       client_id: requiredConfigured(
         options.clientId ?? process.env.GMAIL_CLIENT_ID,
@@ -424,6 +426,7 @@ export async function sendGmailMessage(
       "content-type": "application/json",
     },
     body: JSON.stringify({ raw: buildRawGmailMessage(message, options) }),
+    ...(options.signal ? { signal: options.signal } : {}),
   };
   let response: Response;
   try {

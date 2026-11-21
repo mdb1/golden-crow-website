@@ -1,0 +1,106 @@
+{
+  "assetCount": 93,
+  "nameTests": [
+    {
+      "name": "Tu marca",
+      "headlineCheck": [
+        {
+          "value": "La app de",
+          "font": "70px",
+          "overflowX": 0,
+          "overflowY": 0
+        },
+        {
+          "value": "Tu marca",
+          "font": "54px",
+          "overflowX": 0,
+          "overflowY": 0
+        }
+      ]
+    },
+    {
+      "name": "LAB",
+      "headlineCheck": [
+        {
+          "value": "La app de",
+          "font": "70px",
+          "overflowX": 0,
+          "overflowY": 0
+        },
+        {
+          "value": "LAB",
+          "font": "54px",
+          "overflowX": 0,
+          "overflowY": 0
+        }
+      ]
+    },
+    {
+      "name": "Clínica Horizonte",
+      "headlineCheck": [
+        {
+          "value": "La app de",
+          "font": "70px",
+          "overflowX": 0,
+          "overflowY": 0
+        },
+        {
+          "value": "Clínica Horizonte",
+          "font": "54px",
+          "overflowX": 0,
+          "overflowY": 0
+        }
+      ]
+    },
+    {
+      "name": "Centro de Medicina Personalizada",
+      "headlineCheck": [
+        {
+          "value": "La app de",
+          "font": "70px",
+          "overflowX": 0,
+          "overflowY": 0
+        },
+        {
+          "value": "Centro de Medicina Personalizada",
+          "font": "29.5px",
+          "overflowX": 0,
+          "overflowY": 0
+        }
+      ]
+    },
+    {
+      "name": "Un nombre de empresa más largo para comprobar el ajuste",
+      "headlineCheck": [
+        {
+          "value": "La app de",
+          "font": "70px",
+          "overflowX": 0,
+          "overflowY": 0
+        },
+        {
+          "value": "Un nombre de empresa más largo para comprobar el ajuste",
+          "font": "28.5px",
+          "overflowX": 0,
+          "overflowY": 1
+        }
+      ]
+    }
+  ],
+  "scaledSize": {
+    "x": 469,
+    "y": 272,
+    "width": 512,
+    "height": 250
+  },
+  "actionEventWorked": true,
+  "svgTextNodes": 0,
+  "forbiddenBrandStringsInSvg": [],
+  "pngExports": 93,
+  "pngWithAlpha": 93,
+  "eachSvgDefaultsToMagenta": true,
+  "standaloneRendererWorks": true,
+  "pngRecolorPreservesAlpha": true,
+  "pngRecolorChangedPixels": 50228,
+  "pngRecolorNeutralPixelsUnchanged": true
+}

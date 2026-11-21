@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  CalendarPlus,
   Check,
   CheckCircle2,
   ExternalLink,
@@ -29,13 +30,16 @@ import {
   partnerEmailPreviewDocument,
   DEFAULT_PARTNER_EMAIL_TEMPLATE_VARIANT,
   PARTNER_EMAIL_TEMPLATE_OPTIONS,
+  PARTNER_MEETING_TEMPLATE_OPTIONS,
   type PartnerEmailLanguage,
   type PartnerEmailPreview,
   type PartnerEmailSendInput,
   type PartnerEmailSendResult,
   type PartnerEmailTemplateVariant,
+  type PartnerMeetingSlot,
 } from "@/lib/partner-email";
 import { appText } from "@/lib/language";
+import { formatSupportBookingDate } from "@/lib/publisher-support-bookings";
 import { sdkFetch, SdkRequestError } from "@/lib/sdk-client";
 import { cn } from "@/lib/utils";
 import { renderPartnerEmailBanner } from "./partner-email-banner";
@@ -44,15 +48,20 @@ type SendOperation = PartnerEmailSendInput & { partnerId: string };
 
 export function PartnerEmailPreviewDialog({
   partnerId,
+  meetingInvitation = false,
   onClose,
   onSent,
 }: {
   partnerId: string;
+  meetingInvitation?: boolean;
   onClose: () => void;
   onSent?: () => void;
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
+  const templateOptions = meetingInvitation
+    ? PARTNER_MEETING_TEMPLATE_OPTIONS
+    : PARTNER_EMAIL_TEMPLATE_OPTIONS;
   const [emailLanguage, setEmailLanguage] =
     useState<PartnerEmailLanguage>("es");
   const [templateVariant, setTemplateVariant] =
@@ -72,6 +81,12 @@ export function PartnerEmailPreviewDialog({
   const generation = useRef(0);
   const sendLock = useRef(false);
   const operationRef = useRef<SendOperation | null>(null);
+  const proposedSlot = useRef<PartnerMeetingSlot | null>(null);
+
+  function refreshPreview() {
+    proposedSlot.current = null;
+    setRevision((value) => value + 1);
+  }
 
   useEffect(() => {
     const token = ++generation.current;
@@ -85,13 +100,27 @@ export function PartnerEmailPreviewDialog({
     setOperation(null);
     setOutcome(null);
     operationRef.current = null;
+    const params = new URLSearchParams({
+      language: emailLanguage,
+      templateVariant: String(templateVariant),
+    });
+    if (meetingInvitation) {
+      params.set("purpose", "meetingInvitation");
+      if (proposedSlot.current) {
+        params.set("date", proposedSlot.current.date);
+        params.set("startTime", proposedSlot.current.startTime);
+      }
+    }
     void sdkFetch<PartnerEmailPreview>(
-      `${PARTNERS_API_ROUTE}/${encodeURIComponent(partnerId)}/email-preview?language=${emailLanguage}&templateVariant=${templateVariant}`,
+      `${PARTNERS_API_ROUTE}/${encodeURIComponent(partnerId)}/email-preview?${params}`,
       { signal: controller.signal },
     )
       .then(async (response) => {
         if (controller.signal.aborted || token !== generation.current) return;
-        if (response.bannerBrand) {
+        if (meetingInvitation) {
+          if (!response.meetingSlot) throw new Error("No meeting time was proposed.");
+          proposedSlot.current = response.meetingSlot;
+        } else if (response.bannerBrand) {
           const banner = await renderPartnerEmailBanner(
             response.bannerBrand,
             response.language,
@@ -125,7 +154,7 @@ export function PartnerEmailPreviewDialog({
       controller.abort();
       generation.current += 1;
     };
-  }, [partnerId, emailLanguage, templateVariant, revision]);
+  }, [partnerId, emailLanguage, templateVariant, revision, meetingInvitation]);
 
   const preview =
     preparedPreview?.partnerId === partnerId &&
@@ -167,6 +196,7 @@ export function PartnerEmailPreviewDialog({
       templateVariant: preview.templateVariant,
       previewHash: preview.previewHash,
       requestId: crypto.randomUUID(),
+      ...(meetingInvitation ? { purpose: "meetingInvitation" as const, meetingSlot: preview.meetingSlot } : {}),
       ...(preview.banner ? { banner: preview.banner } : {}),
     };
     operationRef.current = currentOperation;
@@ -235,9 +265,9 @@ export function PartnerEmailPreviewDialog({
         <DialogHeader className="shrink-0 border-b bg-gradient-to-r from-violet-50 via-fuchsia-50/50 to-sky-50 p-5 pr-12 dark:from-violet-950/40 dark:via-fuchsia-950/20 dark:to-sky-950/30 sm:px-6">
           <DialogTitle className="flex items-center gap-3 font-heading text-xl font-semibold">
             <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-500 text-white shadow-lg shadow-violet-500/15">
-              <Mail className="size-5" />
+              {meetingInvitation ? <CalendarPlus className="size-5" /> : <Mail className="size-5" />}
             </span>
-            {t("Email preview")}
+            {t(meetingInvitation ? "Invite to a meeting" : "Email preview")}
           </DialogTitle>
           <DialogDescription className="sr-only">
             {t("Review the recipient and message before sending.")}
@@ -246,12 +276,12 @@ export function PartnerEmailPreviewDialog({
         <div className="min-h-0 space-y-4 overflow-y-auto p-5 sm:p-6">
           {sent ? (
             <section
-              aria-label={t("Email sent")}
+              aria-label={t(meetingInvitation ? "Invitation sent" : "Email sent")}
               className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-6 dark:border-emerald-400/25 dark:bg-emerald-500/10"
             >
               <CheckCircle2 className="mb-3 size-9 text-emerald-600 dark:text-emerald-300" />
               <h3 className="font-heading text-xl font-semibold">
-                {t("Email sent")}
+                {t(meetingInvitation ? "Invitation sent" : "Email sent")}
               </h3>
               <p className="mt-2 break-words text-sm">{outcome.to}</p>
             </section>
@@ -286,7 +316,7 @@ export function PartnerEmailPreviewDialog({
                     </button>
                   ))}
                 </div>
-                {preview && (
+                {preview && !meetingInvitation && (
                   <span className="max-w-full rounded-full bg-violet-100 px-3 py-1 text-xs font-medium text-violet-800 dark:bg-violet-500/15 dark:text-violet-200">
                     {t(categoryLabel)}
                   </span>
@@ -297,7 +327,7 @@ export function PartnerEmailPreviewDialog({
                 aria-label={t("Email template")}
                 className="grid grid-cols-1 gap-3 sm:grid-cols-3"
               >
-                {PARTNER_EMAIL_TEMPLATE_OPTIONS.map((option) => (
+                {templateOptions.map((option) => (
                   <button
                     key={option.key}
                     type="button"
@@ -354,7 +384,7 @@ export function PartnerEmailPreviewDialog({
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => setRevision((value) => value + 1)}
+                    onClick={refreshPreview}
                   >
                     <RefreshCw className="size-4" />
                     {t("Retry preview")}
@@ -372,6 +402,14 @@ export function PartnerEmailPreviewDialog({
                     <dd className="break-words font-medium">
                       {preview.subject}
                     </dd>
+                    {meetingInvitation && preview.meetingSlot && (
+                      <>
+                        <dt className="text-muted-foreground">{t("Proposed meeting")}</dt>
+                        <dd className="font-medium">
+                          {formatSupportBookingDate(preview.meetingSlot.date, language)} · {preview.meetingSlot.startTime} (Buenos Aires)
+                        </dd>
+                      </>
+                    )}
                   </dl>
                   <section className="space-y-3 rounded-xl border bg-muted/20 p-4 text-sm">
                     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -456,7 +494,7 @@ export function PartnerEmailPreviewDialog({
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setRevision((value) => value + 1)}
+                    onClick={refreshPreview}
                   >
                     <RefreshCw className="size-4" />
                     {t("Refresh preview")}
@@ -523,7 +561,7 @@ export function PartnerEmailPreviewDialog({
                   ? "Check delivery"
                   : knownFailure
                     ? "Retry sending"
-                    : "Send email",
+                    : meetingInvitation ? "Send invitation" : "Send email",
               )}
             </Button>
           )}

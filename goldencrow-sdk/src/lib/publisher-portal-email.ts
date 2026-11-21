@@ -1,4 +1,9 @@
 import { ENV } from "../config/env.js";
+import {
+  escapeEmailHtml,
+  renderBrandedEmail,
+  renderBrandedEmailButton,
+} from "./branded-email-layout.js";
 import { sendGmailMessage } from "./gmail-mailer.js";
 
 const PUBLISHER_PORTAL_LOGIN_PATH = "/publisher-portal/login";
@@ -32,15 +37,6 @@ function publisherPortalLoginUrl(email: string) {
   return url.toString();
 }
 
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 function displayName(recipient: PublisherPortalEmailRecipient) {
   return optionalString(recipient.displayName) ?? "Publicador";
 }
@@ -50,9 +46,8 @@ export function buildPublisherPortalInviteEmailMessage(
   temporaryPassword: string,
 ): EmailMessage {
   const portalUrl = publisherPortalLoginUrl(recipient.email);
-  const safeName = escapeHtml(displayName(recipient));
-  const safeTemporaryPassword = escapeHtml(temporaryPassword);
-  const safePortalUrl = escapeHtml(portalUrl);
+  const safeName = escapeEmailHtml(displayName(recipient));
+  const safeTemporaryPassword = escapeEmailHtml(temporaryPassword);
   const preheader =
     "Tu solicitud fue aprobada. Ya podés entrar a Pocket Genes.";
 
@@ -76,61 +71,39 @@ export function buildPublisherPortalInviteEmailMessage(
       "",
       "Equipo Pocket Genes",
     ].join("\n"),
-    html: `
-      <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
-        ${escapeHtml(preheader)}
-      </div>
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0;padding:0;background:#f8f7ff;font-family:Arial,Helvetica,sans-serif;color:#111827;">
-        <tr>
-          <td align="center" style="padding:40px 16px;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:680px;border-collapse:separate;border-spacing:0;background:#ffffff;border:1px solid #e7e5ff;border-radius:18px;overflow:hidden;box-shadow:0 18px 48px rgba(86,50,164,0.14);">
-              <tr>
-                <td style="background:#2d1b69;padding:36px 40px;">
-                  <div style="font-size:13px;line-height:18px;letter-spacing:0.26em;text-transform:uppercase;font-weight:800;color:#d8c9ff;">
-                    Pocket Genes
-                  </div>
-                  <div style="margin-top:16px;font-size:36px;line-height:42px;font-weight:800;color:#ffffff;">
-                    Te damos la bienvenida a Pocket Genes
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td style="padding:40px;background:#ffffff;">
-                  <p style="margin:0 0 24px;font-size:20px;line-height:30px;color:#111827;">
-                    Hola ${safeName},
-                  </p>
-                  <p style="margin:0 0 12px;font-size:22px;line-height:32px;font-weight:800;color:#111827;">
-                    Tu solicitud fue aprobada.
-                  </p>
-                  <p style="margin:0 0 28px;font-size:18px;line-height:30px;color:#4b5563;">
-                    Te damos la bienvenida a Pocket Genes. Ya podés entrar al portal para preparar tu perfil y publicar contenido para la comunidad.
-                  </p>
-                  <p style="margin:0 0 18px;font-size:18px;line-height:28px;color:#4b5563;">
-                    Tu clave de acceso está lista.
-                  </p>
-                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 32px;border:1px solid #e5e7eb;border-radius:12px;background:#f9fafb;">
-                    <tr>
-                      <td style="padding:18px 20px;font-size:16px;line-height:22px;color:#6b7280;">
-                        Clave de acceso
-                      </td>
-                      <td align="right" style="padding:18px 20px;font-size:22px;line-height:28px;font-weight:800;letter-spacing:0.18em;color:#111827;">
-                        ${safeTemporaryPassword}
-                      </td>
-                    </tr>
-                  </table>
-                  <a href="${safePortalUrl}" style="display:inline-block;background:#6f3cc3;color:#ffffff;text-decoration:none;border-radius:12px;padding:16px 24px;font-size:15px;line-height:20px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;">
-                    Entrar a Pocket Genes
-                  </a>
-                  <p style="margin:28px 0 0;font-size:16px;line-height:26px;color:#6b7280;">
-                    Nos alegra tenerte cerca.
-                  </p>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-      </table>
-    `,
+    html: renderBrandedEmail({
+      brandName: "Pocket Genes",
+      title: "Te damos la bienvenida a Pocket Genes",
+      preheader,
+      bodyHtml: `
+        <p style="margin:0 0 24px;font-size:20px;line-height:30px;color:#111827;">
+          Hola ${safeName},
+        </p>
+        <p style="margin:0 0 12px;font-size:22px;line-height:32px;font-weight:800;color:#111827;">
+          Tu solicitud fue aprobada.
+        </p>
+        <p style="margin:0 0 28px;font-size:18px;line-height:30px;color:#4b5563;">
+          Te damos la bienvenida a Pocket Genes. Ya podés entrar al portal para preparar tu perfil y publicar contenido para la comunidad.
+        </p>
+        <p style="margin:0 0 18px;font-size:18px;line-height:28px;color:#4b5563;">
+          Tu clave de acceso está lista.
+        </p>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 32px;border:1px solid #e5e7eb;border-radius:12px;background:#f9fafb;">
+          <tr>
+            <td style="padding:18px 20px;font-size:16px;line-height:22px;color:#6b7280;">
+              Clave de acceso
+            </td>
+            <td align="right" style="padding:18px 20px;font-size:22px;line-height:28px;font-weight:800;letter-spacing:0.18em;color:#111827;">
+              ${safeTemporaryPassword}
+            </td>
+          </tr>
+        </table>
+        ${renderBrandedEmailButton(portalUrl, "Entrar a Pocket Genes")}
+        <p style="margin:28px 0 0;font-size:16px;line-height:26px;color:#6b7280;">
+          Nos alegra tenerte cerca.
+        </p>
+      `,
+    }),
   };
 }
 

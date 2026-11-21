@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   BriefcaseBusiness,
   Building2,
+  CalendarDays,
   ClipboardList,
   Home,
   Newspaper,
@@ -33,6 +34,7 @@ import {
   PUBLISHER_PORTAL_HOME_ROUTE,
   PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE,
   PUBLISHER_PORTAL_SERVICE_TRANSACTIONS_ROUTE,
+  PUBLISHER_PORTAL_SUPPORT_BOOKINGS_ROUTE,
   publisherPortalIndividualDetailRoute,
   publisherPortalOrganizationDetailRoute,
   publisherPortalOrganizationProductCatalogRoute,
@@ -62,11 +64,13 @@ function publisherProfileNavItem({
   } as const;
 }
 
-function publisherPortalNav({
-  role,
-  organizationId,
-  individualId,
-}: Pick<AdminContextRecord, "role" | "organizationId" | "individualId">) {
+function publisherPortalNav(
+  { role, organizationId, individualId }: Pick<
+    AdminContextRecord,
+    "role" | "organizationId" | "individualId"
+  >,
+  hasPublisherScope: boolean,
+) {
   const profileItem = publisherProfileNavItem({ role, organizationId, individualId });
   const catalogItem =
     role === "organization_publisher" && organizationId
@@ -76,7 +80,6 @@ function publisherPortalNav({
           icon: PackageOpen,
         }
       : null;
-
   return [
     { href: PUBLISHER_PORTAL_HOME_ROUTE, label: "Home", icon: Home },
     profileItem,
@@ -86,6 +89,13 @@ function publisherPortalNav({
       label: "Feed entries",
       icon: Newspaper,
     },
+    ...(hasPublisherScope
+      ? [{
+          href: PUBLISHER_PORTAL_SUPPORT_BOOKINGS_ROUTE,
+          label: "Support bookings",
+          icon: CalendarDays,
+        }]
+      : []),
     {
       href: PUBLISHER_PORTAL_ACCOUNT_ROUTE,
       label: "My account",
@@ -109,12 +119,12 @@ export function PublisherPortalSidebar({
 }) {
   const pathname = usePathname();
   const { language } = useAppLanguage();
-  const navItems = publisherPortalNav({ role, organizationId, individualId });
-  const hasSupportServicesScope =
+  const hasPublisherScope =
     (role === "organization_publisher" && Boolean(organizationId?.trim())) ||
     (role === "individual_publisher" && Boolean(individualId?.trim()));
+  const navItems = publisherPortalNav({ role, organizationId, individualId }, hasPublisherScope);
   const supportServiceItems =
-    hasSupportServicesScope
+    hasPublisherScope
       ? [
           {
             href: PUBLISHER_PORTAL_SERVICE_OFFERS_ROUTE,
