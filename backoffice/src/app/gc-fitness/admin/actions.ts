@@ -13,6 +13,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { toActionFailure, type ActionResult } from "@/lib/gc-fitness/action-result";
+
 import {
   addCoachEmailToAllowlist,
   deleteCoachCascade,
@@ -20,32 +22,48 @@ import {
   removeCoachEmailFromAllowlist,
 } from "@/lib/gc-fitness/admin-actions";
 
-export async function addAllowlistEmailAction(formData: FormData) {
+export async function addAllowlistEmailAction(formData: FormData): Promise<ActionResult> {
   const email = String(formData.get("email") ?? "");
-  await addCoachEmailToAllowlist(email);
+  try {
+    await addCoachEmailToAllowlist(email);
+  } catch (err) {
+    return toActionFailure(err);
+  }
   revalidatePath("/gc-fitness/admin");
   redirect("/gc-fitness/admin?op=allowlist_add&ok=1");
 }
 
-export async function promoteToAdminAction(formData: FormData) {
+export async function promoteToAdminAction(formData: FormData): Promise<ActionResult> {
   const email = String(formData.get("email") ?? "");
-  await promoteUserToAdmin({ email, keepTrainer: true });
+  try {
+    await promoteUserToAdmin({ email, keepTrainer: true });
+  } catch (err) {
+    return toActionFailure(err);
+  }
   revalidatePath("/gc-fitness/admin");
   redirect("/gc-fitness/admin?op=promote_admin&ok=1");
 }
 
-export async function removeAllowlistEmailAction(formData: FormData) {
+export async function removeAllowlistEmailAction(formData: FormData): Promise<ActionResult> {
   const email = String(formData.get("email") ?? "");
-  await removeCoachEmailFromAllowlist({ email });
+  try {
+    await removeCoachEmailFromAllowlist({ email });
+  } catch (err) {
+    return toActionFailure(err);
+  }
   revalidatePath("/gc-fitness/admin");
   redirect("/gc-fitness/admin?op=allowlist_remove&ok=1");
 }
 
-export async function deleteCoachAction(formData: FormData) {
+export async function deleteCoachAction(formData: FormData): Promise<ActionResult> {
   const coachUid = String(formData.get("coachUid") ?? "");
   const confirmation = String(formData.get("confirmation") ?? "");
   const mode = String(formData.get("mode") ?? "dry_run");
-  await deleteCoachCascade({ coachUid, confirmation, mode });
+  try {
+    await deleteCoachCascade({ coachUid, confirmation, mode });
+  } catch (err) {
+    return toActionFailure(err);
+  }
   revalidatePath("/gc-fitness/admin");
   redirect("/gc-fitness/admin?op=delete_coach&ok=1");
 }

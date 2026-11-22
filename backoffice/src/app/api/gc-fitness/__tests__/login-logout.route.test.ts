@@ -9,6 +9,9 @@
 // #379 regression: login used to read `decoded.customClaims` (always
 // undefined) and WIPED the admin claim on every sign-in. The claim tests
 // below pin that admin / extra roles survive a login.
+//
+// #510: login no longer CREATES coaches. The default account below is an
+// existing coach (trainer claim); the "#510" block pins who is refused.
 
 import { FakeFirestore } from "@/lib/test-utils/fake-firestore-c";
 
@@ -66,7 +69,7 @@ let warnSpy: jest.SpyInstance;
 beforeEach(() => {
   mockDb.current = new FakeFirestore();
   mockAuth.verifyIdToken.mockReset().mockResolvedValue(decoded());
-  mockAuth.getUser.mockReset().mockResolvedValue({ customClaims: undefined });
+  mockAuth.getUser.mockReset().mockResolvedValue({ customClaims: { role: "trainer" } });
   mockAuth.setCustomUserClaims.mockReset().mockResolvedValue(undefined);
   mockSetAuthCookies.mockClear();
   setGcFitnessAuthEnv();
@@ -75,6 +78,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  delete process.env.GC_FITNESS_TEAM_ALLOWLIST;
   errSpy.mockRestore();
   warnSpy.mockRestore();
 });
@@ -140,6 +144,7 @@ describe("POST /api/gc-fitness/login — client accounts are rejected", () => {
     expect(res.status).toBe(403);
     await expect(res.json()).resolves.toEqual({
       error: "This account is a client. Please use the app.",
+      code: "client",
     });
     expect(mockAuth.setCustomUserClaims).not.toHaveBeenCalled();
     expect(mockDb.current!.writes).toEqual([]);
@@ -166,7 +171,16 @@ describe("POST /api/gc-fitness/login — claims (#379)", () => {
     return mockAuth.setCustomUserClaims.mock.calls[0][1] as Record<string, unknown>;
   }
 
-  it("fresh account → promoted to trainer, admin false", async () => {
+  it("existing coach (trainer claim) → keeps trainer, admin false", async () => {
+    await expect(claimsAfterLogin({ role: "trainer" })).resolves.toEqual({
+      role: "trainer",
+      roles: ["trainer"],
+      admin: false,
+    });
+  });
+
+  it("allowlisted fresh account (coach_allowlist doc) → trainer", async () => {
+    mockDb.current!.seed("coach_allowlist/coach@example.com", { email: "coach@example.com", enabled: true });
     await expect(claimsAfterLogin(undefined)).resolves.toEqual({
       role: "trainer",
       roles: ["trainer"],
@@ -199,6 +213,7 @@ describe("POST /api/gc-fitness/login — claims (#379)", () => {
   });
 
   it("unrelated custom claims and extra roles are preserved (spread)", async () => {
+    process.env.GC_FITNESS_TEAM_ALLOWLIST = "other@x.io, coach@example.com";
     await expect(
       claimsAfterLogin({ roles: ["Engineering"], coachId: null, tier: "pro" }),
     ).resolves.toEqual({
@@ -217,6 +232,72 @@ describe("POST /api/gc-fitness/login — claims (#379)", () => {
     expect(warnSpy).toHaveBeenCalled();
     expect(mockDb.current!.doc("users/u1")).toMatchObject({ role: "trainer" });
     expect(mockSetAuthCookies).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("POST /api/gc-fitness/login — #510 the role is never created by login", () => {
+  async function expectRefused(code: string) {
+    const res = await login(loginRequest("Bearer t"));
+    expect(res.status).toBe(403);
+    await expect(res.json()).resolves.toMatchObject({ code });
+    expect(mockAuth.setCustomUserClaims).not.toHaveBeenCalled();
+    expect(mockDb.current!.writesTo("users/")).toEqual([]);
+    expect(mockSetAuthCookies).not.toHaveBeenCalled();
+  }
+
+  it("account with no role and not allowlisted → 403 not-a-coach, never gets trainer", async () => {
+    mockAuth.getUser.mockResolvedValue({ customClaims: undefined });
+    await expectRefused("not-a-coach");
+  });
+
+  it("disabled allowlist entry does not admit", async () => {
+    mockAuth.getUser.mockResolvedValue({ customClaims: {} });
+    mockDb.current!.seed("coach_allowlist/coach@example.com", { enabled: false });
+    await expectRefused("not-a-coach");
+  });
+
+  it("a trainer DOC alone (the old login wrote it for everyone) is not a grant", async () => {
+    mockAuth.getUser.mockResolvedValue({ customClaims: {} });
+    mockDb.current!.seed("users/u1", { role: "trainer", email: "coach@example.com" });
+    await expectRefused("not-a-coach");
+    expect(warnSpy).toHaveBeenCalled();
+  });
+
+  it("removed coach (coachDisabled) with a stale trainer claim → 403, does not regain it", async () => {
+    mockDb.current!.seed("users/u1", { role: "trainer", coachDisabled: true });
+    mockAuth.getUser.mockResolvedValue({ customClaims: { role: "trainer", roles: ["trainer"] } });
+    await expectRefused("coach-disabled");
+  });
+
+  it("removed coach still on the allowlist → 403 (the mark wins)", async () => {
+    mockDb.current!.seed("users/u1", { role: "trainer", coachDisabled: true });
+    mockDb.current!.seed("coach_allowlist/coach@example.com", { enabled: true });
+    mockAuth.getUser.mockResolvedValue({ customClaims: {} });
+    await expectRefused("coach-disabled");
+  });
+
+  it("removed coach who is also admin → admin-only session, trainer stripped", async () => {
+    mockDb.current!.seed("users/u1", { role: "trainer", coachDisabled: true });
+    mockAuth.getUser.mockResolvedValue({
+      customClaims: { role: "trainer", roles: ["trainer", "admin"], admin: true, tier: "pro" },
+    });
+    const res = await login(loginRequest("Bearer t"));
+    expect(res.status).toBe(200);
+    expect(mockAuth.setCustomUserClaims).toHaveBeenCalledWith("u1", {
+      tier: "pro",
+      role: "admin",
+      roles: ["admin"],
+      admin: true,
+    });
+    expect(mockDb.current!.writesTo("users/")).toEqual([]);
+    expect(mockSetAuthCookies).toHaveBeenCalledTimes(1);
+  });
+
+  it("disabled Auth user → 403 even with a coach claim", async () => {
+    mockAuth.getUser.mockResolvedValue({ disabled: true, customClaims: { role: "trainer" } });
+    const res = await login(loginRequest("Bearer t"));
+    expect(res.status).toBe(403);
+    expect(mockSetAuthCookies).not.toHaveBeenCalled();
   });
 });
 

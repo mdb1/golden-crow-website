@@ -6,6 +6,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -54,17 +55,19 @@ export default async function AdminClientPhotosPage({
     (clientSnap.get("email") as string | undefined) ??
     clientId;
 
+  const t = await getTranslations("admin.clientDetail");
+
   return (
     <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-4 px-4 py-6 sm:px-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
-          <h1 className="gc-page-title text-2xl sm:text-3xl">Progress photos</h1>
-          <Badge variant="secondary">Read-only</Badge>
+          <h1 className="gc-page-title text-2xl sm:text-3xl">{t("photos.title")}</h1>
+          <Badge variant="secondary">{t("readOnly")}</Badge>
         </div>
         <Button asChild variant="outline" size="sm" className="gap-1 rounded-full">
           <Link href={`/gc-fitness/admin/coaches/${uid}/clients/${clientId}`}>
             <ArrowLeft className="h-4 w-4" />
-            Back to client
+            {t("backToClient")}
           </Link>
         </Button>
       </div>
@@ -75,7 +78,7 @@ export default async function AdminClientPhotosPage({
           clientName={clientName}
         />
       ) : (
-        <p className="text-sm text-muted-foreground">No progress photos yet.</p>
+        <p className="text-sm text-muted-foreground">{t("photos.empty")}</p>
       )}
     </div>
   );

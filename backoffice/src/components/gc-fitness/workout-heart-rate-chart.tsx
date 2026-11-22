@@ -48,7 +48,7 @@ export function WorkoutHeartRateChart({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <HeartPulse className="size-4 text-rose-500" />
+          <HeartPulse className="size-4 text-danger" />
           {t("title")}
         </CardTitle>
       </CardHeader>

@@ -35,3 +35,34 @@ export function emailMatchesQuery(email: unknown, normalizedQuery: string): bool
   if (typeof email !== "string" || email.length === 0) return false;
   return email.toLowerCase().includes(normalizedQuery);
 }
+
+/**
+ * #541 — the search also matches the display name (it was already projected and never
+ * used: an operator who only remembers «Nico Carballal» found nothing).
+ */
+export function userMatchesQuery(email: unknown, displayName: unknown, normalizedQuery: string): boolean {
+  return emailMatchesQuery(email, normalizedQuery) || emailMatchesQuery(displayName, normalizedQuery);
+}
+
+/**
+ * The admin page for a search row, by role precedence:
+ *   client with a coach → the client drill-down under that coach;
+ *   client WITHOUT a coach (and not deleted) → the coach-less profile (#541 — it had
+ *     no link at all, so the most-needed profile was the one unreachable from search);
+ *   trainer → the coach detail;
+ *   else (admin-only, deleted coach-less) → null (inline summary).
+ * The trainer-facing /gc-fitness/clients/{uid} is ownership-gated and never linked.
+ */
+export function adminProfileHref(row: {
+  uid: string;
+  roles: string[];
+  coachId: string | null;
+  deleted: boolean;
+}): string | null {
+  if (row.roles.includes("client")) {
+    if (row.coachId) return `/gc-fitness/admin/coaches/${row.coachId}/clients/${row.uid}`;
+    return row.deleted ? null : `/gc-fitness/admin/coach-less-users/${row.uid}`;
+  }
+  if (row.roles.includes("trainer")) return `/gc-fitness/admin/coaches/${row.uid}`;
+  return null;
+}

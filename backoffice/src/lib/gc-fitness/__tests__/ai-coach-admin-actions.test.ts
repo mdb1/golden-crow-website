@@ -22,6 +22,10 @@ type Data = Record<string, unknown>;
 const store = new Map<string, Data>();
 const reads: string[] = [];
 const added: Array<{ collection: string; data: Data }> = [];
+const sets: Array<{ path: string; data: Data }> = [];
+/** #504 — every count() aggregation the reader ran, and every projection. */
+const counts: string[] = [];
+const selects: string[][] = [];
 let failCollectionGroup: string | null = null;
 
 const ts = (iso: string) => ({ toMillis: () => Date.parse(iso), iso });
@@ -62,8 +66,16 @@ function makeQuery(candidates: () => string[]) {
       let rows = candidates().map((p) => ({ path: p, data: store.get(p)! }));
       for (const f of filters) {
         rows = rows.filter((r) => {
-          const left = f.field === "__name__" ? r.path.split("/").pop() : r.data[f.field];
+          const left =
+            f.field === "__name__"
+              ? r.path.split("/").pop()
+              : f.field.split(".").reduce<unknown>((o, k) => (o as Data | undefined)?.[k], r.data);
           if (left === undefined) return false;
+          if (f.op === "in") return (f.value as unknown[]).includes(left);
+          if (typeof f.value === "number") {
+            const n = left as number;
+            return f.op === ">=" ? n >= f.value : f.op === "==" ? n === f.value : false;
+          }
           const c = compare(left, f.value);
           return f.op === ">=" ? c >= 0 : f.op === "<" ? c < 0 : f.op === "==" ? c === 0 : false;
         });
@@ -75,6 +87,22 @@ function makeQuery(candidates: () => string[]) {
       rows = rows.slice(0, lim);
       rows.forEach((r) => reads.push(r.path));
       return { docs: rows.map((r) => snapOf(r.path, r.data)) };
+    },
+    select(...fields: string[]) {
+      selects.push(fields);
+      return q;
+    },
+    count() {
+      return {
+        async get() {
+          // An aggregation reads no documents: run the query without logging reads.
+          const before = reads.length;
+          const { docs } = await q.get();
+          reads.length = before;
+          counts.push(docs.map((d) => d.ref.path).join(","));
+          return { data: () => ({ count: docs.length }) };
+        },
+      };
     },
   };
   return q;
@@ -92,6 +120,10 @@ function docRef(path: string) {
       reads.push(path);
       const d = store.get(path);
       return { exists: d !== undefined, id: path.split("/").pop(), data: () => d };
+    },
+    async set(data: Data) {
+      sets.push({ path, data });
+      store.set(path, data);
     },
     collection: (name: string) => collectionRef(`${path}/${name}`),
   };
@@ -113,11 +145,15 @@ function collectionRef(path: string) {
 jest.mock("@/lib/firebase/gc-fitness-admin", () => ({
   gcFitnessFirestore: jest.fn(() => ({
     collection: (name: string) => collectionRef(name),
+    doc: (path: string) => docRef(path),
     collectionGroup: (name: string) => {
       if (failCollectionGroup === name) {
         return {
           where: () => ({ get: async () => { throw new Error("FAILED_PRECONDITION: The query requires an index"); } }),
-          orderBy: () => ({ limit: () => ({ get: async () => { throw new Error("FAILED_PRECONDITION: The query requires an index"); } }) }),
+          orderBy: () => ({
+            limit: () => ({ get: async () => { throw new Error("FAILED_PRECONDITION: The query requires an index"); } }),
+            count: () => ({ get: async () => { throw new Error("FAILED_PRECONDITION: The query requires an index"); } }),
+          }),
         };
       }
       return makeQuery(() =>
@@ -131,7 +167,12 @@ jest.mock("@/lib/firebase/gc-fitness-admin", () => ({
 }));
 
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
-import { loadCorvoDashboard, loadCorvoReportContext } from "@/lib/gc-fitness/ai-coach-admin-actions";
+import {
+  loadCorvoDashboard,
+  loadCorvoDashboardForReports,
+  loadCorvoReportContext,
+  setCorvoReportTriage,
+} from "@/lib/gc-fitness/ai-coach-admin-actions";
 
 const mockedAdmin = getCurrentAdmin as jest.MockedFunction<typeof getCurrentAdmin>;
 const ADMIN = { uid: "admin-1", email: "a@x.com", role: "admin" as const, isTrainer: false, roles: ["admin"] };
@@ -154,6 +195,9 @@ beforeEach(() => {
   store.clear();
   reads.length = 0;
   added.length = 0;
+  sets.length = 0;
+  counts.length = 0;
+  selects.length = 0;
   failCollectionGroup = null;
   mockedAdmin.mockResolvedValue(ADMIN);
 });
@@ -247,7 +291,16 @@ describe("loadCorvoDashboard", () => {
       ["u3", "prem@x.com", "12/15", false],
     ]);
     expect(d.acceptance.data).toEqual([expect.objectContaining({ type: "routine", shown: 2, applied: 1 })]);
-    expect(d.reports.data.map((r) => `${r.uid}/${r.messageId}`)).toEqual(["u1/m10"]);
+    expect(d.reports.data.filter).toBe("new");
+    expect(d.reports.data.rows.map((r) => `${r.uid}/${r.messageId}`)).toEqual(["u1/m10"]);
+    // The count() runs over the whole `reports` collection group — it cannot filter
+    // by parent path — so a foreign `reports` subcollection (only a test fixture:
+    // firestore.rules allows `reports` solely under ai_coach/{uid}) is counted.
+    // The LIST still drops it.
+    expect(d.reports.data.counts).toEqual({ all: 2, new: 2, reviewed: 0, resolved: 0 });
+    // #504 — active users are count() aggregations: no thread doc is read for them,
+    // and the proposals read is projected to the two fields the table uses.
+    expect(selects).toEqual([["type", "status"]]);
     // The dashboard never reads message text.
     expect(reads.filter((p) => p.includes("/messages/"))).toEqual([]);
   });
@@ -257,6 +310,91 @@ describe("loadCorvoDashboard", () => {
     const d = await loadCorvoDashboard();
     expect(d.reports.ok).toBe(false);
     expect(d.usage.ok).toBe(true);
+    expect(d.activeUsers.ok).toBe(true);
     expect(d.acceptance.ok).toBe(true);
+  });
+});
+
+describe("#504 — reads", () => {
+  it("near-quota reads only candidate threads, not every thread active in 30 days", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const hoursAgo = (h: number) => new Date(Date.now() - h * 3600_000);
+    store.set("ai_coach/recent", { lastMessageAt: hoursAgo(1), usage: { civilDate: today, count: 1, total: 1 } });
+    store.set("ai_coach/quiet", { lastMessageAt: hoursAgo(24 * 10), usage: { civilDate: "2020-01-01", count: 1, total: 2 } });
+    store.set("ai_coach/heavy", { lastMessageAt: hoursAgo(24 * 10), usage: { civilDate: "2020-01-01", count: 1, total: 9 } });
+    store.set("ai_coach/old", { lastMessageAt: hoursAgo(24 * 60), usage: { total: 10 } });
+    store.set("users/heavy", { email: "heavy@x.com" });
+    const d = await loadCorvoDashboard();
+    if (!d.nearQuota.ok || !d.activeUsers.ok) throw new Error("expected ok");
+    expect(d.activeUsers.data).toEqual({ last24h: 1, last7d: 1, last30d: 3 });
+    expect(reads).not.toContain("ai_coach/quiet");
+    // Lifetime 9/10 inside the 30-day window is near; 10/10 two months ago is out of it.
+    expect(d.nearQuota.data.map((r) => r.uid)).toEqual(["heavy"]);
+  });
+});
+
+describe("#504 — report triage", () => {
+  const recent = () => new Date(Date.now() - 3600_000);
+  beforeEach(() => {
+    store.set("ai_coach/u1/reports/m1", { reason: "incorrect", note: "", createdAt: recent(), platform: "ios", appVersion: "2.3" });
+    store.set("ai_coach/u1/reports/m2", { reason: "other", note: "", createdAt: recent(), platform: "ios", appVersion: "2.3" });
+    store.set("ai_coach/u2/reports/m3", { reason: "off_topic", note: "", createdAt: recent(), platform: "android", appVersion: "2.3" });
+  });
+
+  it("sets a state + note in the server-only triage collection, never on the report", async () => {
+    const r = await setCorvoReportTriage({ uid: "u1", messageId: "m1", status: "reviewed", note: " checked " });
+    expect(r).toMatchObject({ ok: true, triage: { status: "reviewed", note: "checked" } });
+    expect(sets).toEqual([
+      {
+        path: "ai_coach_report_triage/u1_m1",
+        data: expect.objectContaining({ uid: "u1", messageId: "m1", status: "reviewed", note: "checked", updatedBy: "admin-1" }),
+      },
+    ]);
+    expect(store.get("ai_coach/u1/reports/m1")).not.toHaveProperty("status");
+    expect(added).toEqual([
+      { collection: "admin_operations", data: expect.objectContaining({ kind: "ai_coach_report_triage", targetUid: "u1" }) },
+    ]);
+  });
+
+  it("refuses a missing report, a bad status and a non-admin", async () => {
+    expect(await setCorvoReportTriage({ uid: "u1", messageId: "nope", status: "reviewed", note: "" })).toEqual({
+      ok: false,
+      error: "Report not found.",
+    });
+    expect(await setCorvoReportTriage({ uid: "u1", messageId: "m1", status: "done", note: "" })).toMatchObject({ ok: false });
+    mockedAdmin.mockRejectedValueOnce(new Error("Forbidden"));
+    await expect(setCorvoReportTriage({ uid: "u1", messageId: "m1", status: "resolved", note: "" })).rejects.toThrow("Forbidden");
+    expect(sets).toEqual([]);
+  });
+
+  it("filters the list by state and counts each state with count()", async () => {
+    await setCorvoReportTriage({ uid: "u1", messageId: "m1", status: "reviewed", note: "x" });
+    await setCorvoReportTriage({ uid: "u2", messageId: "m3", status: "resolved", note: "" });
+
+    const fresh = await loadCorvoDashboard();
+    if (!fresh.reports.ok) throw new Error("expected ok");
+    expect(fresh.reports.data.rows.map((r) => r.messageId)).toEqual(["m2"]);
+    expect(fresh.reports.data.counts).toEqual({ all: 3, new: 1, reviewed: 1, resolved: 1 });
+
+    const reviewed = await loadCorvoDashboardForReports("reviewed");
+    if (!reviewed.reports.ok) throw new Error("expected ok");
+    expect(reviewed.reports.data.rows.map((r) => [r.messageId, r.triage.status, r.triage.note])).toEqual([
+      ["m1", "reviewed", "x"],
+    ]);
+
+    const all = await loadCorvoDashboardForReports("all");
+    if (!all.reports.ok) throw new Error("expected ok");
+    expect(all.reports.data.rows.map((r) => `${r.messageId}:${r.triage.status}`).sort()).toEqual([
+      "m1:reviewed",
+      "m2:new",
+      "m3:resolved",
+    ]);
+  });
+
+  it("the context page carries the report's triage", async () => {
+    await setCorvoReportTriage({ uid: "u1", messageId: "m1", status: "resolved", note: "fixed prompt" });
+    const ctx = await loadCorvoReportContext("u1", "m1");
+    if (ctx.kind === "not_found") throw new Error("expected a report");
+    expect(ctx.report.triage).toMatchObject({ status: "resolved", note: "fixed prompt" });
   });
 });

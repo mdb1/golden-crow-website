@@ -343,7 +343,7 @@ export function MuscleGroupProgressClient({
 
   if (groups.length === 0) {
     return (
-      <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
+      <section className="rounded-card border border-border bg-card p-5 shadow-sm">
         <h2 className="text-sm font-semibold text-foreground">
           {t("muscleGroups.sectionTitle")}
         </h2>
@@ -355,7 +355,7 @@ export function MuscleGroupProgressClient({
   }
 
   return (
-    <section className="flex flex-col gap-4 rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
+    <section className="flex flex-col gap-4 rounded-card border border-border bg-card p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <h2 className="text-sm font-semibold text-foreground">

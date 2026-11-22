@@ -30,7 +30,8 @@
 import "@testing-library/jest-dom";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import React from "react";
 
 import { WorkoutDetailDialog } from "@/components/gc-fitness/schedule/workout-detail-dialog";
@@ -87,7 +88,10 @@ function detail(overrides: Partial<AssignmentDetail> = {}): AssignmentDetail {
   } as AssignmentDetail;
 }
 
-async function renderDialog(d: AssignmentDetail) {
+async function renderDialog(
+  d: AssignmentDetail,
+  { onMoveTo }: { onMoveTo?: (newDate: string) => void } = {},
+) {
   mockGetAssignmentDetail.mockResolvedValue(d);
   const onDeleted = jest.fn();
   const client = new QueryClient({
@@ -100,6 +104,7 @@ async function renderDialog(d: AssignmentDetail) {
         onOpenChange={jest.fn()}
         assignmentId="assign-1"
         onDeleted={onDeleted}
+        onMoveTo={onMoveTo}
       />
     </QueryClientProvider>,
   );
@@ -173,5 +178,68 @@ describe("WorkoutDetailDialog — finished workouts", () => {
     await renderDialog(detail({ seriesId: null, recurrence: null }));
 
     expect(queryButton(/Editar recurrencia/)).not.toBeInTheDocument();
+  });
+});
+
+// #493 — "Mover a fecha…": the keyboard/touch alternative to dragging the chip.
+// The dialog only collects the date; the calendar runs the move (its contract
+// is pinned in month-calendar-drag-move.test.tsx). What matters here: the
+// date the coach picked is the one handed over, the current day is refused,
+// and the control is absent where moving isn't allowed.
+describe("WorkoutDetailDialog — Move to date (#493)", () => {
+  it("hands the picked date to onMoveTo", async () => {
+    const user = userEvent.setup();
+    const onMoveTo = jest.fn();
+    await renderDialog(detail(), { onMoveTo });
+
+    await user.click(screen.getByRole("button", { name: "Move to date…" }));
+    const input = screen.getByLabelText("New date");
+    // Expanding moves focus into the picker — keyboard users land on it.
+    expect(input).toHaveFocus();
+    expect(input).toHaveValue("2026-09-17");
+
+    fireEvent.change(input, { target: { value: "2026-09-24" } });
+    await user.click(screen.getByRole("button", { name: /^Move$/ }));
+
+    expect(onMoveTo).toHaveBeenCalledTimes(1);
+    expect(onMoveTo).toHaveBeenCalledWith("2026-09-24");
+  });
+
+  it("refuses the workout's current day (same-day no-op), even via Enter", async () => {
+    const user = userEvent.setup();
+    const onMoveTo = jest.fn();
+    await renderDialog(detail(), { onMoveTo });
+
+    await user.click(screen.getByRole("button", { name: "Move to date…" }));
+    expect(screen.getByRole("button", { name: /^Move$/ })).toBeDisabled();
+    expect(screen.getByText("Pick a different day than the current one.")).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.submit(screen.getByLabelText("New date").closest("form")!);
+    });
+    expect(onMoveTo).not.toHaveBeenCalled();
+  });
+
+  it("Cancel collapses the picker without moving", async () => {
+    const user = userEvent.setup();
+    const onMoveTo = jest.fn();
+    await renderDialog(detail(), { onMoveTo });
+
+    await user.click(screen.getByRole("button", { name: "Move to date…" }));
+    fireEvent.change(screen.getByLabelText("New date"), { target: { value: "2026-09-24" } });
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByLabelText("New date")).not.toBeInTheDocument();
+    expect(onMoveTo).not.toHaveBeenCalled();
+  });
+
+  it("is not offered on a client-created workout", async () => {
+    await renderDialog(detail({ selfAssigned: true }), { onMoveTo: jest.fn() });
+    expect(queryButton(/Move to date/)).not.toBeInTheDocument();
+  });
+
+  it("is not offered when the surface has no move path", async () => {
+    await renderDialog(detail());
+    expect(queryButton(/Move to date/)).not.toBeInTheDocument();
   });
 });

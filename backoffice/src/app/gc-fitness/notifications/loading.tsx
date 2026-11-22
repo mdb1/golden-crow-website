@@ -21,13 +21,13 @@ export default function NotificationsLoading() {
       </div>
 
       {/* Hero banner */}
-      <Skeleton className="h-32 w-full rounded-[1.25rem]" />
+      <Skeleton className="h-32 w-full rounded-card" />
 
       {/* Grouped list cards */}
       {Array.from({ length: 2 }).map((_, idx) => (
         <div
           key={idx}
-          className="flex flex-col gap-3 rounded-[1.25rem] border bg-card p-5 shadow-sm"
+          className="flex flex-col gap-3 rounded-card border bg-card p-5 shadow-sm"
         >
           <Skeleton className="h-5 w-44" />
           {Array.from({ length: 3 }).map((_, row) => (

@@ -8,7 +8,7 @@ import { CORVO_HEAD_ASSETS } from '../../../data/gcFitnessPublic';
     <div class="legal-container">
       <p class="legal-lang"><a href="/gc-fitness/privacy">Versión en español</a></p>
       <h1>Privacy Policy — Corvo</h1>
-      <p class="legal-updated">Effective date: October 13, 2026</p>
+      <p class="legal-updated">Effective date: November 20, 2026</p>
 
       <p>
         This policy describes how Golden Crow ("we") handles your personal data when you use the
@@ -22,13 +22,13 @@ import { CORVO_HEAD_ASSETS } from '../../../data/gcFitnessPublic';
         <li><strong>Account:</strong> name, email address, and profile photo provided by your
           sign-in method (Google or Apple).</li>
         <li><strong>Training and health data:</strong> logged workouts (sets, reps, weights,
-          durations), habits and their completion, body metrics you enter (weight, height),
+          durations), habits and their completion, body metrics you enter (weight, height, and measurements such as waist, hips or body fat %),
           personal records, and goals.</li>
         <li><strong>Progress photos:</strong> photos you voluntarily upload for visual
           tracking.</li>
-        <li><strong>Messages:</strong> your chat with your coach (text, photos, and voice notes)
-          and, if you use the social features, direct messages with other people (text
-          only).</li>
+        <li><strong>Messages:</strong> your chat with your coach (text, photos, and voice notes),
+          your conversation with Corvo (text and the photos you attach) and, if you use the social
+          features, direct messages with other people (text only).</li>
         <li><strong>Social features (optional):</strong> your public profile (@handle, name, photo,
           and bio), who you follow and who follows you, follow requests, who you've blocked, the
           routines you publish, your comments, likes and saved routines, and the reports you send.
@@ -52,19 +52,21 @@ import { CORVO_HEAD_ASSETS } from '../../../data/gcFitnessPublic';
         <li>Diagnostics and improvement: crash reports and product analytics.</li>
       </ul>
       <p>
-        On iOS, with your permission, the app writes your workouts to Apple Health and reads data
-        such as heart rate, active energy, and steps to display them in the app. Apple Health data
+        On iOS, with your permission, the app writes your workouts and the body weight you log to
+        Apple Health, and reads data such as heart rate, active energy, steps and body weight to
+        display them in the app (weigh-ins from other sources, such as a scale, are added to your
+        weight history). Apple Health data
         is processed on your device and is never used for advertising.
       </p>
 
       <h2>Health Connect (Android)</h2>
       <p>
-        On Android, Corvo can connect to <strong>Health Connect</strong> to complete two
-        features. This is optional: the rest of the app works without it, and you can withdraw
+        On Android, Corvo can connect to <strong>Health Connect</strong> to complete four
+        features (steps, heart rate, body weight and saving your workouts). This is optional: the rest of the app works without it, and you can withdraw
         access at any time from within Health Connect (or from Settings → Health → Health Connect
         inside Corvo, which takes you there).
       </p>
-      <p>We request <strong>read access to exactly two record types</strong>, and no others:</p>
+      <p>We request <strong>read access to exactly three record types</strong>, and no others:</p>
       <ul>
         <li><strong>Steps</strong> — your daily step totals. We use them to draw the Steps chart on
           your Progress tab, and we store the daily total in your own record in our database so
@@ -73,10 +75,27 @@ import { CORVO_HEAD_ASSETS } from '../../../data/gcFitnessPublic';
           app, read only for that workout's time window. We use them to draw the heart-rate line
           on that workout's summary (with its minimum, average and maximum) and we store that
           series alongside that workout, visible to you and to your coach.</li>
+        <li><strong>Weight</strong> — weigh-ins that other sources (for example, a smart scale)
+          save to Health Connect. We add them to your weight history on your Progress tab, visible
+          to you and to your coach. Weigh-ins written by Corvo itself are not imported, so they are
+          never duplicated.</li>
+      </ul>
+      <p>And we request <strong>write access to exactly three record types</strong>, to save the
+        workouts you finish and the body weight you log in the app (the same thing we do with Apple
+        Health on iPhone):</p>
+      <ul>
+        <li><strong>Exercise sessions</strong> — each workout you finish is saved as a strength-training
+          session, with the routine's name and its start and end time, so your other fitness apps
+          count it too. A workout is saved only once.</li>
+        <li><strong>Active calories burned</strong> — an estimate of the calories of that workout,
+          computed from its duration and the body weight you logged in the app, saved alongside it.</li>
+        <li><strong>Weight</strong> — the body weight you type into Corvo, so your history stays in
+          one place.</li>
       </ul>
       <p>
-        <strong>Read-only.</strong> Corvo never writes data to Health Connect, and never reads
-        any health data other than the two record types above.
+        <strong>Nothing else.</strong> Corvo never reads or writes any health data other than those
+        six record types. What is saved to Health Connect stays on your phone, under your control:
+        you can review and delete it from the Health Connect app.
       </p>
       <p>
         <strong>Sharing.</strong> Data read from Health Connect is shared only with the coach
@@ -86,7 +105,8 @@ import { CORVO_HEAD_ASSETS } from '../../../data/gcFitnessPublic';
         advertising or analytics network.
       </p>
       <p>
-        <strong>Retention and deletion.</strong> Step totals and workout heart-rate series are kept
+        <strong>Retention and deletion.</strong> Step totals, workout heart-rate series and imported
+        weigh-ins are kept
         with the rest of your training data while your account is active, and are deleted with it
         when you delete your account (Settings → Delete account). Withdrawing the Health Connect
         permission stops any further reading immediately; to also remove what was already stored,
@@ -129,7 +149,8 @@ import { CORVO_HEAD_ASSETS } from '../../../data/gcFitnessPublic';
         uses <strong>Claude</strong>, an artificial intelligence model by <strong>Anthropic</strong>.
       </p>
       <ul>
-        <li><strong>What is sent to Anthropic:</strong> your messages to the AI Coach and the
+        <li><strong>What is sent to Anthropic:</strong> your messages to the AI Coach (including
+          the photos you attach, see <a href="#ai-coach-attached-photos">below</a>) and the
           account data needed to answer them: workouts, personal records, body weight, habits,
           routines, schedule and nutrition. Your email, location and any non-public data about other
           people are <strong>not</strong> sent. Neither are your progress photos, unless you turn on
@@ -170,6 +191,36 @@ import { CORVO_HEAD_ASSETS } from '../../../data/gcFitnessPublic';
           disorder, it does not analyze the photos and recommends seeing a professional.</li>
         <li><strong>You can revoke it at any time</strong> from the same place. From then on Corvo
           cannot see your photos again.</li>
+      </ul>
+
+      <h3 id="ai-coach-attached-photos">Photos you send Corvo and voice dictation</h3>
+      <p>
+        You can attach a photo to a message for Corvo (for example, your meal or your form on an
+        exercise) and dictate your messages instead of typing them. Both are optional.
+      </p>
+      <ul>
+        <li><strong>Photos — what is stored:</strong> the photo you pick is uploaded to your account
+          (on Google Firebase, our infrastructure provider), downsized, to show it in your
+          conversation. Only you can see it: your trainer has no access to it.</li>
+        <li><strong>Photos — what is sent and to whom:</strong> to answer that message, our server
+          downscales it (at most 1 megapixel), strips its metadata (such as location or device) and
+          sends it only to <strong>Anthropic</strong>, which acts as a data processor. It is sent
+          only with the message you attached it to: in later answers Corvo no longer sees it. No
+          other third party receives it.</li>
+        <li><strong>Photos — what Corvo does with them:</strong> with a meal, it describes what it
+          sees and gives approximate estimates; with your form, it suggests adjustments. If the
+          photo shows your body, the same rules as the progress-photo analysis apply: it does not
+          judge your body or appearance or estimate body-fat percentages or clinical numbers, and it
+          does not identify people.</li>
+        <li><strong>Photos — deletion:</strong> they are deleted when you delete the conversation
+          (AI Coach → ⋯ → Delete conversation) and when you delete your account.</li>
+        <li><strong>Voice dictation:</strong> it uses your phone's speech recognition (Apple on
+          iPhone, Google on Android), which turns your voice into text on the device whenever the
+          phone supports it; otherwise the system may process it on Apple's or Google's servers
+          under their own policies. Corvo does not record or store audio and none reaches us: we only
+          receive the text you choose to send, like any other message. To dictate, the app asks for
+          microphone permission (and, on iPhone, speech recognition), which you can withdraw in the
+          phone's settings.</li>
       </ul>
 
       <p id="coach-ai-summary">

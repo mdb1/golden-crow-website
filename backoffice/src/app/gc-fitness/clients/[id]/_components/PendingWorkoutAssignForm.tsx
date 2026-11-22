@@ -7,6 +7,7 @@ import {
   localDateToCivil,
   type EndDatePresetMonths,
 } from "@/lib/gc-fitness/end-date-presets";
+import { FormSelect } from "@/components/gc-fitness/form-select";
 
 interface WorkoutTemplateOption {
   id: string;
@@ -39,6 +40,7 @@ export function PendingWorkoutAssignForm({
   submitAction,
 }: PendingWorkoutAssignFormProps) {
   const [mode, setMode] = useState<AssignMode>("once");
+  const [templateId, setTemplateId] = useState("");
   const [scheduledFor, setScheduledFor] = useState(() => todayCivilDate());
   const [endDate, setEndDate] = useState(() => addCivilMonths(todayCivilDate(), 3));
   const [selectedEndPresetMonths, setSelectedEndPresetMonths] =
@@ -65,6 +67,7 @@ export function PendingWorkoutAssignForm({
   async function handleSubmit(formData: FormData) {
     await submitAction(formData);
     setMode("once");
+    setTemplateId("");
     setScheduledFor(todayCivilDate());
     setEndDate(addCivilMonths(todayCivilDate(), 3));
     setSelectedEndPresetMonths(3);
@@ -76,18 +79,15 @@ export function PendingWorkoutAssignForm({
       <div className="grid gap-3 md:grid-cols-2">
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium">Plantilla</span>
-          <select
+          <FormSelect
             name="templateId"
             required
-            className="rounded border bg-background px-3 py-2 text-sm"
-          >
-            <option value="">Elegí una plantilla…</option>
-            {templates.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
+            value={templateId}
+            onValueChange={setTemplateId}
+            placeholder="Elegí una plantilla…"
+            className="data-[size=default]:h-9"
+            options={templates.map((t) => ({ value: t.id, label: t.name }))}
+          />
         </label>
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium">Fecha</span>
@@ -105,18 +105,19 @@ export function PendingWorkoutAssignForm({
       <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium">Modo</span>
-          <select
+          <FormSelect
             name="mode"
-            className="rounded border bg-background px-3 py-2 text-sm"
+            className="data-[size=default]:h-9"
             value={mode}
-            onChange={(event) => setMode(event.target.value as AssignMode)}
-          >
-            <option value="once">Una vez</option>
-            <option value="weekly">Semanal</option>
-            <option value="daily">Diario</option>
-            <option value="everyN">Cada N días</option>
-            <option value="monthly">Mensual</option>
-          </select>
+            onValueChange={(v) => setMode(v as AssignMode)}
+            options={[
+              { value: "once", label: "Una vez" },
+              { value: "weekly", label: "Semanal" },
+              { value: "daily", label: "Diario" },
+              { value: "everyN", label: "Cada N días" },
+              { value: "monthly", label: "Mensual" },
+            ]}
+          />
         </label>
 
         {showEveryN ? (
@@ -190,7 +191,7 @@ export function PendingWorkoutAssignForm({
           <input
             type="text"
             name="meetingNotes"
-            placeholder="Link o detalle de sesión"
+            placeholder="Link o detalle del entrenamiento"
             className="rounded border bg-background px-3 py-2 text-sm"
           />
         </label>

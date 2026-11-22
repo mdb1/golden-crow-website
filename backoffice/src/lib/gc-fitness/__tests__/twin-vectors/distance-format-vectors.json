@@ -1,0 +1,206 @@
+{
+  "description": "#1649 — distance / cardio. The WIRE IS ALWAYS METERS (distance_meters on logged sets, distanceBySetMeters on template/snapshot sets, distance_meters on prs[]). Display unit follows the weight preference (preferences.units 'lb' => miles, anything else => km). OUT: displayValue = meters / 1000 (km) or / 1609.344 (mi); number prints up to 2 decimals, half away from zero on the binary double (same trick as WeightFormat.loadNumber), trailing zeros dropped, app-language separator, no grouping. IN: metersFromInput = value x 1000 (km) or x 1609.344 (mi), rounded half away from zero to the whole meter, clamped 0...1000000; non-finite => 0. totalMeters sums distance_meters > 0 only. Runners: GCFitnessCoreTests/DistanceFormatVectorTests.swift, android/core DistanceFormatVectorTest.kt, backoffice __tests__/distance-format.test.ts.",
+  "number": [
+    {
+      "meters": 5000,
+      "units": "kg",
+      "locale": "en-US",
+      "expected": "5"
+    },
+    {
+      "meters": 5250,
+      "units": "kg",
+      "locale": "es-AR",
+      "expected": "5,25"
+    },
+    {
+      "meters": 500,
+      "units": "kg",
+      "locale": "es-AR",
+      "expected": "0,5"
+    },
+    {
+      "meters": 42195,
+      "units": "kg",
+      "locale": "en-US",
+      "expected": "42.2"
+    },
+    {
+      "meters": 42195,
+      "units": null,
+      "locale": "es-AR",
+      "expected": "42,2"
+    },
+    {
+      "meters": 1609,
+      "units": "lb",
+      "locale": "en-US",
+      "expected": "1"
+    },
+    {
+      "meters": 4989,
+      "units": "lb",
+      "locale": "es-AR",
+      "expected": "3,1"
+    },
+    {
+      "meters": 5000,
+      "units": "lb",
+      "locale": "en-US",
+      "expected": "3.11"
+    },
+    {
+      "meters": 10000,
+      "units": "lb",
+      "locale": "es-AR",
+      "expected": "6,21"
+    },
+    {
+      "meters": 0,
+      "units": "kg",
+      "locale": "en-US",
+      "expected": "0"
+    },
+    {
+      "meters": 123,
+      "units": "kg",
+      "locale": "en-US",
+      "expected": "0.12"
+    },
+    {
+      "meters": 1005,
+      "units": "kg",
+      "locale": "en-US",
+      "expected": "1"
+    },
+    {
+      "meters": 2125,
+      "units": "kg",
+      "locale": "es-AR",
+      "expected": "2,13"
+    },
+    {
+      "meters": 800,
+      "units": "LB",
+      "locale": "en-US",
+      "expected": "0.5"
+    }
+  ],
+  "metersFromInput": [
+    {
+      "value": 5,
+      "units": "kg",
+      "expected": 5000
+    },
+    {
+      "value": 0.5,
+      "units": "kg",
+      "expected": 500
+    },
+    {
+      "value": 5.25,
+      "units": null,
+      "expected": 5250
+    },
+    {
+      "value": 42.195,
+      "units": "kg",
+      "expected": 42195
+    },
+    {
+      "value": 1,
+      "units": "lb",
+      "expected": 1609
+    },
+    {
+      "value": 3.1,
+      "units": "lb",
+      "expected": 4989
+    },
+    {
+      "value": 26.2,
+      "units": "lb",
+      "expected": 42165
+    },
+    {
+      "value": 0,
+      "units": "kg",
+      "expected": 0
+    },
+    {
+      "value": -3,
+      "units": "kg",
+      "expected": 0
+    },
+    {
+      "value": 2000,
+      "units": "kg",
+      "expected": 1000000
+    },
+    {
+      "value": 0.0004,
+      "units": "kg",
+      "expected": 0
+    },
+    {
+      "value": 0.25,
+      "units": "LB",
+      "expected": 402
+    }
+  ],
+  "roundTrip": {
+    "typed": [
+      "0.5",
+      "1",
+      "1.5",
+      "3.1",
+      "5",
+      "5.25",
+      "10",
+      "13.1",
+      "26.2",
+      "42.2",
+      "0.25",
+      "2.75"
+    ],
+    "units": [
+      "kg",
+      "lb"
+    ]
+  },
+  "totalMeters": [
+    {
+      "sets": [
+        {
+          "distance_meters": 5000
+        },
+        {
+          "distance_meters": 2500.5
+        },
+        {
+          "reps": 10,
+          "weight_kg": 50
+        }
+      ],
+      "expected": 7500.5
+    },
+    {
+      "sets": [],
+      "expected": 0
+    },
+    {
+      "sets": [
+        {
+          "distance_meters": -5
+        },
+        {
+          "distance_meters": 0
+        },
+        {
+          "distance_meters": 1000
+        }
+      ],
+      "expected": 1000
+    }
+  ]
+}

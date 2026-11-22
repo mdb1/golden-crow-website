@@ -45,7 +45,7 @@ export function ClientGoalsCard({
   const [isPending, startTransition] = useTransition();
 
   return (
-    <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
+    <section className="rounded-card border border-border bg-card p-5 shadow-sm">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2 font-medium">
@@ -80,6 +80,16 @@ export function ClientGoalsCard({
                   >
                     {goal.status}
                   </Badge>
+                  {goal.clientOwned ? (
+                    // website#520 — the client set this goal in the app: read-only here,
+                    // same label as coach mode in the apps (`coach.detail.goals.by_client`).
+                    <span
+                      className="text-xs text-muted-foreground"
+                      data-testid="client-goal-by-client"
+                    >
+                      {t("byClient")}
+                    </span>
+                  ) : null}
                 </div>
                 {goal.description ? (
                   <p className="mt-1 text-sm text-muted-foreground">
@@ -92,7 +102,7 @@ export function ClientGoalsCard({
                   </p>
                 ) : null}
               </div>
-              {goal.status === "active" ? (
+              {goal.status === "active" && !goal.clientOwned ? (
                 <div className="flex gap-2">
                   <Button
                     type="button"
@@ -208,6 +218,7 @@ export function ClientGoalsCard({
                       status: "active",
                       createdAt: new Date().toISOString(),
                       updatedAt: new Date().toISOString(),
+                      clientOwned: false,
                     },
                     ...current,
                   ]);

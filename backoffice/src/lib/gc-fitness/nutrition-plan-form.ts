@@ -134,7 +134,8 @@ export type NutritionPlanFormValues = z.output<typeof nutritionPlanFormSchema>;
 /**
  * Hard ceiling on one bulk assign (#927).
  *
- * It is the roster cap (`listClientsForRoster` reads at most 50 clients), and it is also
+ * It began as the roster cap (`listClientsForRoster` used to read at most 50 clients — #484
+ * removed that cap), and it is still
  * the read budget: the bulk action reads every target client's phases before it writes, so
  * an unbounded list would turn one click into an unbounded serverless fan-out.
  */

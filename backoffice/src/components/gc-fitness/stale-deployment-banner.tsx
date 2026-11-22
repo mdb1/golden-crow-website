@@ -85,7 +85,7 @@ export function StaleDeploymentBanner({
       data-testid="stale-deployment-banner"
       className="fixed inset-x-0 bottom-0 z-50 flex justify-center p-3 sm:p-4"
     >
-      <div className="flex w-full max-w-2xl flex-col gap-3 rounded-lg border border-amber-500/40 bg-amber-500/15 p-3 text-foreground shadow-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between dark:border-amber-400/40 dark:bg-amber-400/15">
+      <div className="flex w-full max-w-2xl flex-col gap-3 rounded-lg border border-warning/40 bg-warning/15 p-3 text-foreground shadow-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <p className="text-sm font-medium">{t("title")}</p>
           <p className="text-xs text-muted-foreground">{t("body")}</p>

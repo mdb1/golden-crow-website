@@ -335,7 +335,7 @@ export function NutritionBulkAssignDialog({
                             {t("bulkNoChange")}
                           </span>
                         ) : (
-                          <span className="text-xs text-amber-600 dark:text-amber-500">
+                          <span className="text-xs text-warning">
                             {row.notices.map((notice) => noticeLabel(notice, t)).join(" · ")}
                           </span>
                         )}

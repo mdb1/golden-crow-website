@@ -305,6 +305,37 @@ function normalizeEquipment(name) {
   return EQUIPMENT.includes(fallback) ? fallback : null;
 }
 
+// #1649 (gc-fitness) — cardio = a TIMED prescription that also logs distance (meters on the
+// wire). Only true distance cardio qualifies: rowing machine / ergometer, running / jogging /
+// treadmill, cycling / bike, elliptical, swimming, ski erg, walking. A strength "row" (bent-over
+// rowing, upright row, cable row) is NOT cardio, so «row» alone only counts inside wger's Cardio
+// category or next to a machine word.
+const DISTANCE_CARDIO_PATTERNS = [
+  /\btreadmill\b/,
+  /\b(running|jogging|jog|sprint(s|ing)?)\b/,
+  /^run\b|\brun$/,
+  /\b(cycling|bicycle|bike|biking|spinning)\b/,
+  /\belliptical\b/,
+  /\b(swim|swimming)\b/,
+  /\bski[\s-]?erg\b/,
+  /\b(ergometer|erg)\b/,
+  /\browing machine\b|\browing ergometer\b|\bindoor rowing\b|\brower\b/,
+  /^(brisk |power |race |treadmill )?walk(ing)?$/,
+];
+// A strength move that merely mentions a cardio word («walking lunges», «bike crunch»).
+const STRENGTH_WORDS = /\b(lunges?|squats?|crunch(es)?|press|curls?|deadlifts?|planks?|kicks?|twists?)\b/;
+const STRENGTH_ROW = /\b(bent[\s-]?over|upright|cable|seated|barbell|dumbbell|t[\s-]?bar|pendlay|inverted|renegade|single[\s-]?arm|one[\s-]?arm)\b/;
+
+/** True for a distance-cardio movement (see the note above). Pure; exported for tests. */
+function isDistanceCardio(nameEn, categoryName) {
+  const name = String(nameEn ?? "").toLowerCase().trim();
+  if (!name) return false;
+  if (/\brow(ing)?\b/.test(name) && STRENGTH_ROW.test(name)) return false;
+  if (STRENGTH_WORDS.test(name)) return false;
+  if (DISTANCE_CARDIO_PATTERNS.some((re) => re.test(name))) return true;
+  return categoryName === "Cardio" && /\brow(ing)?\b/.test(name);
+}
+
 function mapExercise(wger) {
   const translation = (wger.translations ?? []).find((t) => t?.name?.trim()) ?? null;
   const nameEn = String(translation?.name ?? `Exercise ${wger.id}`).trim();
@@ -340,6 +371,9 @@ function mapExercise(wger) {
     },
     muscleGroups: [...muscles].sort(),
     equipment: [...equipment].sort(),
+    // #1649 — distance cardio is a timed exercise that tracks distance; the rest keep the
+    // implicit reps default (no `metric` key, as before).
+    ...(isDistanceCardio(nameEn, wger.category?.name) ? { metric: "time", tracksDistance: true } : {}),
     mediaURL: null,
     thumbnailURL: null,
     source: "wger",
@@ -413,6 +447,7 @@ function buildExerciseIndex(exercises) {
     name: exercise.name.en.toLowerCase(),
     muscleGroups: exercise.muscleGroups,
     equipment: exercise.equipment,
+    tracksDistance: exercise.tracksDistance === true,
   }));
 }
 
@@ -441,14 +476,30 @@ function pickExercises(index, spec) {
     }
   }
 
-  return picked.slice(0, 6).map((exercise, order) => ({
-    exerciseId: exercise.id,
-    sets: order < 2 ? 4 : 3,
-    reps: spec.tag === "custom" && spec.slug.includes("mobility") ? 8 : order < 2 ? 10 : 12,
-    rest_seconds: spec.tag === "custom" ? 45 : 75,
-    notes: order === 0 ? "Keep 1-2 reps in reserve." : "",
-    order,
-  }));
+  return picked.slice(0, 6).map((exercise, order) => {
+    const sets = order < 2 ? 4 : 3;
+    const ref = {
+      exerciseId: exercise.id,
+      sets,
+      reps: spec.tag === "custom" && spec.slug.includes("mobility") ? 8 : order < 2 ? 10 : 12,
+      rest_seconds: spec.tag === "custom" ? 45 : 75,
+      notes: order === 0 ? "Keep 1-2 reps in reserve." : "",
+      order,
+    };
+    if (!exercise.tracksDistance) return ref;
+    // #1649 — a cardio pick is a timed, distance-tracked, no-load prescription (5 min per set,
+    // inside the 5…1800 s authoring range; `[]` = distance tracked with no target).
+    return {
+      ...ref,
+      reps: 1,
+      notes: "",
+      metric: "time",
+      durationSeconds: 300,
+      durationBySetSeconds: Array.from({ length: sets }, () => 300),
+      weightBySetKg: [],
+      distanceBySetMeters: [],
+    };
+  });
 }
 
 async function main() {
@@ -517,7 +568,11 @@ async function main() {
   );
 }
 
-main().catch((error) => {
-  process.stderr.write(`${error.stack ?? error}\n`);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    process.stderr.write(`${error.stack ?? error}\n`);
+    process.exit(1);
+  });
+}
+
+module.exports = { isDistanceCardio, mapExercise, buildExerciseIndex, pickExercises };

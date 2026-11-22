@@ -16,6 +16,7 @@ import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
 import { CorvoReportContextView } from "../../../_components/CorvoReportContextView";
+import { CorvoReportTriageForm } from "../../../_components/CorvoReportTriageForm";
 
 export const generateMetadata = () => sectionMetadata("adminPanel");
 
@@ -52,6 +53,14 @@ export default async function CorvoReportPage({
           </Button>
         }
       />
+      {/* #504 — triage first: it is what the operator came here to do. */}
+      {context.kind !== "not_found" ? (
+        <CorvoReportTriageForm
+          uid={context.report.uid}
+          messageId={context.report.messageId}
+          initial={context.report.triage}
+        />
+      ) : null}
       <CorvoReportContextView context={context} />
     </div>
   );

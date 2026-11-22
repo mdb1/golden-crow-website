@@ -37,6 +37,13 @@ export interface ClientGoalRow {
   status: "active" | "completed" | "archived";
   createdAt: string | null;
   updatedAt: string | null;
+  /**
+   * gc-fitness#1620 / website#520 — a goal the CLIENT set for themselves in the app
+   * (`clientOwned: true`, `clientId == coachId == client uid`). The coach sees it
+   * read-only («Lo definió tu cliente»), like coach mode in the apps: the rules keep it
+   * the client's, and `updateClientGoal` refuses it (its `coachId` is not the coach).
+   */
+  clientOwned: boolean;
 }
 
 function toIso(v: unknown): string | null {
@@ -67,7 +74,16 @@ function projectGoal(
         : "active",
     createdAt: toIso(data.createdAt),
     updatedAt: toIso(data.updatedAt),
+    clientOwned: data.clientOwned === true,
   };
+}
+
+/** Newest first by `updatedAt` (ISO strings sort lexicographically); undated last. */
+function byUpdatedDesc(a: ClientGoalRow, b: ClientGoalRow): number {
+  if (a.updatedAt === b.updatedAt) return 0;
+  if (a.updatedAt === null) return 1;
+  if (b.updatedAt === null) return -1;
+  return a.updatedAt < b.updatedAt ? 1 : -1;
 }
 
 async function assertOwnsClient(coachId: string, clientId: string) {
@@ -86,17 +102,36 @@ export async function listClientGoals(
   const trainer = await getCurrentTrainer();
   await assertOwnsClient(trainer.uid, clientId);
 
-  const snap = await gcFitnessFirestore()
-    .collection(FirestoreCollections.clientGoals)
-    .where("coachId", "==", trainer.uid)
-    .where("clientId", "==", clientId)
-    .orderBy("updatedAt", "desc")
-    .limit(50)
-    .get();
+  const goals = gcFitnessFirestore().collection(FirestoreCollections.clientGoals);
+  const [coachSnap, ownSnap] = await Promise.all([
+    goals
+      .where("coachId", "==", trainer.uid)
+      .where("clientId", "==", clientId)
+      .orderBy("updatedAt", "desc")
+      .limit(50)
+      .get(),
+    // website#520 — the goals the client set for themselves (gc-fitness#1620): the same
+    // `clientId == X && clientOwned == true` query the apps' coach mode runs (and the one the
+    // rules admit for the client's current coach). Equality-only, so no composite index.
+    goals
+      .where("clientId", "==", clientId)
+      .where("clientOwned", "==", true)
+      .limit(50)
+      .get(),
+  ]);
 
-  return snap.docs.map((doc) =>
+  const rows = coachSnap.docs.map((doc) =>
     projectGoal(doc.id, doc.data() as Record<string, unknown>),
   );
+  const seen = new Set(rows.map((row) => row.id));
+  for (const doc of ownSnap.docs) {
+    const row = projectGoal(doc.id, doc.data() as Record<string, unknown>);
+    // The client's OWN goals only (`coachId` is the client, the #392/#400 "self" convention).
+    if (seen.has(row.id) || row.coachId !== clientId) continue;
+    seen.add(row.id);
+    rows.push(row);
+  }
+  return rows.sort(byUpdatedDesc);
 }
 
 export async function createClientGoal(

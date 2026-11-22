@@ -45,6 +45,7 @@ import { CollectionsTab } from "../_components/CollectionsTab";
 import { PaymentHistory } from "../_components/PaymentHistory";
 import { RecordPaymentDialog } from "../_components/RecordPaymentDialog";
 import type { CollectionRow } from "../_components/types";
+import { chooseFormSelectValue } from "@/lib/test-utils/form-select";
 
 const monthly = {
   name: "Mensual online",
@@ -102,8 +103,33 @@ describe("RecordPaymentDialog", () => {
       methodNote: "",
       covers: { kind: "months", months: 1, classes: null },
       note: "",
+      requestId: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/),
     });
     expect(routerRefresh).toHaveBeenCalled();
+  });
+
+  it("#487: reintentar tras un error reusa la MISMA clave de idempotencia", async () => {
+    (recordClientPayment as jest.Mock)
+      .mockResolvedValueOnce({ ok: false, error: "network" })
+      .mockResolvedValueOnce({ ok: true, id: "p1" });
+    render(
+      <RecordPaymentDialog
+        clientId="client-1"
+        clientName="Juan Pérez"
+        billing={billing({ amount: 20000 })}
+        todayCivil="2026-11-11"
+        open
+        onOpenChange={() => {}}
+      />,
+    );
+    await userEvent.click(screen.getByTestId("payment-method-cash"));
+    await userEvent.click(screen.getByTestId("record-payment-submit"));
+    await waitFor(() => expect(recordClientPayment).toHaveBeenCalledTimes(1));
+    await userEvent.click(screen.getByTestId("record-payment-submit"));
+    await waitFor(() => expect(recordClientPayment).toHaveBeenCalledTimes(2));
+    const keys = (recordClientPayment as jest.Mock).mock.calls.map(([arg]) => arg.requestId);
+    expect(keys[0]).toEqual(expect.any(String));
+    expect(keys[1]).toBe(keys[0]);
   });
 
   it("un pack de clases prellena classCount y acepta «25.000» como veinticinco mil", async () => {
@@ -178,6 +204,21 @@ describe("CollectionsTab", () => {
     expect(screen.getAllByTestId(/^payments-row-/)).toHaveLength(1);
     expect(screen.getByTestId("payments-row-d")).toHaveTextContent("Due in 2 days");
   });
+
+  // golden-crow-website#535 — search by name; a filter with no match says so
+  // (it used to leave a header-only table).
+  it("busca por nombre y avisa cuando nada coincide", async () => {
+    render(
+      <CollectionsTab rows={rows} plans={plans} collected={[]} coachName="Ana" todayCivil="2026-11-11" />,
+    );
+    await userEvent.type(screen.getByTestId("payments-search"), "car");
+    expect(screen.getAllByTestId(/^payments-row-/).map((r) => r.getAttribute("data-testid"))).toEqual(["payments-row-c"]);
+    await userEvent.clear(screen.getByTestId("payments-search"));
+    await userEvent.click(screen.getByTestId("payments-counter-due_soon"));
+    await userEvent.type(screen.getByTestId("payments-search"), "ana");
+    expect(screen.queryAllByTestId(/^payments-row-/)).toHaveLength(0);
+    expect(screen.getByTestId("payments-no-matches")).toHaveTextContent("No client matches the search or filter.");
+  });
 });
 
 describe("PaymentHistory", () => {
@@ -217,7 +258,7 @@ describe("PaymentHistory", () => {
   it("filtrar por medio vuelve a pedir la primera página con el filtro", async () => {
     listClientPayments.mockResolvedValueOnce({ payments: [], nextCursor: null });
     render(<PaymentHistory initialPage={{ payments: [p({})], nextCursor: "2026-11-01" }} clients={[]} fixedClientId="client-1" />);
-    await userEvent.selectOptions(screen.getByTestId("payments-method-filter"), "cash");
+    await chooseFormSelectValue(userEvent.setup(), screen.getByTestId("payments-method-filter"), "cash");
     await waitFor(() =>
       expect(listClientPayments).toHaveBeenCalledWith({ clientId: "client-1", month: null, method: "cash", cursor: null }),
     );

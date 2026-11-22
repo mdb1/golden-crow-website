@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 import {
   getAppVersionConfig,
@@ -10,6 +11,8 @@ import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 import { PageHeader } from "@/components/gc-fitness/page-header";
 import { AppVersionForm } from "./app-version-form";
+import { AppVersionDistributionPanel } from "./AppVersionDistributionPanel";
+import { loadAppVersionDistribution } from "@/lib/gc-fitness/app-version-distribution-reader";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
 
 // Tab title: "Corvo - <adminPanel>" (issue #170).
@@ -45,11 +48,15 @@ export default async function AppConfigPage() {
     config = EMPTY_CONFIG;
   }
 
+  const t = await getTranslations("admin.appConfig");
+  // #541 — who each minBuild would lock out. Fail-soft: the form never depends on it.
+  const distribution = await loadAppVersionDistribution().catch(() => null);
+
   return (
     <div className="gc-page flex flex-col gap-6">
       <PageHeader
-        title="App Version"
-        subtitle="Set the minimum supported app build per platform. Clients on an older build are forced to update before they can use the app."
+        title={t("title")}
+        subtitle={t("subtitle")}
       />
 
       <Link
@@ -57,10 +64,21 @@ export default async function AppConfigPage() {
         className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="size-4" />
-        Back to Admin Console
+        {t("back")}
       </Link>
 
       <AppVersionForm initialConfig={config} timezone={await getTrainerTimezone()} />
+
+      {distribution ? (
+        <AppVersionDistributionPanel
+          platforms={distribution.platforms}
+          tokensRead={distribution.tokensRead}
+          capped={distribution.capped}
+          currentMinBuild={{ ios: config.ios.minBuild, android: config.android.minBuild }}
+        />
+      ) : (
+        <p className="text-sm text-muted-foreground">{t("distribution.unavailable")}</p>
+      )}
     </div>
   );
 }

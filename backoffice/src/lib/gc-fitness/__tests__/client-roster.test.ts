@@ -55,6 +55,7 @@ jest.mock("react", () => ({
 }));
 
 import { listClients, listClientsForRoster, type ClientRosterRow } from "../client-roster";
+import { CLIENT_STATS_VERSION } from "../client-stats";
 
 const TRAINER = { uid: "coach-a", email: "a@example.com", role: "trainer", roles: ["trainer"] };
 const NOW = new Date("2026-06-17T15:00:00Z");
@@ -245,6 +246,12 @@ async function rosterRow(uid: string): Promise<ClientRosterRow> {
   return row;
 }
 
+/** What the gc-fitness `clientStatsDirty*` triggers do on a source write (#506). */
+function markStatsDirty(clientId: string, atMs: number = Date.now()) {
+  const cur = db.doc(`client_stats/${clientId}`);
+  if (cur) db.seed(`client_stats/${clientId}`, { ...cur, dirtyAt: FakeTimestamp.fromMillis(atMs) });
+}
+
 function seedHabit(id: string, clientId: string, data: Record<string, unknown> = {}) {
   db.seed(`habits/${id}`, { clientId, type: "binary", ...data });
 }
@@ -258,7 +265,7 @@ describe("listClientsForRoster", () => {
     await expect(listClientsForRoster()).rejects.toThrow("Forbidden");
   });
 
-  it("a brand-new active client: zeros, no activity → needs attention, no nutrition plan", async () => {
+  it("a brand-new active client: zeros, no activity, nothing scheduled → needs attention, no nutrition plan", async () => {
     seedClient("c1", { displayName: "Ana" });
     expect(await rosterRow("c1")).toEqual({
       uid: "c1",
@@ -271,11 +278,14 @@ describe("listClientsForRoster", () => {
       pendingProvisioning: false,
       autoAssignedCoach: false,
       lastActivityAt: null,
+      lastActivityKind: null,
       thisWeekComplianceRatio: 0,
+      prevWeekComplianceRatio: null,
+      billing: null,
       unreadChatCount: 0,
       missedWorkoutsLast7Days: 0,
       needsAttention: true,
-      needsAttentionReasons: ["inactive-3-days"],
+      needsAttentionReasons: ["inactive", "nothingAssigned"],
       habitsCompletedThisWeek: 0,
       habitsScheduledThisWeek: 0,
       nutritionRatio7Days: null,
@@ -314,7 +324,7 @@ describe("listClientsForRoster", () => {
       db.seed("progress_photos/p1", { clientId: "c1", createdAt: ago(5 * HOUR) });
       const row = await rosterRow("c1");
       expect(row.lastActivityAt).toBe(new Date(NOW.getTime() - 5 * HOUR).toISOString());
-      expect(row.needsAttention).toBe(false);
+      expect(row.needsAttentionReasons).not.toContain("inactive");
     });
 
     it("reads a habit log's updatedAt/createdAt when loggedAt is missing (260528), and ISO strings", async () => {
@@ -338,8 +348,8 @@ describe("listClientsForRoster", () => {
       db.seed("workout_logs/w1", { clientId: "old", startedAt: ago(72 * HOUR + 1) });
       db.seed("workout_logs/w2", { clientId: "edge", startedAt: ago(72 * HOUR) });
       const rows = await listClientsForRoster();
-      expect(rows.find((r) => r.uid === "old")?.needsAttentionReasons).toEqual(["inactive-3-days"]);
-      expect(rows.find((r) => r.uid === "edge")?.needsAttention).toBe(false);
+      expect(rows.find((r) => r.uid === "old")?.needsAttentionReasons).toContain("inactive");
+      expect(rows.find((r) => r.uid === "edge")?.needsAttentionReasons).not.toContain("inactive");
     });
 
     it("a failing progress-photo query is tolerated", async () => {
@@ -518,6 +528,21 @@ describe("listClientsForRoster", () => {
       expect((await rosterRow("c1")).habitsScheduledThisWeek).toBe(7 + 2 + 2 + 1);
     });
 
+    it("#535: prevWeekComplianceRatio is the same math over the 7 days before (null with nothing scheduled then)", async () => {
+      // This window 2026-06-11 … 06-17, the previous one 06-04 … 06-10.
+      seedClient("c1");
+      seedHabit("daily", "c1", { scheduleCadence: "daily" });
+      for (const day of ["2026-06-04", "2026-06-05", "2026-06-06", "2026-06-07", "2026-06-08", "2026-06-09", "2026-06-10"]) {
+        seedHabitLog(`prev-${day}`, "c1", "daily", day);
+      }
+      seedHabitLog("this-1", "c1", "daily", "2026-06-17");
+      const row = await rosterRow("c1");
+      expect(row.prevWeekComplianceRatio).toBe(1);
+      expect(row.thisWeekComplianceRatio).toBeCloseTo(1 / 7);
+      // The extra week of logs must not leak into this week's counts.
+      expect(row.habitsCompletedThisWeek).toBe(1);
+    });
+
     it("habit-log query falls back to an unwindowed read when the windowed one fails (index building)", async () => {
       seedClient("c1");
       seedHabit("h", "c1");
@@ -525,7 +550,7 @@ describe("listClientsForRoster", () => {
       db.failQueryWhen((q) => q.collection === "habit_logs" && q.filters.some((f) => f.field === "civilDate"));
       expect((await rosterRow("c1")).habitsCompletedThisWeek).toBe(1);
       expect(db.queries.filter((q) => q.collection === "habit_logs").map((q) => q.limit)).toEqual(
-        expect.arrayContaining([200]),
+        expect.arrayContaining([400]),
       );
     });
 
@@ -634,16 +659,307 @@ describe("listClientsForRoster", () => {
     ]);
   });
 
-  it("CURRENT: only the first 50 roster entries (alphabetical) get a row — the rest are not shown", async () => {
-    // Documented read-budget cap ("50-client cap per call"). Pinned so the
-    // limit is a visible decision: a coach with 51 clients does not see the
-    // 51st on /gc-fitness/clients, and a pending client past position 50 is
-    // dropped too (its email is in the deduplication set).
-    for (let i = 0; i < 51; i += 1) seedClient(`u${String(i).padStart(2, "0")}`);
+  describe("#499 — attention reasons beyond inactivity", () => {
+    // An active client: a workout 1h ago keeps «inactive» off every case below.
+    function seedActive(uid: string) {
+      seedClient(uid);
+      db.seed(`workout_logs/${uid}-w`, { clientId: uid, startedAt: ago(HOUR) });
+    }
+    const reasonsOf = async (uid: string) => (await rosterRow(uid)).needsAttentionReasons;
+
+    it("nothingAssigned: no workout in [today, today+3] and no habit scheduled in it", async () => {
+      seedActive("c1");
+      db.seed("workout_assignments/far", { clientId: "c1", scheduledFor: "2026-06-21" });
+      expect(await reasonsOf("c1")).toEqual(["nothingAssigned"]);
+    });
+
+    it("a workout on the last day of the window covers the client", async () => {
+      seedActive("c1");
+      db.seed("workout_assignments/a", { clientId: "c1", scheduledFor: "2026-06-20" });
+      expect(await reasonsOf("c1")).toEqual([]);
+    });
+
+    it("a daily habit covers the client; a soft-deleted one or a former coach's does not", async () => {
+      seedActive("ok");
+      seedHabit("h-ok", "ok", { scheduleCadence: "daily" });
+      seedActive("del");
+      seedHabit("h-del", "del", { scheduleCadence: "daily", deleted: true });
+      seedActive("old");
+      seedHabit("h-old", "old", { scheduleCadence: "daily", trainerId: "coach-z" });
+      const rows = await listClientsForRoster();
+      const by = (uid: string) => rows.find((r) => r.uid === uid)!.needsAttentionReasons;
+      expect(by("ok")).toEqual([]);
+      expect(by("del")).toEqual(["nothingAssigned"]);
+      expect(by("old")).toEqual(["nothingAssigned"]);
+    });
+
+    it("missedWorkouts: a past, not-completed assignment of the last 7 days; today is not a miss yet", async () => {
+      seedActive("c1");
+      db.seed("workout_assignments/today", { clientId: "c1", scheduledFor: "2026-06-17" });
+      db.seed("workout_assignments/done", { clientId: "c1", scheduledFor: "2026-06-15", status: "completed" });
+      expect(await reasonsOf("c1")).toEqual([]);
+      db.seed("workout_assignments/miss", { clientId: "c1", scheduledFor: "2026-06-16", status: "pending" });
+      // #506 — the first load cached c1's numbers; the clientStatsDirty trigger
+      // is what tells the next load the assignments changed.
+      markStatsDirty("c1");
+      expect(await reasonsOf("c1")).toEqual(["missedWorkouts"]);
+    });
+
+    it("overduePayment: the billing due date passed; due soon is not a reason", async () => {
+      seedActive("late");
+      seedActive("soon");
+      for (const uid of ["late", "soon"]) {
+        db.seed(`workout_assignments/${uid}-a`, { clientId: uid, scheduledFor: "2026-06-18" });
+      }
+      const plan = { name: "Mensual", kind: "monthly", amount: 1000, currency: "ARS", periodMonths: 1 };
+      db.seed("client_billing/coach-a_late", { coachId: "coach-a", clientId: "late", planId: "p", plan, nextDueCivil: "2026-06-10" });
+      db.seed("client_billing/coach-a_soon", { coachId: "coach-a", clientId: "soon", planId: "p", plan, nextDueCivil: "2026-06-18" });
+      // Another coach's overdue billing of the same client is not this coach's to chase.
+      db.seed("client_billing/coach-b_soon", { coachId: "coach-b", clientId: "soon", planId: "p", plan, nextDueCivil: "2026-01-01" });
+      const rows = await listClientsForRoster();
+      expect(rows.find((r) => r.uid === "late")!.needsAttentionReasons).toEqual(["overduePayment"]);
+      expect(rows.find((r) => r.uid === "soon")!.needsAttentionReasons).toEqual([]);
+    });
+
+    it("#535: the row carries the billing state the card / list / sort show", async () => {
+      for (const uid of ["late", "soon", "ok", "pack", "none"]) seedActive(uid);
+      const plan = { name: "Mensual", kind: "monthly", amount: 1000, currency: "ARS", periodMonths: 1 };
+      db.seed("client_billing/coach-a_late", { coachId: "coach-a", clientId: "late", planId: "p", plan, nextDueCivil: "2026-06-10" });
+      db.seed("client_billing/coach-a_soon", { coachId: "coach-a", clientId: "soon", planId: "p", plan, nextDueCivil: "2026-06-18", reminderDaysBefore: 3 });
+      db.seed("client_billing/coach-a_ok", { coachId: "coach-a", clientId: "ok", planId: "p", plan, nextDueCivil: "2026-07-17" });
+      db.seed("client_billing/coach-a_pack", {
+        coachId: "coach-a",
+        clientId: "pack",
+        planId: "k",
+        plan: { name: "Pack 8", kind: "class_pack", amount: 1, currency: "ARS", classCount: 8 },
+        classesRemaining: 3,
+      });
+      const rows = await listClientsForRoster();
+      const billingOf = (uid: string) => rows.find((r) => r.uid === uid)!.billing;
+      expect(billingOf("late")).toMatchObject({ state: "overdue", days: 7, classBased: false, planName: "Mensual", nextDueCivil: "2026-06-10" });
+      expect(billingOf("soon")).toMatchObject({ state: "due_soon", days: 1, classBased: false, planName: "Mensual", nextDueCivil: "2026-06-18" });
+      expect(billingOf("ok")).toMatchObject({ state: "up_to_date", days: 30 });
+      expect(billingOf("pack")).toMatchObject({ state: "up_to_date", days: 3, classBased: true, planName: "Pack 8", nextDueCivil: null });
+      // gc-fitness #1697 — the whole billing rides along so the row can open the «Aviso de pago».
+      expect(billingOf("late")?.view).toMatchObject({ clientId: "late", planId: "p", nextDueCivil: "2026-06-10" });
+      expect(billingOf("none")).toBeNull();
+    });
+
+    it("a failing billing read drops the reason, never the roster", async () => {
+      seedActive("c1");
+      db.seed("workout_assignments/a", { clientId: "c1", scheduledFor: "2026-06-18" });
+      db.failQueryWhen((q) => q.collection === "client_billing");
+      expect(await reasonsOf("c1")).toEqual([]);
+    });
+
+    it("unreadChat: the coach has unread messages from the client", async () => {
+      seedActive("c1");
+      db.seed("workout_assignments/a", { clientId: "c1", scheduledFor: "2026-06-18" });
+      db.seed("chats/c1", { unreadCount: { "coach-a": 2 } });
+      expect(await reasonsOf("c1")).toEqual(["unreadChat"]);
+    });
+
+    it("lists several reasons most urgent first", async () => {
+      seedClient("c1");
+      db.seed("chats/c1", { unreadCount: { "coach-a": 1 } });
+      db.seed("workout_assignments/miss", { clientId: "c1", scheduledFor: "2026-06-12" });
+      expect(await reasonsOf("c1")).toEqual(["inactive", "nothingAssigned", "missedWorkouts", "unreadChat"]);
+    });
+  });
+
+  it("#484: a coach with 60 clients gets a row for EVERY client (no silent 50 cap)", async () => {
+    for (let i = 0; i < 60; i += 1) seedClient(`u${String(i).padStart(2, "0")}`);
     db.seed("user_mirror/zzz@x.com", { coachId: "coach-a", email: "zzz@x.com" });
+    // The alphabetically-last active client is the one the old cap dropped.
+    db.seed("workout_logs/w-last", { clientId: "u59", startedAt: ago(HOUR) });
     const rows = await listClientsForRoster();
-    expect(rows).toHaveLength(50);
-    expect(rows.map((r) => r.uid)).not.toContain("u50");
-    expect(rows.map((r) => r.uid)).not.toContain("mirror:zzz@x.com");
+    expect(rows).toHaveLength(61);
+    const uids = rows.map((r) => r.uid);
+    expect(uids).toContain("u50");
+    expect(uids).toContain("mirror:zzz@x.com");
+    // Attention / KPIs are computed over all of them: 59 inactive, u59 active.
+    expect(rows.filter((r) => r.needsAttentionReasons.includes("inactive"))).toHaveLength(59);
+    expect(rows[0]).toMatchObject({ uid: "u59", lastActivityKind: "workout" });
+    expect(rows[0].needsAttentionReasons).not.toContain("inactive");
+  });
+
+  it("#488: lastActivityKind names the surface that produced lastActivityAt", async () => {
+    seedClient("w");
+    seedClient("h");
+    seedClient("p");
+    db.seed("workout_logs/w1", { clientId: "w", startedAt: ago(4 * DAY) });
+    db.seed("habit_logs/h-old", { clientId: "w", habitId: "x", civilDate: "2026-06-01", updatedAt: ago(10 * DAY) });
+    seedHabitLog("hl1", "h", "hh", "2026-06-12", { updatedAt: ago(5 * DAY) });
+    db.seed("progress_photos/ph1", { clientId: "p", createdAt: ago(6 * DAY) });
+    const rows = await listClientsForRoster();
+    const kind = (uid: string) => rows.find((r) => r.uid === uid)?.lastActivityKind;
+    expect([kind("w"), kind("h"), kind("p")]).toEqual(["workout", "habit", "photo"]);
+  });
+});
+
+// ───────────────────── #506 — client_stats cache ─────────────────────
+
+describe("listClientsForRoster — client_stats cache (#506)", () => {
+  /** The per-client source collections the slow path reads. */
+  const SOURCES = ["habit_logs", "workout_logs", "workout_assignments", "habits", "progress_photos"];
+  const sourceQueries = () => db.queries.filter((q) => SOURCES.includes(q.collection));
+  const resetQueries = () => db.queries.splice(0, db.queries.length);
+
+  function seedBusyClient(uid: string) {
+    seedClient(uid);
+    db.seed(`workout_logs/${uid}-w`, { clientId: uid, startedAt: ago(2 * DAY), trainerId: TRAINER.uid });
+    db.seed(`workout_assignments/${uid}-a`, { clientId: uid, scheduledFor: "2026-06-15", status: "completed", trainerId: TRAINER.uid });
+    db.seed(`workout_assignments/${uid}-b`, { clientId: uid, scheduledFor: "2026-06-16", status: "pending", trainerId: TRAINER.uid });
+    seedHabit(`${uid}-h`, uid, { trainerId: TRAINER.uid });
+    seedHabitLog(`${uid}-hl`, uid, `${uid}-h`, "2026-06-17", { loggedAt: ago(HOUR) });
+  }
+
+  it("the first load writes the computed numbers, keyed to coach + zone + civil day, with no dirtyAt", async () => {
+    seedBusyClient("c1");
+    const row = await rosterRow("c1");
+    expect(db.writesTo("client_stats/")).toEqual([
+      expect.objectContaining({ op: "set", path: "client_stats/c1", merge: true, via: "batch" }),
+    ]);
+    const stored = db.doc("client_stats/c1")!;
+    expect(stored).toMatchObject({
+      v: CLIENT_STATS_VERSION,
+      clientId: "c1",
+      coachId: TRAINER.uid,
+      timezone: "UTC",
+      civilDate: "2026-06-17",
+      missedWorkoutsLast7Days: row.missedWorkoutsLast7Days,
+      workoutsScheduledThisMonth: 2,
+      workoutsCompletedThisMonth: 1,
+      habitsCompletedThisWeek: 1,
+      habitsScheduledThisWeek: 7,
+      missedForAttention: 1,
+    });
+    expect((stored.computedAt as FakeTimestamp).toMillis()).toBe(NOW.getTime());
+    expect((stored.lastHabitAt as FakeTimestamp).toMillis()).toBe(NOW.getTime() - HOUR);
+    expect((stored.lastWorkoutAt as FakeTimestamp).toMillis()).toBe(NOW.getTime() - 2 * DAY);
+    expect(stored.lastPhotoAt).toBeNull();
+    expect(stored).not.toHaveProperty("dirtyAt");
+  });
+
+  it("a second load with nothing changed reads NO per-client source and returns the same rows", async () => {
+    seedBusyClient("c1");
+    seedBusyClient("c2");
+    const first = await listClientsForRoster();
+    resetQueries();
+    const writesBefore = db.writes.length;
+    const second = await listClientsForRoster();
+    expect(second).toEqual(first);
+    expect(sourceQueries()).toEqual([]);
+    expect(db.queries.filter((q) => q.collection === "client_stats")).toHaveLength(1);
+    expect(db.writes.length).toBe(writesBefore);
+  });
+
+  it("a trigger's dirtyAt (≥ computedAt) recomputes ONLY that client", async () => {
+    seedBusyClient("c1");
+    seedBusyClient("c2");
+    await listClientsForRoster();
+    db.seed("habit_logs/c2-new", { clientId: "c2", habitId: "c2-h", civilDate: "2026-06-16", value: true });
+    markStatsDirty("c2");
+    resetQueries();
+    const rows = await listClientsForRoster();
+    const clientIdsRead = new Set(
+      sourceQueries().map((q) => q.filters.find((f) => f.field === "clientId")?.value),
+    );
+    expect([...clientIdsRead]).toEqual(["c2"]);
+    expect(rows.find((r) => r.uid === "c2")?.habitsCompletedThisWeek).toBe(2);
+  });
+
+  it("a dirtyAt OLDER than computedAt (the load already saw that write) keeps the cache", async () => {
+    seedBusyClient("c1");
+    await listClientsForRoster();
+    markStatsDirty("c1", NOW.getTime() - 1);
+    resetQueries();
+    await listClientsForRoster();
+    expect(sourceQueries()).toEqual([]);
+  });
+
+  it.each([
+    ["another coach's numbers", { coachId: "coach-z" }],
+    ["another timezone", { timezone: "America/New_York" }],
+    ["another civil day", { civilDate: "2026-06-16" }],
+    ["an older version", { v: 0 }],
+    ["older than the max age", { computedAt: FakeTimestamp.fromMillis(NOW.getTime() - 2 * HOUR) }],
+    ["no computedAt", { computedAt: null }],
+  ])("recomputes a cached doc with %s", async (_label, patch) => {
+    seedBusyClient("c1");
+    await listClientsForRoster();
+    db.seed("client_stats/c1", { ...db.doc("client_stats/c1")!, ...patch });
+    resetQueries();
+    await listClientsForRoster();
+    expect(sourceQueries().length).toBeGreaterThan(0);
+    // …and rewrites it for this coach / zone / day.
+    expect(db.doc("client_stats/c1")).toMatchObject({
+      v: CLIENT_STATS_VERSION,
+      coachId: TRAINER.uid,
+      timezone: "UTC",
+      civilDate: "2026-06-17",
+    });
+  });
+
+  it("the client's NEXT civil day recomputes (the 7-day and month windows move)", async () => {
+    seedBusyClient("c1");
+    await listClientsForRoster();
+    jest.setSystemTime(new Date("2026-06-18T00:30:00Z"));
+    resetQueries();
+    await listClientsForRoster();
+    expect(sourceQueries().length).toBeGreaterThan(0);
+    expect(db.doc("client_stats/c1")?.civilDate).toBe("2026-06-18");
+  });
+
+  it("a stamp that lands while the load computes survives the write-back (merge) and keeps the doc dirty", async () => {
+    seedBusyClient("c1");
+    db.seed("client_stats/c1", {
+      v: CLIENT_STATS_VERSION,
+      clientId: "c1",
+      coachId: TRAINER.uid,
+      timezone: "UTC",
+      civilDate: "2026-06-17",
+      computedAt: FakeTimestamp.fromMillis(NOW.getTime() - HOUR),
+      // stamped at NOW = the next load's computedAt → still dirty after it writes
+      dirtyAt: FakeTimestamp.fromMillis(NOW.getTime()),
+    });
+    await listClientsForRoster();
+    expect((db.doc("client_stats/c1")!.dirtyAt as FakeTimestamp).toMillis()).toBe(NOW.getTime());
+    resetQueries();
+    await listClientsForRoster();
+    expect(sourceQueries().length).toBeGreaterThan(0);
+  });
+
+  it("«inactive» runs on the live clock over the cached last-activity instants", async () => {
+    seedClient("c1");
+    db.seed("workout_logs/w", { clientId: "c1", startedAt: ago(71 * HOUR + 30 * 60 * 1000) });
+    expect((await rosterRow("c1")).needsAttentionReasons).not.toContain("inactive");
+    jest.setSystemTime(new Date(NOW.getTime() + HOUR)); // same day, cache still fresh
+    resetQueries();
+    expect((await rosterRow("c1")).needsAttentionReasons).toContain("inactive");
+    expect(sourceQueries()).toEqual([]);
+  });
+
+  it("unread chat is read live even on a cache hit", async () => {
+    seedClient("c1");
+    await listClientsForRoster();
+    db.seed("chats/c1", { unreadCount: { [TRAINER.uid]: 3 } });
+    expect((await rosterRow("c1")).unreadChatCount).toBe(3);
+  });
+
+  it("a failing client_stats read degrades to the live fan-out, never a broken roster", async () => {
+    seedBusyClient("c1");
+    db.failQueryWhen((q) => q.collection === "client_stats");
+    const row = await rosterRow("c1");
+    expect(row.workoutsScheduledThisMonth).toBe(2);
+    expect(sourceQueries().length).toBeGreaterThan(0);
+  });
+
+  it("a pending (mirror) client reads nothing per client and writes no stats doc", async () => {
+    db.seed("user_mirror/p@x.com", { coachId: "coach-a", email: "p@x.com" });
+    await listClientsForRoster();
+    expect(sourceQueries()).toEqual([]);
+    expect(db.queries.filter((q) => q.collection === "chats")).toEqual([]);
+    expect(db.writesTo("client_stats/")).toEqual([]);
   });
 });

@@ -157,7 +157,7 @@ describe("DataHygieneFeed — the confirm gate", () => {
     const event = fireEvent.click(screen.getByRole("button", { name: "Delete from DB" }));
 
     expect(confirmSpy).toHaveBeenCalledWith(
-      "Delete this log record from Firestore?",
+      "Delete this record (Workout log) from Firestore?",
     );
     expect(event).toBe(true); // not prevented
     confirmSpy.mockRestore();
@@ -234,7 +234,7 @@ describe("DataHygieneFeed — paging", () => {
   it("asks for the NEXT offset the server handed back", async () => {
     const { user } = renderFeed(page({ rows: [row()], nextOffset: 40, hasMore: true }));
 
-    await user.click(screen.getByRole("button", { name: "Cargar más" }));
+    await user.click(screen.getByRole("button", { name: "Load more" }));
 
     await waitFor(() => expect(mockListPage).toHaveBeenCalledWith(40, 20));
   });
@@ -250,7 +250,7 @@ describe("DataHygieneFeed — paging", () => {
     );
     const { user } = renderFeed(page({ rows: [row({ id: "row-1", title: "Progress photo" })] }));
 
-    await user.click(screen.getByRole("button", { name: "Cargar más" }));
+    await user.click(screen.getByRole("button", { name: "Load more" }));
 
     await waitFor(() => expect(screen.getByText("Orphaned chat")).toBeInTheDocument());
     expect(screen.getByText("Progress photo")).toBeInTheDocument();
@@ -261,6 +261,6 @@ describe("DataHygieneFeed — paging", () => {
   it("does not offer to page when the server says there is nothing left", () => {
     renderFeed(page({ rows: [row()], nextOffset: null, hasMore: false }));
 
-    expect(screen.queryByRole("button", { name: "Cargar más" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Load more" })).not.toBeInTheDocument();
   });
 });

@@ -181,6 +181,20 @@ describe("SessionExerciseCard — a logged set is locked", () => {
   });
 });
 
+// golden-crow-website#535 — the coach logs this on a phone in the gym: every
+// field needs a name (a screen reader said "edit text" ×2 per serie) and the
+// name shows in Spanish first.
+describe("SessionExerciseCard — labels (#535)", () => {
+  it("names each kg / reps field and the done toggle by serie", () => {
+    renderCard([row(), row({ id: "set-2" })]);
+    expect(screen.getByRole("textbox", { name: "Kg de la serie 1" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Repeticiones de la serie 2" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Marcar como hecha la serie 1" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Nota para este cliente" })).toBeInTheDocument();
+    expect(screen.getByText("Press Banca")).toBeInTheDocument();
+  });
+});
+
 describe("SessionExerciseCard — reordering", () => {
   it("moves the exercise up with -1 and down with +1", async () => {
     const user = userEvent.setup();

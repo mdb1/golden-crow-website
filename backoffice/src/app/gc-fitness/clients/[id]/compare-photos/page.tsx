@@ -10,6 +10,7 @@ import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
 import { listProgressPhotosForClient } from "@/lib/gc-fitness/progress-photo-actions";
 import { ProgressPhotoCompareEditor } from "./photo-compare-editor";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
+import { getTrainerTimezone } from "@/lib/gc-fitness/trainer-timezone";
 
 // Tab title: "Corvo - <clients>" (issue #170).
 export const generateMetadata = () => sectionMetadata("clients");
@@ -49,7 +50,8 @@ export default async function ComparePhotosPage({
   });
 
   const photos = await listProgressPhotosForClient(id);
-  const timezone = client.timezone ?? "UTC";
+  // #535 — fall back to the COACH zone (as the profile does since #747), not UTC.
+  const timezone = client.timezone ?? (await getTrainerTimezone());
 
   return (
     <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-4 px-4 py-6 sm:px-6">

@@ -5,7 +5,12 @@ import { FieldValue } from "firebase-admin/firestore";
 import { z } from "zod";
 
 import { gcFitnessAuth, gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
-import { emailMatchesQuery, normalizeSearchQuery } from "@/lib/gc-fitness/admin-user-search";
+import {
+  revokeSessions,
+  revokeSessionsIfBackofficeRoleLost,
+} from "@/lib/gc-fitness/session-revocation";
+import { normalizeSearchQuery, userMatchesQuery } from "@/lib/gc-fitness/admin-user-search";
+import { toActionFailure, type ActionResult } from "@/lib/gc-fitness/action-result";
 import { getCurrentAdmin } from "@/lib/gc-fitness/auth-helpers";
 import { planChatCoachRepoint } from "@/lib/gc-fitness/chat-coach-repoint";
 import { FirestoreCollections } from "@/lib/gc-fitness/collections";
@@ -29,6 +34,8 @@ export interface CoachAdminRow {
   clientsCount: number;
   customWorkoutsCount: number;
   customExercisesCount: number;
+  /** #510: removed as a coach (`users/{uid}.coachDisabled`) — login refuses the role. */
+  coachDisabled: boolean;
 }
 
 type OperationMode = "dry_run" | "execute";
@@ -56,6 +63,8 @@ export interface AdminOperationRow {
 
 export interface CoachAdminDetail {
   coach: CoachAdminRow;
+  /** #510: mirror of `coach.coachDisabled`. */
+  coachDisabled: boolean;
   workoutAssignmentsCount: number;
   habitsCount: number;
   chatsCount: number;
@@ -84,7 +93,11 @@ export interface CoachActivityRow {
   clientUid: string | null;
   clientEmail: string | null;
   occurredAtISO: string | null;
+  /** English fallback sentence (CSV/logs). The page renders `kind` + `subject`
+   *  through next-intl instead (#513). */
   summary: string;
+  /** The entity name the summary mentions (habit / template), when known. */
+  subject: string | null;
   recurrenceLabel: string | null;
   occurrences: number | null;
   recurrenceSeriesId: string | null;
@@ -175,6 +188,7 @@ export async function listCoachesForAdmin(): Promise<CoachAdminRow[]> {
         clientsCount: clientsSnap.docs.filter((d) => d.get("deleted") !== true).length,
         customWorkoutsCount: workoutsAgg.data().count,
         customExercisesCount: exercisesAgg.data().count,
+        coachDisabled: data.coachDisabled === true,
       } satisfies CoachAdminRow;
     }),
   );
@@ -266,7 +280,7 @@ export async function searchUsersByEmailForAdmin(
     .get();
 
   const matches = snap.docs
-    .filter((doc) => emailMatchesQuery(doc.get("email"), q))
+    .filter((doc) => userMatchesQuery(doc.get("email"), doc.get("displayName"), q))
     .sort((a, b) =>
       String(a.get("email") ?? "").localeCompare(String(b.get("email") ?? "")),
     )
@@ -322,19 +336,34 @@ export async function getCoachAdminDetail(coachUid: string): Promise<CoachAdminD
   if (!coachDoc.exists) {
     return null;
   }
-  const baseList = await listCoachesForAdmin();
-  const coach = baseList.find((row) => row.uid === coachUid);
-  if (!coach) {
+  // #534: this used to call `listCoachesForAdmin()` (4 reads × EVERY coach) to build one
+  // row. Same row, same filter (a non-deleted trainer), for this coach only.
+  const coachData = coachDoc.data() ?? {};
+  if (coachData.role !== "trainer" || coachData.deleted !== false) {
     return null;
   }
 
-  const [assignmentsAgg, habitsAgg, chatsAgg, linkedClientsSnap, pendingSnap] = await Promise.all([
+  const [assignmentsAgg, habitsAgg, chatsAgg, linkedClientsSnap, pendingSnap, workoutsAgg, exercisesAgg, authUser] = await Promise.all([
     db.collection(FirestoreCollections.workoutAssignments).where("trainerId", "==", coachUid).count().get(),
     db.collection(FirestoreCollections.habits).where("trainerId", "==", coachUid).count().get(),
     db.collection(FirestoreCollections.chats).where("coachId", "==", coachUid).count().get(),
     db.collection(FirestoreCollections.users).where("coachId", "==", coachUid).get(),
     db.collection(FirestoreCollections.userMirror).where("coachId", "==", coachUid).get(),
+    db.collection(FirestoreCollections.workoutTemplates).where("trainerId", "==", coachUid).count().get(),
+    db.collection(FirestoreCollections.exercises).where("trainerId", "==", coachUid).count().get(),
+    gcFitnessAuth().getUser(coachUid).catch(() => null),
   ]);
+
+  const coach: CoachAdminRow = {
+    uid: coachUid,
+    email: (coachData.email as string | undefined) ?? "",
+    displayName: (coachData.displayName as string | undefined) ?? "",
+    roles: rolesFromClaims(authUser?.customClaims as Record<string, unknown> | undefined),
+    clientsCount: linkedClientsSnap.docs.filter((d) => d.get("deleted") !== true).length,
+    customWorkoutsCount: workoutsAgg.data().count,
+    customExercisesCount: exercisesAgg.data().count,
+    coachDisabled: coachData.coachDisabled === true,
+  };
 
   const linkedClients: CoachLinkedClientRow[] = linkedClientsSnap.docs.map((doc) => {
     const data = doc.data();
@@ -388,6 +417,7 @@ export async function getCoachAdminDetail(coachUid: string): Promise<CoachAdminD
 
   return {
     coach,
+    coachDisabled: coach.coachDisabled,
     workoutAssignmentsCount: assignmentsAgg.data().count,
     habitsCount: habitsAgg.data().count,
     chatsCount: chatsAgg.data().count,
@@ -545,6 +575,7 @@ export async function listRecentCoachActivity(limit = 80): Promise<CoachActivity
       clientEmail: pendingEmail ?? (clientUid ? (clientEmailByUid.get(clientUid) ?? null) : null),
       occurredAtISO: toIsoMaybe(data.createdAt),
       summary: `Assigned habit${habitName ? `: ${habitName}` : ""}`,
+      subject: habitName || null,
       recurrenceLabel: null,
       occurrences: null,
       recurrenceSeriesId: null,
@@ -579,6 +610,7 @@ export async function listRecentCoachActivity(limit = 80): Promise<CoachActivity
       clientEmail: null,
       occurredAtISO: toIsoMaybe(data.createdAt),
       summary: `Created workout template${templateName ? `: ${templateName}` : ""}`,
+      subject: templateName || null,
       recurrenceLabel: null,
       occurrences: null,
       recurrenceSeriesId: null,
@@ -622,6 +654,7 @@ export async function listRecentCoachActivity(limit = 80): Promise<CoachActivity
       clientEmail: pendingEmail ?? (clientUid ? (clientEmailByUid.get(clientUid) ?? null) : null),
       occurredAtISO: toIsoMaybe(data.createdAt),
       summary: `Assigned workout${templateName ? `: ${templateName}` : ""}`,
+      subject: templateName || null,
       recurrenceLabel: recurrenceLabelFromRaw(data.recurrence),
       occurrences: 1,
       recurrenceSeriesId: typeof data.seriesId === "string" ? data.seriesId : null,
@@ -683,6 +716,7 @@ export async function listRecentCoachActivity(limit = 80): Promise<CoachActivity
       clientEmail: (data.email ?? doc.id) as string,
       occurredAtISO: toIsoMaybe(data.createdAt),
       summary: "Pre-provisioned pending client",
+      subject: null,
       recurrenceLabel: null,
       occurrences: null,
       recurrenceSeriesId: null,
@@ -712,6 +746,7 @@ export async function listRecentCoachActivity(limit = 80): Promise<CoachActivity
       clientEmail: data.email ?? null,
       occurredAtISO: toIsoMaybe(data.createdAt),
       summary: "Client completed first login",
+      subject: null,
       recurrenceLabel: null,
       occurrences: null,
       recurrenceSeriesId: null,
@@ -1192,6 +1227,12 @@ export interface AdminClientHabitRow {
   scheduleType: string | null;
   reminderEnabled: boolean;
   deleted: boolean;
+  /** #541 — archived FROM this civil day (`archivedOn`), null = not archived. */
+  archivedOn: string | null;
+  /** #541 — closed past archive periods (`archivedPeriods`). */
+  archivedPeriods: number;
+  /** #541 — the client created it themselves (#400). */
+  clientOwned: boolean;
 }
 
 /**
@@ -1491,9 +1532,16 @@ export async function listClientHabitsForAdmin(
           typeof data.scheduleType === "string" ? data.scheduleType : null,
         reminderEnabled: data.reminderEnabled === true,
         deleted: data.deleted === true,
+        archivedOn: typeof data.archivedOn === "string" && data.archivedOn.length > 0 ? data.archivedOn : null,
+        archivedPeriods: Array.isArray(data.archivedPeriods) ? data.archivedPeriods.length : 0,
+        clientOwned: data.clientOwned === true,
       };
     })
-    .sort((a, b) => Number(a.deleted) - Number(b.deleted));
+    // Active first, then archived, then deleted.
+    .sort(
+      (a, b) =>
+        Number(a.deleted) - Number(b.deleted) || Number(a.archivedOn !== null) - Number(b.archivedOn !== null),
+    );
 }
 
 const deactivateClientSchema = z.object({
@@ -1525,6 +1573,9 @@ export async function deactivateClientForCoach(input: unknown): Promise<{ ok: tr
   } catch {
     // fail-soft
   }
+  // #482 — a disabled account must also lose the sessions it already has
+  // (backoffice cookie + app); disabling alone only blocks new sign-ins.
+  await revokeSessions(parsed.clientUid, "deactivate_client");
   await writeAdminOperationLog({
     actorUid: admin.uid,
     kind: "delete_client_cascade",
@@ -1650,11 +1701,15 @@ export async function transferClientToCoach(
   try {
     const authUser = await gcFitnessAuth().getUser(parsed.clientUid);
     const current = (authUser.customClaims ?? {}) as Record<string, unknown>;
-    await gcFitnessAuth().setCustomUserClaims(parsed.clientUid, {
-      ...current,
-      role: "client",
-      coachId: parsed.newCoachUid,
-    });
+    const next = { ...current, role: "client", coachId: parsed.newCoachUid };
+    await gcFitnessAuth().setCustomUserClaims(parsed.clientUid, next);
+    // #482 — only when this took a trainer/admin role away.
+    await revokeSessionsIfBackofficeRoleLost(
+      parsed.clientUid,
+      current,
+      next,
+      "transfer_client",
+    );
   } catch {
     // fail-soft
   }
@@ -1752,10 +1807,15 @@ export async function unlinkClientFromCoach(
       string,
       unknown
     >;
-    await gcFitnessAuth().setCustomUserClaims(parsed.clientUid, {
-      ...rest,
-      role: "client",
-    });
+    const next = { ...rest, role: "client" };
+    await gcFitnessAuth().setCustomUserClaims(parsed.clientUid, next);
+    // #482 — only when this took a trainer/admin role away.
+    await revokeSessionsIfBackofficeRoleLost(
+      parsed.clientUid,
+      authUser.customClaims as Record<string, unknown> | undefined,
+      next,
+      "unlink_client",
+    );
   } catch {
     // fail-soft
   }
@@ -1931,6 +1991,18 @@ export async function getAppVersionConfig(): Promise<AppVersionConfig> {
  * acting admin email + server timestamp for the audit trail.
  */
 export async function updateAppVersionConfig(
+  input: unknown,
+): Promise<ActionResult> {
+  // #513 — RETURN the failure (action-result.ts): a thrown Zod error reaches
+  // a production browser as "Minified React error #441".
+  try {
+    return await updateAppVersionConfigOrThrow(input);
+  } catch (err) {
+    return toActionFailure(err);
+  }
+}
+
+async function updateAppVersionConfigOrThrow(
   input: unknown,
 ): Promise<{ ok: true }> {
   const admin = await getCurrentAdmin();

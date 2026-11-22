@@ -15,7 +15,10 @@
 import "@testing-library/jest-dom";
 
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import React from "react";
+
+import { chooseFormSelectValue } from "@/lib/test-utils/form-select";
 
 import { ChecklistRecurrenceFields } from "@/components/gc-fitness/ChecklistRecurrenceFields";
 
@@ -38,8 +41,12 @@ function renderFields(props: Partial<React.ComponentProps<typeof ChecklistRecurr
     </form>,
   );
   const formData = () => new FormData(screen.getByTestId("host") as HTMLFormElement);
-  const select = () => screen.getByLabelText("Recurrencia") as HTMLSelectElement;
-  return { ...utils, formData, select, onValidityChange };
+  const user = userEvent.setup();
+  // #505 — the recurrence picker is the portal's FormSelect (Radix), not a
+  // native <select>: choosing goes through the listbox like a coach would.
+  const choose = (value: string) =>
+    chooseFormSelectValue(user, screen.getByLabelText("Recurrencia"), value);
+  return { ...utils, formData, choose, onValidityChange };
 }
 
 describe("ChecklistRecurrenceFields", () => {
@@ -53,39 +60,39 @@ describe("ChecklistRecurrenceFields", () => {
     expect(onValidityChange).toHaveBeenLastCalledWith(true);
   });
 
-  it("daily posts the end date field (blank = forever) and no day arrays", () => {
-    const { formData, select } = renderFields();
-    fireEvent.change(select(), { target: { value: "daily" } });
+  it("daily posts the end date field (blank = forever) and no day arrays", async () => {
+    const { formData, choose } = renderFields();
+    await choose("daily");
     const data = formData();
     expect(data.get("recurrence")).toBe("daily");
     expect(data.get("recurrenceEndsOn")).toBe("");
     expect(data.getAll("recurrenceWeekdays")).toEqual([]);
   });
 
-  it("switching to weekly auto-selects today's ISO weekday (Wed = 3)", () => {
-    const { formData, select, onValidityChange } = renderFields();
-    fireEvent.change(select(), { target: { value: "weekly" } });
+  it("switching to weekly auto-selects today's ISO weekday (Wed = 3)", async () => {
+    const { formData, choose, onValidityChange } = renderFields();
+    await choose("weekly");
     expect(formData().getAll("recurrenceWeekdays")).toEqual(["3"]);
     expect(onValidityChange).toHaveBeenLastCalledWith(true);
   });
 
-  it("Sunday maps to 7, not 0", () => {
+  it("Sunday maps to 7, not 0", async () => {
     jest.setSystemTime(new Date(2026, 9, 18, 10, 0, 0)); // Sunday
-    const { formData, select } = renderFields();
-    fireEvent.change(select(), { target: { value: "weekly" } });
+    const { formData, choose } = renderFields();
+    await choose("weekly");
     expect(formData().getAll("recurrenceWeekdays")).toEqual(["7"]);
   });
 
-  it("switching to monthly auto-selects today's day of month", () => {
-    const { formData, select } = renderFields();
-    fireEvent.change(select(), { target: { value: "monthly" } });
+  it("switching to monthly auto-selects today's day of month", async () => {
+    const { formData, choose } = renderFields();
+    await choose("monthly");
     expect(formData().getAll("recurrenceMonthDays")).toEqual(["14"]);
     expect(formData().getAll("recurrenceWeekdays")).toEqual([]);
   });
 
-  it("toggling chips posts exactly the chosen days, and deselecting all is invalid", () => {
-    const { formData, select, onValidityChange } = renderFields();
-    fireEvent.change(select(), { target: { value: "weekly" } });
+  it("toggling chips posts exactly the chosen days, and deselecting all is invalid", async () => {
+    const { formData, choose, onValidityChange } = renderFields();
+    await choose("weekly");
     fireEvent.click(screen.getByLabelText("Lun"));
     fireEvent.click(screen.getByLabelText("Dom"));
     expect(formData().getAll("recurrenceWeekdays").sort()).toEqual(["1", "3", "7"]);
@@ -96,11 +103,11 @@ describe("ChecklistRecurrenceFields", () => {
     expect(screen.getByText("Elegí al menos un día.")).toBeInTheDocument();
   });
 
-  it("does not overwrite days the coach already had when re-entering weekly", () => {
-    const { formData, select } = renderFields({
+  it("does not overwrite days the coach already had when re-entering weekly", async () => {
+    const { formData, choose } = renderFields({
       defaults: { recurrence: "none", weekdays: [1, 5] },
     });
-    fireEvent.change(select(), { target: { value: "weekly" } });
+    await choose("weekly");
     expect(formData().getAll("recurrenceWeekdays").sort()).toEqual(["1", "5"]);
   });
 
@@ -121,13 +128,13 @@ describe("ChecklistRecurrenceFields", () => {
     expect(onValidityChange).toHaveBeenLastCalledWith(true);
   });
 
-  it("switching weekly → monthly unmounts the weekday inputs (nothing stale posted)", () => {
-    const { formData, select } = renderFields({ defaults: { recurrence: "weekly", weekdays: [2] } });
-    fireEvent.change(select(), { target: { value: "monthly" } });
+  it("switching weekly → monthly unmounts the weekday inputs (nothing stale posted)", async () => {
+    const { formData, choose } = renderFields({ defaults: { recurrence: "weekly", weekdays: [2] } });
+    await choose("monthly");
     const data = formData();
     expect(data.getAll("recurrenceWeekdays")).toEqual([]);
     expect(data.getAll("recurrenceMonthDays")).toEqual(["14"]);
-    fireEvent.change(select(), { target: { value: "none" } });
+    await choose("none");
     expect(formData().getAll("recurrenceMonthDays")).toEqual([]);
     expect(formData().has("recurrenceEndsOn")).toBe(false);
   });

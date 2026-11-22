@@ -233,7 +233,7 @@ export function ExerciseProgressClient({
 
   if (exercises.length === 0) {
     return (
-      <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
+      <section className="rounded-card border border-border bg-card p-5 shadow-sm">
         <p className="text-sm text-muted-foreground">
           {labels.emptyNoExercises}
         </p>
@@ -242,7 +242,7 @@ export function ExerciseProgressClient({
   }
 
   return (
-    <section className="flex flex-col gap-4 rounded-[1.25rem] border border-border bg-card p-5 shadow-sm">
+    <section className="flex flex-col gap-4 rounded-card border border-border bg-card p-5 shadow-sm">
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           {muscleGroups.length >= 2 ? (
@@ -550,7 +550,7 @@ export function ExerciseProgressClient({
                       </span>
                       {line.isPR ? (
                         <Trophy
-                          className="size-3 text-amber-500"
+                          className="size-3 text-warning"
                           aria-label={t("setHistory.prLabel")}
                         />
                       ) : null}

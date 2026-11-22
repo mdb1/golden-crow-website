@@ -22,7 +22,7 @@ export default function ClientsLoading() {
         {Array.from({ length: 6 }).map((_, idx) => (
           <div
             key={idx}
-            className="flex flex-col gap-4 rounded-[1.25rem] border bg-card p-5 shadow-sm"
+            className="flex flex-col gap-4 rounded-card border bg-card p-5 shadow-sm"
           >
             <div className="flex items-center gap-3">
               <Skeleton className="size-12 shrink-0 rounded-full" />

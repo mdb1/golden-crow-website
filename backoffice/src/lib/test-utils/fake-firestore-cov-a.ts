@@ -207,6 +207,13 @@ export class FakeDocRef {
   }
 }
 
+export interface FakeTransaction {
+  get(ref: FakeDocRef): Promise<FakeSnapshot>;
+  set(ref: FakeDocRef, data: DocData, options?: { merge?: boolean }): FakeTransaction;
+  update(ref: FakeDocRef, ...args: unknown[]): FakeTransaction;
+  delete(ref: FakeDocRef): FakeTransaction;
+}
+
 export class FakeFirestore {
   docs = new Map<string, DocData>();
   writes: WriteRecord[] = [];
@@ -240,6 +247,55 @@ export class FakeFirestore {
   async getAll(...refs: FakeDocRef[]) {
     return Promise.all(refs.map((r) => r.get()));
   }
+  /** Per-doc write counter: what `runTransaction` checks for contention. */
+  versions = new Map<string, number>();
+  /** How many times a transaction body re-ran because a doc it read changed. */
+  transactionRetries = 0;
+  private bump(path: string) {
+    this.versions.set(path, (this.versions.get(path) ?? 0) + 1);
+  }
+  /**
+   * Optimistic-concurrency model of Firestore transactions: the body's reads are
+   * versioned, writes are buffered, and the commit happens only if no doc it read was
+   * written in between — otherwise the body RE-RUNS (as the real SDK retries on
+   * contention). Commit + check run synchronously, so two interleaved transactions
+   * serialize the way production does.
+   */
+  async runTransaction<T>(fn: (tx: FakeTransaction) => Promise<T>): Promise<T> {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const readVersions = new Map<string, number>();
+      const ops: Array<() => void> = [];
+      const tx: FakeTransaction = {
+        get: async (ref: FakeDocRef) => {
+          if (ops.length > 0) throw new Error("Firestore transactions require all reads before writes.");
+          const snap = await ref.get();
+          readVersions.set(ref.path, this.versions.get(ref.path) ?? 0);
+          return snap;
+        },
+        set: (ref, data, options) => {
+          ops.push(() => this.applySet(ref.path, data, options));
+          return tx;
+        },
+        update: (ref, ...args) => {
+          ops.push(() => this.applyUpdate(ref.path, args));
+          return tx;
+        },
+        delete: (ref) => {
+          ops.push(() => this.applyDelete(ref.path));
+          return tx;
+        },
+      };
+      const result = await fn(tx);
+      const stale = [...readVersions].some(([path, v]) => (this.versions.get(path) ?? 0) !== v);
+      if (stale) {
+        this.transactionRetries += 1;
+        continue;
+      }
+      ops.forEach((op) => op());
+      return result;
+    }
+    throw new Error("10 ABORTED: Too much contention on these documents.");
+  }
   batch() {
     const ops: Array<() => void> = [];
     return {
@@ -259,6 +315,7 @@ export class FakeFirestore {
   }
   applySet(path: string, data: DocData, options?: { merge?: boolean }) {
     this.writes.push({ op: "set", path, data, options });
+    this.bump(path);
     const base = options?.merge ? { ...(this.docs.get(path) ?? {}) } : {};
     for (const [k, v] of Object.entries(data)) {
       if (v === FIELD_DELETE) delete base[k];
@@ -283,6 +340,7 @@ export class FakeFirestore {
       }
     }
     this.writes.push({ op: "update", path, data: patch });
+    this.bump(path);
     const existing = this.docs.get(path);
     if (!existing) throw new Error(`5 NOT_FOUND: no document to update: ${path}`);
     const next = structuredCloneish(existing);
@@ -291,6 +349,7 @@ export class FakeFirestore {
   }
   applyDelete(path: string) {
     this.writes.push({ op: "delete", path });
+    this.bump(path);
     this.docs.delete(path);
   }
 }

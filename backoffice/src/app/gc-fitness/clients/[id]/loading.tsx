@@ -21,7 +21,7 @@ export default function ClientDetailLoading() {
       </div>
 
       {/* Preferences card */}
-      <div className="rounded-[1.25rem] border bg-card p-5 shadow-sm">
+      <div className="rounded-card border bg-card p-5 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-2">
             <Skeleton className="h-3 w-24" />
@@ -36,7 +36,7 @@ export default function ClientDetailLoading() {
       {Array.from({ length: 2 }).map((_, idx) => (
         <div
           key={idx}
-          className="flex flex-col gap-3 rounded-[1.25rem] border bg-card p-5 shadow-sm"
+          className="flex flex-col gap-3 rounded-card border bg-card p-5 shadow-sm"
         >
           <Skeleton className="h-5 w-40" />
           <Skeleton className="h-24 w-full rounded-xl" />
@@ -48,7 +48,7 @@ export default function ClientDetailLoading() {
         {Array.from({ length: 2 }).map((_, idx) => (
           <div
             key={idx}
-            className="flex flex-col gap-3 rounded-[1.25rem] border bg-card p-5 shadow-sm"
+            className="flex flex-col gap-3 rounded-card border bg-card p-5 shadow-sm"
           >
             <Skeleton className="h-5 w-36" />
             <Skeleton className="h-32 w-full rounded-xl" />

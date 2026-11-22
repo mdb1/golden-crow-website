@@ -28,18 +28,19 @@ import {
   type CurrentTrainer,
 } from "@/lib/gc-fitness/auth-helpers";
 import { listClientsForRoster } from "@/lib/gc-fitness/client-roster";
+import { lastActionMessageKey } from "@/lib/gc-fitness/last-activity-kind";
 import { getCoachPulse } from "@/lib/gc-fitness/coach-pulse-actions";
-import { listClientsWithNothingAssignedSoon } from "@/lib/gc-fitness/coach-attention-actions";
 import { listPendingChecklistItems } from "@/lib/gc-fitness/coach-checklist-actions";
 import { safe } from "@/lib/gc-fitness/safe-load";
-import { NEEDS_ATTENTION_INACTIVITY_HOURS } from "@/lib/gc-fitness/client-attention";
 
 import {
-  ActivityRow,
   DailyBars,
   DailyLineChart,
   TopPerformers,
 } from "./_components/coach-pulse";
+import { AttentionTodayCard } from "./_components/attention-today-card";
+import { PaymentsDueCard } from "./_components/payments-due-card";
+import { attentionQueue, paymentsDue } from "./_components/today-model";
 import { ChecklistPending } from "./_components/checklist-pending";
 import { UnassignedClientsCard } from "./_components/unassigned-clients-card";
 import { sectionMetadata } from "@/lib/gc-fitness/page-metadata";
@@ -49,9 +50,6 @@ export const generateMetadata = () => sectionMetadata("dashboard");
 
 export const dynamic = "force-dynamic";
 const ATTENTION_PAGE_SIZE = 10;
-const ATTENTION_INACTIVITY_THRESHOLD_DAYS = Math.round(
-  NEEDS_ATTENTION_INACTIVITY_HOURS / 24,
-);
 
 interface DashboardPageProps {
   searchParams: Promise<{ attentionPage?: string }>;
@@ -74,10 +72,27 @@ export default async function GCFitnessDashboardPage({
   // 260529 RESILIENCE: each section loads behind `safe()` so a single failing
   // query (e.g. a composite index still BUILDING) degrades only that card
   // instead of 500ing the whole dashboard. See safe-load.ts for the why.
-  const roster = (await safe("client roster", () => listClientsForRoster())) ?? [];
+  //
+  // #490: the four loaders are independent — run them in PARALLEL. They used
+  // to be awaited one after another, so the page waited for the SUM of the
+  // four round-trips instead of the slowest one. Each loader re-checks auth;
+  // `getCurrentTrainer` is per-request cached (#491), so that costs nothing.
+  // #535 — «Sin nada asignado» comes from the roster (its `nothingAssigned`
+  // reason, same 4-day window, in each CLIENT's zone, uncapped) instead of a 4th
+  // loader that re-read every client's assignments + habits (capped at 150).
+  const [rosterResult, pulseResult, checklistResult, tDashboard, tNav] =
+    await Promise.all([
+      safe("client roster", () => listClientsForRoster()),
+      safe("coach pulse", () => getCoachPulse()),
+      // Overdue + due-today checklist items for the dashboard widget.
+      safe("coach checklist", () => listPendingChecklistItems()),
+      getTranslations("dashboard"),
+      getTranslations("nav"),
+    ]);
+  const roster = rosterResult ?? [];
   // Full zeroed fallback so a failed pulse load degrades to empty cards
   // (never null-derefs in the JSX below).
-  const pulse = (await safe("coach pulse", () => getCoachPulse())) ?? {
+  const pulse = pulseResult ?? {
     habitDaily: [],
     workoutDaily: [],
     weekHabitPct: 0,
@@ -86,67 +101,47 @@ export default async function GCFitnessDashboardPage({
     topPerformersToday: [],
     customExerciseCount: 0,
   };
-  // Overdue + due-today checklist items for the dashboard widget. Behind
-  // `safe()` so a checklist read failure degrades to no widget, never a 500.
-  const pendingChecklist =
-    (await safe("coach checklist", () => listPendingChecklistItems())) ?? [];
-  // 260612-e9t (#245): active clients with nothing assigned in the next 4 days.
-  // Behind safe() so a query failure degrades to no card, never a 500.
-  const unassignedSoon =
-    (await safe("unassigned clients", () =>
-      listClientsWithNothingAssignedSoon(),
-    )) ?? [];
+  const pendingChecklist = checklistResult ?? [];
+  const unassignedSoon = unassignedFromRoster(roster);
 
-  const tDashboard = await getTranslations("dashboard");
-  const tNav = await getTranslations("nav");
-
+  // Literal keys (the i18n-literal-keys gate checks them against the catalog).
+  const lastActionLabels = {
+    lastActionWorkout: tDashboard("lastActionWorkout"),
+    lastActionHabit: tDashboard("lastActionHabit"),
+    lastActionPhoto: tDashboard("lastActionPhoto"),
+    noActivity: tDashboard("noActivity"),
+  } as const;
   const activeClients = roster.filter((client) => client.source === "active");
-  const lastActionRows = activeClients
-    .map((client) => {
-      return {
-        uid: client.uid,
-        name: client.displayName,
-        photoURL: client.photoURL,
-        lastActivityAt: client.lastActivityAt,
-        lastActionTitle: tDashboard("noActivity"),
-        // % adherence over the last 7 days — drives the activity progress bar.
-        ratio: client.thisWeekComplianceRatio ?? 0,
-      };
-    })
-    .sort((a, b) => {
-      const aMs = a.lastActivityAt ? Date.parse(a.lastActivityAt) : 0;
-      const bMs = b.lastActivityAt ? Date.parse(b.lastActivityAt) : 0;
-      return bMs - aMs;
-    });
 
-  const attentionCutoffMs =
-    Date.now() - NEEDS_ATTENTION_INACTIVITY_HOURS * 60 * 60 * 1000;
-  const staleRows = lastActionRows
-    .filter((row) => {
-      if (!row.lastActivityAt) return true;
-      return Date.parse(row.lastActivityAt) < attentionCutoffMs;
-    })
-    .sort((a, b) => {
-      const aMs = a.lastActivityAt ? Date.parse(a.lastActivityAt) : 0;
-      const bMs = b.lastActivityAt ? Date.parse(b.lastActivityAt) : 0;
-      return aMs - bMs;
-    });
-
+  // #535 — «Necesitan tu atención»: the SAME predicate as the KPI tile and the
+  // roster filter (it used to be an inactivity-only list at the bottom of the
+  // page, so the tile said 4 and the list showed 1), with the reasons named.
+  const queue = attentionQueue(roster);
   const params = await searchParams;
   const requestedAttentionPage = parsePage(params.attentionPage);
   const attentionTotalPages = Math.max(
     1,
-    Math.ceil(staleRows.length / ATTENTION_PAGE_SIZE),
+    Math.ceil(queue.length / ATTENTION_PAGE_SIZE),
   );
   const attentionPage = Math.min(attentionTotalPages, requestedAttentionPage);
-  const attentionPageRows = staleRows.slice(
-    (attentionPage - 1) * ATTENTION_PAGE_SIZE,
-    attentionPage * ATTENTION_PAGE_SIZE,
-  );
+  const attentionPageRows = queue
+    .slice((attentionPage - 1) * ATTENTION_PAGE_SIZE, attentionPage * ATTENTION_PAGE_SIZE)
+    .map((row) => ({
+      row,
+      // #488: the client's REAL last action (workout / habit / photo) + when.
+      lastActivityLabel: row.lastActivityAt
+        ? `${lastActionLabels[lastActionMessageKey(row.lastActivityKind)]} · ${formatRelative(row.lastActivityAt, tDashboard)}`
+        : lastActionLabels.noActivity,
+    }));
+  const due = paymentsDue(roster);
+  const anyPlan = activeClients.some((client) => client.billing);
 
   const activeClientCount = activeClients.length;
-  const atRiskCount = staleRows.length;
-  const attentionDays = ATTENTION_INACTIVITY_THRESHOLD_DAYS;
+  // #513 — the tile links to `/clients?filter=attention`, so it counts EXACTLY
+  // what that filter shows: every roster row whose `needsAttention` fired for
+  // ANY of the six reasons of client-attention.ts (#499) — not only inactivity
+  // (that narrower list is the "Needs review" panel below, labelled as such).
+  const atRiskCount = roster.filter((client) => client.needsAttention).length;
 
   // Headline adherence KPI: prefer this-week habit %, fall back to workout %.
   const adherencePct = pulse?.weekHabitPct || pulse?.weekWorkoutPct || 0;
@@ -209,17 +204,36 @@ export default async function GCFitnessDashboardPage({
           href="/gc-fitness/clients?filter=attention"
           icon={<AlertTriangle />}
           value={atRiskCount}
-          label={tDashboard("kpiNeedsReview")}
-          delta={atRiskCount > 0 ? `${atRiskCount}` : undefined}
-          trend={atRiskCount > 0 ? "down" : "neutral"}
+          label={tDashboard("kpiNeedsAttention")}
         />
+      </div>
+
+      {/* #535 — what to do today, first: who needs you (and why) + who owes you. */}
+      <div className={anyPlan ? "grid gap-4 xl:grid-cols-[3fr_2fr]" : "grid gap-4"}>
+        <AttentionTodayCard
+          rows={attentionPageRows}
+          total={queue.length}
+          footer={
+            <Pager
+              page={attentionPage}
+              total={attentionTotalPages}
+              buildHref={(p) => `?attentionPage=${p}`}
+              t={tDashboard}
+            />
+          }
+        />
+        <PaymentsDueCard due={due} anyPlan={anyPlan} />
       </div>
 
       {/* Pending checklist (overdue + due today) */}
       <ChecklistPending items={pendingChecklist} />
 
       {/* 260612-e9t (#245): clients with nothing assigned in the next 4 days */}
-      <UnassignedClientsCard rows={unassignedSoon} />
+      <UnassignedClientsCard
+        rows={unassignedSoon.rows}
+        truncated={unassignedSoon.truncated}
+        scanned={unassignedSoon.scanned}
+      />
 
       {/* Charts: workouts (gold bars) + habits (line) */}
       <div className="grid gap-4 xl:grid-cols-2">
@@ -289,53 +303,6 @@ export default async function GCFitnessDashboardPage({
         </Card>
       </div>
 
-      {/* Needs attention */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="gc-page-title text-xl">
-            {tDashboard("needsReviewTitle")}
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            {tDashboard("needsReviewSubtitle", { days: attentionDays })}
-          </p>
-        </CardHeader>
-        <CardContent className="flex flex-col divide-y divide-border">
-          {attentionPageRows.length === 0 ? (
-            <EmptyRow>{tDashboard("allCaughtUp")}</EmptyRow>
-          ) : (
-            attentionPageRows.map((row) => (
-              <ActivityRow
-                key={`attention-${row.uid}`}
-                row={{
-                  uid: row.uid,
-                  name: row.name,
-                  photoURL: row.photoURL,
-                  primary: row.lastActionTitle,
-                  timeLabel: row.lastActivityAt
-                    ? formatRelative(row.lastActivityAt, tDashboard)
-                    : tDashboard("noActivity"),
-                  ratio: row.ratio,
-                  stale: true,
-                }}
-              />
-            ))
-          )}
-          <Pager
-            page={attentionPage}
-            total={attentionTotalPages}
-            buildHref={(p) => `?attentionPage=${p}`}
-            t={tDashboard}
-          />
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function EmptyRow({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="rounded-md border border-dashed bg-background/40 px-3 py-8 text-center text-sm text-muted-foreground">
-      {children}
     </div>
   );
 }
@@ -363,7 +330,7 @@ function Pager({
         {hasPrev ? (
           <Link
             href={buildHref(page - 1)}
-            className="inline-flex h-8 items-center rounded-full border border-border bg-background px-3 text-xs font-medium hover:bg-muted"
+            className="inline-flex min-h-10 items-center rounded-full border border-border bg-background px-3 text-xs font-medium hover:bg-muted"
           >
             <ChevronLeft className="mr-1 h-3.5 w-3.5" />
             {t("previous")}
@@ -372,7 +339,7 @@ function Pager({
         {hasNext ? (
           <Link
             href={buildHref(page + 1)}
-            className="inline-flex h-8 items-center rounded-full border border-border bg-background px-3 text-xs font-medium hover:bg-muted"
+            className="inline-flex min-h-10 items-center rounded-full border border-border bg-background px-3 text-xs font-medium hover:bg-muted"
           >
             {t("next")}
             <ChevronRight className="ml-1 h-3.5 w-3.5" />
@@ -400,4 +367,13 @@ function parsePage(raw?: string): number {
   const parsed = Number(raw);
   if (!Number.isFinite(parsed) || parsed < 1) return 1;
   return Math.floor(parsed);
+}
+
+/** #535 — the «Sin nada asignado esta semana» rows, from the roster's reason. */
+function unassignedFromRoster(roster: Awaited<ReturnType<typeof listClientsForRoster>>) {
+  const rows = roster
+    .filter((c) => c.source === "active" && c.needsAttentionReasons.includes("nothingAssigned"))
+    .map((c) => ({ uid: c.uid, displayName: c.displayName, photoURL: c.photoURL }))
+    .sort((a, b) => a.displayName.localeCompare(b.displayName, undefined, { sensitivity: "base" }));
+  return { rows, truncated: false, scanned: roster.length };
 }

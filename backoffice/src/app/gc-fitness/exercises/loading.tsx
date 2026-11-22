@@ -20,7 +20,7 @@ export default function ExercisesLoading() {
         <Skeleton className="h-10 w-40 rounded-full" />
         <Skeleton className="h-10 w-40 rounded-full" />
       </div>
-      <div className="flex flex-col gap-2 rounded-[1.25rem] border bg-card p-4 shadow-sm">
+      <div className="flex flex-col gap-2 rounded-card border bg-card p-4 shadow-sm">
         {Array.from({ length: 6 }).map((_, idx) => (
           <Skeleton key={idx} className="h-12 w-full" />
         ))}

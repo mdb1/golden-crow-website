@@ -80,7 +80,7 @@ export function RecurrencePill({ rec, t }: { rec: HabitRecurrence; t: TFn }) {
 // deleted in #309 (nothing had mounted it since 2026-05-28). THIS is now the
 // only live copy of that inline-Spanish wording (NO i18n keys).
 const CLIENT_EDIT_BADGE =
-  "gap-1 border-amber-200 bg-amber-50 px-1.5 py-0 text-[10px] font-normal text-amber-700 [&>svg]:size-3 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300";
+  "gap-1 border-warning/25 bg-warning-soft px-1.5 py-0 text-[10px] font-normal text-warning [&>svg]:size-3";
 
 /**
  * Coach-facing label for a CLIENT-edited habit reminder. Only rendered when

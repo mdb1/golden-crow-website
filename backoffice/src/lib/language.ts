@@ -1914,7 +1914,7 @@ const SPANISH_TEXT: Record<string, string> = {
     "Crear y editar logros que los coaches usan para reforzar el progreso.",
   "Create and edit challenge definitions for athlete motivation.":
     "Crear y editar desafíos para motivar atletas.",
-  "Trainer coaching console.": "Consola de coaching para entrenadores.",
+  "Trainer coaching console.": "Consola de coaching para coaches.",
   "Readable operations console for the live Firebase model.":
     "Consola operativa legible para el modelo Firebase en vivo.",
   "Full admins can reach the global moderation surfaces and the institution-area model from the same shell.":

@@ -374,8 +374,22 @@ describe("listCoachChecklistItems", () => {
     });
     expect(rows[1].clients).toEqual([{ id: "c1", name: "Ana" }]);
     expect(db.queries).toEqual([
+      expect.objectContaining({ collection: OWN, limit: 300 }),
       expect.objectContaining({ collection: OWN, limit: 50 }),
     ]);
+  });
+
+  // golden-crow-website#535 — one `orderBy(dueAt).limit(50)` over everything hid
+  // every NEW open item once 50 completed ones (with earlier due dates) piled up.
+  it("an open item is listed even behind 60 older completed ones", async () => {
+    for (let i = 0; i < 60; i += 1) {
+      db.seed(`${OWN}/done-${i}`, { title: `done ${i}`, completed: true, dueAt: new Date(Date.UTC(2026, 0, 1 + i)) });
+    }
+    db.seed(`${OWN}/old-open`, { title: "old open", completed: false, dueAt: new Date("2025-01-01T12:00:00Z") });
+    db.seed(`${OWN}/fresh`, { title: "fresh", completed: false, dueAt: new Date("2026-03-15T12:00:00Z") });
+    const rows = await listCoachChecklistItems();
+    expect(rows.slice(0, 2).map((r) => r.id)).toEqual(["old-open", "fresh"]);
+    expect(rows.filter((r) => !r.completed)).toHaveLength(2);
   });
 
   it("falls back to raw uids when the roster read fails", async () => {

@@ -35,7 +35,7 @@
 
 import "@testing-library/jest-dom";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
 
@@ -46,7 +46,19 @@ jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: (...args: unknown[]) => mockPush(...args) }),
 }));
 
+// #500 — the bulk bar's «Mandar mensaje» goes through this Server Action.
+const mockSendBroadcast = jest.fn();
+jest.mock("@/lib/gc-fitness/coach-broadcast-actions", () => ({
+  sendCoachBroadcast: (...args: unknown[]) => mockSendBroadcast(...args),
+}));
+const mockToastSuccess = jest.fn();
+jest.mock("sonner", () => ({
+  toast: { success: (...args: unknown[]) => mockToastSuccess(...args), error: jest.fn() },
+}));
+
 import { RosterTable } from "../RosterTable";
+import { formatRelativeLabel } from "../RelativeTime";
+import { chooseFormSelectValue } from "@/lib/test-utils/form-select";
 
 const TRAINER = "trainer-1";
 const TZ = "America/Argentina/Buenos_Aires";
@@ -247,13 +259,14 @@ describe("RosterTable — search", () => {
     expect(visibleNames()).toEqual(["Beto Diaz"]);
   });
 
-  it("says 'no clients' for a search that matches nobody", async () => {
+  it("says nobody MATCHES (not 'no clients yet') for a search that matches nobody (#535)", async () => {
     const { user } = renderRoster(ROWS);
 
     await user.type(screen.getByRole("searchbox"), "zzzz");
 
     expect(visibleNames()).toEqual([]);
-    expect(screen.getByText("No clients in your roster yet.")).toBeInTheDocument();
+    expect(screen.getByText("No client matches the search or filter.")).toBeInTheDocument();
+    expect(screen.queryByText("No clients in your roster yet.")).not.toBeInTheDocument();
   });
 });
 
@@ -277,7 +290,7 @@ describe("RosterTable — an empty roster", () => {
 describe("RosterTable — the nutrition column", () => {
   it("shows the 7-day adherence next to the habit one", () => {
     renderRoster([client({ nutritionRatio7Days: 0.62 })]);
-    expect(screen.getByText("Nutrition")).toBeInTheDocument();
+    expect(within(cardFor("Ana Gomez")).getByText("Nutrition")).toBeInTheDocument();
     expect(screen.getByText("62%")).toBeInTheDocument();
   });
 
@@ -369,5 +382,325 @@ describe("RosterTable — the nutrition column", () => {
     delete (legacy as Partial<ClientRosterRow>).nutritionRatio7Days;
     renderRoster([legacy]);
     expect(screen.queryByText("NaN%")).not.toBeInTheDocument();
+  });
+});
+
+// #500 — bulk selection + «Mandar mensaje» / «Asignar rutina».
+//
+// What matters:
+//   • a pending invite has NO checkbox (no chat thread, and bulkAssignTemplate
+//     rejects `mirror:` ids);
+//   • ticking a box does NOT open the client (the checkbox is a sibling of the
+//     card link, not nested inside it);
+//   • «Seleccionar todos» picks the VISIBLE selectable rows only;
+//   • the dialog sends exactly the selected uids + the trimmed text, shows the
+//     count from the RESPONSE, and a returned failure stays in the dialog.
+describe("RosterTable — bulk actions (#500)", () => {
+  const ROWS = [
+    client({ uid: "ana", displayName: "Ana Gomez", email: "ana@example.com" }),
+    client({ uid: "beto", displayName: "Beto Diaz", email: "beto@example.com", needsAttention: true }),
+    client({
+      uid: "mirror:caro@example.com",
+      displayName: "Caro Ruiz",
+      email: "caro@example.com",
+      pendingProvisioning: true,
+      source: "pending",
+    }),
+  ];
+
+  it("offers a checkbox only for active clients", () => {
+    renderRoster(ROWS);
+    expect(screen.getByRole("checkbox", { name: "Select Ana Gomez" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Select Beto Diaz" })).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Select Caro Ruiz" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("roster-bulk-bar")).not.toBeInTheDocument();
+  });
+
+  it("ticking a client shows the bar and does not open the client", async () => {
+    const { user } = renderRoster(ROWS);
+    await user.click(screen.getByRole("checkbox", { name: "Select Ana Gomez" }));
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(screen.getByTestId("roster-bulk-bar")).toHaveTextContent("1 selected");
+    await user.click(screen.getByRole("button", { name: /^Clear$/ }));
+    expect(screen.queryByTestId("roster-bulk-bar")).not.toBeInTheDocument();
+  });
+
+  it("select all picks only the visible selectable rows", async () => {
+    const { user } = renderRoster(ROWS);
+    // Filter to Beto first — Ana is hidden, Caro is pending.
+    await user.click(screen.getByRole("button", { name: /Needs attention \(1\)/ }));
+    await user.click(screen.getByRole("checkbox", { name: "Select all" }));
+    expect(screen.getByTestId("roster-bulk-bar")).toHaveTextContent("1 selected");
+    await user.click(screen.getByRole("button", { name: /Needs attention \(1\)/ }));
+    await user.click(screen.getByRole("checkbox", { name: "Select all" }));
+    expect(screen.getByTestId("roster-bulk-bar")).toHaveTextContent("2 selected");
+  });
+
+  it("«Assign workout» opens /schedule/bulk with the clients preselected", async () => {
+    const { user } = renderRoster(ROWS);
+    await user.click(screen.getByRole("checkbox", { name: "Select all" }));
+    await user.click(screen.getByRole("button", { name: /Assign workout/ }));
+    expect(mockPush).toHaveBeenCalledWith("/gc-fitness/schedule/bulk?clients=ana%2Cbeto");
+  });
+
+  it("sends the selected uids + trimmed text and reports the response count", async () => {
+    mockSendBroadcast.mockResolvedValue({ ok: true, sent: 1, skipped: 1, remaining: 9 });
+    const { user } = renderRoster(ROWS);
+    await user.click(screen.getByRole("checkbox", { name: "Select all" }));
+    await user.click(screen.getByRole("button", { name: /Send message/ }));
+
+    expect(screen.getByTestId("broadcast-recipients")).toHaveTextContent("Ana Gomez, Beto Diaz");
+    const send = screen.getByRole("button", { name: "Send" });
+    expect(send).toBeDisabled(); // empty text
+    await user.type(screen.getByLabelText("Message"), "  Hola equipo  ");
+    expect(screen.getByTestId("broadcast-counter")).toHaveTextContent("15/1000");
+    await user.click(send);
+
+    expect(mockSendBroadcast).toHaveBeenCalledWith(["ana", "beto"], "Hola equipo");
+    expect(mockToastSuccess).toHaveBeenCalledWith("Message sent to 1 client", {
+      description: "1 is no longer your client and didn't get it.",
+    });
+    // Sent → selection cleared, bar gone.
+    expect(screen.queryByTestId("roster-bulk-bar")).not.toBeInTheDocument();
+  });
+
+  it("keeps the dialog open with the daily-cap copy on a returned failure", async () => {
+    mockSendBroadcast.mockResolvedValue({ ok: false, error: "daily_cap" });
+    const { user } = renderRoster(ROWS);
+    await user.click(screen.getByRole("checkbox", { name: "Select Ana Gomez" }));
+    await user.click(screen.getByRole("button", { name: /Send message/ }));
+    await user.type(screen.getByLabelText("Message"), "Hola");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "You hit the limit of 10 bulk sends in 24 h. Try again later.",
+    );
+    expect(mockToastSuccess).not.toHaveBeenCalled();
+    expect(screen.getByTestId("roster-bulk-bar")).toHaveTextContent("1 selected");
+  });
+
+  it("blocks sending to more than 200 clients", async () => {
+    const many = Array.from({ length: 201 }, (_, i) =>
+      client({ uid: `c${i}`, displayName: `Client ${i}`, email: `c${i}@example.com` }),
+    );
+    const { user } = renderRoster(many);
+    await user.click(screen.getByRole("checkbox", { name: "Select all" }));
+    await user.click(screen.getByRole("button", { name: /Send message/ }));
+    await user.type(screen.getByLabelText("Message"), "Hola");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "You can message up to 200 clients at once. You selected 201.",
+    );
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+    // 201 cards in jsdom: slow on a loaded machine (the Vercel gate runs with 30 s too).
+  }, 30_000);
+});
+
+describe("RosterTable — #499 attention reasons and sorting", () => {
+  const ROWS = [
+    client({
+      uid: "ana",
+      displayName: "Ana Gomez",
+      lastActivityAt: "2026-08-05T12:00:00.000Z",
+      nutritionRatio7Days: null,
+      unreadChatCount: 0,
+    }),
+    client({
+      uid: "beto",
+      displayName: "Beto Diaz",
+      lastActivityAt: "2026-08-01T12:00:00.000Z",
+      needsAttention: true,
+      needsAttentionReasons: ["overduePayment", "unreadChat"],
+      nutritionRatio7Days: 0.3,
+      unreadChatCount: 5,
+    }),
+    client({
+      uid: "caro",
+      displayName: "Caro Ruiz",
+      lastActivityAt: "2026-08-03T12:00:00.000Z",
+      needsAttention: true,
+      needsAttentionReasons: ["nothingAssigned"],
+      nutritionRatio7Days: 0.9,
+      unreadChatCount: 1,
+    }),
+  ];
+
+  function sortBy(user: ReturnType<typeof userEvent.setup>, key: string) {
+    return chooseFormSelectValue(user, screen.getByRole("combobox", { name: "Sort by" }), key);
+  }
+
+  it("names every reason on the card, most urgent first", () => {
+    renderRoster(ROWS);
+    expect(
+      within(cardFor("Beto Diaz"))
+        .getAllByTestId("roster-attention-reason")
+        .map((n) => n.textContent),
+    ).toEqual(["Payment overdue", "Unread messages"]);
+    expect(within(cardFor("Ana Gomez")).queryAllByTestId("roster-attention-reason")).toHaveLength(0);
+  });
+
+  it("keeps the server order (last activity, newest first) by default", () => {
+    renderRoster(ROWS);
+    expect(visibleNames()).toEqual(["Ana Gomez", "Caro Ruiz", "Beto Diaz"]);
+  });
+
+  it("sorts by attention: most urgent reason first, clients with none last", async () => {
+    const { user } = renderRoster(ROWS);
+    await sortBy(user, "attention");
+    expect(visibleNames()).toEqual(["Caro Ruiz", "Beto Diaz", "Ana Gomez"]);
+  });
+
+  it("sorts by name and flips with the direction button", async () => {
+    const { user } = renderRoster([ROWS[2], ROWS[0], ROWS[1]]);
+    await sortBy(user, "name");
+    expect(visibleNames()).toEqual(["Ana Gomez", "Beto Diaz", "Caro Ruiz"]);
+    await user.click(screen.getByRole("button", { name: "Ascending" }));
+    expect(visibleNames()).toEqual(["Caro Ruiz", "Beto Diaz", "Ana Gomez"]);
+  });
+
+  it("sorts nutrition worst first, with «nothing asked» last in BOTH directions", async () => {
+    const { user } = renderRoster(ROWS);
+    await sortBy(user, "nutrition");
+    expect(visibleNames()).toEqual(["Beto Diaz", "Caro Ruiz", "Ana Gomez"]);
+    await user.click(screen.getByRole("button", { name: "Ascending" }));
+    expect(visibleNames()).toEqual(["Caro Ruiz", "Beto Diaz", "Ana Gomez"]);
+  });
+
+  it("sorts by unread messages, most first", async () => {
+    const { user } = renderRoster(ROWS);
+    await sortBy(user, "unread");
+    expect(visibleNames()).toEqual(["Beto Diaz", "Caro Ruiz", "Ana Gomez"]);
+  });
+
+  it("keeps pending sign-ins last whatever the sort", async () => {
+    const { user } = renderRoster([
+      client({ uid: "p", displayName: "Aaron Pending", email: "p@x.com", pendingProvisioning: true }),
+      ...ROWS,
+    ]);
+    await sortBy(user, "name");
+    expect(visibleNames().at(-1)).toBe("Aaron Pending");
+  });
+});
+
+// ───────────── golden-crow-website#535 — payments, trend, list view ─────────────
+
+describe("RosterTable — #535 payments, habit trend and the list view", () => {
+  const plan = (state: "overdue" | "due_soon" | "up_to_date", days: number, classBased = false) => ({
+    state,
+    days,
+    classBased,
+    planName: "Mensual",
+    nextDueCivil: null,
+  });
+  const ROWS = [
+    client({ uid: "ok", displayName: "Ana Gomez", billing: plan("up_to_date", 20) }),
+    client({ uid: "late", displayName: "Beto Diaz", lastActivityAt: "2026-08-04T12:00:00.000Z", billing: plan("overdue", 4) }),
+    client({ uid: "soon", displayName: "Caro Ruiz", lastActivityAt: "2026-08-03T12:00:00.000Z", billing: plan("due_soon", 2) }),
+    client({ uid: "none", displayName: "Dani Paz", lastActivityAt: "2026-08-02T12:00:00.000Z", billing: null }),
+    client({ uid: "later", displayName: "Eva Sol", lastActivityAt: "2026-08-01T12:00:00.000Z", billing: plan("overdue", 10) }),
+  ];
+
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it("every card shows the payment state with its detail; no plan reads «No plan»", () => {
+    renderRoster(ROWS);
+    const pay = (name: string) => within(cardFor(name)).getByTestId("roster-payment");
+    expect(pay("Beto Diaz")).toHaveAttribute("data-state", "overdue");
+    expect(pay("Beto Diaz")).toHaveTextContent(/^Overdue4 days overdue$/);
+    expect(pay("Caro Ruiz")).toHaveTextContent(/^Due soonDue in 2 days$/);
+    expect(pay("Dani Paz")).toHaveTextContent(/^No plan$/);
+  });
+
+  it("a class pack shows the classes left, not a due date", () => {
+    renderRoster([client({ billing: plan("up_to_date", 3, true) })]);
+    expect(within(cardFor("Ana Gomez")).getByTestId("roster-payment")).toHaveTextContent(/^Up to date3 classes left$/);
+  });
+
+  it("«Overdue payments (N)» counts the whole roster and filters to them", async () => {
+    const { user } = renderRoster(ROWS);
+    const filter = screen.getByTestId("roster-filter-overdue");
+    expect(filter).toHaveTextContent(/^Overdue payments \(2\)$/);
+    await user.click(filter);
+    expect(filter).toHaveAttribute("aria-pressed", "true");
+    expect(visibleNames()).toEqual(["Beto Diaz", "Eva Sol"]);
+    expect(filter).toHaveTextContent(/^Overdue payments \(2\)$/);
+  });
+
+  it("no overdue client → no overdue filter", () => {
+    renderRoster([client()]);
+    expect(screen.queryByTestId("roster-filter-overdue")).not.toBeInTheDocument();
+  });
+
+  it("sorts by payments: most overdue first, then due soon, up to date, no plan last", async () => {
+    const { user } = renderRoster(ROWS);
+    await chooseFormSelectValue(user, screen.getByRole("combobox", { name: "Sort by" }), "payment");
+    expect(visibleNames()).toEqual(["Eva Sol", "Beto Diaz", "Caro Ruiz", "Ana Gomez", "Dani Paz"]);
+    await user.click(screen.getByRole("button", { name: "Ascending" }));
+    // Flipped — but «no plan» stays last: an em dash is not "the best payer".
+    expect(visibleNames()).toEqual(["Ana Gomez", "Caro Ruiz", "Beto Diaz", "Eva Sol", "Dani Paz"]);
+  });
+
+  it("the habit arrow is the change vs the week before, not the absolute value", () => {
+    renderRoster([
+      client({ uid: "up", displayName: "Ana Gomez", thisWeekComplianceRatio: 0.5, prevWeekComplianceRatio: 0.2 }),
+      client({ uid: "down", displayName: "Beto Diaz", thisWeekComplianceRatio: 0.9, prevWeekComplianceRatio: 1 }),
+      client({ uid: "new", displayName: "Caro Ruiz", thisWeekComplianceRatio: 0.9, prevWeekComplianceRatio: null }),
+    ]);
+    const trend = (name: string) => within(cardFor(name)).queryByTestId("roster-habit-trend");
+    // 50% is "bad" in absolute terms, but it went UP 30 points.
+    expect(trend("Ana Gomez")).toHaveAttribute("data-direction", "up");
+    expect(trend("Ana Gomez")).toHaveTextContent("30 points more than the week before");
+    // 90% is "good", but it went DOWN.
+    expect(trend("Beto Diaz")).toHaveAttribute("data-direction", "down");
+    // Nothing to compare with → no arrow at all.
+    expect(trend("Caro Ruiz")).toBeNull();
+  });
+
+  it("last activity says what it was, in words", () => {
+    renderRoster([client({ lastActivityKind: "workout" })]);
+    expect(within(cardFor("Ana Gomez")).getByTestId("roster-last-activity")).toHaveTextContent(/· workout$/);
+  });
+
+  it("the list view: one row per client, sortable from the headers, remembered", async () => {
+    const { user } = renderRoster(ROWS);
+    await user.click(screen.getByTestId("roster-view-list"));
+    expect(screen.getByTestId("roster-view-list")).toHaveAttribute("aria-pressed", "true");
+    const list = screen.getByTestId("roster-list");
+    expect(within(list).getAllByTestId("roster-list-row")).toHaveLength(5);
+    expect(window.localStorage.getItem("gc-fitness.roster.view")).toBe("list");
+
+    const names = () =>
+      within(list)
+        .getAllByTestId("roster-list-row")
+        .map((r) => within(r).getAllByRole("link")[0].textContent);
+    await user.click(screen.getByTestId("roster-sort-payment"));
+    expect(names()).toEqual(["Eva Sol", "Beto Diaz", "Caro Ruiz", "Ana Gomez", "Dani Paz"]);
+    expect(screen.getByTestId("roster-sort-payment").closest("th")).toHaveAttribute("aria-sort", "ascending");
+    // Same header again flips the direction; the toolbar select follows.
+    await user.click(screen.getByTestId("roster-sort-payment"));
+    expect(screen.getByTestId("roster-sort-payment").closest("th")).toHaveAttribute("aria-sort", "descending");
+    expect(screen.getByRole("combobox", { name: "Sort by" })).toHaveAttribute("data-value", "payment");
+
+    // The name is a real link to the client.
+    expect(within(list).getByRole("link", { name: "Ana Gomez" })).toHaveAttribute("href", "/gc-fitness/clients/ok");
+  });
+
+  it("opens in the remembered view", () => {
+    window.localStorage.setItem("gc-fitness.roster.view", "list");
+    renderRoster(ROWS);
+    expect(screen.getByTestId("roster-list")).toBeInTheDocument();
+  });
+});
+
+describe("formatRelativeLabel (#535 — was hardcoded English)", () => {
+  const NOW = Date.parse("2026-08-05T12:00:00.000Z");
+  it("speaks the UI language", () => {
+    expect(formatRelativeLabel("2026-08-05T10:00:00.000Z", NOW, "es")).toBe("hace 2 h");
+    expect(formatRelativeLabel("2026-08-04T11:00:00.000Z", NOW, "es")).toBe("ayer");
+    expect(formatRelativeLabel("2026-08-05T10:00:00.000Z", NOW, "en")).toBe("2 hr. ago");
+    // A future instant (clock skew) is "now", never "in 3 min".
+    expect(formatRelativeLabel("2026-08-05T12:03:00.000Z", NOW, "es")).toBe("ahora");
+    expect(formatRelativeLabel("nope", NOW, "es")).toBeNull();
   });
 });

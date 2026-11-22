@@ -36,6 +36,7 @@
 import { dateRangeLabel } from "@/lib/gc-fitness/audit-grouping";
 import { bilingualText } from "@/lib/gc-fitness/coachless-user-model";
 import { effectiveIsoWeekdaysOf } from "@/lib/gc-fitness/habit-schedule";
+import { classifyExtendedAuditRecord } from "@/lib/gc-fitness/activity-feed-model-ext";
 
 export type FeedCategory =
   | "workout"
@@ -48,6 +49,13 @@ export type FeedCategory =
   | "account"
   | "coach"
   | "admin"
+  // golden-crow-website#529 — the collections the capture watches since 2.3.0.
+  | "billing"
+  | "progress"
+  | "chat"
+  | "social"
+  | "challenge"
+  | "corvo"
   | "other";
 
 /** "key" = worth reading in the default feed; "low" = mechanical write noise. */
@@ -76,7 +84,8 @@ export interface FeedSubjectRef {
     | "workout_logs"
     | "workout_assignments"
     | "habits"
-    | "exercises";
+    | "exercises"
+    | "social_challenges";
   id: string;
 }
 
@@ -95,6 +104,10 @@ export interface AuditRecord {
   coachId: string | null;
   clientId: string | null;
   occurredAtISO: string | null;
+  /** #529 — the capture's compact derived facts (challenge member changes, Corvo turn stats). */
+  summary?: Record<string, unknown> | null;
+  /** #529 — the trigger path's wildcards other than the doc id (`{ chatId }`, `{ uid }`). */
+  params?: Record<string, string> | null;
 }
 
 export interface ClassifiedEvent {
@@ -124,6 +137,12 @@ export interface ClassifiedEvent {
    * about a session her CLIENT had done.
    */
   actorUid: string | null;
+  /**
+   * #529 — the OTHER person of an event between two people (the followee of a follow, the
+   * client a coach wrote to, the user a Corvo proposal was made for). Rendered as the
+   * client chip; absent = the doc's `clientId`, as before.
+   */
+  counterpartUid?: string | null;
   /** True when the acting principal is the client themself (self-serve). */
   isSelfService: boolean;
   isDeletion: boolean;
@@ -448,6 +467,8 @@ export function classifyAuditRecord(
      * renewal, which the anchor alone cannot do.
      */
     recurrenceEdit?: { previousRecurrence: unknown } | null;
+    /** #529 — every record a burst collapsed into this one (Corvo turns, chat messages). */
+    members?: AuditRecord[];
   } = { count: 1, dates: [] },
 ): ClassifiedEvent {
   const subject = record.op === "delete" ? record.before : record.after;
@@ -719,7 +740,7 @@ export function classifyAuditRecord(
           meta: [
             byCoachEdit
               ? "nueva prescripción del coach"
-              : "pesos y repes registrados en el entreno",
+              : "pesos y repes registrados en el entrenamiento",
             ...occurrences,
           ],
           target: record.clientId ? { kind: "user", uid: record.clientId } : null,
@@ -1317,7 +1338,10 @@ export function classifyAuditRecord(
       };
     }
 
-    default:
+    default: {
+      // #529 — challenges, billing, chat, social, Corvo, invites, … (activity-feed-model-ext.ts).
+      const extended = classifyExtendedAuditRecord(record, { count: group.count, members: group.members });
+      if (extended) return extended;
       return {
         category: "other",
         significance: "low",
@@ -1332,6 +1356,7 @@ export function classifyAuditRecord(
         isDeletion: record.op === "delete",
         correlation: null,
       };
+    }
   }
 }
 
@@ -1373,6 +1398,9 @@ export function coachActivityKeysFor(record: AuditRecord): string[] {
       return record.op === "create" ? [`exr:${record.docId}`] : [];
     case "habits":
       return record.op === "create" ? [`hab:${record.docId}`] : [];
+    // #529 — `templateCreatedEvent` (`tpl:${id}`), create only, same as exercises.
+    case "workout_templates":
+      return record.op === "create" ? [`tpl:${record.docId}`] : [];
     // `nutritionPlanEvent` keys by `nut:${planId}` and re-publishes onto the SAME
     // eventId for assign / edit / trim / close, so unlike exercises and habits the
     // bridge holds for updates too — without it, one assign that also trims its

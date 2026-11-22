@@ -105,15 +105,15 @@ export const SET_TYPE_LABELS_ES: Record<SetType, string> = {
 /** Tailwind text-color classes for the letter markers (W/F/D). */
 export const SET_TYPE_TEXT_CLASS: Record<SetType, string> = {
   normal: "",
-  warmup: "text-orange-500",
-  failure: "text-red-500",
-  dropset: "text-purple-500",
+  warmup: "text-category-6",
+  failure: "text-category-5",
+  dropset: "text-category-4",
 };
 
 /** Tailwind badge classes (bg + text) for log-detail type badges. */
 export const SET_TYPE_BADGE_CLASS: Record<SetType, string> = {
   normal: "",
-  warmup: "bg-orange-100 text-orange-700",
-  failure: "bg-red-100 text-red-700",
-  dropset: "bg-purple-100 text-purple-700",
+  warmup: "bg-category-6/15 text-category-6",
+  failure: "bg-category-5/15 text-category-5",
+  dropset: "bg-category-4/15 text-category-4",
 };

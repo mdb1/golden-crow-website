@@ -29,7 +29,7 @@ export function RestTimerOverlay({ timer }: { timer: RestTimerApi }) {
         onClick={timer.expand}
         className="fixed bottom-24 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-card px-4 py-2 shadow-lg"
       >
-        <Timer className="h-4 w-4 text-amber-500" />
+        <Timer className="h-4 w-4 text-warning" />
         <span className="font-mono text-sm tabular-nums">
           {mmss(timer.remainingSeconds)}
         </span>
@@ -74,7 +74,7 @@ export function RestTimerOverlay({ timer }: { timer: RestTimerApi }) {
               strokeLinecap="round"
               strokeDasharray={C}
               strokeDashoffset={offset}
-              className="text-amber-500 transition-[stroke-dashoffset] duration-250"
+              className="text-warning transition-[stroke-dashoffset] duration-250"
             />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">

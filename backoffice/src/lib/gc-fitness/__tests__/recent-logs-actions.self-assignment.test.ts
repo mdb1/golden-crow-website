@@ -170,12 +170,12 @@ describe("listRecentLogsForTrainer — the athlete scheduled it themselves (#785
 
   it("says a free workout is one, instead of pretending to be a plan", async () => {
     // #541 — started empty and built while training, so the snapshot has no
-    // exercises and the name is the placeholder. "Entreno libre" alone is the
+    // exercises and the name is the placeholder. "Entrenamiento libre" alone is the
     // thing the ticket complains about; the row says what it means.
     mockState.db = makeDb([
       assignmentDoc("a1", {
         templateSnapshot: {
-          name: { en: "Free workout", es: "Entreno libre" },
+          name: { en: "Free workout", es: "Entrenamiento libre" },
           exercises: [],
         },
       }),
@@ -184,7 +184,7 @@ describe("listRecentLogsForTrainer — the athlete scheduled it themselves (#785
     const rows = await assignmentRows();
     // The DETAIL is the fixed phrase the row adds — the title still carries
     // whatever placeholder name the app wrote.
-    expect(rows[0].detail).toContain("Entreno libre (lo arma mientras entrena)");
+    expect(rows[0].detail).toContain("Entrenamiento libre (lo arma mientras entrena)");
     expect(rows[0].detail).not.toContain("ejercicios");
   });
 

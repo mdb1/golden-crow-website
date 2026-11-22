@@ -2,7 +2,7 @@
 //
 // TWIN of gc-fitness `functions/src/coach/assignedBy.ts`, iOS
 // `GCFitnessCore/AssignedBy.swift` and Android `core/algorithms/AssignedBy.kt`;
-// the agreement is locked by the shared vector (`__tests__/assigned-by.vector.json`,
+// the agreement is locked by the shared vector (`__tests__/twin-vectors/assigned-by.json` — pinned copy of gc-fitness `twin-vectors/`, #1644 —
 // a byte copy of `functions/test/coach/fixtures/assigned-by.json`).
 //
 // A client who swaps coach keeps every doc the former one authored, with

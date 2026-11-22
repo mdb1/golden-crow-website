@@ -11,19 +11,22 @@
 //   CLAUDE.md mandates "no new frameworks" — recharts, nivo, victory, etc.
 //   are all heavyweight + bundle-bloat for a 30-bar bar chart. Inline SVG
 //   is ~40 lines of declarative rendering, server-renderable, and uses the
-//   shadcn theme variables (`fill-green-500`, `fill-muted-foreground/30`)
+//   shadcn theme variables (`fill-success`, `fill-muted-foreground/30`)
 //   so it matches the rest of the trainer surface palette.
 //
 // ACCESSIBILITY:
 //   - `role="img"` + `aria-label` describes the chart for screen readers.
 //   - Per-bar `<title>` element provides hover-tooltips natively (HTML5 SVG
 //     standard, no JS, no a11y plugin needed).
-//   - High-contrast theme tokens (fill-green-500 vs fill-muted-foreground/30)
+//   - High-contrast theme tokens (fill-success vs fill-muted-foreground/30)
 //     keep the chart readable in both light and dark modes (Tailwind v4
 //     theme variables auto-swap).
 
 interface ComplianceSparklineProps {
   counts: { date: string; completed: boolean }[];
+  /** #535 — localized by the caller (this file stays hook-free / server-safe). */
+  emptyLabel: string;
+  ariaLabel: string;
 }
 
 const BAR_WIDTH = 8;
@@ -33,11 +36,11 @@ const EMPTY_BAR_HEIGHT = 6;
 const SVG_PADDING = 4;
 const SVG_HEIGHT = FULL_BAR_HEIGHT + SVG_PADDING;
 
-export function ComplianceSparkline({ counts }: ComplianceSparklineProps) {
+export function ComplianceSparkline({ counts, emptyLabel, ariaLabel }: ComplianceSparklineProps) {
   if (counts.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        No compliance data yet.
+        {emptyLabel}
       </p>
     );
   }
@@ -49,7 +52,7 @@ export function ComplianceSparkline({ counts }: ComplianceSparklineProps) {
       width={totalWidth}
       height={SVG_HEIGHT}
       role="img"
-      aria-label={`Last ${counts.length} days compliance`}
+      aria-label={ariaLabel}
       className="text-foreground"
     >
       {counts.map((c, i) => {
@@ -65,7 +68,7 @@ export function ComplianceSparkline({ counts }: ComplianceSparklineProps) {
             height={h}
             rx={1}
             className={
-              c.completed ? "fill-green-500" : "fill-muted-foreground/30"
+              c.completed ? "fill-success" : "fill-muted-foreground/30"
             }
           >
             <title>

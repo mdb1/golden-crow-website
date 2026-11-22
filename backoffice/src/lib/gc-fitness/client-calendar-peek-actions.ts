@@ -1,6 +1,7 @@
 "use server";
 
 import { gcFitnessFirestore } from "@/lib/firebase/gc-fitness-admin";
+import { readClientUserDoc } from "@/lib/gc-fitness/client-doc-read";
 
 import { getCurrentTrainer } from "./auth-helpers";
 import { civilDateToday } from "./civil-date";
@@ -28,10 +29,8 @@ export async function getClientCalendarPeek(input: {
   const trainer = await getCurrentTrainer();
   const db = gcFitnessFirestore();
 
-  const clientSnap = await db
-    .collection(FirestoreCollections.users)
-    .doc(input.clientId)
-    .get();
+  // #535 — same request-scoped read as the profile page's gate.
+  const clientSnap = await readClientUserDoc(input.clientId);
   if (!clientSnap.exists) {
     throw new Error("Not found");
   }

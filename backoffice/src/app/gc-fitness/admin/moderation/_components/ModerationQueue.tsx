@@ -6,10 +6,10 @@
 // whose hidden fields are the whole payload the Server Action reads: target
 // type + id + owner, and the ids of the open reports on screen (what the action
 // resolves). `window.confirm` gates Ocultar and Suspender — Descartar touches
-// nothing, so it does not ask.
+// nothing, so it does not ask. #513: every form goes through AdminActionForm,
+// because the actions RETURN their failure (ActionResult) instead of throwing.
 
-import { type FormEvent } from "react";
-
+import { AdminActionForm } from "@/app/gc-fitness/admin/_components/admin-action-form";
 import { AdminSubmitButton } from "@/app/gc-fitness/admin/_components/admin-submit-button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -19,35 +19,24 @@ import {
   unhideReportedContent,
   unsuspendSocialAccount,
 } from "@/lib/gc-fitness/moderation-actions";
+import { useTranslations } from "next-intl";
+
 import {
-  REASON_LABEL,
-  TARGET_TYPE_LABEL,
   actionsFor,
   reportAgeHours,
   slaState,
   type ModerationGroup,
+  type ReportReason,
   type ReportStatus,
+  type ReportTargetType,
 } from "@/lib/gc-fitness/moderation-model";
 
 const SLA_CLASS: Record<ReturnType<typeof slaState>, string> = {
   fresh: "text-muted-foreground",
-  "due-soon": "text-amber-600 font-medium",
+  "due-soon": "text-status-due font-medium",
   breached: "text-destructive font-semibold",
 };
 
-function ageLabel(createdAtISO: string | null, now: Date): string {
-  const hours = reportAgeHours(createdAtISO, now);
-  if (hours === null) return "recién";
-  if (hours < 1) return `hace ${Math.round(hours * 60)} min`;
-  if (hours < 48) return `hace ${Math.round(hours)} h`;
-  return `hace ${Math.round(hours / 24)} d`;
-}
-
-function confirmGate(message: string) {
-  return (event: FormEvent<HTMLFormElement>) => {
-    if (!window.confirm(message)) event.preventDefault();
-  };
-}
 
 export function ModerationQueue({
   groups,
@@ -59,12 +48,50 @@ export function ModerationQueue({
   nowISO: string;
 }) {
   const now = new Date(nowISO);
+  const tm = useTranslations("admin.moderation");
+  const ageLabel = (createdAtISO: string | null): string => {
+    const hours = reportAgeHours(createdAtISO, now);
+    if (hours === null) return tm("age.justNow");
+    if (hours < 1) return tm("age.minutes", { count: Math.round(hours * 60) });
+    if (hours < 48) return tm("age.hours", { count: Math.round(hours) });
+    return tm("age.days", { count: Math.round(hours / 24) });
+  };
+  const reasonLabel = (reason: ReportReason): string => {
+    switch (reason) {
+      case "spam":
+        return tm("reason.spam");
+      case "harassment":
+        return tm("reason.harassment");
+      case "sexual":
+        return tm("reason.sexual");
+      case "violence":
+        return tm("reason.violence");
+      case "impersonation":
+        return tm("reason.impersonation");
+      case "other":
+        return tm("reason.other");
+    }
+  };
+  const targetTypeLabel = (type: ReportTargetType): string => {
+    switch (type) {
+      case "profile":
+        return tm("targetType.profile");
+      case "routine":
+        return tm("targetType.routine");
+      case "comment":
+        return tm("targetType.comment");
+      case "message":
+        return tm("targetType.message");
+      case "challenge":
+        return tm("targetType.challenge");
+    }
+  };
 
   if (groups.length === 0) {
     return (
       <Card>
         <CardContent className="py-10 text-center text-sm text-muted-foreground" data-testid="moderation-empty">
-          {status === "open" ? "No hay reportes abiertos. 🎉" : "Nada en esta bandeja."}
+          {status === "open" ? tm("emptyOpen") : tm("emptyOther")}
         </CardContent>
       </Card>
     );
@@ -83,19 +110,19 @@ export function ModerationQueue({
                 <div className="flex flex-col gap-1">
                   <div className="flex flex-wrap items-center gap-2 text-xs">
                     <span className="rounded-full bg-muted px-2 py-0.5 font-medium">
-                      {TARGET_TYPE_LABEL[group.targetType]}
+                      {targetTypeLabel(group.targetType)}
                     </span>
                     <span className="text-muted-foreground">
-                      {group.reports.length === 1 ? "1 reporte" : `${group.reports.length} reportes`}
+                      {tm("reportCount", { count: group.reports.length })}
                     </span>
                     {preview?.hidden ? (
-                      <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-700">oculto</span>
+                      <span className="rounded-full bg-warning/15 px-2 py-0.5 text-warning">{tm("badges.hidden")}</span>
                     ) : null}
                     {preview?.ownerSuspended ? (
-                      <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-destructive">autor suspendido</span>
+                      <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-destructive">{tm("badges.suspended")}</span>
                     ) : null}
                     {preview?.missing ? (
-                      <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">ya no existe</span>
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">{tm("badges.missing")}</span>
                     ) : null}
                   </div>
                   <div className="text-base font-semibold text-foreground [overflow-wrap:anywhere]">
@@ -107,18 +134,18 @@ export function ModerationQueue({
                     </blockquote>
                   ) : null}
                   <div className="text-xs text-muted-foreground [overflow-wrap:anywhere]">
-                    id: <code>{group.targetId}</code>
+                    {tm("idLabel")} <code>{group.targetId}</code>
                     {group.targetOwnerUid ? (
                       <>
-                        {" · "}dueño: <code>{group.targetOwnerUid}</code>
+                        {" · "}{tm("ownerLabel")} <code>{group.targetOwnerUid}</code>
                       </>
                     ) : null}
                   </div>
                 </div>
                 {status === "open" ? (
                   <div className={`text-xs ${SLA_CLASS[sla]}`} data-testid="moderation-sla">
-                    {sla === "breached" ? "SLA vencido · " : sla === "due-soon" ? "vence pronto · " : ""}
-                    {ageLabel(group.oldestOpenISO, now)}
+                    {sla === "breached" ? `${tm("sla.breached")} · ` : sla === "due-soon" ? `${tm("sla.dueSoon")} · ` : ""}
+                    {ageLabel(group.oldestOpenISO)}
                   </div>
                 ) : null}
               </div>
@@ -126,9 +153,9 @@ export function ModerationQueue({
               <ul className="flex flex-col gap-1 text-sm">
                 {group.reports.map((report) => (
                   <li key={report.id} className="flex flex-wrap items-baseline gap-2">
-                    <span className="font-medium">{REASON_LABEL[report.reason]}</span>
+                    <span className="font-medium">{reasonLabel(report.reason)}</span>
                     <span className="text-xs text-muted-foreground">
-                      por <code>{report.reporterUid}</code> · {ageLabel(report.createdAtISO, now)}
+                      {tm("byLabel")} <code>{report.reporterUid}</code> · {ageLabel(report.createdAtISO)}
                       {report.status !== "open" && report.resolution ? ` · ${report.resolution}` : ""}
                     </span>
                     {report.note ? (
@@ -153,72 +180,72 @@ export function ModerationQueue({
                       );
                       if (action === "hide") {
                         return (
-                          <form
+                          <AdminActionForm
                             key={action}
                             action={hideReportedContent}
-                            onSubmit={confirmGate("¿Ocultar este contenido? Deja de mostrarse en las apps. Se puede revertir.")}
+                            confirmMessage={tm("confirm.hide")}
                           >
                             {hidden}
                             <AdminSubmitButton
-                              idleLabel="Ocultar contenido"
-                              pendingLabel="Ocultando…"
+                              idleLabel={tm("actions.hide")}
+                              pendingLabel={tm("actions.hiding")}
                               disabled={preview?.hidden === true}
-                              className="rounded-full border border-amber-600/50 px-3 py-1.5 text-sm text-amber-700"
+                              className="rounded-full border border-warning/50 px-3 py-1.5 text-sm text-warning"
                             />
-                          </form>
+                          </AdminActionForm>
                         );
                       }
                       if (action === "suspend") {
                         return (
-                          <form
+                          <AdminActionForm
                             key={action}
                             action={suspendReportedAuthor}
-                            onSubmit={confirmGate("¿Suspender la cuenta? Sale de búsqueda, feed y sugerencias, y sus rutinas públicas se esconden. Se puede revertir.")}
+                            confirmMessage={tm("confirm.suspend")}
                           >
                             {hidden}
                             <AdminSubmitButton
-                              idleLabel="Suspender autor"
-                              pendingLabel="Suspendiendo…"
+                              idleLabel={tm("actions.suspend")}
+                              pendingLabel={tm("actions.suspending")}
                               disabled={preview?.ownerSuspended === true || !group.targetOwnerUid}
                               className="rounded-full border border-destructive/60 px-3 py-1.5 text-sm text-destructive"
                             />
-                          </form>
+                          </AdminActionForm>
                         );
                       }
                       return (
-                        <form key={action} action={dismissReports}>
+                        <AdminActionForm key={action} action={dismissReports}>
                           {hidden}
                           <AdminSubmitButton
-                            idleLabel="Descartar"
-                            pendingLabel="Descartando…"
+                            idleLabel={tm("actions.dismiss")}
+                            pendingLabel={tm("actions.dismissing")}
                             className="rounded-full border border-input px-3 py-1.5 text-sm text-foreground"
                           />
-                        </form>
+                        </AdminActionForm>
                       );
                     })
                   : null}
 
                 {preview?.hidden && group.targetType !== "profile" ? (
-                  <form action={unhideReportedContent}>
+                  <AdminActionForm action={unhideReportedContent}>
                     <input type="hidden" name="targetType" value={group.targetType} />
                     <input type="hidden" name="targetId" value={group.targetId} />
                     <input type="hidden" name="targetOwnerUid" value={group.targetOwnerUid} />
                     <AdminSubmitButton
-                      idleLabel="Volver a mostrar"
-                      pendingLabel="Mostrando…"
+                      idleLabel={tm("actions.unhide")}
+                      pendingLabel={tm("actions.unhiding")}
                       className="rounded-full border border-input px-3 py-1.5 text-sm text-foreground"
                     />
-                  </form>
+                  </AdminActionForm>
                 ) : null}
                 {preview?.ownerSuspended && group.targetOwnerUid ? (
-                  <form action={unsuspendSocialAccount}>
+                  <AdminActionForm action={unsuspendSocialAccount}>
                     <input type="hidden" name="uid" value={group.targetOwnerUid} />
                     <AdminSubmitButton
-                      idleLabel="Levantar suspensión"
-                      pendingLabel="Levantando…"
+                      idleLabel={tm("actions.unsuspend")}
+                      pendingLabel={tm("actions.unsuspending")}
                       className="rounded-full border border-input px-3 py-1.5 text-sm text-foreground"
                     />
-                  </form>
+                  </AdminActionForm>
                 ) : null}
               </div>
             </CardContent>
