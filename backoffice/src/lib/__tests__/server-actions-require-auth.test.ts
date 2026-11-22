@@ -33,7 +33,10 @@ const AUTH_HELPERS = [
 ];
 
 /** Non-"use server" functions that run an auth helper before doing anything. */
-const GUARDED_LIB_FUNCTIONS: Record<string, string> = {};
+const GUARDED_LIB_FUNCTIONS: Record<string, string> = {
+  getPublisherSupportBookingIdentity:
+    "publisher-support-bookings-server.ts — getServerSession() on the publisher-portal surface + getAdminContextOrNull() with a matching email; returns null otherwise",
+};
 
 /** "file.ts#export" → why it is reachable without a session. */
 const INTENTIONALLY_PUBLIC: Record<string, string> = {};
