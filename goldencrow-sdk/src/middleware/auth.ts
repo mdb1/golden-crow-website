@@ -46,6 +46,7 @@ const PUBLISHER_PORTAL_SDK_PATHS = new Set([
   "/discover/organizations",
   "/discover/individuals",
   "/discover/feed-items",
+  "/admin/publisher-support-bookings",
 ]);
 
 export function isPatientPortalSdkPath(path: string) {

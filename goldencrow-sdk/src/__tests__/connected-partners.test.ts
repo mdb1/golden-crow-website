@@ -8,6 +8,7 @@ import {
   PARTNER_BOARD_STAGES,
   PARTNER_SECTION_KEYS,
   type PartnerInput,
+  type PartnerBoardStage,
   type PartnerSection,
 } from "../contracts/connected-partners.js";
 import type { AdminContext } from "../types/sdk.types.js";
@@ -99,6 +100,7 @@ import {
   getPartner,
   listPartners,
   listPartnersBySection,
+  listPartnersByBoardStage,
   listPartnerLinkOptions,
   updatePartner,
   updatePartnerBoardStage,
@@ -293,6 +295,7 @@ it("rejects unauthorized repository access before touching Firestore", async () 
   for (const operation of [
     () => listPartners(regular),
     () => listPartnersBySection(regular, "noOrganization"),
+    () => listPartnersByBoardStage(regular, "noOrganization"),
     () => getPartner(regular, "one"),
     () => createPartner(regular, input),
     () => updatePartner(regular, "one", input),
@@ -405,6 +408,7 @@ it.each([401, 403])("gates every endpoint for status %s", async (status) => {
     for (const request of [
       { method: "GET" as const, url: "/admin/connected-partners" },
       { method: "GET" as const, url: "/admin/connected-partners?section=noOrganization" },
+      { method: "GET" as const, url: "/admin/connected-partners/board?stage=noOrganization" },
       { method: "GET" as const, url: "/admin/connected-partners/one" },
       { method: "GET" as const, url: "/admin/connected-partners/link-options?kind=organization" },
       {
@@ -1000,4 +1004,164 @@ it.each([
   expect(scoped.collected).toEqual(expectedIndividual);
   expect(scoped.lengths).toEqual([20, 12]);
   expect(mockReads.every((read) => read.collection === "connected-partners" && read.limit <= 40)).toBe(true);
+});
+
+
+it("continues sparse Board stages beyond the global page and source budget until every small-stage match is found", async () => {
+  seedOrganization();
+  const app = seedApp();
+  const expected = ["p092", "p111", "p129"];
+  for (let index = 0; index < 130; index++) {
+    const id = `p${String(index).padStart(3, "0")}`;
+    mockDocs.set(id, {
+      ...input,
+      linkedOrganizationId: "org",
+      linkedAppId: expected.includes(id) ? app.id : null,
+    });
+  }
+  const first = await listPartnersByBoardStage(context, "freeApp");
+  expect(first).toMatchObject({ items: [], scanIncomplete: true });
+  expect(first.nextCursor).toMatch(/^pb1\./);
+  expect(mockReads.reduce((total, read) => total + read.limit, 0)).toBe(60);
+  const readsBeforeSecond = mockReads.length;
+  const second = await listPartnersByBoardStage(context, "freeApp", first.nextCursor!);
+  expect(second.items.map((partner) => partner.id)).toEqual(expected.slice(0, 2));
+  expect(second.scanIncomplete).toBe(true);
+  expect(second.nextCursor).not.toBe(first.nextCursor);
+  expect(mockReads.slice(readsBeforeSecond).reduce((total, read) => total + read.limit, 0)).toBe(60);
+  const third = await listPartnersByBoardStage(context, "freeApp", second.nextCursor!, 18);
+  expect(third.items.map((partner) => partner.id)).toEqual(expected.slice(2));
+  expect(third).toMatchObject({ nextCursor: null, scanIncomplete: false });
+  expect([...second.items, ...third.items].map((partner) => partner.id)).toEqual(expected);
+  expect(mockReads.every((read) => read.collection === "connected-partners" && read.limit <= 20)).toBe(true);
+});
+
+it("gives each Board column its own twenty-match page and complete shorter final page", async () => {
+  for (const [stageIndex, boardStage] of PARTNER_BOARD_STAGES.entries()) {
+    for (let index = 0; index < 25; index++) {
+      const id = `p${String(stageIndex * 25 + index).padStart(3, "0")}`;
+      mockDocs.set(id, { ...input, boardStage });
+    }
+  }
+  async function window(stage: PartnerBoardStage, initialCursor?: string) {
+    let cursor = initialCursor;
+    const items: string[] = [];
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const page = await listPartnersByBoardStage(context, stage, cursor, 20 - items.length);
+      expect(page.items.length).toBeLessThanOrEqual(20 - items.length);
+      items.push(...page.items.map((partner) => partner.id));
+      if (!page.nextCursor || items.length === 20) return { items, nextCursor: page.nextCursor };
+      expect(page.nextCursor).not.toBe(cursor);
+      cursor = page.nextCursor;
+    }
+    throw new Error("Board page did not finish");
+  }
+  for (const [stageIndex, stage] of PARTNER_BOARD_STAGES.entries()) {
+    const expected = Array.from({ length: 25 }, (_, index) => `p${String(stageIndex * 25 + index).padStart(3, "0")}`);
+    const first = await window(stage);
+    expect(first.items).toEqual(expected.slice(0, 20));
+    expect(first.nextCursor).toMatch(/^pb1\./);
+    const last = await window(stage, first.nextCursor!);
+    expect(last.items).toEqual(expected.slice(20));
+    expect(last.nextCursor).toBeNull();
+  }
+});
+
+it("resumes Board cursors after the last consumed record without skipping a fetched chunk tail or requiring that record to exist", async () => {
+  for (let index = 0; index < 45; index++) {
+    mockDocs.set(`p${String(index).padStart(3, "0")}`, input);
+  }
+  const prefix = await listPartnersByBoardStage(context, "noOrganization", undefined, 3);
+  expect(prefix.items.map((partner) => partner.id)).toEqual(["p000", "p001", "p002"]);
+  mockDocs.delete("p002");
+  const rest = await listPartnersByBoardStage(context, "noOrganization", prefix.nextCursor!, 17);
+  expect(rest.items.map((partner) => partner.id)).toEqual(Array.from({ length: 17 }, (_, index) => `p${String(index + 3).padStart(3, "0")}`));
+  const second = await listPartnersByBoardStage(context, "noOrganization", rest.nextCursor!);
+  expect(second.items.map((partner) => partner.id)).toEqual(Array.from({ length: 20 }, (_, index) => `p${String(index + 20).padStart(3, "0")}`));
+  const last = await listPartnersByBoardStage(context, "noOrganization", second.nextCursor!);
+  expect(last.items.map((partner) => partner.id)).toEqual(["p040", "p041", "p042", "p043", "p044"]);
+  expect(last.nextCursor).toBeNull();
+});
+
+it("keeps a Board continuation at an exact source budget boundary until exhaustion is proven", async () => {
+  seedOrganization();
+  for (let index = 0; index < 60; index++) {
+    mockDocs.set(`p${String(index).padStart(3, "0")}`, { ...input, linkedOrganizationId: "org" });
+  }
+  const first = await listPartnersByBoardStage(context, "noOrganization");
+  expect(first).toMatchObject({ items: [], scanIncomplete: true });
+  expect(first.nextCursor).toMatch(/^pb1\./);
+  const end = await listPartnersByBoardStage(context, "noOrganization", first.nextCursor!);
+  expect(end).toEqual({ items: [], nextCursor: null, scanIncomplete: false });
+});
+
+it("uses manual Board stage overrides without changing relationship-derived section membership", async () => {
+  seedOrganization();
+  const app = seedApp({ status: "active" });
+  mockDocs.set("contract_to_none", { ...input, linkedOrganizationId: "org", linkedAppId: app.id, boardStage: "noOrganization" });
+  mockDocs.set("none_to_contract", { ...input, boardStage: "contract" });
+  mockDocs.set("invalid_override", { ...input, linkedOrganizationId: "missing", boardStage: "invalid-stage" });
+  mockDocs.set("null_override", { ...input, linkedOrganizationId: "org", boardStage: null });
+  expect((await listPartnersByBoardStage(context, "noOrganization")).items.map((partner) => partner.id)).toEqual(["contract_to_none"]);
+  expect((await listPartnersByBoardStage(context, "contract")).items.map((partner) => partner.id)).toEqual(["none_to_contract"]);
+  expect((await listPartnersByBoardStage(context, "organizationWithoutApp")).items.map((partner) => partner.id)).toEqual(["null_override"]);
+  expect((await listPartnersByBoardStage(context, "other")).items.map((partner) => partner.id)).toEqual(["invalid_override"]);
+  expect((await listPartnersBySection(context, "contract")).items.map((partner) => partner.id)).toEqual(["contract_to_none"]);
+  expect((await listPartnersBySection(context, "noOrganization")).items.map((partner) => partner.id)).toEqual(["none_to_contract"]);
+});
+
+it.each([
+  ["organizationWithoutApp", null],
+  ["freeApp", "active_for_testing"],
+  ["contract", "active_waiting_for_upload"],
+] as const)("combines individual and organization partners in the Board %s column", async (stage, appStatus) => {
+  seedOrganization();
+  seedIndividual();
+  if (appStatus) {
+    mockCollectionDocs("app_configs").set("org_app", { publisherKind: "organization", publisherId: "org", publisherName: "Organization", status: appStatus });
+    mockCollectionDocs("app_configs").set("person_app", { publisherKind: "individual", publisherId: "person", publisherName: "Individual", status: appStatus });
+  }
+  for (let index = 0; index < 32; index++) {
+    const individual = index % 2 === 1;
+    mockDocs.set(`p${String(index).padStart(3, "0")}`, {
+      ...input,
+      linkedOrganizationId: individual ? null : "org",
+      linkedIndividualPublisherId: individual ? "person" : null,
+      linkedAppId: appStatus ? individual ? "person_app" : "org_app" : null,
+    });
+  }
+  const first = await listPartnersByBoardStage(context, stage);
+  expect(first.items.map((partner) => partner.id)).toEqual(Array.from({ length: 20 }, (_, index) => `p${String(index).padStart(3, "0")}`));
+  const second = await listPartnersByBoardStage(context, stage, first.nextCursor!);
+  expect(second.items.map((partner) => partner.id)).toEqual(Array.from({ length: 12 }, (_, index) => `p${String(index + 20).padStart(3, "0")}`));
+  expect(second.nextCursor).toBeNull();
+});
+
+it("scopes Board cursors independently from section cursors and validates the protected column API", async () => {
+  for (let index = 0; index < 42; index++) mockDocs.set(`p${String(index).padStart(3, "0")}`, input);
+  const board = await listPartnersByBoardStage(context, "noOrganization");
+  const section = await listPartnersBySection(context, "noOrganization");
+  const readCount = mockReads.length;
+  await expect(listPartnersByBoardStage(context, "contract", board.nextCursor!)).rejects.toMatchObject({ statusCode: 400 });
+  await expect(listPartnersByBoardStage(context, "noOrganization", section.nextCursor!)).rejects.toMatchObject({ statusCode: 400 });
+  await expect(listPartnersBySection(context, "noOrganization", board.nextCursor!)).rejects.toMatchObject({ statusCode: 400 });
+  expect(mockReads).toHaveLength(readCount);
+  const app = await server();
+  try {
+    const response = await app.inject("/admin/connected-partners/board?stage=noOrganization&limit=2");
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["cache-control"]).toBe("private, no-store");
+    expect(response.json().items.map((partner: { id: string }) => partner.id)).toEqual(["p000", "p001"]);
+    const next = await app.inject(`/admin/connected-partners/board?stage=noOrganization&limit=3&cursor=${response.json().nextCursor}`);
+    expect(next.json().items.map((partner: { id: string }) => partner.id)).toEqual(["p002", "p003", "p004"]);
+    for (const query of [
+      "", "stage=unknown", "stage=individualContract", "stage=noOrganization&limit=0", "stage=noOrganization&limit=21",
+      "stage=noOrganization&limit=1.5", "stage=noOrganization&extra=ignored", "stage=noOrganization&cursor=p019",
+      `stage=noOrganization&cursor=${section.nextCursor}`, `stage=contract&cursor=${board.nextCursor}`,
+      "stage=noOrganization&cursor=pb2.abc", "stage=noOrganization&cursor=pb1.bm90LWpzb24",
+    ]) expect((await app.inject(`/admin/connected-partners/board?${query}`)).statusCode).toBe(400);
+    const crossUse = await app.inject(`/admin/connected-partners?section=noOrganization&cursor=${board.nextCursor}`);
+    expect(crossUse.statusCode).toBe(400);
+    expect((await app.inject("/admin/connected-partners?cursor=p019")).json().items[0]?.id).toBe("p020");
+  } finally { await app.close(); }
 });

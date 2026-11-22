@@ -23,6 +23,8 @@ const PUBLIC_PATHS = new Set([
   "/health",
   "/publisher-app/icon",
   "/client-bookings",
+  "/client-bookings/availability",
+  "/support-bookings",
   "/discover/publisher-favicon",
   "/discover/publisher-requests",
   "/auth/login",

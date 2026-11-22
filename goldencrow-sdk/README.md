@@ -31,6 +31,14 @@ Create `goldencrow-sdk/.env` with the following variables:
 4. Copy values from the JSON into the env vars above
 5. For `FIREBASE_ADMIN_PRIVATE_KEY`: copy the `private_key` field value including `-----BEGIN...-----END-----` with literal `\n` characters preserved
 
+### Booking calendar authorization
+
+The God Mode booking calendar creates events in the calendar of the account that authorizes the SDK. Enable the [Google Calendar API](https://console.cloud.google.com/apis/library/calendar-json.googleapis.com) in the OAuth client's Google Cloud project and authorize offline access with `https://www.googleapis.com/auth/calendar.events` while signed in to the meeting organizer's Google account. Use the [Google OAuth setup](https://developers.google.com/identity/protocols/oauth2/web-server#offline) to obtain a refresh token for that client.
+
+Set `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET`, and `GOOGLE_CALENDAR_REFRESH_TOKEN` as secrets in the SDK deployment environment. `GOOGLE_CALENDAR_ID` defaults to `primary`. To use a different calendar, set its Calendar ID and grant the authorizing account event write access. Use a calendar that supports Google Meet.
+
+The conversion creates the event at the booking's saved time and asks Google to send the attendee invitation and generate a Meet link. Google can finish creating the Meet link after returning the event, so open the Calendar event to see the latest conference details.
+
 ## Running Locally
 
 ```bash

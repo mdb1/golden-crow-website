@@ -1,0 +1,38 @@
+---
+import ClientBookingWidget from './ClientBookingWidget.astro';
+import PocketGenesPublicLayout from '../layouts/PocketGenesPublicLayout.astro';
+
+const isEnglish = Astro.currentLocale === 'en';
+const copy = isEnglish
+  ? {
+      title: 'Book with us',
+      description: 'Choose a time for a 30-minute meeting with the Pocket Genes team.',
+      eventTitle: 'Pocket Genes support',
+    }
+  : {
+      title: 'Reservá una reunión',
+      description: 'Elegí un horario para una reunión de 30 minutos con el equipo de Pocket Genes.',
+      eventTitle: 'Soporte de Pocket Genes',
+    };
+---
+
+<PocketGenesPublicLayout title={`${copy.title} | Pocket Genes`} description={copy.description} canonicalPath="/pocket-genes/book-with-us">
+  <main class="pg-support-booking" id="main">
+    <div class="pg-container">
+      <ClientBookingWidget
+        context="pocket-genes-support"
+        brandName="Pocket Genes"
+        eventTitle={copy.eventTitle}
+        logoSrc="/pocket-genes/icon_simple.png"
+      />
+    </div>
+  </main>
+</PocketGenesPublicLayout>
+
+<style>
+  .pg-support-booking {
+    min-height: calc(100svh - 142px);
+    padding: clamp(38px, 6vw, 80px) 0 clamp(52px, 8vw, 110px);
+    background: radial-gradient(ellipse at 0 0, #fcebf3 0, transparent 52%), var(--pg-bg);
+  }
+</style>

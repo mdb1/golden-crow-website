@@ -1,5 +1,6 @@
 import type {
   Partner,
+  PartnerBoardStage,
   PartnerSection,
 } from "../contracts/connected-partners.js";
 
@@ -46,4 +47,15 @@ export function partnerMatchesSection(
   return (
     category === selected || category === SHARED_SECTION_COUNTERPARTS[selected]
   );
+}
+
+// Manual workflow progress belongs only to the Board. Relationship-derived
+// sections remain authoritative for the other views and email content.
+export function partnerBoardStage(partner: Partner): PartnerBoardStage {
+  if (partner.boardStage) return partner.boardStage;
+  const section = partnerSection(partner);
+  if (section === "individualWithoutApp") return "organizationWithoutApp";
+  if (section === "individualFreeApp") return "freeApp";
+  if (section === "individualContract") return "contract";
+  return section;
 }

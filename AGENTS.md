@@ -9,6 +9,13 @@
 - Keep the bumped version visible on the authentication screen.
 - Before pushing, verify the committed version with `git show HEAD:backoffice/src/lib/app-version.ts`.
 
+## Commit and Push via SourceTree
+
+- When the Codex shell cannot write Git metadata, resolve GitHub, or authenticate to the remote, continue in the existing SourceTree checkout on this Mac. Use SourceTree to commit the intended changes and push to `origin/main`, or to the branch the user requested.
+- Treat shell and connector failures as specific to that execution path. If the user can push from SourceTree, use that same authorized checkout before reporting a blocker or handing the task back. Continue from the current step once the user approves computer access.
+- Check the committed backoffice version against its parent before pushing. The pre-commit hook can increment a bump that is already staged. If it does, correct the version in the unpushed commit so it increases by exactly one.
+- After pushing, verify SourceTree shows the remote branch at the new commit and confirm the local `HEAD` and remote-tracking branch resolve to the same commit. Report the commit hash and destination.
+
 ## Header Uncluttering
 
 - Header uncluttering is the required cleanup for operational dashboard screens whose top chrome repeats the same area/title/context in the navbar, a page hero, helper banners, and the first workbench/list card.

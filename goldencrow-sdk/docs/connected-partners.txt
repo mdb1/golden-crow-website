@@ -107,6 +107,24 @@ SDK API:
     Reusing a cursor for another section, malformed cursors, unsupported sections,
     or limits outside 1–20 return 400. The unfiltered API retains its raw-ID cursor
     and rejects a limit supplied without a section.
+  GET /admin/connected-partners/board?stage=<stage>[&limit=1..20][&cursor=<Board cursor>]
+    Returns { items, nextCursor, scanIncomplete } for one independent Board column,
+    defaulting to 20 matching partners. Stages are noOrganization,
+    organizationWithoutApp, freeApp, contract, and other. A valid non-null
+    boardStage override takes precedence; otherwise classification uses current
+    publisher/app links and combines the corresponding individual classifications.
+    The regular section endpoint and email category logic ignore Board overrides.
+    Each request scans at most 60 source partner documents in chunks of at most 20,
+    with deduplicated direct reads of referenced live publishers/apps. A sparse
+    column can therefore return fewer than limit (including zero) with a continuation;
+    clients continue until they accumulate 20 matches or nextCursor is null. A column
+    with fewer than 20 total matches must reach source exhaustion rather than stopping
+    at the first global page. Each column has its own independent cursor and next page.
+    Opaque pb1.<base64url> cursors bind the Board stage, resume after the last examined
+    record rather than the end of its fetched chunk, and survive deletion of that
+    record. Board cursors cannot be used with normal section or unfiltered endpoints,
+    and section cursors cannot be used with Board. Wrong stages, cursor scopes,
+    malformed cursors, unknown query fields, and page limits outside 1–20 return 400.
   GET /admin/connected-partners/:partnerId -> { partner }
   POST /admin/connected-partners/import/preview with { csv: <file text> }
     Returns { rows, summary }. Each row contains its physical starting rowNumber,
@@ -264,11 +282,25 @@ Partner email preview and delivery:
     link parameters grant publisher roles or impersonate another identity.
     other (inactive, unavailable or mismatched links) returns 409 for deliberate
     connection review instead of sending an invitation for the wrong stage.
+    Add purpose=meetingInvitation to preview a support meeting email for a linked
+    publisher account. The preview returns meetingSlot with date (YYYY-MM-DD)
+    and startTime (HH:mm) in America/Argentina/Buenos_Aires. The first preview
+    suggests the earliest available weekday morning in the current or next two
+    calendar months. Supply both date and startTime to keep the reviewed slot
+    when changing language or template. The three meeting templates cover
+    support (ID 3), a portal walkthrough (ID 1) and follow-up (ID 2).
+    The signed-in destination is /publisher-portal/support-bookings/new with
+    the proposed date and startTime. The recipient confirms the booking there.
   POST /admin/connected-partners/:partnerId/email with strict body
     { language: es|en, templateVariant: 1|2|3, previewHash: <64 lowercase hex>, requestId: <UUID>, banner?: <reviewed JPEG> }
     Omitted templateVariant defaults to 1 for existing clients. JSON bodies use
     numeric variants; the GET query uses the strings 1, 2 or 3. Other values and
     template_variant aliases are rejected.
+    Meeting invitations require purpose: "meetingInvitation" and the reviewed
+    meetingSlot: { date, startTime }. They use the branded email without an app
+    promotion banner. Sending rechecks the recipient's publisher access and
+    availability of that exact morning slot. A taken slot returns 412 and
+    requires a fresh preview. Previewing and sending leave the slot available.
     Returns HTTP 200 { status: sent|sending|unknown|failed, to,
       sentAt: <ISO timestamp or null>, requestId, error?: <operator message> }.
     Both endpoints require GOD MODE in routes and repositories. GET is no-store.
@@ -307,6 +339,9 @@ Email command persistence:
   Strict lower camel case fields, validated by StoredSendSchema:
     requestId: UUID; partnerId: canonical partner ID; previewHash: SHA-256 hex;
     language: es|en; templateVariant: 1|2|3; to: validated contact email;
+    Meeting invitation commands also store purpose: "meetingInvitation" and
+    meetingSlot: { date, startTime }. Both history endpoints include purpose
+    for invitations so their template labels can be displayed.
     status: sending|sent|unknown|failed;
     createdAt/updatedAt: ISO UTC datetime;
     sentAt: nullable ISO UTC datetime;

@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import PublisherPortalHomePage from "@/app/publisher-portal/(portal)/home/page";
 import type { MyAccountRecord } from "@/lib/admin-areas";
 import type { PublisherAppStatus } from "@/lib/publisher-app-config";
@@ -219,11 +219,19 @@ describe("PublisherPortalHomePage", () => {
     expect(
       screen.getByRole("heading", { level: 2, name: "Mi cuenta" }),
     ).toBeTruthy();
-    expect(
-      screen
-        .getByRole("link", { name: "Abrir Mi cuenta" })
-        .getAttribute("href"),
-    ).toBe(PUBLISHER_PORTAL_ACCOUNT_ROUTE);
+    const accountLink = within(userSection).getByRole("link", {
+      name: "Abrir Mi cuenta",
+    });
+    const bookingLink = within(userSection).getByRole("link", {
+      name: "Agendar una reunión de soporte con el equipo de Pocket Genes",
+    });
+    expect(accountLink.getAttribute("href")).toBe(
+      PUBLISHER_PORTAL_ACCOUNT_ROUTE,
+    );
+    expect(bookingLink.getAttribute("href")).toBe(
+      "/publisher-portal/support-bookings/new",
+    );
+    expect(bookingLink.previousElementSibling).toBe(accountLink);
     expect(screen.getByText("Empezá a construir tu presencia")).toBeTruthy();
     expect(
       screen

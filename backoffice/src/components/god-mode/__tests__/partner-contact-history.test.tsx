@@ -51,6 +51,20 @@ function open(partnerId = email.partnerId, language: "en" | "es" = "en") {
 }
 beforeEach(() => jest.resetAllMocks());
 
+it("names the reviewed invitation template in contact history and the recorded message", async () => {
+  const invitation = { ...email, purpose: "meetingInvitation", templateVariant: 1 };
+  jest.mocked(sdkFetch)
+    .mockResolvedValueOnce({ emails: [invitation], nextCursor: null })
+    .mockResolvedValueOnce({ email: { ...invitation, messageText: "Invitación" } });
+  open(email.partnerId, "es");
+  const row = await screen.findByRole("listitem");
+  expect(within(row).getByText("Recorrido del portal")).toBeVisible();
+  fireEvent.click(within(row).getByRole("button"));
+  const dialog = await screen.findByRole("dialog");
+  expect(within(dialog).getByText("Recorrido del portal")).toBeVisible();
+  await within(dialog).findByText("Invitación");
+});
+
 it("shows compact subject/template/date summaries and loads the full saved body only in the selected email's modal", async () => {
   const body = `Hola Ana,\n\n${"Full paragraph of the saved email. ".repeat(180)}\n\nFinal line of the email.`;
   jest

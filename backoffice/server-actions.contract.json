@@ -1180,6 +1180,11 @@
       "file": "src/lib/gc-fitness/workout-template-actions.ts",
       "export": "updateWorkoutTemplate",
       "params": "arg, arg"
+    },
+    {
+      "file": "src/lib/publisher-support-bookings-actions.ts",
+      "export": "loadPublisherSupportBookingsPage",
+      "params": "arg, arg"
     }
   ],
   "retired": [

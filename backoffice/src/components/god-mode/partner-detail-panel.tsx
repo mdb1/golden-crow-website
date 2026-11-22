@@ -11,6 +11,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Building2,
+  CalendarPlus,
   CircleUserRound,
   GripVertical,
   Loader2,
@@ -397,7 +398,7 @@ export function PartnerDetailPanel({
   const headingId = useId();
   const queryClient = useQueryClient();
   const panelRef = useRef<HTMLElement>(null);
-  const [emailPreviewOpen, setEmailPreviewOpen] = useState(false);
+  const [emailDialog, setEmailDialog] = useState<"email" | "meetingInvitation" | null>(null);
   const query = useQuery({
     queryKey: [...PARTNERS_QUERY_KEY, "detail", partnerId],
     queryFn: ({ signal }) =>
@@ -527,23 +528,34 @@ export function PartnerDetailPanel({
                 disabled={
                   query.isFetching || partnerSection(partner) === "other"
                 }
-                onClick={() => setEmailPreviewOpen(true)}
+                onClick={() => setEmailDialog("email")}
               >
                 <Mail className="size-6" />
                 {t("Send an email")}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-auto min-h-12 w-full gap-3 whitespace-normal rounded-2xl border-violet-300 py-3 font-semibold text-violet-700 hover:bg-violet-50 dark:border-violet-400/40 dark:text-violet-300 dark:hover:bg-violet-500/10"
+                disabled={query.isFetching}
+                onClick={() => setEmailDialog("meetingInvitation")}
+              >
+                <CalendarPlus aria-hidden="true" />
+                {t("Invite to a meeting")}
               </Button>
               <PartnerContactHistory key={partnerId} partnerId={partnerId} />
             </div>
           )}
         </div>
       </aside>
-      {emailPreviewOpen && (
+      {emailDialog && (
         <PartnerEmailPreviewDialog
           partnerId={partnerId}
+          meetingInvitation={emailDialog === "meetingInvitation"}
           onSent={() => void queryClient.invalidateQueries({
             queryKey: [...PARTNER_EMAIL_HISTORY_QUERY_KEY, "contact", partnerId],
           })}
-          onClose={() => setEmailPreviewOpen(false)}
+          onClose={() => setEmailDialog(null)}
         />
       )}
     </>

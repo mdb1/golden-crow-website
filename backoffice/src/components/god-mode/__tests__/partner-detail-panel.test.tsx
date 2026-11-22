@@ -161,8 +161,10 @@ it("opens a grid cell's full detail using its record endpoint", async () => {
   const panel = details();
   expect(await panel.findByText(fullNotes)).toBeVisible();
   const sendEmail = panel.getByRole("button", { name: "Send an email" });
+  const invite = panel.getByRole("button", { name: "Invite to a meeting" });
   const history = panel.getByRole("region", { name: "Contact history" });
-  expect(sendEmail.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(sendEmail.nextElementSibling).toBe(invite);
+  expect(invite.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   for (const value of [
     partner.id,
     partner.firstName,
