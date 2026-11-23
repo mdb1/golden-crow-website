@@ -339,25 +339,26 @@ function mockApplyQueryOperations(
 
   if (startAfter) {
     const cursor = startAfter.values[0];
-    const cursorIndex =
+    if (
       cursor &&
       typeof cursor === "object" &&
       "id" in cursor &&
       typeof cursor.id === "string"
-        ? docs.findIndex((doc) => doc.id === cursor.id)
-        : docs.findIndex((doc) =>
-            orderOperations.every((operation, index) => {
-              const cursorValue = startAfter.values[index] ?? cursor;
-              return (
-                mockComparableValue(
-                  mockValueForField(doc, operation.fieldPath),
-                ) === mockComparableValue(cursorValue)
-              );
-            }),
-          );
-
-    if (cursorIndex >= 0) {
+    ) {
+      const cursorIndex = docs.findIndex((doc) => doc.id === cursor.id);
       docs = docs.slice(cursorIndex + 1);
+    } else {
+      docs = docs.filter((doc) => {
+        for (const [index, value] of startAfter.values.entries()) {
+          const operation = orderOperations[index];
+          if (!operation) break;
+          const comparison = mockCompareValues(
+            mockValueForField(doc, operation.fieldPath), value, operation.direction,
+          );
+          if (comparison !== 0) return comparison > 0;
+        }
+        return false;
+      });
     }
   }
 
@@ -1206,12 +1207,30 @@ describe("partnership CRM repository pagination", () => {
     expect(last.nextCursor).toBeUndefined();
 
     const reads = mockQueryReadLog.filter((read) => read.collectionName === "plantillas");
-    expect(reads).toHaveLength(4);
-    for (const read of reads) {
-      expect(read.operations).toEqual(expect.arrayContaining([
+    expect(reads).toHaveLength(12);
+    for (let index = 0; index < reads.length; index += 3) {
+      expect(reads[index].operations).toEqual(expect.arrayContaining([
         {
           type: "where",
           fieldPath: "normalizedName",
+          operator: "in",
+          value: [..."abcdefghijklmnopqrstuvwxyz"].map((letter) => `${letter}86`),
+        },
+        { type: "limit", count: 3 },
+      ]));
+      expect(reads[index + 1].operations).toEqual(expect.arrayContaining([
+        {
+          type: "where",
+          fieldPath: "name",
+          operator: "in",
+          value: [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].map((letter) => `${letter}86`),
+        },
+        { type: "limit", count: 3 },
+      ]));
+      expect(reads[index + 2].operations).toEqual(expect.arrayContaining([
+        {
+          type: "where",
+          fieldPath: "name",
           operator: "in",
           value: [..."abcdefghijklmnopqrstuvwxyz"].map((letter) => `${letter}86`),
         },
@@ -1222,6 +1241,64 @@ describe("partnership CRM repository pagination", () => {
     await expect(listPartnershipCrmTemplates(godModeContext, {
       ...options, templateNumber: "10", cursor: first.nextCursor,
     })).rejects.toThrow(/cursor/i);
+  });
+
+  it("finds exact names with missing or stale normalized names across pages", async () => {
+    const { listPartnershipCrmTemplates } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    for (const [id, name, normalizedName] of [
+      ["canonical-a", "A86", "a86"],
+      ["canonical-b", "B86", "b86"],
+      ["legacy-c", "C86"],
+      ["legacy-d", "d86", "wrong"],
+      ["legacy-e", "E86", "a86"],
+      ["canonical-f", "F86", "f86"],
+      ["legacy-f", "F86"],
+      ["unrelated", "Z10", "z10"],
+    ]) {
+      mockDocs.set(mockDocKey("plantillas", id), {
+        name,
+        ...(normalizedName ? { normalizedName } : {}),
+        audience: "organizations",
+        status: "active",
+        is_favorite: id === "canonical-f" || id === "unrelated",
+      });
+    }
+
+    const options = { templateNumber: "86", audience: "organizations", status: "active", limit: 2 };
+    let cursor: string | undefined;
+    const matches: string[] = [];
+    for (let index = 0; index < 5; index += 1) {
+      const page = await listPartnershipCrmTemplates(godModeContext, { ...options, cursor });
+      matches.push(...page.templates.map((template) => template.id));
+      cursor = page.nextCursor;
+      if (!cursor) break;
+    }
+
+    expect(cursor).toBeUndefined();
+    expect(matches).toEqual([
+      "canonical-a", "canonical-b", "legacy-c", "legacy-d", "legacy-e", "canonical-f", "legacy-f",
+    ]);
+  });
+
+  it("preserves explicitly stored numbered categories in CRM target records", async () => {
+    const { getPartnershipCrmOrganization, getPartnershipCrmProfessional } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    mockDocs.set(mockDocKey("partnership_crm_organizations", "org-86"), {
+      name: "Organization",
+      category: 86,
+    });
+    mockDocs.set(mockDocKey("partnership_crm_professionals", "prof-06"), {
+      name: "Professional",
+      category: "06",
+    });
+
+    await expect(getPartnershipCrmOrganization(godModeContext, "org-86"))
+      .resolves.toMatchObject({ category: "86" });
+    await expect(getPartnershipCrmProfessional(godModeContext, "prof-06"))
+      .resolves.toMatchObject({ category: "06" });
   });
 
   it("fits all 26 letter variants in a numbered composer page", async () => {

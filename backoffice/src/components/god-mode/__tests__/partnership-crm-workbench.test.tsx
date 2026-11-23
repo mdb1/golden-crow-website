@@ -3784,7 +3784,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     );
   });
 
-  it("keeps all numbered matches ahead of unrelated favorites in the template queue", async () => {
+  it("fetches every numbered match automatically before opening the complete queue", async () => {
     const user = userEvent.setup();
     const category = "org_patient_organizations";
     const target = { ...organization, category };
@@ -3797,9 +3797,10 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       is_favorite: favorite,
       subject: `${name} {{organization_name}}`,
     });
-    const first = makeTemplate("F86", true);
-    const second = makeTemplate("E86", false);
-    const third = makeTemplate("G86", true);
+    const categorySeed = makeTemplate("F86", true);
+    const c86 = makeTemplate("C86", false);
+    const e86 = makeTemplate("E86", false);
+    const g86 = makeTemplate("G86", true);
     const earlierFavorite = makeTemplate("G31", true);
     const laterFavorite = makeTemplate("G10", true);
     const generalFavorite = makeTemplate("G33", true);
@@ -3822,14 +3823,14 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         if (params.get("templateNumber") === "86") {
           if (params.has("cursor")) {
             await familyPageReady;
-            return { templates: [third] };
+            return { templates: [c86, e86, categorySeed] };
           }
-          return { templates: [first, second], nextCursor: "family-2" };
+          return { templates: [g86], nextCursor: "family-2" };
         }
         if (params.get("category") === category) {
-          return { templates: [first, earlierFavorite, laterFavorite] };
+          return { templates: [categorySeed, earlierFavorite, laterFavorite] };
         }
-        return { templates: [generalFavorite, first, second, third] };
+        return { templates: [generalFavorite, g86, c86, e86, categorySeed] };
       }
       if (url.pathname === "/admin/partnership-crm/organizations/org-1") {
         return { organization: target };
@@ -3841,28 +3842,20 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     await user.click(await screen.findByText(target.name));
     await user.click(screen.getByRole("button", { name: "Send Email" }));
     const dialog = await screen.findByRole("dialog", { name: "Send CRM email" });
-    await within(dialog).findByDisplayValue(`F86 ${target.name}`);
-    expect(requestedPages()).toEqual([
-      [category, null, null],
-      [null, "86", null],
-    ]);
-
-    await user.click(within(dialog).getByRole("combobox"));
-    await screen.findByRole("option", { name: "E86" });
-    expect(optionNames()).toEqual(["F86", "E86"]);
-    expect(screen.queryByText("Other templates")).toBeNull();
-    await user.keyboard("{Escape}");
-    await user.click(within(dialog).getByRole("button", { name: "Load more templates" }));
     await waitFor(() => expect(requestedPages()).toEqual([
       [category, null, null],
       [null, "86", null],
       [null, "86", "family-2"],
     ]));
+    expect(within(dialog).getByRole("combobox")).toBeDisabled();
+    expect(within(dialog).queryByRole("button", { name: "Load more templates" })).toBeNull();
+    expect(within(dialog).queryByDisplayValue(`F86 ${target.name}`)).toBeNull();
     await act(async () => resolveFamilyPage());
 
+    await within(dialog).findByDisplayValue(`C86 ${target.name}`);
     await user.click(within(dialog).getByRole("combobox"));
     await screen.findByRole("option", { name: "G86" });
-    expect(optionNames()).toEqual(["F86", "E86", "G86", "G31", "G10"]);
+    expect(optionNames()).toEqual(["C86", "E86", "F86", "G86", "G31", "G10"]);
     await user.keyboard("{Escape}");
     await user.click(within(dialog).getByRole("button", { name: "Load more templates" }));
     await waitFor(() => expect(requestedPages()).toHaveLength(4));
@@ -3870,13 +3863,60 @@ describe("PartnershipCrmWorkbench delete flow", () => {
 
     await user.click(within(dialog).getByRole("combobox"));
     await screen.findByRole("option", { name: "G33" });
-    expect(optionNames()).toEqual(["F86", "E86", "G86", "G31", "G10", "G33"]);
+    expect(optionNames()).toEqual(["C86", "E86", "F86", "G86", "G31", "G10", "G33"]);
     await user.keyboard("{Escape}");
 
-    for (const name of ["E86", "G86", "G31"]) {
+    for (const name of ["E86", "F86", "G86", "G31"]) {
       await user.click(within(dialog).getByRole("button", { name: "Next template" }));
       expect(await within(dialog).findByDisplayValue(`${name} ${target.name}`)).toBeTruthy();
     }
+  });
+
+  it("searches an explicit category number before querying general favorites", async () => {
+    const user = userEvent.setup();
+    const target = { ...organization, category: "86" };
+    const c86 = {
+      ...recommendedEmailTemplate,
+      id: "tpl-c86",
+      name: "C86",
+      normalizedName: "c86",
+      is_favorite: false,
+      subject: "C86 {{organization_name}}",
+    };
+    const favorite = { ...otherCategoryEmailTemplate, is_favorite: true };
+    const templateQueries: string[] = [];
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const url = new URL(String(path), "https://backoffice.example");
+      if (url.pathname === "/admin/partnership-crm/email-templates") {
+        templateQueries.push(url.search);
+        return { templates: url.searchParams.get("templateNumber") === "86" ? [c86] : [favorite] };
+      }
+      if (url.pathname === "/admin/partnership-crm/organizations/org-1") {
+        return { organization: target };
+      }
+      return { organizations: [target] };
+    });
+
+    renderWorkbench();
+    await user.click(await screen.findByText(target.name));
+    await user.click(screen.getByRole("button", { name: "Send Email" }));
+    const dialog = await screen.findByRole("dialog", { name: "Send CRM email" });
+    await within(dialog).findByDisplayValue(`C86 ${target.name}`);
+    expect(templateQueries).toEqual(["?status=active&audience=organizations&limit=26&templateNumber=86"]);
+
+    await user.click(within(dialog).getByRole("combobox"));
+    expect(await screen.findByRole("option", { name: "C86" })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: favorite.name })).toBeNull();
+    await user.keyboard("{Escape}");
+    await user.click(within(dialog).getByRole("button", { name: "Load more templates" }));
+
+    await waitFor(() => expect(templateQueries).toEqual([
+      "?status=active&audience=organizations&limit=26&templateNumber=86",
+      "?status=active&audience=organizations&limit=5",
+    ]));
+    await user.click(within(dialog).getByRole("combobox"));
+    expect(await screen.findByRole("option", { name: favorite.name })).toBeTruthy();
+    expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual(["C86", favorite.name]);
   });
 
   it("loads the matching category template body automatically before browsing other templates", async () => {

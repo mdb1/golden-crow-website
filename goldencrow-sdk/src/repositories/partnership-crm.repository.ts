@@ -1368,11 +1368,20 @@ function encodeCursor(
     return undefined;
   }
 
+  return encodeCursorPosition(field, value, doc.id, fingerprint);
+}
+
+function encodeCursorPosition(
+  field: PartnershipCrmCursorField,
+  value: PartnershipCrmCursorPayload["value"],
+  id: string,
+  fingerprint: string,
+) {
   const payload: PartnershipCrmCursorPayload = {
     v: 2,
     field,
     value,
-    id: doc.id,
+    id,
     fingerprint,
   };
 
@@ -1816,6 +1825,14 @@ function mergeTemplateImportNotes(existing: unknown, incoming: unknown) {
   return `${existingText}\n\n--- CSV import ---\n${incomingText}`;
 }
 
+function readTargetCategory(
+  value: unknown,
+  targetKind: PartnershipCrmTargetKind = "organizations",
+) {
+  const raw = typeof value === "number" ? String(value) : cleanString(value);
+  return normalizeCrmCategory(value, targetKind) || (/^\d{2}$/.test(raw) ? raw : "");
+}
+
 function toOrganizationRecord(
   id: string,
   data: Record<string, unknown>,
@@ -1828,7 +1845,7 @@ function toOrganizationRecord(
     schemaVersion:
       typeof data.schemaVersion === "number" ? data.schemaVersion : 1,
     name,
-    category: normalizeCrmCategory(data.category),
+    category: readTargetCategory(data.category),
     website,
     websiteDomain: cleanString(data.websiteDomain) || websiteDomain(website),
     country: normalizeCrmCountry(data.country),
@@ -1862,7 +1879,7 @@ function toProfessionalRecord(
     schemaVersion:
       typeof data.schemaVersion === "number" ? data.schemaVersion : 1,
     name,
-    category: normalizeCrmCategory(data.category, "professionals"),
+    category: readTargetCategory(data.category, "professionals"),
     title: cleanString(data.title),
     primaryAffiliation: cleanString(data.primaryAffiliation),
     potentialPocketGenesEditorFit: normalizePotentialPocketGenesEditorFit(
@@ -3698,6 +3715,105 @@ function requireSingleImportRow(rows: readonly unknown[]) {
   }
 }
 
+type NumberedTemplateCandidate = { code: string; doc: QueryDocumentSnapshot };
+
+function compareNumberedTemplateCandidates(
+  left: NumberedTemplateCandidate,
+  right: NumberedTemplateCandidate,
+) {
+  if (left.code !== right.code) {
+    return left.code < right.code ? -1 : 1;
+  }
+  return Buffer.compare(Buffer.from(left.doc.id), Buffer.from(right.doc.id));
+}
+
+async function readNumberedTemplatePage(
+  options: PartnershipCrmTemplateListOptions,
+  built: BoundedCrmQuery,
+  templateNumber: string,
+  limit: number,
+): Promise<PartnershipCrmTemplatesPage> {
+  const collection = adminDb.collection(TEMPLATES_COLLECTION);
+  const cursor = parseCursor(options.cursor, "normalizedName", built.fingerprint);
+  const names = [...NUMBERED_TEMPLATE_PREFIXES].map(
+    (letter) => `${letter}${templateNumber}`,
+  );
+  const scanLimit = Math.max(limit + 1, options.deep ? FILTERED_BATCH_LIMIT : 0);
+
+  function rawNameQuery(uppercase: boolean) {
+    const codes = uppercase ? names.map((name) => name.toUpperCase()) : names;
+    const query = collection
+      .where("name", "in", codes)
+      .orderBy("name", "asc")
+      .orderBy(FieldPath.documentId(), "asc");
+    if (!cursor || typeof cursor.value !== "string") {
+      return query;
+    }
+    return query.startAfter(
+      uppercase ? cursor.value.toUpperCase() : cursor.value,
+      cursor.id,
+    );
+  }
+
+  const sources = [
+    { field: "normalizedName", query: built.query },
+    { field: "name", query: rawNameQuery(true) },
+    { field: "name", query: rawNameQuery(false) },
+  ];
+  const batches = await Promise.all(sources.map(async ({ field, query }) => {
+    const projection = options.deep ? query : query.select(...TEMPLATE_SUMMARY_FIELDS);
+    const snapshot = await projection.limit(scanLimit).get();
+    return snapshot.docs.map((doc): NumberedTemplateCandidate => ({
+      code: cleanString(doc.data()[field]).toLowerCase(),
+      doc,
+    }));
+  }));
+
+  let boundary: NumberedTemplateCandidate | undefined;
+  for (const batch of batches) {
+    const last = batch.at(-1);
+    if (
+      batch.length === scanLimit &&
+      last &&
+      (!boundary || compareNumberedTemplateCandidates(last, boundary) < 0)
+    ) {
+      boundary = last;
+    }
+  }
+  const candidates = batches.flat().sort(compareNumberedTemplateCandidates);
+  const templates = new Map<string, PartnershipCrmTemplateRecord>();
+  let lastConsumed: NumberedTemplateCandidate | undefined;
+  for (const candidate of candidates) {
+    if (boundary && compareNumberedTemplateCandidates(candidate, boundary) > 0) {
+      break;
+    }
+    lastConsumed = candidate;
+    if (!templates.has(candidate.doc.id)) {
+      const template = toTemplateRecord(candidate.doc.id, candidate.doc.data());
+      if (candidate.code === template.name.toLowerCase() && matchesTemplateFilters(template, options)) {
+        templates.set(template.id, toTemplateSummary(template));
+      }
+    }
+    if (templates.size >= limit) {
+      break;
+    }
+  }
+
+  const lastCandidate = candidates.at(-1);
+  const canContinue = boundary || (
+    lastCandidate && lastConsumed && compareNumberedTemplateCandidates(lastCandidate, lastConsumed) > 0
+  );
+  return {
+    templates: [...templates.values()],
+    nextCursor: canContinue && lastConsumed
+      ? encodeCursorPosition("normalizedName", lastConsumed.code, lastConsumed.doc.id, built.fingerprint)
+      : undefined,
+    partial: built.hasFilters,
+    scanned: candidates.length,
+    asOf: new Date().toISOString(),
+  };
+}
+
 function importIdempotencyDocumentId(
   targetKind: PartnershipCrmTargetKind,
   value: unknown,
@@ -3731,6 +3847,9 @@ export async function listPartnershipCrmTemplates(
     options.templateNumber ? PARTNERSHIP_CRM_NUMBERED_TEMPLATE_PAGE_SIZE : MAX_PAGE_SIZE,
   );
   const built = buildTemplateListQuery(options);
+  if (options.templateNumber !== undefined) {
+    return readNumberedTemplatePage(options, built, options.templateNumber, limit);
+  }
   const scanLimit = Math.max(limit + 1, options.deep ? FILTERED_BATCH_LIMIT : 0);
   const listQuery = options.deep
     ? built.query
@@ -3759,7 +3878,7 @@ export async function listPartnershipCrmTemplates(
       : undefined;
 
   return {
-    templates: options.templateNumber ? templates : favoriteFirstRecords(templates),
+    templates: favoriteFirstRecords(templates),
     nextCursor,
     partial: built.hasFilters,
     scanned: snapshot.docs.length,

@@ -233,11 +233,10 @@ type CrmTemplateQueuePage =
   | { scope: "category" | "all"; cursor?: string }
   | { scope: "number"; templateNumber: string; cursor?: string };
 
-type CrmEmailTemplatesPage = PartnershipCrmTemplatesPage &
-  (
-    | { scope: "category" | "all" }
-    | { scope: "number"; templateNumber: string; categoryCursor?: string }
-  );
+type CrmEmailTemplatesPage = PartnershipCrmTemplatesPage & {
+  scope: CrmTemplateQueuePage["scope"];
+  templateNumber?: string;
+};
 
 type EmailState = {
   to: string;
@@ -8886,20 +8885,20 @@ export function PartnershipCrmWorkbench() {
     selectedTargetQuery.data?.professional ??
     selectedTargetQuery.data?.organization ??
     selectedSummaryTarget;
-  const templateCategory = normalizeCrmCategoryKeys(
-    selectedOrganization?.category ?? "",
-    targetKind,
-  ).join(",");
+  const targetCategory = selectedOrganization?.category?.trim() ?? "";
+  const templateCategory = normalizeCrmCategoryKeys(targetCategory, targetKind).join(",");
+  const categoryNumber = /^\d{2}$/.test(targetCategory) ? targetCategory : undefined;
   const templatesQueryKey = [
     TEMPLATES_QUERY_KEY,
     "active",
     targetKind,
-    templateCategory,
+    categoryNumber ?? templateCategory,
   ] as const;
   const templatesQuery = useInfiniteQuery({
     queryKey: templatesQueryKey,
-    queryFn: async ({ pageParam }): Promise<CrmEmailTemplatesPage> => {
+    queryFn: async ({ pageParam, signal }): Promise<CrmEmailTemplatesPage> => {
       const readPage = (page: CrmTemplateQueuePage) => {
+        signal.throwIfAborted();
         const params = new URLSearchParams({
           status: "active",
           audience: targetKind,
@@ -8921,12 +8920,51 @@ export function PartnershipCrmWorkbench() {
         );
       };
 
-      if (pageParam.scope === "number") {
+      const readNumberedQueue = async (
+        templateNumber: string,
+        categoryPage?: PartnershipCrmTemplatesPage,
+      ): Promise<CrmEmailTemplatesPage> => {
+        const matches = new Map<string, PartnershipCrmTemplateRecord>();
+        const cursors = new Set<string>();
+        let cursor: string | undefined;
+        let numberedPage: PartnershipCrmTemplatesPage;
+        do {
+          numberedPage = await readPage({ scope: "number", templateNumber, cursor });
+          for (const template of numberedPage.templates) {
+            if (crmTemplateNumber(template.name) === templateNumber) {
+              matches.set(template.id, template);
+            }
+          }
+          cursor = numberedPage.nextCursor;
+          if (cursor && cursors.has(cursor)) {
+            throw new Error("The numbered template lookup did not advance.");
+          }
+          if (cursor) cursors.add(cursor);
+        } while (cursor);
+
+        const other: PartnershipCrmTemplateRecord[] = [];
+        for (const template of categoryPage?.templates ?? []) {
+          if (crmTemplateNumber(template.name) === templateNumber) {
+            if (!matches.has(template.id)) matches.set(template.id, template);
+          } else {
+            other.push(template);
+          }
+        }
+        const recommended = [...matches.values()].sort(
+          (left, right) =>
+            left.name.trim().localeCompare(right.name.trim(), "en", { sensitivity: "base" }) ||
+            left.id.localeCompare(right.id),
+        );
         return {
-          ...(await readPage(pageParam)),
-          scope: "number",
-          templateNumber: pageParam.templateNumber,
+          ...(categoryPage ?? numberedPage),
+          scope: categoryPage ? "category" : "number",
+          templateNumber,
+          templates: [...recommended, ...other],
         };
+      };
+
+      if (pageParam.scope === "number") {
+        return readNumberedQueue(pageParam.templateNumber);
       }
 
       if (pageParam.scope === "category") {
@@ -8945,22 +8983,7 @@ export function PartnershipCrmWorkbench() {
                 templateNumber &&
                 crmTemplateRecommendationRank(preferred, selectedOrganization, targetKind) === 0
               ) {
-                const numberedPage = await readPage({ scope: "number", templateNumber });
-                return {
-                  ...numberedPage,
-                  scope: "number",
-                  templateNumber,
-                  categoryCursor: page.nextCursor,
-                  templates: [
-                    preferred,
-                    ...numberedPage.templates.filter(
-                      (template) => crmTemplateNumber(template.name) === templateNumber,
-                    ),
-                    ...page.templates.filter(
-                      (template) => crmTemplateNumber(template.name) !== templateNumber,
-                    ),
-                  ],
-                };
+                return readNumberedQueue(templateNumber, page);
               }
             }
             return { ...page, scope: "category" };
@@ -8984,49 +9007,28 @@ export function PartnershipCrmWorkbench() {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     staleTime: Number.POSITIVE_INFINITY,
-    initialPageParam: { scope: templateCategory ? "category" : "all" } as CrmTemplateQueuePage,
-    getNextPageParam: (lastPage, pages): CrmTemplateQueuePage | undefined => {
-      if (lastPage.scope === "number") {
-        if (lastPage.nextCursor) {
-          return {
-            scope: "number",
-            templateNumber: lastPage.templateNumber,
-            cursor: lastPage.nextCursor,
-          };
-        }
-        const firstPage = pages[0];
-        if (firstPage.scope === "number" && firstPage.categoryCursor) {
-          return { scope: "category", cursor: firstPage.categoryCursor };
-        }
-        return { scope: "all" };
-      }
-      if (lastPage.nextCursor) {
+    initialPageParam: (categoryNumber
+      ? { scope: "number", templateNumber: categoryNumber }
+      : { scope: templateCategory ? "category" : "all" }) as CrmTemplateQueuePage,
+    getNextPageParam: (lastPage): CrmTemplateQueuePage | undefined => {
+      if (lastPage.scope !== "number" && lastPage.nextCursor) {
         return { scope: lastPage.scope, cursor: lastPage.nextCursor };
       }
-      return lastPage.scope === "category" ? { scope: "all" } : undefined;
+      return lastPage.scope === "all" ? undefined : { scope: "all" };
     },
   });
-  const firstTemplatePage = templatesQuery.data?.pages[0];
-  const lastTemplatePage = templatesQuery.data?.pages.at(-1);
-  const templateNumber = firstTemplatePage?.scope === "number"
-    ? firstTemplatePage.templateNumber
-    : undefined;
-  const hasMoreNumberedTemplates = lastTemplatePage?.scope === "number"
-    && Boolean(lastTemplatePage.nextCursor);
+  const templateNumber = templatesQuery.data?.pages[0]?.templateNumber;
   const emailTemplates = useMemo(() => {
     const templatesById = new Map<string, PartnershipCrmTemplateRecord>();
     for (const page of templatesQuery.data?.pages ?? []) {
       for (const template of page.templates ?? []) {
-        if (
-          !templatesById.has(template.id) &&
-          (!hasMoreNumberedTemplates || crmTemplateNumber(template.name) === templateNumber)
-        ) {
+        if (!templatesById.has(template.id)) {
           templatesById.set(template.id, template);
         }
       }
     }
     return Array.from(templatesById.values());
-  }, [hasMoreNumberedTemplates, templateNumber, templatesQuery.data?.pages]);
+  }, [templatesQuery.data?.pages]);
   const selectedTargetNeedsDetail = crmTargetNeedsDetail(
     selectedSummaryTarget,
     targetKind,
