@@ -191,6 +191,7 @@ const CRM_TARGET_PAGE_SIZE = 20;
 const CRM_BULK_ACTION_LIMIT = 10;
 const CRM_SECONDARY_PAGE_SIZE = 10;
 const CRM_TEMPLATE_PAGE_SIZE = 5;
+const CRM_NUMBERED_TEMPLATE_PAGE_SIZE = 26;
 const CRM_DAILY_USAGE_LIMIT = 100;
 const CRM_DAILY_USAGE_ENDPOINT = "/admin/partnership-crm/daily-usage/page-load";
 const CRM_DAILY_USAGE_STORAGE_KEY =
@@ -228,9 +229,15 @@ function clampCrmDetailPanelWidthPercent(value: number) {
 type CrmTargetInput =
   PartnershipCrmOrganizationInput | PartnershipCrmProfessionalInput;
 
-type CrmEmailTemplatesPage = PartnershipCrmTemplatesPage & {
-  scope: "category" | "all";
-};
+type CrmTemplateQueuePage =
+  | { scope: "category" | "all"; cursor?: string }
+  | { scope: "number"; templateNumber: string; cursor?: string };
+
+type CrmEmailTemplatesPage = PartnershipCrmTemplatesPage &
+  (
+    | { scope: "category" | "all" }
+    | { scope: "number"; templateNumber: string; categoryCursor?: string }
+  );
 
 type EmailState = {
   to: string;
@@ -3603,14 +3610,28 @@ function crmTemplateRecommendationRank(
   return 1;
 }
 
+function crmTemplateNumber(name: string) {
+  return /^[a-z](\d{2})$/i.exec(name.trim())?.[1];
+}
+
 function crmTemplateGroupsForTarget(
   templates: readonly PartnershipCrmTemplateRecord[],
   target: PartnershipCrmTargetRecord | null,
   targetKind: PartnershipCrmTargetKind,
+  templateNumber?: string,
 ) {
   const targetAudienceTemplates = templates.filter(
     (template) => (template.audience ?? "organizations") === targetKind,
   );
+  if (templateNumber) {
+    const recommended = targetAudienceTemplates.filter(
+      (template) => crmTemplateNumber(template.name) === templateNumber,
+    );
+    const other = targetAudienceTemplates.filter(
+      (template) => crmTemplateNumber(template.name) !== templateNumber,
+    );
+    return { all: [...recommended, ...other], recommended, other };
+  }
   const rankedTemplates = targetAudienceTemplates
     .map((template, index) => ({
       template,
@@ -6016,6 +6037,7 @@ function EmailComposerDialog({
   pending,
   disabled,
   templates,
+  templateNumber,
   templatesLoading,
   templatesError,
   templatesRetrying,
@@ -6038,6 +6060,7 @@ function EmailComposerDialog({
   pending: boolean;
   disabled: boolean;
   templates: PartnershipCrmTemplateRecord[];
+  templateNumber?: string;
   templatesLoading: boolean;
   templatesError: unknown;
   templatesRetrying: boolean;
@@ -6075,8 +6098,9 @@ function EmailComposerDialog({
   const onLoadTemplateRef = useRef(onLoadTemplate);
   onLoadTemplateRef.current = onLoadTemplate;
   const templateGroups = useMemo(
-    () => crmTemplateGroupsForTarget(templates, organization, targetKind),
-    [organization, targetKind, templates],
+    () =>
+      crmTemplateGroupsForTarget(templates, organization, targetKind, templateNumber),
+    [organization, targetKind, templateNumber, templates],
   );
   const orderedTemplates = templateGroups.all;
   const editorVariables = useMemo(
@@ -6118,11 +6142,9 @@ function EmailComposerDialog({
     if (disabled || emailDraftChangedRef.current) {
       return;
     }
-    const recommended = bestCrmTemplateForTarget(
-      organization,
-      orderedTemplates,
-      targetKind,
-    );
+    const recommended = templateNumber
+      ? orderedTemplates[0]
+      : bestCrmTemplateForTarget(organization, orderedTemplates, targetKind);
     if (!recommended || initialTemplateAttemptRef.current === targetKey) {
       return;
     }
@@ -6174,7 +6196,9 @@ function EmailComposerDialog({
           setTemplateDetailLoading(false);
         }
       });
-  }, [disabled, language, open, orderedTemplates, organization, targetKind]);
+  }, [
+    disabled, language, open, orderedTemplates, organization, targetKind, templateNumber,
+  ]);
 
   useEffect(() => {
     if (!templateToast) {
@@ -8875,38 +8899,80 @@ export function PartnershipCrmWorkbench() {
   const templatesQuery = useInfiniteQuery({
     queryKey: templatesQueryKey,
     queryFn: async ({ pageParam }): Promise<CrmEmailTemplatesPage> => {
-      const categoryScoped = pageParam.startsWith("category:");
-      let cursor = pageParam.slice(pageParam.indexOf(":") + 1);
-      const readPage = (scope: "category" | "all", pageCursor: string) => {
+      const readPage = (page: CrmTemplateQueuePage) => {
         const params = new URLSearchParams({
           status: "active",
           audience: targetKind,
-          limit: String(CRM_TEMPLATE_PAGE_SIZE),
+          limit: String(
+            page.scope === "number" ? CRM_NUMBERED_TEMPLATE_PAGE_SIZE : CRM_TEMPLATE_PAGE_SIZE,
+          ),
         });
-        if (scope === "category") {
+        if (page.scope === "category") {
           params.set("category", templateCategory);
         }
-        if (pageCursor) {
-          params.set("cursor", pageCursor);
+        if (page.scope === "number") {
+          params.set("templateNumber", page.templateNumber);
+        }
+        if (page.cursor) {
+          params.set("cursor", page.cursor);
         }
         return crmFetch<PartnershipCrmTemplatesPage>(
           `/admin/partnership-crm/email-templates?${params.toString()}`,
         );
       };
 
-      if (categoryScoped) {
-        // Search only indexed category pages, stopping at the first usable page.
-        // Inactive templates must not hide a match farther into that category.
+      if (pageParam.scope === "number") {
+        return {
+          ...(await readPage(pageParam)),
+          scope: "number",
+          templateNumber: pageParam.templateNumber,
+        };
+      }
+
+      if (pageParam.scope === "category") {
+        let cursor = pageParam.cursor;
         do {
-          const page = await readPage("category", cursor);
+          const page = await readPage({ scope: "category", cursor });
           if (page.templates.length > 0) {
+            if (!pageParam.cursor) {
+              const preferred = crmTemplateGroupsForTarget(
+                page.templates,
+                selectedOrganization,
+                targetKind,
+              ).recommended[0];
+              const templateNumber = preferred && crmTemplateNumber(preferred.name);
+              if (
+                templateNumber &&
+                crmTemplateRecommendationRank(preferred, selectedOrganization, targetKind) === 0
+              ) {
+                const numberedPage = await readPage({ scope: "number", templateNumber });
+                return {
+                  ...numberedPage,
+                  scope: "number",
+                  templateNumber,
+                  categoryCursor: page.nextCursor,
+                  templates: [
+                    preferred,
+                    ...numberedPage.templates.filter(
+                      (template) => crmTemplateNumber(template.name) === templateNumber,
+                    ),
+                    ...page.templates.filter(
+                      (template) => crmTemplateNumber(template.name) !== templateNumber,
+                    ),
+                  ],
+                };
+              }
+            }
             return { ...page, scope: "category" };
           }
-          cursor = page.nextCursor ?? "";
+          cursor = page.nextCursor;
         } while (cursor);
       }
       return {
-        ...(await readPage("all", categoryScoped ? "" : cursor)),
+        ...(await readPage({
+          scope: "all",
+          cursor: pageParam.scope === "all" ? pageParam.cursor : undefined,
+        })),
         scope: "all",
       };
     },
@@ -8918,25 +8984,49 @@ export function PartnershipCrmWorkbench() {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     staleTime: Number.POSITIVE_INFINITY,
-    initialPageParam: templateCategory ? "category:" : "all:",
-    getNextPageParam: (lastPage) =>
-      lastPage.nextCursor
-        ? `${lastPage.scope}:${lastPage.nextCursor}`
-        : lastPage.scope === "category"
-          ? "all:"
-          : undefined,
+    initialPageParam: { scope: templateCategory ? "category" : "all" } as CrmTemplateQueuePage,
+    getNextPageParam: (lastPage, pages): CrmTemplateQueuePage | undefined => {
+      if (lastPage.scope === "number") {
+        if (lastPage.nextCursor) {
+          return {
+            scope: "number",
+            templateNumber: lastPage.templateNumber,
+            cursor: lastPage.nextCursor,
+          };
+        }
+        const firstPage = pages[0];
+        if (firstPage.scope === "number" && firstPage.categoryCursor) {
+          return { scope: "category", cursor: firstPage.categoryCursor };
+        }
+        return { scope: "all" };
+      }
+      if (lastPage.nextCursor) {
+        return { scope: lastPage.scope, cursor: lastPage.nextCursor };
+      }
+      return lastPage.scope === "category" ? { scope: "all" } : undefined;
+    },
   });
+  const firstTemplatePage = templatesQuery.data?.pages[0];
+  const lastTemplatePage = templatesQuery.data?.pages.at(-1);
+  const templateNumber = firstTemplatePage?.scope === "number"
+    ? firstTemplatePage.templateNumber
+    : undefined;
+  const hasMoreNumberedTemplates = lastTemplatePage?.scope === "number"
+    && Boolean(lastTemplatePage.nextCursor);
   const emailTemplates = useMemo(() => {
     const templatesById = new Map<string, PartnershipCrmTemplateRecord>();
     for (const page of templatesQuery.data?.pages ?? []) {
       for (const template of page.templates ?? []) {
-        if (!templatesById.has(template.id)) {
+        if (
+          !templatesById.has(template.id) &&
+          (!hasMoreNumberedTemplates || crmTemplateNumber(template.name) === templateNumber)
+        ) {
           templatesById.set(template.id, template);
         }
       }
     }
     return Array.from(templatesById.values());
-  }, [templatesQuery.data?.pages]);
+  }, [hasMoreNumberedTemplates, templateNumber, templatesQuery.data?.pages]);
   const selectedTargetNeedsDetail = crmTargetNeedsDetail(
     selectedSummaryTarget,
     targetKind,
@@ -9183,7 +9273,7 @@ export function PartnershipCrmWorkbench() {
   function replaceTemplateInCachedPages(
     updatedTemplate: PartnershipCrmTemplateRecord,
   ) {
-    queryClient.setQueriesData<InfiniteData<CrmEmailTemplatesPage, string>>(
+    queryClient.setQueriesData<InfiniteData<CrmEmailTemplatesPage, CrmTemplateQueuePage>>(
       { queryKey: [TEMPLATES_QUERY_KEY, "active", targetKind] },
       (current) => {
         if (!current) {
@@ -9204,7 +9294,7 @@ export function PartnershipCrmWorkbench() {
   }
 
   function removeTemplateFromCachedPages(templateId: string) {
-    queryClient.setQueriesData<InfiniteData<CrmEmailTemplatesPage, string>>(
+    queryClient.setQueriesData<InfiniteData<CrmEmailTemplatesPage, CrmTemplateQueuePage>>(
       { queryKey: [TEMPLATES_QUERY_KEY, "active", targetKind] },
       (current) => {
         if (!current) {
@@ -11386,7 +11476,7 @@ export function PartnershipCrmWorkbench() {
       return;
     }
 
-    queryClient.setQueryData<InfiniteData<CrmEmailTemplatesPage, string>>(
+    queryClient.setQueryData<InfiniteData<CrmEmailTemplatesPage, CrmTemplateQueuePage>>(
       templatesQueryKey,
       (current) =>
         current
@@ -12707,6 +12797,7 @@ export function PartnershipCrmWorkbench() {
         pending={sendEmailMutation.isPending}
         disabled={freshActionsDisabled}
         templates={emailTemplates}
+        templateNumber={templateNumber}
         templatesLoading={templatesQuery.isLoading}
         templatesError={templatesQuery.error || templateListReadBlocked}
         templatesRetrying={templatesQuery.isFetching}

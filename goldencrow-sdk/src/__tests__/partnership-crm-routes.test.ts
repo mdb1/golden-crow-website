@@ -73,6 +73,7 @@ jest.mock("../repositories/partnership-crm.repository.js", () => ({
   ],
   PARTNERSHIP_CRM_TEMPLATE_STATUSES: ["active", "inactive", "archived"],
   PARTNERSHIP_CRM_TEMPLATE_AUDIENCES: ["organizations", "professionals"],
+  PARTNERSHIP_CRM_NUMBERED_TEMPLATE_PAGE_SIZE: 26,
   createPartnershipCrmActivity: jest.fn(),
   createPartnershipCrmOrganization: jest.fn(),
   createPartnershipCrmProfessional: mockCreatePartnershipCrmProfessional,
@@ -783,6 +784,34 @@ describe("partnership CRM routes", () => {
       crmUsageHeaders["x-crm-usage-event-id"],
       "list",
     );
+  });
+
+  it("accepts only a two-digit template number for CRM composer reads", async () => {
+    const fastify = await buildTestServer();
+    const result = await fastify.inject({
+      method: "GET",
+      url: "/admin/partnership-crm/email-templates?status=active&audience=organizations&templateNumber=86&limit=26",
+      headers: crmUsageHeaders,
+    });
+    expect(result.statusCode).toBe(200);
+    expect(mockListPartnershipCrmTemplates).toHaveBeenCalledWith(
+      bootstrapContext,
+      { status: "active", audience: "organizations", templateNumber: "86", limit: 26 },
+    );
+
+    const rejected = await fastify.inject({
+      method: "GET",
+      url: "/admin/partnership-crm/email-templates?templateNumber=F86",
+      headers: crmUsageHeaders,
+    });
+    expect(rejected.statusCode).toBe(400);
+    const unscoped = await fastify.inject({
+      method: "GET",
+      url: "/admin/partnership-crm/email-templates?limit=26",
+      headers: crmUsageHeaders,
+    });
+    expect(unscoped.statusCode).toBe(400);
+    expect(mockListPartnershipCrmTemplates).toHaveBeenCalledTimes(1);
   });
 
   it.each([

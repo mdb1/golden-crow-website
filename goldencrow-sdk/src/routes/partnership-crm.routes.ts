@@ -5,6 +5,7 @@ import { isAdminRepositoryError } from "../repositories/admin-errors.js";
 import { addCrmTargetAsPartner } from "../repositories/crm-partners.repository.js";
 import {
   PARTNERSHIP_CRM_ACTIVITY_TYPES,
+  PARTNERSHIP_CRM_NUMBERED_TEMPLATE_PAGE_SIZE,
   PARTNERSHIP_CRM_STATUSES,
   PARTNERSHIP_CRM_TEMPLATE_AUDIENCES,
   PARTNERSHIP_CRM_TEMPLATE_STATUSES,
@@ -161,13 +162,17 @@ const SentEmailLogParamsSchema = z
   .strict();
 const ListTemplatesQuerySchema = z.object({
   cursor: z.string().trim().max(1000).optional(),
-  limit: z.coerce.number().int().positive().max(10).optional(),
+  limit: z.coerce.number().int().positive().max(PARTNERSHIP_CRM_NUMBERED_TEMPLATE_PAGE_SIZE).optional(),
   query: z.string().trim().max(180).optional(),
   status: z.string().trim().max(40).optional(),
   category: CrmCategoryStringSchema,
   audience: CrmTemplateAudienceSchema.optional(),
+  templateNumber: z.string().regex(/^\d{2}$/).optional(),
   deep: DeepSearchSchema,
-});
+}).refine(
+  ({ limit, templateNumber }) => limit === undefined || limit <= 10 || Boolean(templateNumber),
+  { path: ["limit"], message: "A numbered template filter is required for a page of more than 10." },
+);
 const ActivityBodySchema = z.object({
   title: z.string().trim().min(1).max(180),
   body: z.string().trim().max(4000).optional(),

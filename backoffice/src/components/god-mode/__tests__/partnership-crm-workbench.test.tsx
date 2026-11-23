@@ -3784,6 +3784,101 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     );
   });
 
+  it("keeps all numbered matches ahead of unrelated favorites in the template queue", async () => {
+    const user = userEvent.setup();
+    const category = "org_patient_organizations";
+    const target = { ...organization, category };
+    const makeTemplate = (name: string, favorite: boolean): PartnershipCrmTemplateRecord => ({
+      ...recommendedEmailTemplate,
+      id: `tpl-${name.toLowerCase()}`,
+      name,
+      normalizedName: name.toLowerCase(),
+      category,
+      is_favorite: favorite,
+      subject: `${name} {{organization_name}}`,
+    });
+    const first = makeTemplate("F86", true);
+    const second = makeTemplate("E86", false);
+    const third = makeTemplate("G86", true);
+    const earlierFavorite = makeTemplate("G31", true);
+    const laterFavorite = makeTemplate("G10", true);
+    const generalFavorite = makeTemplate("G33", true);
+    let resolveFamilyPage!: () => void;
+    const familyPageReady = new Promise<void>((resolve) => {
+      resolveFamilyPage = resolve;
+    });
+    const templateQueries: URLSearchParams[] = [];
+    const requestedPages = () => templateQueries.map((params) => [
+      params.get("category"),
+      params.get("templateNumber"),
+      params.get("cursor"),
+    ]);
+    const optionNames = () => screen.getAllByRole("option").map((option) => option.textContent);
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const url = new URL(String(path), "https://backoffice.example");
+      if (url.pathname === "/admin/partnership-crm/email-templates") {
+        const params = url.searchParams;
+        templateQueries.push(params);
+        if (params.get("templateNumber") === "86") {
+          if (params.has("cursor")) {
+            await familyPageReady;
+            return { templates: [third] };
+          }
+          return { templates: [first, second], nextCursor: "family-2" };
+        }
+        if (params.get("category") === category) {
+          return { templates: [first, earlierFavorite, laterFavorite] };
+        }
+        return { templates: [generalFavorite, first, second, third] };
+      }
+      if (url.pathname === "/admin/partnership-crm/organizations/org-1") {
+        return { organization: target };
+      }
+      return { organizations: [target] };
+    });
+
+    renderWorkbench();
+    await user.click(await screen.findByText(target.name));
+    await user.click(screen.getByRole("button", { name: "Send Email" }));
+    const dialog = await screen.findByRole("dialog", { name: "Send CRM email" });
+    await within(dialog).findByDisplayValue(`F86 ${target.name}`);
+    expect(requestedPages()).toEqual([
+      [category, null, null],
+      [null, "86", null],
+    ]);
+
+    await user.click(within(dialog).getByRole("combobox"));
+    await screen.findByRole("option", { name: "E86" });
+    expect(optionNames()).toEqual(["F86", "E86"]);
+    expect(screen.queryByText("Other templates")).toBeNull();
+    await user.keyboard("{Escape}");
+    await user.click(within(dialog).getByRole("button", { name: "Load more templates" }));
+    await waitFor(() => expect(requestedPages()).toEqual([
+      [category, null, null],
+      [null, "86", null],
+      [null, "86", "family-2"],
+    ]));
+    await act(async () => resolveFamilyPage());
+
+    await user.click(within(dialog).getByRole("combobox"));
+    await screen.findByRole("option", { name: "G86" });
+    expect(optionNames()).toEqual(["F86", "E86", "G86", "G31", "G10"]);
+    await user.keyboard("{Escape}");
+    await user.click(within(dialog).getByRole("button", { name: "Load more templates" }));
+    await waitFor(() => expect(requestedPages()).toHaveLength(4));
+    expect(requestedPages().at(-1)).toEqual([null, null, null]);
+
+    await user.click(within(dialog).getByRole("combobox"));
+    await screen.findByRole("option", { name: "G33" });
+    expect(optionNames()).toEqual(["F86", "E86", "G86", "G31", "G10", "G33"]);
+    await user.keyboard("{Escape}");
+
+    for (const name of ["E86", "G86", "G31"]) {
+      await user.click(within(dialog).getByRole("button", { name: "Next template" }));
+      expect(await within(dialog).findByDisplayValue(`${name} ${target.name}`)).toBeTruthy();
+    }
+  });
+
   it("loads the matching category template body automatically before browsing other templates", async () => {
     const user = userEvent.setup();
     let releaseDetail: (() => void) | undefined;

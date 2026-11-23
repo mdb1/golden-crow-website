@@ -1164,6 +1164,95 @@ describe("partnership CRM repository pagination", () => {
     })).rejects.toThrow(/cursor/i);
   });
 
+  it("loads only the requested template number in letter order across pages", async () => {
+    const { listPartnershipCrmTemplates } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    const records = [
+      { id: "a86", name: "A86", category: "org_genomics_laboratories" },
+      { id: "b86", name: "B86", category: "org_fertility_clinics" },
+      { id: "e86", name: "E86", status: "inactive" },
+      { id: "f86-other-audience", name: "F86", audience: "professionals" },
+      { id: "f86", name: "F86", is_favorite: true },
+      { id: "g86", name: "G86" },
+      { id: "z86", name: "Z86", is_favorite: true },
+      { id: "favorite", name: "G10", is_favorite: true },
+      { id: "punctuation", name: "X86!", normalizedName: "x86" },
+      { id: "extra-digit", name: "F186" },
+      { id: "extra-letter", name: "AF86" },
+    ];
+    for (const record of records) {
+      mockDocs.set(mockDocKey("plantillas", record.id), {
+        audience: "organizations",
+        category: "org_patient_organizations",
+        subject: "Hello",
+        status: "active",
+        normalizedName: record.name.toLowerCase(),
+        ...record,
+      });
+    }
+
+    const options = { templateNumber: "86", audience: "organizations", status: "active", limit: 2 };
+    const first = await listPartnershipCrmTemplates(godModeContext, options);
+    expect(first.templates.map((template) => template.id)).toEqual(["a86", "b86"]);
+    expect(first.nextCursor).toBeDefined();
+    const second = await listPartnershipCrmTemplates(godModeContext, { ...options, cursor: first.nextCursor });
+    expect(second.templates.map((template) => template.id)).toEqual(["f86"]);
+    expect(second.nextCursor).toBeDefined();
+    const third = await listPartnershipCrmTemplates(godModeContext, { ...options, cursor: second.nextCursor });
+    expect(third.templates.map((template) => template.id)).toEqual(["g86", "z86"]);
+    const last = await listPartnershipCrmTemplates(godModeContext, { ...options, cursor: third.nextCursor });
+    expect(last.templates).toEqual([]);
+    expect(last.nextCursor).toBeUndefined();
+
+    const reads = mockQueryReadLog.filter((read) => read.collectionName === "plantillas");
+    expect(reads).toHaveLength(4);
+    for (const read of reads) {
+      expect(read.operations).toEqual(expect.arrayContaining([
+        {
+          type: "where",
+          fieldPath: "normalizedName",
+          operator: "in",
+          value: [..."abcdefghijklmnopqrstuvwxyz"].map((letter) => `${letter}86`),
+        },
+        { type: "limit", count: 3 },
+      ]));
+    }
+
+    await expect(listPartnershipCrmTemplates(godModeContext, {
+      ...options, templateNumber: "10", cursor: first.nextCursor,
+    })).rejects.toThrow(/cursor/i);
+  });
+
+  it("fits all 26 letter variants in a numbered composer page", async () => {
+    const { listPartnershipCrmTemplates } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    const letters = [..."abcdefghijklmnopqrstuvwxyz"];
+    for (const letter of letters) {
+      mockDocs.set(mockDocKey("plantillas", `${letter}06`), {
+        name: `${letter.toUpperCase()}06`,
+        normalizedName: `${letter}06`,
+        status: "active",
+      });
+    }
+
+    const page = await listPartnershipCrmTemplates(godModeContext, {
+      templateNumber: "06",
+      audience: "organizations",
+      status: "active",
+      limit: 26,
+    });
+    expect(page.templates.map((template) => template.name)).toEqual(
+      letters.map((letter) => `${letter.toUpperCase()}06`),
+    );
+    expect(page.nextCursor).toBeUndefined();
+    expect(mockQueryReadLog.at(-1)?.operations).toContainEqual({
+      type: "limit",
+      count: 27,
+    });
+  });
+
   it("uses document id as a cursor tie-breaker for equal timestamps", async () => {
     const { listPartnershipCrmOrganizations } = await import(
       "../repositories/partnership-crm.repository"

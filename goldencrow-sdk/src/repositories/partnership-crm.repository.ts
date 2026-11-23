@@ -37,6 +37,8 @@ const SNAPSHOT_SCAN_PAGE_SIZE = 250;
 const SNAPSHOT_TIME_ZONE = "America/Argentina/Buenos_Aires";
 const MAX_PAGE_SIZE = 10;
 const DEFAULT_PAGE_SIZE = MAX_PAGE_SIZE;
+const NUMBERED_TEMPLATE_PREFIXES = "abcdefghijklmnopqrstuvwxyz";
+export const PARTNERSHIP_CRM_NUMBERED_TEMPLATE_PAGE_SIZE = NUMBERED_TEMPLATE_PREFIXES.length;
 const MAX_TARGET_PAGE_SIZE = 20;
 const DEFAULT_TARGET_PAGE_SIZE = MAX_TARGET_PAGE_SIZE;
 const FILTERED_BATCH_LIMIT = 20;
@@ -388,6 +390,17 @@ export interface PartnershipCrmTemplatesPage {
   scanned: number;
   asOf: string;
 }
+
+type PartnershipCrmTemplateListOptions = {
+  cursor?: string;
+  limit?: unknown;
+  query?: string;
+  status?: string;
+  category?: string;
+  audience?: string;
+  templateNumber?: string;
+  deep?: boolean;
+};
 
 export interface PartnershipCrmSentEmailLogRecord {
   id: string;
@@ -1206,7 +1219,7 @@ function hasAnyValueOverlap(
   return filterValues.some((value) => recordValues.includes(value));
 }
 
-function normalizeLimit(value: unknown) {
+function normalizeLimit(value: unknown, max = MAX_PAGE_SIZE) {
   const parsed =
     typeof value === "number"
       ? value
@@ -1218,7 +1231,7 @@ function normalizeLimit(value: unknown) {
     return DEFAULT_PAGE_SIZE;
   }
 
-  return Math.min(Math.max(Math.trunc(parsed), 1), MAX_PAGE_SIZE);
+  return Math.min(Math.max(Math.trunc(parsed), 1), max);
 }
 
 function normalizeTargetLimit(value: unknown) {
@@ -2088,12 +2101,7 @@ function matchesProfessionalFilters(
 
 function matchesTemplateFilters(
   record: PartnershipCrmTemplateRecord,
-  filters: {
-    query?: string;
-    status?: string;
-    category?: string;
-    audience?: string;
-  },
+  filters: PartnershipCrmTemplateListOptions,
 ) {
   const query = cleanString(filters.query).toLowerCase();
   const audience = normalizeTemplateAudience(filters.audience);
@@ -2117,6 +2125,8 @@ function matchesTemplateFilters(
     (!query || searchable.includes(query)) &&
     (!status || status === "all" || record.status === status) &&
     (!hasAudienceFilter || record.audience === audience) &&
+    (!filters.templateNumber ||
+      record.name.match(/^[a-z](\d{2})$/i)?.[1] === filters.templateNumber) &&
     hasAnyValueOverlap(
       categoryKeys,
       crmCategoryKeys(record.category, record.audience),
@@ -3489,37 +3499,28 @@ function buildTargetListQuery(
   };
 }
 
-function templateListFingerprint(options: {
-  query?: string;
-  status?: string;
-  category?: string;
-  audience?: string;
-  deep?: boolean;
-}) {
+function templateListFingerprint(options: PartnershipCrmTemplateListOptions) {
   return cursorFingerprint({
     query: cleanString(options.query).toLowerCase(),
     status: cleanString(options.status),
     category: cleanString(options.category),
     audience: cleanString(options.audience),
     deep: Boolean(options.deep),
+    templateNumber: options.templateNumber,
   });
 }
 
-function buildTemplateListQuery(options: {
-  cursor?: string;
-  query?: string;
-  status?: string;
-  category?: string;
-  audience?: string;
-  deep?: boolean;
-}): BoundedCrmQuery {
+function buildTemplateListQuery(
+  options: PartnershipCrmTemplateListOptions,
+): BoundedCrmQuery {
   const collection = adminDb.collection(TEMPLATES_COLLECTION);
   const search = cleanString(options.query);
   const status = cleanString(options.status);
   const category = cleanString(options.category);
   const audience = cleanString(options.audience);
+  const templateNumber = options.templateNumber;
   const hasFilters = Boolean(
-    search || (status && status !== "all") || category || audience,
+    search || (status && status !== "all") || category || audience || templateNumber,
   );
   const fingerprint = templateListFingerprint(options);
   if (search && normalizeName(search).length < 3) {
@@ -3537,7 +3538,19 @@ function buildTemplateListQuery(options: {
   if (category && !categoryKeys.length) {
     throw new AdminRepositoryError("CRM template category filter is invalid.", 400);
   }
-  if (categoryKeys.length === 1) {
+  if (templateNumber !== undefined) {
+    if (!/^\d{2}$/.test(templateNumber)) {
+      throw new AdminRepositoryError("Template number must have two digits.", 400);
+    }
+    const normalizedNames = [...NUMBERED_TEMPLATE_PREFIXES].map(
+      (prefix) => `${prefix}${templateNumber}`,
+    );
+    cursorField = "normalizedName";
+    query = collection
+      .where("normalizedName", "in", normalizedNames)
+      .orderBy("normalizedName", "asc")
+      .orderBy(FieldPath.documentId(), "asc");
+  } else if (categoryKeys.length === 1) {
     query = collection
       .where("category", "==", categoryKeys[0])
       .orderBy("updatedAt", "desc")
@@ -3709,21 +3722,16 @@ function importIdempotencyDocumentId(
 
 export async function listPartnershipCrmTemplates(
   context: AdminContext,
-  options: {
-    cursor?: string;
-    limit?: unknown;
-    query?: string;
-    status?: string;
-    category?: string;
-    audience?: string;
-    deep?: boolean;
-  } = {},
+  options: PartnershipCrmTemplateListOptions = {},
 ): Promise<PartnershipCrmTemplatesPage> {
   requireGodMode(context);
 
-  const limit = normalizeLimit(options.limit);
+  const limit = normalizeLimit(
+    options.limit,
+    options.templateNumber ? PARTNERSHIP_CRM_NUMBERED_TEMPLATE_PAGE_SIZE : MAX_PAGE_SIZE,
+  );
   const built = buildTemplateListQuery(options);
-  const scanLimit = options.deep ? FILTERED_BATCH_LIMIT : limit + 1;
+  const scanLimit = Math.max(limit + 1, options.deep ? FILTERED_BATCH_LIMIT : 0);
   const listQuery = options.deep
     ? built.query
     : built.query.select(...TEMPLATE_SUMMARY_FIELDS);
@@ -3751,7 +3759,7 @@ export async function listPartnershipCrmTemplates(
       : undefined;
 
   return {
-    templates: favoriteFirstRecords(templates),
+    templates: options.templateNumber ? templates : favoriteFirstRecords(templates),
     nextCursor,
     partial: built.hasFilters,
     scanned: snapshot.docs.length,
