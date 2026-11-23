@@ -1209,7 +1209,7 @@ describe("partnership CRM repository pagination", () => {
     const reads = mockQueryReadLog.filter((read) => read.collectionName === "plantillas");
     expect(reads).toHaveLength(12);
     for (let index = 0; index < reads.length; index += 3) {
-      expect(reads[index].operations).toEqual(expect.arrayContaining([
+      expect(reads[index]?.operations).toEqual(expect.arrayContaining([
         {
           type: "where",
           fieldPath: "normalizedName",
@@ -1218,7 +1218,7 @@ describe("partnership CRM repository pagination", () => {
         },
         { type: "limit", count: 3 },
       ]));
-      expect(reads[index + 1].operations).toEqual(expect.arrayContaining([
+      expect(reads[index + 1]?.operations).toEqual(expect.arrayContaining([
         {
           type: "where",
           fieldPath: "name",
@@ -1227,7 +1227,7 @@ describe("partnership CRM repository pagination", () => {
         },
         { type: "limit", count: 3 },
       ]));
-      expect(reads[index + 2].operations).toEqual(expect.arrayContaining([
+      expect(reads[index + 2]?.operations).toEqual(expect.arrayContaining([
         {
           type: "where",
           fieldPath: "name",
@@ -1256,7 +1256,7 @@ describe("partnership CRM repository pagination", () => {
       ["canonical-f", "F86", "f86"],
       ["legacy-f", "F86"],
       ["unrelated", "Z10", "z10"],
-    ]) {
+    ] as const) {
       mockDocs.set(mockDocKey("plantillas", id), {
         name,
         ...(normalizedName ? { normalizedName } : {}),
