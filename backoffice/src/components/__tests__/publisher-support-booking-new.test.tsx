@@ -58,27 +58,59 @@ beforeEach(() => {
 
 const invitedSlot = { date: "2099-08-20", startTime: "09:30" };
 
-it("opens an available invitation at confirmation and books its exact slot on one click", async () => {
+it.each([
+  [undefined, "other", "Otro"],
+  ["first_note", "first_note", "Publicar tu primera nota"],
+  ["app_store_publication", "app_store_publication", "Publicar tu app en los stores"],
+  ["invalid_category", "other", "Otro"],
+  [["first_note", "first_service"], "other", "Otro"],
+] as const)(
+  "books an available invitation with category %j in one click",
+  async (category, reason, label) => {
+    const user = userEvent.setup();
+    jest.mocked(sdkFetch).mockImplementation(async (path) => (
+      path.startsWith("/client-bookings/availability")
+        ? availableTimes(path, ["09:00", "09:30"])
+        : { status: "ok", bookingId: "booking-1" }
+    ));
+    await renderBooking({
+      ...invitedSlot,
+      category: typeof category === "string" ? category : category && [...category],
+    });
+
+    const submit = await screen.findByRole("button", { name: "Solicitar reunión" });
+    expect(submit).toBeEnabled();
+    expect(screen.getByRole("combobox", { name: "Motivo" })).toHaveTextContent(label);
+    expect(screen.getByText(/09:30 · 30 minutos/)).toBeVisible();
+    expect(jest.mocked(sdkFetch).mock.calls.map(([path]) => path)).toEqual([
+      "/client-bookings/availability?month=2099-08&context=pocket-genes-support",
+    ]);
+
+    await user.click(submit);
+    const [, request] = jest.mocked(sdkFetch).mock.calls[1];
+    expect(JSON.parse(String(request?.body))).toEqual({ ...invitedSlot, reason, locale: "es" });
+    expect(await screen.findByRole("dialog", { name: "¡Gracias por reservar!" })).toBeVisible();
+  },
+);
+
+it("keeps the selected reason in the booking callback after a session expires", async () => {
   const user = userEvent.setup();
-  jest.mocked(sdkFetch).mockImplementation(async (path) => (
-    path.startsWith("/client-bookings/availability")
-      ? availableTimes(path, ["09:00", "09:30"])
-      : { status: "ok", bookingId: "booking-1" }
-  ));
-  await renderBooking(invitedSlot);
+  jest.mocked(sdkFetch).mockImplementation(async (path) => {
+    if (path.startsWith("/client-bookings/availability")) return availableTimes(path, ["09:30"]);
+    throw new SdkRequestError({ status: 401, method: "POST", path, message: "Expired", details: "" });
+  });
+  await renderBooking({ ...invitedSlot, category: "first_note" });
 
-  const submit = await screen.findByRole("button", { name: "Solicitar reunión" });
-  expect(submit).toBeEnabled();
-  expect(screen.getByRole("combobox", { name: "Motivo" })).toHaveTextContent("Otro");
-  expect(screen.getByText(/09:30 · 30 minutos/)).toBeVisible();
-  expect(jest.mocked(sdkFetch).mock.calls.map(([path]) => path)).toEqual([
-    "/client-bookings/availability?month=2099-08&context=pocket-genes-support",
-  ]);
+  await user.click(await screen.findByRole("combobox", { name: "Motivo" }));
+  await user.click(await screen.findByRole("option", { name: "Publicar tu primer servicio" }));
+  await user.click(screen.getByRole("button", { name: "Solicitar reunión" }));
 
-  await user.click(submit);
-  const [, request] = jest.mocked(sdkFetch).mock.calls[1];
-  expect(JSON.parse(String(request?.body))).toEqual({ ...invitedSlot, reason: "other", locale: "es" });
-  expect(await screen.findByRole("dialog", { name: "¡Gracias por reservar!" })).toBeVisible();
+  const signIn = await screen.findByRole("link", { name: "Iniciar sesión" });
+  const url = new URL(signIn.getAttribute("href") ?? "", "https://backoffice.example");
+  expect(url.pathname).toBe("/publisher-portal/login");
+  const callback = new URL(url.searchParams.get("callbackUrl") ?? "", url);
+  expect(callback.pathname).toBe("/publisher-portal/support-bookings/new");
+  expect(Object.fromEntries(callback.searchParams)).toEqual({ ...invitedSlot, category: "first_service" });
 });
 
 it("rechecks a cached invitation and offers alternatives when the time is taken", async () => {
@@ -92,7 +124,7 @@ it("rechecks a cached invitation and offers alternatives when the time is taken"
     await pending;
     return availableTimes(path, ["09:00"]);
   });
-  await renderBooking(invitedSlot, client);
+  await renderBooking({ ...invitedSlot, category: "interactive_lessons" }, client);
 
   expect(screen.queryByRole("button", { name: "Solicitar reunión" })).not.toBeInTheDocument();
   finishFetch();
@@ -100,6 +132,7 @@ it("rechecks a cached invitation and offers alternatives when the time is taken"
   expect(screen.queryByRole("button", { name: "09:30" })).not.toBeInTheDocument();
   await user.click(await screen.findByRole("button", { name: "09:00" }));
   expect(screen.getByText(/09:00 · 30 minutos/)).toBeVisible();
+  expect(screen.getByRole("combobox", { name: "Motivo" })).toHaveTextContent("Diseñar una lección interactiva");
   expect(jest.mocked(sdkFetch).mock.calls).toHaveLength(1);
 });
 

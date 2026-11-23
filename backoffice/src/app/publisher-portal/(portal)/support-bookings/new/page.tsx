@@ -2,12 +2,14 @@ import { redirect } from "next/navigation";
 import { HeaderUnclutterScope } from "@/components/header-unclutter";
 import { PublisherSupportBookingHero } from "@/components/publisher-support-booking-hero";
 import { PublisherSupportBookingNew } from "@/components/publisher-support-booking-new";
+import { isSupportBookingReason } from "@/lib/client-bookings";
 import { getPublisherSupportBookingIdentity } from "@/lib/publisher-support-bookings-server";
 import { PUBLISHER_PORTAL_HOME_ROUTE } from "@/lib/publisher-portal-routes";
 
 type BookingQuery = {
   date?: string | string[];
   startTime?: string | string[];
+  category?: string | string[];
 };
 
 function readRequestedSlot({ date, startTime }: BookingQuery) {
@@ -28,14 +30,16 @@ export default async function PublisherSupportBookingNewPage({
   const [identity, query] = await Promise.all([getPublisherSupportBookingIdentity(), searchParams]);
   if (!identity) redirect(PUBLISHER_PORTAL_HOME_ROUTE);
   const requestedSlot = readRequestedSlot(query);
+  const requestedReason = isSupportBookingReason(query.category) ? query.category : undefined;
 
   return (
     <div className="flex flex-col gap-6">
       <HeaderUnclutterScope header={<PublisherSupportBookingHero isNew />}>
         <PublisherSupportBookingNew
-          key={JSON.stringify([identity.uid, requestedSlot])}
+          key={JSON.stringify([identity.uid, requestedSlot, requestedReason])}
           identity={identity}
           requestedSlot={requestedSlot}
+          requestedReason={requestedReason}
         />
       </HeaderUnclutterScope>
     </div>

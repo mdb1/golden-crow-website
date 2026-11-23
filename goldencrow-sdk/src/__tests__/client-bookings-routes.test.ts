@@ -393,26 +393,27 @@ describe("support bookings", () => {
     const response = await fastify.inject({
       method: "POST",
       url: "/admin/publisher-support-bookings",
-      payload: { ...validSupportSlot(), locale: "en-US", email: "spoof@example.com", publisherUid: "somebody-else" },
+      payload: { ...validSupportSlot(), reason: "first_note", locale: "en-US", email: "spoof@example.com", publisherUid: "somebody-else" },
     });
 
     expect(response.statusCode).toBe(201);
     expect(mockCreateClientBooking).toHaveBeenCalledWith(expect.objectContaining({
       kind: "publisher_support",
+      reason: "first_note",
       form: expect.objectContaining({ email: publisher.email }),
     }), { publisherUid: publisher.uid, origin: undefined });
     const [host, attendee] = mockSendGmailMessage.mock.calls.map(([message]) => message);
     expect(host.html).toContain("Ada &lt;Lovelace&gt;");
     expect(host.html).toContain("Analytical &amp; Engines");
-    expect(host.html).toContain("Facturación");
+    expect(host.html).toContain("Publicar tu primera nota");
     expect(attendee).toMatchObject({
       to: publisher.email,
       subject: "Your booking is confirmed",
-      text: expect.stringContaining("Reason: Billing"),
+      text: expect.stringContaining("Reason: Publish your first note"),
     });
     expect(attendee.html).toContain("Ada &lt;Lovelace&gt;");
     expect(attendee.html).toContain("Pocket Genes support");
-    expect(attendee.html).toContain("Billing");
+    expect(attendee.html).toContain("Publish your first note");
     expect(attendee.html).not.toContain("<Lovelace>");
     expect(attendee.html).not.toContain("/god-mode/bookings");
   });

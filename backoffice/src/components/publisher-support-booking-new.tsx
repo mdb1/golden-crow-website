@@ -143,9 +143,11 @@ function bookingCalendarBounds() {
 export function PublisherSupportBookingNew({
   identity,
   requestedSlot,
+  requestedReason,
 }: {
   identity: SdkSessionIdentity;
   requestedSlot?: Slot;
+  requestedReason?: SupportBookingReason;
 }) {
   const { language } = useAppLanguage();
   const router = useRouter();
@@ -156,7 +158,7 @@ export function PublisherSupportBookingNew({
     : bounds.earliest);
   const [preferredDate, setPreferredDate] = useState(requestedSlot?.date);
   const [selection, setSelection] = useState<Slot | "invitation" | undefined>(requestedSlot ? "invitation" : undefined);
-  const [reason, setReason] = useState<SupportBookingReason | "">(requestedSlot ? "other" : "");
+  const [reason, setReason] = useState<SupportBookingReason | "">(requestedReason ?? (requestedSlot ? "other" : ""));
   const [whatsapp, setWhatsapp] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
@@ -355,7 +357,7 @@ export function PublisherSupportBookingNew({
                       className="w-fit font-medium underline"
                       href={{
                         pathname: PUBLISHER_PORTAL_LOGIN_ROUTE,
-                        query: { callbackUrl: `${PUBLISHER_PORTAL_SUPPORT_BOOKING_NEW_ROUTE}?${new URLSearchParams(slot)}` },
+                        query: { callbackUrl: `${PUBLISHER_PORTAL_SUPPORT_BOOKING_NEW_ROUTE}?${new URLSearchParams({ ...slot, category: reason })}` },
                       }}
                     >
                       {copy.signIn}

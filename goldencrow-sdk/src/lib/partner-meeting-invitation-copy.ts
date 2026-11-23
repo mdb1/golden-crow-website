@@ -1,5 +1,5 @@
 import type { PartnerSection } from "../contracts/connected-partners.js";
-import { clientBookingSlotEvent } from "./client-booking-schedule.js";
+import { clientBookingSlotEvent, type SupportBookingReason } from "./client-booking-schedule.js";
 import type {
   PartnerEmailCopy,
   PartnerEmailLanguage,
@@ -9,6 +9,27 @@ import type {
 type MeetingInvitation = Pick<PartnerEmailCopy, "subject" | "heading" | "lead"> & {
   paragraphs?: string[];
 };
+
+const invitationBookingReasons = {
+  1: "portal_walkthrough",
+  2: "follow_up",
+  3: "support_consultation",
+  4: "first_note",
+  5: "first_service",
+  6: "app_store_publication",
+  7: "professional_directory",
+  8: "push_notifications",
+  9: "personalized_lessons",
+  10: "mobile_surveys",
+  11: "interactive_lessons",
+  12: "interactive_patient_guides",
+  13: "interactive_reports",
+  14: "frequent_question_note",
+  15: "service_listing_review",
+  16: "survey_results",
+  17: "release_notification",
+  18: "interactive_report_review",
+} satisfies Record<PartnerMeetingTemplateVariant, SupportBookingReason>;
 
 const invitations = {
   3: {
@@ -296,14 +317,25 @@ export function partnerMeetingInvitationCopy(
   const isSpanish = language === "es";
   const isFeatureInvitation = variant >= 4;
   const event = clientBookingSlotEvent(meetingSlot.date, meetingSlot.startTime);
+  const startsAt = new Date(event.startsAt);
   const date = new Intl.DateTimeFormat(isSpanish ? "es-AR" : "en-US", {
     dateStyle: "full",
     timeZone: event.timezone,
-  }).format(new Date(event.startsAt));
+  }).format(startsAt);
+  const time = new Intl.DateTimeFormat("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: event.timezone,
+  }).format(startsAt);
   const proposedTime = isSpanish
-    ? `Te proponemos el ${date} a las ${event.startTime}, hora de ${event.timezoneLabel}. La reunión dura ${event.durationMinutes} minutos.`
-    : `We suggest ${date} at ${event.startTime}, ${event.timezoneLabel} time. The meeting lasts ${event.durationMinutes} minutes.`;
-  const query = new URLSearchParams({ date: meetingSlot.date, startTime: meetingSlot.startTime });
+    ? `Te proponemos el ${date} a las ${time}, hora de Buenos Aires. La reunión dura ${event.durationMinutes} minutos.`
+    : `We suggest ${date} at ${time}, Buenos Aires time. The meeting lasts ${event.durationMinutes} minutes.`;
+  const query = new URLSearchParams({
+    date: meetingSlot.date,
+    startTime: meetingSlot.startTime,
+    category: invitationBookingReasons[variant],
+  });
   const invitation = invitationForPartner(variant, language, category);
   return {
     ...invitation,

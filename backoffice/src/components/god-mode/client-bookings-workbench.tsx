@@ -34,6 +34,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HeaderUnclutterButton } from "@/components/header-unclutter";
 import { sdkFetch } from "@/lib/sdk-client";
 import {
+  formatBookingClockTime,
   SUPPORT_BOOKING_REASON_LABELS,
   type ClientBookingRecord,
   type ClientBookingsResponse,
@@ -144,26 +145,12 @@ function formatDateKey(dateKey: string, language: AppLanguage) {
   }).format(new Date(Date.UTC(year, monthNumber - 1, day)));
 }
 
-function formatClockTime(time: string) {
-  const [hourToken = "", minuteToken = ""] = time.split(":");
-  const hour = Number(hourToken);
-  const minute = Number(minuteToken);
-
-  if (!Number.isInteger(hour) || !Number.isInteger(minute)) {
-    return time;
-  }
-
-  const suffix = hour >= 12 ? "PM" : "AM";
-  const hour12 = hour % 12 || 12;
-  return `${pad2(hour12)}:${pad2(minute)} ${suffix}`;
-}
-
 function formatTimeRange(booking: ClientBookingRecord) {
   const start = booking.event.startTime
-    ? formatClockTime(booking.event.startTime)
+    ? formatBookingClockTime(booking.event.startTime)
     : "";
   const end = booking.event.endTime
-    ? formatClockTime(booking.event.endTime)
+    ? formatBookingClockTime(booking.event.endTime)
     : "";
 
   return [start, end].filter(Boolean).join(" - ") || booking.event.title;

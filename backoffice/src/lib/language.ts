@@ -85,6 +85,7 @@ const SPANISH_TEXT: Record<string, string> = {
   "Email preview": "Vista previa del email",
   "Invite to a meeting": "Invitar a una reunión",
   "Proposed meeting": "Reunión propuesta",
+  "Buenos Aires time": "hora de Buenos Aires",
   "Send invitation": "Enviar invitación",
   "Invitation sent": "Invitación enviada",
   "Getting started and support": "Primeros pasos y soporte",

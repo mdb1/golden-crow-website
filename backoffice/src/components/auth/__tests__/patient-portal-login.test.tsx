@@ -313,7 +313,7 @@ describe("publisher portal login", () => {
 
   it.each([
     "/publisher-portal/app/new",
-    "/publisher-portal/support-bookings/new?date=2026-11-24&startTime=09%3A30",
+    "/publisher-portal/support-bookings/new?date=2026-11-24&startTime=09%3A30&category=first_note",
   ])("automatically exchanges a publisher code and preserves the destination %s", async (callback) => {
     const key = `pgp1.${"a".repeat(300)}.signature`;
     fetchMock

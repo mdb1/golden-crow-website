@@ -39,6 +39,7 @@ import {
   type PartnerMeetingSlot,
 } from "@/lib/partner-email";
 import { appText } from "@/lib/language";
+import { formatBookingClockTime } from "@/lib/client-bookings";
 import { formatSupportBookingDate } from "@/lib/publisher-support-bookings";
 import { sdkFetch, SdkRequestError } from "@/lib/sdk-client";
 import { cn } from "@/lib/utils";
@@ -425,7 +426,10 @@ export function PartnerEmailPreviewDialog({
                       <>
                         <dt className="text-muted-foreground">{t("Proposed meeting")}</dt>
                         <dd className="font-medium">
-                          {formatSupportBookingDate(preview.meetingSlot.date, language)} · {preview.meetingSlot.startTime} (Buenos Aires)
+                          {formatSupportBookingDate(preview.meetingSlot.date, language)}
+                          {" · "}
+                          {formatBookingClockTime(preview.meetingSlot.startTime)},{" "}
+                          {t("Buenos Aires time")}
                         </dd>
                       </>
                     )}

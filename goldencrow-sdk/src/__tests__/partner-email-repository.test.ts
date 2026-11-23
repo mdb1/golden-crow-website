@@ -364,7 +364,10 @@ describe("publisher email access-token fallback", () => {
     return id;
   }
 
-  it.each([2, 18])("sends reviewed invitation %i with its original slot and records a single delivery", async (templateVariant) => {
+  it.each([
+    [2, "follow_up"],
+    [18, "interactive_report_review"],
+  ] as const)("sends reviewed invitation %i with its original slot and records a single delivery", async (templateVariant, reason) => {
     jest.useFakeTimers({ now: Date.now(), doNotFake: ["nextTick", "setImmediate", "setTimeout", "queueMicrotask"] });
     linkAccount("individual");
     const meetingSlot = { date: "2026-11-12", startTime: "09:30" };
@@ -386,18 +389,21 @@ describe("publisher email access-token fallback", () => {
       const preview = previewResponse.json();
       expect(preview).toMatchObject({ templateVariant, meetingSlot });
       expect(preview.bannerBrand).toBeUndefined();
-      expect(preview.html).toContain("pg-email-cta");
-      expect(preview.text).toContain("09:30");
+      expect(preview.html).toContain(`href="${preview.ctaUrl.replaceAll("&", "&amp;")}" class="pg-email-cta"`);
+      expect(preview.text).toContain("09:30 AM, hora de Buenos Aires");
       const login = new URL(preview.ctaUrl);
       expect(login.pathname).toBe("/publisher-portal/login");
       expect(login.searchParams.get("email")).toBe(partner.email);
       expect(login.searchParams.get("accessKey")).toMatch(/^pgp1\./);
       const callback = new URL(login.searchParams.get("callbackUrl")!, login);
       expect(callback.pathname).toBe("/publisher-portal/support-bookings/new");
-      expect(Object.fromEntries(callback.searchParams)).toEqual(meetingSlot);
+      expect(Object.fromEntries(callback.searchParams)).toEqual({ ...meetingSlot, category: reason });
       const pinned = new URLSearchParams({ purpose: "meetingInvitation", language: "en", templateVariant: "9", ...meetingSlot });
       const alternate = await app.inject({ method: "GET", url: `${path}/email-preview?${pinned}` });
       expect(alternate.json()).toMatchObject({ language: "en", templateVariant: 9, meetingSlot });
+      const alternateLogin = new URL(alternate.json().ctaUrl);
+      const alternateCallback = new URL(alternateLogin.searchParams.get("callbackUrl")!, alternateLogin);
+      expect(Object.fromEntries(alternateCallback.searchParams)).toEqual({ ...meetingSlot, category: "personalized_lessons" });
       const command = {
         requestId, language: "es", purpose: "meetingInvitation",
         templateVariant, previewHash: preview.previewHash, meetingSlot,
@@ -418,7 +424,7 @@ describe("publisher email access-token fallback", () => {
       );
       expect(JSON.stringify(mockDocs.get(requestPath))).not.toContain(login.searchParams.get("accessKey")!);
       const history = await getPartnerEmailHistory(context, requestId);
-      expect(history.messageText).toContain("09:30");
+      expect(history.messageText).toContain("09:30 AM, hora de Buenos Aires");
       const expectedTemplate = { purpose: "meetingInvitation", templateVariant };
       expect(mockDocs.get(requestPath)).toMatchObject(expectedTemplate);
       expect(history).toMatchObject(expectedTemplate);

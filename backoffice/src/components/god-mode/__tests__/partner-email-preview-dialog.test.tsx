@@ -71,11 +71,11 @@ function failure(status: number, message: string) {
   });
 }
 
-function renderDialog(meetingInvitation = false) {
+function renderDialog(meetingInvitation = false, language: "en" | "es" = "en") {
   const onClose = jest.fn();
   const onSent = jest.fn();
   const result = render(
-    <AppLanguageProvider forcedLanguage="en">
+    <AppLanguageProvider forcedLanguage={language}>
       <PartnerEmailPreviewDialog partnerId={PARTNER_ID} meetingInvitation={meetingInvitation} onClose={onClose} onSent={onSent} />
     </AppLanguageProvider>,
   );
@@ -119,7 +119,7 @@ it("keeps the suggested slot when changing meeting templates and sends the revie
     .mockResolvedValueOnce(sent);
   renderDialog(true);
   await screen.findByText(first.subject);
-  expect(screen.getByText("Monday, November 23, 2026 · 09:30 (Buenos Aires)")).toBeVisible();
+  expect(screen.getByText("Monday, November 23, 2026 · 09:30 AM, Buenos Aires time")).toBeVisible();
   const picker = screen.getByRole("combobox", { name: "Email template" });
   expect(picker).toHaveValue("4");
   for (const group of ["Getting started and support", "Guided walkthroughs", "Follow-up sessions"]) {
@@ -143,6 +143,16 @@ it("keeps the suggested slot when changing meeting templates and sends the revie
   });
 });
 
+it("displays the proposed time in Spanish without a GMT offset", async () => {
+  jest.mocked(sdkFetch).mockResolvedValue({
+    ...preview,
+    templateVariant: 4,
+    meetingSlot: { date: "2026-11-23", startTime: "11:00" },
+  });
+  renderDialog(true, "es");
+  expect(await screen.findByText("lunes, 23 de noviembre de 2026 · 11:00 AM, hora de Buenos Aires")).toBeVisible();
+});
+
 it("refreshes a stale invitation with a new slot before another send", async () => {
   const first = { ...preview, templateVariant: 4, meetingSlot: { date: "2026-11-23", startTime: "09:30" } };
   const next = { ...first, meetingSlot: { date: "2026-11-24", startTime: "10:00" }, previewHash: "c".repeat(64) };
@@ -155,7 +165,7 @@ it("refreshes a stale invitation with a new slot before another send", async () 
   const refresh = await screen.findByRole("button", { name: "Refresh preview" });
   expect(screen.getByRole("button", { name: "Send invitation" })).toBeDisabled();
   fireEvent.click(refresh);
-  await screen.findByText("Tuesday, November 24, 2026 · 10:00 (Buenos Aires)");
+  await screen.findByText("Tuesday, November 24, 2026 · 10:00 AM, Buenos Aires time");
   expect(sdkFetch).toHaveBeenLastCalledWith(`${ENDPOINT}/email-preview?language=es&templateVariant=4&purpose=meetingInvitation`, expect.any(Object));
   expect(requests()).toHaveLength(1);
 });

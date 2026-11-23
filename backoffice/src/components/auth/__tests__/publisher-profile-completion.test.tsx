@@ -41,7 +41,7 @@ describe("PublisherProfileCompletion", () => {
   it.each([
     "/publisher-portal/app/new",
     "/publisher-portal/app/accept-terms-and-conditions",
-    "/publisher-portal/support-bookings/new?date=2026-11-24&startTime=09%3A30",
+    "/publisher-portal/support-bookings/new?date=2026-11-24&startTime=09%3A30&category=first_note",
   ])(
     "continues to the email destination %s after first-time setup",
     async (callback) => {
