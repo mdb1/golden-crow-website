@@ -341,6 +341,7 @@ export function PublisherPortalHome({
             organizationName={publisherName}
             organizationTint={publisherTint}
             organizationImageUrl={publisherImageUrl}
+            showPricing={hasPublisherAppConfig}
             ctaLabel={hasPublisherAppConfig ? "Editar mi app" : "Crear mi app"}
           />
         </Link>

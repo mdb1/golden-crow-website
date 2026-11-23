@@ -199,14 +199,14 @@ describe("PublisherPortalHomePage", () => {
     expect(
       screen.getByRole("heading", { level: 2, name: "Mi app" }),
     ).toBeTruthy();
-    expect(screen.getByTestId("publisher-app-banner").textContent).toContain(
-      "Pocket Genes Lab",
-    );
-    expect(screen.getByText("99.99")).toBeTruthy();
-    expect(screen.getByText("59.99")).toBeTruthy();
-    expect(screen.getByText("Crear mi app")).toBeTruthy();
-    expect(screen.getByTestId("publisher-app-banner").dataset.accent).toBe(
-      "#123ABC",
+    const appBanner = screen.getByTestId("publisher-app-banner");
+    expect(appBanner).toHaveTextContent("Pocket Genes Lab");
+    expect(within(appBanner).queryByText("99.99")).not.toBeInTheDocument();
+    expect(within(appBanner).queryByText("59.99")).not.toBeInTheDocument();
+    expect(within(appBanner).getByText("Crear mi app")).toBeTruthy();
+    expect(appBanner.dataset.accent).toBe("#123ABC");
+    expect(screen.getByTestId("publisher-app-primary-action")).toHaveAccessibleName(
+      "¡Quiero una prueba gratuita de mi app propia!",
     );
     expect(
       screen
@@ -296,10 +296,11 @@ describe("PublisherPortalHomePage", () => {
         .getByRole("link", { name: "Editar la configuración de Mi app" })
         .getAttribute("href"),
     ).toBe(PUBLISHER_PORTAL_APP_EDIT_ROUTE);
-    expect(screen.getByTestId("publisher-app-banner-link")).toContainElement(
-      screen.getByTestId("publisher-app-banner"),
-    );
-    expect(screen.getByText("Editar mi app")).toBeTruthy();
+    const appBanner = screen.getByTestId("publisher-app-banner");
+    expect(screen.getByTestId("publisher-app-banner-link")).toContainElement(appBanner);
+    expect(within(appBanner).getByText("Editar mi app")).toBeTruthy();
+    expect(within(appBanner).getByText("99.99")).toBeInTheDocument();
+    expect(within(appBanner).getByText("59.99")).toBeInTheDocument();
   });
 
   const appPrimaryActions = [
