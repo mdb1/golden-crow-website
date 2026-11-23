@@ -53,8 +53,9 @@ beforeEach(() => jest.resetAllMocks());
 
 it.each([
   [1, "Recorrido del portal"],
-  [7, "Sumar gratis tu lista de profesionales"],
-  [11, "Armar una clase interactiva"],
+  [6, "Preparar tu app para los stores"],
+  [7, "Incorporar profesionales sin cargo"],
+  [11, "Diseñar una clase interactiva"],
   [18, "Revisar un informe interactivo"],
 ] as const)("names invitation %s in contact history and the recorded message", async (templateVariant, label) => {
   const invitation = { ...email, purpose: "meetingInvitation", templateVariant };

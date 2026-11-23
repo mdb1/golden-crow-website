@@ -26,14 +26,15 @@ it.each([
 it("offers the free import to both organizations and individual partners in the appropriate terms", () => {
   const organization = partnerMeetingInvitationCopy("es", 7, slot, "organizationWithoutApp");
   const individual = partnerMeetingInvitationCopy("es", 7, slot, "individualWithoutApp");
-  expect(organization.lead).toContain("sin cargo tu nómina completa de profesionales");
-  expect(individual.lead).toContain("Si trabajás con una institución");
-  expect(individual.lead).toContain("sin cargo toda su nómina");
+  expect(organization.lead).toContain("sin cargo a todos tus profesionales");
+  expect(organization.lead).toContain("a tu organización");
+  expect(individual.lead).toContain("sin cargo a todos los profesionales");
+  expect(individual.lead).toContain("a tu institución");
 });
 
 it.each([
-  ["es", ["sin cargo", "lecciones interactivas", "pacientes", "informe dinámico", "encuesta"]],
-  ["en", ["for free", "interactive lessons", "patients", "dynamic report", "survey"]],
+  ["es", ["sin cargo", "lecciones personalizadas", "guías interactivas para pacientes", "informe dinámico", "encuesta"]],
+  ["en", ["for free", "personalized lessons", "interactive patient guides", "dynamic report", "survey"]],
 ] as const)("includes the roster offer and mobile examples in the %s notification invitation", (language, features) => {
   const email = partnerMeetingInvitationCopy(language, 8, slot);
   for (const feature of features) expect(email.paragraphs.join(" ")).toContain(feature);
@@ -43,9 +44,15 @@ it("adapts a store launch invitation to a demo, a contracted app or a publisher 
   const demo = partnerMeetingInvitationCopy("en", 6, slot, "individualFreeApp");
   const contracted = partnerMeetingInvitationCopy("en", 6, slot, "contract");
   const firstLaunch = partnerMeetingInvitationCopy("en", 6, slot, "organizationWithoutApp");
-  expect(demo.lead).toContain("open your demo together");
+  expect(demo.lead).toContain("review your demo");
   expect(contracted.lead).toContain("first release or an update");
-  expect(firstLaunch.lead).toContain("which developer account");
+  expect(firstLaunch.lead).toContain("developer accounts");
   expect(demo.callback).toBe(firstLaunch.callback);
   expect(contracted.callback).toBe(firstLaunch.callback);
+  for (const category of ["individualFreeApp", "contract", "organizationWithoutApp"] as const) {
+    const copy = partnerMeetingInvitationCopy("es", 6, slot, category);
+    const text = [copy.subject, copy.heading, copy.lead].join(" ");
+    expect(text).toMatch(/\bstores?\b/i);
+    expect(text).not.toMatch(/\btiendas?\b/i);
+  }
 });
