@@ -249,15 +249,19 @@ const crossAudienceEmailTemplate: PartnershipCrmTemplateRecord = {
   normalizedName: "universal professional",
 };
 
-function crmSummaryCacheKey(
-  filters = {
-    query: "",
-    status: "all",
-    category: "",
-    country: "",
-    linkedInState: "all",
-  },
-) {
+const startingCrmFilters = {
+  query: "",
+  status: "new",
+  category: "",
+  country: "AR",
+  linkedInState: "has_linkedin",
+};
+
+const startingFilterParams = "status=new&country=AR&linkedInState=has_linkedin";
+const startingOrganizationsPath = `/admin/partnership-crm/organizations?limit=20&${startingFilterParams}`;
+const startingProfessionalsPath = `/admin/partnership-crm/professionals?limit=20&${startingFilterParams}`;
+
+function crmSummaryCacheKey(filters = startingCrmFilters) {
   return `golden-crow:partnership-crm:summary:v3:organizations:${encodeURIComponent(
     JSON.stringify({ filters, cursor: "" }),
   )}`;
@@ -552,10 +556,48 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     await user.click(screen.getByRole("button", { name: "Apply filters" }));
     await waitFor(() => {
       expect(sdkFetch).toHaveBeenCalledWith(
-        "/admin/partnership-crm/organizations?limit=20&query=genome",
+        `/admin/partnership-crm/organizations?limit=20&query=genome&${startingFilterParams}`,
         expect.objectContaining({ headers: expect.any(Headers) }),
       );
     });
+  });
+
+  it("reopens with new Argentine prospects after applying another country and status", async () => {
+    const user = userEvent.setup();
+    const previousProspect = {
+      ...organization,
+      id: "mx-contact",
+      name: "Mexico contacted prospect",
+      country: "MX",
+      status: "contacted",
+    };
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const params = new URL(String(path), "https://example.org").searchParams;
+      const previousSelection = params.get("country") === "MX" && params.get("status") === "contacted";
+      return { organizations: [previousSelection ? previousProspect : organization] };
+    });
+
+    const firstVisit = renderWorkbench();
+    await screen.findByText(organization.name);
+    expect(sdkFetch).toHaveBeenCalledWith(
+      startingOrganizationsPath,
+      expect.objectContaining({ headers: expect.any(Headers) }),
+    );
+    const filters = screen.getByRole("button", { name: "Apply filters" }).closest("form")!;
+    await user.click(within(filters).getByText("CRM New", { selector: "button span" }).closest("button")!);
+    await user.click(await screen.findByRole("option", { name: "CRM Contacted" }));
+    await user.click(within(filters).getByText("Argentina (AR)", { selector: "button span" }).closest("button")!);
+    await user.click(await screen.findByRole("option", { name: /Mexico/ }));
+    await user.click(within(filters).getByRole("button", { name: "Apply filters" }));
+    await screen.findByText(previousProspect.name);
+    firstVisit.unmount();
+
+    renderWorkbench("en", { autoLoad: false });
+    expect(await screen.findByText(organization.name)).toBeTruthy();
+    expect(screen.queryByText(previousProspect.name)).toBeNull();
+    const reopenedFilters = screen.getByRole("button", { name: "Apply filters" }).closest("form")!;
+    expect(within(reopenedFilters).getByText("Argentina (AR)", { selector: "button span" })).toBeTruthy();
+    expect(within(reopenedFilters).getByText("CRM New", { selector: "button span" })).toBeTruthy();
   });
 
   it("sends a professional email search to the server only after Apply", async () => {
@@ -585,7 +627,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
 
     await waitFor(() => {
       expect(sdkFetch).toHaveBeenCalledWith(
-        "/admin/partnership-crm/professionals?limit=20&query=ada%40genomelab.example",
+        `/admin/partnership-crm/professionals?limit=20&query=ada%40genomelab.example&${startingFilterParams}`,
         expect.objectContaining({ headers: expect.any(Headers) }),
       );
     });
@@ -764,13 +806,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     }>([
       "god-mode-partnership-crm-organizations",
       "organizations",
-      {
-        query: "",
-        status: "all",
-        category: "",
-        country: "",
-        linkedInState: "all",
-      },
+      startingCrmFilters,
       undefined,
     ]);
     expect(
@@ -979,13 +1015,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       client.getQueryData([
         "god-mode-partnership-crm-organizations",
         "organizations",
-        {
-          query: "",
-          status: "all",
-          category: "",
-          country: "",
-          linkedInState: "all",
-        },
+        startingCrmFilters,
         undefined,
       ]),
     ).toBeUndefined();
@@ -2333,13 +2363,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     }>([
       "god-mode-partnership-crm-organizations",
       "organizations",
-      {
-        query: "",
-        status: "all",
-        category: "",
-        country: "",
-        linkedInState: "all",
-      },
+      startingCrmFilters,
       undefined,
     ]);
     expect(currentPage).toBeUndefined();
@@ -2364,14 +2388,14 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     await user.click(screen.getByText("Delete Me Genomics"));
 
     expect(sdkFetch).toHaveBeenCalledWith(
-      "/admin/partnership-crm/organizations?limit=20",
+      startingOrganizationsPath,
       expect.objectContaining({ headers: expect.any(Headers) }),
     );
     expect(screen.getAllByText("All categories").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Genomics Laboratory").length).toBeGreaterThan(
       0,
     );
-    expect(screen.getAllByText("All countries").length).toBeGreaterThan(0);
+    expect(document.getElementById("crm-country-filter")).toHaveTextContent("Argentina");
     expect(screen.queryByPlaceholderText("Category")).toBeNull();
     expect(screen.queryByPlaceholderText("Country")).toBeNull();
 
@@ -4495,7 +4519,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     await user.click(screen.getByText("Dra. Ada Genome"));
 
     expect(sdkFetch).toHaveBeenCalledWith(
-      "/admin/partnership-crm/professionals?limit=20",
+      startingProfessionalsPath,
       expect.objectContaining({ headers: expect.any(Headers) }),
     );
     expect(screen.getAllByText("Clinical Geneticist").length).toBeGreaterThan(
@@ -4920,7 +4944,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
         return { templates: [], nextCursor: undefined };
       }
 
-      if (stringPath === "/admin/partnership-crm/organizations?limit=20") {
+      if (stringPath === startingOrganizationsPath) {
         return {
           organizations: [
             { ...organization, id: "org-page-1", name: "Genome Page 1" },
@@ -4934,7 +4958,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
 
       if (
         stringPath ===
-        "/admin/partnership-crm/organizations?limit=20&cursor=cursor-2"
+        `${startingOrganizationsPath}&cursor=cursor-2`
       ) {
         return {
           organizations: [
@@ -5419,7 +5443,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
       true,
     );
     expect(sdkFetch).toHaveBeenCalledWith(
-      "/admin/partnership-crm/organizations?limit=20&cursor=cursor-2",
+      `${startingOrganizationsPath}&cursor=cursor-2`,
       expect.objectContaining({ headers: expect.any(Headers) }),
     );
 
@@ -5443,7 +5467,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
     const resetAt = "2026-10-16T07:00:00.000Z";
     jest.mocked(sdkFetch).mockImplementation(async (path) => {
       const stringPath = String(path);
-      if (stringPath === "/admin/partnership-crm/organizations?limit=20") {
+      if (stringPath === startingOrganizationsPath) {
         return {
           organizations: [
             { ...organization, id: "org-page-1", name: "Genome Page 1" },
@@ -5453,7 +5477,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
       }
       if (
         stringPath ===
-        "/admin/partnership-crm/organizations?limit=20&cursor=cursor-2"
+        `${startingOrganizationsPath}&cursor=cursor-2`
       ) {
         return {
           organizations: [

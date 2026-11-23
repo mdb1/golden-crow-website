@@ -30,7 +30,7 @@ import {
   partnerEmailPreviewDocument,
   DEFAULT_PARTNER_EMAIL_TEMPLATE_VARIANT,
   PARTNER_EMAIL_TEMPLATE_OPTIONS,
-  PARTNER_MEETING_TEMPLATE_OPTIONS,
+  PARTNER_MEETING_TEMPLATE_GROUPS,
   type PartnerEmailLanguage,
   type PartnerEmailPreview,
   type PartnerEmailSendInput,
@@ -59,14 +59,13 @@ export function PartnerEmailPreviewDialog({
 }) {
   const { language } = useAppLanguage();
   const t = (text: string) => appText(language, text);
-  const templateOptions = meetingInvitation
-    ? PARTNER_MEETING_TEMPLATE_OPTIONS
-    : PARTNER_EMAIL_TEMPLATE_OPTIONS;
   const [emailLanguage, setEmailLanguage] =
     useState<PartnerEmailLanguage>("es");
   const [templateVariant, setTemplateVariant] =
     useState<PartnerEmailTemplateVariant>(
-      DEFAULT_PARTNER_EMAIL_TEMPLATE_VARIANT,
+      meetingInvitation
+        ? PARTNER_MEETING_TEMPLATE_GROUPS[0].options[0].key
+        : DEFAULT_PARTNER_EMAIL_TEMPLATE_VARIANT,
     );
   const [revision, setRevision] = useState(0);
   const [preparedPreview, setPreview] = useState<PartnerEmailPreview | null>(null);
@@ -322,47 +321,67 @@ export function PartnerEmailPreviewDialog({
                   </span>
                 )}
               </div>
-              <div
-                role="group"
-                aria-label={t("Email template")}
-                className="grid grid-cols-1 gap-3 sm:grid-cols-3"
-              >
-                {templateOptions.map((option) => (
-                  <button
-                    key={option.key}
-                    type="button"
-                    aria-label={t(option.label)}
-                    aria-describedby={`partner-email-template-${option.key}`}
-                    aria-pressed={templateVariant === option.key}
+              {meetingInvitation ? (
+                <label className="grid gap-2 text-sm font-medium">
+                  {t("Email template")}
+                  <select
+                    value={templateVariant}
                     disabled={selectionLocked}
-                    onClick={() => setTemplateVariant(option.key)}
-                    className={cn(
-                      "flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left outline-none transition focus-visible:ring-3 focus-visible:ring-ring/45 disabled:cursor-not-allowed disabled:opacity-60",
-                      templateVariant === option.key
-                        ? "border-violet-400 bg-gradient-to-br from-violet-50 to-fuchsia-50 shadow-sm dark:from-violet-500/15 dark:to-fuchsia-500/10"
-                        : "border-border bg-background hover:border-violet-300 hover:bg-violet-50/40 dark:hover:bg-violet-500/5",
-                    )}
+                    onChange={(event) => setTemplateVariant(Number(event.target.value) as PartnerEmailTemplateVariant)}
+                    className="min-h-11 w-full min-w-0 rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/45 disabled:opacity-60"
                   >
-                    <span className="min-w-0">
-                      <span className="block text-sm font-semibold">
-                        {t(option.label)}
+                    {PARTNER_MEETING_TEMPLATE_GROUPS.map((group) => (
+                      <optgroup key={group.label} label={t(group.label)}>
+                        {group.options.map((option) => (
+                          <option key={option.key} value={option.key}>{t(option.label)}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <div
+                  role="group"
+                  aria-label={t("Email template")}
+                  className="grid grid-cols-1 gap-3 sm:grid-cols-3"
+                >
+                  {PARTNER_EMAIL_TEMPLATE_OPTIONS.map((option) => (
+                    <button
+                      key={option.key}
+                      type="button"
+                      aria-label={t(option.label)}
+                      aria-describedby={`partner-email-template-${option.key}`}
+                      aria-pressed={templateVariant === option.key}
+                      disabled={selectionLocked}
+                      onClick={() => setTemplateVariant(option.key)}
+                      className={cn(
+                        "flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left outline-none transition focus-visible:ring-3 focus-visible:ring-ring/45 disabled:cursor-not-allowed disabled:opacity-60",
+                        templateVariant === option.key
+                          ? "border-violet-400 bg-gradient-to-br from-violet-50 to-fuchsia-50 shadow-sm dark:from-violet-500/15 dark:to-fuchsia-500/10"
+                          : "border-border bg-background hover:border-violet-300 hover:bg-violet-50/40 dark:hover:bg-violet-500/5",
+                      )}
+                    >
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold">
+                          {t(option.label)}
+                        </span>
+                        <span
+                          id={`partner-email-template-${option.key}`}
+                          className="mt-1 block text-xs text-muted-foreground"
+                        >
+                          {t(option.detail)}
+                        </span>
                       </span>
-                      <span
-                        id={`partner-email-template-${option.key}`}
-                        className="mt-1 block text-xs text-muted-foreground"
-                      >
-                        {t(option.detail)}
+                      <span aria-hidden className={cn(
+                        "flex size-6 shrink-0 items-center justify-center rounded-full border",
+                        templateVariant === option.key ? "border-violet-600 bg-violet-600 text-white" : "border-muted-foreground/25",
+                      )}>
+                        {templateVariant === option.key && <Check className="size-3.5" />}
                       </span>
-                    </span>
-                    <span aria-hidden className={cn(
-                      "flex size-6 shrink-0 items-center justify-center rounded-full border",
-                      templateVariant === option.key ? "border-violet-600 bg-violet-600 text-white" : "border-muted-foreground/25",
-                    )}>
-                      {templateVariant === option.key && <Check className="size-3.5" />}
-                    </span>
-                  </button>
-                ))}
-              </div>
+                    </button>
+                  ))}
+                </div>
+              )}
               {loading && (
                 <p
                   role="status"

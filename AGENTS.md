@@ -9,12 +9,24 @@
 - Keep the bumped version visible on the authentication screen.
 - Before pushing, verify the committed version with `git show HEAD:backoffice/src/lib/app-version.ts`.
 
-## Commit and Push via SourceTree
+## GitHub SSH and SourceTree
 
-- When the Codex shell cannot write Git metadata, resolve GitHub, or authenticate to the remote, continue in the existing SourceTree checkout on this Mac. Use SourceTree to commit the intended changes and push to `origin/main`, or to the branch the user requested.
+- When direct SSH from the Codex shell cannot resolve `github.com`, route OpenSSH through the shell's managed loopback SOCKS5 proxy from `ALL_PROXY`. GitHub accepted the existing SSH key and the push dry run through this route. Use the following command with the requested Git operation and branch:
+
+  ```sh
+  case "${ALL_PROXY:-}" in
+    socks5h://127.0.0.1:*|socks5h://localhost:*) proxy_address=${ALL_PROXY#socks5h://} ;;
+    *) exit 1 ;;
+  esac
+  case "${proxy_address#*:}" in ''|*[!0-9]*) exit 1 ;; esac
+  git -c core.sshCommand="ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o UpdateHostKeys=no -o ConnectTimeout=12 -o 'ProxyCommand=/usr/bin/nc -X 5 -x $proxy_address %h %p'" \
+    push --dry-run origin HEAD:main
+  ```
+
+- When the Codex shell cannot write Git metadata or the managed SSH route is unavailable, continue in the existing SourceTree checkout on this Mac. Use SourceTree to commit the intended changes and push to `origin/main`, or to the branch the user requested.
 - Treat shell and connector failures as specific to that execution path. If the user can push from SourceTree, use that same authorized checkout before reporting a blocker or handing the task back. Continue from the current step once the user approves computer access.
 - Check the committed backoffice version against its parent before pushing. The pre-commit hook can increment a bump that is already staged. If it does, correct the version in the unpushed commit so it increases by exactly one.
-- After pushing, verify SourceTree shows the remote branch at the new commit and confirm the local `HEAD` and remote-tracking branch resolve to the same commit. Report the commit hash and destination.
+- After pushing, verify the remote branch and local `HEAD` resolve to the same commit. Use `git ls-remote` through the same SSH route or check the remote branch in SourceTree. Report the commit hash and destination.
 
 ## Header Uncluttering
 

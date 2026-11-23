@@ -34,6 +34,7 @@ import {
 import {
   PartnerEmailLanguageSchema,
   PartnerEmailTemplateVariantSchema,
+  PartnerMeetingTemplateVariantSchema,
   PartnerEmailSendInputSchema,
   PartnerEmailHistoryQuerySchema,
   MeetingInvitationPurposeSchema,
@@ -46,12 +47,15 @@ import {
 
 const ParamsSchema = z.object({ partnerId: PartnerIdSchema }).strict();
 const ROUTE = "/admin/connected-partners";
+const QueryTemplateId = z.string().regex(/^[1-9]\d*$/).transform(Number);
 const EmailPreviewQuerySchema = z.object({
   language: PartnerEmailLanguageSchema.default("es"),
-  templateVariant: z.enum(["1", "2", "3"]).default("1")
-    .transform((value) => value === "3" ? (3 as const) : value === "2" ? (2 as const) : (1 as const)),
+  templateVariant: QueryTemplateId.pipe(PartnerEmailTemplateVariantSchema).default(1),
 }).strict();
-const InvitationPreviewQuerySchema = EmailPreviewQuerySchema.extend({ purpose: MeetingInvitationPurposeSchema });
+const InvitationPreviewQuerySchema = EmailPreviewQuerySchema.extend({
+  purpose: MeetingInvitationPurposeSchema,
+  templateVariant: QueryTemplateId.pipe(PartnerMeetingTemplateVariantSchema).default(1),
+});
 const CsvBodySchema = z
   .object({
     csv: z

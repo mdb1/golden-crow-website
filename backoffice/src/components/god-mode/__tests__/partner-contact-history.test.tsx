@@ -51,17 +51,22 @@ function open(partnerId = email.partnerId, language: "en" | "es" = "en") {
 }
 beforeEach(() => jest.resetAllMocks());
 
-it("names the reviewed invitation template in contact history and the recorded message", async () => {
-  const invitation = { ...email, purpose: "meetingInvitation", templateVariant: 1 };
+it.each([
+  [1, "Recorrido del portal"],
+  [7, "Sumar gratis tu lista de profesionales"],
+  [11, "Armar una clase interactiva"],
+  [18, "Revisar un informe interactivo"],
+] as const)("names invitation %s in contact history and the recorded message", async (templateVariant, label) => {
+  const invitation = { ...email, purpose: "meetingInvitation", templateVariant };
   jest.mocked(sdkFetch)
     .mockResolvedValueOnce({ emails: [invitation], nextCursor: null })
     .mockResolvedValueOnce({ email: { ...invitation, messageText: "Invitación" } });
   open(email.partnerId, "es");
   const row = await screen.findByRole("listitem");
-  expect(within(row).getByText("Recorrido del portal")).toBeVisible();
+  expect(within(row).getByText(label)).toBeVisible();
   fireEvent.click(within(row).getByRole("button"));
   const dialog = await screen.findByRole("dialog");
-  expect(within(dialog).getByText("Recorrido del portal")).toBeVisible();
+  expect(within(dialog).getByText(label)).toBeVisible();
   await within(dialog).findByText("Invitación");
 });
 

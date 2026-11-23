@@ -9,13 +9,44 @@ export const PARTNER_EMAIL_TEMPLATE_OPTIONS = [
   { key: 1, label: "Template 2", detail: "More detail" },
   { key: 2, label: "Template 3", detail: "Short and direct" },
 ] as const;
-export const PARTNER_MEETING_TEMPLATE_OPTIONS = [
-  { key: 3, label: "Template 1", detail: "Support consultation" },
-  { key: 1, label: "Template 2", detail: "Portal walkthrough" },
-  { key: 2, label: "Template 3", detail: "Follow-up meeting" },
+export const PARTNER_MEETING_TEMPLATE_GROUPS = [
+  {
+    label: "Getting started and support",
+    options: [
+      { key: 4, label: "Publish your first note" },
+      { key: 5, label: "Launch your first service" },
+      { key: 6, label: "Prepare your app for the stores" },
+      { key: 7, label: "Add your professional directory for free" },
+      { key: 8, label: "Send notifications from your own app" },
+      { key: 3, label: "Support consultation" },
+    ],
+  },
+  {
+    label: "Guided walkthroughs",
+    options: [
+      { key: 9, label: "Send personalized lessons to students" },
+      { key: 10, label: "Run a mobile survey" },
+      { key: 11, label: "Build an interactive lesson" },
+      { key: 12, label: "Create an interactive patient guide" },
+      { key: 13, label: "Design an interactive report for clients" },
+      { key: 1, label: "Portal walkthrough" },
+    ],
+  },
+  {
+    label: "Follow-up sessions",
+    options: [
+      { key: 14, label: "Turn a recurring question into a note" },
+      { key: 15, label: "Improve an existing service listing" },
+      { key: 16, label: "Review survey responses" },
+      { key: 17, label: "Announce a release with a notification" },
+      { key: 18, label: "Review an interactive report" },
+      { key: 2, label: "Follow-up meeting" },
+    ],
+  },
 ] as const;
 export type PartnerEmailTemplateVariant =
-  (typeof PARTNER_EMAIL_TEMPLATE_OPTIONS)[number]["key"];
+  | (typeof PARTNER_EMAIL_TEMPLATE_OPTIONS)[number]["key"]
+  | (typeof PARTNER_MEETING_TEMPLATE_GROUPS)[number]["options"][number]["key"];
 export const DEFAULT_PARTNER_EMAIL_TEMPLATE_VARIANT =
   PARTNER_EMAIL_TEMPLATE_OPTIONS[0].key;
 export type PartnerEmailBannerBrand = {
@@ -88,7 +119,11 @@ export type PartnerEmailHistoryRecord = {
 };
 export function partnerHistoryTemplateLabel(email: PartnerEmailHistoryRecord) {
   if (email.purpose === "meetingInvitation") {
-    return PARTNER_MEETING_TEMPLATE_OPTIONS.find((option) => option.key === email.templateVariant)?.detail;
+    for (const group of PARTNER_MEETING_TEMPLATE_GROUPS) {
+      const template = group.options.find((option) => option.key === email.templateVariant);
+      if (template) return template.label;
+    }
+    return undefined;
   }
   return PARTNER_EMAIL_TEMPLATE_OPTIONS.find((option) => option.key === email.templateVariant)?.label;
 }

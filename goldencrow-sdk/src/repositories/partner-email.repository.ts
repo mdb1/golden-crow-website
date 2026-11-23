@@ -8,8 +8,13 @@ import {
 import {
   buildConnectedPartnerEmail,
   type PartnerEmailPreview,
-  type PartnerEmailTemplateVariant,
+  type PartnerMeetingTemplateVariant,
 } from "../lib/connected-partner-email.js";
+import {
+  PARTNER_EMAIL_TEMPLATE_VARIANTS,
+  PARTNER_MEETING_TEMPLATE_VARIANTS,
+  isPartnerEmailTemplateVariant,
+} from "../lib/partner-email-copy.js";
 import { GmailDeliveryOutcomeUnknownError } from "../lib/gmail-mailer.js";
 import { sendPartnerEmailMessage } from "../lib/partner-email-delivery.js";
 import type { AdminContext } from "../types/sdk.types.js";
@@ -28,11 +33,8 @@ import {
 
 export const PARTNER_EMAIL_SENDS_COLLECTION = "partner_email_sends";
 export const PartnerEmailLanguageSchema = z.enum(["es", "en"]);
-export const PartnerEmailTemplateVariantSchema = z.union([
-  z.literal(1),
-  z.literal(2),
-  z.literal(3),
-]);
+export const PartnerEmailTemplateVariantSchema = z.literal(PARTNER_EMAIL_TEMPLATE_VARIANTS);
+export const PartnerMeetingTemplateVariantSchema = z.literal(PARTNER_MEETING_TEMPLATE_VARIANTS);
 export const MeetingInvitationPurposeSchema = z.literal("meetingInvitation");
 export const PartnerMeetingSlotSchema = z.object({
   date: z.iso.date(),
@@ -51,6 +53,7 @@ export const PartnerEmailSendInputSchema = z.union([
   }),
   PartnerEmailCommandSchema.extend({
     purpose: MeetingInvitationPurposeSchema,
+    templateVariant: PartnerMeetingTemplateVariantSchema.default(1),
     meetingSlot: PartnerMeetingSlotSchema,
   }),
 ]);
@@ -64,8 +67,9 @@ const HistorySnapshotSchema = z
     accessKeyOmitted: z.boolean(),
   })
   .strict();
-const StoredSendSchema = PartnerEmailCommandSchema
+const StoredSendFields = PartnerEmailCommandSchema
   .extend({
+    templateVariant: PartnerMeetingTemplateVariantSchema.default(1),
     purpose: MeetingInvitationPurposeSchema.optional(),
     meetingSlot: PartnerMeetingSlotSchema.optional(),
     partnerId: PartnerIdSchema,
@@ -78,15 +82,21 @@ const StoredSendSchema = PartnerEmailCommandSchema
     historySnapshot: HistorySnapshotSchema.nullable().default(null),
   })
   .strict();
+function validStoredTemplate(record: { purpose?: "meetingInvitation"; templateVariant?: number }) {
+  return record.purpose === "meetingInvitation" || record.templateVariant === undefined ||
+    isPartnerEmailTemplateVariant(record.templateVariant);
+}
+const StoredSendSchema = StoredSendFields.refine(validStoredTemplate);
 type StoredSend = z.infer<typeof StoredSendSchema>;
-const HistoryStoredSchema = StoredSendSchema.extend({
-  templateVariant: PartnerEmailTemplateVariantSchema.optional(),
+const HistoryStoredFields = StoredSendFields.extend({
+  templateVariant: PartnerMeetingTemplateVariantSchema.optional(),
 });
-const HistorySummaryStoredSchema = HistoryStoredSchema.extend({
+const HistoryStoredSchema = HistoryStoredFields.refine(validStoredTemplate);
+const HistorySummaryStoredSchema = HistoryStoredFields.extend({
   historySnapshot: HistorySnapshotSchema.omit({ messageText: true })
     .nullable()
     .default(null),
-});
+}).refine(validStoredTemplate);
 export const PartnerEmailHistoryQuerySchema = z
   .object({
     cursor: z.string().min(1).max(1024).optional(),
@@ -132,7 +142,7 @@ export type PartnerEmailHistoryRecord = Pick<
   | "sentAt"
   | "requestedByEmail"
 > & {
-  templateVariant: PartnerEmailTemplateVariant | null;
+  templateVariant: PartnerMeetingTemplateVariant | null;
   partnerName: string | null;
   from: string | null;
   subject: string | null;
@@ -327,13 +337,13 @@ export async function previewPartnerEmail(
   partnerId: string,
   language: "es" | "en" = "es",
   banner?: PartnerEmailBannerInput,
-  templateVariant: PartnerEmailTemplateVariant = 1,
+  templateVariant: PartnerMeetingTemplateVariant = 1,
   invitation?: { meetingSlot?: PartnerMeetingSlot },
 ): Promise<PartnerEmailPreview> {
   requireGodMode(context);
   const parsedLanguage = PartnerEmailLanguageSchema.parse(language);
-  const parsedVariant =
-    PartnerEmailTemplateVariantSchema.parse(templateVariant);
+  const variantSchema = invitation ? PartnerMeetingTemplateVariantSchema : PartnerEmailTemplateVariantSchema;
+  const parsedVariant = variantSchema.parse(templateVariant);
   const partner = await getPartner(context, partnerId);
   const base = invitation ? undefined : buildConnectedPartnerEmail(
     partner,

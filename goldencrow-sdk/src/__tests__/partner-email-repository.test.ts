@@ -364,7 +364,7 @@ describe("publisher email access-token fallback", () => {
     return id;
   }
 
-  it("sends only the reviewed invitation, preserves its slot through login, and deduplicates a delivery replay", async () => {
+  it.each([2, 18])("sends reviewed invitation %i with its original slot and records a single delivery", async (templateVariant) => {
     jest.useFakeTimers({ now: Date.now(), doNotFake: ["nextTick", "setImmediate", "setTimeout", "queueMicrotask"] });
     linkAccount("individual");
     const meetingSlot = { date: "2026-11-12", startTime: "09:30" };
@@ -380,11 +380,11 @@ describe("publisher email access-token fallback", () => {
     try {
       const previewResponse = await app.inject({
         method: "GET",
-        url: `${path}/email-preview?purpose=meetingInvitation&language=es&templateVariant=2`,
+        url: `${path}/email-preview?purpose=meetingInvitation&language=es&templateVariant=${templateVariant}`,
       });
       expect(previewResponse.statusCode).toBe(200);
       const preview = previewResponse.json();
-      expect(preview.meetingSlot).toEqual(meetingSlot);
+      expect(preview).toMatchObject({ templateVariant, meetingSlot });
       expect(preview.bannerBrand).toBeUndefined();
       expect(preview.html).toContain("pg-email-cta");
       expect(preview.text).toContain("09:30");
@@ -395,12 +395,12 @@ describe("publisher email access-token fallback", () => {
       const callback = new URL(login.searchParams.get("callbackUrl")!, login);
       expect(callback.pathname).toBe("/publisher-portal/support-bookings/new");
       expect(Object.fromEntries(callback.searchParams)).toEqual(meetingSlot);
-      const pinned = new URLSearchParams({ purpose: "meetingInvitation", language: "en", templateVariant: "3", ...meetingSlot });
+      const pinned = new URLSearchParams({ purpose: "meetingInvitation", language: "en", templateVariant: "9", ...meetingSlot });
       const alternate = await app.inject({ method: "GET", url: `${path}/email-preview?${pinned}` });
-      expect(alternate.json()).toMatchObject({ language: "en", templateVariant: 3, meetingSlot });
+      expect(alternate.json()).toMatchObject({ language: "en", templateVariant: 9, meetingSlot });
       const command = {
         requestId, language: "es", purpose: "meetingInvitation",
-        templateVariant: 2, previewHash: preview.previewHash, meetingSlot,
+        templateVariant, previewHash: preview.previewHash, meetingSlot,
       };
       availability.mockResolvedValueOnce({ ...calendar, slotsByDate: {} });
       const send = () => app.inject({ method: "POST", url: `${path}/email`, payload: command });
@@ -419,8 +419,10 @@ describe("publisher email access-token fallback", () => {
       expect(JSON.stringify(mockDocs.get(requestPath))).not.toContain(login.searchParams.get("accessKey")!);
       const history = await getPartnerEmailHistory(context, requestId);
       expect(history.messageText).toContain("09:30");
-      expect(history.purpose).toBe("meetingInvitation");
-      expect((await listPartnerEmailHistory(context, { partnerId })).emails[0]?.purpose).toBe("meetingInvitation");
+      const expectedTemplate = { purpose: "meetingInvitation", templateVariant };
+      expect(mockDocs.get(requestPath)).toMatchObject(expectedTemplate);
+      expect(history).toMatchObject(expectedTemplate);
+      expect((await listPartnerEmailHistory(context, { partnerId })).emails[0]).toMatchObject(expectedTemplate);
     } finally {
       await app.close();
     }
@@ -954,6 +956,8 @@ it("authenticates preview/send routes and rejects client recipients, bodies, unk
   for (const query of [
     "templateVariant=4",
     "templateVariant=1.0",
+    "purpose=meetingInvitation&templateVariant=19",
+    "purpose=meetingInvitation&templateVariant=04",
     "template_variant=2",
   ]) {
     expect(
@@ -1119,6 +1123,16 @@ it("replays historical template-one commands with no saved variant before readin
   await expect(
     sendPartnerEmail(context, partnerId, { ...args, templateVariant: 2 }),
   ).rejects.toMatchObject({ statusCode: 409 });
+  expect(sendGmailMessage).toHaveBeenCalledTimes(1);
+});
+
+it("rejects a meeting-only template in a stored ordinary email", async () => {
+  const args = await input();
+  await sendPartnerEmail(context, partnerId, args);
+  mockDocs.get(requestPath)!.templateVariant = 18;
+  await expect(sendPartnerEmail(context, partnerId, args)).rejects.toMatchObject({ statusCode: 409 });
+  await expect(getPartnerEmailHistory(context, requestId)).rejects.toMatchObject({ statusCode: 409 });
+  await expect(listPartnerEmailHistory(context)).rejects.toMatchObject({ statusCode: 409 });
   expect(sendGmailMessage).toHaveBeenCalledTimes(1);
 });
 

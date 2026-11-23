@@ -907,6 +907,15 @@ function emptyListFilters(): ListFilters {
   };
 }
 
+function initialListFilters(): ListFilters {
+  return {
+    ...emptyListFilters(),
+    status: "new",
+    country: "AR",
+    linkedInState: "has_linkedin",
+  };
+}
+
 type CrmImportSessionStatus =
   "previewing" | "ready" | "importing" | "paused" | "completed";
 
@@ -8326,10 +8335,8 @@ export function PartnershipCrmWorkbench() {
   const queryClient = useQueryClient();
   const [targetKind, setTargetKind] =
     useState<PartnershipCrmTargetKind>("organizations");
-  const [filters, setFilters] = useState<ListFilters>(() => emptyListFilters());
-  const [appliedFilters, setAppliedFilters] = useState<ListFilters>(() =>
-    emptyListFilters(),
-  );
+  const [filters, setFilters] = useState(initialListFilters);
+  const [appliedFilters, setAppliedFilters] = useState(initialListFilters);
   const [cursorStack, setCursorStack] = useState<string[]>([]);
   const [listRequestVersion, setListRequestVersion] = useState(0);
   const [initialDailyUsageSnapshot] = useState(loadCachedCrmDailyUsage);
@@ -11232,8 +11239,9 @@ export function PartnershipCrmWorkbench() {
     setDeleteSelectedOpen(false);
     setEmailOpen(false);
     setVisualFiltersOpen(false);
-    setFilters(emptyListFilters());
-    setAppliedFilters(emptyListFilters());
+    const initial = initialListFilters();
+    setFilters(initial);
+    setAppliedFilters(initial);
   }
 
   function handleTargetSelect(targetId: string) {

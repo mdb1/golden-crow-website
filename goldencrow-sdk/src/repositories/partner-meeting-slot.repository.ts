@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import {
   isClientBookingDateAvailable,
   SUPPORT_BOOKING_CONTEXT,
@@ -8,6 +9,7 @@ import { AdminRepositoryError } from "./admin-errors.js";
 import { listClientBookingAvailability } from "./client-bookings.repository.js";
 
 const MEETING_SEARCH_MONTHS = 3;
+const WEEKDAYS_PER_WINDOW = 5;
 
 export async function resolvePartnerMeetingSlot(requested?: PartnerMeetingSlot): Promise<PartnerMeetingSlot> {
   if (requested) {
@@ -18,16 +20,33 @@ export async function resolvePartnerMeetingSlot(requested?: PartnerMeetingSlot):
     throw new AdminRepositoryError("The proposed meeting time is no longer available. Refresh the invitation to choose another time.", 412);
   }
 
-  const currentMonth = todayInBookingTimezone(new Date()).slice(0, 7);
-  const monthStart = new Date(`${currentMonth}-01T00:00:00Z`);
-  for (let offset = 0; offset < MEETING_SEARCH_MONTHS; offset++) {
-    const month = monthStart.toISOString().slice(0, 7);
-    const { slotsByDate } = await listClientBookingAvailability(month, SUPPORT_BOOKING_CONTEXT);
-    for (const [date, times] of Object.entries(slotsByDate)) {
-      const startTime = times.find(time => time < "12:00");
-      if (startTime) return { date, startTime };
+  const now = new Date();
+  const today = todayInBookingTimezone(now);
+  const date = new Date(`${today}T00:00:00Z`);
+  const searchEnd = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + MEETING_SEARCH_MONTHS, 1));
+  date.setUTCDate(date.getUTCDate() + 1);
+
+  const candidates: PartnerMeetingSlot[] = [];
+  let weekdays = 0;
+  let availability: Awaited<ReturnType<typeof listClientBookingAvailability>> | undefined;
+  for (; date < searchEnd; date.setUTCDate(date.getUTCDate() + 1)) {
+    const day = date.toISOString().slice(0, 10);
+    if (!isClientBookingDateAvailable(day, now)) continue;
+    const month = day.slice(0, 7);
+    if (availability?.month !== month) {
+      availability = await listClientBookingAvailability(month, SUPPORT_BOOKING_CONTEXT);
     }
-    monthStart.setUTCMonth(monthStart.getUTCMonth() + 1);
+    const morningTimes = (availability.slotsByDate[day] ?? []).filter(time => time < "12:00").sort();
+    for (const startTime of morningTimes) {
+      candidates.push({ date: day, startTime });
+    }
+    weekdays++;
+    if (weekdays === WEEKDAYS_PER_WINDOW) {
+      if (candidates.length) break;
+      weekdays = 0;
+    }
   }
-  throw new AdminRepositoryError("No weekday morning meeting slots are available.", 409);
+  if (!candidates.length) throw new AdminRepositoryError("No weekday morning meeting slots are available.", 409);
+  const index = candidates.length === 1 ? 0 : randomInt(1, candidates.length);
+  return candidates[index]!;
 }

@@ -246,7 +246,9 @@ Backoffice routes:
   /god-mode/partners/:partnerId/edit
 
 Partner email preview and delivery:
-  GET /admin/connected-partners/:partnerId/email-preview[?language=es|en&templateVariant=1|2|3]
+  GET /admin/connected-partners/:partnerId/email-preview
+    Optional query fields are language (es or en), templateVariant, and for
+    meeting invitations, purpose=meetingInvitation and a reviewed date/startTime.
     Returns { partnerId, partnerName, from, to, subject, text, html, ctaLabel, ctaUrl, category,
       language, templateVariant, previewHash }. Spanish is the language default.
     The preview opens with the newly supplied copy as Template 1, followed by the
@@ -284,18 +286,30 @@ Partner email preview and delivery:
     connection review instead of sending an invitation for the wrong stage.
     Add purpose=meetingInvitation to preview a support meeting email for a linked
     publisher account. The preview returns meetingSlot with date (YYYY-MM-DD)
-    and startTime (HH:mm) in America/Argentina/Buenos_Aires. The first preview
-    suggests the earliest available weekday morning in the current or next two
+    and startTime (HH:mm) in America/Argentina/Buenos_Aires. A new preview
+    draws a random free morning slot from the next five weekdays, skipping
+    the earliest slot when alternatives exist. If that window is full,
+    the search continues within the current and next two
     calendar months. Supply both date and startTime to keep the reviewed slot
-    when changing language or template. The three meeting templates cover
-    support (ID 3), a portal walkthrough (ID 1) and follow-up (ID 2).
+    when changing language, invitation category or template.
+    Each invitation category has six choices in Spanish and English:
+      Support: general consultation (3), first note (4), first service (5),
+        app store guidance (6), free professional directory setup (7),
+        and push notifications from a publisher's own app (8).
+      Walkthrough: portal tour (1), personalized lessons (9), mobile surveys
+        (10), interactive student lessons (11), interactive patient materials
+        (12), and interactive company reports (13).
+      Follow-up: general check-in (2), turning a question into a note (14),
+        refining a service listing (15), reviewing survey results (16),
+        a notification after a release (17), and discussing a report (18).
     The signed-in destination is /publisher-portal/support-bookings/new with
     the proposed date and startTime. The recipient confirms the booking there.
   POST /admin/connected-partners/:partnerId/email with strict body
-    { language: es|en, templateVariant: 1|2|3, previewHash: <64 lowercase hex>, requestId: <UUID>, banner?: <reviewed JPEG> }
+    Ordinary emails use { language: es|en, templateVariant: 1|2|3,
+      previewHash: <64 lowercase hex>, requestId: <UUID>, banner?: <reviewed JPEG> }.
     Omitted templateVariant defaults to 1 for existing clients. JSON bodies use
-    numeric variants; the GET query uses the strings 1, 2 or 3. Other values and
-    template_variant aliases are rejected.
+    numeric variants; the GET query uses the corresponding decimal strings.
+    Ordinary emails accept IDs 1–3. Meeting invitations accept IDs 1–18.
     Meeting invitations require purpose: "meetingInvitation" and the reviewed
     meetingSlot: { date, startTime }. They use the branded email without an app
     promotion banner. Sending rechecks the recipient's publisher access and
@@ -338,7 +352,8 @@ Email command persistence:
   Document ID: requestId (UUID; one directly read document per command)
   Strict lower camel case fields, validated by StoredSendSchema:
     requestId: UUID; partnerId: canonical partner ID; previewHash: SHA-256 hex;
-    language: es|en; templateVariant: 1|2|3; to: validated contact email;
+    language: es|en; templateVariant: 1–3 for ordinary emails, 1–18 for meeting
+    invitations; to: validated contact email;
     Meeting invitation commands also store purpose: "meetingInvitation" and
     meetingSlot: { date, startTime }. Both history endpoints include purpose
     for invitations so their template labels can be displayed.

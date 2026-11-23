@@ -17,14 +17,16 @@ import {
 } from "./partner-email-banner.js";
 import {
   PARTNER_EMAIL_COPY,
+  isPartnerEmailTemplateVariant,
   type PartnerEmailCopy as Copy,
   type PartnerEmailLanguage,
   type PartnerEmailStage,
-  type PartnerEmailTemplateVariant,
+  type PartnerMeetingTemplateVariant,
 } from "./partner-email-copy.js";
 export type {
   PartnerEmailLanguage,
   PartnerEmailTemplateVariant,
+  PartnerMeetingTemplateVariant,
 } from "./partner-email-copy.js";
 export type PartnerEmailPreview = {
   partnerId: string;
@@ -38,7 +40,7 @@ export type PartnerEmailPreview = {
   ctaUrl: string;
   category: PartnerSection;
   language: PartnerEmailLanguage;
-  templateVariant: PartnerEmailTemplateVariant;
+  templateVariant: PartnerMeetingTemplateVariant;
   previewHash: string;
   accessCodeExpiresAt?: string;
   accessCodeUnavailableReason?: string;
@@ -84,9 +86,12 @@ function emailCopy(
   partner: Partner,
   category: PartnerSection,
   language: PartnerEmailLanguage,
-  templateVariant: PartnerEmailTemplateVariant,
+  templateVariant: PartnerMeetingTemplateVariant,
   currentPublisherName?: string,
 ): Copy {
+  if (!isPartnerEmailTemplateVariant(templateVariant)) {
+    throw new AdminRepositoryError("This template is only available for meeting invitations.", 400);
+  }
   const stage: PartnerEmailStage | null =
     category === "noOrganization"
       ? "noOrganization"
@@ -136,12 +141,12 @@ export function buildConnectedPartnerEmail(
     brand: PartnerEmailBannerBrand;
     banner?: PartnerEmailBannerInput;
   },
-  templateVariant: PartnerEmailTemplateVariant = 1,
+  templateVariant: PartnerMeetingTemplateVariant = 1,
   meetingSlot?: PartnerMeetingSlot,
 ): PartnerEmailPreview {
   const category = partnerSection(partner);
   const copy = meetingSlot
-    ? partnerMeetingInvitationCopy(language, templateVariant, meetingSlot)
+    ? partnerMeetingInvitationCopy(language, templateVariant, meetingSlot, category)
     : emailCopy(partner, category, language, templateVariant, presentation?.brand.name);
   const ctaUrl = copy.callback
     ? publisherLoginUrl(copy.callback, partner.email, accessKey)

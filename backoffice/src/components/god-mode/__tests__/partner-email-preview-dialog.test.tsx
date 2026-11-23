@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { AppLanguageProvider } from "@/components/app-language-provider";
 import { PartnerEmailPreviewDialog } from "@/components/god-mode/partner-email-preview-dialog";
@@ -108,30 +109,42 @@ afterEach(() => jest.restoreAllMocks());
 
 it("keeps the suggested slot when changing meeting templates and sends the reviewed invitation", async () => {
   const meetingSlot = { date: "2026-11-23", startTime: "09:30" };
-  const first = { ...preview, templateVariant: 3, subject: "Consulta de soporte", meetingSlot };
-  const second = { ...first, templateVariant: 1, subject: "Recorrido del portal", previewHash: "b".repeat(64) };
-  jest.mocked(sdkFetch).mockResolvedValueOnce(first).mockResolvedValueOnce(second).mockResolvedValueOnce(sent);
+  const first = { ...preview, templateVariant: 4, subject: "Tu primera nota", meetingSlot };
+  const second = { ...first, templateVariant: 13, subject: "Un informe interactivo", previewHash: "b".repeat(64) };
+  const english = { ...second, language: "en", subject: "An interactive report", previewHash: "c".repeat(64) };
+  jest.mocked(sdkFetch)
+    .mockResolvedValueOnce(first)
+    .mockResolvedValueOnce(second)
+    .mockResolvedValueOnce(english)
+    .mockResolvedValueOnce(sent);
   renderDialog(true);
   await screen.findByText(first.subject);
   expect(screen.getByText("Monday, November 23, 2026 · 09:30 (Buenos Aires)")).toBeVisible();
-  for (const template of ["Support consultation", "Portal walkthrough", "Follow-up meeting"]) {
-    expect(screen.getByText(template)).toBeVisible();
+  const picker = screen.getByRole("combobox", { name: "Email template" });
+  expect(picker).toHaveValue("4");
+  for (const group of ["Getting started and support", "Guided walkthroughs", "Follow-up sessions"]) {
+    expect(within(screen.getByRole("group", { name: group })).getAllByRole("option")).toHaveLength(6);
   }
-  expect(sdkFetch).toHaveBeenCalledWith(`${ENDPOINT}/email-preview?language=es&templateVariant=3&purpose=meetingInvitation`, expect.any(Object));
-  fireEvent.click(screen.getByRole("button", { name: "Template 2" }));
+  expect(within(picker).getAllByRole("option")).toHaveLength(18);
+  expect(within(picker).getByRole("option", { name: "Design an interactive report for clients" })).toHaveValue("13");
+  expect(sdkFetch).toHaveBeenCalledWith(`${ENDPOINT}/email-preview?language=es&templateVariant=4&purpose=meetingInvitation`, expect.any(Object));
+  fireEvent.change(picker, { target: { value: "13" } });
   await screen.findByText(second.subject);
-  expect(sdkFetch).toHaveBeenLastCalledWith(`${ENDPOINT}/email-preview?language=es&templateVariant=1&purpose=meetingInvitation&date=2026-11-23&startTime=09%3A30`, expect.any(Object));
+  expect(sdkFetch).toHaveBeenLastCalledWith(`${ENDPOINT}/email-preview?language=es&templateVariant=13&purpose=meetingInvitation&date=2026-11-23&startTime=09%3A30`, expect.any(Object));
+  fireEvent.click(screen.getByRole("button", { name: "English" }));
+  await screen.findByText(english.subject);
+  expect(sdkFetch).toHaveBeenLastCalledWith(`${ENDPOINT}/email-preview?language=en&templateVariant=13&purpose=meetingInvitation&date=2026-11-23&startTime=09%3A30`, expect.any(Object));
   expect(requests()).toHaveLength(0);
   fireEvent.click(screen.getByRole("button", { name: "Send invitation" }));
   await screen.findByRole("region", { name: "Invitation sent" });
   expect(JSON.parse(String(requests()[0][1]?.body))).toEqual({
-    purpose: "meetingInvitation", meetingSlot, language: "es", templateVariant: 1,
-    previewHash: second.previewHash, requestId: REQUEST_ID,
+    purpose: "meetingInvitation", meetingSlot, language: "en", templateVariant: 13,
+    previewHash: english.previewHash, requestId: REQUEST_ID,
   });
 });
 
 it("refreshes a stale invitation with a new slot before another send", async () => {
-  const first = { ...preview, templateVariant: 3, meetingSlot: { date: "2026-11-23", startTime: "09:30" } };
+  const first = { ...preview, templateVariant: 4, meetingSlot: { date: "2026-11-23", startTime: "09:30" } };
   const next = { ...first, meetingSlot: { date: "2026-11-24", startTime: "10:00" }, previewHash: "c".repeat(64) };
   jest.mocked(sdkFetch).mockResolvedValueOnce(first).mockRejectedValueOnce(
     failure(412, "The proposed meeting time is no longer available. Refresh the invitation to choose another time."),
@@ -143,7 +156,7 @@ it("refreshes a stale invitation with a new slot before another send", async () 
   expect(screen.getByRole("button", { name: "Send invitation" })).toBeDisabled();
   fireEvent.click(refresh);
   await screen.findByText("Tuesday, November 24, 2026 · 10:00 (Buenos Aires)");
-  expect(sdkFetch).toHaveBeenLastCalledWith(`${ENDPOINT}/email-preview?language=es&templateVariant=3&purpose=meetingInvitation`, expect.any(Object));
+  expect(sdkFetch).toHaveBeenLastCalledWith(`${ENDPOINT}/email-preview?language=es&templateVariant=4&purpose=meetingInvitation`, expect.any(Object));
   expect(requests()).toHaveLength(1);
 });
 

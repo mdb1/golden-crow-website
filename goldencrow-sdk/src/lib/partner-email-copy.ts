@@ -1,5 +1,15 @@
 export type PartnerEmailLanguage = "es" | "en";
-export type PartnerEmailTemplateVariant = 1 | 2 | 3;
+export const PARTNER_EMAIL_TEMPLATE_VARIANTS = [1, 2, 3] as const;
+export const PARTNER_MEETING_TEMPLATE_VARIANTS = [
+  ...PARTNER_EMAIL_TEMPLATE_VARIANTS,
+  4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+] as const;
+export type PartnerEmailTemplateVariant = (typeof PARTNER_EMAIL_TEMPLATE_VARIANTS)[number];
+export type PartnerMeetingTemplateVariant = (typeof PARTNER_MEETING_TEMPLATE_VARIANTS)[number];
+
+export function isPartnerEmailTemplateVariant(variant: number): variant is PartnerEmailTemplateVariant {
+  return PARTNER_EMAIL_TEMPLATE_VARIANTS.some((id) => id === variant);
+}
 export type PartnerEmailStage =
   | "noOrganization"
   | "withoutApp"
