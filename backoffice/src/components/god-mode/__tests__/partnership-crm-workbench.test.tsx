@@ -299,7 +299,6 @@ function cacheCrmDailyUsage({
 function renderWorkbench(
   language: "en" | "es" = "en",
   options: {
-    autoLoad?: boolean;
     authoritativeUsageMock?: boolean;
     snapshotMock?: boolean;
     injectActionUsage?: boolean;
@@ -383,22 +382,6 @@ function renderWorkbench(
       </AppLanguageProvider>
     </QueryClientProvider>,
   );
-
-  if (options.autoLoad !== false) {
-    let attempts = 0;
-    const clickWhenVerified = () => {
-      const button = screen.getByTestId("crm-explicit-load");
-      if ((button as HTMLButtonElement).disabled && attempts < 50) {
-        attempts += 1;
-        window.setTimeout(clickWhenVerified, 1);
-        return;
-      }
-      if (!(button as HTMLButtonElement).disabled) {
-        fireEvent.click(button);
-      }
-    };
-    window.setTimeout(clickWhenVerified, 0);
-  }
 
   return { ...view, client };
 }
@@ -529,9 +512,37 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     )).toBe(false);
   });
 
-  it("loads the index but no target rows until the operator explicitly applies or loads", async () => {
+  it("automatically loads the first 20 with the default filters after verifying usage", async () => {
     const user = userEvent.setup();
-    renderWorkbench("en", { autoLoad: false });
+    const firstPage = Array.from({ length: 20 }, (_, index) => ({
+      ...organization,
+      id: `org-${index + 1}`,
+      name: `Genome Lab ${index + 1}`,
+      normalizedName: `genome lab ${index + 1}`,
+    }));
+    const usage = {
+      surface: "crm",
+      used: 2,
+      limit: 100,
+      percentage: 2,
+      remaining: 98,
+      resetAt: "2026-10-16T07:00:00.000Z",
+      locked: false,
+    };
+    let confirmPageLoad!: (response: { usage: typeof usage }) => void;
+    const verification = new Promise<{ usage: typeof usage }>((resolve) => {
+      confirmPageLoad = resolve;
+    });
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      if (path === "/admin/partnership-crm/daily-usage/page-load") {
+        return verification;
+      }
+      if (path === "/admin/partnership-crm/daily-usage?surface=crm") {
+        return { usage: { ...usage, used: 3, percentage: 3, remaining: 97 } };
+      }
+      return { organizations: firstPage, nextCursor: "page-two", usage };
+    });
+    renderWorkbench("en", { authoritativeUsageMock: true });
 
     await waitFor(() => {
       expect(sdkFetch).toHaveBeenCalledTimes(2);
@@ -543,12 +554,37 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         headers: expect.any(Headers),
       }),
     );
+    expect(sdkFetch).not.toHaveBeenCalledWith(
+      startingOrganizationsPath,
+      expect.anything(),
+    );
 
+    await act(async () => confirmPageLoad({ usage }));
+    expect(await screen.findAllByText(/^Genome Lab \d+$/)).toHaveLength(20);
+    expect(screen.getByText("Genome Lab 20")).toBeTruthy();
+    expect(sdkFetch).toHaveBeenCalledWith(
+      startingOrganizationsPath,
+      expect.objectContaining({ headers: expect.any(Headers) }),
+    );
+    await user.click(screen.getByRole("button", { name: "Verify usage" }));
+    await screen.findByText("3 / 100 · 3%");
+    expect(
+      jest.mocked(sdkFetch).mock.calls.filter(([path]) => path === startingOrganizationsPath),
+    ).toHaveLength(1);
+  });
+
+  it("applies draft filters to the server only after submitting the form", async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+    await screen.findByText(organization.name);
+    const listCalls = () => jest.mocked(sdkFetch).mock.calls.filter(([path]) =>
+      String(path).startsWith("/admin/partnership-crm/organizations?"),
+    );
     await user.type(
       screen.getByPlaceholderText("Name prefix or exact contact email"),
       "genome",
     );
-    expect(sdkFetch).toHaveBeenCalledTimes(2);
+    expect(listCalls().map(([path]) => path)).toEqual([startingOrganizationsPath]);
     expect(screen.getByTestId("crm-server-filter-note").textContent).toContain(
       "Category and country match the primary stored value by prefix",
     );
@@ -592,7 +628,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     await screen.findByText(previousProspect.name);
     firstVisit.unmount();
 
-    renderWorkbench("en", { autoLoad: false });
+    renderWorkbench();
     expect(await screen.findByText(organization.name)).toBeTruthy();
     expect(screen.queryByText(previousProspect.name)).toBeNull();
     const reopenedFilters = screen.getByRole("button", { name: "Apply filters" }).closest("form")!;
@@ -609,11 +645,11 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       return { organizations: [], nextCursor: undefined };
     });
 
-    renderWorkbench("en", { autoLoad: false });
+    renderWorkbench();
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Apply filters" })).toHaveProperty(
-        "disabled",
-        false,
+      expect(sdkFetch).toHaveBeenCalledWith(
+        startingOrganizationsPath,
+        expect.objectContaining({ headers: expect.any(Headers) }),
       );
     });
     await user.click(screen.getByRole("tab", { name: "Professionals" }));
@@ -622,7 +658,11 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       "ada@genomelab.example",
     );
 
-    expect(sdkFetch).toHaveBeenCalledTimes(2);
+    expect(
+      jest.mocked(sdkFetch).mock.calls.some(([path]) =>
+        String(path).startsWith("/admin/partnership-crm/professionals?"),
+      ),
+    ).toBe(false);
     await user.click(screen.getByRole("button", { name: "Apply filters" }));
 
     await waitFor(() => {
@@ -646,13 +686,13 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       }),
     );
 
-    renderWorkbench("en", { autoLoad: false });
+    renderWorkbench();
     await screen.findByText("Delete Me Genomics");
     await waitFor(() => {
-      expect(
-        JSON.parse(window.sessionStorage.getItem(cacheKey) ?? "{}").expiresAt,
-      ).toBe(originalExpiry);
+      expect(screen.getByTestId("crm-explicit-load")).toBeEnabled();
     });
+    expect(JSON.parse(window.sessionStorage.getItem(cacheKey) ?? "{}").expiresAt).toBe(originalExpiry);
+    expect(sdkFetch).not.toHaveBeenCalledWith(startingOrganizationsPath, expect.anything());
 
     await user.click(screen.getByTestId("crm-explicit-load"));
     await waitFor(() => {
@@ -663,6 +703,8 @@ describe("PartnershipCrmWorkbench delete flow", () => {
   });
 
   it("does not hydrate obsolete ten-row summary caches", async () => {
+    const freshOrganization = { ...organization, name: "Fresh genome lab" };
+    jest.mocked(sdkFetch).mockResolvedValue({ organizations: [freshOrganization] });
     const obsoleteKey = crmSummaryCacheKey().replace(
       ":summary:v3:",
       ":summary:v2:",
@@ -676,12 +718,9 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       }),
     );
 
-    renderWorkbench("en", { autoLoad: false });
-    await screen.findByRole("progressbar", {
-      name: "CRM daily action budget",
-    });
-
-    expect(screen.queryByText("Delete Me Genomics")).toBeNull();
+    renderWorkbench();
+    expect(screen.queryByText(organization.name)).toBeNull();
+    expect(await screen.findByText(freshOrganization.name)).toBeTruthy();
   });
 
   it.each([
@@ -748,16 +787,15 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         }),
     ],
   ])("evicts a CRM summary cache with %s", async (_label, buildRaw) => {
+    const freshOrganization = { ...organization, name: "Fresh genome lab" };
+    jest.mocked(sdkFetch).mockResolvedValue({ organizations: [freshOrganization] });
     const cacheKey = crmSummaryCacheKey();
     window.sessionStorage.setItem(cacheKey, buildRaw());
 
-    renderWorkbench("en", { autoLoad: false });
-    await screen.findByRole("progressbar", {
-      name: "CRM daily action budget",
-    });
-
-    expect(screen.queryByText("Delete Me Genomics")).toBeNull();
+    renderWorkbench();
+    expect(screen.queryByText(organization.name)).toBeNull();
     expect(window.sessionStorage.getItem(cacheKey)).toBeNull();
+    expect(await screen.findByText(freshOrganization.name)).toBeTruthy();
   });
 
   it("keeps created full records in detail cache without growing the loaded page", async () => {
@@ -840,7 +878,6 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     });
 
     renderWorkbench("en", {
-      autoLoad: false,
       authoritativeUsageMock: true,
     });
 
@@ -875,7 +912,6 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     });
 
     renderWorkbench("en", {
-      autoLoad: false,
       authoritativeUsageMock: true,
     });
 
@@ -908,7 +944,6 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     });
 
     renderWorkbench("en", {
-      autoLoad: false,
       authoritativeUsageMock: true,
     });
 
@@ -1252,7 +1287,6 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     });
 
     renderWorkbench("en", {
-      autoLoad: false,
       authoritativeUsageMock: true,
     });
 
@@ -1280,7 +1314,6 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     );
 
     renderWorkbench("en", {
-      autoLoad: false,
       authoritativeUsageMock: true,
     });
     await screen.findByRole("button", { name: "Retry verification" });
@@ -1343,7 +1376,6 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     });
 
     renderWorkbench("en", {
-      autoLoad: false,
       authoritativeUsageMock: true,
     });
     await screen.findByRole("button", { name: "Retry verification" });
@@ -1385,7 +1417,6 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     });
 
     renderWorkbench("en", {
-      autoLoad: false,
       authoritativeUsageMock: true,
     });
 
@@ -1450,7 +1481,6 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     });
 
     renderWorkbench("en", {
-      autoLoad: false,
       authoritativeUsageMock: true,
     });
 
@@ -1481,7 +1511,6 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     });
 
     renderWorkbench("en", {
-      autoLoad: false,
       authoritativeUsageMock: true,
     });
 
@@ -1507,7 +1536,6 @@ describe("PartnershipCrmWorkbench delete flow", () => {
 
     try {
       renderWorkbench("en", {
-        autoLoad: false,
         authoritativeUsageMock: true,
       });
       await act(async () => {
@@ -1567,7 +1595,6 @@ describe("PartnershipCrmWorkbench delete flow", () => {
 
     try {
       renderWorkbench("en", {
-        autoLoad: false,
         authoritativeUsageMock: true,
       });
       await act(async () => {
@@ -1641,7 +1668,6 @@ describe("PartnershipCrmWorkbench delete flow", () => {
 
     try {
       renderWorkbench("en", {
-        autoLoad: false,
         authoritativeUsageMock: true,
       });
       await act(async () => {
@@ -4973,7 +4999,7 @@ describe("PartnershipCrmWorkbench list pager", () => {
   });
 
   it("uses exact loaded-page status metrics before a snapshot is available", async () => {
-    const visibleNewRows = Array.from({ length: 50 }, (_, index) => ({
+    const visibleNewRows = Array.from({ length: 20 }, (_, index) => ({
       ...organization,
       id: `org-visible-${index + 1}`,
       name: `Genome Page Row ${index + 1}`,
@@ -5008,19 +5034,13 @@ describe("PartnershipCrmWorkbench list pager", () => {
       };
     });
 
-    renderWorkbench("en", { snapshotMock: true, autoLoad: false });
+    renderWorkbench("en", { snapshotMock: true });
 
-    await screen.findByRole("dialog");
-    const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByText("Select search and filter criteria to load CRM results.")).toBeTruthy();
-    await userEvent.type(within(dialog).getByPlaceholderText("Name prefix or exact contact email"), "Genome");
-    await userEvent.click(within(dialog).getByRole("button", { name: "Apply filters" }));
-    await waitFor(() => {
-      expect(screen.getByText("Genome Page Row 1")).toBeTruthy();
-    });
+    expect(await screen.findByText("Genome Page Row 1")).toBeTruthy();
+    expect(screen.queryByRole("dialog", { name: "Pre-filters and CRM index" })).toBeNull();
 
     expect(
-      within(screen.getByRole("button", { name: /New\s+50/ })).getByText("50"),
+      within(screen.getByRole("button", { name: /New\s+20/ })).getByText("20"),
     ).toBeTruthy();
     expect(
       within(screen.getByRole("button", { name: /Contacted\s+0/ })).getByText(
@@ -5124,17 +5144,21 @@ describe("PartnershipCrmWorkbench list pager", () => {
         key, { key, total: 0, buckets: [] },
       ]),
     );
-    jest.mocked(sdkFetch).mockResolvedValue({
-      snapshot: {
-        ...indexedCrmSnapshot,
-        totals: { all: 0, organizations: 0, professionals: 0 },
-        targets: {
-          ...indexedCrmSnapshot.targets,
-          organizations: { targetKind: "organizations", facets: emptyFacets },
-        },
+    const emptySnapshot = {
+      ...indexedCrmSnapshot,
+      totals: { all: 0, organizations: 0, professionals: 0 },
+      targets: {
+        ...indexedCrmSnapshot.targets,
+        organizations: { targetKind: "organizations", facets: emptyFacets },
       },
+    };
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      if (path === "/admin/partnership-crm/snapshot") {
+        return { snapshot: emptySnapshot };
+      }
+      return { organizations: [] };
     });
-    renderWorkbench("en", { autoLoad: false, snapshotMock: true });
+    renderWorkbench("en", { snapshotMock: true });
 
     const dialog = await screen.findByRole("dialog", { name: "Pre-filters and CRM index" });
     expect(within(dialog).getByText("Select search and filter criteria to load CRM results.")).toBeTruthy();
@@ -5158,14 +5182,16 @@ describe("PartnershipCrmWorkbench list pager", () => {
       totals: { all: 0, organizations: 0, professionals: 0 },
     };
 
+    let listReads = 0;
     jest.mocked(sdkFetch).mockImplementation(async (path) => {
       if (path === "/admin/partnership-crm/snapshot") {
         return { snapshot: failedPointer };
       }
-      return { organizations: [organization], nextCursor: undefined };
+      listReads += 1;
+      return { organizations: listReads === 1 ? [] : [organization] };
     });
 
-    renderWorkbench("en", { snapshotMock: true, autoLoad: false });
+    renderWorkbench("en", { snapshotMock: true });
     const dialog = await screen.findByRole("dialog", {
       name: "Pre-filters and CRM index",
     });
@@ -5348,7 +5374,6 @@ describe("PartnershipCrmWorkbench list pager", () => {
     });
 
     renderWorkbench("en", {
-      autoLoad: false,
       authoritativeUsageMock: true,
       snapshotMock: true,
     });
@@ -6746,7 +6771,7 @@ describe("PartnershipCrmWorkbench import flow", () => {
       });
 
       renderWorkbench("en", {
-        autoLoad: false, authoritativeUsageMock: true, injectActionUsage: false,
+        authoritativeUsageMock: true, injectActionUsage: false,
       });
       await screen.findByText("Daily limit reached");
       expect(screen.getByTestId("crm-explicit-load")).toBeDisabled();

@@ -8339,6 +8339,8 @@ export function PartnershipCrmWorkbench() {
   const [appliedFilters, setAppliedFilters] = useState(initialListFilters);
   const [cursorStack, setCursorStack] = useState<string[]>([]);
   const [listRequestVersion, setListRequestVersion] = useState(0);
+  const initialListLoadStarted = useRef(false);
+  const [initialListLoading, setInitialListLoading] = useState(true);
   const [initialDailyUsageSnapshot] = useState(loadCachedCrmDailyUsage);
   const [dailyUsage, setDailyUsage] = useState<CrmDailyUsage | null>(
     initialDailyUsageSnapshot?.usage ?? null,
@@ -9259,6 +9261,33 @@ export function PartnershipCrmWorkbench() {
   useEffect(() => {
     void verifyDailyUsage(pageLoadEventIdRef.current);
   }, [verifyDailyUsage]);
+
+  const refetchTargetPage = organizationQuery.refetch;
+  useEffect(() => {
+    if (initialListLoadStarted.current || dailyUsagePending) {
+      return;
+    }
+
+    initialListLoadStarted.current = true;
+    if (
+      !freshActionsDisabled &&
+      !freshActionsBlockedRef.current &&
+      !hasTargetPage &&
+      targetKind === "organizations" &&
+      listRequestVersion === 0
+    ) {
+      void refetchTargetPage().finally(() => setInitialListLoading(false));
+    } else {
+      setInitialListLoading(false);
+    }
+  }, [
+    dailyUsagePending,
+    freshActionsDisabled,
+    hasTargetPage,
+    listRequestVersion,
+    refetchTargetPage,
+    targetKind,
+  ]);
 
   useEffect(() => {
     if (dailyUsagePending) {
@@ -11093,7 +11122,11 @@ export function PartnershipCrmWorkbench() {
     ) as PartnershipCrmStatusCounts;
   }, [organizations, visualFilters]);
   const hasPipelineCounts = PIPELINE_STATUSES.some((status) => statusCounts[status] > 0);
-  const needsCriteria = !hasPipelineCounts && !snapshotQuery.isFetching && !snapshotQuery.isPending;
+  const needsCriteria =
+    !hasPipelineCounts &&
+    !initialListLoading &&
+    !snapshotQuery.isFetching &&
+    !snapshotQuery.isPending;
   useEffect(() => {
     if (!needsCriteria) {
       promptedTargetRef.current = null;
@@ -11917,7 +11950,8 @@ export function PartnershipCrmWorkbench() {
                 "xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:overscroll-auto",
             )}
           >
-            {organizationQuery.isFetching && organizations.length === 0 ? (
+            {(organizationQuery.isFetching || initialListLoading) &&
+            organizations.length === 0 ? (
               <div className="grid gap-2 p-3">
                 {Array.from({ length: 7 }).map((_, index) => (
                   <Skeleton key={index} className="h-12 rounded-lg" />
