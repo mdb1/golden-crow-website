@@ -7,6 +7,7 @@ import {
 } from "./discover-publisher-categories";
 
 export const PARTNERSHIP_CRM_FROM_EMAIL = "federico@goldencrowvs.com";
+export const PLANTILLAS_SUMMARY_CACHE_KEY = "golden-crow-plantillas-summary-cache-v2";
 
 export const CRM_STATUS_OPTIONS = [
   { value: "new", label: "CRM New" },
@@ -185,6 +186,63 @@ export interface PartnershipCrmTemplatesPage {
   partial?: boolean;
   scanned?: number;
   asOf?: string;
+}
+
+export const CRM_TEMPLATE_SEARCH_PAGE_SIZE = 10;
+
+export async function readCrmTemplateSearchPage<T extends PartnershipCrmTemplatesPage>({
+  cursor,
+  signal,
+  readPage,
+  canContinue,
+  requestWasNotSent,
+}: {
+  cursor?: string;
+  signal: AbortSignal;
+  readPage: (cursor: string | undefined, limit: number) => Promise<T>;
+  canContinue: (page: T) => boolean;
+  requestWasNotSent: (error: unknown) => boolean;
+}): Promise<T> {
+  signal.throwIfAborted();
+  let response = await readPage(cursor, CRM_TEMPLATE_SEARCH_PAGE_SIZE);
+  const templates = new Map(response.templates.map((template) => [template.id, template]));
+  const visitedCursors = new Set([cursor]);
+  let scanned = response.scanned ?? response.templates.length;
+  let asOf = response.asOf;
+
+  while (
+    response.partial &&
+    response.nextCursor &&
+    !visitedCursors.has(response.nextCursor) &&
+    templates.size < CRM_TEMPLATE_SEARCH_PAGE_SIZE &&
+    canContinue(response)
+  ) {
+    signal.throwIfAborted();
+    const nextCursor = response.nextCursor;
+    try {
+      response = await readPage(nextCursor, CRM_TEMPLATE_SEARCH_PAGE_SIZE - templates.size);
+    } catch (error) {
+      if (requestWasNotSent(error)) {
+        break;
+      }
+      throw error;
+    }
+    visitedCursors.add(nextCursor);
+    for (const template of response.templates) {
+      templates.set(template.id, template);
+    }
+    scanned += response.scanned ?? response.templates.length;
+    asOf ??= response.asOf;
+  }
+
+  signal.throwIfAborted();
+  return {
+    ...response,
+    templates: [...templates.values()],
+    nextCursor: visitedCursors.has(response.nextCursor) ? undefined : response.nextCursor,
+    scanned,
+    asOf,
+  };
 }
 
 export interface PartnershipCrmSentEmailLogRecord {

@@ -16,11 +16,12 @@ import {
   PartnershipCrmWorkbench,
 } from "@/components/god-mode/partnership-crm-workbench";
 import { sdkFetch } from "@/lib/sdk-client";
-import type {
-  PartnershipCrmOrganizationRecord,
-  PartnershipCrmProfessionalRecord,
-  PartnershipCrmSnapshot,
-  PartnershipCrmTemplateRecord,
+import {
+  PLANTILLAS_SUMMARY_CACHE_KEY,
+  type PartnershipCrmOrganizationRecord,
+  type PartnershipCrmProfessionalRecord,
+  type PartnershipCrmSnapshot,
+  type PartnershipCrmTemplateRecord,
 } from "@/lib/partnership-crm";
 
 jest.setTimeout(60000);
@@ -3919,6 +3920,67 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual(["C86", favorite.name]);
   });
 
+  it("searches all active templates without replacing the draft until a result is selected", async () => {
+    const user = userEvent.setup();
+    const searchResult: PartnershipCrmTemplateRecord = {
+      ...crossAudienceEmailTemplate,
+      id: "tpl-e86",
+      name: "E86",
+      normalizedName: "e86",
+      subject: "E86 {{organization_name}}",
+      body: "E86 introduction for {{contact_name}}",
+    };
+    const searchPages: Record<string, string>[] = [];
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      const url = new URL(String(path), "https://backoffice.example");
+      if (url.pathname === "/admin/partnership-crm/email-templates/tpl-e86") {
+        return { template: searchResult };
+      }
+      if (url.pathname === "/admin/partnership-crm/email-templates") {
+        if (!url.searchParams.has("query")) {
+          return { templates: [recommendedEmailTemplate] };
+        }
+        searchPages.push(Object.fromEntries(url.searchParams));
+        return url.searchParams.has("cursor")
+          ? { templates: [{ ...searchResult, body: "" }], partial: false }
+          : { templates: [], partial: true, nextCursor: "search-page-2" };
+      }
+      return { organizations: [organization] };
+    });
+
+    renderWorkbench();
+    await user.click(await screen.findByText(organization.name));
+    await user.click(screen.getByRole("button", { name: "Send Email" }));
+    const dialog = within(await screen.findByRole("dialog", { name: "Send CRM email" }));
+    await dialog.findByDisplayValue(`Recommended ${organization.name}`);
+    const subject = dialog.getByLabelText("Subject");
+    await user.clear(subject);
+    await user.type(subject, "My current draft");
+
+    await user.click(dialog.getByRole("button", { name: "See more" }));
+    await user.type(dialog.getByPlaceholderText("Search templates..."), "E86");
+    expect(searchPages).toEqual([]);
+    expect(subject).toHaveValue("My current draft");
+    expect(dialog.getByRole("combobox")).toHaveTextContent("Recommended lab");
+
+    await user.click(dialog.getByRole("button", { name: "Apply" }));
+    const match = await dialog.findByRole("button", { name: /^E86\b/ });
+    expect(searchPages).toEqual([
+      { status: "active", limit: "10", query: "E86" },
+      { status: "active", limit: "10", query: "E86", cursor: "search-page-2" },
+    ]);
+    expect(subject).toHaveValue("My current draft");
+    expect(dialog.getByLabelText("Message")).toHaveTextContent("Recommended body for Ada");
+
+    await user.click(match);
+    expect(await dialog.findByDisplayValue(`E86 ${organization.name}`)).toBeTruthy();
+    expect(dialog.getByLabelText("Message")).toHaveTextContent("E86 introduction for Ada");
+    expect(sdkFetch).toHaveBeenCalledWith(
+      "/admin/partnership-crm/email-templates/tpl-e86",
+      expect.objectContaining({ headers: expect.any(Headers) }),
+    );
+  });
+
   it("loads the matching category template body automatically before browsing other templates", async () => {
     const user = userEvent.setup();
     let releaseDetail: (() => void) | undefined;
@@ -4393,9 +4455,8 @@ describe("PartnershipCrmWorkbench delete flow", () => {
     renderWorkbench();
     const preservedSummaryCacheKey =
       "golden-crow:partnership-crm:summary:v3:template-safe";
-    const plantillasSummaryCacheKey = "golden-crow-plantillas-summary-cache-v1";
     window.sessionStorage.setItem(preservedSummaryCacheKey, "preserve-me");
-    window.sessionStorage.setItem(plantillasSummaryCacheKey, "stale-template");
+    window.sessionStorage.setItem(PLANTILLAS_SUMMARY_CACHE_KEY, "stale-template");
 
     await waitFor(() => {
       expect(screen.getAllByText("Delete Me Genomics")).toHaveLength(1);
@@ -4429,10 +4490,10 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         is_favorite: false,
       }),
     );
-    expect(window.sessionStorage.getItem(plantillasSummaryCacheKey)).toBeNull();
+    expect(window.sessionStorage.getItem(PLANTILLAS_SUMMARY_CACHE_KEY)).toBeNull();
     expect(routerRefresh).not.toHaveBeenCalled();
 
-    window.sessionStorage.setItem(plantillasSummaryCacheKey, "stale-template");
+    window.sessionStorage.setItem(PLANTILLAS_SUMMARY_CACHE_KEY, "stale-template");
     await user.click(
       within(dialog).getByRole("button", { name: "Mark as favorite" }),
     );
@@ -4441,7 +4502,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       expect(favoritePayloads).toHaveLength(1);
     });
     expect(favoritePayloads[0]).toEqual({ is_favorite: true });
-    expect(window.sessionStorage.getItem(plantillasSummaryCacheKey)).toBeNull();
+    expect(window.sessionStorage.getItem(PLANTILLAS_SUMMARY_CACHE_KEY)).toBeNull();
 
     await waitFor(() => {
       expect(
@@ -4480,7 +4541,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       ).toBe("Second Delete Me Genomics");
     });
 
-    window.sessionStorage.setItem(plantillasSummaryCacheKey, "stale-template");
+    window.sessionStorage.setItem(PLANTILLAS_SUMMARY_CACHE_KEY, "stale-template");
     await user.click(
       within(dialog).getByRole("button", { name: "Delete template" }),
     );
@@ -4491,7 +4552,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
         (within(dialog).getByLabelText("Subject") as HTMLInputElement).value,
       ).toBe("");
     });
-    expect(window.sessionStorage.getItem(plantillasSummaryCacheKey)).toBeNull();
+    expect(window.sessionStorage.getItem(PLANTILLAS_SUMMARY_CACHE_KEY)).toBeNull();
     await user.click(
       within(dialog).getByRole("button", { name: "Load selected template" }),
     );
@@ -4620,7 +4681,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       expect(templateListReads).toBe(1);
     });
     window.sessionStorage.setItem(
-      "golden-crow-plantillas-summary-cache-v1",
+      PLANTILLAS_SUMMARY_CACHE_KEY,
       "stale-template",
     );
 
@@ -4637,7 +4698,7 @@ describe("PartnershipCrmWorkbench delete flow", () => {
       ),
     ).toBeTruthy();
     expect(
-      window.sessionStorage.getItem("golden-crow-plantillas-summary-cache-v1"),
+      window.sessionStorage.getItem(PLANTILLAS_SUMMARY_CACHE_KEY),
     ).toBeNull();
     expect(
       client

@@ -43,6 +43,8 @@ const MAX_TARGET_PAGE_SIZE = 20;
 const DEFAULT_TARGET_PAGE_SIZE = MAX_TARGET_PAGE_SIZE;
 const FILTERED_BATCH_LIMIT = 20;
 const FILTERED_TARGET_SCAN_LIMIT = 100;
+const TEMPLATE_SEARCH_BATCH_LIMIT = 50;
+const TEMPLATE_SEARCH_SCAN_LIMIT = 200;
 const DAILY_USAGE_LIMIT = 100;
 const DAILY_USAGE_TIME_ZONE = "America/Los_Angeles";
 const ORGANIZATION_SUMMARY_FIELDS = [
@@ -3529,6 +3531,7 @@ function templateListFingerprint(options: PartnershipCrmTemplateListOptions) {
 
 function buildTemplateListQuery(
   options: PartnershipCrmTemplateListOptions,
+  numberedNames: string[],
 ): BoundedCrmQuery {
   const collection = adminDb.collection(TEMPLATES_COLLECTION);
   const search = cleanString(options.query);
@@ -3555,16 +3558,10 @@ function buildTemplateListQuery(
   if (category && !categoryKeys.length) {
     throw new AdminRepositoryError("CRM template category filter is invalid.", 400);
   }
-  if (templateNumber !== undefined) {
-    if (!/^\d{2}$/.test(templateNumber)) {
-      throw new AdminRepositoryError("Template number must have two digits.", 400);
-    }
-    const normalizedNames = [...NUMBERED_TEMPLATE_PREFIXES].map(
-      (prefix) => `${prefix}${templateNumber}`,
-    );
+  if (numberedNames.length) {
     cursorField = "normalizedName";
     query = collection
-      .where("normalizedName", "in", normalizedNames)
+      .where("normalizedName", "in", numberedNames)
       .orderBy("normalizedName", "asc")
       .orderBy(FieldPath.documentId(), "asc");
   } else if (categoryKeys.length === 1) {
@@ -3611,13 +3608,15 @@ function pageStatusCounts(
   return counts;
 }
 
-async function scanPartnershipCrmTargetPage<T>({
+async function scanPartnershipCrmPage<T>({
   built,
   limit,
   summaryFields,
   readFullDocuments,
   toRecord,
   matches,
+  filteredScanLimit = FILTERED_TARGET_SCAN_LIMIT,
+  filteredBatchLimit = FILTERED_BATCH_LIMIT,
 }: {
   built: BoundedCrmQuery;
   limit: number;
@@ -3625,9 +3624,11 @@ async function scanPartnershipCrmTargetPage<T>({
   readFullDocuments: boolean;
   toRecord: (doc: QueryDocumentSnapshot) => T;
   matches: (record: T) => boolean;
+  filteredScanLimit?: number;
+  filteredBatchLimit?: number;
 }) {
   const scanLimit = built.hasFilters
-    ? FILTERED_TARGET_SCAN_LIMIT
+    ? filteredScanLimit
     : limit + 1;
   const projectQuery = (query: Query) =>
     readFullDocuments ? query : query.select(...summaryFields);
@@ -3644,7 +3645,7 @@ async function scanPartnershipCrmTargetPage<T>({
     const remainingScanBudget = scanLimit - scanned;
     const batchLimit = Math.min(
       built.hasFilters && built.hasResidualFilters
-        ? FILTERED_BATCH_LIMIT
+        ? filteredBatchLimit
         : limit + 1,
       remainingScanBudget,
     );
@@ -3730,15 +3731,15 @@ function compareNumberedTemplateCandidates(
 async function readNumberedTemplatePage(
   options: PartnershipCrmTemplateListOptions,
   built: BoundedCrmQuery,
-  templateNumber: string,
+  names: string[],
   limit: number,
 ): Promise<PartnershipCrmTemplatesPage> {
   const collection = adminDb.collection(TEMPLATES_COLLECTION);
   const cursor = parseCursor(options.cursor, "normalizedName", built.fingerprint);
-  const names = [...NUMBERED_TEMPLATE_PREFIXES].map(
-    (letter) => `${letter}${templateNumber}`,
-  );
-  const scanLimit = Math.max(limit + 1, options.deep ? FILTERED_BATCH_LIMIT : 0);
+  const exactCode = names.length === 1;
+  const scanLimit = exactCode
+    ? TEMPLATE_SEARCH_BATCH_LIMIT
+    : Math.max(limit + 1, options.deep ? FILTERED_BATCH_LIMIT : 0);
 
   function rawNameQuery(uppercase: boolean) {
     const codes = uppercase ? names.map((name) => name.toUpperCase()) : names;
@@ -3783,18 +3784,23 @@ async function readNumberedTemplatePage(
   const candidates = batches.flat().sort(compareNumberedTemplateCandidates);
   const templates = new Map<string, PartnershipCrmTemplateRecord>();
   let lastConsumed: NumberedTemplateCandidate | undefined;
+  let foundLookaheadMatch = false;
   for (const candidate of candidates) {
     if (boundary && compareNumberedTemplateCandidates(candidate, boundary) > 0) {
       break;
     }
-    lastConsumed = candidate;
     if (!templates.has(candidate.doc.id)) {
       const template = toTemplateRecord(candidate.doc.id, candidate.doc.data());
       if (candidate.code === template.name.toLowerCase() && matchesTemplateFilters(template, options)) {
+        if (templates.size === limit) {
+          foundLookaheadMatch = true;
+          break;
+        }
         templates.set(template.id, toTemplateSummary(template));
       }
     }
-    if (templates.size >= limit) {
+    lastConsumed = candidate;
+    if (!exactCode && templates.size >= limit) {
       break;
     }
   }
@@ -3804,11 +3810,11 @@ async function readNumberedTemplatePage(
     lastCandidate && lastConsumed && compareNumberedTemplateCandidates(lastCandidate, lastConsumed) > 0
   );
   return {
-    templates: [...templates.values()],
+    templates: exactCode ? favoriteFirstRecords([...templates.values()]) : [...templates.values()],
     nextCursor: canContinue && lastConsumed
       ? encodeCursorPosition("normalizedName", lastConsumed.code, lastConsumed.doc.id, built.fingerprint)
       : undefined,
-    partial: built.hasFilters,
+    partial: exactCode ? Boolean(boundary && !foundLookaheadMatch) : built.hasFilters,
     scanned: candidates.length,
     asOf: new Date().toISOString(),
   };
@@ -3846,42 +3852,34 @@ export async function listPartnershipCrmTemplates(
     options.limit,
     options.templateNumber ? PARTNERSHIP_CRM_NUMBERED_TEMPLATE_PAGE_SIZE : MAX_PAGE_SIZE,
   );
-  const built = buildTemplateListQuery(options);
-  if (options.templateNumber !== undefined) {
-    return readNumberedTemplatePage(options, built, options.templateNumber, limit);
+  const templateNumber = options.templateNumber;
+  if (templateNumber !== undefined && !/^\d{2}$/.test(templateNumber)) {
+    throw new AdminRepositoryError("Template number must have two digits.", 400);
   }
-  const scanLimit = Math.max(limit + 1, options.deep ? FILTERED_BATCH_LIMIT : 0);
-  const listQuery = options.deep
-    ? built.query
-    : built.query.select(...TEMPLATE_SUMMARY_FIELDS);
-  const snapshot = await listQuery.limit(scanLimit).get();
-  const templates: PartnershipCrmTemplateRecord[] = [];
-  let lastConsumedDoc: QueryDocumentSnapshot | undefined;
-  let consumed = 0;
-  for (const doc of snapshot.docs) {
-    lastConsumedDoc = doc;
-    consumed += 1;
-    const template = toTemplateRecord(doc.id, doc.data());
-    if (matchesTemplateFilters(template, options)) {
-      templates.push(toTemplateSummary(template));
-      if (templates.length >= limit) {
-        break;
-      }
-    }
+  const search = cleanString(options.query).toLowerCase();
+  const numberedNames = templateNumber !== undefined
+    ? [...NUMBERED_TEMPLATE_PREFIXES].map((prefix) => `${prefix}${templateNumber}`)
+    : /^[a-z]\d{2}$/.test(search) ? [search] : [];
+  const built = buildTemplateListQuery(options, numberedNames);
+  if (numberedNames.length) {
+    return readNumberedTemplatePage(options, built, numberedNames, limit);
   }
-
-  const canContinue =
-    consumed < snapshot.docs.length || snapshot.docs.length === scanLimit;
-  const nextCursor =
-    canContinue && lastConsumedDoc
-      ? encodeCursor(lastConsumedDoc, built.cursorField, built.fingerprint)
-      : undefined;
+  const page = await scanPartnershipCrmPage({
+    built,
+    limit,
+    summaryFields: TEMPLATE_SUMMARY_FIELDS,
+    readFullDocuments: Boolean(options.deep),
+    toRecord: (doc) => toTemplateRecord(doc.id, doc.data()),
+    matches: (template) => matchesTemplateFilters(template, options),
+    filteredScanLimit: TEMPLATE_SEARCH_SCAN_LIMIT,
+    filteredBatchLimit: search || !options.category ? TEMPLATE_SEARCH_BATCH_LIMIT : limit + 1,
+  });
 
   return {
-    templates: favoriteFirstRecords(templates),
-    nextCursor,
-    partial: built.hasFilters,
-    scanned: snapshot.docs.length,
+    templates: favoriteFirstRecords(page.records.map(toTemplateSummary)),
+    nextCursor: page.nextCursor,
+    partial: page.partial,
+    scanned: page.scanned,
     asOf: new Date().toISOString(),
   };
 }
@@ -4105,7 +4103,7 @@ export async function listPartnershipCrmOrganizations(
 
   const limit = normalizeTargetLimit(options.limit);
   const built = buildTargetListQuery("organizations", options);
-  const page = await scanPartnershipCrmTargetPage({
+  const page = await scanPartnershipCrmPage({
     built,
     limit,
     summaryFields: ORGANIZATION_SUMMARY_FIELDS,
@@ -4377,7 +4375,7 @@ export async function listPartnershipCrmProfessionals(
 
   const limit = normalizeTargetLimit(options.limit);
   const built = buildTargetListQuery("professionals", options);
-  const page = await scanPartnershipCrmTargetPage({
+  const page = await scanPartnershipCrmPage({
     built,
     limit,
     summaryFields: PROFESSIONAL_SUMMARY_FIELDS,

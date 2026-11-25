@@ -18,9 +18,10 @@ import {
   PartnershipCrmTemplateWorkbench,
 } from "@/components/god-mode/partnership-crm-templates-workbench";
 import { sdkFetch } from "@/lib/sdk-client";
-import type {
-  PartnershipCrmTemplateInput,
-  PartnershipCrmTemplateRecord,
+import {
+  PLANTILLAS_SUMMARY_CACHE_KEY,
+  type PartnershipCrmTemplateInput,
+  type PartnershipCrmTemplateRecord,
 } from "@/lib/partnership-crm";
 
 const routerPush = jest.fn();
@@ -349,6 +350,52 @@ describe("PartnershipCrmTemplateBrowser", () => {
     const headers = new Headers(listCall?.[1]?.headers);
     expect(headers.get("X-CRM-Usage-Surface")).toBe("plantillas");
     expect(headers.get("X-CRM-Usage-Event-ID")).toBeTruthy();
+  });
+
+  it("finds E86 on Apply after an empty candidate batch", async () => {
+    const user = userEvent.setup();
+    const requests: URLSearchParams[] = [];
+    const matchingTemplate = {
+      ...template,
+      id: "tpl-e86",
+      name: "E86",
+      normalizedName: "e86",
+    };
+    jest.mocked(sdkFetch).mockImplementation(async (path) => {
+      if (path === "/admin/partnership-crm/daily-usage/page-load") {
+        return undefined;
+      }
+      const params = new URL(String(path), "https://backoffice.test").searchParams;
+      requests.push(params);
+      if (!params.has("query")) {
+        return { templates: [template], nextCursor: "unfiltered-page" };
+      }
+      if (!params.has("cursor")) {
+        return { templates: [], nextCursor: "search-continuation", partial: true };
+      }
+      return { templates: [matchingTemplate], partial: false };
+    });
+
+    await renderLoadedBrowser();
+    await screen.findByText("Lab outreach");
+    fireEvent.change(screen.getByPlaceholderText("Search templates..."), {
+      target: { value: "E86" },
+    });
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(await screen.findByText("E86")).toBeTruthy();
+    expect(screen.queryByText("Lab outreach")).toBeNull();
+    expect(screen.queryByText("No templates found.")).toBeNull();
+    expect(screen.queryByTestId("plantillas-bounded-result-note")).toBeNull();
+    expect(requests.slice(1).map((params) => Object.fromEntries(params))).toEqual([
+      { limit: "10", audience: "organizations", query: "E86" },
+      {
+        limit: "10",
+        audience: "organizations",
+        query: "E86",
+        cursor: "search-continuation",
+      },
+    ]);
   });
 
   it("derives the lock from 100-percent usage even when the payload says unlocked", async () => {
@@ -941,7 +988,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     };
     cachePlantillasUsage(lockedUsage);
     window.sessionStorage.setItem(
-      "golden-crow-plantillas-summary-cache-v1",
+      PLANTILLAS_SUMMARY_CACHE_KEY,
       JSON.stringify({
         savedAt: new Date().toISOString(),
         filters: {
@@ -1003,7 +1050,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     }>();
     jest.mocked(sdkFetch).mockReturnValueOnce(verification.promise);
     window.sessionStorage.setItem(
-      "golden-crow-plantillas-summary-cache-v1",
+      PLANTILLAS_SUMMARY_CACHE_KEY,
       JSON.stringify({
         savedAt: new Date().toISOString(),
         filters: {
@@ -1053,7 +1100,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
       .mocked(sdkFetch)
       .mockRejectedValueOnce(new Error("usage unavailable"));
     window.sessionStorage.setItem(
-      "golden-crow-plantillas-summary-cache-v1",
+      PLANTILLAS_SUMMARY_CACHE_KEY,
       JSON.stringify({
         savedAt: new Date().toISOString(),
         filters: {
@@ -1088,7 +1135,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
 
   it("evicts a cached summary with an invalid timestamp", async () => {
     window.sessionStorage.setItem(
-      "golden-crow-plantillas-summary-cache-v1",
+      PLANTILLAS_SUMMARY_CACHE_KEY,
       JSON.stringify({
         savedAt: "not-a-date",
         filters: {
@@ -1107,14 +1154,14 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(screen.queryByText("Lab outreach")).toBeNull();
     expect(
       window.sessionStorage.getItem(
-        "golden-crow-plantillas-summary-cache-v1",
+        PLANTILLAS_SUMMARY_CACHE_KEY,
       ),
     ).toBeNull();
   });
 
   it("evicts a cached summary dated in the future", async () => {
     window.sessionStorage.setItem(
-      "golden-crow-plantillas-summary-cache-v1",
+      PLANTILLAS_SUMMARY_CACHE_KEY,
       JSON.stringify({
         savedAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         filters: {
@@ -1133,7 +1180,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(screen.queryByText("Lab outreach")).toBeNull();
     expect(
       window.sessionStorage.getItem(
-        "golden-crow-plantillas-summary-cache-v1",
+        PLANTILLAS_SUMMARY_CACHE_KEY,
       ),
     ).toBeNull();
   });
@@ -1180,7 +1227,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     ],
   ])("evicts cached summaries with malformed %s", async (_label, cached) => {
     window.sessionStorage.setItem(
-      "golden-crow-plantillas-summary-cache-v1",
+      PLANTILLAS_SUMMARY_CACHE_KEY,
       JSON.stringify({
         savedAt: new Date().toISOString(),
         ...cached,
@@ -1193,12 +1240,12 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(screen.queryByText("Lab outreach")).toBeNull();
     expect(
       window.sessionStorage.getItem(
-        "golden-crow-plantillas-summary-cache-v1",
+        PLANTILLAS_SUMMARY_CACHE_KEY,
       ),
     ).toBeNull();
   });
 
-  it("describes an empty partial page as a bounded sample", async () => {
+  it("describes an empty partial page as a bounded sample when usage locks", async () => {
     jest.mocked(sdkFetch).mockImplementation(async (path) => {
       if (path === "/admin/partnership-crm/daily-usage/page-load") {
         return {
@@ -1219,6 +1266,15 @@ describe("PartnershipCrmTemplateBrowser", () => {
         partial: true,
         scanned: 10,
         asOf: "2026-10-15T12:00:00.000Z",
+        usage: {
+          surface: "plantillas",
+          used: 100,
+          limit: 100,
+          percentage: 100,
+          remaining: 0,
+          resetAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          locked: true,
+        },
       };
     });
 
@@ -1231,6 +1287,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(
       screen.getByTestId("plantillas-bounded-result-note").textContent,
     ).toContain("10 records checked");
+    expect(screen.queryByText("Use See 10 more to continue.")).toBeNull();
   });
 
   it("uses the normalized CRM category picker and displays canonical categories", async () => {
@@ -1580,7 +1637,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
   ])("keeps cached templates when favorite is not executed by %s", async (_label, makeError) => {
     const user = userEvent.setup();
     window.sessionStorage.setItem(
-      "golden-crow-plantillas-summary-cache-v1",
+      PLANTILLAS_SUMMARY_CACHE_KEY,
       JSON.stringify({
         savedAt: new Date().toISOString(),
         filters: {
@@ -1628,7 +1685,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     expect(screen.getByText("Lab outreach")).toBeTruthy();
     expect(
       window.sessionStorage.getItem(
-        "golden-crow-plantillas-summary-cache-v1",
+        PLANTILLAS_SUMMARY_CACHE_KEY,
       ),
     ).not.toBeNull();
     expect(
@@ -1647,7 +1704,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
       Date.now() - 12 * 60 * 60 * 1000,
     ).toISOString();
     window.sessionStorage.setItem(
-      "golden-crow-plantillas-summary-cache-v1",
+      PLANTILLAS_SUMMARY_CACHE_KEY,
       JSON.stringify({
         savedAt: originalSavedAt,
         filters: {
@@ -1700,7 +1757,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
 
     const cached = JSON.parse(
       window.sessionStorage.getItem(
-        "golden-crow-plantillas-summary-cache-v1",
+        PLANTILLAS_SUMMARY_CACHE_KEY,
       ) ?? "null",
     ) as {
       savedAt: string;
@@ -1730,7 +1787,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
       normalizedName: "second bounded page",
     };
     window.sessionStorage.setItem(
-      "golden-crow-plantillas-summary-cache-v1",
+      PLANTILLAS_SUMMARY_CACHE_KEY,
       JSON.stringify({
         savedAt: originalSavedAt,
         filters: {
@@ -1778,7 +1835,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
 
     const cached = JSON.parse(
       window.sessionStorage.getItem(
-        "golden-crow-plantillas-summary-cache-v1",
+        PLANTILLAS_SUMMARY_CACHE_KEY,
       ) ?? "null",
     ) as {
       savedAt: string;
@@ -1804,7 +1861,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
       },
     );
     window.sessionStorage.setItem(
-      "golden-crow-plantillas-summary-cache-v1",
+      PLANTILLAS_SUMMARY_CACHE_KEY,
       JSON.stringify({
         savedAt: originalSavedAt,
         filters: {
@@ -1858,7 +1915,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     });
     const cached = JSON.parse(
       window.sessionStorage.getItem(
-        "golden-crow-plantillas-summary-cache-v1",
+        PLANTILLAS_SUMMARY_CACHE_KEY,
       ) ?? "null",
     ) as { page: { templates: PartnershipCrmTemplateRecord[] } };
     expect(cached.page.templates).toEqual([]);
@@ -2352,7 +2409,7 @@ describe("PartnershipCrmTemplateBrowser", () => {
     });
     const cachedAfterImport = JSON.parse(
       window.sessionStorage.getItem(
-        "golden-crow-plantillas-summary-cache-v1",
+        PLANTILLAS_SUMMARY_CACHE_KEY,
       ) ?? "null",
     ) as { page?: { templates?: PartnershipCrmTemplateRecord[] } } | null;
     expect(cachedAfterImport?.page?.templates).toEqual(
@@ -3036,7 +3093,7 @@ describe("PartnershipCrmTemplateWorkbench", () => {
       { pages: [{ templates: [] }], pageParams: [""] },
     );
     window.sessionStorage.setItem(
-      "golden-crow-plantillas-summary-cache-v1",
+      PLANTILLAS_SUMMARY_CACHE_KEY,
       JSON.stringify({ savedAt: new Date().toISOString() }),
     );
     jest.mocked(sdkFetch).mockImplementation(async (path) => {
@@ -3106,7 +3163,7 @@ describe("PartnershipCrmTemplateWorkbench", () => {
     );
     expect(
       window.sessionStorage.getItem(
-        "golden-crow-plantillas-summary-cache-v1",
+        PLANTILLAS_SUMMARY_CACHE_KEY,
       ),
     ).toBeNull();
     expect(
@@ -3129,7 +3186,7 @@ describe("PartnershipCrmTemplateWorkbench", () => {
       },
     );
     window.sessionStorage.setItem(
-      "golden-crow-plantillas-summary-cache-v1",
+      PLANTILLAS_SUMMARY_CACHE_KEY,
       JSON.stringify({ savedAt: new Date().toISOString() }),
     );
     jest.mocked(sdkFetch).mockImplementation(async (path, init) => {
@@ -3175,7 +3232,7 @@ describe("PartnershipCrmTemplateWorkbench", () => {
     await waitFor(() => expect(routerPush).toHaveBeenCalledWith("/god-mode/plantillas"));
     expect(
       window.sessionStorage.getItem(
-        "golden-crow-plantillas-summary-cache-v1",
+        PLANTILLAS_SUMMARY_CACHE_KEY,
       ),
     ).toBeNull();
     expect(

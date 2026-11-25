@@ -91,6 +91,8 @@ import {
   normalizeCrmCategoryKeys,
   normalizeCrmPrimaryCategory,
   parseCrmTemplateCsv,
+  PLANTILLAS_SUMMARY_CACHE_KEY,
+  readCrmTemplateSearchPage,
   templateStatusLabel,
   type ParsedCrmTemplateCsv,
   type PartnershipCrmOrganizationRecord,
@@ -111,8 +113,6 @@ const PLANTILLAS_LEGACY_USAGE_STORAGE_KEY =
   "golden-crow-plantillas-daily-usage-v1";
 const PLANTILLAS_USAGE_SHARED_STORAGE_KEY =
   "golden-crow:partnership-crm:daily-usage:plantillas:v2";
-const PLANTILLAS_SUMMARY_STORAGE_KEY =
-  "golden-crow-plantillas-summary-cache-v1";
 const PLANTILLAS_SUMMARY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 type PlantillasDailyUsage = {
@@ -619,6 +619,9 @@ function usePlantillasDailyUsage() {
         }
         return response;
       } catch (error) {
+        if (init?.signal?.aborted) {
+          throw error;
+        }
         const serverUsage = plantillasUsageFromError(error);
         const acceptedUsage = serverUsage
           ? acceptUsage(serverUsage)
@@ -1143,9 +1146,13 @@ function templateFitAnalysis(template: PartnershipCrmTemplateRecord) {
   };
 }
 
-function buildTemplateListPath(filters: TemplateFilters, cursor?: string) {
+function buildTemplateListPath(
+  filters: TemplateFilters,
+  cursor: string | undefined,
+  limit: number,
+) {
   const params = new URLSearchParams({
-    limit: "10",
+    limit: String(limit),
     audience: filters.audience,
   });
   const category = normalizeCrmPrimaryCategory(
@@ -1191,12 +1198,15 @@ function templateMatchesAppliedFilters(
   ]
     .join(" ")
     .toLocaleLowerCase();
+  const matchesQuery = /^[a-z]\d{2}$/.test(query)
+    ? template.name.trim().toLocaleLowerCase() === query
+    : searchableSummary.includes(query);
 
   return (
     template.audience === filters.audience &&
     (filters.status === "all" || template.status === filters.status) &&
     (!category || templateCategories.includes(category)) &&
-    (!query || searchableSummary.includes(query))
+    matchesQuery
   );
 }
 
@@ -1362,7 +1372,7 @@ function readTemplateSummaryCache(): PlantillasSummaryCache | null {
 
   try {
     const cached = JSON.parse(
-      window.sessionStorage.getItem(PLANTILLAS_SUMMARY_STORAGE_KEY) ?? "null",
+      window.sessionStorage.getItem(PLANTILLAS_SUMMARY_CACHE_KEY) ?? "null",
     ) as PlantillasSummaryCache | null;
     const savedAt = cached ? Date.parse(cached.savedAt) : Number.NaN;
     const now = Date.now();
@@ -1374,12 +1384,12 @@ function readTemplateSummaryCache(): PlantillasSummaryCache | null {
       savedAt > now ||
       now - savedAt >= PLANTILLAS_SUMMARY_CACHE_TTL_MS
     ) {
-      window.sessionStorage.removeItem(PLANTILLAS_SUMMARY_STORAGE_KEY);
+      window.sessionStorage.removeItem(PLANTILLAS_SUMMARY_CACHE_KEY);
       return null;
     }
     return cached;
   } catch {
-    window.sessionStorage.removeItem(PLANTILLAS_SUMMARY_STORAGE_KEY);
+    window.sessionStorage.removeItem(PLANTILLAS_SUMMARY_CACHE_KEY);
     return null;
   }
 }
@@ -1391,7 +1401,7 @@ function storeTemplateSummaryCache(cache: PlantillasSummaryCache) {
 
   try {
     window.sessionStorage.setItem(
-      PLANTILLAS_SUMMARY_STORAGE_KEY,
+      PLANTILLAS_SUMMARY_CACHE_KEY,
       JSON.stringify(cache),
     );
   } catch {
@@ -1405,7 +1415,7 @@ function clearTemplateSummaryCache() {
   }
 
   try {
-    window.sessionStorage.removeItem(PLANTILLAS_SUMMARY_STORAGE_KEY);
+    window.sessionStorage.removeItem(PLANTILLAS_SUMMARY_CACHE_KEY);
   } catch {
     // A stale cache cannot be reused when browser storage is unavailable.
   }
@@ -3641,6 +3651,9 @@ export function PartnershipCrmTemplateBrowser() {
   const [importOpen, setImportOpen] = useState(false);
   const [importRulesOpen, setImportRulesOpen] = useState(false);
   const cacheHydratedRef = useRef(false);
+  const templateListControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => () => templateListControllerRef.current?.abort(), []);
 
   useEffect(() => {
     if (cacheHydratedRef.current) {
@@ -3665,13 +3678,22 @@ export function PartnershipCrmTemplateBrowser() {
     }: {
       filters: TemplateFilters;
       cursor?: string;
-      signal?: AbortSignal;
-    }) =>
-      request<PartnershipCrmTemplatesPage>(
-        buildTemplateListPath(requestedFilters, cursor),
-        { signal },
-      ),
+      signal: AbortSignal;
+    }) => readCrmTemplateSearchPage({
+      cursor,
+      signal,
+      readPage: (pageCursor, limit) =>
+        request<PartnershipCrmTemplatesPage & PlantillasUsageEnvelope>(
+          buildTemplateListPath(requestedFilters, pageCursor, limit),
+          { signal },
+        ),
+      canContinue: (page) => !page.usage?.locked,
+      requestWasNotSent: isPlantillasRequestKnownNotExecuted,
+    }),
     onSuccess: (response, variables) => {
+      if (variables.signal.aborted) {
+        return;
+      }
       const received = response.templates;
       const loadedAt = new Date().toISOString();
       const existingCache = variables.cursor
@@ -3698,7 +3720,7 @@ export function PartnershipCrmTemplateBrowser() {
         const next: PartnershipCrmTemplatesPage = {
           ...response,
           templates,
-          partial: Boolean(response.partial || (variables.cursor && current?.partial)),
+          partial: Boolean(response.partial),
           scanned: previousScanned + (response.scanned ?? received.length),
           asOf: variables.cursor
             ? current?.asOf ?? response.asOf ?? savedAt
@@ -3714,6 +3736,11 @@ export function PartnershipCrmTemplateBrowser() {
         });
         return next;
       });
+    },
+    onSettled: (_response, _error, { signal }) => {
+      if (templateListControllerRef.current?.signal === signal) {
+        templateListControllerRef.current = null;
+      }
     },
   });
 
@@ -3870,6 +3897,8 @@ export function PartnershipCrmTemplateBrowser() {
   }
 
   function clearCachesAfterAmbiguousTemplateMutation() {
+    templateListControllerRef.current?.abort();
+    templatesMutation.reset();
     clearTemplateSummaryCache();
     clearCrmTemplateComposerCache(queryClient);
     setSummaryCacheAsOf("");
@@ -4377,12 +4406,19 @@ export function PartnershipCrmTemplateBrowser() {
   }
 
   function loadTemplates(cursor?: string) {
-    if (!canUseFresh || templatesMutation.isPending) {
+    if (
+      !canUseFresh ||
+      templatesMutation.isPending ||
+      templateListControllerRef.current
+    ) {
       return;
     }
+    const controller = new AbortController();
+    templateListControllerRef.current = controller;
     templatesMutation.mutate({
       filters: cursor ? appliedFilters : filters,
       cursor,
+      signal: controller.signal,
     });
   }
 
@@ -4552,7 +4588,10 @@ export function PartnershipCrmTemplateBrowser() {
           className="-mt-3 text-xs text-amber-700 dark:text-amber-300"
         >
           {t("Approximate bounded sample")}: {templatesPage.scanned ?? 0}{" "}
-          {t("records checked")}. {t("Use See 10 more to continue.")}
+          {t("records checked")}.
+          {templatesPage.nextCursor && canUseFresh
+            ? ` ${t("Use See 10 more to continue.")}`
+            : ""}
           {templatesPage.asOf
             ? ` ${t("As of")} ${formatDateTime(templatesPage.asOf, language)}.`
             : ""}

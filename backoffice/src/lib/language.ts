@@ -2205,6 +2205,7 @@ const SPANISH_TEXT: Record<string, string> = {
     "Editar una plantilla de email del CRM usada por el modal de envío.",
   "Search templates...": "Buscar plantillas...",
   "No templates found.": "No se encontraron plantillas.",
+  "Template search incomplete.": "La búsqueda de plantillas quedó incompleta.",
   "Failed to load templates.": "No se pudieron cargar las plantillas.",
   "Failed to load template.": "No se pudo cargar la plantilla.",
   "Recommended templates": "Plantillas recomendadas",

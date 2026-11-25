@@ -146,6 +146,8 @@ import {
   normalizePotentialPocketGenesEditorFit,
   PARTNERSHIP_CRM_FROM_EMAIL,
   parseCrmCsv,
+  PLANTILLAS_SUMMARY_CACHE_KEY,
+  readCrmTemplateSearchPage,
   renderCrmTemplate,
   statusLabel,
   type CrmDuplicateAction,
@@ -198,7 +200,6 @@ const CRM_DAILY_USAGE_STORAGE_KEY =
   "golden-crow:partnership-crm:daily-usage:crm:v2";
 const CRM_SUMMARY_CACHE_PREFIX = "golden-crow:partnership-crm:summary:v3";
 const CRM_SUMMARY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const PLANTILLAS_SUMMARY_CACHE_KEY = "golden-crow-plantillas-summary-cache-v1";
 const CRM_IMPORT_SESSION_STORAGE_KEYS = {
   organizations: "golden-crow:partnership-crm-import-session:v1",
   professionals: "golden-crow:partnership-crm-professional-import-session:v1",
@@ -3715,7 +3716,7 @@ function shouldIgnoreTemplateShortcut(target: EventTarget | null) {
 
   return Boolean(
     target.closest(
-      "input, textarea, [contenteditable='true'], [role='textbox'], [data-slot='select-trigger'], [data-slot='select-content']",
+      "input, textarea, [contenteditable='true'], [role='textbox'], [data-slot='select-trigger'], [data-slot='select-content'], #crm-email-template-search",
     ),
   );
 }
@@ -6029,6 +6030,114 @@ function CrmVariableEditor({
   );
 }
 
+type SearchCrmEmailTemplates = (
+  query: string,
+  cursor: string | undefined,
+  signal: AbortSignal,
+) => Promise<PartnershipCrmTemplatesPage>;
+
+function CrmEmailTemplateSearch({
+  disabled,
+  selecting,
+  language,
+  onSearch,
+  onSelect,
+}: {
+  disabled: boolean;
+  selecting: boolean;
+  language: AppLanguage;
+  onSearch: SearchCrmEmailTemplates;
+  onSelect: (templateId: string) => void;
+}) {
+  const t = (text: string) => appText(language, text);
+  const [input, setInput] = useState("");
+  const [query, setQuery] = useState("");
+  const results = useInfiniteQuery({
+    queryKey: ["crm-email-template-catalog-search", query],
+    queryFn: ({ pageParam, signal }) => onSearch(query, pageParam, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (page) => page.nextCursor,
+    enabled: Boolean(query) && !disabled,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: false,
+  });
+  const templates = Array.from(new Map(
+    results.data?.pages.flatMap((page) => page.templates.map((template) => [template.id, template] as const)),
+  ).values());
+  const searchIncomplete = results.data?.pages.at(-1)?.partial;
+  const searchLabel = t("Search templates...");
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const search = input.trim();
+    if (disabled || results.isFetching || search.length < 3) {
+      return;
+    }
+    if (search !== query) {
+      setQuery(search);
+    } else if (results.isError) {
+      void results.refetch();
+    }
+  }
+
+  return (
+    <section id="crm-email-template-search" className="space-y-2 rounded-lg border p-3">
+      <form onSubmit={submit} className="flex gap-2">
+        <Input
+          aria-label={searchLabel}
+          placeholder={searchLabel}
+          value={input}
+          onChange={(event) => setInput(event.target.value)}
+          disabled={disabled}
+        />
+        <Button type="submit" size="sm" disabled={disabled || results.isFetching || input.trim().length < 3}>
+          <Search className="h-4 w-4" />
+          {t("Apply")}
+        </Button>
+      </form>
+      {results.isFetching && (
+        <p role="status" className="text-sm text-muted-foreground">{t("Loading templates...")}</p>
+      )}
+      {results.isError && (
+        <p role="alert" className="text-sm text-destructive">{t("Failed to load templates.")}</p>
+      )}
+      {results.isSuccess && !results.isFetching && !templates.length && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {t(searchIncomplete ? "Template search incomplete." : "No templates found.")}
+        </p>
+      )}
+      {templates.length > 0 && (
+        <ul className="max-h-52 divide-y overflow-y-auto rounded-lg border">
+          {templates.map((template) => (
+            <li key={template.id}>
+              <button
+                type="button"
+                className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-muted focus-visible:bg-muted disabled:opacity-50"
+                onClick={() => onSelect(template.id)}
+                disabled={disabled || selecting}
+              >
+                <span className="shrink-0 font-medium">{template.name}</span>
+                <span className="min-w-0 flex-1 truncate text-muted-foreground">{template.subject}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {t(template.audience === "professionals" ? "Professionals" : "Organizations")}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {results.hasNextPage && (
+        <Button type="button" variant="ghost" size="xs" onClick={() => void results.fetchNextPage()} disabled={disabled || results.isFetching}>
+          <ChevronDown className="h-3.5 w-3.5" />
+          {t("Load more templates")}
+        </Button>
+      )}
+    </section>
+  );
+}
+
 function EmailComposerDialog({
   organization,
   targetKind,
@@ -6045,6 +6154,7 @@ function EmailComposerDialog({
   templatesFetchingMore,
   onLoadMoreTemplates,
   onLoadTemplate,
+  onSearchTemplates,
   templateActionPending,
   onOverwriteTemplate,
   onSetTemplateFavorite,
@@ -6068,6 +6178,7 @@ function EmailComposerDialog({
   templatesFetchingMore: boolean;
   onLoadMoreTemplates: () => void;
   onLoadTemplate: (templateId: string) => Promise<PartnershipCrmTemplateRecord>;
+  onSearchTemplates: SearchCrmEmailTemplates;
   templateActionPending: boolean;
   onOverwriteTemplate: (
     template: PartnershipCrmTemplateRecord,
@@ -6090,6 +6201,8 @@ function EmailComposerDialog({
   const [templateDetailLoading, setTemplateDetailLoading] = useState(false);
   const [templateNeedsExplicitLoad, setTemplateNeedsExplicitLoad] =
     useState(false);
+  const [templateSearchOpen, setTemplateSearchOpen] = useState(false);
+  const [catalogTemplate, setCatalogTemplate] = useState<PartnershipCrmTemplateRecord | null>(null);
   const emailTargetKeyRef = useRef<string | null>(null);
   const emailDraftChangedRef = useRef(false);
   const templateLoadRequestRef = useRef(0);
@@ -6117,6 +6230,8 @@ function EmailComposerDialog({
       setTemplateToast(null);
       setTemplateDetailLoading(false);
       setTemplateNeedsExplicitLoad(false);
+      setTemplateSearchOpen(false);
+      setCatalogTemplate(null);
       return;
     }
 
@@ -6128,6 +6243,8 @@ function EmailComposerDialog({
       templateLoadRequestRef.current += 1;
       setTemplateDetailLoading(false);
       setTemplateNeedsExplicitLoad(false);
+      setTemplateSearchOpen(false);
+      setCatalogTemplate(null);
       setTemplateToast(null);
       setEmail({
         to: crmTargetEmail(organization, targetKind),
@@ -6225,10 +6342,6 @@ function EmailComposerDialog({
       return;
     }
 
-    if (!orderedTemplates.some((entry) => entry.id === templateId)) {
-      return;
-    }
-
     emailDraftChangedRef.current = true;
     const request = ++templateLoadRequestRef.current;
     setTemplateDetailLoading(true);
@@ -6250,6 +6363,8 @@ function EmailComposerDialog({
           : current,
       );
       setTemplateNeedsExplicitLoad(false);
+      setCatalogTemplate(template);
+      setTemplateSearchOpen(false);
     } catch (error) {
       if (templateLoadRequestRef.current !== request) {
         return;
@@ -6286,18 +6401,21 @@ function EmailComposerDialog({
     email.text.trim() &&
     missingVariables.length === 0,
   );
-  const hasTemplates = orderedTemplates.length > 0;
   const isPreviewStep = email?.step === "preview";
   const selectedTemplateIndex = email?.templateId
     ? orderedTemplates.findIndex((template) => template.id === email.templateId)
     : -1;
-  const selectedTemplate =
-    selectedTemplateIndex >= 0 ? orderedTemplates[selectedTemplateIndex] : null;
+  const selectedCatalogTemplate =
+    selectedTemplateIndex < 0 && catalogTemplate?.id === email?.templateId
+      ? catalogTemplate
+      : null;
+  const selectedTemplate = orderedTemplates[selectedTemplateIndex] ?? selectedCatalogTemplate;
+  const hasTemplates = orderedTemplates.length > 0 || Boolean(selectedCatalogTemplate);
   const canChangeTemplate = Boolean(
     !disabled &&
     email &&
     email.step === "compose" &&
-    hasTemplates &&
+    orderedTemplates.length > 0 &&
     !templatesLoading &&
     !templateDetailLoading &&
     organization,
@@ -6333,10 +6451,11 @@ function EmailComposerDialog({
     }
 
     try {
-      await onOverwriteTemplate(
+      const updated = await onOverwriteTemplate(
         selectedTemplate,
         restoreCrmTemplateTargetVariables(email.text, organization, targetKind),
       );
+      setCatalogTemplate((current) => current?.id === updated.id ? updated : current);
       setTemplateToast({
         id: Date.now(),
         tone: "success",
@@ -6360,7 +6479,8 @@ function EmailComposerDialog({
     const nextFavorite = !selectedTemplate.is_favorite;
 
     try {
-      await onSetTemplateFavorite(selectedTemplate, nextFavorite);
+      const updated = await onSetTemplateFavorite(selectedTemplate, nextFavorite);
+      setCatalogTemplate((current) => current?.id === updated.id ? updated : current);
       setTemplateToast({
         id: Date.now(),
         tone: "success",
@@ -6395,6 +6515,7 @@ function EmailComposerDialog({
 
     try {
       await onDeleteTemplate(selectedTemplate);
+      setCatalogTemplate((current) => current?.id === selectedTemplate.id ? null : current);
       if (nextTemplate) {
         update({
           templateId: nextTemplate.id,
@@ -6592,57 +6713,73 @@ function EmailComposerDialog({
                         </Button>
                       </div>
                     ) : null}
-                    <Select
-                      value={email.templateId || "no-template"}
-                      onValueChange={(value) => {
-                        if (value !== "no-template") {
-                          void applyTemplate(value);
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={email.templateId || "no-template"}
+                        onValueChange={(value) => {
+                          if (value !== "no-template") {
+                            void applyTemplate(value);
+                          }
+                        }}
+                        disabled={
+                          disabled ||
+                          templatesLoading ||
+                          templateDetailLoading ||
+                          !hasTemplates
                         }
-                      }}
-                      disabled={
-                        disabled ||
-                        templatesLoading ||
-                        templateDetailLoading ||
-                        !hasTemplates
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="crm-control-dropdown">
-                        {!hasTemplates ? (
-                          <SelectItem value="no-template">
-                            {templatesLoading
-                              ? t("Loading templates...")
-                              : t("No active templates")}
-                          </SelectItem>
-                        ) : null}
-                        {templateGroups.recommended.length > 0 ? (
-                          <SelectGroup>
-                            <SelectLabel>
-                              {t("Recommended templates")}
-                            </SelectLabel>
-                            {templateGroups.recommended.map((template) => (
-                              <CrmTemplateSelectItem
-                                key={template.id}
-                                template={template}
-                              />
-                            ))}
-                          </SelectGroup>
-                        ) : null}
-                        {templateGroups.other.length > 0 ? (
-                          <SelectGroup>
-                            <SelectLabel>{t("Other templates")}</SelectLabel>
-                            {templateGroups.other.map((template) => (
-                              <CrmTemplateSelectItem
-                                key={template.id}
-                                template={template}
-                              />
-                            ))}
-                          </SelectGroup>
-                        ) : null}
-                      </SelectContent>
-                    </Select>
+                      >
+                        <SelectTrigger className="min-w-0 flex-1" aria-label={t("Template")}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="crm-control-dropdown">
+                          {selectedCatalogTemplate ? (
+                            <CrmTemplateSelectItem template={selectedCatalogTemplate} />
+                          ) : null}
+                          {!hasTemplates ? (
+                            <SelectItem value="no-template">
+                              {templatesLoading
+                                ? t("Loading templates...")
+                                : t("No active templates")}
+                            </SelectItem>
+                          ) : null}
+                          {templateGroups.recommended.length > 0 ? (
+                            <SelectGroup>
+                              <SelectLabel>
+                                {t("Recommended templates")}
+                              </SelectLabel>
+                              {templateGroups.recommended.map((template) => (
+                                <CrmTemplateSelectItem
+                                  key={template.id}
+                                  template={template}
+                                />
+                              ))}
+                            </SelectGroup>
+                          ) : null}
+                          {templateGroups.other.length > 0 ? (
+                            <SelectGroup>
+                              <SelectLabel>{t("Other templates")}</SelectLabel>
+                              {templateGroups.other.map((template) => (
+                                <CrmTemplateSelectItem
+                                  key={template.id}
+                                  template={template}
+                                />
+                              ))}
+                            </SelectGroup>
+                          ) : null}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        aria-controls="crm-email-template-search"
+                        aria-expanded={templateSearchOpen}
+                        onClick={() => setTemplateSearchOpen((current) => !current)}
+                        disabled={disabled}
+                      >
+                        {t("See more")}
+                      </Button>
+                    </div>
                     {templateDetailLoading ? (
                       <p
                         role="status"
@@ -6698,6 +6835,16 @@ function EmailComposerDialog({
                     />
                   </div>
                 </div>
+                {templateSearchOpen && (
+                  <CrmEmailTemplateSearch
+                    key={organization.id}
+                    disabled={disabled}
+                    selecting={templateDetailLoading}
+                    language={language}
+                    onSearch={onSearchTemplates}
+                    onSelect={(templateId) => void applyTemplate(templateId)}
+                  />
+                )}
                 <div className="space-y-1.5">
                   <Label htmlFor="crm-email-message">{t("Message")}</Label>
                   <CrmVariableEditor
@@ -11607,6 +11754,23 @@ export function PartnershipCrmWorkbench() {
     });
   }
 
+  const searchEmailTemplates: SearchCrmEmailTemplates = (query, cursor, signal) =>
+    readCrmTemplateSearchPage({
+      cursor,
+      signal,
+      readPage: (pageCursor, limit) => {
+        const params = new URLSearchParams({ status: "active", limit: String(limit), query });
+        if (pageCursor) {
+          params.set("cursor", pageCursor);
+        }
+        return crmFetch<PartnershipCrmTemplatesPage & CrmUsageResponse>(
+          `/admin/partnership-crm/email-templates?${params.toString()}`,
+        );
+      },
+      canContinue: (page) => !page.usage?.locked,
+      requestWasNotSent: crmRequestWasNotSent,
+    });
+
   async function loadEmailTemplateDetail(templateId: string) {
     const cached = templateDetailsRef.current.get(templateId);
     if (cached) {
@@ -12810,6 +12974,7 @@ export function PartnershipCrmWorkbench() {
           void templatesQuery.fetchNextPage();
         }}
         onLoadTemplate={loadEmailTemplateDetail}
+        onSearchTemplates={searchEmailTemplates}
         templateActionPending={
           updateEmailTemplateMutation.isPending ||
           updateEmailTemplateFavoriteMutation.isPending ||

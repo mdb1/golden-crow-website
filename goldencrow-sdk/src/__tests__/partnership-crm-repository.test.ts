@@ -1098,6 +1098,168 @@ describe("partnership CRM repository pagination", () => {
     expect(page.scanned).toBe(1);
   });
 
+  it("finds exact template codes across the catalog using both legacy name cases", async () => {
+    const { listPartnershipCrmTemplates } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    const category = "org_genomics_laboratories";
+    for (let index = 0; index < 120; index += 1) {
+      mockDocs.set(mockDocKey("plantillas", `recent-${index}`), {
+        name: index === 0 ? "E86 Follow-up" : `Unrelated ${index}`,
+        audience: "organizations",
+        category,
+        status: "active",
+        subject: "Mention E86 in the subject",
+        updatedAt: mockIsoAt(index),
+        is_favorite: true,
+      });
+    }
+    const docs = [
+      { id: "a-legacy-uppercase", name: "E86", is_favorite: false },
+      { id: "b-legacy-lowercase", name: "e86", normalizedName: "outdated-e86" },
+      { id: "x-wrong-audience", name: "E86", audience: "professionals" },
+      { id: "y-inactive", name: "E86", status: "inactive" },
+      { id: "z-wrong-category", name: "E86", category: "org_fertility_clinics" },
+      { id: "z-similar-code", name: "F86", normalizedName: "f86" },
+    ] as const;
+    for (const { id, ...doc } of docs) {
+      mockDocs.set(mockDocKey("plantillas", id), {
+        audience: "organizations",
+        category,
+        status: "active",
+        subject: "Subject",
+        body: "Private full message",
+        notes: "Private note",
+        ...doc,
+      });
+    }
+
+    const options = { query: "E86", status: "active", audience: "organizations", category, limit: 1 };
+    const first = await listPartnershipCrmTemplates(godModeContext, options);
+    expect(first.templates).toEqual([
+      expect.objectContaining({ id: "a-legacy-uppercase", body: "", notes: "" }),
+    ]);
+    expect(first.nextCursor).toEqual(expect.any(String));
+    await expect(listPartnershipCrmTemplates(godModeContext, {
+      ...options, query: "F86", cursor: first.nextCursor,
+    })).rejects.toThrow(/cursor/i);
+
+    const matches = first.templates.map((template) => template.id);
+    let cursor = first.nextCursor;
+    for (let index = 0; cursor && index < 6; index += 1) {
+      const page = await listPartnershipCrmTemplates(godModeContext, {
+        ...options, query: "e86", cursor,
+      });
+      matches.push(...page.templates.map((template) => template.id));
+      cursor = page.nextCursor;
+    }
+    expect(cursor).toBeUndefined();
+    expect(matches).toEqual(["a-legacy-uppercase", "b-legacy-lowercase"]);
+    expect(mockQueryReadLog.every(({ operations }) => operations.some(
+      (operation) => operation.type === "where" &&
+        (operation.fieldPath === "name" || operation.fieldPath === "normalizedName"),
+    ))).toBe(true);
+  });
+
+  it("fills text search pages beyond consecutive unmatched batches without losing lookahead results", async () => {
+    const { listPartnershipCrmTemplates } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    for (let index = 0; index < 135; index += 1) {
+      mockDocs.set(mockDocKey("plantillas", `noise-${index}`), {
+        name: `Ordinary template ${index}`,
+        subject: index % 3 === 0 ? "Routine introduction" : "Copper marker",
+        audience: index % 3 === 1 ? "professionals" : "organizations",
+        status: index % 3 === 2 ? "inactive" : "active",
+        updatedAt: mockIsoAt(index),
+      });
+    }
+    const expectedIds = Array.from({ length: 12 }, (_, index) => `match-${index}`);
+    for (const [index, id] of expectedIds.entries()) {
+      mockDocs.set(mockDocKey("plantillas", id), {
+        name: `Outreach ${index}`,
+        subject: "Message about a copper marker",
+        audience: "organizations",
+        status: "active",
+        body: "Full email body",
+        notes: "Private note",
+        updatedAt: mockIsoAt(135 + index),
+      });
+    }
+
+    const options = {
+      query: "copper marker", audience: "organizations", status: "active", limit: 5,
+    };
+    const first = await listPartnershipCrmTemplates(godModeContext, options);
+    expect(first.templates.map((template) => template.id)).toEqual(expectedIds.slice(0, 5));
+    expect(first.scanned).toBeGreaterThanOrEqual(140);
+    expect(first.partial).toBe(false);
+    expect(first.nextCursor).toEqual(expect.any(String));
+    expect(first.templates.every(({ body, notes }) => body === "" && notes === "")).toBe(true);
+
+    const secondOptions = { ...options, cursor: first.nextCursor };
+    const second = await listPartnershipCrmTemplates(godModeContext, secondOptions);
+    expect(second.templates.map((template) => template.id)).toEqual(expectedIds.slice(5, 10));
+    const repeat = await listPartnershipCrmTemplates(godModeContext, secondOptions);
+    expect(repeat.templates).toEqual(second.templates);
+    expect(repeat.nextCursor).toEqual(second.nextCursor);
+
+    const last = await listPartnershipCrmTemplates(godModeContext, {
+      ...options, cursor: second.nextCursor,
+    });
+    expect(last.templates.map((template) => template.id)).toEqual(expectedIds.slice(10));
+    expect(last.nextCursor).toBeUndefined();
+    expect(last.partial).toBe(false);
+    expect(mockQueryReadLog.filter(({ collectionName }) => collectionName === "plantillas")
+      .every(({ operations }) => operations.some(
+        (operation) => operation.type === "select" &&
+          !operation.fields.includes("body") && !operation.fields.includes("notes"),
+      ))).toBe(true);
+  });
+
+  it("returns a continuation for an empty bounded page with sparse audience and status matches", async () => {
+    const { listPartnershipCrmTemplates } = await import(
+      "../repositories/partnership-crm.repository"
+    );
+    const numberOfUnmatchedTemplates = 1100;
+    for (let index = 0; index < numberOfUnmatchedTemplates; index += 1) {
+      mockDocs.set(mockDocKey("plantillas", `unmatched-${index}`), {
+        name: `Ordinary template ${index}`,
+        audience: index % 2 === 0 ? "professionals" : "organizations",
+        status: index % 2 === 0 ? "active" : "inactive",
+        updatedAt: mockIsoAt(index),
+      });
+    }
+    mockDocs.set(mockDocKey("plantillas", "old-active-match"), {
+      name: "Older outreach template",
+      audience: "organizations",
+      status: "active",
+      updatedAt: mockIsoAt(numberOfUnmatchedTemplates),
+    });
+
+    const options = { audience: "organizations", status: "active", limit: 5 };
+    const first = await listPartnershipCrmTemplates(godModeContext, options);
+    expect(first.templates).toEqual([]);
+    expect(first.scanned).toBeGreaterThanOrEqual(200);
+    expect(first.scanned).toBeLessThan(numberOfUnmatchedTemplates);
+    expect(first.partial).toBe(true);
+    expect(first.nextCursor).toEqual(expect.any(String));
+
+    const matches: string[] = [];
+    let cursor = first.nextCursor;
+    for (let index = 0; cursor && index < 6; index += 1) {
+      const page = await listPartnershipCrmTemplates(godModeContext, { ...options, cursor });
+      matches.push(...page.templates.map((template) => template.id));
+      cursor = page.nextCursor;
+    }
+    expect(cursor).toBeUndefined();
+    expect(matches).toEqual(["old-active-match"]);
+    expect(mockQueryReadLog.filter(({ collectionName }) => collectionName === "plantillas")
+      .every(({ operations }) => operations.some(
+        (operation) => operation.type === "limit" && operation.count <= 50,
+      ))).toBe(true);
+  });
+
   it("finds a category match behind 89 newer templates without scanning the general collection", async () => {
     const { listPartnershipCrmTemplates } = await import(
       "../repositories/partnership-crm.repository"
